@@ -43,6 +43,11 @@ interface Props {
   /** Focus a round (number) or fit all (null). */
   activeRound?: number | null;
   isDuel?: boolean;
+  /**
+   * Team games: playerId -> 'a' | 'b'. Teammate pins render blue, enemies
+   * green, each team's closest guesser enlarged (mirrors web ResultsMap).
+   */
+  teams?: Record<string, string> | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
 
@@ -93,6 +98,7 @@ export default function EmbeddedMap({
   rounds,
   activeRound,
   isDuel,
+  teams,
   selectedPlayer,
   location,
   guessPosition,
@@ -147,6 +153,7 @@ export default function EmbeddedMap({
         activeRound: activeRound ?? null,
         myId: '',
         isDuel: !!isDuel,
+        teams: teams ?? null,
         selectedPlayer: selectedPlayer ?? null,
       };
     }
@@ -190,6 +197,7 @@ export default function EmbeddedMap({
     rounds,
     activeRound,
     isDuel,
+    teams,
     selectedPlayer,
   ]);
 

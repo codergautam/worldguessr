@@ -9,12 +9,16 @@ import { LinearGradient } from 'expo-linear-gradient';
  */
 interface Props {
   title?: string;
+  /** Small accessory rendered on the title row's right edge (e.g. the
+      landing's leaderboard button — mirrors web
+      `.daily-landing-section-title-row`). */
+  headerRight?: ReactNode;
   variant?: 'default' | 'records';
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }
 
-export default function DailySection({ title, variant = 'default', style, children }: Props) {
+export default function DailySection({ title, headerRight, variant = 'default', style, children }: Props) {
   const isRecords = variant === 'records';
   const grad = isRecords
     ? (['rgba(255,215,0,0.10)', 'rgba(255,122,26,0.06)'] as const)
@@ -30,7 +34,14 @@ export default function DailySection({ title, variant = 'default', style, childr
         pointerEvents="none"
       />
       {title ? (
-        <Text style={[styles.title, isRecords && styles.titleRecords]}>{title}</Text>
+        headerRight ? (
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, styles.titleInRow, isRecords && styles.titleRecords]}>{title}</Text>
+            {headerRight}
+          </View>
+        ) : (
+          <Text style={[styles.title, isRecords && styles.titleRecords]}>{title}</Text>
+        )
       ) : null}
       {children}
     </View>
@@ -59,6 +70,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     letterSpacing: 0.4,
     marginBottom: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  titleInRow: {
+    marginBottom: 0,
+    flexShrink: 1,
   },
   titleRecords: {
     fontFamily: 'JockeyOne',

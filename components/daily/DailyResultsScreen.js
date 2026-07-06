@@ -4,6 +4,7 @@ import sendEvent from '../utils/sendEvent';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from '@/utils/dailyDate';
+import { derivePercentile } from '@/shared/daily/percentile';
 import ScoreDistributionChart from './ScoreDistributionChart';
 
 const MAX_PER_ROUND = 5000;
@@ -290,13 +291,9 @@ export default function DailyResultsScreen({
   // On revisit the /results endpoint doesn't return percentile, only rank —
   // derive it with the same formula submit.js uses so the displayed number
   // is identical whether we arrived here from a fresh submit or a reopen.
-  // "Beat X% of OTHER players" → denominator is totalPlays-1, so rank #1
-  // shows 100%, not (N-1)/N.
   const percentile = typeof submitResponse?.percentile === 'number'
     ? submitResponse.percentile
-    : (typeof rank === 'number' && totalPlays > 1
-      ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
-      : null);
+    : derivePercentile(rank, totalPlays);
   const [displayPercentile] = useAnimatedNumber(percentile);
   const [shareCopied, setShareCopied] = useState(false);
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());

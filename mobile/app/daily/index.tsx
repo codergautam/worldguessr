@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { t } from '../../src/shared';
 import { haptics } from '../../src/services/haptics';
@@ -28,8 +28,8 @@ type Phase = 'landing' | 'confirming' | 'loading' | 'game' | 'submitting' | 'res
 
 const DAILY_MAX_DIST = 20000;
 const TIME_PER_ROUND = 60;
-// Cap the hint circle so react-native-maps renders it (web's ~5870km is too
-// large for a Mercator circle). 2500km is still a broad, region-level hint.
+// Cap the hint circle radius (web's ~5870km is too large for a Mercator
+// circle to render sanely). 2500km is still a broad, region-level hint.
 const HINT_MAX_RADIUS_M = 2_500_000;
 const COLD_MOUNT_GUARD_MS = 1500;
 
@@ -435,7 +435,7 @@ export default function DailyScreen() {
       <View style={styles.root}>
         <DailyLanding
           today={date}
-          todayTop10={results?.top10 || []}
+          distribution={results?.distribution ?? null}
           userData={results?.user}
           isLoggedIn={isLoggedIn}
           onStartChallenge={handleStart}

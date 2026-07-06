@@ -6,7 +6,6 @@ import { useTranslation } from '@/components/useTranslations'
 import config from "@/clientConfig";
 
 import { useSession } from "@/components/auth/auth";
-import Head from "next/head";
 
 const initMakeMap = {
     open: false,
@@ -37,10 +36,6 @@ export default function MapsPage({  }) {
 
     return (
         <div style={styles.pageContainer}>
-          <Head>
-<link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-
-          </Head>
             <div style={styles.pageContent}>
                 <MapView
                     showOptions={false}

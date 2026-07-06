@@ -62,6 +62,36 @@ function App({ Component, pageProps }) {
     };
   }, []);
 
+  // Field Web Vitals → GA4. CrUX shows failures (CLS especially) happening
+  // mid-session where Lighthouse's load-only trace can't see them; the
+  // attribution build names the exact element/interaction responsible so
+  // fixes target the real culprit. Dynamically imported post-hydration so it
+  // never sits on the critical path. gtag is a queueing stub from _document,
+  // so events buffer safely until GTM loads on window load.
+  useEffect(() => {
+    let cancelled = false;
+    import('web-vitals/attribution').then(({ onCLS, onINP, onLCP }) => {
+      if (cancelled) return;
+      const send = ({ name, value, id, rating, attribution }) => {
+        const debugTarget = name === 'CLS' ? attribution?.largestShiftTarget
+          : name === 'INP' ? attribution?.interactionTarget
+          : attribution?.element;
+        window.gtag?.('event', name, {
+          // GA4 wants integers; CLS is a unitless fraction so scale it up
+          value: Math.round(name === 'CLS' ? value * 1000 : value),
+          metric_id: id,
+          metric_rating: rating,
+          debug_target: debugTarget || '(not set)',
+          non_interaction: true,
+        });
+      };
+      onCLS(send);
+      onINP(send);
+      onLCP(send);
+    }).catch(() => { /* metrics are best-effort */ });
+    return () => { cancelled = true; };
+  }, []);
+
   // Tag the GA session with the platform (worldguessr / coolmath / crazygames /
   // gamedistribution / ...) so users can be segmented by source. Embedded SDKs
   // (CrazyGames) load async, so re-check shortly after mount.

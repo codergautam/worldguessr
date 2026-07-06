@@ -7,7 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { MapItem } from '../../services/api';
 import { formatCompact as formatNumber } from '../../shared';
 

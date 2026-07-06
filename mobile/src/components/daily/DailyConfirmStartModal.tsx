@@ -7,7 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { withTiming, withSpring } from './anims';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
 

@@ -3,13 +3,16 @@ import { FaCalendarDay, FaClock, FaTrophy, FaPlay, FaCheck } from 'react-icons/f
 import { useTranslation } from '@/components/useTranslations';
 import { formatCountdown, msUntilLocalMidnight } from '@/utils/dailyDate';
 import DailyStreakBadge from './DailyStreakBadge';
-import DailyLeaderboardPanel from './DailyLeaderboardPanel';
+import ScoreDistributionChart from './ScoreDistributionChart';
 import PersonalRecordsCard from './PersonalRecordsCard';
 import DailyHistoryBars14 from './DailyHistoryBars14';
+import DailyLeaderboardModal from './DailyLeaderboardModal';
+import { derivePercentile } from '@/shared/daily/percentile';
 
-export default function DailyLanding({ today, todayTop10 = [], userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
+export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
   const { t: text } = useTranslation();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setCountdown(msUntilLocalMidnight()), 1000);
@@ -94,17 +97,66 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
         </div>
       </section>
 
+      {/* Community pulse — the anonymous distribution stays the headline (an
+          average is a reachable target for beginners); the named top-100 board
+          is deliberately tucked behind an opt-in modal so it isn't the main
+          attraction. Mirrors the results screen's distribution card:
+          chart (≥10 plays) → meta → standing/hook. */}
       <section className="daily-landing-section">
-        <div className="daily-landing-section-title">{text('top10Today')}</div>
-        {todayTop10.length > 0 ? (
-          <DailyLeaderboardPanel
-            top10={todayTop10}
-            userRank={userData?.ownRank ?? null}
-            userScore={userData?.ownScore ?? null}
-            isLoggedIn={isLoggedIn}
-            username={userData?.username}
-            onSignIn={onSignIn}
-          />
+        {/* "How you compare" only makes sense once there's a score to compare —
+            pre-play it's just today's scores. */}
+        <div className="daily-landing-section-title-row">
+          <div className="daily-landing-section-title">
+            {text(playedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
+          </div>
+          {(distribution?.totalPlays || 0) > 0 && (
+            <button className="daily-leaderboard-open-btn" onClick={() => setShowLeaderboard(true)}>
+              <FaTrophy aria-hidden="true" />
+              {text('dailyViewLeaderboard')}
+            </button>
+          )}
+        </div>
+        {(distribution?.totalPlays || 0) > 0 ? (
+          <>
+            {distribution.totalPlays >= 10 ? (
+              <ScoreDistributionChart
+                buckets={distribution.buckets || []}
+                totalPlays={distribution.totalPlays}
+                userScore={playedToday ? userData?.ownScore ?? undefined : undefined}
+              />
+            ) : (
+              <div className="daily-distribution-empty">{text('tooFewPlaysForChart')}</div>
+            )}
+            <div className="daily-distribution-meta">
+              <span>{text('averageScoreToday', { avg: distribution.avgScore || 0 })}</span>
+              <span>{text('sampleSize', { count: distribution.totalPlays.toLocaleString() })}</span>
+            </div>
+            {(() => {
+              const percentile = playedToday
+                ? derivePercentile(userData?.ownRank, distribution.totalPlays)
+                : null;
+              if (percentile !== null && percentile >= 20) {
+                return (
+                  <div className="daily-distribution-standing">
+                    <span className="daily-distribution-pct">
+                      {text('beatPctPlayers', { pct: percentile })}
+                    </span>
+                    <span className="daily-distribution-rank">
+                      {text('rankOfTotal', { rank: userData.ownRank, total: distribution.totalPlays.toLocaleString() })}
+                    </span>
+                  </div>
+                );
+              }
+              if (!playedToday) {
+                return (
+                  <div className="daily-distribution-empty">
+                    {text('dailyBeatAvgHook', { avg: (distribution.avgScore || 0).toLocaleString() })}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </>
         ) : (
           <div className="daily-distribution-empty">{text('dailyLandingNoWinnersYet')}</div>
         )}
@@ -121,6 +173,15 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
           <DailyHistoryBars14 history={userData?.history || []} today={today} />
         )}
       </section>
+
+      <DailyLeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        date={today}
+        userData={userData}
+        isLoggedIn={isLoggedIn}
+        onSignIn={onSignIn ? () => { setShowLeaderboard(false); onSignIn(); } : undefined}
+      />
     </div>
   );
 }

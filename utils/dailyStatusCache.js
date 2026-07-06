@@ -4,7 +4,7 @@
 import { DAILY_CACHE_TTL_MS as TTL_MS } from '../shared/daily/constants.js';
 
 const KEY_PREFIX = 'wg_daily_status_';
-const TOP10_KEY_PREFIX = 'wg_daily_top10_';
+const DIST_KEY_PREFIX = 'wg_daily_dist_';
 
 function readJson(key) {
   if (typeof window === 'undefined') return null;
@@ -29,27 +29,36 @@ function writeJson(key, payload) {
   }
 }
 
-export function readDailyStatus(date) {
+export function readDailyStatus(date, ownerId = null) {
   if (!date) return null;
-  return readJson(KEY_PREFIX + date);
+  const parsed = readJson(KEY_PREFIX + date);
+  if (!parsed) return null;
+  // Scope the cached block to the identity that wrote it (logged-in secret,
+  // else guestId). The key is per-date, not per-user, and sign-out doesn't
+  // clear it — so on a SHARED browser a different account must never read the
+  // previous user's cached name/streak/score. Owner mismatch → treat as a miss.
+  if ((parsed._owner ?? null) !== (ownerId ?? null)) return null;
+  delete parsed._owner;
+  return parsed;
 }
 
-export function writeDailyStatus(date, user) {
+export function writeDailyStatus(date, user, ownerId = null) {
   if (!date || !user) return;
-  writeJson(KEY_PREFIX + date, user);
+  writeJson(KEY_PREFIX + date, { ...user, _owner: ownerId ?? null });
 }
 
-// Top-10 is per-date and shared across all viewers, so it's safe to cache and
-// reuse across sessions. Caching it (alongside the user block) is what stops
-// the landing leaderboard from flashing the "no winners yet" empty state on
-// every navigation in.
-export function readDailyTop10(date) {
-  if (!date) return [];
-  const parsed = readJson(TOP10_KEY_PREFIX + date);
-  return Array.isArray(parsed?.entries) ? parsed.entries : [];
+// The distribution (totalPlays/avgScore/buckets) is per-date and shared
+// across all viewers, so it's safe to cache and reuse across sessions.
+// Caching it (alongside the user block) is what stops the landing's
+// "How you compare" chart from flashing the empty state on every
+// navigation in.
+export function readDailyDistribution(date) {
+  if (!date) return null;
+  const parsed = readJson(DIST_KEY_PREFIX + date);
+  return parsed && typeof parsed.totalPlays === 'number' ? parsed : null;
 }
 
-export function writeDailyTop10(date, top10) {
-  if (!date || !Array.isArray(top10)) return;
-  writeJson(TOP10_KEY_PREFIX + date, { entries: top10 });
+export function writeDailyDistribution(date, distribution) {
+  if (!date || !distribution || typeof distribution !== 'object') return;
+  writeJson(DIST_KEY_PREFIX + date, distribution);
 }

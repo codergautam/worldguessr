@@ -17,6 +17,24 @@ export function findDistance(lat1, lon1, lat2, lon2) {
   }
   return d;
 }
+// Team best-guess reveals: pick ONE winner per team — highest points first,
+// exact point ties (capped 5000s / same rounded score between close teammates)
+// broken by raw distance, so only the physically closest guess gets the
+// enlarged pin + guess→dest line. Entries: { id, team, pts, dist }; missing
+// distances rank last within their points tier.
+export function pickBestTeamGuessIds(entries) {
+  const best = {}; // team -> winning entry
+  for (const e of entries) {
+    if (!e.team || !(e.pts > 0)) continue;
+    const dist = Number.isFinite(e.dist) ? e.dist : Infinity;
+    const cur = best[e.team];
+    if (!cur || e.pts > cur.pts || (e.pts === cur.pts && dist < cur.dist)) {
+      best[e.team] = { id: e.id, pts: e.pts, dist };
+    }
+  }
+  return new Set(Object.values(best).map((e) => e.id));
+}
+
 export default function calcPoints({lat, lon, guessLat, guessLon, usedHint, maxDist}) {
   const dist = findDistance(lat, lon, guessLat, guessLon);
   let pts = 5000 * Math.E ** (-10*(dist / maxDist));

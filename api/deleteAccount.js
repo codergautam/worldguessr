@@ -2,18 +2,22 @@ import User from '../models/User.js';
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import cachegoose from 'recachegoose';
 
-const GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Grace window before the purge cron runs. If you change this, also update the
+// `days:` value passed to deleteAccountConfirmBody in components/moderationView.js
+// and mobile/src/components/account/ModerationTab.tsx — the UI number is not
+// derived from this constant.
+const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /**
  * Self-service account deletion request (web + mobile).
  *
  * FAST by design: only flips two fields on the User row and busts the auth
  * caches, then returns. The heavy multi-collection purge runs LATER — after the
- * 7-day grace period — in cron.js (serverUtils/purgeUserCascade.js). Doing the
+ * 30-day grace period — in cron.js (serverUtils/purgeUserCascade.js). Doing the
  * cascade in-request is exactly why api/mod/deleteUser.js used to time out.
  *
  * The client logs the user out after this resolves. They can restore the account
- * by logging back in within 7 days (api/cancelDeletion.js).
+ * by logging back in within 30 days (api/cancelDeletion.js).
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

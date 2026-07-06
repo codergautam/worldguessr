@@ -378,7 +378,7 @@ startDailyLeaderboardTimer();
 
 // ============================================================================
 // ACCOUNT DELETION PURGE
-// Self-service account deletions have a 7-day grace period (User.scheduledDeletionAt).
+// Self-service account deletions have a 30-day grace period (User.scheduledDeletionAt).
 // Once that passes, permanently purge the account + all associated data via the
 // shared cascade (serverUtils/purgeUserCascade.js). Runs the heavy work OFF the
 // HTTP request path — the in-request mod delete routinely timed out.

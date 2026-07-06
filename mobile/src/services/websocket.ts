@@ -9,7 +9,7 @@
  *  - components/home.js:1882-1927       (onclose / onerror)
  */
 
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {
   WS_URL,
@@ -283,16 +283,21 @@ class WebSocketService {
   // ── Messaging ─────────────────────────────────────────────
 
   /**
-   * Send a JSON message to the server.
+   * Send a JSON message to the server. Returns whether the message was
+   * actually handed to an OPEN socket — false means it was silently dropped,
+   * so no server response (ack/echo) will ever arrive for it. Callers doing
+   * optimistic state flips must check this: flipping on a dropped send leaves
+   * the UI permanently out of sync with the server (no echo to reconcile).
    */
-  send(data: object): void {
+  send(data: object): boolean {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const msg = JSON.stringify(data);
       console.log('[WS] >>>>', (data as any).type, msg.length > 200 ? msg.slice(0, 200) + '...' : msg);
       this.ws.send(msg);
-    } else {
-      console.warn('[WS] send() dropped (not connected):', (data as any).type);
+      return true;
     }
+    console.warn('[WS] send() dropped (not connected):', (data as any).type);
+    return false;
   }
 
   /**
@@ -661,6 +666,12 @@ class WebSocketService {
       secret: this._secret ?? 'not_logged_in',
       rejoinCode: rejoinCode ?? undefined,
       tz,
+      // Web sends getPlatform() here (home.js verifyPayload); without this the
+      // server's /platformdist lumps app users into the "empty" bucket.
+      platform: Platform.OS === 'ios' ? 'mobile_ios' : 'mobile_android',
+      // Deliberately NO `teamSupport: true` — the server uses that verify flag
+      // to gate team parties / 2v2 duels, and this app can't render them yet.
+      // Add it only when the mobile team UI ships.
     });
 
     // Verify-ack watchdog. A socket can OPEN cleanly (onopen fired, readyState OPEN) yet

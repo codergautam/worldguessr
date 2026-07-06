@@ -4,7 +4,7 @@ import cachegoose from 'recachegoose';
 
 /**
  * Cancel a pending self-service account deletion (restore the account) within the
- * 7-day grace period. Fast: clears the two deletion fields and busts the auth
+ * 30-day grace period. Fast: clears the two deletion fields and busts the auth
  * caches. Paired with api/deleteAccount.js; the secret is never rotated, so the
  * returning user authenticates normally and reaches this endpoint.
  */

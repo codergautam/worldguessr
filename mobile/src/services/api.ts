@@ -4,6 +4,7 @@ import { fetchWithTimeout, TimeoutError } from './fetchWithTimeout';
 import type {
   DailyLocationsResponse,
   DailyResultsResponse,
+  DailyLeaderboardResponse,
   DailySubmitBody,
   DailySubmitResponse,
   DailyClaimResponse,
@@ -232,7 +233,7 @@ export const api = {
     }, AUTH_URL);
   },
 
-  // Account deletion (7-day grace period). deleteAccount schedules deletion and
+  // Account deletion (30-day grace period). deleteAccount schedules deletion and
   // logs the user out instantly; cancelDeletion restores within the window.
   // Both are FAST (no cascade) — the heavy purge runs later in the cron process.
   deleteAccount: async (secret: string) =>
@@ -596,6 +597,11 @@ export const api = {
       if (secret) q.set('secret', secret);
       else if (guestId) q.set('guestId', guestId);
       return fetchApi<DailyResultsResponse>(`/api/dailyChallenge/results?${q.toString()}`);
+    },
+
+    leaderboard: async (date: string) => {
+      const q = new URLSearchParams({ date });
+      return fetchApi<DailyLeaderboardResponse>(`/api/dailyChallenge/leaderboard?${q.toString()}`);
     },
 
     submit: async (body: DailySubmitBody) => {

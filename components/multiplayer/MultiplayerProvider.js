@@ -10,12 +10,12 @@ export const initialMultiplayerState = {
   connected: false,
   connecting: false,
   verified: false,
-  shouldConnect: false,
   gameQueued: false,
   inGame: false,
   nextGameQueued: false,
-  enteringGameCode: false,
-  twoVTwoMenu: false, // showing the 2v2 entry menu (random teammate / friend)
+  // Which pre-game lobby screen the multiplayer screen is showing:
+  // null | 'join' (code entry) | 'party' | '2v2' (created with that intent)
+  lobbyIntent: null,
   nextGameType: null,
   maxRetries: 50,
   currentRetry: 0,
@@ -79,6 +79,9 @@ function sendVerify(ws) {
         rejoinCode: gameStorage.getItem("rejoinCode"),
         skipRejoin: hasPartyLink || undefined,
         platform: getPlatform(),
+        // This bundle can render team parties / 2v2 duels; the server locks
+        // team surfaces to clients that announce this (rollout gate).
+        teamSupport: true,
       })
     );
   } catch (e) {}
@@ -93,9 +96,7 @@ export function MultiplayerProvider({ children }) {
   // just because they happened to render. A consumer (Home) calls
   // ensureConnected() on mount to flip this flag to true; once flipped, it
   // stays true for the rest of the tab's lifetime so navigating from / to
-  // /leaderboard and back doesn't churn the socket. Named `connectionEnabled`
-  // to avoid clashing with the vestigial `multiplayerState.shouldConnect`
-  // field (set in three places, read nowhere).
+  // /leaderboard and back doesn't churn the socket.
   const [connectionEnabled, setConnectionEnabled] = useState(false);
 
   // Stable refs so handlers attached on the WS object can read the latest values
@@ -147,7 +148,6 @@ export function MultiplayerProvider({ children }) {
         setMultiplayerState((prev) => ({
           ...prev,
           connecting: true,
-          shouldConnect: false,
           currentRetry: 1,
         }));
 
@@ -263,7 +263,6 @@ export function MultiplayerProvider({ children }) {
           ...prev,
           connecting: false,
           connected: false,
-          shouldConnect: false,
           error: data.message,
         }));
         if (data.message === "uac") {
@@ -280,7 +279,7 @@ export function MultiplayerProvider({ children }) {
       }
 
       // Forward to all subscribers (Home consumes these for translated toasts,
-      // game-state updates, time sync, chat, etc.).
+      // game-state updates, time sync, etc.).
       messageHandlersRef.current.forEach((handler) => {
         try {
           handler(data);
@@ -291,7 +290,6 @@ export function MultiplayerProvider({ children }) {
     };
 
     socket.onclose = () => {
-      console.log("ws closed");
       if (typeof window !== "undefined" && !window.isPageClosing) {
         try {
           sendEvent("multiplayer_disconnect");
@@ -306,7 +304,6 @@ export function MultiplayerProvider({ children }) {
     };
 
     socket.onerror = () => {
-      console.log("ws error");
       if (typeof window !== "undefined" && !window.isPageClosing) {
         try {
           sendEvent("multiplayer_disconnect");

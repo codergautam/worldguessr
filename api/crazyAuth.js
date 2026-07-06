@@ -6,7 +6,7 @@ import User, { USERNAME_COLLATION } from "../models/User.js";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
 import { getLeague } from '../components/utils/leagues.js';
-import { findBannedIdentity } from '../serverUtils/bannedIdentities.js';
+import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -154,7 +154,7 @@ export default async function handler(req, res) {
     timings.total = Date.now() - startTotal;
     console.log('[crazyAuth] blocked banned identity re-signup:', JSON.stringify(timings));
     return res.status(403).json({
-      error: blocked.publicNote || 'This account has been banned and cannot be recreated.',
+      error: bannedIdentityMessage(blocked),
       banned: true,
       banType: 'permanent',
     });

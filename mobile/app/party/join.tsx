@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../src/shared';
 import { haptics } from '../../src/services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';

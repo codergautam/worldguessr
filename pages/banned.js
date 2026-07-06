@@ -18,7 +18,7 @@ export default function Banned() {
             padding: '20px',
             background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
             color: 'white',
-            fontFamily: '"Lexend", sans-serif',
+            fontFamily: '"Lexend", "Lexend Fallback", sans-serif',
             textAlign: 'center'
         }}>
             <h1 style={{ color: '#f44336', fontSize: 'clamp(28px, 6vw, 48px)', marginBottom: '20px' }}>

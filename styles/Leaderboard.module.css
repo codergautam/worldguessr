@@ -19,7 +19,7 @@
   overflow-x: hidden;
   overflow-y: auto !important;
   box-sizing: border-box;
-  font-family: "Rubik", sans-serif;
+  font-family: "Rubik", "Rubik Fallback", sans-serif;
 }
 
 .main {
@@ -93,7 +93,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: "Rubik", sans-serif;
+  font-family: "Rubik", "Rubik Fallback", sans-serif;
   min-width: 80px;
 }
 
@@ -139,7 +139,7 @@
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
   text-decoration: none;
-  font-family: "Rubik", sans-serif;
+  font-family: "Rubik", "Rubik Fallback", sans-serif;
 }
 
 .backButton:hover {
@@ -421,7 +421,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
-  font-family: "Rubik", sans-serif;
+  font-family: "Rubik", "Rubik Fallback", sans-serif;
 }
 
 .exitButton:hover {

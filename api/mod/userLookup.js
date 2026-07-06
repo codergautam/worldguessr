@@ -302,6 +302,12 @@ async function buildUserResponse(targetUser) {
       banExpiresAt: targetUser.banExpiresAt,
       pendingNameChange: targetUser.pendingNameChange,
       pendingNameChangeReason: targetUser.pendingNameChangeReason,
+      // Self-service deletion (30-day grace): non-null means the cron will
+      // purge this account once the date passes. Mods need this visible —
+      // moderating a user who's about to evaporate is wasted effort, and a
+      // deletion request right after being reported is itself a signal.
+      scheduledDeletionAt: targetUser.scheduledDeletionAt || null,
+      deletionRequestedAt: targetUser.deletionRequestedAt || null,
       staff: targetUser.staff,
       supporter: targetUser.supporter,
       reporterStats: targetUser.reporterStats || { helpfulReports: 0, unhelpfulReports: 0 }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   ImageBackground,
   Linking,
@@ -13,7 +13,7 @@ import Animated, { FadeInDown, FadeIn, ReduceMotion } from 'react-native-reanima
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { haptics } from '../src/services/haptics';
 import {
   colors,
@@ -24,7 +24,10 @@ import {
 } from '../src/shared';
 import { borderRadius, fontSizes, spacing } from '../src/styles/theme';
 import { useSettingsStore, type MapType } from '../src/store/settingsStore';
+import { useAuthStore } from '../src/store/authStore';
+import { useMultiplayerStore } from '../src/store/multiplayerStore';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
+import DangerZoneSection from '../src/components/settings/DangerZoneSection';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -81,6 +84,36 @@ export default function SettingsScreen() {
     { value: 'p', label: t('terrain'), icon: 'leaf-outline' },
     { value: 'y', label: t('hybrid'), icon: 'layers-outline' },
   ];
+
+  // ── Account settings ────────────────────────────────────────────────────
+  // Server-backed per-account preferences — NEVER stored locally. Shown only
+  // when logged in (mirrors web settingsModal). Both values live in the
+  // multiplayer store, synced from the ws 'friends' message: the server echoes
+  // authoritative state after every write attempt (accepted or rejected), so
+  // an optimistic flip the server refused snaps back automatically.
+  const user = useAuthStore((s) => s.user);
+  const verified = useMultiplayerStore((s) => s.verified);
+  const allowFriendReq = useMultiplayerStore((s) => s.allowFriendReq);
+  const hideLastSeen = useMultiplayerStore((s) => s.hideLastSeen);
+  const requestFriends = useMultiplayerStore((s) => s.requestFriends);
+  const setAllowFriendReqOnServer = useMultiplayerStore((s) => s.setAllowFriendReqOnServer);
+  const setHideLastSeenOnServer = useMultiplayerStore((s) => s.setHideLastSeenOnServer);
+
+  // Hydrate both toggles. Keyed on `verified` (not just mount): a send before
+  // the socket is verified is silently dropped, and `verified` flips false on
+  // disconnect and back true after every (re)connect — so this re-fires and
+  // self-heals exactly when a retry can actually succeed, instead of polling.
+  useEffect(() => {
+    if (!user?.accountId || !verified) return;
+    requestFriends(); // hydrates both toggles in the store
+  }, [user?.accountId, verified, requestFriends]);
+
+  // Both values ride the same 'friends' message, so hideLastSeen === null is
+  // the shared "no server data yet" sentinel (web parity: settingsModal.js
+  // disables both checkboxes until accountSettings arrives). Also locked while
+  // the socket is down/unverified — a write couldn't reach the server, and the
+  // authoritative echo that confirms it could never arrive.
+  const accountSettingsLocked = !verified || hideLastSeen === null;
 
   const pickLanguage = useCallback(
     (lang: SupportedLanguage) => {
@@ -271,8 +304,54 @@ export default function SettingsScreen() {
             </View>
           </Section>
 
+          {/* Account — server-backed, logged-in only */}
+          {user?.accountId && (
+            <Section title={t('accountSettings')} icon="person-circle-outline" index={5}>
+              <View style={[styles.row, accountSettingsLocked && styles.rowLocked]}>
+                <View style={styles.rowTextWrap}>
+                  <Text style={styles.rowLabel}>{t('allowFriendRequests')}</Text>
+                </View>
+                <Switch
+                  value={allowFriendReq}
+                  disabled={accountSettingsLocked}
+                  onValueChange={(v) => {
+                    haptics.selection();
+                    setAllowFriendReqOnServer(v);
+                  }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  thumbColor={colors.white}
+                  ios_backgroundColor="rgba(255,255,255,0.18)"
+                />
+              </View>
+              <View style={[styles.row, styles.rowDivider, accountSettingsLocked && styles.rowLocked]}>
+                <View style={styles.rowTextWrap}>
+                  <Text style={styles.rowLabel}>{t('hideMyLastSeen')}</Text>
+                </View>
+                <Switch
+                  value={!!hideLastSeen}
+                  disabled={accountSettingsLocked}
+                  onValueChange={(v) => {
+                    haptics.selection();
+                    setHideLastSeenOnServer(v); // optimistic in the store; echo reconciles
+                  }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  thumbColor={colors.white}
+                  ios_backgroundColor="rgba(255,255,255,0.18)"
+                />
+              </View>
+            </Section>
+          )}
+
+          {/* Danger Zone — account deletion (moved here from the account
+              moderation tab; web parity: sits right under Account settings) */}
+          {user?.accountId && (
+            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={6}>
+              <DangerZoneSection />
+            </Section>
+          )}
+
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={5}>
+          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={7}>
             <Pressable
               onPress={openPrivacy}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -403,6 +482,11 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     opacity: 0.7,
+  },
+  // Account rows grey out while the socket is unverified / toggles unhydrated
+  // (writes couldn't reach the server, so changes are blocked at the Switch).
+  rowLocked: {
+    opacity: 0.45,
   },
   rowTextWrap: {
     flex: 1,

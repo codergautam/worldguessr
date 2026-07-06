@@ -148,7 +148,7 @@ export default function ReportModal({
               background: 'rgba(255, 255, 255, 0.05)',
               color: 'white',
               fontSize: '14px',
-              fontFamily: '"Lexend", sans-serif',
+              fontFamily: '"Lexend", "Lexend Fallback", sans-serif',
               cursor: 'pointer'
             }}
           >
@@ -197,7 +197,7 @@ export default function ReportModal({
               background: 'rgba(255, 255, 255, 0.05)',
               color: 'white',
               fontSize: '14px',
-              fontFamily: '"Lexend", sans-serif',
+              fontFamily: '"Lexend", "Lexend Fallback", sans-serif',
               resize: 'vertical',
               minHeight: '120px'
             }}

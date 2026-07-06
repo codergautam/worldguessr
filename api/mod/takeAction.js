@@ -19,9 +19,12 @@ import { refundEloToOpponents, refundEloForReportedGames } from '../../serverUti
  * banned cheater's name keeps sitting at #1 until their entries naturally fall
  * off (which for past dates is "never").
  *
- * - DailyChallengeScore: flagged disqualified=true rather than deleted, so the
- *   "one play per day" lock survives. The leaderboard query already filters
- *   out disqualified rows.
+ * - DailyChallengeScore: flagged hidden=true rather than deleted, so the row
+ *   (and its "one play per day" lock) survives and the offender still sees
+ *   their own score/streak/history — it just never surfaces publicly again.
+ *   NOT the disqualified flag: that means tab-switch DQ (score voided, streak
+ *   denied, DQ ribbon in the UI), which is the wrong story for moderation.
+ *   Post-ban submits arrive already hidden via submit.js's shadow path.
  * - DailyLeaderboard: $pulls the user's row from each cached top-50k array.
  *   The cron rebuild also filters banned/pendingNameChange users so they don't
  *   reappear on the next 15-minute cycle.
@@ -31,16 +34,18 @@ async function scrubFromDailyLeaderboards(targetUserId) {
 
   // Capture which dates currently have live entries so we can invalidate the
   // per-date public cache after the scrub. Done before the update because
-  // afterwards every row is disqualified.
+  // afterwards every row is hidden. DQ markers were never live, so they don't
+  // need their dates invalidated.
   const affectedDates = await DailyChallengeScore.find({
     userId: targetUserId,
+    hidden: { $ne: true },
     disqualified: { $ne: true }
   }).distinct('date');
 
   const [dcResult, dlResult] = await Promise.all([
     DailyChallengeScore.updateMany(
-      { userId: targetUserId, disqualified: { $ne: true } },
-      { $set: { disqualified: true } }
+      { userId: targetUserId, hidden: { $ne: true } },
+      { $set: { hidden: true } }
     ),
     DailyLeaderboard.updateMany(
       { 'leaderboard.userId': userIdStr },
@@ -51,7 +56,7 @@ async function scrubFromDailyLeaderboards(targetUserId) {
   for (const date of affectedDates) invalidateDailyPublicCache(date);
 
   return {
-    dailyChallengeScoresDisqualified: dcResult.modifiedCount,
+    dailyChallengeScoresHidden: dcResult.modifiedCount,
     dailyLeaderboardsScrubbed: dlResult.modifiedCount
   };
 }
@@ -828,9 +833,9 @@ function getSuccessMessage(action, username, eloRefundResult = null, leaderboard
   }
 
   if (leaderboardScrubResult) {
-    const { dailyChallengeScoresDisqualified = 0, dailyLeaderboardsScrubbed = 0 } = leaderboardScrubResult;
-    if (dailyChallengeScoresDisqualified > 0 || dailyLeaderboardsScrubbed > 0) {
-      message += `. Removed from daily leaderboards (${dailyChallengeScoresDisqualified} challenge score(s), ${dailyLeaderboardsScrubbed} cached leaderboard(s))`;
+    const { dailyChallengeScoresHidden = 0, dailyLeaderboardsScrubbed = 0 } = leaderboardScrubResult;
+    if (dailyChallengeScoresHidden > 0 || dailyLeaderboardsScrubbed > 0) {
+      message += `. Removed from daily leaderboards (${dailyChallengeScoresHidden} challenge score(s), ${dailyLeaderboardsScrubbed} cached leaderboard(s))`;
     }
   }
 

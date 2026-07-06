@@ -191,7 +191,10 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
       timeTaken: guessData.timeTaken,
       xpEarned: guessData.xpEarned,
       usedHint: guessData.usedHint,
-      players: players // Include players data for duels/multiplayer
+      players: players, // Include players data for duels/multiplayer
+      // Per-round team scores (cumulative party team games; null on older
+      // saves — the summary falls back to recomputing from player points)
+      teamRoundScores: round.teamRoundScores ?? null
     };
   }).filter(round => round !== null); // Remove null entries
 
@@ -199,8 +202,12 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   const totalTime = transformedHistory.reduce((sum, round) => sum + round.timeTaken, 0);
   const maxPoints = fullGameData.result.maxPossiblePoints;
 
-  // Determine if this is a duel
-  const isDuel = fullGameData.gameType === 'ranked_duel';
+  // Team modes ('2v2' today; any future NvM party mode) are detected by the
+  // saved per-player team assignments, not the gameType string, so new team
+  // game types inherit the team presentation automatically.
+  const isTeamGame = fullGameData.players?.some(p => p.team) || false;
+  // Team games reuse the duel presentation (they ARE duels between two teams).
+  const isDuel = fullGameData.gameType === 'ranked_duel' || isTeamGame;
 
   // Find the perspective player (the user whose view we're showing)
   // For mod view, use target user if available, otherwise reported user, otherwise first player
@@ -237,14 +244,38 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
     if (playerData) {
       const eloData = playerData.elo || {};
       duelData = {
-        oldElo: eloData.before || eloData.oldElo || 0,
-        newElo: eloData.after || eloData.newElo || 0,
-        eloDiff: eloData.change || 0,
         winner: playerData.finalRank === 1,
         draw: fullGameData.result?.isDraw || false,
         // Add opponent info if available (find player that isn't the perspective player)
         opponent: fullGameData.players?.find(p => p.accountId !== perspectivePlayer?.accountId && p.playerId !== perspectivePlayer?.playerId)
       };
+      if (isTeamGame) {
+        // Mirror the live duelEnd payload for team games — same wire names,
+        // so roundOverScreen renders history identically to the live end
+        // screen. No elo fields → the ELO block stays hidden by its
+        // typeof-number guards, matching live (team games have no ELO).
+        // Cumulative party team games (settings.teamGame) get teamGame:true
+        // (totals presentation); the 2v2 HP model keeps team2v2 (hearts).
+        const isCumulativeTeam = !!fullGameData.settings?.teamGame;
+        if (isCumulativeTeam) {
+          duelData.teamGame = true;
+          duelData.teamScoring = fullGameData.settings?.teamScoring || 'closest';
+        } else {
+          duelData.team2v2 = true;
+        }
+        duelData.winningTeam = fullGameData.result?.winningTeam ?? null;
+        duelData.draw = fullGameData.result?.isDraw || false;
+        duelData.winner = !duelData.draw && duelData.winningTeam != null
+          && duelData.winningTeam === (perspectivePlayer?.team ?? null);
+        // Games saved before result.teamScores existed have a/b null — pass
+        // null through so the summary hides the HP hearts instead of lying 0.
+        const ts = fullGameData.result?.teamScores;
+        duelData.teamScores = typeof ts?.a === 'number' && typeof ts?.b === 'number' ? ts : null;
+      } else {
+        duelData.oldElo = eloData.before || eloData.oldElo || 0;
+        duelData.newElo = eloData.after || eloData.newElo || 0;
+        duelData.eloDiff = eloData.change || 0;
+      }
     }
   }
 
@@ -260,10 +291,19 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         players: fullGameData.players.map(player => ({
           id: player.playerId,
           username: player.username,
+          countryCode: player.countryCode ?? null,
           points: player.totalPoints,
-          rank: player.finalRank
+          rank: player.finalRank,
+          // Team assignment ('a' | 'b') — drives team pin colors and the
+          // team round breakdown, exactly like the live gameData shape.
+          team: player.team ?? null
         })),
         duel: isDuel,
+        // Wire names kept in sync with the live gameData: team2v2 = 2v2 HP
+        // model, teamGame = cumulative party team mode.
+        team2v2: isTeamGame && !fullGameData.settings?.teamGame,
+        teamGame: isTeamGame && !!fullGameData.settings?.teamGame,
+        teamScoring: fullGameData.settings?.teamScoring || null,
         history: fullGameData.rounds.map(round => ({
           players: round.allGuesses.map(guess => ({
             id: guess.playerId,

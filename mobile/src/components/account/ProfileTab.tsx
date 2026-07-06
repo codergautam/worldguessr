@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../shared';
 import { api } from '../../services/api';
 import {

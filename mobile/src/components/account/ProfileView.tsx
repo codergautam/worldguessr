@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';
 import { t } from '../../shared';
 import { ProgressionEntry } from './shared';
@@ -368,11 +368,6 @@ export default function ProfileView({
             banPublicNote={user?.banPublicNote}
             pendingNameChange={user?.pendingNameChange}
             pendingNameChangePublicNote={user?.pendingNameChangePublicNote}
-            username={user?.username}
-            supporter={user?.supporter}
-            onLogout={onLogout}
-            pendingDeletion={user?.pendingDeletion}
-            scheduledDeletionAt={user?.scheduledDeletionAt}
           />
         );
       default:

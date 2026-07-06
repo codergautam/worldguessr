@@ -17,7 +17,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';

@@ -8,7 +8,7 @@ const SEND_COOLDOWN = 1500;
 let lastLocalSend = 0;
 let nextReactionId = 1;
 
-function EmoteReactions({ ws, enabled, inGame, myId, hideName, rightSide }) {
+function EmoteReactions({ ws, subscribeMessages, enabled, inGame, myId, myTeam, hideName, rightSide }) {
   const [open, setOpen] = useState(false);
   const [reactions, setReactions] = useState([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -19,10 +19,11 @@ function EmoteReactions({ ws, enabled, inGame, myId, hideName, rightSide }) {
   useEffect(() => { myIdRef.current = myId; }, [myId]);
 
   useEffect(() => {
-    if (!ws) return;
-    const onMessage = (msg) => {
-      let data;
-      try { data = JSON.parse(msg.data); } catch { return; }
+    // Ride the provider's single parsed-message stream instead of a raw
+    // ws listener (which re-parsed every message itself), and only while
+    // emotes can actually arrive — the server sends them in-game only.
+    if (!enabled || !inGame || !subscribeMessages) return;
+    const unsubscribe = subscribeMessages((data) => {
       if (data.type !== 'emote') return;
       if (!Number.isInteger(data.emote) || data.emote < 0 || data.emote >= EMOTES.length) return;
       const id = nextReactionId++;
@@ -31,15 +32,15 @@ function EmoteReactions({ ws, enabled, inGame, myId, hideName, rightSide }) {
         emote: EMOTES[data.emote],
         name: data.name || '',
         countryCode: data.countryCode || null,
+        team: data.team || null, // 'a' | 'b' in team modes — colored at render
         isSelf: data.id === myIdRef.current,
       }]);
       setTimeout(() => {
         setReactions(prev => prev.filter(r => r.id !== id));
       }, REACTION_TTL);
-    };
-    ws.addEventListener('message', onMessage);
-    return () => ws.removeEventListener('message', onMessage);
-  }, [ws]);
+    });
+    return unsubscribe;
+  }, [enabled, inGame, subscribeMessages]);
 
   // Clear reactions when leaving game
   useEffect(() => {
@@ -63,17 +64,23 @@ function EmoteReactions({ ws, enabled, inGame, myId, hideName, rightSide }) {
   return (
     <div className={`emoteReactionsParent ${rightSide ? 'rightSide' : ''}`}>
       <div className="emoteFloatStack" aria-hidden="true">
-        {reactions.map(r => (
-          <div key={r.id} className={`emoteFloatItem ${r.isSelf ? 'self' : ''} ${hideName ? 'noName' : ''}`}>
-            <span className="emoteFloatGlyph">{r.emote}</span>
-            {!hideName && r.name && (
-              <span className="emoteFloatName">
-                {r.countryCode && <CountryFlag countryCode={r.countryCode} style={{ fontSize: '0.9em', marginRight: '4px' }} />}
-                {r.name}
-              </span>
-            )}
-          </div>
-        ))}
+        {reactions.map(r => {
+          // Team modes: color by allegiance — blue for my team (incl. me),
+          // green for opponents. Outside team modes r.team is null and the
+          // classic look (green self, dark others) applies.
+          const teamClass = r.team && myTeam ? (r.team === myTeam ? 'teamMine' : 'teamOpp') : '';
+          return (
+            <div key={r.id} className={`emoteFloatItem ${r.isSelf ? 'self' : ''} ${teamClass} ${hideName ? 'noName' : ''}`}>
+              <span className="emoteFloatGlyph">{r.emote}</span>
+              {!hideName && r.name && (
+                <span className="emoteFloatName">
+                  {r.countryCode && <CountryFlag countryCode={r.countryCode} style={{ fontSize: '0.9em', marginRight: '4px' }} />}
+                  {r.name}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
       <button
         className={`emoteToggleBtn ${open ? 'open' : ''}`}

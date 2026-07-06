@@ -26,24 +26,36 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
         document.head.appendChild(script);
       };
 
-      // Wait for page load event (ensures fonts/LCP complete), then load ads
-      const scheduleAdLoad = () => {
+      // Load the ad stack on the first real user interaction instead of at
+      // page load. New players see no ads during onboarding anyway, and
+      // returning players interact within moments (mousemove counts), so this
+      // costs ~no impressions — but it keeps NitroPay + everything it drags
+      // in (GPT, prebid, Confiant, Amazon, id syncs) entirely off the initial
+      // load. Idle-until-interaction visitors never fetch ads at all.
+      // requestIdleCallback keeps the fetch off the triggering interaction's
+      // own critical path (INP).
+      const INTERACTION_EVENTS = ['pointerdown', 'mousemove', 'touchstart', 'keydown', 'wheel'];
+      const listenerOpts = { passive: true, capture: true };
+      const onFirstInteraction = () => {
+        removeInteractionListeners();
         if ('requestIdleCallback' in window) {
-          requestIdleCallback(loadNitroAds, { timeout: 3000 });
+          requestIdleCallback(loadNitroAds, { timeout: 1500 });
         } else {
-          setTimeout(loadNitroAds, 1000);
+          setTimeout(loadNitroAds, 200);
         }
       };
-
-      if (document.readyState === 'complete') {
-        scheduleAdLoad();
-      } else {
-        window.addEventListener('load', scheduleAdLoad, { once: true });
+      const removeInteractionListeners = () => {
+        for (const evt of INTERACTION_EVENTS) {
+          window.removeEventListener(evt, onFirstInteraction, listenerOpts);
+        }
+      };
+      for (const evt of INTERACTION_EVENTS) {
+        window.addEventListener(evt, onFirstInteraction, listenerOpts);
       }
 
 // end nitroPay script
       return () => {
-        // Cleanup handled by browser on unmount
+        removeInteractionListeners();
       };
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");

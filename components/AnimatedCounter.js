@@ -6,7 +6,11 @@ export default function AnimatedCounter({
   className = '',
   showIncrement = true,
   incrementColor = '#22c55e',
-  formatNumber = true
+  formatNumber = true,
+  // Badge lifetime, decoupled from the count-up speed: contexts that need a
+  // readable +Δ (team scorebar) hold it for seconds while the number still
+  // counts up in `duration`. Defaults to `duration` (original behavior).
+  incrementMs = null
 }) {
   const [displayValue, setDisplayValue] = useState(value);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -36,7 +40,7 @@ export default function AnimatedCounter({
       // Hide increment text after animation
       incrementTimeoutRef.current = setTimeout(() => {
         setShowIncrementText(false);
-      }, duration + 200);
+      }, (incrementMs ?? duration) + 200);
     }
 
     setIsAnimating(true);
@@ -86,7 +90,10 @@ export default function AnimatedCounter({
           className="increment-indicator"
           style={{
             color: incrementColor,
-            animation: `pointIncrement ${duration}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`
+            // Name/curve/fill live in CSS so scoped contexts can swap the
+            // keyframes (e.g. .team-scorebar's stationary hold) without
+            // fighting an inline shorthand.
+            animationDuration: `${incrementMs ?? duration}ms`
           }}
         >
           +{formatNumber && incrementAmount >= 1000 ? incrementAmount.toLocaleString() : incrementAmount}

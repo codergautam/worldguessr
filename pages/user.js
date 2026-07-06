@@ -255,7 +255,7 @@ export default function UserProfilePage() {
           overflow-y: auto !important;
           padding: 20px;
           box-sizing: border-box;
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .loading-container {
@@ -300,7 +300,7 @@ export default function UserProfilePage() {
           font-weight: 500;
           margin: 0;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .error-container {
@@ -330,7 +330,7 @@ export default function UserProfilePage() {
           font-size: clamp(24px, 5vw, 32px);
           color: #ffc107;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .error-card p {
@@ -338,7 +338,7 @@ export default function UserProfilePage() {
           font-size: 16px;
           color: rgba(255, 255, 255, 0.9);
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .error-actions {
@@ -360,7 +360,7 @@ export default function UserProfilePage() {
           transition: all 0.3s ease;
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .error-card button.retry-button {

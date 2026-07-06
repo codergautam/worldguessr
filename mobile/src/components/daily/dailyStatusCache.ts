@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DAILY_CACHE_TTL_MS as TTL_MS } from '@shared/daily/constants';
 
 const KEY_PREFIX = 'wg_daily_status_';
-const TOP10_KEY_PREFIX = 'wg_daily_top10_';
+const DIST_KEY_PREFIX = 'wg_daily_dist_';
 
 export interface DailyUserCache {
   username?: string;
@@ -20,10 +20,12 @@ export interface DailyUserCache {
   cachedAt?: number;
 }
 
-export interface DailyTop10Entry {
-  rank: number;
-  username: string;
-  score: number;
+export interface DailyDistributionCache {
+  totalPlays: number;
+  avgScore: number;
+  buckets: number[];
+  roundAverages?: number[];
+  cachedAt?: number;
 }
 
 async function readJson<T>(key: string): Promise<T | null> {
@@ -47,23 +49,35 @@ async function writeJson(key: string, payload: any): Promise<void> {
   }
 }
 
-export function readDailyStatus(date: string): Promise<DailyUserCache | null> {
-  if (!date) return Promise.resolve(null);
-  return readJson<DailyUserCache>(KEY_PREFIX + date);
+export async function readDailyStatus(date: string, ownerId: string | null = null): Promise<DailyUserCache | null> {
+  if (!date) return null;
+  const parsed = await readJson<DailyUserCache & { _owner?: string | null }>(KEY_PREFIX + date);
+  if (!parsed) return null;
+  // Scope the cached block to the identity that wrote it (logged-in secret,
+  // else guestId). The key is per-date, not per-user — so on a SHARED device a
+  // different account must never read the previous user's cached name/streak/
+  // score. Owner mismatch → treat as a miss.
+  if ((parsed._owner ?? null) !== (ownerId ?? null)) return null;
+  delete parsed._owner;
+  return parsed;
 }
 
-export function writeDailyStatus(date: string, user: DailyUserCache): Promise<void> {
+export function writeDailyStatus(date: string, user: DailyUserCache, ownerId: string | null = null): Promise<void> {
   if (!date || !user) return Promise.resolve();
-  return writeJson(KEY_PREFIX + date, user);
+  return writeJson(KEY_PREFIX + date, { ...user, _owner: ownerId ?? null });
 }
 
-export async function readDailyTop10(date: string): Promise<DailyTop10Entry[]> {
-  if (!date) return [];
-  const parsed = await readJson<{ entries?: DailyTop10Entry[] }>(TOP10_KEY_PREFIX + date);
-  return Array.isArray(parsed?.entries) ? parsed!.entries : [];
+// The distribution (totalPlays/avgScore/buckets) is per-date and shared across
+// all viewers, so it's safe to cache and reuse across sessions. Caching it
+// (alongside the user block) is what keeps the landing's "How you compare"
+// chart shift-free while the API is in flight.
+export async function readDailyDistribution(date: string): Promise<DailyDistributionCache | null> {
+  if (!date) return null;
+  const parsed = await readJson<DailyDistributionCache>(DIST_KEY_PREFIX + date);
+  return parsed && typeof parsed.totalPlays === 'number' ? parsed : null;
 }
 
-export function writeDailyTop10(date: string, top10: DailyTop10Entry[]): Promise<void> {
-  if (!date || !Array.isArray(top10)) return Promise.resolve();
-  return writeJson(TOP10_KEY_PREFIX + date, { entries: top10 });
+export function writeDailyDistribution(date: string, distribution: DailyDistributionCache): Promise<void> {
+  if (!date || !distribution || typeof distribution !== 'object') return Promise.resolve();
+  return writeJson(DIST_KEY_PREFIX + date, distribution);
 }

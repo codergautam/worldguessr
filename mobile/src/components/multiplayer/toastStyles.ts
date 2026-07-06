@@ -8,7 +8,7 @@
 
 import { Platform, StyleSheet, ViewStyle } from 'react-native';
 import type { ComponentProps } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 

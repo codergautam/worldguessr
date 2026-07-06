@@ -68,6 +68,12 @@ export default async function handler(req, res) {
         return {
           roundNumber: round.roundNumber,
           location: round.location,
+          // Parity with api/gameDetails.js: server-computed per-round team
+          // scores. Without this, the mod view silently recomputed an
+          // APPROXIMATION for 'average'-scored team parties (the true
+          // denominator — roster at scoring time — isn't reconstructable
+          // client-side), diverging from what players see.
+          teamRoundScores: round.teamRoundScores ?? null,
 
           // User's guess data (from perspective user)
           guess: userGuess ? {
@@ -84,6 +90,9 @@ export default async function handler(req, res) {
           allGuesses: round.playerGuesses.map(guess => ({
             playerId: guess.accountId || guess.playerId,
             username: guess.username,
+            // Parity with api/gameDetails.js so the mod view renders the same
+            // flags the player-facing history does.
+            countryCode: guess.countryCode ?? null,
             guessLat: guess.guessLat,
             guessLong: guess.guessLong,
             points: guess.points,
@@ -103,10 +112,13 @@ export default async function handler(req, res) {
         playerId: player.accountId || player.playerId,
         username: player.username,
         accountId: player.accountId,
+        countryCode: player.countryCode ?? null,
         totalPoints: player.totalPoints,
         totalXp: player.totalXp,
         averageTimePerRound: player.averageTimePerRound,
         finalRank: player.finalRank,
+        // Team assignment for team modes ('a' | 'b'); null on solo modes.
+        team: player.team ?? null,
         elo: player.elo
       })),
 

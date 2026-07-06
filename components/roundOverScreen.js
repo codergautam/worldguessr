@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
-import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
+import { findDistance, pickBestTeamGuessIds } from './calcPoints';
+import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag, FaCrown } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
@@ -30,15 +31,25 @@ const MapEvents = ({ mapRef, onMapReady, history, onUserInteraction }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (map && !mapRef.current) {
-      mapRef.current = map;
-      onMapReady(true);
+    if (!map) return;
+    // Always stamp the latest map: GameSummary renders two MapContainer
+    // variants (duel/regular) sharing one ref, so a remount must re-claim it.
+    mapRef.current = map;
+    onMapReady(true);
 
-      // Force resize after creation
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
+    // Force resize after creation
+    const resizeTimer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      // Leaflet's remove() deletes _mapPane; flyTo/fitBounds on a removed map
+      // throws. Drop the ref unless a newer map already claimed it.
+      if (mapRef.current === map) {
+        mapRef.current = null;
+      }
+    };
   }, [map, mapRef, onMapReady]);
 
   // Listen for user-initiated map interactions
@@ -79,7 +90,11 @@ const GameSummary = ({
     multiplayerState,
     session,
     gameId,
-    options
+    options,
+    // Matchmade team duels only (passed by the LIVE mounts, never history):
+    // { playAgain, back } ws-send closures for the post-game consensus
+    // requeue. When set, these replace button1 on the team end screen.
+    teamActions = null
 }) => {
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
@@ -96,6 +111,8 @@ const GameSummary = ({
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
   const src2IconRef = useRef(null);
+  const srcBigIconRef = useRef(null);
+  const src2BigIconRef = useRef(null);
   const roundsContainerRef = useRef(null);
 
   // Animation states for duel
@@ -106,6 +123,7 @@ const GameSummary = ({
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
 
 
+
   // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
     const checkLeaflet = () => {
@@ -114,6 +132,8 @@ const GameSummary = ({
         destIconRef.current = icons.dest;
         srcIconRef.current = icons.src;
         src2IconRef.current = icons.src2;
+        srcBigIconRef.current = icons.srcBig;
+        src2BigIconRef.current = icons.src2Big;
         setLeafletReady(true);
       } else {
         setTimeout(checkLeaflet, 100);
@@ -390,9 +410,7 @@ const GameSummary = ({
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
 
-    const displayPlayers = showAll ? players : players.slice(0, 5);
-
-    return displayPlayers.map((player, index) => {
+    const renderPlayerRow = (player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
       const isSelected = selectedPlayer === player.playerId;
       const isReportedUser = options?.reportedUserId && player.playerId === options.reportedUserId;
@@ -439,7 +457,54 @@ const GameSummary = ({
           {isSelected && renderPlayerRounds(player.playerId)}
         </React.Fragment>
       );
-    });
+    };
+
+    // Team games: group the final scores by team, keeping each player's
+    // GLOBAL rank number (and trophies) from the overall sort. 2v2 uses the
+    // your/enemy framing; cumulative parties keep stable Team 1/Team 2
+    // identities (matching the lobby columns and the in-game scorebar).
+    if (isTeamGame) {
+      const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+      const rankOf = new Map(players.map((p, i) => [p.playerId, i]));
+      const sectionHeader = (label, team) => (
+        <h4 key={`hdr-${label}`} style={{
+          padding: '10px 20px 2px',
+          margin: 0,
+          color: 'rgba(255, 255, 255, 0.7)',
+          fontSize: '0.85rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em'
+        }}>
+          {!data?.draw && data?.winningTeam === team && <FaCrown className="game-summary-team-crown" aria-hidden />}
+          {label}
+        </h4>
+      );
+      const rowsFor = (team) => players
+        .filter(p => teamOf[p.playerId] === team)
+        .map(p => renderPlayerRow(p, rankOf.get(p.playerId)));
+      // Players with no known team (shouldn't happen, but never drop anyone).
+      const unknownRows = players
+        .filter(p => teamOf[p.playerId] !== 'a' && teamOf[p.playerId] !== 'b')
+        .map(p => renderPlayerRow(p, rankOf.get(p.playerId)));
+      const sections = isCumulativeTeam
+        ? [['a', `${text("team1")}${myTeam === 'a' ? ` · ${text("yourTeamTag")}` : ''}`],
+           ['b', `${text("team2")}${myTeam === 'b' ? ` · ${text("yourTeamTag")}` : ''}`]]
+        : [[myTeam, text("yourTeam")], [enemyTeam, text("enemyTeam")]];
+      return (
+        <>
+          {sections.map(([team, label]) => (
+            <React.Fragment key={team}>
+              {sectionHeader(label, team)}
+              {rowsFor(team)}
+            </React.Fragment>
+          ))}
+          {unknownRows}
+        </>
+      );
+    }
+
+    const displayPlayers = showAll ? players : players.slice(0, 5);
+    return displayPlayers.map(renderPlayerRow);
   };
 
   const getPointsColor = (points) => {
@@ -507,17 +572,6 @@ const GameSummary = ({
     if (distance < 500) return 7;
     if (distance < 2000) return 5;
     return 3;
-  };
-
-  // Helper function to get player colors for map markers
-  const getPlayerColor = (playerId, isMyId) => {
-    if (isMyId) return '#4CAF50'; // Green for current player
-    const colors = ['#F44336', '#2196F3', '#FF9800', '#9C27B0', '#00BCD4'];
-    const hash = playerId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    return colors[Math.abs(hash) % colors.length];
   };
 
 
@@ -625,16 +679,14 @@ const GameSummary = ({
       return history;
     }
 
-    // If no history provided, try to construct it from multiplayerState
+    // If no history provided, try to construct it from multiplayerState.
+    // roundHistory only ever contains rounds that fully resolved (the server
+    // drops the in-flight round on forfeit ends), so private duels/team games
+    // transform it the same way public matchmade ones do. The old `duel && !public` skip here
+    // silently emptied the whole end screen (no pins, no breakdown) for
+    // private party duels and party team games.
     if (multiplayerState?.gameData?.roundHistory) {
-      const { roundHistory, myId, duel, public: isPublic } = multiplayerState.gameData;
-
-      // Skip transformation for ranked duels to prevent showing extra rounds
-      // when game ends early due to health loss
-      const isRankedDuel = duel && !isPublic;
-      if (isRankedDuel) {
-        return [];
-      }
+      const { roundHistory, myId } = multiplayerState.gameData;
 
       if (roundHistory && roundHistory.length > 0) {
         const transformed = roundHistory.map((roundData, roundIndex) => {
@@ -648,6 +700,9 @@ const GameSummary = ({
             guessLong: myPlayerData?.long,
             points: myPlayerData?.points || 0,
             players: roundData.players,
+            // Server-computed per-round team scores (cumulative parties) —
+            // must survive the transform for the round breakdown.
+            teamRoundScores: roundData.teamRoundScores ?? null,
             timeTaken: null
           };
         });
@@ -656,7 +711,7 @@ const GameSummary = ({
     }
 
     return [];
-  }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.public]);
+  }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
 
   // Alias used by the map helpers (fitMapToBounds/focusOnRound) and the map-fit
   // effect below. It MUST be declared here — before the early returns and before
@@ -667,6 +722,62 @@ const GameSummary = ({
   // `finalHistory.length` and threw "Cannot access 'finalHistory' before
   // initialization", which Next.js surfaced as a fatal client-side crash.
   const finalHistory = gameHistory;
+
+  // ── Team context (2v2 today; any NvM two-team mode). Used by the map pin
+  // colors, header summary, round breakdown, final-scores grouping, and
+  // report buttons — declared at component scope (like finalHistory above) so
+  // the leaderboard helpers defined earlier can close over it. `teamOf` is
+  // keyed by player id and built from gameData.players, which both the live
+  // game and the history transform (historicalGameView) populate with `team`.
+  // Size-agnostic: always exactly two teams 'a'/'b', any number of players.
+  // Cumulative-points party team mode (teamGame) vs the 2v2 HP model
+  // (team2v2). Both are "team games" for grouping/pin purposes; only the
+  // score presentation differs (totals vs damage hearts).
+  const isCumulativeTeam = !!(data?.teamGame || multiplayerState?.gameData?.teamGame);
+  // Fallback matches the server default ('closest', Game.js constructor) —
+  // practically unreachable since every payload carries the field.
+  const teamScoring = data?.teamScoring || multiplayerState?.gameData?.teamScoring || 'closest';
+  const isTeamGame = !!(data?.team2v2 || multiplayerState?.gameData?.team2v2 || isCumulativeTeam);
+  // Prefer the duelEnd roster snapshot: the live gameData.players array
+  // SHRINKS as opponents hit Play Again on the finished game ('player remove'
+  // broadcasts), which stripped teammates of their team here — flipping their
+  // pins/groupings to enemy. The snapshot is frozen at game end and includes
+  // mid-game leavers. Fallback covers history views and old-server payloads.
+  const gamePlayers = (Array.isArray(data?.players) && data.players.length > 0)
+    ? data.players
+    : (multiplayerState?.gameData?.players || []);
+  const teamOf = {};
+  gamePlayers.forEach(p => { teamOf[p.id] = p.team; });
+  // No 'a' default on lookup miss: that silently INVERTS the Victory/Defeat
+  // headline and every pin color for a team-b player whose id hasn't landed
+  // in the roster yet. Null = neutral until the roster resolves.
+  const myTeam = isTeamGame
+    ? (teamOf[multiplayerState?.gameData?.myId] ?? null)
+    : null;
+  const isMyTeammate = (playerId) =>
+    isTeamGame && myTeam != null && teamOf[playerId] === myTeam;
+
+  // Per-round best (closest) guesser of EACH team — that pin renders with the
+  // enlarged icon so the guess that actually counted pops out of the cluster.
+  // Points-first, exact point ties (capped 5000s / same rounded score between
+  // close teammates) broken by raw distance — only ONE pin per team enlarges
+  // and draws its line (same rule as Map.js reveal / ResultsMap).
+  const bestTeamGuesserIds = (round) => {
+    if (!isTeamGame) return null;
+    // Average-mode team parties: every guess counts equally, so there is no
+    // "guess that counted" to pop — no enlarged pins. (Mirrors the round
+    // breakdown, which hides the best-guesser name in this mode too.)
+    if (isCumulativeTeam && teamScoring === 'average') return null;
+    const entries = Object.entries(round.players || {}).map(([id, p]) => ({
+      id,
+      team: teamOf[id],
+      pts: p?.points || 0,
+      dist: (round.lat != null && p?.lat != null)
+        ? findDistance(round.lat, round.long, p.lat, p.long)
+        : Infinity,
+    }));
+    return pickBestTeamGuessIds(entries);
+  };
 
   // Compute the map's initial bounds from round locations + guesses up front
   // so MapContainer mounts already fitted to them. Passing `bounds` to a v4
@@ -722,75 +833,11 @@ const GameSummary = ({
             padding: '2rem',
             textAlign: 'center'
           }}>
-            {/* <div>No game history available</div>
-            <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
-              Debug: history={JSON.stringify(history)}, roundHistory length={multiplayerState?.gameData?.roundHistory?.length}
-            </div> */}
           </div>
         </div>
       </div>
     );
   }
-
-  // // If still no valid history data, show fallback
-  // if (!gameHistory || gameHistory.length === 0) {
-  //   return (
-  //     <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
-  //       <div className="game-summary-container">
-  //         <div style={{
-  //           display: 'flex',
-  //           flexDirection: 'column',
-  //           justifyContent: 'center',
-  //           alignItems: 'center',
-  //           height: '100vh',
-  //           color: 'white',
-  //           fontSize: '1.5rem',
-  //           padding: '2rem',
-  //           textAlign: 'center'
-  //         }}>
-  //           <div>{text("gameComplete")}</div>
-  //           <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
-  //             {duel ? text("duelComplete") : text("gameComplete")}
-  //           </div>
-  //           {button1Text && (
-  //             <button
-  //               onClick={button1Press}
-  //               style={{
-  //                 marginTop: '2rem',
-  //                 padding: '1rem 2rem',
-  //                 fontSize: '1.2rem',
-  //                 backgroundColor: '#4CAF50',
-  //                 color: 'white',
-  //                 border: 'none',
-  //                 borderRadius: '8px',
-  //                 cursor: 'pointer'
-  //               }}
-  //             >
-  //               {button1Text}
-  //             </button>
-  //           )}
-  //           {button2Text && (
-  //             <button
-  //               onClick={button2Press}
-  //               style={{
-  //                 marginTop: '1rem',
-  //                 padding: '1rem 2rem',
-  //                 fontSize: '1.2rem',
-  //                 backgroundColor: '#666',
-  //                 color: 'white',
-  //                 border: 'none',
-  //                 borderRadius: '8px',
-  //                 cursor: 'pointer'
-  //               }}
-  //             >
-  //               {button2Text}
-  //             </button>
-  //           )}
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   // Helper function to open report modal
   const handleReportUser = (accountId, username) => {
@@ -800,47 +847,32 @@ const GameSummary = ({
 
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
-    const { winner, draw, oldElo, newElo } = data;
+    // Cumulative team parties: trust the server's per-player verdict when the
+    // live duelEnd carried one; derive from winningTeam vs my team only for
+    // the client-side fallback payload (reconnect into end), which has none.
+    const winner = isCumulativeTeam
+      ? (typeof data.winner === 'boolean'
+        ? data.winner
+        : (!data.draw && data.winningTeam != null && data.winningTeam === myTeam))
+      : data.winner;
+    const draw = isCumulativeTeam ? !!data.draw : data.draw;
+    const { oldElo, newElo } = data;
     const eloChange = newElo - oldElo;
 
-    // Get opponent information for ranked duels
-    const getOpponentInfo = () => {
+    // Opponent(s): every player NOT on my team (teams), or the single other
+    // player (1v1). Collected from round data so mid-game leavers still count.
+    // (Team context — isTeamGame/teamOf/myTeam/isMyTeammate — is declared at
+    // component scope, above the early returns.)
+    const getOpponents = () => {
       const myId = multiplayerState?.gameData?.myId;
-
-      // Try to get from roundHistory first (for ranked duels)
-      if (multiplayerState?.gameData?.roundHistory?.length > 0) {
-        const firstRound = multiplayerState.gameData.roundHistory[0];
-        if (firstRound?.players) {
-          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
-          if (opponentEntries.length > 0) {
-            const [opponentId, opponentData] = opponentEntries[0];
-            return {
-              accountId: opponentId,
-              username: opponentData.username
-            };
-          }
-        }
-      }
-
-      // Fallback to finalHistory
-      if (finalHistory.length > 0) {
-        const firstRound = finalHistory[0];
-        if (firstRound?.players) {
-          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
-          if (opponentEntries.length > 0) {
-            const [opponentId, opponentData] = opponentEntries[0];
-            return {
-              accountId: opponentId,
-              username: opponentData.username
-            };
-          }
-        }
-      }
-
-      return null;
+      const firstRound = multiplayerState?.gameData?.roundHistory?.[0] || finalHistory[0];
+      if (!firstRound?.players) return [];
+      return Object.entries(firstRound.players)
+        .filter(([id]) => id !== myId && !isMyTeammate(id))
+        .map(([id, p]) => ({ accountId: id, username: p.username }));
     };
 
-    const opponentInfo = getOpponentInfo();
+    const opponents = getOpponents();
 
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
@@ -885,15 +917,22 @@ const GameSummary = ({
               />
 
               {finalHistory.map((round, index) => {
-                // For duels: show all destination pins when no round selected, or only selected round's destination when a round is selected
-                // For other multiplayer: show all destination pins
-                const isDuel = multiplayerState?.gameData?.duel;
-                const shouldShowDestination = !isDuel || activeRound === null || activeRound === index;
+                // Everything in this branch is a duel-style presentation
+                // (1v1, 2v2, party team duel), so a selected round always
+                // filters the map to just that round's pins. NOTE: gating on
+                // gameData.duel here would break party team games — their
+                // server flag is duel=false.
+                const inActiveRound = activeRound === null || activeRound === index;
+                // A selected leaderboard player filters guesses to theirs +
+                // yours, matching the regular-game screen's behavior.
+                const showsPlayer = (playerId) => !selectedPlayer || playerId === selectedPlayer;
+                // Team games: each team's closest guesser gets the enlarged pin.
+                const bestIds = bestTeamGuesserIds(round);
 
                 return (
                   <React.Fragment key={index}>
                     {/* Target location */}
-                    {shouldShowDestination && (
+                    {inActiveRound && (
                       <Marker
                         position={[round.lat, round.long]}
                         icon={destIconRef.current}
@@ -923,14 +962,10 @@ const GameSummary = ({
                       </Marker>
                     )}
 
-                  {/* Current player's guess */}
+                  {/* Current player's guess — stays visible alongside a
+                      selected player for direct comparison */}
                   {round.guessLat && round.guessLong && (() => {
-                    // For duels: show all player guesses when no round selected, or only selected round when a round is selected
-                    // For other multiplayer: show all player's guesses
-                    const isDuel = multiplayerState?.gameData?.duel;
-                    const shouldShowPlayerGuess = !isDuel || activeRound === null || activeRound === index;
-
-                    if (!shouldShowPlayerGuess) {
+                    if (!inActiveRound) {
                       return null;
                     }
 
@@ -938,8 +973,24 @@ const GameSummary = ({
                       <>
                         <Marker
                           position={[round.guessLat, round.guessLong]}
-                          icon={srcIconRef.current}
+                          icon={bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current}
                         >
+                          {/* Team games: teammates share identical pins, so a
+                              focused round shows permanent name labels (same
+                              affordance as the Map.js round reveal) instead of
+                              relying on click-popups to tell guesses apart. */}
+                          {isTeamGame && activeRound === index && (
+                            <Tooltip
+                              direction="top"
+                              offset={[0, bestIds?.has(multiplayerState?.gameData?.myId) ? -55 : -45]}
+                              opacity={1}
+                              permanent
+                            >
+                              <span style={{ color: 'black' }}>
+                                {options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}
+                              </span>
+                            </Tooltip>
+                          )}
                           <Popup>
                             <div>
                               <strong>{options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}</strong><br />
@@ -949,12 +1000,20 @@ const GameSummary = ({
                           </Popup>
                         </Marker>
 
-                        <Polyline
-                          positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
-                          color={getPointsColor(round.points)}
-                          weight={3}
-                          opacity={0.7}
-                        />
+                        {/* Best-guess team modes (2v2 / closest-scoring
+                            parties): only the counted guess draws a line to
+                            the target — non-best pins stay, lines go, so the
+                            map isn't a tangle. bestIds is null otherwise
+                            (1v1, average parties) → every guess keeps its
+                            line. */}
+                        {(!bestIds || bestIds.has(multiplayerState?.gameData?.myId)) && (
+                          <Polyline
+                            positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
+                            color={getPointsColor(round.points)}
+                            weight={3}
+                            opacity={0.7}
+                          />
+                        )}
                       </>
                     );
                   })()}
@@ -962,23 +1021,35 @@ const GameSummary = ({
                   {/* Other players' guesses */}
                   {round.players && Object.entries(round.players).map(([playerId, player]) => {
                     if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
-                      // For duels: show all opponent guesses when no round selected, or only selected round when a round is selected
-                      // For other multiplayer: show all opponent guesses
-                      const isDuel = multiplayerState?.gameData?.duel;
-                      const shouldShowOpponent = !isDuel || activeRound === null || activeRound === index;
-
-                      if (!shouldShowOpponent) {
+                      if (!inActiveRound || !showsPlayer(playerId)) {
                         return null;
                       }
 
-                      const playerColor = getPlayerColor(playerId, false);
                       const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
+                          {/* Team games: teammates share YOUR (blue src) pin,
+                              enemies get the green src2 pin — the map reads as
+                              team-vs-team, not you-vs-everyone. Each team's
+                              closest guesser renders enlarged. */}
                           <Marker
                             position={[player.lat, player.long]}
-                            icon={src2IconRef.current}
+                            icon={isMyTeammate(playerId)
+                              ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
+                              : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current)}
                           >
+                            {isTeamGame && activeRound === index && (
+                              <Tooltip
+                                direction="top"
+                                offset={[0, bestIds?.has(playerId) ? -55 : -45]}
+                                opacity={1}
+                                permanent
+                              >
+                                <span style={{ color: 'black' }}>
+                                  {player.username || text("opponent")}
+                                </span>
+                              </Tooltip>
+                            )}
                             <Popup>
                               <div>
                                 <strong
@@ -996,12 +1067,14 @@ const GameSummary = ({
                             </Popup>
                           </Marker>
 
-                          <Polyline
-                            positions={[[round.lat, round.long], [player.lat, player.long]]}
-                            color={getPointsColor(player.points)}
-                            weight={2}
-                            opacity={0.5}
-                          />
+                          {(!bestIds || bestIds.has(playerId)) && (
+                            <Polyline
+                              positions={[[round.lat, round.long], [player.lat, player.long]]}
+                              color={getPointsColor(player.points)}
+                              weight={2}
+                              opacity={0.5}
+                            />
+                          )}
                         </React.Fragment>
                       );
                     }
@@ -1019,24 +1092,23 @@ const GameSummary = ({
                 {draw ? text("draw") : winner ? text("victory") : text("defeat")}
               </h1>
 
-              {data.team2v2 && data.teamScores && (() => {
-                const players = multiplayerState?.gameData?.players || [];
-                const myTeam = players.find(p => p.id === multiplayerState?.gameData?.myId)?.team || 'a';
-                const enemyTeam = myTeam === 'a' ? 'b' : 'a';
-                return (
-                  <div className="twovtwo-result-summary">
-                    <div className="twovtwo-result-team">
-                      <span className="twovtwo-result-label">{text("yourTeam")}</span>
-                      <span className="twovtwo-result-hp">{Math.max(0, Math.round(data.teamScores[myTeam] ?? 0))} ❤️</span>
-                    </div>
-                    <span className="twovtwo-result-vs">{text("vs")}</span>
-                    <div className="twovtwo-result-team">
-                      <span className="twovtwo-result-label">{text("enemyTeam")}</span>
-                      <span className="twovtwo-result-hp">{Math.max(0, Math.round(data.teamScores[enemyTeam] ?? 0))} ❤️</span>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Cumulative team parties: final team totals under the verdict */}
+              {isCumulativeTeam && data.teamScores && (
+                <div className="team-final-scoreline">
+                  {[['a', 'team1'], ['b', 'team2']].map(([teamKey, labelKey], i) => (
+                    <React.Fragment key={teamKey}>
+                      {i === 1 && <span className="team-final-scoreline__dash">—</span>}
+                      <span className={`team-final-scoreline__side ${myTeam === teamKey ? 'team-final-scoreline__side--mine' : ''} ${!draw && data.winningTeam === teamKey ? 'team-final-scoreline__side--won' : ''}`}>
+                        <span className="team-final-scoreline__label">
+                          {!draw && data.winningTeam === teamKey && <FaCrown className="game-summary-team-crown" aria-hidden />}
+                          {text(labelKey)}
+                        </span>
+                        <span className="team-final-scoreline__pts">{(data.teamScores[teamKey] ?? 0).toLocaleString()}</span>
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
 
               {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
                 <div className="elo-container">
@@ -1098,10 +1170,49 @@ const GameSummary = ({
                   {mobileExpanded ? text("hideDetails") : text("viewDetails")}
                 </button>
 
-                {button1Text && (
-                  <button className="action-btn primary" onClick={button1Press}>
-                    {button1Text}
-                  </button>
+                {/* Matchmade team duels: Play Again needs every living
+                    teammate's ack (live "n/m" counter, server-driven). Back
+                    exits to a staging lobby WITHOUT queueing — visible to
+                    auto-paired members (dissolves the pairing), the chosen
+                    duo's host (takes the whole team back), and anyone whose
+                    teammate already left. Chosen-duo guests only get Play
+                    Again. Replaces button1; the mount passes button2Text=null
+                    (no in-card Home) — the navbar back button is the
+                    straight-to-home exit on team2v2 end screens. */}
+                {teamActions && isTeamGame && !isCumulativeTeam ? (() => {
+                  const myId = multiplayerState?.gameData?.myId;
+                  const pa = multiplayerState?.gameData?.playAgain2v2;
+                  const needed = pa?.needed ?? 2;
+                  const ackedIds = pa?.ackedIds || [];
+                  const myAcked = myId != null && ackedIds.includes(myId);
+                  const soloRequeue = needed <= 1;
+                  const playAgainWillExit = soloRequeue || (!myAcked && ackedIds.length + 1 >= needed);
+                  const backVisible = data?.autoPaired === true
+                    || (data?.teamHostId != null && data.teamHostId === myId)
+                    || soloRequeue;
+                  return (
+                    <>
+                      <button
+                        className="action-btn primary"
+                        disabled={myAcked && !soloRequeue}
+                        style={myAcked && !soloRequeue ? { opacity: 0.65, cursor: 'default' } : undefined}
+                        onClick={() => { if (!myAcked || soloRequeue) teamActions.playAgain({ willExit: playAgainWillExit }); }}
+                      >
+                        {text("playAgain")}{soloRequeue ? '' : ` (${ackedIds.length}/${needed})`}
+                      </button>
+                      {backVisible && (
+                        <button className="action-btn secondary" onClick={teamActions.back}>
+                          {text("back")}
+                        </button>
+                      )}
+                    </>
+                  );
+                })() : (
+                  button1Text && (
+                    <button className="action-btn primary" onClick={button1Press}>
+                      {button1Text}
+                    </button>
+                  )
                 )}
                 {button2Text && (
                   <button className="action-btn secondary" onClick={button2Press}>
@@ -1109,11 +1220,12 @@ const GameSummary = ({
                   </button>
                 )}
 
-                {/* Report button for ranked duels - only show if logged in, in a ranked game, opponent exists, and not in mod view */}
-                {!options?.isModView && (multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && opponentInfo && session?.token?.secret && (
+                {/* Report button — 1v1 duels only (team games don't offer
+                    reporting yet). Hidden in mod view. */}
+                {!options?.isModView && !isTeamGame && (multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && session?.token?.secret && opponents[0] && (
                   <button
                     className="action-btn report-btn"
-                    onClick={() => handleReportUser(opponentInfo.accountId, opponentInfo.username)}
+                    onClick={() => handleReportUser(opponents[0].accountId, opponents[0].username)}
                     style={{
                       background: 'rgba(255, 69, 58, 0.2)',
                       border: '1px solid rgba(255, 69, 58, 0.4)',
@@ -1133,13 +1245,61 @@ const GameSummary = ({
             </div>
 
             <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
-              {/* 2v2: team-based round breakdown (best guess of each team) */}
-              {multiplayerState?.gameData?.team2v2 && finalHistory.length > 0 && (() => {
-                const players = multiplayerState?.gameData?.players || [];
-                const teamOf = {};
-                players.forEach(p => { teamOf[p.id] = p.team; });
-                const myTeam = players.find(p => p.id === multiplayerState?.gameData?.myId)?.team || 'a';
+              {/* Team round breakdown: team best (drives the HP damage) plus
+                  every member's own guess — grouped your-team vs enemy, any
+                  team size. Round rows keep the 1v1 affordances (map focus on
+                  click, time, open-in-maps). */}
+              {isTeamGame && finalHistory.length > 0 && (() => {
                 const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+                const membersOf = (team) => gamePlayers.filter(p => teamOf[p.id] === team);
+                const myId = multiplayerState?.gameData?.myId;
+
+                // Cumulative parties: the round's team score comes from the
+                // server (roundHistory.teamRoundScores) — 'average' is not
+                // reconstructable client-side (denominator = roster at scoring
+                // time). Fallbacks: best-of for 'closest', an approximate mean
+                // over the recorded round players for 'average'.
+                const cumulativeRoundScore = (round, team, computedBest) => {
+                  const stored = round.teamRoundScores?.[team];
+                  if (typeof stored === 'number') return stored;
+                  if (teamScoring !== 'average') return computedBest;
+                  const members = Object.entries(round.players || {}).filter(([id]) => teamOf[id] === team);
+                  if (!members.length) return 0;
+                  return Math.round(members.reduce((sum, [, p]) => sum + (p?.points || 0), 0) / members.length);
+                };
+
+                // Team column: the team's counting score, plus the best
+                // guesser's name where a single guess counted (closest/2v2 —
+                // under 'average' no one guess "won" the round, so no name).
+                // 2v2 keeps its damage hearts; cumulative shows +pts instead.
+                // Per-player detail lives behind the Final Scores rows
+                // (click to expand + map filter), not here.
+                const renderTeamColumn = (round, team, label, best, dmg) => {
+                  const namesBest = !(isCumulativeTeam && teamScoring === 'average');
+                  const bestPlayer = namesBest && best > 0
+                    ? membersOf(team).find(p => (round.players?.[p.id]?.points || 0) === best)
+                    : null;
+                  const displayScore = isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best;
+                  return (
+                    <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                      <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{label}</span>
+                      {bestPlayer && (
+                        <span style={{ fontSize: '0.8em', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {bestPlayer.username}
+                          </span>
+                          {bestPlayer.countryCode && <CountryFlag countryCode={bestPlayer.countryCode} style={{ fontSize: '1em' }} />}
+                          {bestPlayer.id === myId && !options?.isModView && <span style={{ fontStyle: 'italic', opacity: 0.7 }}>({text("you")})</span>}
+                        </span>
+                      )}
+                      <span className="score-points" style={{ color: getPointsColor(displayScore), fontWeight: 'bold' }}>
+                        {isCumulativeTeam ? text("teamRoundPoints", { pts: displayScore }) : `${displayScore} ${text("pts")}`}
+                      </span>
+                      {!isCumulativeTeam && dmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{dmg} ❤️</span>}
+                    </div>
+                  );
+                };
+
                 return (
                   <>
                     <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
@@ -1152,6 +1312,7 @@ const GameSummary = ({
                       });
                       const myDmg = myBest < enemyBest ? enemyBest - myBest : 0;
                       const enemyDmg = enemyBest < myBest ? myBest - enemyBest : 0;
+                      const myTime = round.players?.[myId]?.timeTaken;
                       return (
                         <div
                           key={index}
@@ -1161,20 +1322,62 @@ const GameSummary = ({
                         >
                           <div className="round-header">
                             <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {myTime > 0 && (
+                                <span className="round-points" style={{ color: 'white' }}>
+                                  ⏱️ {formatTime(myTime)}
+                                </span>
+                              )}
+                              {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
+                                <button
+                                  className="gmaps-icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openInGoogleMaps(round.lat, round.long, round.panoId);
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    padding: '2px',
+                                    borderRadius: '3px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    color: 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '20px',
+                                    height: '20px',
+                                    transition: 'background-color 0.2s'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                                  onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                                  title={text("openInMaps")}
+                                >
+                                  📍
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="round-details">
+                            {/* Cumulative parties keep stable Team 1/Team 2 identities (matching
+                                the lobby, scorebar and Final Scores); 2v2 keeps your/enemy. */}
                             <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                              <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("yourTeam")}</span>
-                                <span className="score-points" style={{ color: getPointsColor(myBest), fontWeight: 'bold' }}>{myBest} {text("pts")}</span>
-                                {myDmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{myDmg} ❤️</span>}
-                              </div>
-                              <div className="vs-divider" style={{ padding: '0 16px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9em' }}>{text("vs")}</div>
-                              <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                <span className="player-name" style={{ fontSize: '0.9em' }}>{text("enemyTeam")}</span>
-                                <span className="score-points" style={{ color: getPointsColor(enemyBest), fontWeight: 'bold' }}>{enemyBest} {text("pts")}</span>
-                                {enemyDmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{enemyDmg} ❤️</span>}
-                              </div>
+                              {isCumulativeTeam ? (
+                                <>
+                                  {renderTeamColumn(round, 'a', `${text("team1")}${myTeam === 'a' ? ` (${text("you")})` : ''}`, myTeam === 'a' ? myBest : enemyBest, 0)}
+                                  {/* Hidden when expanded on mobile — mirrors the 1v1 breakdown's space-saving rule. */}
+                                  {!mobileExpanded && <div className="vs-divider" style={{ padding: '0 16px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9em', alignSelf: 'center' }}>{text("vs")}</div>}
+                                  {renderTeamColumn(round, 'b', `${text("team2")}${myTeam === 'b' ? ` (${text("you")})` : ''}`, myTeam === 'b' ? myBest : enemyBest, 0)}
+                                </>
+                              ) : (
+                                <>
+                                  {renderTeamColumn(round, myTeam, text("yourTeam"), myBest, myDmg)}
+                                  {!mobileExpanded && <div className="vs-divider" style={{ padding: '0 16px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9em', alignSelf: 'center' }}>{text("vs")}</div>}
+                                  {renderTeamColumn(round, enemyTeam, text("enemyTeam"), enemyBest, enemyDmg)}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1185,7 +1388,7 @@ const GameSummary = ({
               })()}
 
               {/* For ranked duels with 2 players */}
-              {multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2 && finalHistory.length > 0 && (
+              {multiplayerState?.gameData?.duel && !isTeamGame && finalHistory.length > 0 && (
                 <>
                   <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
                   {finalHistory.map((round, index) => {
@@ -1468,7 +1671,6 @@ const GameSummary = ({
                       }
                     }
 
-                    const playerColor = getPlayerColor(playerId, false);
                     const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>

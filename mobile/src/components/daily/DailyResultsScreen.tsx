@@ -16,7 +16,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { withTiming, withRepeat, withSequence } from './anims';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,7 @@ import ScoreDistributionChart from './ScoreDistributionChart';
 import StreakFlameBurst from './StreakFlameBurst';
 import { dailyColors } from './styles';
 import { MAX_PER_ROUND, TOTAL_MAX } from '@shared/daily/constants';
+import { derivePercentile } from '@shared/daily/percentile';
 
 interface Round {
   score: number;
@@ -117,9 +118,7 @@ export default function DailyResultsScreen({
   const percentile =
     typeof submitResponse?.percentile === 'number'
       ? submitResponse.percentile
-      : typeof rank === 'number' && totalPlays > 1
-      ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
-      : null;
+      : derivePercentile(rank, totalPlays);
   const [displayPercentile] = useAnimatedNumber(percentile ?? 0);
 
   const [shareCopied, setShareCopied] = useState(false);

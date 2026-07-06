@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import config from '@/clientConfig';
 import { getClientLocalDate } from '@/utils/dailyDate';
-import { readDailyStatus, writeDailyStatus, readDailyTop10, writeDailyTop10 } from '@/utils/dailyStatusCache';
+import { readDailyStatus, writeDailyStatus, readDailyDistribution, writeDailyDistribution } from '@/utils/dailyStatusCache';
 import { ensureGuestId, getGuestId } from '@/utils/guestId';
 import { claimGuestProgressIfAny } from '@/utils/claimGuestProgress';
 
@@ -15,19 +15,27 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
   const apiUrl = apiUrlRef.current || '';
 
   const [date] = useState(() => dateOverride || getClientLocalDate());
+  // Identity that owns any cached daily block — the logged-in secret, else the
+  // guest id. Reads/writes of the per-date status cache are scoped to this so a
+  // different account on a SHARED browser never reads the previous user's
+  // cached name/streak/score (the cache key is per-date and sign-out doesn't
+  // clear it). The shared distribution cache is intentionally NOT scoped.
+  const cacheOwner = typeof window === 'undefined'
+    ? null
+    : (session?.token?.secret || getGuestId() || null);
   const [locationData, setLocationData] = useState(null);
   const [locationError, setLocationError] = useState(null);
   // Seed results with whatever we cached last time for this date so the UI
-  // renders instantly — we still refresh from the API on mount. Top-10 is
-  // cached separately so the landing leaderboard doesn't flash the
-  // "no winners yet" empty state while the API is in flight.
+  // renders instantly — we still refresh from the API on mount. The
+  // distribution is cached separately so the landing's "How you compare"
+  // chart doesn't flash the empty state while the API is in flight.
   const [results, setResults] = useState(() => {
     if (typeof window === 'undefined') return null;
     const effectiveDate = dateOverride || getClientLocalDate();
-    const cachedUser = readDailyStatus(effectiveDate);
-    const cachedTop10 = readDailyTop10(effectiveDate);
-    if (!cachedUser && cachedTop10.length === 0) return null;
-    return { user: cachedUser || null, top10: cachedTop10, fromCache: true };
+    const cachedUser = readDailyStatus(effectiveDate, cacheOwner);
+    const cachedDistribution = readDailyDistribution(effectiveDate);
+    if (!cachedUser && !cachedDistribution) return null;
+    return { user: cachedUser || null, distribution: cachedDistribution, fromCache: true };
   });
   const [resultsError, setResultsError] = useState(null);
   // Default loading=true on a cold mount (no cached data) so the consumer can
@@ -36,7 +44,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
   const [loadingResults, setLoadingResults] = useState(() => {
     if (typeof window === 'undefined') return true;
     const effectiveDate = dateOverride || getClientLocalDate();
-    return !readDailyStatus(effectiveDate) && readDailyTop10(effectiveDate).length === 0;
+    return !readDailyStatus(effectiveDate, cacheOwner) && !readDailyDistribution(effectiveDate);
   });
 
   const secret = session?.token?.secret;
@@ -71,8 +79,8 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setResults(data);
-      if (data?.user) writeDailyStatus(date, data.user);
-      if (Array.isArray(data?.top10)) writeDailyTop10(date, data.top10);
+      if (data?.user) writeDailyStatus(date, data.user, secret || guestId || null);
+      if (data?.distribution) writeDailyDistribution(date, data.distribution);
       return data;
     } catch (err) {
       setResultsError(err);

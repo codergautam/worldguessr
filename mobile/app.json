@@ -21,13 +21,9 @@
         "applinks:worldguessr.com",
         "applinks:www.worldguessr.com"
       ],
-      "config": {
-        "googleMapsApiKey": "AIzaSyCi1DtoToWaVOV77VPCyYO9mzncnLS5Kk0"
-      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-        "NSLocationWhenInUseUsageDescription": "WorldGuessr does not track your location. This permission is only referenced by the map components used to display in-game maps.",
+        "NSUserTrackingUsageDescription": "Help us deliver a better personalized ad experience to you.",
         "FIREBASE_ANALYTICS_COLLECTION_ENABLED": true,
         "CFBundleURLTypes": [
           {
@@ -109,11 +105,6 @@
           ]
         }
       ],
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_ANDROID_API_KEY"
-        }
-      },
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -131,7 +122,7 @@
         {
           "androidAppId": "ca-app-pub-3340825671684972~3527086275",
           "iosAppId": "ca-app-pub-3340825671684972~7929582209",
-          "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you."
+          "userTrackingUsageDescription": "Help us deliver a better personalized ad experience to you."
         }
       ],
       "@react-native-firebase/app",
@@ -153,9 +144,10 @@
       [
         "expo-tracking-transparency",
         {
-          "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
+          "userTrackingPermission": "Help us deliver a better personalized ad experience to you."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

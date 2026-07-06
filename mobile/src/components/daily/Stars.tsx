@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { dailyColors } from './styles';
 
 // Uses React Native's CORE Animated (not Reanimated) on purpose: it ignores the

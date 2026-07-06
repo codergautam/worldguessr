@@ -4,10 +4,10 @@ import { getClientLocalDate } from './dailyDate';
 import {
   readDailyStatus,
   writeDailyStatus,
-  readDailyTop10,
-  writeDailyTop10,
+  readDailyDistribution,
+  writeDailyDistribution,
   type DailyUserCache,
-  type DailyTop10Entry,
+  type DailyDistributionCache,
 } from './dailyStatusCache';
 import { ensureGuestId, getGuestId } from './guestId';
 import { claimGuestProgressIfAny } from './claimGuestProgress';
@@ -42,15 +42,19 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [cachedUser, cachedTop10, gid] = await Promise.all([
-        readDailyStatus(date),
-        readDailyTop10(date),
-        secret ? getGuestId() : ensureGuestId(),
+      const gid = secret ? await getGuestId() : await ensureGuestId();
+      // Scope the cached status read to this identity (secret, else guestId) so
+      // a different account on a shared device never reads the previous user's
+      // cached name/streak/score. See dailyStatusCache.ts.
+      const owner = secret ?? gid ?? null;
+      const [cachedUser, cachedDistribution] = await Promise.all([
+        readDailyStatus(date, owner),
+        readDailyDistribution(date),
       ]);
       if (cancelled) return;
       setGuestId(gid);
-      if (cachedUser || cachedTop10.length > 0) {
-        setResults({ date, user: cachedUser ?? undefined, top10: cachedTop10 } as ResultsData);
+      if (cachedUser || cachedDistribution) {
+        setResults({ date, user: cachedUser ?? undefined, distribution: cachedDistribution ?? undefined } as ResultsData);
         setLoadingResults(false);
       }
     })();
@@ -86,8 +90,8 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
       const gid = guestId ?? (await getGuestId());
       const data = await api.dailyChallenge.results(date, secret ?? undefined, gid ?? undefined);
       setResults(data);
-      if (data?.user) await writeDailyStatus(date, data.user as DailyUserCache);
-      if (Array.isArray(data?.top10)) await writeDailyTop10(date, data.top10 as DailyTop10Entry[]);
+      if (data?.user) await writeDailyStatus(date, data.user as DailyUserCache, secret ?? gid ?? null);
+      if (data?.distribution) await writeDailyDistribution(date, data.distribution as DailyDistributionCache);
       return data;
     } catch (err) {
       setResultsError(err as Error);

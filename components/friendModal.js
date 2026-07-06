@@ -1,42 +1,37 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from '@/components/useTranslations';
+import { timeAgo } from '@/shared/time/timeAgo';
+import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
 
-export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
+export default function FriendsModal({ shown, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
 
     const [friendReqSendingState, setFriendReqSendingState] = useState(0);
 
     const [friendReqProgress, setFriendReqProgress] = useState(false);
-    const [allowFriendReq, setAllowFriendReq] = useState(false);
 
     const [newFriend, setNewFriend] = useState('');
     //const [accountModalPage, setAccountModalPage] = useState('list');
     const { t: text } = useTranslation("common");
     const messageTimeoutRef = useRef(null);
 
+    // Ride the provider's single parsed-message stream instead of a raw ws
+    // listener (which re-parsed every message a second time).
+    const { subscribeMessages } = useMultiplayer();
     useEffect(() => {
-        if (!ws) return;
-        function onMessage(event) {
-            const data = JSON.parse(event.data);
+        const unsubscribe = subscribeMessages((data) => {
             if (data.type === 'friends') {
                 setFriends(data.friends);
                 setSentRequests(data.sentRequests);
                 setReceivedRequests(data.receivedRequests);
-                setAllowFriendReq(data.allowFriendReq);
             }
             if (data.type === 'friendReqState') {
                 setFriendReqSendingState(data.state);
                 setFriendReqProgress(false);
                 setNewFriend('');
             }
-        }
-
-        ws.addEventListener('message', onMessage);
-
-        return () => {
-            ws.removeEventListener('message', onMessage);
-        }
-
-    }, [ws]);
+        });
+        return unsubscribe;
+    }, [subscribeMessages]);
 
     useEffect(() => {
         if (friendReqSendingState > 0) {
@@ -117,11 +112,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
             height: '100%',
 
 
-        }} className={
-
-            'friendsModal'
-
-        } open={shown} center onClose={onClose}>
+        }} className="friendsModal">
 
             {ws && ws.readyState !== 1 && (
                 <div>{text("disconnected")}</div>
@@ -164,17 +155,8 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                             </span>
                         </div>
 
-                        {/* Friend Request Settings */}
-                        <div style={{ marginBottom: '30px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
-                            <div style={{ marginBottom: '15px' }}>
-                                <span>
-                                    {text("allowFriendRequests")}&nbsp;
-                                    <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
-                                </span>
-                            </div>
-                        </div>
-
                         {/* Received Requests Section */}
+                        {/* (allow-friend-requests toggle moved to Account Settings in settingsModal) */}
                         {receivedRequests.length > 0 && (
                             <div style={{ marginBottom: '30px' }}>
                                 <h3>{text("viewReceivedRequests", { cnt: receivedRequests.length })}</h3>
@@ -187,7 +169,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                                     {friend?.supporter && <span className="badge">{text("supporter")}</span>}
                                                 </span>
                                             </div>
-                                            <div style={{ float: 'right' }}>
+                                            <div>
                                                 <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>
                                                 <button onClick={() => handleDecline(friend.id)} className={"decline-button"}>✖</button>
                                             </div>
@@ -224,16 +206,29 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                 <div>{text("noFriends")}</div>
                             )}
                             <div className="friends-list">
-                                {friends.sort((a, b) => b.online - a.online).map(friend => (
+                                {/* online first, then most recently seen; null lastSeen
+                                    (hidden / unknown) sinks to the bottom */}
+                                {[...friends].sort((a, b) =>
+                                    (b.online - a.online) || ((b.lastSeen || 0) - (a.lastSeen || 0))
+                                ).map(friend => (
                                     <div key={friend.id} className="friend-card">
                                         <div className="friend-details">
                                             <span className="friend-name">
                                                 {friend?.name}
                                                 {friend?.supporter && <span className="badge">{text("supporter")}</span>}
                                             </span>
-                                            <span className="friend-state">{friend?.online ? text("online") : text("offline")}</span>
+                                            <span className="friend-state">
+                                                {friend?.online
+                                                    ? text("online")
+                                                    : friend?.lastSeen
+                                                        // 🔴 dot only — "Last seen …" already implies offline,
+                                                        // the word would be redundant. Plain "Offline" only when
+                                                        // there's no timestamp (hideLastSeen / no stored presence).
+                                                        ? `🔴 ${text("lastSeen")} ${timeAgo(text, friend.lastSeen)}`
+                                                        : text("offline")}
+                                            </span>
                                         </div>
-                                        <div style={{ float: 'right' }}>
+                                        <div>
                                             {canSendInvite && friend.online && friend.socketId && (
                                                 <button onClick={() => sendInvite(friend.socketId)} className={"invite-button"}>{text("invite")}</button>
                                             )}

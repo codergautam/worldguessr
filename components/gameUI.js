@@ -22,8 +22,42 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import TeamScorebar from "./teamScorebar";
+import deriveTeamEndFallback from "./utils/teamDuelEndFallback";
+import getMyTeam from "./utils/getMyTeam";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
+
+// Shared scaffold for the duel HP bars + 5s "VS" intro — one source for the
+// layout so intro tweaks (spacing, timing, a11y) can't drift between the 1v1
+// and team-duel blocks, which previously each carried a near-identical copy.
+function DuelIntroBars({ isStartingDuel, countdown, leftBar, rightBar }) {
+  return (
+    <div className={isStartingDuel ? 'hb-parent' : ''}>
+      <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
+        <div style={{ zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none' }}
+          className={isStartingDuel ? 'hb-start1' : ''}>
+          {leftBar}
+        </div>
+
+        {isStartingDuel && (
+          <p style={{ zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            VS
+          </p>
+        )}
+
+        <div style={{ zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none' }}
+          className={isStartingDuel ? 'hb-start2' : ''}>
+          {rightBar}
+        </div>
+      </div>
+
+      <p style={{ zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
+        {countdown}
+      </p>
+    </div>
+  );
+}
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
@@ -300,19 +334,26 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   // Once shown, stay shown until getready ends (don't depend on timer for hiding)
   useEffect(() => {
-    if (inGetready && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && !showLeaderboard) {
-      // Delayed appearance: only show in last 5s of getready
-      if (leaderboardFadeInFrameRef.current) {
-        cancelAnimationFrame(leaderboardFadeInFrameRef.current);
-      }
-      setLeaderboardVisible(false);
-      setShowLeaderboard(true);
+    if (!inGetready || !(timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5)) return;
+    // Covers both fresh mounts and the recovery case where a rapid
+    // getready→x→getready flip left the list mounted but faded out.
+    if (showLeaderboard && leaderboardVisible) return;
+    if (leaderboardFadeInFrameRef.current) {
+      cancelAnimationFrame(leaderboardFadeInFrameRef.current);
+    }
+    setLeaderboardVisible(false);
+    setShowLeaderboard(true);
+    // Double rAF: a single frame does not guarantee the browser PAINTS the
+    // opacity-0 state before the shown class lands — both commits collapse
+    // into one paint and the list pops in with no fade. The second frame
+    // forces a real paint of the start state so the 500ms transition runs.
+    leaderboardFadeInFrameRef.current = requestAnimationFrame(() => {
       leaderboardFadeInFrameRef.current = requestAnimationFrame(() => {
         setLeaderboardVisible(true);
         leaderboardFadeInFrameRef.current = null;
       });
-    }
-  }, [inGetready, timeToNextMultiplayerEvt, showLeaderboard]);
+    });
+  }, [inGetready, timeToNextMultiplayerEvt, showLeaderboard, leaderboardVisible]);
 
   useEffect(() => {
     if (!inGetready && showLeaderboard) {
@@ -652,6 +693,42 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
+
+  // Guess + hint pair, shared by the desktop minimap and the mobile expanded
+  // minimap — one source so the waiting-count logic can't drift between them.
+  function renderGuessHintBtns() {
+    const gd = multiplayerState?.gameData;
+    const players = gd?.players;
+    const myId = gd?.myId;
+    const iAmFinal = !!(multiplayerState?.inGame
+      && players?.find(p => p.id === myId)?.final);
+    // How many players haven't locked in yet ("Waiting for N players…").
+    const notFinalCount = players?.reduce((acc, cur) => cur.final ? acc - 1 : acc, players?.length ?? 0) ?? 0;
+
+    // Team modes: split the wait by allegiance — a teammate blocking the
+    // team's score is a different message than opponents taking their time.
+    // Long-gone teammates don't hold the label (mirrors holdsRounds).
+    const teamMode = !!(gd?.team2v2 || gd?.teamGame);
+    const myTeam = teamMode ? getMyTeam(players, myId) : null;
+    const mates = myTeam ? (players || []).filter(p => p.id !== myId && p.team === myTeam) : [];
+    const matesWaiting = mates.filter(p => !p.final && !p.disconnected).length;
+    const waitingLabel = myTeam == null
+      ? (notFinalCount > 0 ? `${text("waitingForPlayers", { p: notFinalCount })}...` : `${text("waiting")}...`)
+      : matesWaiting > 0
+        ? `${matesWaiting === 1 ? text("waitingForTeammate") : text("waitingForTeammates", { p: matesWaiting })}...`
+        : notFinalCount > 0 ? `${text("waitingForOpponents")}...` : `${text("waiting")}...`;
+
+    return (
+      <>
+        <button className={`miniMap__btn ${!pinPoint || iAmFinal ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint || iAmFinal} onClick={guess}>
+          {iAmFinal ? waitingLabel : text("guess")}
+        </button>
+        {!multiplayerState?.inGame && (
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? { display: 'none' } : {}} onClick={showHint}>{text('hint')}</button>
+        )}
+      </>
+    );
+  }
   useEffect(() => {
     if (dailyMode) return;
     loadLocation()
@@ -819,103 +896,83 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 )}
 
 
-{ multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state !== 'end' && (
-  <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
-    <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
-  <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
-  className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
-<HealthBar health={
-// get your points from the game state
-multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.score
-
-} maxHealth={5000} name={
-// get your name from the game state
-text("you")
-}
-isStartingDuel={isStartingDuel}
-elo={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.elo}
-countryCode={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.countryCode}
-start={isStartingDuel} />
-</div>
-
-
-{ isStartingDuel && (
-  <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none' }}>
-    VS
-  </p>
-) }
-
-<div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
-className={isStartingDuel ? 'hb-start2' : ''}>
-<HealthBar health={
-// get your points from the game state
-multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.score
-
-} maxHealth={5000}
-isStartingDuel={isStartingDuel}
-name={
-// get your name from the game state
-multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
-}
-elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo}
-countryCode={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.countryCode}
-start={true || isStartingDuel} isOpponent={true} />
-</div>
-</div>
-
-<p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
-{timeToNextMultiplayerEvt}
-
-</p>
-</div>
-)}
+{ multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state !== 'end' && (() => {
+  const players = multiplayerState?.gameData?.players || [];
+  const myId = multiplayerState?.gameData?.myId;
+  const me = players.find(p => p.id === myId);
+  const opponent = players.find(p => p.id !== myId);
+  return (
+    <DuelIntroBars isStartingDuel={isStartingDuel} countdown={timeToNextMultiplayerEvt}
+      leftBar={
+        <HealthBar health={me?.score} maxHealth={5000} name={text("you")}
+          isStartingDuel={isStartingDuel} elo={me?.elo} countryCode={me?.countryCode} />
+      }
+      rightBar={
+        <HealthBar health={opponent?.score} maxHealth={5000} name={opponent?.username}
+          isStartingDuel={isStartingDuel} elo={opponent?.elo} countryCode={opponent?.countryCode}
+          isOpponent={true} disconnected={!!opponent?.disconnected}
+          hasProfile={!!opponent?.accountId} />
+      }
+    />
+  );
+})()}
 
 {/* 2v2 team health bars: one shared bar per team (your team vs enemy team) */}
 { multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state !== 'end' && (() => {
   const players = multiplayerState?.gameData?.players || [];
   const myId = multiplayerState?.gameData?.myId;
-  const me = players.find(p => p.id === myId);
-  const myTeam = me?.team || 'a';
+  // No silent 'a' default (it swapped Your/Enemy bars on a roster lookup
+  // miss) — skip the frame instead; the next snapshot re-orients us.
+  const myTeam = getMyTeam(players, myId);
+  if (!myTeam) return null;
   const enemyTeam = myTeam === 'a' ? 'b' : 'a';
   const teamScores = multiplayerState?.gameData?.teamScores || { a: 5000, b: 5000 };
-  const myNames = players.filter(p => p.team === myTeam).map(p => p.id === myId ? text("you") : p.username).join(' & ');
-  const enemyNames = players.filter(p => p.team === enemyTeam).map(p => p.username).join(' & ');
+  // Arrays of {name, countryCode, …}, not joined strings — HealthBar stacks
+  // one name per line (with flag, profile link, disconnect marker) for small
+  // teams and collapses 4+ into the team label with hover/tap expansion.
+  const nameEntry = (p) => ({
+    name: p.id === myId ? text("you") : p.username,
+    username: p.username,
+    isMe: p.id === myId,
+    // Guests have no /user page — accountId (absent for guests) gates the
+    // profile link so their names never render as dead links.
+    hasProfile: !!p.accountId,
+    countryCode: p.countryCode || null,
+    disconnected: !!p.disconnected,
+  });
+  const myNames = players.filter(p => p.team === myTeam)
+    .sort((a, b) => (b.id === myId) - (a.id === myId))
+    .map(nameEntry);
+  const enemyNames = players.filter(p => p.team === enemyTeam).map(nameEntry);
   return (
-  <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
-    <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
-      <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
-        className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
-        <HealthBar
-          health={teamScores[myTeam]}
-          maxHealth={5000}
-          name={myNames || text("yourTeam")}
-          isStartingDuel={isStartingDuel}
-          start={isStartingDuel} />
-      </div>
-
-      { isStartingDuel && (
-        <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          VS
-        </p>
-      ) }
-
-      <div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
-        className={isStartingDuel ? 'hb-start2' : ''}>
-        <HealthBar
-          health={teamScores[enemyTeam]}
-          maxHealth={5000}
-          isStartingDuel={isStartingDuel}
-          name={enemyNames || text("enemyTeam")}
-          start={true || isStartingDuel} isOpponent={true} />
-      </div>
-    </div>
-
-    <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
-      {timeToNextMultiplayerEvt}
-    </p>
-  </div>
+    <DuelIntroBars isStartingDuel={isStartingDuel} countdown={timeToNextMultiplayerEvt}
+      leftBar={
+        <HealthBar health={teamScores[myTeam]} maxHealth={5000} name={text("yourTeam")}
+          names={myNames.length ? myNames : null}
+          isStartingDuel={isStartingDuel} />
+      }
+      rightBar={
+        <HealthBar health={teamScores[enemyTeam]} maxHealth={5000} name={text("enemyTeam")}
+          names={enemyNames.length ? enemyNames : null}
+          isStartingDuel={isStartingDuel} isOpponent={true} />
+      }
+    />
   );
 })()}
+
+{/* Party team mode: cumulative team totals (NOT the 2v2 HP bars above).
+    Hidden during round-1 getready so it doesn't fight the centered
+    "game starting in" banner, and while the between-rounds leaderboard is
+    up — its fullscreen team hero shows the SAME totals bigger (with round
+    deltas), so the pinned bar would duplicate it and collide with it on
+    top of the dark overlay whenever the hero lands near the top
+    (safe-center overflow on tall rosters / short viewports). */}
+{ multiplayerState?.inGame && multiplayerState?.gameData?.teamGame && !multiplayerState?.gameData?.team2v2
+  && multiplayerState?.gameData?.state !== 'end'
+  && !leaderboardVisible
+  && !(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1) && (
+  <TeamScorebar gameData={multiplayerState.gameData} />
+)}
 
 {/* Duel Anti-Cheat Warning */}
 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && isStartingDuel && (
@@ -989,30 +1046,12 @@ session={session}/>
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
-          <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
-           {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length) > 0 ? `${text("waitingForPlayers", {p:multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length)})}...` : `${text("waiting")}...` : text("guess")}
-            </button>
-
-          { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
-          )}
+          {renderGuessHintBtns()}
         </div>
       </div>
 
       <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done||onboarding?.completed) ? 'answerShownBtns' : ''}`}>
-        {miniMapShown && (
-          <>
-            {/* guess and hint  */}
-
-            <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
-           {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length) > 0 ? `${text("waitingForPlayers", {p: multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length)})}...` :  `${text("waiting")}...` : text("guess")}
-            </button>
-
-          { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
-          )}
-          </>
-        )}
+        {miniMapShown && renderGuessHintBtns()}
         {!loading && !welcomeOverlayShown && (
           <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
             setMiniMapShown(!miniMapShown)
@@ -1084,9 +1123,17 @@ session={session}/>
       </span>
       )}
 
-      {/* Non-duel multiplayer timer — two line style */}
+      {/* Non-duel multiplayer timer — two line style. timer--with-scorebar:
+          in team parties the mobile timer stacks under the top-center
+          scorebar instead of colliding with it (CSS ≤830px tier). Applied
+          only while the scorebar is actually rendered — during the
+          between-rounds leaderboard the scorebar yields to the fullscreen
+          team hero, so the timer returns to its right-anchored spot.
+          Skipped in CrazyGames: its 320x50 gameui ad rides .moreDown to
+          top:100 on narrow screens, which is exactly where the centered
+          stacked timer would land — CG keeps the right-anchored spot. */}
       {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
-      <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+      <span className={`timer timer--two-line ${multiplayerState?.gameData?.teamGame && !leaderboardVisible && !inCrazyGames ? 'timer--with-scorebar' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
         <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
@@ -1131,16 +1178,12 @@ session={session}/>
 
 
         {showLeaderboard && (
-          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} inCrazyGames={inCrazyGames} playAgain={() => {
-            backBtnPressed(true, "unranked")
-          }} backBtn={() => {
-            backBtnPressed()
-          }} />
+          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} />
         )}
 
 
         {/* Private game over screen */}
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.teamGame && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
             history={multiplayerState?.gameData?.history || []}
             duel={false}
@@ -1157,18 +1200,27 @@ session={session}/>
           />
         )}
 
-        {/* Duel game over screen */}
-        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
+        {/* PRIVATE duel / team-party game over screen. Team parties get the
+            duel presentation (Victory/Defeat headline); if the duelEnd message
+            was missed (reconnect into end), derive a fallback from teamScores
+            so this screen can never fail to render. PUBLIC matchmade duels
+            (ranked 1v1 + 2v2) are owned by home.js's overlay, which carries
+            the requeue/rematch actions — rendering both stacks two screens. */}
+        {multiplayerState && multiplayerState.inGame && (multiplayerState?.gameData?.duel || multiplayerState?.gameData?.teamGame) && !multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
             history={multiplayerState?.gameData?.history || []}
             duel={true}
-            data={multiplayerState?.gameData?.duelEnd}
+            data={multiplayerState?.gameData?.duelEnd ?? deriveTeamEndFallback(multiplayerState?.gameData)}
             multiplayerState={multiplayerState}
             gameId={multiplayerState?.gameData?.code}
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
             button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "ranked") : null}
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
             button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
+            teamActions={multiplayerState?.gameData?.team2v2 ? {
+              playAgain: () => { try { ws.send(JSON.stringify({ type: 'playAgain2v2' })); } catch (e) {} },
+              back: () => { try { ws.send(JSON.stringify({ type: 'teamDuelBack' })); } catch (e) {} }
+            } : null}
             session={session}
             options={options}
           />

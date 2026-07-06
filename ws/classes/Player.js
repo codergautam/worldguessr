@@ -18,7 +18,6 @@ export default class Player {
     this.gameId = null;
     this.inQueue = false;
     this.lastMessage = 0;
-    this.lastPong = Date.now(); // Track the last pong received time
     this.verified = false;
     this.supporter = false;
     this.screen = "home";
@@ -28,8 +27,13 @@ export default class Player {
     this.sentReq = [];
     this.receivedReq = [];
     this.allowFriendReq = true;
+    this.hideLastSeen = false;
 
     this.platform = "empty";
+    // Client announced team capability in verify. Pre-rollout web bundles and
+    // the mobile app never send the flag, which is what locks them out of
+    // team parties / 2v2 duels while those features roll out.
+    this.teamSupport = false;
 
     this.disconnected = false;
     this.disconnectTime =0;
@@ -49,7 +53,6 @@ export default class Player {
       inQueue: false,
       lastMessage: this.lastMessage,
       verified: this.verified,
-      lastPong: this.lastPong,
       supporter: this.supporter,
       screen: this.screen,
       friends: this.friends,
@@ -63,6 +66,7 @@ export default class Player {
       league: this.league,
       banned: this.banned,
       platform: this.platform,
+      teamSupport: this.teamSupport,
     }
   }
 
@@ -92,6 +96,14 @@ export default class Player {
     // Track client platform (max 20 chars, default "empty")
     if (typeof json.platform === 'string' && json.platform.length <= 20) {
       this.platform = json.platform;
+    }
+
+    // Monotonic within a session: home.js fires a second verify (session
+    // effect) without the flag — that must not demote a client that already
+    // announced support. Cross-client demotion happens via the reconnect
+    // re-stamp below instead.
+    if (json.teamSupport === true) {
+      this.teamSupport = true;
     }
 
     const handleReconnect = async (dcPlayerId, rejoinCode, accountId = null) => {
@@ -140,6 +152,11 @@ export default class Player {
       dcPlayer.disconnectTime = 0;
       dcPlayer.ip = this.ip;
       dcPlayer.platform = this.platform;
+      // Re-stamp capability from the CURRENT socket's verify: the same rejoin
+      // code can come back from a different bundle (e.g. a stale cached tab
+      // reopening after a deploy), and the reused Player must describe the
+      // client that is actually attached now.
+      dcPlayer.teamSupport = this.teamSupport;
 
 
       dcPlayer.send({
@@ -152,13 +169,21 @@ export default class Player {
 
 
       if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
+        const game = games.get(dcPlayer.gameId);
         if (json.skipRejoin) {
           // Leave old game instead of rejoining (e.g. joining via party link)
-          const game = games.get(dcPlayer.gameId);
           game.removePlayer(dcPlayer, true);
+        } else if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !this.teamSupport) {
+          // A pre-team client reconnecting into a team surface it can't render
+          // (stale cached bundle after the rollout deploy, or a pre-unification
+          // 2v2 tab surviving a server restart): eject instead of rejoin.
+          // removePlayer's gameShutdown tears down any still-mounted game UI;
+          // the sentence-as-key toast reads verbatim on clients whose locale
+          // tables predate the rollout (their t() falls back to the key).
+          game.removePlayer(dcPlayer);
+          dcPlayer.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
         } else {
           // reconnect to game
-          const game = games.get(dcPlayer.gameId);
           game.rejoinGame(dcPlayer);
           dcPlayer.send({
             type: 'toast',
@@ -305,8 +330,9 @@ export default class Player {
             c: getActivePlayerCount()
           })
 
-          // Always update lastLogin on verify
-          const updateFields = { lastLogin: Date.now() };
+          // Always update lastLogin on verify (lastSeen too — the disconnect
+          // handler keeps it fresh afterwards, this covers crash-without-close)
+          const updateFields = { lastLogin: Date.now(), lastSeen: Date.now() };
           
           if (json.tz && isValidTimezone(json.tz)) {
             const existingTimeZone = valid.timeZone;
@@ -380,6 +406,7 @@ export default class Player {
           this.receivedReq = receivedReqWithNames;
 
           this.allowFriendReq = valid.allowFriendReq;
+          this.hideLastSeen = !!valid.hideLastSeen;
 
         } else {
           console.log('failed to login', json.secret);
@@ -425,22 +452,58 @@ export default class Player {
       this.screen = screen;
     }
   }
-  sendFriendData() {
+  // async (DB reads for last-seen), but every call site is fire-and-forget —
+  // the whole body is try/caught so a DB blip can never become an
+  // unhandledRejection.
+  async sendFriendData() {
   if(!this.accountId) {
     return;
   }
 
+  try {
   let friends = this.friends;
 
-  // check if online
+  // check if online — only a LIVE socket counts. Disconnected players linger
+  // in `players` for the ~30s rejoin grace window with disconnected=true and
+  // must not read as online (they can't receive invites either way).
   for(const f of friends) {
-    const player = Array.from(players.values()).find((p) => p.accountId === f.id);
+    const player = Array.from(players.values()).find((p) => p.accountId === f.id && !p.disconnected);
     if(player) {
       f.online = true;
       f.socketId = player.id;
     } else {
       f.online = false;
+      f.socketId = null;
     }
+  }
+
+  // "Offline · last seen X ago": read offline friends' lastSeen fresh from the
+  // DB — it's written on every disconnect (ws.js close) and verify, so it stays
+  // accurate no matter how long ago they left (the in-memory friend objects
+  // hydrated at OUR verify would go stale). Friends who opted out
+  // (hideLastSeen, profile setting) just read as plain offline — enforced here
+  // so their timestamp never leaves the server.
+  const offlineFriends = friends.filter((f) => !f.online);
+  if (offlineFriends.length > 0) {
+    // .lean() is load-bearing: hydration applies schema defaults, so a dormant
+    // user with no stored lastLogin would read as Date.now() and show
+    // "last seen just now". Lean returns only what's actually stored.
+    const docs = await User.find({ _id: { $in: offlineFriends.map((f) => f.id) } })
+      .select('lastSeen hideLastSeen lastLogin')
+      .lean();
+    const docById = new Map(docs.map((d) => [d._id.toString(), d]));
+    for (const f of offlineFriends) {
+      const doc = docById.get(f.id);
+      // Real presence stamps only: disconnect stamp → last session start.
+      // A user with neither just shows plain "Offline" — created_at is NOT a
+      // fallback (account age masquerading as presence would be a lie).
+      const seen = doc && !doc.hideLastSeen ? (doc.lastSeen || doc.lastLogin) : null;
+      f.lastSeen = seen ? new Date(seen).getTime() : null;
+    }
+  }
+  // online friends have nothing to show — never leave a stale value behind
+  for (const f of friends) {
+    if (f.online) f.lastSeen = null;
   }
 
   const data = {
@@ -448,9 +511,16 @@ export default class Player {
     friends,
     sentRequests: this.sentReq,
     receivedRequests: this.receivedReq,
-    allowFriendReq: this.allowFriendReq
+    // Own account-settings values: the authoritative echo the settings UIs
+    // reconcile against (in-memory copies only change AFTER a DB write sticks,
+    // and every set* attempt — accepted or rejected — triggers this push).
+    allowFriendReq: this.allowFriendReq,
+    hideLastSeen: this.hideLastSeen
   };
   this.send(data);
+  } catch (e) {
+    console.error('Error sending friend data', this.id, e?.message || e);
+  }
 }
 
 }

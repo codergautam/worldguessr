@@ -18,7 +18,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance, getPlayerColor } from '../../src/shared';
@@ -1809,7 +1809,7 @@ export default function GameScreen() {
             { lat: currentLocation.lat, long: currentLocation.long },
             gameState.maxDist,
             gameState.currentRound,
-            2_500_000, // cap so react-native-maps renders the circle (see daily HINT_MAX_RADIUS_M)
+            2_500_000, // Mercator-sane radius cap (see daily HINT_MAX_RADIUS_M)
           )
         : null;
     const countryCorrectAnswer =
