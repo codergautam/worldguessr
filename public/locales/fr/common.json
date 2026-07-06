@@ -33,7 +33,7 @@
   "skipTutorial": "Passer le tutoriel →",
   "whichCountry": "De quel pays s'agit-il ?",
   "whichContinent": "Quel continent ?",
-  "incorrectCountryWas": "C'était {{country}} !",
+  "incorrectCountryWas": "C'était {{country}}",
   "incorrectContinentWas": "C'était {{continent}} !",
   "correctCountryNice": "Correct! 🎉",
   "continentAfrica": "Afrique",

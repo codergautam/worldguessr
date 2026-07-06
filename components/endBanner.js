@@ -8,6 +8,7 @@ import { continentKey } from "./utils/continentLocale";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
 import { loadBorders } from "./utils/loadBorders";
 import getMyTeam from "./utils/getMyTeam";
+import CountryFlag from "./utils/countryFlag";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -318,6 +319,14 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const duelRevealCountry = damageHeadline && latLong?.country && latLong.country !== 'unknown'
         ? nameFromCode(latLong.country, lang)
         : null;
+    // Shared "It was {country}" + flag img reveal — HP-mode line, classic
+    // wrong-country headline, and country guesser all render the same thing.
+    const countryReveal = (name) => (
+        <>
+            {text("incorrectCountryWas", { country: name })}
+            <CountryFlag countryCode={latLong?.country} size={0.9} marginRight="0" style={{ marginLeft: '0.4em' }} />
+        </>
+    );
 
     return (
         <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
@@ -331,7 +340,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 {damageHeadline ? (
                     <>
                         {duelRevealCountry && (
-                            <span className='smallmainBannerTxt'>{text("incorrectCountryWas", { country: duelRevealCountry })}</span>
+                            <span className='smallmainBannerTxt'>{countryReveal(duelRevealCountry)}</span>
                         )}
                         <span className='mainBannerTxt'>
                             {damageHeadline.dmg > 0
@@ -345,9 +354,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     </>
                 ) : isClassicRound && wrongCountryName ? (
                     <>
-                        <span className='mainBannerTxt'>
-                            {text("incorrectCountryWas", { country: wrongCountryName })}
-                        </span>
+                        <span className='mainBannerTxt'>{countryReveal(wrongCountryName)}</span>
                         {distanceText && (
                             <span className='smallmainBannerTxt'>{classicDistanceLine}</span>
                         )}
@@ -362,7 +369,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             ? text("correctCountryNice")
                             : isContinentMode
                                 ? text("incorrectContinentWas", { continent: text(continentKey(continentFromCode(latLong?.country))) })
-                                : text("incorrectCountryWas", { country: nameFromCode(latLong?.country, lang) })
+                                : countryReveal(nameFromCode(latLong?.country, lang))
                     }</span>
                 ) : null}
 

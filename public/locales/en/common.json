@@ -14,7 +14,7 @@
   "skipTutorial": "Skip tutorial →",
   "whichCountry": "Which country is this?",
   "whichContinent": "Which continent?",
-  "incorrectCountryWas": "It was {{country}}!",
+  "incorrectCountryWas": "It was {{country}}",
   "incorrectContinentWas": "It was {{continent}}!",
   "correctCountryNice": "Correct! 🎉",
   "continentAfrica": "Africa",

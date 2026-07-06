@@ -33,7 +33,7 @@
   "skipTutorial": "Пропустить урок →",
   "whichCountry": "Какая это страна?",
   "whichContinent": "Какой континент?",
-  "incorrectCountryWas": "Это была {{country}}!",
+  "incorrectCountryWas": "Это была {{country}}",
   "incorrectContinentWas": "Это был {{continent}}!",
   "correctCountryNice": "Правильный! 🎉",
   "continentAfrica": "Африка",
