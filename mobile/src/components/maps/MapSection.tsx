@@ -8,7 +8,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { MapItem } from '../../services/api';
 import { t } from '../../shared';
 import MapTile from './MapTile';

@@ -44,7 +44,7 @@
   margin: 0;
   font-weight: 700;
   color: #3fb950;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .subHeader {
@@ -97,7 +97,7 @@
   background: #0d1117;
   color: #e6edf3;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   outline: none;
 }
 
@@ -121,7 +121,7 @@
   color: #0d1117;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -256,7 +256,7 @@
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .backBtn:hover {
@@ -333,7 +333,7 @@
   color: #b1bac4;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -442,7 +442,7 @@
   color: #e6edf3;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   outline: none;
 }
 
@@ -461,7 +461,7 @@
   color: #e6edf3;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .refreshBtn:hover {
@@ -826,6 +826,15 @@
   font-weight: 700;
 }
 
+.pendingDeletionBadge {
+  background: #db6d28;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .userStats {
   display: flex;
   gap: 20px;
@@ -841,6 +850,16 @@
   border-radius: 6px;
   padding: 8px 12px;
   color: #f85149;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.deletionInfo {
+  background: rgba(219, 109, 40, 0.1);
+  border: 1px solid #db6d28;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #db6d28;
   font-size: 0.9rem;
   margin-bottom: 12px;
 }
@@ -862,7 +881,7 @@
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .banBtn {
@@ -1115,7 +1134,7 @@
   border-radius: 6px;
   background: #0d1117;
   color: #e6edf3;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   outline: none;
 }
 
@@ -1164,7 +1183,7 @@
   background: transparent;
   color: #e6edf3;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .cancelBtn:hover {
@@ -1178,7 +1197,7 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .actionBtn:disabled {
@@ -1731,7 +1750,7 @@
   background: #3fb950;
   color: #0d1117;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .approveBtn:hover {
@@ -1757,7 +1776,7 @@
   border-radius: 6px;
   background: #161b22;
   color: #e6edf3;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   outline: none;
 }
 
@@ -1774,7 +1793,7 @@
   background: #f85149;
   color: white;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .rejectBtn:hover {
@@ -1862,7 +1881,7 @@
   background: #21262d;
   color: #e6edf3;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   transition: all 0.2s ease;
 }
 
@@ -1889,7 +1908,7 @@
   background: #21262d;
   color: #e6edf3;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   outline: none;
 }
 
@@ -2087,7 +2106,7 @@
   background: #21262d;
   color: #e6edf3;
   cursor: pointer;
-  font-family: "Lexend", sans-serif;
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
   transition: all 0.2s ease;
 }
 

@@ -58,6 +58,9 @@ export default async function handler(req, res) {
         return {
           roundNumber: round.roundNumber,
           location: round.location,
+          // Server-computed per-round team scores (party team mode); null on
+          // solo modes and on games saved before the field existed.
+          teamRoundScores: round.teamRoundScores ?? null,
 
           // User's guess data
           guess: userGuess ? {
@@ -72,7 +75,10 @@ export default async function handler(req, res) {
 
           // All player guesses (for multiplayer games)
           allGuesses: round.playerGuesses.map(guess => ({
-            playerId: guess.accountId, // Use accountId instead of playerId to avoid exposing secrets
+            // accountId keeps ids stable across a game for logged-in users;
+            // guests have no accountId, so fall back to the per-game playerId
+            // (a socket uuid — not sensitive) instead of collapsing to null.
+            playerId: guess.accountId || guess.playerId,
             username: guess.username,
             // ?? null so games saved before countryCode existed return a stable
             // null instead of being omitted from JSON (undefined).
@@ -93,7 +99,7 @@ export default async function handler(req, res) {
 
       // All players (for multiplayer games)
       players: game.players.map(player => ({
-        playerId: player.accountId, // Use accountId instead of playerId to avoid exposing secrets
+        playerId: player.accountId || player.playerId, // guest fallback, see allGuesses
         username: player.username,
         accountId: player.accountId,
         countryCode: player.countryCode ?? null,
@@ -101,6 +107,8 @@ export default async function handler(req, res) {
         totalXp: player.totalXp,
         averageTimePerRound: player.averageTimePerRound,
         finalRank: player.finalRank,
+        // Team assignment for team modes ('a' | 'b'); null on solo modes.
+        team: player.team ?? null,
         elo: player.elo
       })),
 

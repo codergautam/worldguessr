@@ -98,7 +98,7 @@ export default function AccountView({ accountData, setAccountData, supporter, el
         alignItems: 'flexStart',
         textAlign: "left",
         color: '#fff',
-        fontFamily: '"Lexend", sans-serif',
+        fontFamily: '"Lexend", "Lexend Fallback", sans-serif',
         paddingBottom: '20px',
         boxSizing: 'border-box',
         borderRadius: '10px',

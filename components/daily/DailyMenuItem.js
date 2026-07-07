@@ -13,7 +13,13 @@ export default function DailyMenuItem({ session, onClick }) {
   // Seed from localStorage so streak/played pill appears the instant the
   // menu mounts — we still refresh from the API in the background.
   const [state, setState] = useState(() => {
-    const cached = typeof window !== 'undefined' ? readDailyStatus(getClientLocalDate()) : null;
+    // Scope the cached read to the current identity (secret, else guestId) so a
+    // different account on a shared browser can't seed this pill with the
+    // previous user's streak. See utils/dailyStatusCache.js.
+    const owner = typeof window !== 'undefined'
+      ? (session?.token?.secret || getGuestId() || null)
+      : null;
+    const cached = typeof window !== 'undefined' ? readDailyStatus(getClientLocalDate(), owner) : null;
     return {
       streak: cached?.streak || 0,
       playedToday: !!cached?.playedToday,
@@ -55,7 +61,7 @@ export default function DailyMenuItem({ session, onClick }) {
           playedToday: !!data.user?.playedToday,
           msToMidnight: msUntilLocalMidnight(),
         });
-        if (data.user) writeDailyStatus(today, data.user);
+        if (data.user) writeDailyStatus(today, data.user, secret || guestId || null);
       } catch {
         if (!cancelled) {
           setState(s => ({ ...s, msToMidnight: msUntilLocalMidnight() }));

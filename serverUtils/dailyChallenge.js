@@ -9,6 +9,9 @@ const ROUNDS_PER_DAY = 3;
 // Curated daily-challenge pool. Country sits at extra.tags[0] (ISO-2). We
 // derive a flat shape on first load so getDailyLocations stays branch-free.
 const POOL_PATH = path.join(__dirname, '..', 'data', 'daily-challenge.json');
+// Same mapping the web/mobile continent guesser uses; server reads it via fs
+// because this module also runs outside the Next bundler.
+const CONTINENTS_PATH = path.join(__dirname, '..', 'public', 'continentMapping.json');
 const SECRET = process.env.DAILY_SECRET || 'worldguessr-daily-default-secret';
 const CACHE_SIZE = 14;
 
@@ -17,12 +20,17 @@ function loadPool() {
   if (poolCache) return poolCache;
   const raw = fs.readFileSync(POOL_PATH, 'utf8');
   const parsed = JSON.parse(raw);
-  poolCache = parsed.map(loc => ({
-    lat: loc.lat,
-    lng: loc.lng,
-    heading: loc.heading ?? 0,
-    country: loc?.extra?.tags?.[0] || null,
-  }));
+  const continents = JSON.parse(fs.readFileSync(CONTINENTS_PATH, 'utf8'));
+  poolCache = parsed.map(loc => {
+    const country = loc?.extra?.tags?.[0] || null;
+    return {
+      lat: loc.lat,
+      lng: loc.lng,
+      heading: loc.heading ?? 0,
+      country,
+      continent: (country && continents[country]) || null,
+    };
+  });
   return poolCache;
 }
 
@@ -51,19 +59,16 @@ function cacheSet(key, value) {
   }
 }
 
-export function getDailyLocations(dateStr) {
-  const cached = locationCache.get(dateStr);
-  if (cached) return cached;
-
-  const pool = loadPool();
-  const rng = mulberry32(seedFromDate(dateStr));
-
-  // Three rounds, three different countries — no day should serve two
-  // locations from the same country. Skip-and-retry preserves seed
-  // determinism (the same date always produces the same picks). The
-  // attempts cap is a defensive guard so we can never spin if a future
-  // pool somehow lacks 3 distinct countries.
+// Three rounds, three different countries, and (when enforceContinents)
+// never all three on the same continent. Skip-and-retry preserves seed
+// determinism (the same date always produces the same picks), and only
+// kicks in on offending draws — dates whose first picks already satisfy
+// the constraints are unchanged. The attempts cap is a defensive guard
+// so we can never spin if the pool can't satisfy the constraints.
+function drawLocations(pool, seed, enforceContinents) {
+  const rng = mulberry32(seed);
   const picked = [];
+  const pickedContinents = [];
   const usedIndexes = new Set();
   const usedCountries = new Set();
   const maxAttempts = pool.length * 2;
@@ -74,14 +79,39 @@ export function getDailyLocations(dateStr) {
     if (usedIndexes.has(idx)) continue;
     const loc = pool[idx];
     if (loc.country && usedCountries.has(loc.country)) continue;
+    // Last slot: the finished trio must provably span at least two
+    // continents. Unmapped continents (null) never count toward
+    // distinctness, so gaps in the mapping can't sneak a trio through.
+    if (enforceContinents && picked.length === ROUNDS_PER_DAY - 1) {
+      const known = new Set([...pickedContinents, loc.continent].filter(Boolean));
+      if (known.size < 2) continue;
+    }
     usedIndexes.add(idx);
     if (loc.country) usedCountries.add(loc.country);
+    pickedContinents.push(loc.continent);
     picked.push({
       lat: loc.lat,
       long: loc.lng,
       heading: loc.heading,
       country: loc.country,
     });
+  }
+  return picked;
+}
+
+export function getDailyLocations(dateStr) {
+  const cached = locationCache.get(dateStr);
+  if (cached) return cached;
+
+  const pool = loadPool();
+  const seed = seedFromDate(dateStr);
+
+  // A short day would break scoring, so if the continent constraint is
+  // ever unsatisfiable (e.g. a future pool batch with unmapped countries
+  // hogging the draw), redraw without it rather than serve < 3 rounds.
+  let picked = drawLocations(pool, seed, true);
+  if (picked.length < ROUNDS_PER_DAY) {
+    picked = drawLocations(pool, seed, false);
   }
 
   cacheSet(dateStr, picked);

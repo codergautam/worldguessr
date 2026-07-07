@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { t } from '../../shared/locale';
+import CountryFlag from '../CountryFlag';
 import { KM_TO_MILES } from '../../shared/units';
 import { nameFromCode } from '../../shared/data/countryHelpers';
 import { findCountryLocal } from '../../shared/game/findCountry';
@@ -188,9 +189,12 @@ export default function ClassicEndBanner({
       <View style={[styles.content, compactLandscape && styles.contentLandscape, isTablet && { gap: sc(8) }]}>
         {wrongCountryName ? (
           <>
-            <Animated.Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }, popStyle]}>
-              {t('incorrectCountryWas', { country: wrongCountryName })}
-            </Animated.Text>
+            <Animated.View style={[styles.mainRow, popStyle]}>
+              <Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }]}>
+                {t('incorrectCountryWas', { country: wrongCountryName })}
+              </Text>
+              <CountryFlag countryCode={answerCountry ?? ''} size={sc(compactLandscape ? 13 : 15)} />
+            </Animated.View>
             {distanceText ? (
               <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
                 {distanceText}
@@ -306,6 +310,8 @@ const styles = StyleSheet.create({
   topBtnText: { color: '#fff', fontFamily: 'Lexend', fontSize: 14 },
   content: { alignItems: 'center', gap: 8 },
   contentLandscape: { gap: 2 },
+  // Wrong-country reveal: text + flag img on one centered row (web parity).
+  mainRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mainTxt: { color: '#fff', fontFamily: 'Lexend-SemiBold', fontSize: 20, textAlign: 'center' },
   mainTxtLandscape: { fontSize: 16 },
   smallMainTxt: { color: '#fff', fontFamily: 'Lexend-Medium', fontSize: 15, textAlign: 'center' },

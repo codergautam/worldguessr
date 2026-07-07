@@ -10,6 +10,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { LineChart } from 'react-native-gifted-charts';
 import { t } from '../../shared';
+import { timeAgo } from '@shared/time/timeAgo';
 
 const GRAPH_Y_AXIS_LABEL_WIDTH = 42;
 const GRAPH_MIN_PLOT_WIDTH = 170;
@@ -145,19 +146,11 @@ export function msToTime(duration: number): string {
   return `${seconds}s`;
 }
 
-export function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return t('justNow');
-  if (diffMinutes < 60) return t('minutesAgo', { minutes: diffMinutes });
-  if (diffHours < 24) return t('hoursAgo', { hours: diffHours });
-  if (diffDays < 7) return t('daysAgo', { days: diffDays });
-  return date.toLocaleDateString();
+// One implementation shared with web (repo-root shared/time/timeAgo.js) —
+// this wrapper just binds mobile's translator. Accepts ISO strings (game
+// history) or epoch ms (friends lastSeen).
+export function formatTimeAgo(date: string | number): string {
+  return timeAgo(t, date);
 }
 
 export function formatTime(ms: number): string {

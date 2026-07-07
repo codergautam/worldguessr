@@ -20,7 +20,7 @@ export default function BannerText({shown, text, hideCompass, subText, position}
           {text || 'Loading...'}
         </span>
         { !hideCompass && (
-          <NextImage.default alt="Loading compass" src={asset('/loader.gif')} width={100} height={100} />
+          <NextImage.default alt="Loading compass" src={asset('/loader.webp')} width={100} height={100} />
         )}
       </div>
       {subText && (

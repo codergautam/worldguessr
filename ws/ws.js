@@ -10,7 +10,7 @@ import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
 import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
-import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
+import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange, leagues } from '../components/utils/leagues.js';
@@ -66,7 +66,6 @@ function pick5RandomArb() {
 const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
-const playersInQueue = new Map();
 const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same matchup twice in a row)
 
 let maintenanceMode = false;
@@ -592,7 +591,9 @@ app.ws('/wg', {
         return;
       }
       if (json.type === "pong") {
-        player.lastPong = Date.now();
+        // Legacy keepalive — old web bundles and the mobile app still send
+        // this every 10s. Nothing reads it (liveness uses the timeSync
+        // round-trip); swallow it early instead of walking the whole chain.
         return;
       }
       if (json.type === "timeSync") {
@@ -756,10 +757,85 @@ app.ws('/wg', {
       }
 
 
-      if (json.type === 'leaveQueue' && player.inQueue) {
+      if (json.type === 'leaveQueue') {
+        const entry = playersInQueue.get(player.id);
         player.inQueue = false;
-
         playersInQueue.delete(player.id);
+
+        // A cancel can race the pairing beat: pair2v2Solos just de-queued
+        // this player for the "Queueing in 3…" preview, so there's no queue
+        // entry — but the lobby's auto-queue is armed and about to queue them
+        // into the pairing they declined. Dropping the message here (the old
+        // `player.inQueue` guard) made Cancel a no-op mid-preview.
+        const lobby = player.gameId ? games.get(player.gameId) : null;
+        const pendingAutoQueue = !entry && lobby && !lobby.public
+          && lobby.state === 'waiting' && !!lobby.autoQueue2v2At;
+
+        if (entry?.mode === '2v2' || pendingAutoQueue) {
+          // 2v2 lobbies survive matchmaking, so a cancel returns the WHOLE
+          // group (host + teammate) to the same lobby and code. Re-sending the
+          // lobby state is enough — the client's `game` handler snaps queued
+          // players back into the lobby screen.
+          if (lobby && !lobby.public && lobby.state === 'waiting' && lobby.autoPaired) {
+            // AUTO-FOUND teammate (stage-1 pairing): cancel dissolves the
+            // pairing instead of parking two strangers in a shared lobby.
+            // The host keeps this lobby (it was theirs before the pairing);
+            // the non-host gets their own fresh lobby back. Whoever did NOT
+            // cancel resumes the teammate search in the same burst as their
+            // lobby snapshot — a deferred 3s auto-queue stamp here painted a
+            // disabled "Queueing in 3…" button the partner couldn't cancel.
+            lobby.autoQueue2v2At = null; // mid-preview cancel — disarm the pending auto-queue
+            const members = Object.values(lobby.players);
+            for (const member of members) {
+              const sock = players.get(member.id);
+              if (!sock) continue;
+              sock.inQueue = false;
+              playersInQueue.delete(member.id);
+            }
+            lobby.autoPaired = false;
+            const nonHostEntry = members.find((m) => !m.host);
+            const nonHost = nonHostEntry ? players.get(nonHostEntry.id) : null;
+            if (nonHost) {
+              lobby.removePlayer(nonHost, true); // quiet — no gameShutdown
+              const fresh = new Game(uuidv4(), { is2v2Lobby: true });
+              games.set(fresh.id, fresh);
+              fresh.addPlayer(nonHost, true); // sends them the fresh lobby state
+              // State BEFORE queue: the client's `game` handler wipes
+              // gameQueued, so enter2v2Queue must follow the snapshot.
+              if (nonHost.id !== player.id) queue2v2Members(fresh);
+            }
+            // By the .host field, not insertion order — [0] only worked via the
+            // implicit "host added first, roster capped at 2" invariants.
+            const roster = Object.values(lobby.players);
+            const hostEntry = roster.find(p => p.host) || roster[0];
+            const hostSock = hostEntry ? players.get(hostEntry.id) : null;
+            if (hostSock) {
+              hostSock.send(lobby.getInitialSendState(hostSock));
+              if (hostSock.id !== player.id) queue2v2Members(lobby);
+            }
+          } else if (lobby && !lobby.public && lobby.state === 'waiting') {
+            // CHOSEN teammate (invited / joined by code): the duo belongs
+            // together — return the whole group to their shared lobby.
+            // Disarm any pending auto-queue (pregame-regroup countdown) so
+            // the poll can't re-queue the group right after this restore.
+            lobby.autoQueue2v2At = null;
+            for (const member of Object.values(lobby.players)) {
+              const sock = players.get(member.id);
+              if (!sock) continue;
+              sock.inQueue = false;
+              playersInQueue.delete(member.id);
+              sock.send(lobby.getInitialSendState(sock));
+            }
+          } else {
+            // No restorable lobby (never had one, or it's gone/stale) — put
+            // them in a fresh one so a 2v2 cancel always lands somewhere
+            // instead of leaving the client on the pending lobby shell.
+            const gameId = uuidv4();
+            const fresh = new Game(gameId, { is2v2Lobby: true });
+            games.set(gameId, fresh);
+            fresh.addPlayer(player, true);
+          }
+        }
       }
 
       if (json.type === 'place' && player.gameId && games.has(player.gameId)) {
@@ -800,6 +876,9 @@ app.ws('/wg', {
           id: player.id,
           name: player.username,
           countryCode: player.countryCode || null,
+          // 'a' | 'b' in team modes (2v2 duels + team parties), null otherwise —
+          // clients color the reaction bubble by allegiance.
+          team: game.players[player.id]?.team ?? null,
           emote
         });
       }
@@ -807,6 +886,66 @@ app.ws('/wg', {
       if (json.type === 'leaveGame' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         game.removePlayer(player);
+      }
+
+      // ── Post-game team-duel results actions ──────────────────────────────
+      // playAgain2v2: consensus requeue. Ack; when every LIVING teammate has
+      // acked, the team regroups into a fresh staging lobby and goes straight
+      // into matchmaking (duo → opponents search, solo → teammate search).
+      if (json.type === 'playAgain2v2' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        const me = game.players[player.id];
+        if (game.teamDuel && game.state === 'end' && me?.team) {
+          game.playAgainAcks = game.playAgainAcks || { a: {}, b: {} };
+          game.playAgainAcks[me.team][player.id] = true;
+          const { needed, ackedIds } = game.livingTeamPlayAgain(me.team);
+          if (needed >= 1 && ackedIds.length >= needed) {
+            // Queue in the same burst as the lobby's `game` payload — leaving
+            // it to the 500ms autoQueue2v2At poll makes the client paint the
+            // staging lobby for up to one tick before the queue screen.
+            const lobby = game.regroupTeamFromResults(me.team, { queue: true });
+            if (lobby) queue2v2Members(lobby);
+          } else {
+            game.sendPlayAgainState(me.team);
+          }
+        }
+      }
+
+      // teamDuelBack: leave the results for a staging lobby WITHOUT queueing.
+      // Auto-paired members act solo (the pairing dissolves); a chosen duo's
+      // host takes the whole team back together; chosen guests have no
+      // in-screen Back (client hides it — this guard enforces it) unless
+      // they're the last one standing.
+      if (json.type === 'teamDuelBack' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        const me = game.players[player.id];
+        if (game.teamDuel && game.state === 'end' && me?.team) {
+          const team = me.team;
+          const isChosen = !game.autoPairedTeams?.[team];
+          const isHost = game.teamHostIds?.[team] === player.id;
+          const living = game.teamMembers(team).length;
+          if (isChosen && !isHost && living > 1) return;
+          game.regroupTeamFromResults(team, {
+            onlyPlayerId: (isChosen && isHost) ? null : player.id,
+            queue: false
+          });
+        }
+      }
+
+      // Results-screen buttons must never dead-click: if the ended game is
+      // already gone from under the client (2h idle sweep, server restart),
+      // restage the sender in a fresh solo staging lobby instead of silently
+      // dropping the message — Play Again queues it (stage-1 teammate
+      // search), Back just parks there. inQueue means they're not on a
+      // results screen; a live gameId means the handlers above own it.
+      if ((json.type === 'playAgain2v2' || json.type === 'teamDuelBack')
+          && (!player.gameId || !games.has(player.gameId)) && !player.inQueue) {
+        const lobby = new Game(uuidv4(), { is2v2Lobby: true });
+        games.set(lobby.id, lobby);
+        if (json.type === 'playAgain2v2') lobby.autoQueue2v2At = Date.now();
+        lobby.addPlayer(player, true);
+        // Same-burst queue as the consensus path above — no 500ms poll wait.
+        if (json.type === 'playAgain2v2') queue2v2Members(lobby);
       }
 
       if (json.type === 'updateCountryCode' && player.accountId && typeof json.countryCode === 'string') {
@@ -892,6 +1031,15 @@ app.ws('/wg', {
             toastType: 'error'
           });
         }, (game) => {
+          // Rollout gate: a friend on a pre-team client accepted an invite into
+          // a team lobby it can't render. Reject BEFORE the leave-queue /
+          // leave-game side effects. Sentence-as-key: old clients show unknown
+          // toast keys verbatim.
+          if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !player.teamSupport) {
+            player.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
+            return;
+          }
+
           // leave queue if in
           if (player.inQueue) {
             player.inQueue = false;
@@ -927,6 +1075,11 @@ app.ws('/wg', {
         })
       }
 
+      // Account-settings writes (settings UI). Discipline for both handlers:
+      // the in-memory player field — which sendFriendData echoes as the
+      // authoritative value — changes ONLY after the DB write sticks, and
+      // EVERY path (cooldown, success, failure) ends in sendFriendData() so an
+      // optimistically-flipped client always reconciles to server truth.
       if (json.type === "setAllowFriendReq" && typeof json.allow === 'boolean' && player.accountId) {
 
         if (Date.now() - player.lastAllowFriendReqChange < 5000) {
@@ -936,11 +1089,12 @@ app.ws('/wg', {
             seconds: Math.round(5 - (Date.now() - player.lastAllowFriendReqChange) / 1000),
             toastType: 'error'
           });
+          player.sendFriendData(); // snap the optimistic client back
           return;
         }
         player.lastAllowFriendReqChange = Date.now();
-        player.allowFriendReq = json.allow;
         User.updateOne({ _id: player.accountId }, { allowFriendReq: json.allow }).then(() => {
+          player.allowFriendReq = json.allow;
           player.send({
             type: 'toast',
             key: 'preferenceUpdated'
@@ -948,8 +1102,42 @@ app.ws('/wg', {
           player.sendFriendData();
         }).catch((e) => {
           console.log(e);
+          player.sendFriendData(); // write failed — echo the unchanged truth
         });
       }
+
+      // Privacy toggle: hide own "last seen" from friends.
+      if (json.type === "setHideLastSeen" && typeof json.hide === 'boolean' && player.accountId) {
+
+        if (Date.now() - player.lastHideLastSeenChange < 5000) {
+          player.send({
+            type: 'toast',
+            key: 'pleaseWaitSeconds',
+            seconds: Math.round(5 - (Date.now() - player.lastHideLastSeenChange) / 1000),
+            toastType: 'error'
+          });
+          player.sendFriendData(); // snap the optimistic client back
+          return;
+        }
+        player.lastHideLastSeenChange = Date.now();
+        User.updateOne({ _id: player.accountId }, { hideLastSeen: json.hide }).then(() => {
+          player.hideLastSeen = json.hide;
+          player.send({
+            type: 'toast',
+            key: 'preferenceUpdated'
+          });
+          player.sendFriendData();
+        }).catch((e) => {
+          console.log(e);
+          player.sendFriendData(); // write failed — echo the unchanged truth
+        });
+      }
+
+      // ---- DEPRECATED protocol shims (remove after the next web deploy) ----
+      // Pre-unification web tabs still send these; alias them onto the unified
+      // messages so live sessions keep working across the server deploy.
+      if (json.type === 'create2v2Lobby') { json.type = 'createPrivateGame'; json.mode = '2v2'; }
+      if (json.type === 'join2v2Lobby') { json.type = 'joinPrivateGame'; }
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
 
@@ -973,47 +1161,57 @@ app.ws('/wg', {
           return;
         }
 
+        // 2v2 staging needs a team-capable client (rollout gate: pre-team
+        // bundles and the mobile app don't announce teamSupport in verify).
+        // Normal parties stay open to everyone. Sentence-as-key: this toast is
+        // only ever seen by old clients, whose t() renders unknown keys verbatim.
+        if (json.mode === '2v2' && !player.teamSupport) {
+          player.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
+          return;
+        }
+
+        // Creating a lobby cancels any matchmaking search. addPlayer below
+        // already drops the inQueue flag (which every pairer re-checks), but
+        // do it explicitly like acceptInvite so the invariant is local and
+        // the stale playersInQueue entry doesn't linger until a pairer sweep.
+        if (player.inQueue) {
+          player.inQueue = false;
+          playersInQueue.delete(player.id);
+        }
+
         const gameId = uuidv4();
-        // // options
-        // let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
-        // rounds = Number(rounds);
-        // // maxDist no longer required-> can be pulled from community map
-        // if (!location) return;
-        // if (!rounds || !timePerRound) {
-        //   return;
-        // }
-        // // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
-        // if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
-        //   return;
-        // }
-
-        // if(!nm) nm = false;
-        // if(!npz) npz = false;
-        // if(!showRoadName) showRoadName = false;
-
-
-        const game = new Game(gameId, false);
-        // game.timePerRound = timePerRound * 1000;
-        // game.nm = !!nm;
-        // game.npz = !!npz;
-        // game.showRoadName = !!showRoadName;
-
-        // game.locations = locations;
-        // game.location = location;
-        // if (maxDist) game.maxDist = maxDist;
-
-
+        // mode:'2v2' → a 2-max staging lobby for the 2v2 queue. It never plays
+        // itself (Find Match dissolves it into the matchmaker), so it skips
+        // game options / location generation entirely.
+        const is2v2Lobby = json.mode === '2v2';
+        const game = new Game(gameId, { is2v2Lobby });
         games.set(gameId, game);
-        // initialize with default options
         game.addPlayer(player, true);
-        updateGameOptions(game);
-
+        if (!is2v2Lobby) {
+          // initialize with default options
+          updateGameOptions(game);
+        }
       }
 
       if(json.type === "resetGame" && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
-        // make sure player is host
-        if(game.players[player.id].host) {
+        // make sure player is host; never reset over an in-flight save (the
+        // end-state auto-reset in the game loop waits the same way) — a reset
+        // clears roundHistory out from under the running persist.
+        if(game.players[player.id].host && !game.saveInProgress) {
+          // Host is cutting a live match short — tell the members why they're
+          // suddenly back in the lobby. End-state resets stay silent: the game
+          // loop auto-resets those on a timer, so a lobby return is expected.
+          // Round-1 countdown resets are silent too (preGame, mirrors the
+          // teamDuel carve-out): "host ended the match" is wrong copy for a
+          // cancelled start, and the lobby reappearing explains itself.
+          if (['getready', 'guess'].includes(game.state)
+              && !(game.state === 'getready' && game.curRound <= 1)) {
+            for (const pid of Object.keys(game.players)) {
+              if (pid === player.id) continue;
+              players.get(pid)?.send({ type: 'toast', key: 'hostEndedMatch', toastType: 'info' });
+            }
+          }
           game.resetGame(allLocations);
         }
       }
@@ -1029,7 +1227,72 @@ app.ws('/wg', {
         }
       }
 
-      if (json.type === 'joinPrivateGame' && !player.gameId) {
+      // ---- Intra-party team mode ----
+      // Deliberately separate from setPrivateGameOptions: that path clears and
+      // regenerates locations on every call, which a team toggle must not do.
+      // All three reject silently on bad state — the broadcast is the source
+      // of truth and the lobby UI renders only server state.
+      if (json.type === 'setTeamConfig' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (game.public || game.is2v2Lobby || game.state !== 'waiting') return;
+        if (!game.players[player.id]?.host) return;
+        // Rollout gate: the party may have formed as a normal lobby, so members
+        // on pre-team clients can be sitting in it. Remove them BEFORE the mode
+        // flips (applyTeamConfig assigns teams to whoever remains) — the
+        // standard kick teardown is something every client vintage handles.
+        // The host (who sent this) always has teamSupport, so is never kicked.
+        if (json.enabled === true && !game.teamGame) {
+          for (const pid of Object.keys(game.players)) {
+            const member = players.get(pid);
+            if (member?.teamSupport) continue;
+            // Never strand a searching client (mirrors kickPlayer). Unreachable
+            // — unsupported members can't be 2v2-queued — but raw messages
+            // must not strand players.
+            if (member?.inQueue || playersInQueue.has(pid)) continue;
+            const memberName = game.players[pid].username;
+            if (member) {
+              // Sentence-as-key: old clients render unknown toast keys verbatim.
+              member.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
+              game.removePlayer(member);
+            } else {
+              // Roster entry whose socket is already gone — just drop it.
+              delete game.players[pid];
+              game.sendAllPlayers({ type: 'player', id: pid, action: 'remove' });
+            }
+            player.send({ type: 'toast', key: 'playerKicked', name: memberName, toastType: 'info' });
+          }
+        }
+        game.applyTeamConfig(json);
+      }
+
+      if (json.type === 'shuffleTeams' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (game.public || game.is2v2Lobby || game.state !== 'waiting') return;
+        if (!game.players[player.id]?.host || !game.teamGame) return;
+        game.shuffleTeamsEvenly();
+      }
+
+      if (json.type === 'setPlayerTeam' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // The client flips the row optimistically before this arrives, so a
+        // rejected move must answer with the real state or that client shows
+        // the wrong team until some unrelated broadcast fixes it.
+        const rejectAndResync = () => {
+          if (game.players[player.id]) player.send(game.getInitialSendState(player));
+        };
+        if (game.public || game.is2v2Lobby || game.state !== 'waiting' || !game.teamGame) return rejectAndResync();
+        const { playerId, team } = json;
+        if (team !== 'a' && team !== 'b') return;
+        if (typeof playerId !== 'string' || !game.players[playerId]) return rejectAndResync();
+        const isHost = !!game.players[player.id]?.host;
+        // Hosts move anyone; others move only themselves, and only when the
+        // host has allowed self-picking.
+        if (!isHost && !(game.allowTeamPick && playerId === player.id)) return rejectAndResync();
+        game.players[playerId].team = team;
+        game.sendStateUpdate();
+      }
+
+      if (json.type === 'joinPrivateGame') {
         // Block banned users and users with pending name changes from multiplayer
         if (player.banned) {
           player.send({
@@ -1040,9 +1303,16 @@ app.ws('/wg', {
           return;
         }
 
+        // Joining out of a game requires an explicit leaveGame first — EXCEPT
+        // from a 2v2 staging lobby, which may be hopped out of silently (e.g.
+        // entering a friend's code while sitting in your own auto-created lobby).
+        const current = player.gameId ? games.get(player.gameId) : null;
+        if (current && !current.is2v2Lobby) return;
+
         let code = json.gameCode;
 
-        // find game by code
+        // find game by code — ONE join path for every private-lobby code
+        // (party or 2v2 staging), so codes and ?party= links are interchangeable
         joinGameByCode(code, () => {
           player.send({
             type: 'gameJoinError',
@@ -1054,6 +1324,30 @@ app.ws('/wg', {
             error: 'Invalid game code'
           });
         }, (game) => {
+          if (game.id === current?.id) {
+            // Entering the code of the lobby you're already in.
+            player.send({ type: 'gameJoinError', error: 'Invalid game code' });
+            return;
+          }
+          // Rollout gate: clients that didn't announce teamSupport in verify
+          // can't render team lobbies/duels. gameJoinError text is displayed
+          // verbatim on every client vintage (join screen / toast).
+          if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !player.teamSupport) {
+            player.send({
+              type: 'gameJoinError',
+              error: 'Play team games on worldguessr.com for now'
+            });
+            return;
+          }
+          // Joining by code cancels any matchmaking search. addPlayer below
+          // already drops the inQueue flag (which every pairer re-checks),
+          // but do it explicitly like acceptInvite so the invariant is local
+          // and the stale queue entry doesn't linger until a pairer sweep.
+          if (player.inQueue) {
+            player.inQueue = false;
+            playersInQueue.delete(player.id);
+          }
+          if (current) current.removePlayer(player, true);
           game.addPlayer(player);
         });
       }
@@ -1063,6 +1357,70 @@ app.ws('/wg', {
         if (game.players[player.id].host) {
           game.start(player);
         }
+      }
+
+      // Host kicks a player from a private waiting lobby. The kicked client
+      // gets an explanatory toast followed by the standard gameShutdown
+      // teardown; the host gets a confirmation toast; everyone else sees the
+      // regular roster-remove broadcast.
+      if (json.type === 'kickPlayer' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // No kicking in 2v2 staging lobbies: the seat opposite the host is a
+        // matched stranger or regrouping teammate, not a guest of the host's
+        // party. Real parties (including team-mode) keep host kick.
+        if (game.public || game.is2v2Lobby || game.state !== 'waiting') return;
+        if (!game.players[player.id]?.host) return;
+        const targetId = json.playerId;
+        if (typeof targetId !== 'string' || targetId === player.id || !game.players[targetId]) return;
+
+        const targetName = game.players[targetId].username;
+        const target = players.get(targetId);
+        // No kicking a teammate who is mid-queue: removePlayer would clear
+        // their inQueue with nothing their searching screen reacts to,
+        // stranding the client. (Unreachable via the UI — the lobby is hidden
+        // while queued — but raw messages must not strand players.)
+        if (target?.inQueue || playersInQueue.has(targetId)) return;
+        if (target) {
+          target.send({ type: 'toast', key: 'kickedFromParty', toastType: 'error' });
+          game.removePlayer(target);
+        } else {
+          // Roster entry whose socket is already gone — just drop it.
+          delete game.players[targetId];
+          game.sendAllPlayers({ type: 'player', id: targetId, action: 'remove' });
+        }
+        player.send({ type: 'toast', key: 'playerKicked', name: targetName, toastType: 'success' });
+      }
+
+      // ---- 2v2 team mode ----
+      // Find Match from any private waiting lobby with 1-2 players (the 2v2
+      // staging lobby, or a small party): host-only; queues everyone for 2v2 —
+      // solo (random teammate) or as a full duo — and dissolves the lobby.
+      if (json.type === 'find2v2Match' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (game.public || game.state !== 'waiting' || !game.players[player.id]?.host) return;
+        if (game.teamGame) return; // a team-mode party must never dissolve into the ranked queue
+        if (Object.keys(game.players).length > 2) return; // 2v2 queues take at most a duo
+        if (player.banned) {
+          player.send({ type: 'toast', key: 'accountSuspended', toastType: 'error' });
+          return;
+        }
+        if (maintenanceMode) {
+          player.send({ type: 'toast', key: 'maintenanceModeStarted', toastType: 'error' });
+          return;
+        }
+        // Rollout gate: every seat headed into a team duel must be a
+        // team-capable client. The usual trip here is a host queueing a small
+        // party whose partner is on a pre-team client (normal-party joins
+        // aren't gated). The host sending this is on a current bundle, so a
+        // real locale key is fine.
+        if (Object.keys(game.players).some(pid => !players.get(pid)?.teamSupport)) {
+          player.send({ type: 'toast', key: 'teammateNeedsUpdate', toastType: 'error' });
+          return;
+        }
+        queue2v2Members(game);
+        // The lobby stays alive (members keep their gameId) so leaveQueue can
+        // put the whole group back into it — same code, same teammate. The
+        // matchmaker tears it down when a match actually forms.
       }
 
       if (json.type === 'getFriends') {
@@ -1322,6 +1680,54 @@ app.ws('/wg', {
       player.disconnectTime = Date.now();
       player.disconnected = true;
       disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
+
+      // Post-game results: reflect the drop in teammates' Play Again counter
+      // right away instead of after the 30s purge (livingTeamPlayAgain
+      // excludes disconnected members for auto-paired teams — the survivor's
+      // "(1/2)" downgrades to a 1-click solo requeue instantly; chosen duos
+      // recompute to the same numbers until the purge trims the roster).
+      if (player.gameId && games.has(player.gameId)) {
+        const dcGame = games.get(player.gameId);
+        const dcTeam = dcGame.players[player.id]?.team;
+        if (dcGame.teamDuel && dcGame.state === 'end' && dcTeam) {
+          dcGame.sendPlayAgainState(dcTeam);
+        }
+
+        // Surface the drop on the wire roster: HUDs dim the player through
+        // the reconnect grace instead of teammates waiting on a ghost
+        // ("waiting for 1 player…" with no clue who or why). Roster seats
+        // serialize wholesale, so a plain flag rides every later snapshot;
+        // rejoinGame clears it. Broadcast only mid-game — waiting lobbies
+        // resolve departures via eviction/purge, not indicators.
+        const dcSeat = dcGame.players[player.id];
+        if (dcSeat) {
+          dcSeat.disconnected = true;
+          if (['getready', 'guess', 'end'].includes(dcGame.state)) {
+            dcGame.sendStateUpdate();
+          }
+        }
+
+        // Auto-paired 2v2 staging lobbies dissolve on ANY disconnect (matchmade
+        // strangers get no reconnect grace — same ruling as the counter above):
+        // evict the dropout's roster seat NOW. Leaving the zombie seated made
+        // pair2v2Solos count this lobby as a full duo (raw roster length, not
+        // live sockets), so the survivor — though correctly demoted to a
+        // stage-1 solo queue entry — could never be paired again until the 30s
+        // purge freed the seat, and got an identical enter2v2Queue re-send
+        // every 500ms tick meanwhile. removePlayer handles the rest: crown
+        // pass, survivor snap-to-lobby, and the instant autoQueue2v2At re-arm.
+        // Chosen (join-code) duos keep the grace: their seat survives for
+        // rejoinGame's queue re-sync.
+        if (dcGame.is2v2Lobby && dcGame.state === 'waiting' && dcGame.autoPaired) {
+          dcGame.removePlayer(player, true);
+        }
+      }
+
+      // Stamp for friends' "Offline · last seen X ago" — written at the moment
+      // of disconnect so it stays accurate long after the 30s grace purge.
+      if (player.accountId) {
+        User.updateOne({ _id: player.accountId }, { lastSeen: Date.now() }).catch(() => {});
+      }
       }
     }
     if (playersInQueue.has(ws.id)) {
@@ -1345,14 +1751,45 @@ try {
       newPlayer.disconnectTime = Date.now(); // important
       newPlayer.disconnected = true;
       if(newPlayer.inQueue) {
+        // playersInQueue is never persisted, so the queue entry died with the
+        // old process. Clear the flag AND remember why, so rejoinGame can
+        // toast the player — otherwise they reconnect into a silently idle
+        // lobby with no clue their matchmaking evaporated.
         newPlayer.inQueue = false;
+        newPlayer.queueKilledByRestart = true;
       }
       players.set(player.id, newPlayer);
       disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
     }
+    // Shift every time anchor forward by the downtime so recovered games resume
+    // with the SAME remaining time on their current phase instead of waking up
+    // with an already-expired nextEvtTime (which makes the 500ms loop race the
+    // game to completion before anyone can reconnect → rejoin lands on 'end').
+    const downtime = Date.now() - gamestate.time;
     for (const game of gamestate.games) {
       console.log(game.id);
       const newGame = Game.fromJSON(game);
+      if (typeof newGame.nextEvtTime === 'number') newGame.nextEvtTime += downtime;
+      if (typeof newGame.startTime === 'number') newGame.startTime += downtime;
+      if (typeof newGame.endTime === 'number') newGame.endTime += downtime;
+      if (newGame.roundStartTimes) {
+        for (const k of Object.keys(newGame.roundStartTimes)) {
+          newGame.roundStartTimes[k] += downtime;
+        }
+      }
+      // A pending 2v2 auto-queue cannot survive a restart: queue entries are
+      // not persisted and every restored member starts disconnected, so the
+      // stamp would only fire against ghosts and null itself. Kill it
+      // explicitly and flag the seated members (mid-"Queueing in 3…" players
+      // aren't inQueue — the beat de-queues them — so the player-loop flag
+      // above misses them) for the same rejoin toast.
+      if (newGame.autoQueue2v2At) {
+        newGame.autoQueue2v2At = null;
+        for (const pid of Object.keys(newGame.players)) {
+          const seated = players.get(pid);
+          if (seated) seated.queueKilledByRestart = true;
+        }
+      }
       games.set(game.id, newGame);
     }
 
@@ -1471,6 +1908,146 @@ try {
     return pairs;
   }
 
+  // Queue every connected member of a staging lobby for 2v2 — the single
+  // entry point shared by Find Match, the post-pairing auto-queue, and
+  // pregame-cancel requeues. A full duo queues under a shared teamId
+  // (stage 2: opponent search); a lone member queues teamId-less (stage 1:
+  // teammate search). The lobby stays alive so leaveQueue can restore the
+  // whole group into it — same code, same teammate.
+  function queue2v2Members(lobby) {
+    lobby.autoQueue2v2At = null;
+    lobby.queueBoundDuo = null; // consumed — must not leak into later snapshots
+    // Live sockets only — grace-window zombies still hold roster seats for up
+    // to 30s, and counting them would queue a lone survivor under a phantom
+    // teamId (stage-2 opponent search for a teammate who is already gone).
+    // It would also recreate the queue entry their close handler cleaned and
+    // pair dead players into matches.
+    const members = Object.values(lobby.players)
+      .map((m) => players.get(m.id))
+      .filter((sock) => sock && !sock.disconnected);
+    if (members.length > 2) return; // 2v2 takes at most a duo (find2v2Match enforces the same)
+    const teamId = members.length >= 2 ? uuidv4() : null;
+    const now = Date.now();
+    for (const sock of members) {
+      sock.inQueue = true;
+      playersInQueue.set(sock.id, { mode: '2v2', teamId, queueTime: now });
+      // stage tells the client WHERE to render the search: 'teammate'
+      // (stage 1) stays inside the lobby card, 'opponents' (stage 2) shows
+      // the queue banner. Additive — old clients ignore it.
+      sock.send({ type: 'enter2v2Queue', stage: teamId ? 'opponents' : 'teammate' });
+    }
+  }
+
+  // Stage 1 of 2v2 matchmaking: pair two solo queuers into a TEAM before any
+  // opponent search happens. The second solo moves into the first's lobby
+  // (their lobby code changes — that's fine), both get snapped onto the lobby
+  // screen to see their new teammate for a moment, then the lobby auto-queues
+  // as a duo (stage 2). Once paired, a team stays a team across requeues —
+  // intentional: duos that like each other keep playing together.
+  function pair2v2Solos(queue) {
+    const solos = [];
+    for (const [id, q] of queue) {
+      if (!q || q.mode !== '2v2' || q.teamId) continue;
+      const p = players.get(id);
+      if (!p || !p.inQueue) continue; // stale — build2v2Teams reaps it next
+      const lobby = p.gameId ? games.get(p.gameId) : null;
+      if (lobby && (lobby.public || lobby.state !== 'waiting')) continue; // stale — reaped next
+      if (!lobby) {
+        // Self-heal a queued solo with no home lobby: mint one (addPlayer
+        // un-queues them and shows them the lobby), then auto-requeue.
+        queue.delete(id);
+        const fresh = new Game(uuidv4(), { is2v2Lobby: true });
+        games.set(fresh.id, fresh);
+        fresh.autoQueue2v2At = Date.now() + 1000;
+        fresh.addPlayer(p, true);
+        continue;
+      }
+      if (Object.keys(lobby.players).length !== 1) {
+        // A friend joined the lobby by code while this member searched for a
+        // random teammate — the team is complete; requeue the whole lobby as
+        // a duo instead of leaving a solo entry that can never match.
+        if (Object.keys(lobby.players).length === 2) queue2v2Members(lobby);
+        continue;
+      }
+      solos.push({ id, lobby });
+    }
+    for (let i = 0; i + 1 < solos.length; i += 2) {
+      const a = solos[i];
+      const b = solos[i + 1];
+      const A = players.get(a.id);
+      const B = players.get(b.id);
+
+      // De-queue both for the team-preview beat; the auto-queue re-enters them.
+      A.inQueue = false;
+      B.inQueue = false;
+      queue.delete(a.id);
+      queue.delete(b.id);
+
+      // Move B into A's lobby. removePlayer on a lone member quietly
+      // self-destructs B's old lobby (socketClosed=true suppresses the
+      // gameShutdown). The auto-queue stamp is set BEFORE the state sends so
+      // both clients receive autoQueueInMs and render "Queueing in 3…".
+      b.lobby.removePlayer(B, true);
+      // Mark the pairing as matchmade: a stage-2 cancel DISSOLVES an
+      // auto-paired duo (each side back to their own lobby) instead of
+      // parking two strangers together like a chosen duo.
+      a.lobby.autoPaired = true;
+      a.lobby.autoQueue2v2At = Date.now() + 3000;
+      a.lobby.addPlayer(B); // sends B the lobby state — snaps them onto the lobby screen
+      A.send(a.lobby.getInitialSendState(A)); // snap A back too — they see their new teammate
+    }
+  }
+
+  // Stage 2 of 2v2 matchmaking: only INTACT duos (both members queued under a
+  // shared teamId) become teams — solos are stage 1's job. A survivor whose
+  // partner is truly gone (queue entry dead AND lobby seat empty) is demoted
+  // back to stage 1 to find a new teammate; while the partner is merely in the
+  // 30s disconnect grace, the survivor keeps waiting for them.
+  function build2v2Teams(queue) {
+    const entries = Array.from(queue.entries()).filter(([id, q]) => {
+      if (!q || q.mode !== '2v2') return false;
+      const p = players.get(id);
+      if (!p || !p.inQueue) { queue.delete(id); return false; }
+      // A queued player may still sit in their private waiting lobby (kept
+      // alive so cancel can restore it) — only a started/real game is stale.
+      if (p.gameId) {
+        const g = games.get(p.gameId);
+        if (!g || g.public || g.state !== 'waiting') { queue.delete(id); return false; }
+      }
+      return true;
+    });
+
+    const byTeam = new Map();
+    for (const [id, q] of entries) {
+      if (!q.teamId) continue;
+      if (!byTeam.has(q.teamId)) byTeam.set(q.teamId, []);
+      byTeam.get(q.teamId).push(id);
+    }
+
+    const teams = [];
+    for (const ids of byTeam.values()) {
+      if (ids.length >= 2) {
+        teams.push([ids[0], ids[1]]);
+      } else {
+        const p = players.get(ids[0]);
+        const lobby = p?.gameId ? games.get(p.gameId) : null;
+        if (!lobby || Object.keys(lobby.players).length < 2) {
+          const q = queue.get(ids[0]);
+          if (q) {
+            q.teamId = null; // partner really gone → stage 1
+            // Tell the client — a silent demotion leaves it painting the
+            // stage-2 "Finding match" banner while we hunt teammates. Lobby
+            // snapshot first (its `game` handler wipes gameQueued), then the
+            // stage flip. No lobby → pair2v2Solos self-heals one next tick.
+            if (p && lobby) p.send(lobby.getInitialSendState(p));
+            if (p) p.send({ type: 'enter2v2Queue', stage: 'teammate' });
+          }
+        }
+      }
+    }
+    return teams;
+  }
+
 
 
   // queue handler
@@ -1481,6 +2058,13 @@ try {
     // When fewer players online, allow joining later rounds to speed up matchmaking
     const minRoundsRemaining = players.size >= 3000 ? 4 : 3;
     for (const game of games.values()) {
+
+      // 2v2 staging lobby auto-queue: pairing / pregame-cancel parks members
+      // in a lobby with this stamp so they see their team before queueing
+      // (full duo → stage 2 opponent search, lone member → stage 1).
+      if (game.is2v2Lobby && game.autoQueue2v2At && Date.now() >= game.autoQueue2v2At) {
+        queue2v2Members(game);
+      }
 
       const playerCnt = Object.keys(game.players).length;
       // start games that have at least 2 players
@@ -1526,7 +2110,10 @@ try {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
-          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0);
+          // Team modes get +1s between rounds: the reveal banner carries more
+          // info there (verdict + credit + damage) than a solo/1v1 reveal.
+          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0)
+            + ((game.teamDuel || game.teamGame) ? 1000 : 0);
           game.sendStateUpdate();
 
 
@@ -1573,7 +2160,7 @@ try {
       for (const playerData of playersInQueue) {
         const playerId = playerData[0];
         const queueData = playerData[1];
-        if (queueData.duel) {
+        if (queueData.duel || queueData.mode === '2v2') {
           continue;
         }
         const player = players.get(playerId);
@@ -1594,20 +2181,26 @@ try {
 
     }
 
-    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel).length > 1) {
+    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
       // create a new public game (non duel)
       const gameId = uuidv4();
-      const game = new Game(gameId, true, undefined, undefined, allLocations);
+      const game = new Game(gameId, { public: true, allLocations });
       games.set(gameId, game);
 
       let playersCanJoin = game.maxPlayers;
       for (const playerData of playersInQueue) {
         const playerId = playerData[0];
         const player = players.get(playerId);
+        // Same stale-entry guard as the join loop above — a missing player
+        // here would TypeError inside the interval and take the process down.
+        if (!player) {
+          playersInQueue.delete(playerId);
+          continue;
+        }
         if (player.gameId) {
           continue;
         }
-        if(playerData[1].duel) {
+        if(playerData[1].duel || playerData[1].mode === '2v2') {
           continue;
         }
         if (playersCanJoin < 1) {
@@ -1616,6 +2209,122 @@ try {
         game.addPlayer(player);
         playersInQueue.delete(playerId);
         playersCanJoin--;
+      }
+    }
+
+    // 2v2 matchmaking, two distinct stages:
+    //   stage 1 — find a teammate: solo queuers are paired into a shared
+    //   lobby and shown their team for a beat before auto-queueing as a duo;
+    //   stage 2 — find opponents: two intact duos pair into a 4-player game.
+    // Players who queue from a full duo skip stage 1 entirely.
+    if (playersInQueue.size >= 1) {
+      pair2v2Solos(playersInQueue);
+      const teams = build2v2Teams(playersInQueue);
+
+      // Pair teams while avoiding immediate rematches: a duo is never matched
+      // against the identical opponent duo it just fought (stamped on each
+      // player as last2v2Opponents at match creation) — UNLESS no other
+      // pairing exists and both sides have waited out a short cooldown, so a
+      // two-duo queue at low population can't deadlock forever.
+      const duoKey = (team) => [...team].sort().join('|');
+      const isRematch = (t1, t2) => {
+        const k1 = duoKey(t1), k2 = duoKey(t2);
+        return t1.some(id => players.get(id)?.last2v2Opponents === k2)
+            || t2.some(id => players.get(id)?.last2v2Opponents === k1);
+      };
+      const cooledDown = (t) => t.every(id => {
+        const q = playersInQueue.get(id);
+        return q && Date.now() - q.queueTime > 20000;
+      });
+      const pairs = [];
+      const unpaired = [...teams];
+      while (unpaired.length >= 2) {
+        const tA = unpaired.shift();
+        let idx = unpaired.findIndex(tB => !isRematch(tA, tB));
+        if (idx === -1) {
+          idx = unpaired.findIndex(tB => cooledDown(tA) && cooledDown(tB));
+          if (idx === -1) continue; // only fresh rematches available — tA waits this tick
+        }
+        pairs.push([tA, unpaired.splice(idx, 1)[0]]);
+      }
+
+      for (const [teamA, teamB] of pairs) {
+        const ids = [...teamA, ...teamB];
+        const socks = ids.map(id => players.get(id));
+
+        // Bail if anyone vanished / left the queue between build and create.
+        // A queued player may legitimately still sit in a private waiting
+        // lobby (kept alive so cancel can restore it) — only a started/real
+        // game disqualifies them.
+        const inRealGame = (s) => {
+          if (!s.gameId) return false;
+          const g = games.get(s.gameId);
+          return !g || g.public || g.state !== 'waiting';
+        };
+        if (socks.some(s => !s || !s.inQueue || inRealGame(s))) {
+          for (const id of ids) {
+            const s = players.get(id);
+            if (!s || !s.inQueue) playersInQueue.delete(id);
+          }
+          continue;
+        }
+
+        // Remember which teams were matchmade pairings (vs chosen duos)
+        // BEFORE their lobbies are torn down — a pregame cancel propagates
+        // this onto the regroup lobbies so their cancel semantics carry over.
+        const teamAutoPaired = (team) => {
+          const s = players.get(team[0]);
+          const g = s?.gameId ? games.get(s.gameId) : null;
+          return !!g?.autoPaired;
+        };
+        const autoPairedTeams = { a: teamAutoPaired(teamA), b: teamAutoPaired(teamB) };
+        // Chosen-duo host identity (drives post-game Back/Play Again roles on
+        // the results screen) — read from the staging lobby BEFORE teardown;
+        // null for auto-paired teams, which have no host semantics.
+        const teamHostId = (team) => {
+          const s = players.get(team[0]);
+          const g = s?.gameId ? games.get(s.gameId) : null;
+          if (!g || g.autoPaired) return null;
+          return Object.values(g.players).find(p => p.host)?.id || null;
+        };
+        const teamHostIds = { a: teamHostId(teamA), b: teamHostId(teamB) };
+
+        // Tear down the staging lobbies the matched players came from. Queued
+        // members ignore the resulting gameShutdown client-side (not inGame),
+        // while any non-queued straggler (e.g. a friend who joined the lobby
+        // mid-search) gets properly reset home.
+        for (const lobbyId of new Set(socks.map(s => s.gameId).filter(Boolean))) {
+          const lobby = games.get(lobbyId);
+          if (lobby && !lobby.public && lobby.state === 'waiting') {
+            games.delete(lobbyId);
+            lobby.shutdown();
+          }
+        }
+
+        const gameId = uuidv4();
+        // public=true (loop manages lifecycle like a public duel), teamDuel=true.
+        const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+        game.autoPairedTeams = autoPairedTeams;
+        game.teamHostIds = teamHostIds;
+        games.set(gameId, game);
+
+        // Rematch-avoidance memory: each player remembers the exact opponent
+        // duo, so the pairing loop above skips an immediate re-encounter.
+        const keyA = duoKey(teamA), keyB = duoKey(teamB);
+        for (const id of teamA) { const s = players.get(id); if (s) s.last2v2Opponents = keyB; }
+        for (const id of teamB) { const s = players.get(id); if (s) s.last2v2Opponents = keyA; }
+
+        // First team's members → 'a', second team's → 'b'. Team duels have no
+        // p1..p4 tags — nothing reads them; the client keys off players[].team.
+        [teamA, teamB].forEach((team, idx) => {
+          const teamKey = idx === 0 ? 'a' : 'b';
+          for (const id of team) {
+            game.addPlayer(players.get(id), undefined, undefined, teamKey);
+          }
+        });
+        for (const id of ids) playersInQueue.delete(id);
+
+        game.start();
       }
     }
 
@@ -1636,7 +2345,7 @@ try {
         }
 
         const gameId = uuidv4();
-        const game = new Game(gameId, true, undefined, undefined, allLocations, true);
+        const game = new Game(gameId, { public: true, allLocations, duel: true });
         games.set(gameId, game);
 
         game.addPlayer(p1, undefined, "p1");
@@ -1728,6 +2437,34 @@ try {
         continue;
       }
       if(Date.now() - player.disconnectTime > 30000) {
+        // Team rejoin exception (2v2 duels AND team parties): while the game
+        // is still running and a teammate is still connected holding the
+        // fort, keep the dropout rejoinable indefinitely — handleReconnect is
+        // time-agnostic, it only needs this players entry plus the
+        // disconnectedPlayers key. The tick after the game ends, dissolves,
+        // or loses its last live teammate, this check fails and the normal
+        // purge below runs. Team-party specifics:
+        //  - mid-match states only: a 'waiting' lobby member purges normally
+        //    (rejoining a lobby is just entering the code again);
+        //  - never the host: the host-leave disband rule is deliberate, so a
+        //    host dropout must still reach removePlayer after the 30s grace.
+        const dcGame = player.gameId ? games.get(player.gameId) : null;
+        const teamHold = dcGame?.teamDuel
+          ? dcGame.state !== 'end'
+          : !!dcGame?.teamGame && ['getready', 'guess'].includes(dcGame.state);
+        const rosterEntry = teamHold ? dcGame.players[player.id] : null;
+        if (rosterEntry?.team && !rosterEntry.host && dcGame.teamMembers(rosterEntry.team)
+              .some(m => {
+                if (m.id === player.id) return false;
+                // "Still in the game" = an actual LIVE socket. A fellow
+                // disconnected teammate must not count (two zombies would
+                // keep each other alive forever), and neither may a ghost
+                // roster entry whose Player object is already gone.
+                const mate = players.get(m.id);
+                return mate && !mate.disconnected;
+              })) {
+          continue;
+        }
         disconnectedPlayers.delete(accountId);
         if (player.gameId) {
           const game = games.get(player.gameId);
@@ -1736,6 +2473,9 @@ try {
           }
         }
 
+        // Never let a queue entry outlive its player — the matchmaking loops
+        // dereference these entries every 500ms.
+        playersInQueue.delete(playerId);
         players.delete(playerId);
       }
     }

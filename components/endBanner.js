@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import calcPoints from "./calcPoints";
+import calcPoints, { findDistance, pickBestTeamGuessIds } from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
@@ -7,6 +7,8 @@ import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
 import { loadBorders } from "./utils/loadBorders";
+import getMyTeam from "./utils/getMyTeam";
+import CountryFlag from "./utils/countryFlag";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -195,6 +197,136 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const distanceText = (pinPoint && km >= 0)
         ? text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })
         : null;
+    const gd = multiplayerState?.gameData;
+    const players = gd?.players || [];
+    const myTeam = (gd?.team2v2 || gd?.teamGame) ? getMyTeam(players, gd?.myId) : null;
+    const teamRoundScores = gd?.teamRoundScores?.scores;
+    // Verdict only \u2014 the numbers themselves already live on the HP bars /
+    // team scorebar; the banner's job is interpretation (won/lost + credit).
+    const hasTeamRoundScores = !!(
+        myTeam &&
+        typeof teamRoundScores?.a === 'number' &&
+        typeof teamRoundScores?.b === 'number'
+    );
+    const winningRoundTeam = hasTeamRoundScores && teamRoundScores.a !== teamRoundScores.b
+        ? (teamRoundScores.a > teamRoundScores.b ? 'a' : 'b')
+        : null;
+    const showTeamDuelRoundSummary = !!(gd?.team2v2 && hasTeamRoundScores);
+    const showTeamGameRoundLine = !!(gd?.teamGame && !gd?.team2v2 && hasTeamRoundScores);
+    const teamRoundResultKey = (showTeamDuelRoundSummary || showTeamGameRoundLine)
+        ? (winningRoundTeam == null
+            ? "teamRoundTied"
+            : winningRoundTeam === myTeam
+                ? "teamRoundWon"
+                : "teamRoundLost")
+        : null;
+
+    // Whose guess counted for my team \u2014 same calcPoints + distance tie-break
+    // as the reveal map's enlarged pin (pickBestTeamGuessIds), so the name
+    // here always matches the big pin. Frozen per reveal: the next round's
+    // broadcast wipes players[].guess while the banner is still fading out.
+    const carrierRef = useRef({ key: null, carrier: null });
+    const teamRevealKey = guessed && (showTeamDuelRoundSummary || showTeamGameRoundLine)
+        ? `${gd?.code ?? ''}:${gd?.teamRoundScores?.round ?? ''}`
+        : null;
+    if (teamRevealKey && carrierRef.current.key !== teamRevealKey) {
+        let carrier = null;
+        // Under 'average' scoring no single guess counted (same rule as the map).
+        const averageScoring = showTeamGameRoundLine && gd?.teamScoring === 'average';
+        if (!averageScoring && latLong) {
+            const maxDist = gd?.maxDist ?? 20000;
+            const entries = [];
+            const consider = (id, lat, lng) => {
+                if (lat == null || lng == null) return;
+                entries.push({
+                    id, team: myTeam,
+                    pts: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: lat, guessLon: lng, usedHint: false, maxDist }),
+                    dist: findDistance(latLong.lat, latLong.long, lat, lng),
+                });
+            };
+            players.forEach(p => {
+                if (p.id === gd?.myId || p.team !== myTeam) return;
+                if (p.guess) consider(p.id, p.guess[0], p.guess[1]);
+            });
+            if (pinPoint) consider(gd?.myId, pinPoint.lat, pinPoint.lng);
+            const bestId = [...pickBestTeamGuessIds(entries)][0];
+            if (bestId != null) {
+                // Exact point ties (both teammates capping 5000 is common)
+                // mean either guess IS the team score — credit both instead
+                // of naming whoever was centimeters closer.
+                const bestPts = entries.find(e => e.id === bestId)?.pts;
+                const tied = entries.filter(e => e.pts === bestPts).length > 1;
+                carrier = tied
+                    ? { tie: true }
+                    : bestId === gd?.myId
+                        ? { isMe: true, name: null }
+                        : { isMe: false, name: players.find(p => p.id === bestId)?.username || null };
+            }
+        }
+        carrierRef.current = { key: teamRevealKey, carrier };
+    }
+    const teamCarrier = teamRevealKey ? carrierRef.current.carrier : null;
+    const teamCarrierText = teamCarrier
+        ? (teamCarrier.tie
+            ? text("guessCountedTie")
+            : teamCarrier.isMe
+                ? text("guessCounted")
+                : teamCarrier.name ? text("guessCountedBy", { name: teamCarrier.name }) : null)
+        : null;
+    // Compact points for the parenthetical: 3412 → "3.4k", 5000 → "5k".
+    const compactPts = (n) => n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${n}`;
+    const personalRoundText = distanceText
+        ? `${distanceText} (${text("ptsCount", { points: compactPts(displayPoints) })})`
+        : text("didntGuess");
+    // Team party rounds fold the points into the distance line (2v2-style
+    // parenthetical) so the banner stays compact; other modes keep gotPoints.
+    const classicDistanceLine = showTeamGameRoundLine ? personalRoundText : distanceText;
+    // 2v2 (teamGame has no HP): |a−b| is exactly what the losing team's
+    // health dropped by, same construction as the server's subtraction.
+    const teamRoundDamage = (showTeamDuelRoundSummary && winningRoundTeam)
+        ? Math.abs(teamRoundScores.a - teamRoundScores.b)
+        : 0;
+    // 1v1 duels get the same damage-verdict banner. No server stamp there —
+    // rebuild both round scores exactly like the server's HP subtraction
+    // (calcPoints per guess, absolute diff), frozen per reveal since the next
+    // round's broadcast wipes the opponent's guess mid-fade.
+    const is1v1Duel = !!(multiplayerState?.inGame && gd?.duel && !gd?.team2v2);
+    const duelDamageRef = useRef({ key: null, result: null });
+    const duelRevealKey = guessed && is1v1Duel ? `${gd?.code ?? ''}:${gd?.curRound ?? ''}` : null;
+    if (duelRevealKey && duelDamageRef.current.key !== duelRevealKey) {
+        let result = null;
+        if (latLong) {
+            const oppGuess = players.find(p => p.id !== gd?.myId)?.guess;
+            const oppPts = oppGuess ? calcPoints({
+                lat: latLong.lat, lon: latLong.long,
+                guessLat: oppGuess[0], guessLon: oppGuess[1],
+                usedHint: false, maxDist: gd?.maxDist ?? 20000
+            }) : 0;
+            result = { dmg: Math.abs(points - oppPts), dealt: points > oppPts };
+        }
+        duelDamageRef.current = { key: duelRevealKey, result };
+    }
+    const duelRoundDamage = duelRevealKey ? duelDamageRef.current.result : null;
+
+    // Damage direction IS the verdict for HP modes (2v2 + 1v1); a 0-damage
+    // round renders the tied line instead.
+    const damageHeadline = showTeamDuelRoundSummary
+        ? { dealt: winningRoundTeam === myTeam, dmg: teamRoundDamage }
+        : duelRoundDamage;
+    // Country reveal above the damage verdict. Matchmade HP modes always run
+    // the world pool so country is present; community-map locations stamp
+    // 'unknown' server-side and skip the line.
+    const duelRevealCountry = damageHeadline && latLong?.country && latLong.country !== 'unknown'
+        ? nameFromCode(latLong.country, lang)
+        : null;
+    // Shared "It was {country}" + flag img reveal — HP-mode line, classic
+    // wrong-country headline, and country guesser all render the same thing.
+    const countryReveal = (name) => (
+        <>
+            {text("incorrectCountryWas", { country: name })}
+            <CountryFlag countryCode={latLong?.country} size={0.9} marginRight="0" style={{ marginLeft: '0.4em' }} />
+        </>
+    );
 
     return (
         <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
@@ -205,17 +337,30 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
             <div className="bannerContent">
                 {/* Main result line */}
-                {isClassicRound && wrongCountryName ? (
+                {damageHeadline ? (
                     <>
+                        {duelRevealCountry && (
+                            <span className='smallmainBannerTxt'>{countryReveal(duelRevealCountry)}</span>
+                        )}
                         <span className='mainBannerTxt'>
-                            {text("incorrectCountryWas", { country: wrongCountryName })}
+                            {damageHeadline.dmg > 0
+                                ? `${damageHeadline.dealt ? '⚔️' : '💔'} ${text(damageHeadline.dealt ? "dealtDamage" : "tookDamage", { dmg: compactPts(damageHeadline.dmg) })}`
+                                : text("teamRoundTied")}
                         </span>
+                        {teamCarrierText && (
+                            <span className='smallmainBannerTxt'>{teamCarrierText}</span>
+                        )}
+                        <p className='motivation team-round-personal'>{personalRoundText}</p>
+                    </>
+                ) : isClassicRound && wrongCountryName ? (
+                    <>
+                        <span className='mainBannerTxt'>{countryReveal(wrongCountryName)}</span>
                         {distanceText && (
-                            <span className='smallmainBannerTxt'>{distanceText}</span>
+                            <span className='smallmainBannerTxt'>{classicDistanceLine}</span>
                         )}
                     </>
                 ) : isClassicRound && pinPoint && (km >= 0) ? (
-                    <span className='mainBannerTxt'>{distanceText}</span>
+                    <span className='mainBannerTxt'>{classicDistanceLine}</span>
                 ) : isClassicRound && !pinPoint ? (
                     <span className='mainBannerTxt'>{text("didntGuess")}</span>
                 ) : countryGuesser ? (
@@ -224,15 +369,24 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             ? text("correctCountryNice")
                             : isContinentMode
                                 ? text("incorrectContinentWas", { continent: text(continentKey(continentFromCode(latLong?.country))) })
-                                : text("incorrectCountryWas", { country: nameFromCode(latLong?.country, lang) })
+                                : countryReveal(nameFromCode(latLong?.country, lang))
                     }</span>
                 ) : null}
 
-                {/* Points (classic only) */}
-                {!countryGuesser && (
+                {/* Points (classic only; team rounds carry them in the distance line) */}
+                {!countryGuesser && !damageHeadline && !showTeamGameRoundLine && (
                     <p className="motivation bannerPoints">
                         {text("gotPoints", { p: displayPoints })}
                     </p>
+                )}
+
+                {showTeamGameRoundLine && (
+                    <>
+                        <p className="motivation team-round-line">{text(teamRoundResultKey)}</p>
+                        {teamCarrierText && (
+                            <p className="motivation team-round-line">{teamCarrierText}</p>
+                        )}
+                    </>
                 )}
 
                 {/* Streak badge */}

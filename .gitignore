@@ -12,7 +12,12 @@ node_modules/
 
 # next.js
 /.next/
+/.next-*/
 /out/
+
+# windows: sass output accidentally redirected to the NUL device creates real files
+NUL
+nul.map
 
 # production
 /build

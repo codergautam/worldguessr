@@ -262,7 +262,7 @@
   font-weight: 500;
 }
 .daily-header-score {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: clamp(2.6rem, 8vw, 4.2rem);
   color: #4CAF50;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
@@ -388,7 +388,7 @@
 }
 
 .daily-stat-title {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: 1.4rem;
   color: #ffd700;
   margin-bottom: 12px;
@@ -484,7 +484,7 @@
 }
 
 .daily-flame-number {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: clamp(4.5rem, 12vw, 6.5rem);
   line-height: 1;
   color: #fff;
@@ -673,7 +673,7 @@
   margin-bottom: 4px;
 }
 .daily-round-badge-score {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: 1.8rem;
   color: var(--badge-color, #4CAF50);
   line-height: 1;
@@ -832,7 +832,7 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Leaderboard */
+/* Leaderboard (top-100 modal, opened from the landing's scores section) */
 .daily-leaderboard {
   display: flex;
   flex-direction: column;
@@ -859,7 +859,7 @@
   min-width: 0;
 }
 .daily-leaderboard-row .rank {
-  min-width: 24px;
+  min-width: 34px;
   text-align: center;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
@@ -885,7 +885,7 @@
   text-decoration: underline;
 }
 .daily-leaderboard-row .score {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-weight: 400;
   font-size: 1.3rem;
   color: #4CAF50;
@@ -914,6 +914,36 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+.daily-leaderboard-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.daily-leaderboard-pagination span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.daily-leaderboard-pagination button {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.daily-leaderboard-pagination button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+.daily-leaderboard-pagination button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* Round breakdown — bar graph */
@@ -1374,7 +1404,7 @@
   padding: 40px 20px 20px;
 }
 .daily-landing-title {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: clamp(2.4rem, 7vw, 4.6rem);
   line-height: 1.05;
   margin-bottom: 24px;
@@ -1471,6 +1501,40 @@
   font-weight: 600;
   margin-bottom: 14px;
   letter-spacing: 0.02em;
+}
+/* Title + right-aligned accessory (e.g. the leaderboard button) */
+.daily-landing-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.daily-landing-section-title-row .daily-landing-section-title {
+  margin-bottom: 0;
+}
+/* Deliberately understated — the distribution is the headline, the top-100
+   board is opt-in. */
+.daily-leaderboard-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+.daily-leaderboard-open-btn svg {
+  color: #ffd700;
+}
+.daily-leaderboard-open-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 .daily-landing-steps {
   display: grid;
@@ -1690,7 +1754,7 @@
   }
 }
 .daily-confirm-card h3 {
-  font-family: "Jockey One", sans-serif;
+  font-family: "Jockey One", "Jockey One Fallback", sans-serif;
   font-size: 1.5rem;
   margin-bottom: 8px;
 }

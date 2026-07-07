@@ -6,10 +6,12 @@ import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
 import { effectiveStreak, isGraceDay } from '../../serverUtils/dailyStreak.js';
+import { invalidateDailyLeaderboardCache } from './leaderboard.js';
 
-// Distribution + top-10 (the expensive part) are identical for every caller
-// on the same date — cache for a few seconds. User-specific block is fetched
-// separately and never cached.
+// The distribution is identical for every caller on the same date — cache for
+// a few seconds. User-specific block is fetched separately and never cached.
+// (The top-100 name board lives in leaderboard.js, fetched only when a player
+// opens the leaderboard modal/sheet.)
 const PUBLIC_TTL_MS = 10 * 1000;
 const publicCache = new Map(); // date -> { expiresAt, payload }
 
@@ -17,37 +19,7 @@ async function fetchPublic(date) {
   const cached = publicCache.get(date);
   if (cached && cached.expiresAt > Date.now()) return cached.payload;
 
-  const [statsDoc, topCandidates] = await Promise.all([
-    DailyChallengeStats.findOne({ date }).lean(),
-    // Filter DQ markers — they're zero-score rows we keep only to lock the
-    // date for the user, never to surface on the leaderboard.
-    // Over-fetch (2x) so the post-filter for banned/pendingNameChange users
-    // can still yield 10 entries even if a few got moderated mid-day.
-    DailyChallengeScore.find({ date, disqualified: { $ne: true } })
-      .sort({ score: -1, submittedAt: 1 })
-      .limit(20)
-      .select('username score userId')
-      .lean(),
-  ]);
-
-  // Belt-and-braces: takeAction.js's scrubFromDailyLeaderboards flips
-  // disqualified=true on every existing row at ban-time, so the filter above
-  // already catches the common case. This second pass guards the narrow race
-  // where a fresh score lands between the scrub and the ban write committing,
-  // and also strips users who entered pendingNameChange after their score was
-  // written (force_name_change scrubs them too, but defense-in-depth).
-  const candidateUserIds = topCandidates.map(t => t.userId).filter(Boolean);
-  const blockedIds = candidateUserIds.length
-    ? new Set(
-        (await User.find({
-          _id: { $in: candidateUserIds },
-          $or: [{ banned: true }, { pendingNameChange: true }],
-        }).select('_id').lean()).map(u => u._id.toString())
-      )
-    : new Set();
-  const top10 = topCandidates
-    .filter(t => !blockedIds.has(t.userId?.toString()))
-    .slice(0, 10);
+  const statsDoc = await DailyChallengeStats.findOne({ date }).lean();
 
   const totalPlays = statsDoc?.totalPlays || 0;
   const roundSums = statsDoc?.roundScoreSums || [];
@@ -62,7 +34,6 @@ async function fetchPublic(date) {
       buckets: statsDoc?.buckets || [],
       roundAverages,
     },
-    top10: top10.map((e, i) => ({ rank: i + 1, username: e.username, score: e.score })),
   };
 
   publicCache.set(date, { expiresAt: Date.now() + PUBLIC_TTL_MS, payload });
@@ -159,6 +130,7 @@ async function fetchUserBlock(date, secret) {
       if (result.modifiedCount > 0) {
         // Clear all cached leaderboards — the repair can touch past dates too.
         for (const key of [...publicCache.keys()]) publicCache.delete(key);
+        invalidateDailyLeaderboardCache();
       }
     } catch (err) {
       console.warn('[dailyChallenge/results] username heal failed:', err?.message);
@@ -238,7 +210,6 @@ async function handler(req, res) {
     return res.status(200).json({
       date,
       distribution: publicData.distribution,
-      top10: publicData.top10,
       user: userBlock,
     });
   } catch (err) {
@@ -247,11 +218,14 @@ async function handler(req, res) {
   }
 }
 
-// Lets the submit endpoint force the cache to refresh after a new score lands
-// so a player's submission shows up on the leaderboard / distribution
-// immediately rather than up to 10s later.
+// Lets write paths (submit / mod scrub / guest claim) force the caches to
+// refresh after a score lands or gets scrubbed, so the change shows up on the
+// distribution AND the top-100 leaderboard immediately rather than up to 10s
+// later. Single entry point — leaderboard.js's cache is cleared here too so
+// call sites don't need to know there are two.
 export function invalidateDailyPublicCache(date) {
   if (date) publicCache.delete(date);
+  invalidateDailyLeaderboardCache(date);
 }
 
 export default ratelimiter(handler, 60, 60000);

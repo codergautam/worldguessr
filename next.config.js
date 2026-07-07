@@ -25,6 +25,10 @@ const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+    // Production builds can set NEXT_DIST_DIR (e.g. '.next-prod') so `next build`
+    // never shares .next with a running `next dev` — concurrent access corrupts
+    // the build at the trace-collection step on Windows.
+    distDir: process.env.NEXT_DIST_DIR || '.next',
     env: {
         NEXT_PUBLIC_COMMIT_HASH: getCommitHash(),
         NEXT_PUBLIC_BUILD_TIME: getBuildTime(),

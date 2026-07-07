@@ -334,9 +334,13 @@ export default function ModDashboard({ session }) {
   };
 
   const handleGameClick = (game) => {
-    // Save scroll position before viewing game
-    setSavedScrollPosition(window.scrollY);
-    setSelectedGame(game);
+    // Route through the mod endpoint (fetchGameById → /api/mod/gameDetails)
+    // with the target user's perspective resolved server-side. Setting the
+    // bare list-row summary here made HistoricalGameView fall back to the
+    // PLAYER-facing /api/gameDetails with the MOD's own secret — if the mod
+    // had played in that game, the "your guess" data shown was the mod's own,
+    // not the investigated user's. (fetchGameById saves scroll itself.)
+    fetchGameById(game.gameId, targetUser?._id || null);
   };
 
   const fetchGameById = async (gameId, targetUserId = null, reportedAccountId = null) => {
@@ -1817,6 +1821,9 @@ export default function ModDashboard({ session }) {
                         {targetUser.pendingNameChange && (
                           <span className={styles.pendingNameBadge}>PENDING NAME CHANGE</span>
                         )}
+                        {targetUser.scheduledDeletionAt && (
+                          <span className={styles.pendingDeletionBadge}>PENDING DELETION</span>
+                        )}
                       </div>
                     </div>
 
@@ -1860,6 +1867,16 @@ export default function ModDashboard({ session }) {
                     {targetUser.banned && targetUser.banExpiresAt && (
                       <div className={styles.banInfo}>
                         Ban expires: {new Date(targetUser.banExpiresAt).toLocaleString()}
+                      </div>
+                    )}
+
+                    {targetUser.scheduledDeletionAt && (
+                      <div className={styles.deletionInfo}>
+                        ⚠️ Account deletion scheduled: {new Date(targetUser.scheduledDeletionAt).toLocaleString()}
+                        {targetUser.deletionRequestedAt && (
+                          <> (requested {new Date(targetUser.deletionRequestedAt).toLocaleDateString()})</>
+                        )}
+                        {' '}— data purges permanently once this date passes.
                       </div>
                     )}
 

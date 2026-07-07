@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';

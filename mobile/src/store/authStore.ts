@@ -249,12 +249,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await SecureStore.deleteItemAsync(SECRET_KEY);
     resetClaimGuestProgressState();
     // Clear account-scoped multiplayer state (friends/presence + sent/received/
-    // incoming requests + game invites) on logout — web parity with signOut()'s
-    // full page reload. Run BEFORE set({secret:null}) so stale friends are gone
-    // before the useWebSocket secret-change effect kicks off the guest reconnect,
-    // leaving no window where stale account data coexists with a fresh guest
-    // socket. reset() preserves connected/verified, which the reconnect re-syncs.
-    useMultiplayerStore.getState().reset();
+    // incoming requests + game invites + settings toggles) on logout — web
+    // parity with signOut()'s full page reload. Run BEFORE set({secret:null})
+    // so stale friends are gone before the useWebSocket secret-change effect
+    // kicks off the guest reconnect, leaving no window where stale account
+    // data coexists with a fresh guest socket. resetAccount() (NOT reset(),
+    // which is game-scoped only) preserves connected/verified, which the
+    // reconnect re-syncs.
+    useMultiplayerStore.getState().resetAccount();
     set({
       secret: null,
       user: null,

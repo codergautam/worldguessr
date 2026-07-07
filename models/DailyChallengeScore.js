@@ -19,6 +19,11 @@ const dailyChallengeScoreSchema = new mongoose.Schema({
   // Tab-switched mid-game: record exists to lock the date (one play per day),
   // but the run is excluded from the leaderboard and not counted in stats.
   disqualified: { type: Boolean, default: false },
+  // Moderation shadow: set when the owner is banned — at submit time for new
+  // runs, or by takeAction's ban-time scrub for pre-ban rows. The run stays
+  // real to its owner (score, rounds, streak, game history all stand) but
+  // never surfaces on the public top-10, even after an unban.
+  hidden: { type: Boolean, default: false },
   submittedAt: { type: Date, default: Date.now },
 });
 

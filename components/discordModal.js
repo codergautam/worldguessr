@@ -22,7 +22,7 @@ export default function DiscordModal({ shown, setOpen }) {
           maxWidth: '440px',
           textAlign: 'center',
           color: 'white',
-          fontFamily: 'Lexend, sans-serif',
+          fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
         }
       }}

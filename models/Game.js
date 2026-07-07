@@ -33,6 +33,14 @@ const roundSchema = new mongoose.Schema({
   // All player guesses for this round
   playerGuesses: [playerGuessSchema],
 
+  // Team-party rounds: the server-computed team score for this round under
+  // the game's scoring method ('average' is not reconstructable client-side —
+  // its denominator is the roster at scoring time). null for solo modes.
+  teamRoundScores: {
+    a: { type: Number, default: null },
+    b: { type: Number, default: null }
+  },
+
   // Round metadata
   startedAt: { type: Date, default: Date.now },
   endedAt: { type: Date, default: null },
@@ -50,8 +58,16 @@ const playerSummarySchema = new mongoose.Schema({
   totalXp: { type: Number, default: 0 },
   averageTimePerRound: { type: Number, default: 0 }, // seconds
 
-  // Ranking
-  finalRank: { type: Number, required: true }, // 1st, 2nd, 3rd place
+  // Ranking. CAUTION — semantics differ by mode:
+  //   solo / FFA / party (incl. teamGame): INDIVIDUAL rank by personal points.
+  //   2v2 team duels (gameType '2v2'):     TEAM result — 1 for every winner,
+  //                                        2 for every loser (draw → all 1).
+  // Never treat finalRank uniformly across game types; team W/L should be
+  // read from result.winningTeam + players[].team instead.
+  finalRank: { type: Number, required: true },
+
+  // Team identifier for team modes (e.g. 2v2). null/undefined for solo modes.
+  team: { type: String, default: null }, // 'a' | 'b'
 
   // Duel-specific data (only for ranked duels)
   elo: {
@@ -67,7 +83,7 @@ const gameSchema = new mongoose.Schema({
   gameType: {
     type: String,
     required: true,
-    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'daily_challenge']
+    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'daily_challenge', '2v2']
   },
 
   // Game settings
@@ -84,7 +100,11 @@ const gameSchema = new mongoose.Schema({
     showRoadName: { type: Boolean, default: false },
     noMove: { type: Boolean, default: false },
     noPan: { type: Boolean, default: false },
-    noZoom: { type: Boolean, default: false }
+    noZoom: { type: Boolean, default: false },
+
+    // Intra-party team mode (private_multiplayer only)
+    teamGame: { type: Boolean, default: false },
+    teamScoring: { type: String, default: null } // 'average' | 'closest'
   },
 
   // Game timing
@@ -101,6 +121,14 @@ const gameSchema = new mongoose.Schema({
   // Game result metadata
   result: {
     winner: { type: String, default: null }, // playerId of winner (for duels)
+    winningTeam: { type: String, default: null }, // 'a' | 'b' for team modes (2v2)
+    // Final shared-HP per team for team modes — lets history render the same
+    // "Your team ❤️ vs Enemy ❤️" summary the live end screen shows. null on
+    // solo modes and on team games saved before this field existed.
+    teamScores: {
+      a: { type: Number, default: null },
+      b: { type: Number, default: null }
+    },
     isDraw: { type: Boolean, default: false }, // for duels
     maxPossiblePoints: { type: Number, required: true } // rounds * 5000
   },

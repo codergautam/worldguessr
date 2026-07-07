@@ -6,21 +6,23 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { withDelay, withTiming, withRepeat, withSequence } from './anims';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../shared/locale';
 import { formatCountdown, msUntilLocalMidnight } from './dailyDate';
 import DailyStreakBadge from './DailyStreakBadge';
-import DailyLeaderboardPanel from './DailyLeaderboardPanel';
+import ScoreDistributionChart from './ScoreDistributionChart';
 import PersonalRecordsCard from './PersonalRecordsCard';
+import { derivePercentile } from '@shared/daily/percentile';
 import DailyHistoryBars14 from './DailyHistoryBars14';
 import DailyBackground from './DailyBackground';
 import DailySection from './DailySection';
+import DailyLeaderboardSheet from './DailyLeaderboardSheet';
 import { dailyColors, dailyTimings } from './styles';
 
 interface Props {
   today: string;
-  todayTop10?: Array<{ rank: number; username: string; score: number }>;
+  distribution?: { totalPlays: number; avgScore: number; buckets: number[] } | null;
   userData?: any;
   onStartChallenge: () => void;
   onSignIn?: () => void;
@@ -45,7 +47,7 @@ function StaggerSection({ delay, children }: { delay: number; children: React.Re
 
 export default function DailyLanding({
   today,
-  todayTop10 = [],
+  distribution = null,
   userData,
   onStartChallenge,
   onSignIn,
@@ -56,6 +58,7 @@ export default function DailyLanding({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setCountdown(msUntilLocalMidnight()), 1000);
@@ -156,17 +159,70 @@ export default function DailyLanding({
           </DailySection>
         </StaggerSection>
 
+        {/* Community pulse — the anonymous distribution stays the headline (an
+            average is a reachable target for beginners); the named top-100
+            board is deliberately tucked behind an opt-in slide-up sheet so it
+            isn't the main attraction. Mirrors web DailyLanding.js and the
+            results screen's distribution card: chart (≥10 plays) → meta →
+            standing/hook. */}
         <StaggerSection delay={150}>
-          <DailySection title={t('top10Today')} style={styles.sectionGap}>
-            {todayTop10.length > 0 ? (
-              <DailyLeaderboardPanel
-                top10={todayTop10}
-                userRank={userData?.ownRank ?? null}
-                userScore={userData?.ownScore ?? null}
-                isLoggedIn={isLoggedIn}
-                username={userData?.username}
-                onSignIn={onSignIn}
-              />
+          {/* "How you compare" only makes sense once there's a score to compare —
+              pre-play it's just today's scores. */}
+          <DailySection
+            title={t(playedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
+            headerRight={(distribution?.totalPlays || 0) > 0 ? (
+              <Pressable onPress={() => setShowLeaderboard(true)} hitSlop={6} style={styles.leaderboardBtn}>
+                <Ionicons name="trophy" size={13} color="#ffd700" />
+                <Text style={styles.leaderboardBtnText}>{t('dailyViewLeaderboard')}</Text>
+              </Pressable>
+            ) : undefined}
+            style={styles.sectionGap}
+          >
+            {(distribution?.totalPlays || 0) > 0 ? (
+              <>
+                {distribution!.totalPlays >= 10 ? (
+                  <ScoreDistributionChart
+                    buckets={distribution!.buckets || []}
+                    totalPlays={distribution!.totalPlays}
+                    userScore={playedToday ? userData?.ownScore ?? undefined : undefined}
+                  />
+                ) : (
+                  <Text style={styles.empty}>{t('tooFewPlaysForChart')}</Text>
+                )}
+                <View style={styles.distMeta}>
+                  <Text style={styles.distMetaText}>
+                    {t('averageScoreToday', { avg: distribution!.avgScore || 0 })}
+                  </Text>
+                  <Text style={styles.distMetaText}>
+                    {t('sampleSize', { count: distribution!.totalPlays.toLocaleString() })}
+                  </Text>
+                </View>
+                {(() => {
+                  const percentile = playedToday
+                    ? derivePercentile(userData?.ownRank, distribution!.totalPlays)
+                    : null;
+                  if (percentile !== null && percentile >= 20) {
+                    return (
+                      <View style={styles.distStanding}>
+                        <Text style={styles.distStandingPct}>
+                          {t('beatPctPlayers', { pct: percentile })}
+                        </Text>
+                        <Text style={styles.distStandingRank}>
+                          {t('rankOfTotal', { rank: userData.ownRank, total: distribution!.totalPlays.toLocaleString() })}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  if (!playedToday) {
+                    return (
+                      <Text style={styles.empty}>
+                        {t('dailyBeatAvgHook', { avg: (distribution!.avgScore || 0).toLocaleString() })}
+                      </Text>
+                    );
+                  }
+                  return null;
+                })()}
+              </>
             ) : (
               <Text style={styles.empty}>{t('dailyLandingNoWinnersYet')}</Text>
             )}
@@ -186,6 +242,15 @@ export default function DailyLanding({
           </DailySection>
         </StaggerSection>
       </ScrollView>
+
+      <DailyLeaderboardSheet
+        visible={showLeaderboard}
+        date={today}
+        userData={userData}
+        isLoggedIn={isLoggedIn}
+        onSignIn={onSignIn ? () => { setShowLeaderboard(false); onSignIn(); } : undefined}
+        onClose={() => setShowLeaderboard(false)}
+      />
     </View>
   );
 }
@@ -255,6 +320,20 @@ const styles = StyleSheet.create({
   signinBtn: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: dailyColors.green, borderRadius: 10 },
   signinBtnText: { color: '#fff', fontFamily: 'Lexend-SemiBold', fontSize: 13 },
   sectionGap: { marginTop: 20 },
+  // Deliberately understated — the distribution is the headline, the top-100
+  // board is opt-in. Mirrors web .daily-leaderboard-open-btn.
+  leaderboardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  leaderboardBtnText: { color: '#fff', fontFamily: 'Lexend', fontSize: 12 },
   steps: { gap: 8 },
   step: {
     flexDirection: 'row',
@@ -272,4 +351,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 16,
   },
+  // Distribution meta/standing — same look as DailyResultsScreen's card.
+  distMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  distMetaText: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Lexend', fontSize: 11 },
+  distStanding: { marginTop: 12, alignItems: 'center', gap: 4 },
+  distStandingPct: { color: dailyColors.gold, fontFamily: 'Lexend-Bold', fontSize: 16 },
+  distStandingRank: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Lexend', fontSize: 12 },
 });

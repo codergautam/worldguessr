@@ -65,6 +65,18 @@ export async function removeBannedIdentity(accountId) {
 }
 
 /**
+ * The user-facing refusal message for a blocked re-signup — ONE source of truth
+ * for every auth surface (googleAuth google/apple paths, crazyAuth). Always
+ * leads with the fixed explanation: a bare mod-written note like "Cheating in
+ * ranked duels" shown alone on a fresh signup gives the user zero context for
+ * why account creation failed. The mod's public note is appended as the reason.
+ */
+export function bannedIdentityMessage(blocked) {
+  const base = 'This account was permanently banned and a new account cannot be created with this identity.';
+  return blocked?.publicNote ? `${base} Reason: ${blocked.publicNote}` : base;
+}
+
+/**
  * Return the matching blocklist doc if either identifier is blocked, else null.
  * Used at account-creation time to refuse a fresh account for a banned identity.
  * Fail-open: on a read error we return null (don't lock out legitimate signups

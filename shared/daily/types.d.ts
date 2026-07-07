@@ -1,5 +1,5 @@
 // Daily Challenge API response contract — the shapes returned by
-// /api/dailyChallenge/{locations,results,submit,claimGuestProgress}.
+// /api/dailyChallenge/{locations,results,submit,claimGuestProgress,leaderboard}.
 // Single source of truth for the request/response shapes both clients depend
 // on. Consumed by the mobile TS app; documents the contract for the web app
 // and server.
@@ -28,10 +28,17 @@ export interface DailyDistribution {
   roundAverages: number[];
 }
 
-export interface DailyTop10Entry {
+export interface DailyLeaderboardEntry {
   rank: number;
   username: string;
   score: number;
+}
+
+// Top-100 board behind the opt-in leaderboard modal/sheet. Pagination is
+// client-side — the whole (small) list comes down in one response.
+export interface DailyLeaderboardResponse {
+  date: string;
+  leaderboard: DailyLeaderboardEntry[];
 }
 
 export interface DailyOwnRound {
@@ -61,7 +68,6 @@ export interface DailyUser {
 export interface DailyResultsResponse {
   date: string;
   distribution?: DailyDistribution;
-  top10?: DailyTop10Entry[];
   user?: DailyUser;
 }
 

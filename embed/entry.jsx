@@ -160,6 +160,7 @@ function ResultsEmbed({ state }) {
         myId={state.myId ?? null}
         selectedPlayer={state.selectedPlayer ?? null}
         isDuel={!!state.isDuel}
+        teams={state.teams ?? null}
         isCountryGuesser={!!state.isCountryGuesser}
         lang={state.lang || 'en'}
         mapType={state.mapType || 'm'}

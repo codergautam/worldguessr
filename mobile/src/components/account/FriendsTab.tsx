@@ -17,14 +17,13 @@ import {
   Text,
   TextInput,
   Pressable,
-  Switch,
   ActivityIndicator,
   StyleSheet,
   ScrollView,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { GlassCard, sharedStyles } from './shared';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { GlassCard, sharedStyles, formatTimeAgo } from './shared';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import type { FriendReqState } from '../../store/multiplayerStore';
 import { t } from '../../shared';
@@ -61,7 +60,6 @@ export default function FriendsTab() {
   const friends = useMultiplayerStore((s) => s.friends);
   const sentRequests = useMultiplayerStore((s) => s.sentRequests);
   const receivedRequests = useMultiplayerStore((s) => s.receivedRequests);
-  const allowFriendReq = useMultiplayerStore((s) => s.allowFriendReq);
   const friendReqState = useMultiplayerStore((s) => s.friendReqState);
   const friendReqStateAt = useMultiplayerStore((s) => s.friendReqStateAt);
   const requestFriends = useMultiplayerStore((s) => s.requestFriends);
@@ -70,7 +68,6 @@ export default function FriendsTab() {
   const declineFriend = useMultiplayerStore((s) => s.declineFriend);
   const cancelFriendRequest = useMultiplayerStore((s) => s.cancelFriendRequest);
   const removeFriend = useMultiplayerStore((s) => s.removeFriend);
-  const setAllowFriendReqOnServer = useMultiplayerStore((s) => s.setAllowFriendReqOnServer);
   const inviteFriendToGame = useMultiplayerStore((s) => s.inviteFriendToGame);
   const clearFriendReqState = useMultiplayerStore((s) => s.clearFriendReqState);
 
@@ -103,8 +100,15 @@ export default function FriendsTab() {
     return () => clearTimeout(timer);
   }, [friendReqState, friendReqStateAt, clearFriendReqState]);
 
+  // Online first, then most recently seen; null lastSeen (hidden / unknown)
+  // sinks to the bottom. Mirrors web friendModal.js.
   const sortedFriends = useMemo(
-    () => [...friends].sort((a, b) => Number(b.online) - Number(a.online)),
+    () =>
+      [...friends].sort(
+        (a, b) =>
+          Number(b.online) - Number(a.online) ||
+          (b.lastSeen ?? 0) - (a.lastSeen ?? 0),
+      ),
     [friends],
   );
 
@@ -187,22 +191,8 @@ export default function FriendsTab() {
         )}
       </GlassCard>
 
-      {/* ── Allow requests toggle ──────────────────────────────── */}
-      <GlassCard>
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.toggleLabel}>{t('allowFriendRequests')}</Text>
-          </View>
-          <Switch
-            value={allowFriendReq}
-            onValueChange={setAllowFriendReqOnServer}
-            trackColor={{ false: '#3a3a3a', true: '#4ade80' }}
-            thumbColor="#fff"
-          />
-        </View>
-      </GlassCard>
-
       {/* ── Received requests ──────────────────────────────────── */}
+      {/* (allow-friend-requests toggle moved to the settings screen) */}
       {receivedRequests.length > 0 && (
         <GlassCard>
           <Text style={sharedStyles.cardTitle}>
@@ -276,10 +266,21 @@ export default function FriendsTab() {
                     { backgroundColor: friend.online ? '#22c55e' : '#6b7280' },
                   ]}
                 />
-                <Text style={styles.userName} numberOfLines={1}>
-                  {friend.name}
-                  {friend.supporter && <Text style={styles.supporter}> ★</Text>}
-                </Text>
+                <View style={styles.friendNameCol}>
+                  {/* userName's flex:1 is for the plain request rows — inside
+                      this column the width bound comes from friendNameCol */}
+                  <Text style={[styles.userName, { flex: 0 }]} numberOfLines={1}>
+                    {friend.name}
+                    {friend.supporter && <Text style={styles.supporter}> ★</Text>}
+                  </Text>
+                  {/* lastSeen is null for friends who opted out (hideLastSeen) —
+                      they read as plain offline (dot only), mirroring web */}
+                  {!friend.online && friend.lastSeen != null && (
+                    <Text style={styles.lastSeenText} numberOfLines={1}>
+                      {t('lastSeen')} {formatTimeAgo(friend.lastSeen)}
+                    </Text>
+                  )}
+                </View>
               </View>
               {canSendInvite && friend.online && friend.socketId && (
                 <Pressable
@@ -377,16 +378,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     fontSize: 12,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  toggleLabel: {
-    color: '#fff',
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: 14,
-  },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -401,6 +392,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     minWidth: 0,
+  },
+  friendNameCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  lastSeenText: {
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'Lexend',
+    fontSize: 11,
+    marginTop: 1,
   },
   statusDot: {
     width: 8,

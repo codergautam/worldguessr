@@ -1,3 +1,146 @@
+/* Lexend and Jockey One (Google Fonts) ship zero Cyrillic glyphs, so Russian
+   text fell through every stack to the browser default. These faces register
+   under the SAME family names, scoped by unicode-range to Cyrillic only:
+   per-glyph matching keeps Latin in the real fonts and renders Cyrillic in
+   Rubik (body) / Oswald (condensed display) with no per-selector overrides.
+   Browsers fetch these files only when a Cyrillic glyph actually renders.
+   CRITICAL: each face's font-weight MUST equal the Google-hosted face's
+   descriptor (Lexend is variable 100..900, Jockey One is static 400).
+   Browsers group faces by descriptors BEFORE unicode-range segmentation; a
+   mismatched shadow face wins style matching, covers no Latin, and dumps
+   Latin text to the system font instead of the real family. */
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url(../public/fonts/rubik-cyrillic.woff2) format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url(../public/fonts/rubik-cyrillic-ext.woff2) format('woff2');
+    unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+    font-family: 'Jockey One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../public/fonts/oswald-cyrillic.woff2) format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+    font-family: 'Jockey One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../public/fonts/oswald-cyrillic-ext.woff2) format('woff2');
+    unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+/* Self-hosted latin/latin-ext faces, replacing the fonts.googleapis.com
+   stylesheet (render-blocking request eliminated). Files + unicode-ranges
+   pulled directly from Google's own CSS response so glyph coverage matches
+   exactly. Rubik's cyrillic/cyrillic-ext faces reuse the files above since
+   Russian users previously got Rubik Cyrillic from Google's stylesheet. */
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url(../public/fonts/lexend-latin-ext.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url(../public/fonts/lexend-latin.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Jockey One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../public/fonts/jockey-one-latin-ext.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Jockey One';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../public/fonts/jockey-one-latin.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Rubik';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(../public/fonts/rubik-latin-ext.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Rubik';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(../public/fonts/rubik-latin.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Rubik';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(../public/fonts/rubik-cyrillic.woff2) format('woff2');
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+    font-family: 'Rubik';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url(../public/fonts/rubik-cyrillic-ext.woff2) format('woff2');
+    unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+
+/* Metric-matched fallbacks (vs Arial, computed via @capsizecss/metrics using
+   the fontaine size-adjust/ascent/descent/line-gap-override formula) so the
+   fallback font occupies the same box as the real one, killing font-swap
+   layout shift while the woff2 above loads. */
+@font-face {
+    font-family: 'Lexend Fallback';
+    src: local('Arial');
+    size-adjust: 109.91%;
+    ascent-override: 90.98%;
+    descent-override: 22.74%;
+    line-gap-override: 0%;
+}
+@font-face {
+    font-family: 'Jockey One Fallback';
+    src: local('Arial');
+    size-adjust: 82.77%;
+    ascent-override: 130.36%;
+    descent-override: 38.54%;
+    line-gap-override: 0%;
+}
+@font-face {
+    font-family: 'Rubik Fallback';
+    src: local('Arial');
+    size-adjust: 104.98%;
+    ascent-override: 89.06%;
+    descent-override: 23.81%;
+    line-gap-override: 0%;
+}
+
 :root {
     --r: 20;
     --g: 65;
@@ -25,7 +168,7 @@
 
 html * {
     margin: 0;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     box-sizing: border-box
 }
 
@@ -244,6 +387,31 @@ html {
   opacity: 1;
   visibility: visible;
   transition: none; /* Instant show - no transition when appearing */
+}
+
+.team-2v2-end-exit-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 30, 15, 0.58) 100%),
+    var(--bg-street2);
+  background-size: cover;
+  background-position: center;
+  opacity: 1;
+  animation: team2v2EndExitCover 50ms ease-out both;
+}
+
+.team-2v2-end-exit-mask--revealing {
+  opacity: 0;
+  animation: none;
+  transition: opacity 160ms ease-out;
+}
+
+@keyframes team2v2EndExitCover {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .banner-text {
@@ -528,6 +696,42 @@ html {
 }
 .g2_nav_text.red{
     color: #FFAAAA;
+}
+
+/* Gold "NEW" starburst sticker riding the right side of a nav entry
+   (currently the 2v2 Duels button). All em-based so it scales with the nav
+   text's responsive clamp(); gold matches the daily "new best" badge.
+   box-shadow doesn't follow clip-path — the glow is a drop-shadow filter. */
+.g2_nav_new_sticker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.34em; /* relative to the nav button's (large, responsive) font */
+    /* Sized in the sticker's own em. The star widens to fit longer locales
+       (NOUVEAU/НОВОЕ) — the %-based clip-path stretches with the box. */
+    min-width: 3.4em;
+    height: 3.4em;
+    padding-inline: 1em;
+    margin-left: 0.5em;
+    position: relative;
+    top: -0.9em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: #1a0a00;
+    background: linear-gradient(135deg, #ffd700, #ffb300);
+    clip-path: polygon(50% 0%, 59% 12%, 73% 5%, 76% 20%, 91% 19%, 87% 33%, 100% 39%, 90% 50%, 100% 61%, 87% 67%, 91% 81%, 76% 80%, 73% 95%, 59% 88%, 50% 100%, 41% 88%, 27% 95%, 24% 80%, 9% 81%, 13% 67%, 0% 61%, 10% 50%, 0% 39%, 13% 33%, 9% 19%, 24% 20%, 27% 5%, 41% 12%);
+    /* Tilt lives on the base style (not just the keyframes) so the sticker
+       stays rotated after the pulse ends. */
+    transform: rotate(10deg);
+    filter: drop-shadow(0 0 0.45em rgba(255, 215, 0, 0.55));
+    /* Draw the eye briefly, then settle — a forever-pulse reads as noise. */
+    animation: g2NavStickerPulse 1.8s ease-in-out 4;
+    pointer-events: none;
+}
+@keyframes g2NavStickerPulse {
+    0%, 100% { transform: rotate(10deg) scale(1); }
+    50% { transform: rotate(10deg) scale(1.1); }
 }
 
 .g2_text:hover,
@@ -1222,16 +1426,6 @@ html {
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Mobile responsive party modal */
-@media (max-width: 768px) {
-    .party-modal-responsive {
-        width: 95vw !important;
-        max-width: 95vw !important;
-        padding: 15px !important;
-        margin: 0 auto !important;
-    }
-}
-
 .g2_container_light {
     background: var(--gradLight);
     background-color: rgba(255, 255, 255, 0.1);
@@ -1338,12 +1532,12 @@ h1, h2, h3, span, label {
     cursor: pointer;
     transition: all 250ms ease;
     font-size: 1.8em;
-    font-family: "Jockey One" !important;
+    font-family: "Jockey One", "Jockey One Fallback" !important;
     // text border
     -webkit-text-stroke: 1px black;
 }
 .wg_font {
-    font-family: "Jockey One" !important;
+    font-family: "Jockey One", "Jockey One Fallback" !important;
 }
 
 
@@ -1462,19 +1656,9 @@ h1, h2, h3, span, label {
     top: 100px;
 }
 
-// Timer positioning for mobile to avoid overlap with health bars
-@media screen and (max-width: 830px) {
-
-
-    /* Make health bars more compact on mobile */
-    .player-info-modern {
-        margin-top: 6px; /* Reduced from 12px */
-    }
-
-    .health-bar-container.modern {
-        margin: 10px; /* Reduced overall container margin */
-    }
-}
+// (Mobile health-bar compaction lives in the single 830px block further down,
+// next to the rest of .health-bar-container.modern's responsive rules — two
+// competing blocks here previously clobbered each other silently.)
 
 @media screen and (max-width: 830px) {
     .timer.duel {
@@ -1489,10 +1673,64 @@ h1, h2, h3, span, label {
     }
 }
 
+// 110px = below the compact HP bars: a centered timer plus two 160px corner
+// bars can't share the top row on narrow phones.
 @media screen and (max-width: 540px) {
     .timer.duel {
         top: 110px;
         font-size: 14px;
+    }
+}
+
+// Non-duel multiplayer timer (FFA + team parties): compact tiers mirroring
+// .timer.duel above — the base chip previously got no mobile pass at all and
+// sat desktop-sized at top:50/right:0 on every phone.
+@media screen and (max-width: 830px) {
+    .timer {
+        font-size: 15px;
+        padding: 8px 14px;
+    }
+    .timer--two-line {
+        padding: 6px 12px 8px;
+    }
+}
+
+// Team parties: the scorebar owns top-center on mobile, so the round timer
+// stacks centered directly beneath it. Before this, scorebar (top:40) and
+// timer (top:50, right:0) shared the 40-90px band and collided on 541-830px
+// screens — the old <=540px "scorebar to 110px" reversal was dodging exactly
+// this and is now gone. Double class beats .timer.shown's transform, same
+// trick as .timer.duel.
+// Portrait-only: the stack burns ~100px of the scarce vertical band, and in
+// landscape there's ample horizontal room for the centered scorebar and a
+// right-anchored timer to coexist — so landscape keeps the base top:50/right:0
+// spot (same as desktop and every other mode; wide landscape phones >830px
+// never stacked to begin with).
+@media screen and (max-width: 830px) and (orientation: portrait) {
+    .timer.timer--with-scorebar {
+        // Scorebar band ends ~91px (top 40 + ~51 tall) — 96 keeps real
+        // headroom instead of the 1px razor a 92px top left.
+        top: 96px;
+        right: 50%;
+        transform: translateX(50%);
+        margin-right: 0;
+    }
+    // Keep the centering through the last-5s pulse — .timer.critical's
+    // translateY/scale transform would otherwise snap it sideways (same
+    // conflict .timer.duel.critical already patches for the duel timer).
+    .timer.timer--with-scorebar.critical {
+        transform: translateX(50%) scale(1.05);
+    }
+}
+
+// Landscape phones (same height gate as the other mobile-landscape tiers):
+// no ad band up there and only ~360-430px of viewport height, so the team
+// timer hugs the true top-right corner instead of base .timer's top:50 —
+// that 50px gap only exists to clear the desktop ad band. Scoped to
+// timer--with-scorebar so no other mode's timer moves.
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    .timer.timer--with-scorebar {
+        top: 10px;
     }
 }
 
@@ -1624,6 +1862,11 @@ h1, h2, h3, span, label {
     font-size: 0.9em;
     pointer-events: none;
     white-space: nowrap;
+    // Duration comes inline from AnimatedCounter; name/curve/fill live here
+    // so scoped contexts can swap keyframes (see .team-scorebar).
+    animation-name: pointIncrement;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-fill-mode: forwards;
 }
 
 @keyframes pointIncrement {
@@ -2333,8 +2576,8 @@ h1, h2, h3, span, label {
 
 #googlemaps.hidden,
 #streetview.hidden {
-    // transform: translateY(-105%);
     opacity: 0;
+    pointer-events: none;
 }
 
 #streetview {
@@ -2495,7 +2738,7 @@ h1, h2, h3, span, label {
     border: none;
     padding: 8px 12px;
     font-size: 1.05em;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-weight: 600;
     text-align: center;
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
@@ -2596,6 +2839,10 @@ h1, h2, h3, span, label {
 .bannerContent .motivation {
     margin: 0;
     padding: 0;
+}
+
+.team-round-personal {
+    opacity: 0.8;
 }
 
 
@@ -2923,11 +3170,6 @@ h1, h2, h3, span, label {
     pointer-events: all;
 }
 
-.multiplayerOptionBtn {
-    padding-left: 20px;
-    padding-right: 20px;
-}
-
 // Join Party Screen Styles
 .join-party-container {
     position: fixed;
@@ -2942,6 +3184,8 @@ h1, h2, h3, span, label {
     padding: 20px;
     pointer-events: all;
     box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.45);
+    overflow-y: auto;
 }
 
 .join-party-card {
@@ -2953,7 +3197,8 @@ h1, h2, h3, span, label {
     border: 1px solid rgba(255, 255, 255, 0.3);
     width: 100%;
     max-width: 480px;
-    min-width: 320px;
+    // No min-width: the container pads 20px per side, so a hard 320px floor
+    // overflowed sub-360px viewports (small Androids, foldable cover screens).
     text-align: center;
     animation: slideInUp 0.6s ease-out;
 }
@@ -3009,7 +3254,7 @@ h1, h2, h3, span, label {
     &:focus {
         outline: none;
         border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        box-shadow: 0 0 0 3px rgba(var(--r), var(--g), var(--b), 0.4);
         transform: translateY(-1px);
     }
 }
@@ -3055,6 +3300,735 @@ h1, h2, h3, span, label {
     border-radius: 8px;
     text-shadow: none;
     animation: errorSlideIn 0.3s ease-out;
+}
+
+/* ---- Party lobby (the one card for party waiting rooms + 2v2 staging) ----
+   Layout: code hero → flat roster → (party settings line) → ONE primary
+   button → at most one status line. Near-opaque panel: the glass gradient is
+   unreadable over the busy street backdrop. */
+// Dim the street2 backdrop behind any lobby/join card for readability.
+// The dim must FADE across the whole viewport — override the nav slide
+// that g2_slide_in applies to direct children (the card inside still gets
+// its own slideInUp motion).
+.g2_slide_in > .join-party-container {
+    animation: dimFadeIn 0.4s ease-out forwards;
+}
+
+@keyframes dimFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+// Keep the app's green-glass identity but make the card mostly opaque:
+// the standard glass fill layered over a ~93%-opaque dark green base, so
+// the street backdrop can't wash out the content.
+.join-party-card.party-lobby {
+    background:
+        var(--gradLight),
+        linear-gradient(165deg, rgba(20, 35, 22, 0.92) 0%, rgba(10, 18, 12, 0.94) 100%);
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: clamp(24px, 4vw, 36px);
+    text-align: center;
+}
+
+.party-lobby__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.party-lobby__title {
+    margin: 0;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+
+.party-lobby__code-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.party-lobby__code-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.party-lobby__code-label {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+// Bare-icon streamer toggle next to the code label. Padding + negative
+// margin = ~35px touch target (was ~17px) without shifting the label row.
+.party-lobby__eye {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 10px;
+    margin: -7px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: color 0.15s ease;
+
+    &:hover:not(:disabled) { color: #fff; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.party-lobby__code-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.party-lobby__code {
+    color: #fff;
+    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.party-lobby__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover:not(:disabled) { background: var(--primary); color: #fff; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.party-lobby__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.party-lobby__section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 28px;
+}
+
+.party-lobby__section-label {
+    text-align: left;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.party-lobby__count {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+// Kick button on roster tiles (host only, never on own tile).
+.party-lobby__kick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    border: none;
+    border-radius: 6px;
+    // Real padding (no negative-margin trick): kick sits next to the move
+    // chevrons, so expanded hit areas must not bleed into each other's gap.
+    padding: 8px 9px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+        color: #ff6b6b;
+        background: rgba(255, 107, 107, 0.12);
+    }
+}
+
+.party-lobby__icon-btn--small {
+    padding: 7px;
+    font-size: 0.8rem;
+}
+
+.party-lobby__edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+
+    &:hover:not(:disabled) { background: var(--primary); border-color: var(--primary); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Settings as labeled chips — readable at a glance, no cryptic separators.
+// Pure display for everyone; hosts edit via the pencil → Edit Options modal.
+// Four chips (Mode/Map/Rounds/Timer) in a fixed 2×2 grid: equal cells, long
+// values ellipsize inside them, nothing ever clips at the card edge.
+.party-lobby__chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.party-lobby__chip {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.party-lobby__chip-label {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.party-lobby__chip-value {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.party-lobby__roster {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: min(38svh, 300px);
+    overflow-y: auto;
+}
+
+.party-lobby__player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.party-lobby__player--empty {
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 500;
+    font-style: italic;
+}
+
+// Stage-1 teammate search: the empty seat is the live search indicator —
+// the compass spinner provides the motion, this just spaces it from the label.
+.party-lobby__player--searching {
+    gap: 8px;
+}
+
+.party-lobby__player-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.party-lobby__player-tags {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.party-lobby__you {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.party-lobby__crown {
+    // gold matches the supporter accent — the one deliberate off-green
+    color: #ffc107;
+    font-size: 1rem;
+}
+
+// ── Intra-party team mode ──────────────────────────────────────────────────
+
+// Parties get a wider card: the roster/team columns need breathing room.
+// The 2v2 staging lobby keeps the compact 480px look.
+.join-party-card.party-lobby--party {
+    max-width: 640px;
+}
+
+// Low-height safety: the fixed, flex-centered container clips a too-tall card
+// on both edges. Auto margins center the card while it fits and collapse to 0
+// when it doesn't, so the container can scroll it instead of cutting it off.
+.join-party-card.party-lobby {
+    margin: auto;
+}
+
+@media (max-height: 760px) {
+    .join-party-card.party-lobby {
+        gap: 12px;
+        padding: 18px 24px;
+    }
+    .party-lobby__code { font-size: 1.9rem; }
+    .party-lobby__code-block { padding: 8px 12px; }
+    .party-lobby__teams { max-height: 34svh; }
+    .party-lobby__roster { max-height: 34svh; }
+}
+
+@media (max-height: 600px) {
+    // Compact, don't remove: this header is the only "which lobby am I in"
+    // label (party vs 2v2 vs joining), and landscape phones still need it.
+    .party-lobby__header { gap: 0; }
+    .party-lobby__title { font-size: 1.05rem; }
+    .party-lobby__join-link { font-size: 0.7rem; }
+}
+
+.party-lobby__seg {
+    display: inline-flex;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+// Full-width variant: equal halves, self-centering — the main mode picker
+// and the scoring picker both use this.
+.party-lobby__seg--block {
+    display: flex;
+    width: 100%;
+}
+
+.party-lobby__seg-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    border: none;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    .party-lobby__seg--block & { flex: 1; }
+    & + & { border-left: 1px solid rgba(255, 255, 255, 0.15); }
+    &:hover { color: #fff; }
+}
+
+.party-lobby__seg-btn--active {
+    background: var(--primary);
+    color: #fff;
+}
+
+// One-line plain-language explanation under each control.
+.party-lobby__hint {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.82rem;
+    margin: 0;
+    text-align: center;
+}
+
+.party-lobby__hint--action {
+    color: #fff;
+    font-weight: 600;
+}
+
+.party-lobby__checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+
+    input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+        cursor: pointer;
+        margin: 0;
+    }
+}
+
+.party-lobby__teams {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    max-height: min(42svh, 340px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+// Narrow screens: one team under the other instead of two squished columns.
+@media (max-width: 560px) {
+    .party-lobby__teams {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.party-lobby__team {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    align-content: start;
+}
+
+.party-lobby__team--mine {
+    border-color: var(--primary);
+}
+
+// Defensive strip for roster entries with no team (server invariant says
+// never; render them anyway so nobody vanishes from the lobby).
+.party-lobby__team--unassigned {
+    margin-top: 8px;
+    border-style: dashed;
+}
+
+.party-lobby__team-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 6px;
+}
+
+.party-lobby__team-name {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.party-lobby__team-count {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.party-lobby__team-empty {
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-style: italic;
+    text-align: center;
+}
+
+.party-lobby__player--compact {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    gap: 8px;
+
+    .party-lobby__player-tags { gap: 5px; }
+    .party-lobby__crown { font-size: 0.9rem; }
+}
+
+@keyframes party-team-move-pulse {
+    0% { background: rgba(255, 255, 255, 0.14); }
+    35% { background: color-mix(in srgb, var(--primary) 45%, rgba(255, 255, 255, 0.14)); }
+    100% { background: rgba(255, 255, 255, 0.14); }
+}
+
+.party-lobby__player--moved {
+    animation: party-team-move-pulse 0.45s ease;
+}
+
+.party-lobby__move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    border: none;
+    border-radius: 6px;
+    // Real padding, matching __kick: adjacent tap targets keep their gap.
+    padding: 8px 9px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+        color: #fff;
+        background: var(--primary);
+    }
+}
+
+// ── In-game cumulative team score banner (party team mode) ────────────────
+// Same glass family as .timer, pinned top-center like .timer.duel: top 100px
+// clears the 728x90 ad band (y 5-95, .topAdFixed), z-index 1001 floats above
+// the fullscreen answer reveal (#miniMapArea at 1000) — the same threshold
+// the duel HP bars and the ad itself use.
+.team-scorebar {
+    font-family: lexend;
+    font-weight: 600;
+    z-index: 1001;
+    position: fixed;
+    top: 100px;
+    right: 50%;
+    transform: translateX(50%);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    background: var(--gradLight);
+    background-color: var(--primaryTransparent);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    padding: 8px 24px;
+    border: 2px solid var(--primary);
+    border-radius: 16px;
+    color: white;
+    user-select: none;
+    pointer-events: none;
+    width: max-content;
+
+    // AnimatedCounter's +Δ: bare text pinned under the team's own number
+    // (no chip). The default pointIncrement float-up (32px in 800ms) drove it
+    // straight through the score text — teamPointIncrement keeps the slide-up
+    // feel but rises into place BELOW the number, holds readable
+    // (TeamScorebar passes incrementMs), then drifts off while fading. It
+    // owns transform, so the translateX centering lives in its keyframes.
+    .increment-indicator {
+        left: 50%;
+        right: auto;
+        top: 100%;
+        margin: 3px 0 0;
+        width: max-content;
+        font-size: 0.8rem;
+        text-align: center;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+        animation-name: teamPointIncrement;
+    }
+}
+
+.team-scorebar__side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    opacity: 0.75;
+    // Floor per column: without it a fresh 0-0 game collapses both sides to
+    // their label width and everything huddles around the divider, reading
+    // as crammed/overlapping.
+    min-width: 72px;
+}
+
+.team-scorebar__side--mine {
+    opacity: 1;
+}
+
+.team-scorebar__label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.team-scorebar__score {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    line-height: 1.1;
+}
+
+// A hairline, not a glyph: the old '·' rendered as a lonely ~3px dot that
+// read as noise squeezed between the labels.
+.team-scorebar__divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 3px 0;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+// Crown on the currently-leading team (hidden on ties). Gold matches the
+// party-lobby host crown accent.
+.team-scorebar__crown {
+    color: #ffc107;
+    font-size: 0.7rem;
+    margin-right: 4px;
+    vertical-align: -1px;
+}
+
+// End-screen (round-over/game-summary) winner crown: headline scoreline and
+// the Final Scores team section headers. Em-sized so it tracks each context.
+.game-summary-team-crown {
+    color: #ffc107;
+    font-size: 0.9em;
+    margin-right: 5px;
+    vertical-align: -1px;
+}
+
+// The scorebar's +Δ: slides UP into its slot below the number (8px rise),
+// holds readable, then drifts up 4px while fading — the original float-up
+// energy without ever climbing into the score text. Owns transform, so it
+// carries the translateX centering in every frame.
+@keyframes teamPointIncrement {
+    0% { opacity: 0; transform: translate(-50%, 8px) scale(0.92); }
+    14% { opacity: 1; transform: translate(-50%, 1px) scale(1.06); }
+    26% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -4px) scale(0.96); }
+}
+
+// Mobile tier mirrors .timer.duel's 830px drop (no 728 ad fits below ~810px
+// width). No 540px reversal anymore: the round timer (.timer--with-scorebar)
+// stacks BELOW the scorebar on mobile instead of fighting it for the top band.
+@media screen and (max-width: 830px) {
+    .team-scorebar {
+        top: 40px;
+        padding: 6px 14px;
+        gap: 14px;
+    }
+}
+
+// Final team totals under the Victory/Defeat headline (cumulative parties).
+.team-final-scoreline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 6px 0 4px;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.team-final-scoreline__side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.team-final-scoreline__side--mine {
+    color: #fff;
+}
+
+.team-final-scoreline__side--won .team-final-scoreline__pts {
+    color: #4CAF50;
+}
+
+.team-final-scoreline__label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+}
+
+.team-final-scoreline__pts {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.team-final-scoreline__dash {
+    opacity: 0.4;
+    font-weight: 700;
+}
+
+
+.party-lobby__footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+
+    .party-lobby__action {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 1.15rem;
+        padding: 14px;
+        pointer-events: all;
+    }
+}
+
+.party-lobby__status {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+.party-lobby__join-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    font-family: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.party-lobby__join-link:hover {
+    color: #fff;
+}
+
+@media (max-width: 520px) {
+    .party-lobby__code { letter-spacing: 4px; }
+    .party-lobby__roster { max-height: 34svh; }
+    .party-lobby__teams { max-height: 34svh; }
 }
 
 @keyframes slideInUp {
@@ -3155,6 +4129,17 @@ h1, h2, h3, span, label {
 }
 
 .emoteFloatItem.self {
+    background: rgba(34, 139, 34, 0.7);
+}
+
+// Team modes (2v2 duels + team parties): allegiance coloring — blue = my
+// team (including me), green = opposing team. Declared after .self so they
+// win the tie for your own bubble in team games.
+.emoteFloatItem.teamMine {
+    background: rgba(59, 130, 246, 0.72);
+}
+
+.emoteFloatItem.teamOpp {
     background: rgba(34, 139, 34, 0.7);
 }
 
@@ -3327,15 +4312,6 @@ h1, h2, h3, span, label {
     gap: 6px;
 }
 
-.multiplayerLeaderboard.leaderboardWaiting {
-    background:
-        linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)),
-        var(--gradLight);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
-}
-
 .multiplayerLeaderboard.leaderboardInRound {
     background: #06100d;
 }
@@ -3409,6 +4385,127 @@ h1, h2, h3, span, label {
     color: rgba(255, 255, 255, 0.6);
     margin: 4px 0;
     letter-spacing: 4px;
+}
+
+// Party team mode: the TEAM totals are the headline (scorebar-style hero),
+// individual players demoted to compact pills underneath. Everything sizes
+// to content so the container's align-items: center keeps it centered.
+.multiplayerLeaderboard__teamHero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin-bottom: 10px;
+}
+
+.multiplayerLeaderboard__teamHeroSide {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 130px;
+    // Same "mine = full brightness, theirs = dimmed" treatment as the
+    // in-round scorebar (.team-scorebar__side) — one visual language for
+    // "which side is me" everywhere the two totals appear.
+    opacity: 0.75;
+
+    &.mine {
+        opacity: 1;
+        .multiplayerLeaderboard__teamHeroLabel { color: #fff; }
+    }
+}
+
+.multiplayerLeaderboard__teamHeroLabel {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.multiplayerLeaderboard__teamHeroCrown {
+    color: #ffc107;
+    font-size: 0.85em;
+    margin-right: 6px;
+    vertical-align: -1px;
+}
+
+.multiplayerLeaderboard__teamHeroScore {
+    color: #fff;
+    font-size: clamp(30px, 7vw, 44px);
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.multiplayerLeaderboard__teamHeroDelta {
+    color: #4CAF50;
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.multiplayerLeaderboard__teamHeroDash {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.multiplayerLeaderboard__teamMembers {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 20px;
+    width: min(560px, 92vw);
+}
+
+.multiplayerLeaderboard__memberColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.multiplayerLeaderboard__member {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+    &.me {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+    }
+}
+
+.multiplayerLeaderboard__memberName {
+    color: #000;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multiplayerLeaderboard__memberScore {
+    color: #000;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.multiplayerLeaderboard__memberMore {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 .multiplayerFinalBtns {
@@ -3654,7 +4751,7 @@ img[alt="Google"] {
 
 .countryGuessrPrompt {
     color: rgba(255, 255, 255, 0.85);
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.85rem;
     font-weight: 500;
     margin: 0;
@@ -3681,7 +4778,7 @@ img[alt="Google"] {
     border: 2px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     color: white;
     opacity: 0;
     transform: translateY(16px);
@@ -4015,25 +5112,11 @@ img.countryGuessrBtn__emoji {
     to { opacity: 1; }
 }
 
-.round-over-screen.duel {
-}
-
 .round-over-screen.hidden {
     animation: none;
     opacity: 0;
     scale: 0;
     pointer-events: none;
-}
-.round-over-screen.fullscreen {
-    background-color: #1a1a1a;
-    align-items: stretch;
-    justify-content: stretch;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 1000;
 }
 
 .game-summary-container {
@@ -4053,19 +5136,6 @@ img.countryGuessrBtn__emoji {
     top: 0;
     right: 0;
 }
-
-.round-over-content {
-    padding: 40px;
-    border-radius: 10px;
-    text-align: center;
-    max-width: 500px;
-    width: 90%;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    font-family: lexend;
-}
-
-
-
 
 .game-summary-sidebar {
     width: 400px;
@@ -4670,10 +5740,6 @@ img.countryGuessrBtn__emoji {
         margin: 0 auto 10px;
     }
 
-    .round-over-content {
-        max-width: 600px;
-    }
-
     .join-party-card {
         max-width: 500px;
     }
@@ -5051,12 +6117,6 @@ img.countryGuessrBtn__emoji {
         font-size: 1em;
     }
 
-    /* Round over content optimizations */
-    .round-over-content {
-        padding: 20px;
-        max-width: 400px;
-    }
-
     /* Multipler home optimizations */
     .multiplayerHome {
         padding: 10px;
@@ -5171,26 +6231,8 @@ img.countryGuessrBtn__emoji {
     gap: 8px; /* Add some space between Elo value and change */
 }
 
-.elo-value {
-    font-size: 2rem; /* Make Elo value larger */
-    font-weight: bold;
-    color: black;
-}
-
-.elo-change {
-    font-size: 1rem; /* Make Elo change smaller */
-    font-weight: normal;
-    color: green; /* Default color */
-}
-
-.time-elapsed {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 1rem;
-    color: black;
-}
-
+// .elo-value / .time-elapsed / .elo-change are owned by duel.css (imported
+// after this file in _app.js, so its same-specificity declarations win).
 .historyItem {
     font-family: lexend !important;
     color: white;
@@ -5344,21 +6386,23 @@ img.countryGuessrBtn__emoji {
     border-radius: 5px;
 }
 
+// Friend-row actions: ~40px touch targets with real separation — accept and
+// decline are adjacent and destructive-on-mistap, 5px padding was mis-tap bait.
 .accept-button {
     background-color: #4CAF50;
     border: none;
     color: white;
-    padding: 5px 10px;
+    padding: 10px 14px;
     border-radius: 5px;
     cursor: pointer;
-    margin-right: 5px;
+    margin-right: 10px;
 }
 
 .decline-button {
     background-color: #F44336;
     border: none;
     color: white;
-    padding: 5px 10px;
+    padding: 10px 14px;
     border-radius: 5px;
     cursor: pointer;
 }
@@ -5367,7 +6411,7 @@ img.countryGuessrBtn__emoji {
     background-color: #F44336;
     border: none;
     color: white;
-    padding: 5px 10px;
+    padding: 10px 14px;
     border-radius: 5px;
     cursor: pointer;
 }
@@ -5376,10 +6420,11 @@ img.countryGuessrBtn__emoji {
     background-color: #322ccd;
     border: none;
     color: white;
-    padding: 5px 10px;
+    padding: 10px 14px;
     border-radius: 5px;
     cursor: pointer;
     position: relative;
+    margin-right: 8px;
 }
 
 .friendsContent {
@@ -5767,7 +6812,7 @@ div[dir="ltr"] {
     align-items: center;
     width: 200px;
     margin: 15px;
-    font-family: 'Lexend', sans-serif;
+    font-family: 'Lexend', 'Lexend Fallback', sans-serif;
     position: relative;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -5925,7 +6970,22 @@ div[dir="ltr"] {
     font-weight: 600;
     font-size: 16px;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+// The trailing gap only belongs beside .player-elo inside the duel HP bars;
+// unscoped it nudged the round-over screen's flex-centered score columns
+// ~4px off-true (asymmetric margin on a centered item).
+.health-bar-container .player-name {
     margin-right: 8px;
+}
+
+// Wifi-off marker beside a disconnected player's name in the duel HP bars
+// (1v1 opponent and team-name stacks) — the name itself dims to 0.55.
+.hb-dc {
+    color: #ff6b6b;
+    font-size: 0.85em;
+    flex: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
 .player-elo {
@@ -5940,8 +7000,8 @@ div[dir="ltr"] {
 
 .hb-start1,
 .hb-start2 {
-    top: 50% !important;
-    right: 50% !important;
+    // Neutralizes the inline position:fixed on the bar wrappers during the
+    // VS intro so they flow inside .hb-bars instead of pinning to the corners.
     position: static !important;
 }
 
@@ -6099,7 +7159,10 @@ div[dir="ltr"] {
 }
 
 /* Enhanced Media Queries */
-@media (min-width: 600px) {
+/* 831px: mutually exclusive with the compact (max-width:830px) block below.
+   These previously overlapped for 600-830px and only source order decided —
+   the exact silent-clobber trap the .timer comment at ~1644 documents. */
+@media (min-width: 831px) {
     .health-bar-container.modern {
         width: 280px;
         margin: 25px;
@@ -6126,6 +7189,10 @@ div[dir="ltr"] {
     .health-bar-container.modern {
         width: 160px; /* Back to compact mobile size */
         margin: 8px;
+    }
+
+    .player-info-modern {
+        margin-top: 6px; /* Compact name pill spacing under the bar */
     }
 
     .health-bar-track {
@@ -6242,15 +7309,7 @@ div:hover .elo-badge {
 
 .warning-text {
     color: white;
-    font-family: "Lexend", sans-serif;
-}
-
-.warning-title {
-    font-size: 14px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .warning-subtitle {
@@ -6292,28 +7351,17 @@ div:hover .elo-badge {
     .duel-warning-content {
         padding: 12px 20px;
         gap: 12px;
-        // center horiz
+        // Fill the already-narrowed container (left/right 15px) — a fixed 60%
+        // squeezed the 74-char ban warning into 3+ lines on 401-768px phones.
         margin: 0 auto;
-        width: 60%;
     }
 
     .warning-icon {
         font-size: 20px;
     }
 
-    .warning-title {
-        font-size: 13px;
-        margin-bottom: 3px;
-    }
-
     .warning-subtitle {
         font-size: 14px;
-    }
-}
-@media (max-width: 400px) {
-     .duel-warning-content {
-
-        width: 100%;
     }
 }
 
@@ -6482,7 +7530,7 @@ div:hover .elo-badge {
     padding: 36px 28px 28px;
     text-align: center;
     color: white;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
     opacity: 0;
     transform: scale(0.92) translateY(12px);
@@ -6541,7 +7589,7 @@ div:hover .elo-badge {
     background: rgba(255, 255, 255, 0.04);
     color: white;
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.9rem;
     transition: transform 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
 
@@ -6598,7 +7646,7 @@ div:hover .elo-badge {
     color: rgba(255, 255, 255, 0.35);
     font-size: 0.8rem;
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     transition: color 0.2s;
 
     &:hover {
@@ -6662,7 +7710,7 @@ div:hover .elo-badge {
 }
 
 .ob-complete__title {
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 1.6rem;
     font-weight: 700;
     color: white;
@@ -6679,7 +7727,7 @@ div:hover .elo-badge {
 }
 
 .ob-complete__score-value {
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 2.4rem;
     font-weight: 700;
     color: white;
@@ -6689,14 +7737,14 @@ div:hover .elo-badge {
 }
 
 .ob-complete__score-max {
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 1.1rem;
     font-weight: 300;
     color: rgba(255, 255, 255, 0.55);
 }
 
 .ob-complete__score-label {
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.7rem;
     color: rgba(255, 255, 255, 0.5);
     letter-spacing: 0.15em;
@@ -6704,7 +7752,7 @@ div:hover .elo-badge {
 }
 
 .ob-complete__prompt {
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.55);
     font-weight: 300;
@@ -6732,7 +7780,7 @@ div:hover .elo-badge {
     background: rgba(255, 255, 255, 0.05);
     color: white;
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     text-align: left;
     transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
     width: 100%;
@@ -6791,7 +7839,7 @@ div:hover .elo-badge {
     border: none;
     color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.85rem;
     transition: color 0.3s;
 }
@@ -6904,7 +7952,7 @@ div:hover .elo-badge {
     font-size: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em));
     font-weight: 300;
     margin-bottom: 20px;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .countryGuessr-config__regions {
@@ -6927,7 +7975,7 @@ div:hover .elo-badge {
     backdrop-filter: blur(10px);
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.95rem;
     transition: all 0.3s;
 
@@ -6954,7 +8002,7 @@ div:hover .elo-badge {
     color: #f0ad4e;
     font-size: 0.85rem;
     margin-bottom: 16px;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
 .countryGuessr-config__play-btn {
@@ -7020,7 +8068,7 @@ div:hover .elo-badge {
     text-align: center;
     padding: 24px 20px 12px;
     color: white;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     animation: fadeInUp 0.4s ease forwards;
 }
 
@@ -7059,7 +8107,7 @@ div:hover .elo-badge {
     border: none;
     color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.82rem;
     text-decoration: underline;
 
@@ -7080,7 +8128,7 @@ div:hover .elo-badge {
     padding: 6px 16px;
     border-radius: 20px;
     font-size: 0.82rem;
-    font-family: "Lexend", sans-serif;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-weight: 600;
     backdrop-filter: blur(4px);
 }

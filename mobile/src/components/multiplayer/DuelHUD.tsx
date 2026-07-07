@@ -14,7 +14,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -33,6 +32,7 @@ import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 import PlayerName from '../PlayerName';
+import ProfileSheet from '../account/ProfileSheet';
 
 interface DuelHUDProps {
   players: MPPlayer[];
@@ -89,7 +89,6 @@ function HealthBar({
   isMe: boolean;
   side: 'left' | 'right';
 }) {
-  const router = useRouter();
   const isRight = side === 'right';
   const hp = Math.max(0, player.score);
   const hpPct = Math.min(100, (hp / MAX_HP) * 100);
@@ -139,6 +138,10 @@ function HealthBar({
     pulse.value = withRepeat(withTiming(0.34, { duration: 1400 }), -1, true);
   }, [pulse]);
   const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
+  // Opponent profile opens in a slide-up sheet (not a route push) so the game —
+  // health bars, timer — stays visible behind it and one tap dismisses it.
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Damage feedback: floating "-X" + a brief container scale-pop on HP loss.
   const [damage, setDamage] = useState<number | null>(null);
@@ -262,9 +265,7 @@ function HealthBar({
 
       {!isMe ? (
         <Pressable
-          onPress={() =>
-            router.push({ pathname: '/user/[username]', params: { username: player.username } })
-          }
+          onPress={() => setProfileOpen(true)}
           hitSlop={6}
           style={styles.namePressable}
         >
@@ -288,6 +289,14 @@ function HealthBar({
         </LinearGradient>
       )}
       </Animated.View>
+
+      {!isMe && (
+        <ProfileSheet
+          visible={profileOpen}
+          username={player.username}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
     </Animated.View>
   );
 }

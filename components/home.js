@@ -1,7 +1,7 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
-import { signOut, useSession } from "@/components/auth/auth";
+import { useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
@@ -19,6 +19,8 @@ import Script from "next/script";
 import sendEvent from "@/components/utils/sendEvent";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
+import deriveTeamEndFallback from "@/components/utils/teamDuelEndFallback";
+import getMyTeam from "@/components/utils/getMyTeam";
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
@@ -36,18 +38,25 @@ const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { 
 const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
 const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
 const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
-import MultiplayerHome from "@/components/multiplayerHome";
-import SetUsernameModal from "@/components/setUsernameModal";
+// Conditionally-rendered modals/screens ship as async chunks so they (and the
+// react-responsive-modal dep most of them share) stay out of the initial index
+// bundle — the welcome modal (our LCP element) can't paint until hydration
+// finishes, so every KB cut here lands directly on LCP. WelcomeOverlay stays
+// static: it must paint the instant onboarding starts, covering the street
+// view load. AlertModal/EmoteReactions are too small to be worth a chunk.
+const MultiplayerHome = dynamic(() => import("@/components/multiplayerHome"), { ssr: false });
+const SetUsernameModal = dynamic(() => import("@/components/setUsernameModal"), { ssr: false });
+const SettingsModal = dynamic(() => import("@/components/settingsModal"), { ssr: false });
+const OnboardingComplete = dynamic(() => import("@/components/onboardingComplete"), { ssr: false });
+const SuggestAccountModal = dynamic(() => import("@/components/suggestAccountModal"), { ssr: false });
+const MapsModal = dynamic(() => import("@/components/maps/mapsModal"), { ssr: false });
+const DiscordModal = dynamic(() => import("@/components/discordModal"), { ssr: false });
+const WhatsNewModal = dynamic(() => import("@/components/ui/WhatsNewModal"), { ssr: false });
+const PendingNameChangeModal = dynamic(() => import("./pendingNameChangeModal"), { ssr: false });
 import EmoteReactions from "@/components/emoteReactions";
-import SettingsModal from "@/components/settingsModal";
 import WelcomeOverlay from "@/components/welcomeOverlay";
-import OnboardingComplete from "@/components/onboardingComplete";
-import SuggestAccountModal from "@/components/suggestAccountModal";
-import MapsModal from "@/components/maps/mapsModal";
-import DiscordModal from "@/components/discordModal";
 import AlertModal from "@/components/ui/AlertModal";
-import WhatsNewModal from "@/components/ui/WhatsNewModal";
-import PendingNameChangeModal from "./pendingNameChangeModal";
+import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
@@ -70,6 +79,8 @@ import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
+const TEAM_2V2_END_EXIT_COVER_MS = 50;
+const TEAM_2V2_END_EXIT_REVEAL_MS = 160;
 
 // After sending a publicDuel/unrankedDuel join we wait this long for the server's
 // `queueJoined` ack (ranked also sends `publicDuelRange`). No ack => the join never
@@ -85,7 +96,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const { width, height } = useWindowDimensions();
     const router = useRouter();
     const langInitRef = useRef(true);
-    const statsRef = useRef();
 
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
@@ -129,6 +139,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [multiplayerEndAnswerHoldExpired, setMultiplayerEndAnswerHoldExpired] = useState(false);
     const multiplayerEndAnswerHoldTimerRef = useRef(null);
+    const [team2v2EndExitMaskShown, setTeam2v2EndExitMaskShown] = useState(false);
+    const [team2v2EndExitMaskRevealing, setTeam2v2EndExitMaskRevealing] = useState(false);
+    const team2v2EndExitTimersRef = useRef([]);
     // Queue-join confirmation watchdog: pending timeout id + a mirror of the latest
     // multiplayerState so the (delayed) timeout can read fresh state. See
     // WS_QUEUE_CONFIRM_TIMEOUT_MS and armQueueConfirmWatchdog().
@@ -177,56 +190,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         return () => clearInterval(hideInt);
     }, [])
 
-    useEffect(() => {
-        const { ramUsage } = options;
-        if (ramUsage) {
-            if (!statsRef.current) {
-                // Lazy-load stats.js — only debug users with the toggle on need it.
-                import('stats.js').then(({ default: Stats }) => {
-                    if (statsRef.current) return;
-                    var stats = new Stats();
-                    stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
-                    stats.dom.style.transform = "translate(10px, 150px)";
-                    stats.dom.style.pointerEvents = "none";
-                    document.body.appendChild(stats.dom);
-                    statsRef.current = stats;
-                });
-            } else {
-                statsRef.current.dom.style.display = "";
-            }
-        } else {
-            if (statsRef.current) {
-                statsRef.current.dom.style.display = "none";
-            }
-        }
-
-        let id = null;
-
-        function animate() {
-            statsRef.current.begin();
-            // monitored code goes here
-            statsRef.current.end();
-
-            id = requestAnimationFrame(animate);
-        }
-        if (statsRef.current)
-            animate();
-
-        return () => {
-
-            cancelAnimationFrame(id);
-        }
-
-
-    }, [options?.ramUsage])
-
     let login = null;
     if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         login = useGoogleLogin({
             onSuccess: tokenResponse => {
-                console.log("[Auth] Starting Google OAuth with retry mechanism");
-
                 fetchWithFallback(
                     clientConfig().authUrl + "/api/googleAuth",
                     clientConfig().apiUrl + "/api/googleAuth",
@@ -240,12 +208,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     'googleAuthLogin',
                     {}
                 ).then((res) => res.json()).then((data) => {
-                    console.log("[Auth] Google OAuth successful");
-
                     if (data.secret) {
                         setSession({ token: data })
                         window.localStorage.setItem("wg_secret", data.secret)
-                        console.log(`[Auth] Login successful for user:`, data.username);
+                    } else if (data.error) {
+                        // Explicit server refusal — e.g. a blocklisted perm-banned
+                        // identity trying to re-register (403 from googleAuth's
+                        // blockIfBannedIdentity). Show the real reason instead of
+                        // the generic contact-support line; longer autoClose so a
+                        // ban message isn't gone before it's read.
+                        console.error("[Auth] Sign-in refused:", data.error);
+                        toast.error(data.error, { autoClose: 12000 });
                     } else {
                         console.error("[Auth] No secret received from server");
                         toast.error("Login error, contact support if this persists (2)")
@@ -261,11 +234,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             onError: error => {
                 setLoginQueued(false);
                 toast.error("Login error, contact support if this persists")
-                console.log("login error", error);
+                console.error("login error", error);
             },
             onNonOAuthError: error => {
                 setLoginQueued(false);
-                console.log("login non oauth error", error);
+                console.error("login non oauth error", error);
                 toast.error("Login error, contact support if this persists (1)")
 
             },
@@ -335,12 +308,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     //   }
     // }, [screen])
 
-
-    useEffect(() => {
-        if (screen) {
-            console.log("screen", screen)
-        }
-    }, [screen])
 
     const [config, setConfig] = useState(null);
     const [eloData, setEloData] = useState(null);
@@ -432,10 +399,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
           // SDK being disabled / not yet initialized on this domain) would escape
           // as an unhandled promise rejection.
           try {
-            console.log("crazygames auth listener")
             const user = await window.CrazyGames.SDK.user.getUser();
             if (user) {
-                console.log("crazygames user", user)
                 const token = await window.CrazyGames.SDK.user.getUserToken();
                 if (token && user.username) {
                     // /api/crazyAuth
@@ -460,23 +425,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         callLoadingStop();
                         return res.json();
                     }).then((data) => {
-                        const crazyAuthDuration = (performance.now() - crazyAuthStart).toFixed(0);
-                        console.log(`[CrazyAuth] completed (took ${crazyAuthDuration}ms)`, token, user, data)
                         if (data.secret && data.username) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
                             // verify the ws
-                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform() });
+                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform(), teamSupport: true });
 
                             setWs((prev) => {
-
-                                if (prev) {
-                                    console.log("sending verify")
-
-                                    prev.send(window.verifyPayload)
-                                }
+                                if (prev) prev.send(window.verifyPayload)
                                 return prev;
                             });
+                        } else if (data.error) {
+                            // Explicit server refusal (blocklisted identity
+                            // re-signup from crazyAuth) — show the real reason.
+                            console.error("[CrazyAuth] sign-in refused:", data.error);
+                            toast.error(data.error, { autoClose: 12000 });
                         } else {
                             toast.error("CrazyGames auth failed")
                         }
@@ -489,21 +452,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 }
             } else {
-                console.log("crazygames user not logged in")
                 // user not logged in
                 // verify with not_logged_in
                 let rc = gameStorage.getItem("rejoinCode");
 
                 window.verifyPayload = JSON.stringify({
                     type: "verify", secret: "not_logged_in", username: "not_logged_in",
-                    rejoinCode: rc, platform: getPlatform()
+                    rejoinCode: rc, platform: getPlatform(), teamSupport: true
                 });
                 setWs((prev) => {
-                    if (prev) {
-                        prev.send(window.verifyPayload)
-                    } else {
-                        console.log("no ws, waiting for connection")
-                    }
+                    if (prev) prev.send(window.verifyPayload)
                     return prev;
                 });
             }
@@ -514,7 +472,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         function finish() {
             const onboardingCompletedd = gameStorage.getItem("onboarding");
-            console.log("onboarding", onboardingCompletedd)
             if (onboardingCompletedd !== "done") {
                 const started = startOnboarding();
                 if (started) setWelcomeOverlayShown(true);
@@ -540,10 +497,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 // initialize the sdk
                 try {
-                    console.log("init crazygames sdk", window.CrazyGames)
-
                     window.CrazyGames.SDK.init().then(async () => {
-                        console.log("sdk initialized")
                         setLoading(false)
                         try {
                             window.CrazyGames.SDK.game.loadingStart();
@@ -595,6 +549,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    // Gates the onboarding GameUI mount — and with it the round-1 street view
+    // preload — until load + idle while the welcome overlay is up. See the
+    // effect next to the onboarding-start effect.
+    const [svPreloadReady, setSvPreloadReady] = useState(false);
     const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
@@ -607,11 +565,26 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
     const [connectionErrorModalShown, setConnectionErrorModalShown] = useState(false);
 
+    // Leave/forfeit confirmation (replaces window.confirm). The payload
+    // survives closing so the message doesn't blank mid fade-out animation.
+    const [leaveConfirm, setLeaveConfirm] = useState(null);
+    const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
     const [navSlideOut, setNavSlideOut] = useState(false);
-    const [awaitingCreatePartyScreen, setAwaitingCreatePartyScreen] = useState(false);
+
+    // Play the nav slide-out animation, then run the action once it finishes.
+    // Every main-menu button that leaves the home screen must go through this —
+    // acting immediately unmounts the menu with no transition.
+    const navSlideOutThen = (action) => {
+        setNavSlideOut(true);
+        setTimeout(() => {
+            setNavSlideOut(false); // Reset for next use
+            action();
+        }, 300);
+    };
 
     // Daily challenge navigation (in-app pushState, no real Next route change)
     const screenRef = useRef('home');
@@ -650,24 +623,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
     }, [initialScreen, isDailyPath]);
-
-    useEffect(() => {
-        if (!awaitingCreatePartyScreen) return;
-
-        if (screen !== "home" || connectionErrorModalShown || multiplayerError) {
-            setAwaitingCreatePartyScreen(false);
-            setNavSlideOut(false);
-            return;
-        }
-
-        // If backend/game creation stalls, restore home nav so the user isn't stuck on a hidden menu.
-        const restoreHomeNavTimeout = setTimeout(() => {
-            setAwaitingCreatePartyScreen(false);
-            setNavSlideOut(false);
-        }, 12000);
-
-        return () => clearTimeout(restoreHomeNavTimeout);
-    }, [awaitingCreatePartyScreen, screen, connectionErrorModalShown, multiplayerError]);
 
     // Keep the URL in sync with the `screen` state for daily mode. Anything
     // that transitions screen away from 'daily' (back button on the navbar,
@@ -791,11 +746,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             window.inGameDistribution = true;
 
             // Set up GD SDK event callbacks
-            window.onGDPauseGame = () => {
-                console.log("GD: game paused for ad");
-            };
+            // Called by the GD SDK bridge in headContent.js
+            window.onGDPauseGame = () => { };
             window.onGDResumeGame = () => {
-                console.log("GD: game resumed after ad");
                 if (window._gdAdTimeout) {
                     clearTimeout(window._gdAdTimeout);
                     window._gdAdTimeout = null;
@@ -807,18 +760,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             };
 
             // Show interstitial pre-roll on first user interaction (GD SDK requires a user gesture)
-            console.log("GD: setting up preroll on first interaction");
             const handleFirstInteraction = () => {
                 try {
-                    console.log("GD: first interaction detected, showing preroll interstitial");
                     if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-                        console.log("GD: gdsdk available, calling showAd('interstitial')");
                         gdsdk.showAd('interstitial');
-                    } else {
-                        console.log("GD: gdsdk not available, skipping preroll");
                     }
                 } catch (e) {
-                    console.log("GD preroll error:", e);
+                    console.warn("GD preroll error:", e);
                 }
                 document.removeEventListener('click', handleFirstInteraction);
                 document.removeEventListener('touchstart', handleFirstInteraction);
@@ -847,7 +795,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     if (data.secret) {
                         setSession({ token: data });
                         window.localStorage.setItem("wg_secret", data.secret);
-                        console.log("[Auth] GD redirect login successful:", data.username);
+                    } else if (data.error) {
+                        // Same as the popup flow: surface an explicit server
+                        // refusal (banned-identity re-signup) verbatim.
+                        console.error("[Auth] GD redirect sign-in refused:", data.error);
+                        toast.error(data.error, { autoClose: 12000 });
                     } else {
                         console.error("[Auth] GD redirect login: no secret received");
                         toast.error("Login error, contact support if this persists");
@@ -1074,9 +1026,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // they'll still see the tutorial later if they navigate to home.
             const onDailyEntry = initialScreen === 'daily'
               || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
-            console.log("onboarding", onboarding, specifiedMapSlug)
-            // make it false just for testing
-            // gameStorage.setItem("onboarding", null)
             if (onboarding && onboarding === "done") {
                 setOnboardingCompleted(true)
 
@@ -1090,7 +1039,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             console.error(e, "onboard");
             setOnboardingCompleted(true);
         }
-        // setOnboardingCompleted(false)
     }, [])
 
 
@@ -1222,7 +1170,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (onboardingCompleted === null) return;
             if (!loading) {
 
-                // Start onboarding immediately so street view preloads, then show modal on top.
+                // Enter onboarding with the mode-select modal on top. The
+                // street view preload behind it is held until load + idle
+                // (svPreloadReady below) so the Google Maps embed can't
+                // starve first paint / hydration on slow connections.
                 // CrazyGames used to skip this branch, which started the tutorial without
                 // letting players choose the onboarding mode.
                 if (startOnboarding("classic")) {
@@ -1230,9 +1181,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return;
                 }
 
-                // const isPPC = window.location.search.includes("cpc=true");
                 if (inIframe() && window.adBreak && !inCrazyGames) {
-                    console.log("trying to show preroll")
                     window.onboardPrerollEnd = false;
                     setLoading(true)
                     window.adBreak({
@@ -1249,7 +1198,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     setTimeout(() => {
                         if (!window.onboardPrerollEnd) {
                             window.onboardPrerollEnd = true;
-                            console.log("preroll timeout")
                             setLoading(false)
                             startOnboarding()
                         }
@@ -1261,6 +1209,28 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         }
     }, [onboardingCompleted])
+
+    // While the welcome overlay covers the screen, hold the onboarding GameUI
+    // mount (whose mount effect loads round 1 and with it the ~700 KB Google
+    // Maps embed + pano tiles) until the load event plus an idle callback.
+    // Real users spend seconds reading the modal, so the preload still wins
+    // the race; picking a mode drops the overlay, which mounts GameUI
+    // immediately regardless of this flag — fast clickers never wait on it.
+    useEffect(() => {
+        if (!welcomeOverlayShown || svPreloadReady) return;
+        let cancelled = false;
+        const allow = () => { if (!cancelled) setSvPreloadReady(true); };
+        const whenIdle = () => {
+            if ('requestIdleCallback' in window) requestIdleCallback(allow, { timeout: 4000 });
+            else setTimeout(allow, 1500);
+        };
+        if (document.readyState === 'complete') whenIdle();
+        else window.addEventListener('load', whenIdle, { once: true });
+        return () => {
+            cancelled = true;
+            window.removeEventListener('load', whenIdle);
+        };
+    }, [welcomeOverlayShown, svPreloadReady])
 
     useEffect(() => {
         if (session && session.token && session.token.username && !inCrazyGames) {
@@ -1381,7 +1351,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 setOptions({
                     units: system,
-                    ramUsage: false,
                     mapType: "m", //m for normal
                     language: detectedLang
                 })
@@ -1412,6 +1381,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
+
     const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
         if (typeof window === 'undefined') return true;
         try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
@@ -1461,8 +1431,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         // verify the ws
         if (ws && !window.verified && !window.location.search.includes("crazygames")) {
-            console.log("sending verify", ws)
-            ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username }))
+            ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username, teamSupport: true }))
         }
     }, [session?.token?.secret, ws])
 
@@ -1489,15 +1458,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const { t: text } = useTranslation("common");
 
-    useEffect(() => {
-
-        if (multiplayerState?.joinOptions?.error) {
-            setTimeout(() => {
-                setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, error: null } }))
-            }, 1000)
-        }
-
-    }, [multiplayerState?.joinOptions?.error]);
+    // NOTE: join-code errors are cleared by the join input's onChange (typing
+    // dismisses them) — no auto-dismiss timer, so the message stays readable.
 
     useEffect(() => {
         if (multiplayerState?.connected && multiplayerError) {
@@ -1534,13 +1496,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }
 
     function handleMultiplayerAction(action, ...args) {
-        console.log(action)
-
         if (!ws || !multiplayerState.connected) {
             setConnectionErrorModalShown(true);
 
             return;
         }
+
+        // Cancel stage-1 teammate matchmaking WITHOUT leaving the lobby (the
+        // back-button path would send leaveGame — inGame stays true during
+        // stage 1). Drop the queue entry server-side; the lobby restore
+        // re-sends state, confirming the optimistic flip below. Must run
+        // before the gameQueued guard — we ARE queued while cancelling.
+        if (action === "cancelTeammateSearch") {
+            ws.send(JSON.stringify({ type: "leaveQueue" }));
+            sendEvent("multiplayer_cancel_teammate_search");
+            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, queueStage: null }));
+            return;
+        }
+
         if (multiplayerState.gameQueued || multiplayerState.connecting) return;
 
         if (action === "publicDuel") {
@@ -1593,11 +1566,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             } else {
                 setScreen("multiplayer")
+                // Reachable from inside the 2v2 staging lobby ("have a code?"
+                // link) — leave the server-side lobby so it can't linger as a
+                // ghost. No-op from home/onboarding (not in any lobby).
+                if ((multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting")
+                    || multiplayerState?.lobbyIntent) {
+                    try { ws.send(JSON.stringify({ type: 'leaveGame' })) } catch (e) { }
+                }
                 setMultiplayerState((prev) => {
                     return {
                         ...initialMultiplayerState,
                         connected: true,
-                        enteringGameCode: true,
+                        lobbyIntent: 'join',
                         playerCount: prev.playerCount,
                         guestName: prev.guestName
                     }
@@ -1606,55 +1586,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         }
 
-        if (action === "createPrivateGame") {
-
-            // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
-            // setMultiplayerState((prev) => ({
-            //   ...prev,
-            //   createOptions: {
-            //     ...prev.createOptions,
-            //     progress: 0
-            //   }
-            // }));
-            // (async () => {
-            // const locations = [];
-            // for (let i = 0; i < args[0].rounds; i++) {
-
-            //   const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
-            //   locations.push(loc)
-            //   setMultiplayerState((prev) => ({
-            //     ...prev,
-            //     createOptions: {
-            //       ...prev.createOptions,
-            //       progress: i + 1
-            //     }
-            //   }))
-            // }
-
+        if (action === "createLobby") {
+            // One create path for both flavors: a party, or a 2v2 staging
+            // lobby (mode:'2v2' → server caps it at 2 and skips game options).
+            // The lobby card renders its pending shell immediately; options
+            // live behind the lobby's Edit button (no modal ambush on create).
+            const intent = args[0] === "2v2" ? "2v2" : "party";
+            setScreen("multiplayer")
             setMultiplayerState((prev) => ({
                 ...prev,
-                createOptions: {
-                    ...prev.createOptions,
-                    progress: true
-                }
+                lobbyIntent: intent,
+                joinOptions: { ...initialMultiplayerState.joinOptions },
+                createOptions: { ...prev.createOptions, progress: true },
             }));
-
-            // send ws
-            // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
             ws.send(JSON.stringify({
-                type: "createPrivateGame"
-
+                type: "createPrivateGame",
+                ...(intent === "2v2" ? { mode: "2v2" } : {}),
             }));
-            setPartyModalShown(true)
-            sendEvent("multiplayer_create_private_game")
-            // })()
+            // Parties open the options modal right away so hosts pick their
+            // settings first (2v2 staging has no options to edit).
+            if (intent === "party") setPartyModalShown(true)
+            sendEvent(intent === "2v2" ? "multiplayer_create_2v2_lobby" : "multiplayer_create_private_game")
         }
 
         if (action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
 
             if (inCrazyGames) {
-                const link = window.CrazyGames.SDK.game.showInviteButton({ code: multiplayerState?.gameData?.code })
-                console.log("crazygames invite link", link)
+                window.CrazyGames.SDK.game.showInviteButton({ code: multiplayerState?.gameData?.code })
             }
 
             // Use the passed options directly to avoid stale state issues
@@ -1674,6 +1632,46 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
             ws.send(JSON.stringify({ type: "startGameHost" }))
             sendEvent("multiplayer_start_game_host")
+        }
+
+        if (action === "kickPlayer" && args[0] && multiplayerState?.gameData?.host) {
+            ws.send(JSON.stringify({ type: "kickPlayer", playerId: args[0] }))
+        }
+
+        // ---- Intra-party team mode ----
+        // Client gates MIRROR the server's (host/waiting/allowTeamPick); the
+        // server re-validates everything and its broadcast is authoritative.
+        if (action === "setTeamConfig" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+            ws.send(JSON.stringify({ type: "setTeamConfig", ...args[0] }))
+            sendEvent("multiplayer_set_team_config")
+        }
+
+        if (action === "shuffleTeams" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting" && multiplayerState?.gameData?.teamGame) {
+            ws.send(JSON.stringify({ type: "shuffleTeams" }))
+            sendEvent("multiplayer_shuffle_teams")
+        }
+
+        if (action === "setPlayerTeam" && args[0] && (args[1] === 'a' || args[1] === 'b')
+            && multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting" && multiplayerState?.gameData?.teamGame) {
+            const gd = multiplayerState.gameData;
+            const isSelf = args[0] === gd.myId;
+            if (!(gd.host || (gd.allowTeamPick && isSelf))) return;
+            ws.send(JSON.stringify({ type: "setPlayerTeam", playerId: args[0], team: args[1] }))
+            // Optimistic flip so the row jumps columns instantly; the next
+            // 'game' broadcast replaces players wholesale and self-corrects.
+            setMultiplayerState((prev) => prev.gameData ? ({
+                ...prev,
+                gameData: {
+                    ...prev.gameData,
+                    players: prev.gameData.players.map((p) => p.id === args[0] ? { ...p, team: args[1] } : p)
+                }
+            }) : prev);
+        }
+
+        // Find Match: host queues the lobby (solo or duo) for 2v2 matchmaking.
+        if (action === "find2v2Match") {
+            ws.send(JSON.stringify({ type: "find2v2Match" }))
+            sendEvent("multiplayer_find_2v2_match")
         }
 
         if (action === 'screen') {
@@ -1696,7 +1694,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
 
             if (isInGameplay) {
-                console.log("gameplay start - actual gameplay detected")
                 try {
                     window.CrazyGames.SDK.game.gameplayStart();
                 } catch (e) { }
@@ -1704,7 +1701,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     if (window.poki) window.PokiSDK.gameplayStart();
                 } catch (e) { }
             } else {
-                console.log("gameplay stop - not in actual gameplay")
                 try {
                     window.CrazyGames.SDK.game.gameplayStop();
                 } catch (e) { }
@@ -1725,7 +1721,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 let instantJoin = (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
 
                 if (window.CrazyGames.SDK.game.getInviteParam("code") || window.CrazyGames.SDK.game.isInstantMultiplayer) {
-                    console.log("crazygames");
                     setInCrazyGames(true);
                 }
 
@@ -1761,7 +1756,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         }, 1000)
                     } else {
                         // create Party
-                        handleMultiplayerAction("createPrivateGame")
+                        handleMultiplayerAction("createLobby", "party")
                     }
 
                 }
@@ -1901,44 +1896,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }));
             }
 
-            if (data.type === "cnt") {
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    playerCount: data.c
-                }))
-            } else if (data.type === "verify") {
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    connected: true,
-                    connecting: false,
-                    verified: true,
-                    guestName: data.guestName
-                }))
-
-                if (data.rejoinCode) {
-                    gameStorage.setItem("rejoinCode", data.rejoinCode)
-                }
-
-            } else if (data.type === "error") {
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    connecting: false,
-                    connected: false,
-                    shouldConnect: false,
-                    error: data.message
-                }))
-                // disconnect
-                if (data.message === "uac") {
-                    window.dontReconnect = true;
-                }
-                if (data.failedToLogin) {
-                    window.dontReconnect = true;
-                    // logout
-                    signOut()
-
-                }
+            // verify / cnt / error state updates live in MultiplayerProvider
+            // (they must run even with no consumer mounted). Home adds only
+            // what the provider can't do:
+            if (data.type === "error") {
+                // Force the close→reconnect cycle. For 'verifyError' (DB blip
+                // during verify) the server deliberately leaves the socket
+                // open and THIS close is what paces the retry; for uac /
+                // failedToLogin the server closes anyway, so it's a no-op.
                 ws.close();
-
+                // Translated toast (the provider has no `text`).
                 toast(data.message === 'uac' ? text('userAlreadyConnected') : data.message, { type: 'error' });
 
             } else if (data.type === "game") {
@@ -1961,9 +1928,28 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setConnectionErrorModalShown(false);
 
                 setScreen("multiplayer")
-                setMultiplayerState((prev) => {
 
-                    // console.log('got game options', data)
+                // Play Again duo regroup: the staging lobby arrives queue-bound
+                // (queueBoundDuo) and the server's enter2v2Queue follows in the
+                // same burst. Skip straight to the queue screen instead of
+                // painting the lobby card for a frame in between. Solo
+                // survivors never get the flag — stage-1 teammate search
+                // renders inside their lobby card — and the deliberate
+                // "Queueing in 3…" preview beats don't set it either.
+                if (data.is2v2Lobby && data.state === "waiting" && data.queueBoundDuo) {
+                    setMultiplayerState((prev) => ({
+                        ...prev,
+                        inGame: false,
+                        gameData: null,
+                        lobbyIntent: null,
+                        gameQueued: "2v2",
+                        queueStage: "opponents",
+                        joinOptions: initialMultiplayerState.joinOptions,
+                    }));
+                    return;
+                }
+
+                setMultiplayerState((prev) => {
                     setGameOptions((prev) => ({
                         ...prev,
                         nm: data.nm,
@@ -1971,39 +1957,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         showRoadName: data.showRoadName
                     }))
 
+                    const incomingRoundLoc = (data.locations ?? prev?.gameData?.locations)?.[data.curRound - 1];
+                    const needsRejoinGuessLocation = !!(
+                        prev?.gameData?.state === "guess" &&
+                        data.state === "guess" &&
+                        !prev?.gameData?.locations?.[data.curRound - 1] &&
+                        incomingRoundLoc
+                    );
 
-
-                    if (data.state === "getready") {
-                        // calculate extent on client
-                        // if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
-                        //   // calculate extent
-
-                        //   fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {
-                        //     if(data.ready) {
-
-                        //       const mappedLatLongs = data.locations.map((l) => fromLonLat([l.lng, l.lat], "EPSG:4326"));
-                        //       let extent = boundingExtent(mappedLatLongs);
-                        //       console.log("extent", extent)
-
-                        //       setGameOptions((prev) => ({
-                        //         ...prev,
-                        //         extent
-                        //       }))
-
-                        //     }
-                        //   })
-                        // }
-                    }
-
-                    if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
+                    if (((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") || needsRejoinGuessLocation) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         setLoading(true)
                         // Increment key to force refresh even if coords are the same
                         setLatLongKey(k => k + 1)
-                        const roundLoc = (prev?.gameData?.locations ?? data.locations)?.[data.curRound - 1];
-                        if (roundLoc) {
-                            setLatLong(roundLoc)
+                        if (incomingRoundLoc) {
+                            setLatLong(incomingRoundLoc)
                         }
                     }
 
@@ -2011,7 +1980,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     if (!prev.gameData && data.state === "getready" && data.locations && data.curRound > 1) {
                         setLatLong(data.locations[data.curRound - 2])
                     }
-                    if (!prev.gameData && data.players) {
+                    if ((!prev.gameData || needsRejoinGuessLocation) && data.players) {
                         const me = data.players.find(p => p.id === data.myId);
                         if (me?.guess) {
                             import('leaflet').then(L => {
@@ -2023,20 +1992,37 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return {
                         ...prev,
                         gameQueued: false,
+                        queueStage: null,
                         inGame: true,
                         gameData: {
                             ...prev.gameData,
                             ...data,
                             type: undefined
                         },
-                        enteringGameCode: false,
+                        // A joiner's 'join' intent is served once the game
+                        // arrives; creators keep 'party'/'2v2' for lobby
+                        // presentation (primary action, title).
+                        lobbyIntent: prev.lobbyIntent === 'join' ? null : prev.lobbyIntent,
                         joinOptions: initialMultiplayerState.joinOptions,
                     }
                 })
 
 
+            } else if (data.type === "playAgain2v2") {
+                // Post-game Play Again consensus counter for the results
+                // screen ("Play Again (1/2)"). Server re-broadcasts on every
+                // ack and on teammate departure (which resets acks).
+                setMultiplayerState((prev) => {
+                    if (!prev.gameData) return prev;
+                    return {
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            playAgain2v2: { needed: data.needed, ackedIds: data.ackedIds || [] }
+                        }
+                    };
+                });
             } else if (data.type === "duelEnd") {
-                console.log("duel end", data)
                 // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
 
                 setMultiplayerState((prev) => {
@@ -2045,7 +2031,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         ...prev,
                         gameData: {
                             ...prev.gameData,
-                            duelEnd: data
+                            duelEnd: data,
+                            // Fresh consensus per match — a stale counter from a
+                            // previous game must never render on this end screen
+                            // (the server re-broadcasts the real one right after).
+                            playAgain2v2: null
                         }
                     };
                 });
@@ -2055,6 +2045,28 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // without it there's no way to tell "queued, waiting" apart from
                 // "server never queued me".
                 clearQueueConfirmWatchdog();
+            } else if (data.type === "enter2v2Queue") {
+                // Server moved us into 2v2 matchmaking — from a lobby's Find
+                // Match, or an auto-requeue after a pre-game cancel.
+                // Stage 1 (finding a teammate) renders INSIDE the lobby card,
+                // so keep inGame/gameData/lobbyIntent — PartyLobby shows the
+                // searching seat. Stage 2 (finding opponents) shows the queue
+                // banner as before.
+                const teammateStage = data.stage === "teammate";
+                setScreen("multiplayer")
+                setMultiplayerState((prev) => ({
+                    ...prev,
+                    inGame: teammateStage ? prev.inGame : false,
+                    // Stage 1 keeps the lobby card, but any "Queueing in 3…"
+                    // countdown is over the moment we're actually queued —
+                    // clear the stamp so a stale one can't keep ticking.
+                    gameData: teammateStage
+                        ? (prev.gameData ? { ...prev.gameData, autoQueueInMs: null } : prev.gameData)
+                        : null,
+                    lobbyIntent: teammateStage ? prev.lobbyIntent : null,
+                    gameQueued: "2v2",
+                    queueStage: teammateStage ? "teammate" : "opponents",
+                }))
             } else if (data.type === "publicDuelRange") {
                 // Also a valid join confirmation for ranked — retire the watchdog.
                 clearQueueConfirmWatchdog();
@@ -2064,7 +2076,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }))
             } else if (data.type === "maxDist") {
                 const maxDist = data.maxDist;
-                console.log("got new max dist", maxDist)
                 setMultiplayerState((prev) => {
                     if (!prev.gameData) return prev;
                     return {
@@ -2101,19 +2112,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     })
                 }
             } else if (data.type === "place") {
+                // Interim teammate placements AND final placements (broadcast
+                // to everyone) both go through setState. The old final-guess
+                // path mutated the player object in place with no re-render —
+                // it only appeared to work because the 100ms round-timer tick
+                // happened to repaint during 'guess'.
                 const id = data.id;
-                const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
-                if (player) {
-                    player.final = data.final;
-                    player.latLong = data.latLong;
-                }
-            } else if (data.type === "gameOver") {
-                setLatLong(null)
-                setGameOptions((prev) => ({
-                    ...prev,
-                    extent: null
-                }))
-
+                setMultiplayerState((prev) => {
+                    if (!prev.gameData?.players) return prev;
+                    return {
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            players: prev.gameData.players.map((p) =>
+                                p.id === id ? { ...p, final: data.final, latLong: data.latLong } : p
+                            )
+                        }
+                    };
+                });
             } else if (data.type === "gameShutdown") {
                 // gameShutdown only needs to force-reset the client when the
                 // user is still in a game client-side (e.g. party host left
@@ -2183,12 +2199,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     extent: null
                 }))
             } else if (data.type === "gameJoinError") {
-                if (multiplayerState.enteringGameCode) {
+                if (multiplayerState.lobbyIntent) {
+                    // On the join screen (or a lobby shell) → inline error,
+                    // translated via the same keys the deep-link toast uses.
+                    const inlineKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
                     setMultiplayerState((prev) => ({
                         ...prev,
                         joinOptions: {
                             ...prev.joinOptions,
-                            error: data.error,
+                            error: text(inlineKey) || data.error,
                             progress: false
                         }
                     }))
@@ -2289,7 +2308,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     // Home-side cleanup when the WS goes from connected to disconnected.
     // The provider already resets multiplayerState on close; this effect handles
-    // the home-only side effects (chat, error modal, redirect to home, toast).
+    // the home-only side effects (error modal, redirect to home, toast).
     // `text` is read through a ref so we don't re-fire on every Home render
     // (useTranslation returns a fresh `t` closure each render).
     const textRef = useRef(text);
@@ -2331,15 +2350,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [screen]);
 
-
-    // useEffect(() => {
-    //   if (multiplayerState.inGame && multiplayerState.gameData?.state === "guess" && pinPoint) {
-    //     // send guess
-    //     console.log("pinpoint1", pinPoint)
-    //     const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
-    //     ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
-    //   }
-    // }, [multiplayerState, pinPoint])
 
     function guessMultiplayer(send) {
         if (!send) return;
@@ -2404,11 +2414,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 const callbacks = {
                     adFinished: () => adFinished(),
                     adError: (error) => adFinished(),
-                    adStarted: () => console.log("Start midgame ad"),
                 };
                 window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
             } catch (e) {
-                console.log("error requesting midgame ad", e)
+                console.warn("error requesting midgame ad", e)
                 adFinished()
             }
         } else if (process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 600000) {
@@ -2427,12 +2436,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                 };
                 function onEnd() {
-                    console.log("End midgame ad");
                     cleanup();
                     adFinished();
                 }
                 function onStart() {
-                    console.log("Start midgame ad");
                     // Real ad started — cancel the no-fill fallback so it can't resume mid-ad.
                     if (safetyTimeout) {
                         clearTimeout(safetyTimeout);
@@ -2444,12 +2451,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 window.cmgAdBreak();
                 // Fallback: if adBreakComplete never fires (no fill, blocker), release listeners and resume.
                 safetyTimeout = setTimeout(() => {
-                    console.log("CMG ad timeout, forcing resume");
+                    console.warn("CMG ad timeout, forcing resume");
                     cleanup();
                     adFinished();
                 }, 15000);
             } catch (e) {
-                console.log("error requesting midgame ad", e)
+                console.warn("error requesting midgame ad", e)
                 adFinished()
             }
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
@@ -2463,7 +2470,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     window._gdAdFinished = adFinished;
                     // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
                     window._gdAdTimeout = setTimeout(() => {
-                        console.log("GD ad timeout, forcing resume");
+                        console.warn("GD ad timeout, forcing resume");
                         window._gdAdTimeout = null;
                         const cb = window._gdAdFinished;
                         window._gdAdFinished = null;
@@ -2474,7 +2481,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     adFinished();
                 }
             } catch (e) {
-                console.log("error requesting GD midgame ad", e);
+                console.warn("error requesting GD midgame ad", e);
                 adFinished();
             }
         } else {
@@ -2488,8 +2495,104 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }, []);
 
+    function clearTeam2v2EndExitTimers() {
+        team2v2EndExitTimersRef.current.forEach((timer) => clearTimeout(timer));
+        team2v2EndExitTimersRef.current = [];
+    }
 
-    function backBtnPressed(queueNextGame = false, nextGameType) {
+    function beginTeam2v2EndExit(afterCovered) {
+        clearTeam2v2EndExitTimers();
+        setTeam2v2EndExitMaskRevealing(false);
+        setTeam2v2EndExitMaskShown(true);
+
+        const actionTimer = setTimeout(() => {
+            try {
+                afterCovered();
+            } finally {
+                const revealTimer = setTimeout(() => {
+                    setTeam2v2EndExitMaskRevealing(true);
+                    const clearTimer = setTimeout(() => {
+                        setTeam2v2EndExitMaskShown(false);
+                        setTeam2v2EndExitMaskRevealing(false);
+                    }, TEAM_2V2_END_EXIT_REVEAL_MS);
+                    team2v2EndExitTimersRef.current.push(clearTimer);
+                }, TEAM_2V2_END_EXIT_COVER_MS);
+                team2v2EndExitTimersRef.current.push(revealTimer);
+            }
+        }, TEAM_2V2_END_EXIT_COVER_MS);
+        team2v2EndExitTimersRef.current.push(actionTimer);
+    }
+
+    useEffect(() => () => clearTeam2v2EndExitTimers(), []);
+
+
+    function backBtnPressed(queueNextGame = false, nextGameType, skipConfirm = false) {
+        if (!skipConfirm && multiplayerState?.inGame && multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === "end") {
+            beginTeam2v2EndExit(() => backBtnPressed(queueNextGame, nextGameType, true));
+            return;
+        }
+
+        // Confirm gate runs before any teardown so cancelling leaves the game
+        // untouched (window.confirm used to run after the pin/location resets,
+        // wiping them even on cancel).
+        if (!skipConfirm) {
+            const gd = multiplayerState?.gameData;
+
+            // Warning for ranked duels in progress - prevent accidental forfeits
+            const isRankedDuel = multiplayerState?.inGame &&
+                gd?.duel && !gd?.public && gd?.state !== "end";
+
+            const isPrivateParty = multiplayerState?.inGame &&
+                !!gd && !gd.duel && !gd.public;
+            const liveRound = !["waiting", "end"].includes(gd?.state);
+            // Round-1 countdown = server's own preGame definition (teamDuel
+            // routes these leaves to a penalty-free cancel): nothing played
+            // yet, so host back is a silent cancel-start, no confirm. Bounded
+            // by curRound <= 1 — the post-final ghost getready (curRound =
+            // rounds+1) must KEEP the confirm, it guards the results screen.
+            const preGameCountdown = gd?.state === "getready" && (gd?.curRound ?? 0) <= 1;
+
+            // Host backing out mid-game ends the match for everyone
+            // (resetGame → lobby) — team and classic FFA parties alike.
+            const isHostEndMatch = isPrivateParty && gd.host && liveRound && !preGameCountdown;
+
+            // Host backing out of a waiting party lobby disbands it for everyone
+            // (server host-leave rule; 2v2 staging lobbies pass the crown to a
+            // teammate instead). Only worth a confirm with other players inside.
+            const isPartyDisband = isPrivateParty && gd.host &&
+                gd.state === "waiting" &&
+                !gd.is2v2Lobby &&
+                (gd.players?.length ?? 0) > 1;
+
+            // Members: leaving a party is permanent (rejoining needs the code),
+            // so confirm in every state — lobby, live rounds and especially the
+            // results screen. Mid-round team mode gets the team-abandon wording.
+            // 2v2 staging lobbies are exempt: they're disposable by design
+            // (entering a friend's code already hops out of one silently).
+            const isPartyMemberLeave = isPrivateParty && !gd.host && !gd.is2v2Lobby;
+
+            if (isRankedDuel || isHostEndMatch || isPartyDisband || isPartyMemberLeave) {
+                setLeaveConfirm({
+                    messageKey: isRankedDuel ? "forfeitWarning"
+                        : isPartyDisband ? "disbandPartyWarning"
+                        : isHostEndMatch ? "endMatchWarning"
+                        : gd.teamGame && liveRound ? "leaveTeamGameWarning"
+                        : "leavePartyWarning",
+                    confirmKey: isRankedDuel ? "forfeit"
+                        : isPartyDisband ? "disbandParty"
+                        : isHostEndMatch ? "endMatch"
+                        : gd.teamGame && liveRound ? "leaveMatch"
+                        : "leaveParty",
+                    // navbar wires this straight to onClick, so the first arg
+                    // can be a click event — coerce before stashing
+                    queueNextGame: queueNextGame === true,
+                    nextGameType,
+                });
+                setLeaveConfirmOpen(true);
+                return;
+            }
+        }
+
         setOnboardingCompleted(true)
         setLatLong(null)
         setShowAnswer(false)
@@ -2514,19 +2617,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             gameStorage.setItem("onboarding", 'done')
 
             return;
-        }
-
-        // Warning for ranked duels in progress - prevent accidental forfeits
-        const isRankedDuel = multiplayerState?.inGame &&
-            multiplayerState?.gameData?.duel &&
-            !multiplayerState?.gameData?.public &&
-            multiplayerState?.gameData?.state !== "end";
-
-        if (isRankedDuel) {
-            const confirmed = window.confirm(text("forfeitWarning"));
-            if (!confirmed) {
-                return; // User cancelled, don't leave the game
-            }
         }
 
         if (multiplayerState?.inGame) {
@@ -2577,7 +2667,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             } else {
                 ws.send(JSON.stringify({ type: "resetGame" }))
             }
-        } else if ((multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
+        } else if (multiplayerState?.lobbyIntent && multiplayerState?.connected) {
+            // Covers the join screen AND a pending create shell. If the server
+            // already created the lobby but its `game` message hasn't landed
+            // yet, leaveGame prevents a ghost lobby (harmless no-op otherwise).
+            try { ws.send(JSON.stringify({ type: 'leaveGame' })) } catch (e) { }
 
             setMultiplayerState((prev) => {
                 return {
@@ -2591,9 +2685,23 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setScreen("home")
 
         } else if (multiplayerState?.gameQueued) {
-            console.log("gameQueued")
             clearQueueConfirmWatchdog();
             ws.send(JSON.stringify({ type: "leaveQueue" }))
+
+            if (multiplayerState.gameQueued === "2v2") {
+                // Backing out of 2v2 matchmaking returns to the team lobby.
+                // The server keeps the staging lobby alive while queued and
+                // re-sends its state (same code, same teammate) on leaveQueue;
+                // show the lobby shell until that lands.
+                setMultiplayerState((prev) => ({
+                    ...prev,
+                    gameQueued: false,
+                    queueStage: null,
+                    lobbyIntent: '2v2',
+                    joinOptions: { ...initialMultiplayerState.joinOptions },
+                }));
+                return;
+            }
 
             setMultiplayerState((prev) => {
                 return {
@@ -2633,8 +2741,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (loading && !force) return;
         const loadLocationRequestId = ++loadLocationRequestRef.current;
         const isCurrentLocationLoad = () => loadLocationRequestId === loadLocationRequestRef.current;
-        console.log("[PERF] ========== Starting new round ==========");
-        window.roundStartTime = performance.now();
         setLoading(true)
         if (!keepAnswer) setShowAnswer(false)
         if (!keepAnswer) setPinPoint(null)
@@ -2664,8 +2770,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         } else {
             async function defaultMethod() {
-                console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
-                const startTime = performance.now();
                 // Country/continent guesser can't tolerate Unknown-country spots.
                 // With findCountry's local fallback, this rejection should rarely
                 // fire (only for ocean / missing-polygon edge cases).
@@ -2675,7 +2779,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 try {
                     const mod = await import("@/components/findLatLong");
                     const findLatLongRandom = mod.default;
-                    console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
                     const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry, requireKnownContinent });
                     if (!isCurrentLocationLoad()) return;
                     setLatLong(latLong);
@@ -2693,8 +2796,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     defaultMethod();
                     return;
                 }
-                const fetchStartTime = performance.now();
-                console.log("[PERF] loadLocation: Starting fetch for locations");
                 const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
@@ -2702,7 +2803,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return res.json();
                 }).then((data) => {
                     if (!isCurrentLocationLoad()) return;
-                    console.log(`[PERF] loadLocation: Fetched locations in ${(performance.now() - fetchStartTime).toFixed(2)}ms`);
                     if (data.ready) {
                         // this uses long for lng
                         for (let i = 0; i < data.locations.length; i++) {
@@ -2877,25 +2977,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
 
+    // My team ('a'|'b'|null) for emote allegiance coloring — derived outside
+    // the memo so it only re-renders on an actual team change, not on every
+    // players-array update.
+    const myEmoteTeam = getMyTeam(multiplayerState?.gameData?.players, multiplayerState?.gameData?.myId);
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
+        subscribeMessages={subscribeMessages}
         enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
         inGame={multiplayerState?.inGame}
         myId={multiplayerState?.gameData?.myId}
-        hideName={multiplayerState?.gameData?.duel}
+        myTeam={myEmoteTeam}
+        // Hide names only in 1v1 duels, where attribution is obvious (you or
+        // the one opponent). 2v2 duels NEED the name + team color — with four
+        // players an anonymous emote is unreadable.
+        hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.state])
+    />, [ws, subscribeMessages, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state])
 
-    // Send pong every 10 seconds if websocket is connected
-    useEffect(() => {
-        const pongInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'pong' }));
-            }
-        }, 10000); // Send pong every 10 seconds
-
-        return () => clearInterval(pongInterval);
-    }, [ws]);
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
 
@@ -2921,27 +3020,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             });
             // redirect to banned page
             window.localStorage.setItem("bannedv2", "true")
-
-
-            // fetch("https://discord.com/api/webhooks/1236105403947945984/2XU0c0xOlo4yLEVfMxt97LOIxG1jiFcAhFbi7tW6E9t4Qiu9KYxPhSI3l3S303KbhUbg", {
-            //     method: "POST",
-            //     headers: {
-            //         "Content-Type": "application/json"
-            //     },
-            //     body: JSON.stringify({
-            //         content: `User ${session?.token?.secret} detected cheating` // todo: change useeffect to have session as a dep or else this is just undefined
-            //     })
-            // }).then(() => {
-            //     console.log("Webhook sent")
-            // window.location.href = navigate("/banned");
-
-            // }).catch((err) => {
-            //     console.error("Error sending webhook:", err)
-            // window.location.href = navigate("/banned");
-
-            // })
-
-
         }
         if (checkForCheats()) {
             banGame();
@@ -2962,6 +3040,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const multiplayerEndAnswerHoldActive = multiplayerGameState === 'end' && !multiplayerEndAnswerHoldExpired;
     const multiplayerShowAnswer = multiplayerEndAnswerHoldActive || (
         multiplayerState?.gameData?.curRound !== 1 && multiplayerGameState === 'getready'
+    );
+    const isTeam2v2EndScreen = !!(
+        screen === "multiplayer" &&
+        multiplayerState?.inGame &&
+        multiplayerGameState === "end" &&
+        multiplayerState?.gameData?.team2v2
+    );
+    const showPublicDuelEndScreen = !!(
+        multiplayerState?.inGame &&
+        multiplayerGameState === 'end' &&
+        multiplayerState?.gameData?.public &&
+        (multiplayerState?.gameData?.duelEnd || multiplayerState?.gameData?.team2v2)
     );
 
     return (
@@ -3007,6 +3097,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             gameStorage.setItem("onboarding_seen", "true");
                             gameStorage.setItem("onboarding", "done");
                         } catch(e) {}
+                        // GameUI mounts under this overlay at load+idle and starts
+                        // the round-1 street view load (loading=true). Clearing
+                        // latLong below unmounts the iframe, so its onLoad —
+                        // the only thing that resets loading — never fires;
+                        // without this, home is stuck behind the loading mask.
+                        cancelInFlightLocationLoad();
+                        setLoading(false);
                         setLatLong(null);
                         setShowAnswer(false);
                         setWelcomeOverlayShown(false);
@@ -3033,14 +3130,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     pitch={latLong?.pitch}
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
                     hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
-                        screen === "home" || !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode || multiplayerState?.gameQueued))
+                        screen === "home" || !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
                     )}
                     refreshKey={latLongKey}
                     onLoad={() => {
-                        if (window.roundStartTime) {
-                            console.log(`[PERF] ========== Round complete! Total time from start to SV loaded: ${(performance.now() - window.roundStartTime).toFixed(2)}ms ==========`);
-                        }
-                        console.log("loaded")
                         setTimeout(() => {
                             setLoading(false)
                             setMapSwitchMaskShown(false);
@@ -3049,6 +3142,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                     }}
                 />
+
+                {team2v2EndExitMaskShown && (
+                    <div
+                        className={`team-2v2-end-exit-mask ${team2v2EndExitMaskRevealing ? 'team-2v2-end-exit-mask--revealing' : ''}`}
+                        aria-hidden="true"
+                    />
+                )}
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${(loading || mapSwitchMaskShown) ? 'loading-overlay--visible' : ''}`}>
@@ -3093,7 +3193,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setScreen("multiplayer")
                         setMultiplayerState((prev) => ({
                             ...prev,
-                            enteringGameCode: true
+                            lobbyIntent: 'join'
                         }))
                     }}
                     accountModalOpen={accountModalOpen}
@@ -3115,7 +3215,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     gameOptions={gameOptions}
                     screen={screen}
                     multiplayerState={multiplayerState}
-                    shown={!multiplayerState?.gameData?.duel}
+                    shown={!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'end')}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     partyModalShown={partyModalShown}
@@ -3191,7 +3291,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     </div>
                 )}
 
-                {/* Account Pending Deletion Banner — within the 7-day grace period.
+                {/* Account Pending Deletion Banner — within the 30-day grace period.
                     Explicit Restore (we never auto-cancel on login). */}
                 {session?.token?.pendingDeletion && screen === 'home' && !dismissedDeletionBanner && (
                     <div className="modBanner modBanner--error">
@@ -3338,38 +3438,54 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                                                     onClick={() => {
                                                         if (loading) return;
-                                                        setNavSlideOut(true);
                                                         setMiniMapShown(false);
-                                                        setTimeout(() => {
-                                                            crazyMidgame(() => {
-                                                                // First entry this session: check localStorage preference
-                                                                if (!hasEnteredSingleplayer.current) {
-                                                                    hasEnteredSingleplayer.current = true;
-                                                                    const pref = gameStorage.getItem("singleplayerDefaultMode");
-                                                                    if (pref === "countryGuesser") {
-                                                                        enterCountryGuessrMode("country");
-                                                                        return;
-                                                                    } else if (pref === "continentGuesser") {
-                                                                        enterCountryGuessrMode("continent");
-                                                                        return;
-                                                                    }
+                                                        navSlideOutThen(() => crazyMidgame(() => {
+                                                            // First entry this session: check localStorage preference
+                                                            if (!hasEnteredSingleplayer.current) {
+                                                                hasEnteredSingleplayer.current = true;
+                                                                const pref = gameStorage.getItem("singleplayerDefaultMode");
+                                                                if (pref === "countryGuesser") {
+                                                                    enterCountryGuessrMode("country");
+                                                                    return;
+                                                                } else if (pref === "continentGuesser") {
+                                                                    enterCountryGuessrMode("continent");
+                                                                    return;
                                                                 }
-                                                                // Subsequent entries: restore last screen used this session
-                                                                setScreen(lastSingleplayerScreen.current || "singleplayer");
-                                                            });
-                                                            setNavSlideOut(false); // Reset for next use
-                                                        }, 300);
+                                                            }
+                                                            // Subsequent entries: restore last screen used this session
+                                                            setScreen(lastSingleplayerScreen.current || "singleplayer");
+                                                        }));
                                                     }}>
                                                     {text("singleplayer")}
                                                 </button>
-                                                {/* <span className="bigSpan">{text("playOnline")}</span> */}
-
-                                                {/* <button className="g2_nav_text" aria-label="Duels" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("duels")}</button> */}
                                                 {session?.token?.secret && (
-                                                    <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("publicDuel") }}>{text("rankedDuel")}</button>
+                                                    <button className="g2_nav_text" aria-label="Duels" onClick={() => {
+                                                        if (!ws || !multiplayerState?.connected) {
+                                                            setConnectionErrorModalShown(true);
+                                                            return;
+                                                        }
+                                                        navSlideOutThen(() => handleMultiplayerAction("publicDuel"));
+                                                    }}>{text("rankedDuel")}</button>
                                                 )}
-                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
+                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => {
+                                                    if (!ws || !multiplayerState?.connected) {
+                                                        setConnectionErrorModalShown(true);
+                                                        return;
+                                                    }
+                                                    navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"));
+                                                }}>{
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
+
+                                                <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
+                                                    if (!ws || !multiplayerState?.connected) {
+                                                        setConnectionErrorModalShown(true);
+                                                        return;
+                                                    }
+                                                    navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
+                                                }}>
+                                                    {text("twovtwo")}
+                                                    <span className="g2_nav_new_sticker" aria-hidden="true">{text("newSticker")}</span>
+                                                </button>
 
 
 
@@ -3377,31 +3493,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
                                                     if (!ws || !multiplayerState?.connected) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
 
-                                                    setNavSlideOut(true);
-                                                    setAwaitingCreatePartyScreen(true);
-                                                    setTimeout(() => {
-                                                        handleMultiplayerAction("createPrivateGame")
-                                                    }, 300);
+                                                    navSlideOutThen(() => handleMultiplayerAction("createLobby", "party"));
                                                 }}>{text("createGame")}</button>
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
                                                     if (!ws || !multiplayerState?.connected) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
-                                                    setNavSlideOut(true);
-                                                    setTimeout(() => {
-                                                        setNavSlideOut(false); // Reset for next use
-                                                        handleMultiplayerAction("joinPrivateGame")
-
-                                                    }, 300);
-
+                                                    navSlideOutThen(() => handleMultiplayerAction("joinPrivateGame"));
                                                 }}>{text("joinGame")}</button>
                                             </div>
 
@@ -3410,25 +3515,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             <div className="g2_nav_group">
                                                 <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
 
-                                                {/* Twitch Streamer Link */}
-                                                {/* <a
-                                                    href="https://kick.com/ulkuemre"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="g2_nav_text"
-                                                    style={{ color: '#ff4444', textDecoration: 'none' }}
-                                                    aria-label="Watch UlkuEmre Live"
-                                                >
-                                                    🔴 Watch UlkuEmre Live
-                                                </a> */}
-
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
-                                                        setNavSlideOut(true);
-                                                        setTimeout(() => {
-                                                            setNavSlideOut(false); // Reset for next use
-                                                            setMapGuessrModal(true);
-                                                        }, 300);
+                                                        navSlideOutThen(() => setMapGuessrModal(true));
                                                     }}>MapGuessr</button>
                                                 )}
 
@@ -3470,47 +3559,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             </div>
                         </div>
 
-                        <div className="g2_content g2_content_margin g2_slide_in" style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
-                            {/*
-                            {session?.token?.secret && (
-                                <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("publicDuel"); setShowPartyCards(false); }}
-                                    disabled={!multiplayerState.connected || maintenance}>{text("rankedDuel")}</button>
-                            )}
-                            <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("unrankedDuel"); setShowPartyCards(false); }}
-                                disabled={!multiplayerState.connected || maintenance}>
-
-                                {
-                                    session?.token?.secret ? text("unrankedDuel") :
-                                        text("findDuel")
-
-                                }
-                            </button>*/}
-                            {/* {showPartyCards &&
-                                <>
-                                    <h1>{text("duels")}</h1>
-                                    <div style={{ display: "flex", gap: "20px" }} >
-
-                                        {session?.token?.secret && (
-                                            <div className="g2_container_light g2_container_style g2_card">
-                                                <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => { handleMultiplayerAction("publicDuel"); }}>{text("rankedDuel")}</button>
-                                                <hr className="g2_nav_hr"></hr>
-                                            </div>
-                                        )}
-
-
-                                        <div className="g2_container_light g2_container_style g2_card" >
-                                        <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => { handleMultiplayerAction("unrankedDuel") }}>
-                                                {
-                                                    session?.token?.secret ? text("unrankedDuel") :
-                                                        text("findDuel")
-                                                }
-                                            </button>
-                                            <hr className="g2_nav_hr"></hr>
-                                        </div>
-                                    </div>
-                                </>
-                            } */}
-                        </div>
                     </div>
                 }
                 {(mapModal || gameOptionsModalShown) && <MapsModal shown={true} session={session} onClose={() => {
@@ -3591,7 +3639,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
+
+                <Modal
+                    isOpen={leaveConfirmOpen}
+                    onClose={() => setLeaveConfirmOpen(false)}
+                    title={text("areYouSure")}
+                    actions={
+                        <>
+                            <button onClick={() => setLeaveConfirmOpen(false)}>{text("cancel")}</button>
+                            <button onClick={() => {
+                                setLeaveConfirmOpen(false);
+                                backBtnPressed(leaveConfirm?.queueNextGame, leaveConfirm?.nextGameType, true);
+                            }}>{leaveConfirm ? text(leaveConfirm.confirmKey) : ""}</button>
+                        </>
+                    }
+                >
+                    <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{leaveConfirm ? text(leaveConfirm.messageKey) : ""}</p>
+                </Modal>
 
                 {connectionErrorModalShown && <AlertModal
                     isOpen={true}
@@ -3626,7 +3691,10 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
 singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
-                {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
+                {/* (!welcomeOverlayShown || svPreloadReady): while the welcome
+                    overlay is up, GameUI's mount is what triggers the round-1
+                    street view load — deferred to load+idle, see svPreloadReady */}
+                {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && (!welcomeOverlayShown || svPreloadReady) && <div className="home__onboarding">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
@@ -3698,25 +3766,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     />
                 }
 
-                <RoundOverScreen
-                    hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)}
-                    duel={true}
-                    data={multiplayerState?.gameData?.duelEnd}
-                    multiplayerState={multiplayerState}
-                    session={session}
-                    gameId={multiplayerState?.gameData?.code}
-                    button1Text={text("playAgain")}
-                    options={options}
-                    button1Press={() => {
-                        backBtnPressed(true, "ranked")
-                    }}
-                    button2Text={text("home")}
-                    button2Press={() => {
-                        backBtnPressed()
-                    }}
-                />
-
-
                 {screen === "multiplayer" && <div className="home__multiplayer">
                     <MultiplayerHome
                         partyModalShown={partyModalShown}
@@ -3731,6 +3780,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         selectCountryModalShown={selectCountryModalShown}
                         setSelectCountryModalShown={setSelectCountryModalShown}
                         inCrazyGames={inCrazyGames}
+                        openFriends={() => { setAccountModalPage('list'); setAccountModalOpen(true); }}
                     />
                 </div>}
 
@@ -3745,6 +3795,44 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             npz: multiplayerState?.gameData?.npz,
                             showRoadName: multiplayerState?.gameData?.showRoadName
                         }} setGameOptions={() => { }} showAnswer={multiplayerShowAnswer} setShowAnswer={guessMultiplayer} />
+                )}
+
+                {/* End screen for PUBLIC matchmade duels (ranked 1v1 + 2v2) —
+                    private games (party team duels set duelEnd too) are owned
+                    by GameUI's mounts; without the public gate both screens
+                    stack and every button shows twice. Keep this after GameUI:
+                    the final answer map also uses z-index 1000, so later DOM
+                    order lets the summary's fade-in remain visible. */}
+                {showPublicDuelEndScreen && (
+                    <RoundOverScreen
+                        duel={true}
+                        data={multiplayerState?.gameData?.duelEnd ?? deriveTeamEndFallback(multiplayerState?.gameData)}
+                        multiplayerState={multiplayerState}
+                        session={session}
+                        gameId={multiplayerState?.gameData?.code}
+                        button1Text={text("playAgain")}
+                        options={options}
+                        button1Press={() => {
+                            backBtnPressed(true, "ranked")
+                        }}
+                        // team2v2 drops the in-card Home button: Play Again +
+                        // Back cover the card, and the navbar back button (shown
+                        // for team2v2 end screens, see Navbar shown= below) is
+                        // the straight-to-home exit for everyone — including
+                        // chosen-duo guests, who get no in-card Back.
+                        button2Text={multiplayerState?.gameData?.team2v2 ? null : text("home")}
+                        button2Press={() => {
+                            backBtnPressed()
+                        }}
+                        teamActions={multiplayerState?.gameData?.team2v2 ? {
+                            playAgain: ({ willExit } = {}) => {
+                                const sendPlayAgain = () => { try { ws.send(JSON.stringify({ type: 'playAgain2v2' })); } catch (e) {} };
+                                if (willExit) beginTeam2v2EndExit(sendPlayAgain);
+                                else sendPlayAgain();
+                            },
+                            back: () => { beginTeam2v2EndExit(() => { try { ws.send(JSON.stringify({ type: 'teamDuelBack' })); } catch (e) {} }); }
+                        } : null}
+                    />
                 )}
 
 
@@ -3764,20 +3852,15 @@ document.addEventListener(
             window.gameOpen = Date.now();
 
             setTimeout(() => {
-            if(window.PokiSDK) {
-            console.log("Poki SDK found initialized")
-            window.PokiSDK.init().then(() => {
-    console.log("Poki SDK successfully initialized");
-    window.poki = true;
-    // fire your function to continue to game
-    window.PokiSDK.gameLoadingFinished();
-
-}).catch(() => {
-    console.log("Initialized, something went wrong, load you game anyway");
-    // fire your function to continue to game
-});
-            }
-}, 1000);
+                if (window.PokiSDK) {
+                    window.PokiSDK.init().then(() => {
+                        window.poki = true;
+                        window.PokiSDK.gameLoadingFinished();
+                    }).catch(() => {
+                        // Poki init failed — load the game anyway.
+                    });
+                }
+            }, 1000);
 
 
   	window.aiptag = window.aiptag || {cmd: []};

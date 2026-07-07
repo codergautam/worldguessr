@@ -98,7 +98,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     width: 100%;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: "Lexend", sans-serif;
+                    font-family: "Lexend", "Lexend Fallback", sans-serif;
                 }
 
                 .public-profile-content {
@@ -111,7 +111,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
                     overflow: hidden;
-                    font-family: "Lexend", sans-serif;
+                    font-family: "Lexend", "Lexend Fallback", sans-serif;
                 }
 
                 .public-profile-header {
@@ -129,7 +129,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-family: "Lexend", sans-serif;
+                    font-family: "Lexend", "Lexend Fallback", sans-serif;
                 }
 
                 .public-profile-nav {
@@ -165,7 +165,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     cursor: pointer;
                     transition: all 0.3s ease;
                     white-space: nowrap;
-                    font-family: "Lexend", sans-serif;
+                    font-family: "Lexend", "Lexend Fallback", sans-serif;
                     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
                 }
 
@@ -195,7 +195,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     overflow-y: auto;
                     scrollbar-width: thin;
                     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
-                    font-family: "Lexend", sans-serif;
+                    font-family: "Lexend", "Lexend Fallback", sans-serif;
                 }
 
                 .public-profile-body::-webkit-scrollbar {

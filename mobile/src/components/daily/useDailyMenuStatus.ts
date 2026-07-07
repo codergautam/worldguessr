@@ -36,17 +36,21 @@ export function useDailyMenuStatus(secret: string | null): DailyMenuStatus {
     async (isCancelled: () => boolean) => {
       const today = getClientLocalDate();
 
-      const cached = await readDailyStatus(today);
-      if (isCancelled()) return;
-      if (cached) {
-        setState((s) => ({ ...s, streak: cached.streak || 0, playedToday: !!cached.playedToday }));
-      }
-
       // ensureGuestId (not getGuestId) so a brand-new guest gets an id and a
       // streak fetch on first render — otherwise the pill never appears until a
       // later launch once the id has been lazily created elsewhere.
       const gid = secret ? null : await ensureGuestId();
       if (isCancelled()) return;
+      // Scope the cached read/write to this identity so a different account on a
+      // shared device can't seed the pill with the previous user's streak.
+      const owner = secret ?? gid ?? null;
+
+      const cached = await readDailyStatus(today, owner);
+      if (isCancelled()) return;
+      if (cached) {
+        setState((s) => ({ ...s, streak: cached.streak || 0, playedToday: !!cached.playedToday }));
+      }
+
       if (!secret && !gid) {
         setState((s) => ({ ...s, streak: 0, playedToday: false, msToMidnight: msUntilLocalMidnight() }));
         return;
@@ -60,7 +64,7 @@ export function useDailyMenuStatus(secret: string | null): DailyMenuStatus {
           playedToday: !!data.user?.playedToday,
           msToMidnight: msUntilLocalMidnight(),
         });
-        if (data.user) await writeDailyStatus(today, data.user);
+        if (data.user) await writeDailyStatus(today, data.user, owner);
       } catch {
         if (!isCancelled()) setState((s) => ({ ...s, msToMidnight: msUntilLocalMidnight() }));
       }

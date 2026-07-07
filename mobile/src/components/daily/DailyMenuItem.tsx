@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { t } from '../../shared/locale';
 import DailyStreakBadge from './DailyStreakBadge';
 import { useDailyMenuStatus } from './useDailyMenuStatus';

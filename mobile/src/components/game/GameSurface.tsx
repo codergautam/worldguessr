@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
@@ -97,7 +97,7 @@ interface GameSurfaceProps {
   nextLocation?: Location | null;
   /** Map bounding box; `null` falls back to a world view (matches web). */
   extent?: Extent;
-  /** Used by GuessMap to color the guess→actual line in pin mode. */
+  /** Colors the guess→actual line in pin mode (fallback LeafletMap only). */
   guessPoints?: number;
   /** Tells the surface to show the map & end banner instead of the input UI. */
   isShowingResult: boolean;

@@ -32,7 +32,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
           maxWidth: '420px',
           textAlign: 'center',
           color: 'white',
-          fontFamily: 'Lexend, sans-serif',
+          fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
         }
       }}
@@ -186,7 +186,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
             border: 'none',
             color: 'rgba(255, 255, 255, 0.45)',
             fontSize: '0.75rem',
-            fontFamily: 'Lexend, sans-serif',
+            fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
             cursor: 'pointer',
             marginTop: '14px',
             padding: '4px 8px',

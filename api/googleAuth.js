@@ -6,7 +6,7 @@ import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
-import { findBannedIdentity } from '../serverUtils/bannedIdentities.js';
+import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -23,7 +23,7 @@ async function blockIfBannedIdentity(res, { email, appleId }, timings, startTota
   timings.blockedReSignup = blocked.type;
   console.log('[googleAuth] blocked banned identity re-signup:', JSON.stringify(timings));
   res.status(403).json({
-    error: blocked.publicNote || 'This account has been banned and cannot be recreated.',
+    error: bannedIdentityMessage(blocked),
     banned: true,
     banType: 'permanent',
   });

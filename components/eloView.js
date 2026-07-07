@@ -3,6 +3,50 @@ import { getLeague, leagues } from "./utils/leagues";
 import { useState } from "react";
 import XPGraph from "./XPGraph";
 
+const statItemStyle = {
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 'clamp(8px, 2vw, 15px)',
+    padding: 'clamp(12px, 3vw, 20px)',
+    textAlign: 'center',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    transition: 'all 0.3s ease'
+};
+
+const statLabelStyle = {
+    fontSize: 'clamp(12px, 2.5vw, 16px)',
+    color: '#b0b0b0',
+    marginBottom: 'clamp(4px, 1.5vw, 8px)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    fontWeight: '500'
+};
+
+const statValueStyle = {
+    fontSize: 'clamp(18px, 4vw, 28px)',
+    color: '#ffd700',
+    fontWeight: 'bold',
+    textShadow: '0 0 10px rgba(255, 215, 0, 0.3)'
+};
+
+// One stat tile — single source for the hover lift so every tile behaves the
+// same (the old copy-pasted divs had drifted: the 2v2 tiles lost their hover).
+function StatTile({ label, value }) {
+    return (
+        <div style={statItemStyle}
+             onMouseEnter={(e) => {
+                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                 e.currentTarget.style.transform = 'translateY(-5px)';
+             }}
+             onMouseLeave={(e) => {
+                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                 e.currentTarget.style.transform = 'translateY(0)';
+             }}>
+            <div style={statLabelStyle}>{label}</div>
+            <div style={statValueStyle}>{value}</div>
+        </div>
+    );
+}
+
 export default function EloView({ eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
     const userLeague = getLeague(eloData.elo);
@@ -48,31 +92,6 @@ export default function EloView({ eloData, session, isPublic = false, username =
         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
         gap: 'clamp(10px, 3vw, 20px)',
         marginTop: 'clamp(10px, 3vw, 20px)'
-    };
-
-    const statItemStyle = {
-        background: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 'clamp(8px, 2vw, 15px)',
-        padding: 'clamp(12px, 3vw, 20px)',
-        textAlign: 'center',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        transition: 'all 0.3s ease'
-    };
-
-    const statLabelStyle = {
-        fontSize: 'clamp(12px, 2.5vw, 16px)',
-        color: '#b0b0b0',
-        marginBottom: 'clamp(4px, 1.5vw, 8px)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        fontWeight: '500'
-    };
-
-    const statValueStyle = {
-        fontSize: 'clamp(18px, 4vw, 28px)',
-        color: '#ffd700',
-        fontWeight: 'bold',
-        textShadow: '0 0 10px rgba(255, 215, 0, 0.3)'
     };
 
     const leagueContainerStyle = {
@@ -225,87 +244,32 @@ export default function EloView({ eloData, session, isPublic = false, username =
                 </h2>
 
                 <div style={statsGridStyle}>
-                    <div style={statItemStyle}
-                         onMouseEnter={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                             e.currentTarget.style.transform = 'translateY(-5px)';
-                         }}
-                         onMouseLeave={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                             e.currentTarget.style.transform = 'translateY(0)';
-                         }}>
-                        <div style={statLabelStyle}>{viewingPublicProfile ? text("elo") : text("yourElo")}</div>
-                        <div style={statValueStyle}>{eloData.elo}</div>
-                    </div>
-
-                    <div style={statItemStyle}
-                         onMouseEnter={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                             e.currentTarget.style.transform = 'translateY(-5px)';
-                         }}
-                         onMouseLeave={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                             e.currentTarget.style.transform = 'translateY(0)';
-                         }}>
-                        <div style={statLabelStyle}>{viewingPublicProfile ? text("globalRank") : text("yourGlobalRank")}</div>
-                        <div style={statValueStyle}>#{eloData.rank}</div>
-                    </div>
-
-                    <div style={statItemStyle}
-                         onMouseEnter={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                             e.currentTarget.style.transform = 'translateY(-5px)';
-                         }}
-                         onMouseLeave={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                             e.currentTarget.style.transform = 'translateY(0)';
-                         }}>
-                        <div style={statLabelStyle}>{text("duels_won")}</div>
-                        <div style={statValueStyle}>{eloData.duels_wins}</div>
-                    </div>
-
-                    <div style={statItemStyle}
-                         onMouseEnter={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                             e.currentTarget.style.transform = 'translateY(-5px)';
-                         }}
-                         onMouseLeave={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                             e.currentTarget.style.transform = 'translateY(0)';
-                         }}>
-                        <div style={statLabelStyle}>{text("duels_lost")}</div>
-                        <div style={statValueStyle}>{eloData.duels_losses}</div>
-                    </div>
-
+                    <StatTile label={viewingPublicProfile ? text("elo") : text("yourElo")} value={eloData.elo} />
+                    <StatTile label={viewingPublicProfile ? text("globalRank") : text("yourGlobalRank")} value={`#${eloData.rank}`} />
+                    <StatTile label={text("duels_won")} value={eloData.duels_wins} />
+                    <StatTile label={text("duels_lost")} value={eloData.duels_losses} />
                     {eloData.duels_tied > 0 && (
-                    <div style={statItemStyle}
-                         onMouseEnter={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                             e.currentTarget.style.transform = 'translateY(-5px)';
-                         }}
-                         onMouseLeave={(e) => {
-                             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                             e.currentTarget.style.transform = 'translateY(0)';
-                         }}>
-                        <div style={statLabelStyle}>{text("duels_tied")}</div>
-                        <div style={statValueStyle}>{eloData.duels_tied}</div>
-                    </div>
+                        <StatTile label={text("duels_tied")} value={eloData.duels_tied} />
+                    )}
+                    {typeof eloData.win_rate === 'number' && (
+                        <StatTile label={text("win_rate")} value={`${(eloData.win_rate * 100).toFixed(2)}%`} />
                     )}
 
-                    {eloData.win_rate ? (
-                        <div style={statItemStyle}
-                             onMouseEnter={(e) => {
-                                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                 e.currentTarget.style.transform = 'translateY(-5px)';
-                             }}
-                             onMouseLeave={(e) => {
-                                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                 e.currentTarget.style.transform = 'translateY(0)';
-                             }}>
-                            <div style={statLabelStyle}>{text("win_rate")}</div>
-                            <div style={statValueStyle}>{(eloData.win_rate * 100).toFixed(2)}%</div>
-                        </div>
-                    ) :  null}
+                    {/* 2v2 team stats (unranked) — only shown once the user has played 2v2 */}
+                    {((eloData.team2v2_wins || 0) + (eloData.team2v2_losses || 0) + (eloData.team2v2_tied || 0)) > 0 && (
+                        <>
+                            <StatTile label={text("twovtwoWon")} value={eloData.team2v2_wins || 0} />
+                            <StatTile label={text("twovtwoLost")} value={eloData.team2v2_losses || 0} />
+                            {(eloData.team2v2_tied || 0) > 0 && (
+                                <StatTile label={text("twovtwoTied")} value={eloData.team2v2_tied} />
+                            )}
+                            {/* typeof: a genuine 0% win rate must still render
+                                (falsy-zero hid the tile for 0-win records). */}
+                            {typeof eloData.team2v2_win_rate === 'number' && (
+                                <StatTile label={text("twovtwoWinRate")} value={`${(eloData.team2v2_win_rate * 100).toFixed(2)}%`} />
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
 

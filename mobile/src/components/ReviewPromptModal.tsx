@@ -16,7 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { withTiming, withSpring, withSequence } from './daily/anims';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { t } from '../shared/locale';
 import { haptics } from '../services/haptics';
 

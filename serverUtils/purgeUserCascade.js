@@ -15,7 +15,7 @@ import { refundEloForReportedGames } from './eloRefunds.js';
 /**
  * Permanently delete a user and ALL associated data — the single shared cascade
  * behind both the moderator hard-delete (api/mod/deleteUser.js) and the
- * self-service 7-day-grace purge (cron.js).
+ * self-service 30-day-grace purge (cron.js).
  *
  * This is the SLOW part of deletion and MUST run OFF the HTTP request path. The
  * old in-request version (mod/deleteUser.js) routinely timed out because the
@@ -92,7 +92,7 @@ export async function purgeUserCascade(
   //     reported ranked games is refunded to the opponents who reported them.
   //     Deliberately NOT a full refund (that's the perm-ban remedy) — only the
   //     reported games, keeping an unreviewed deletion proportionate. For a
-  //     genuinely massive offender a mod will still notice within the 7-day grace
+  //     genuinely massive offender a mod will still notice within the 30-day grace
   //     and can perma-ban (full refund) first; this is the small-case failsafe.
   //     Idempotent: the atomic status claim + Game.eloRefunded flag make re-runs
   //     no-ops, and the refund game-set is re-derived from the closed reports so

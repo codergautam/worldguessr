@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';
 import { GlassCard, formatTimeAgo, formatTime, sharedStyles } from './shared';
 import { t } from '../../shared';

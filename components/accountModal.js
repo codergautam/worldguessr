@@ -149,7 +149,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
             case "elo":
                 return <EloView eloData={eloData} session={session} />;
             case "moderation":
-                return <ModerationView session={session} setSession={setSession} inCrazyGames={inCrazyGames} />;
+                return <ModerationView session={session} />;
             case "list":
             default:
                 return (

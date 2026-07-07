@@ -1,19 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
-import ConfirmModal from './ui/Modal';
-import { signOut } from '@/components/auth/auth';
-import { toast } from 'react-toastify';
 
-export default function ModerationView({ session, setSession, inCrazyGames }) {
+export default function ModerationView({ session }) {
     const { t: text } = useTranslation("common");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState(null);
-    // Account deletion — multi-step confirm. 0 = closed, 1 = warning, 2 = type-to-confirm.
-    const [deleteStep, setDeleteStep] = useState(0);
-    const [deleteConfirmText, setDeleteConfirmText] = useState('');
-    const [deleting, setDeleting] = useState(false);
-    const [restoring, setRestoring] = useState(false);
 
     // Check if user is currently suspended
     const isBanned = session?.token?.banned;
@@ -185,60 +177,6 @@ export default function ModerationView({ session, setSession, inCrazyGames }) {
             case 'cheating': return text("reportReasonCheating");
             case 'other': return text("reportReasonOther");
             default: return reason;
-        }
-    };
-
-    // Final step: schedules deletion (fast — flag + 7-day grace), then signs out.
-    // signOut() reloads + wipes the secret, so the fetch MUST resolve first.
-    const username = session?.token?.username || '';
-    const confirmMatches = deleteConfirmText.trim().toLowerCase() === username.toLowerCase() && username.length > 0;
-    const handleDeleteAccount = async () => {
-        if (deleting || !confirmMatches) return;
-        setDeleting(true);
-        try {
-            const res = await fetch(window.cConfig.apiUrl + '/api/deleteAccount', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ secret: session?.token?.secret }),
-            });
-            if (res.ok) {
-                setDeleteStep(0);
-                signOut();
-            } else {
-                const data = await res.json().catch(() => ({}));
-                toast.error(data.error || data.message || text("deleteAccountFailed"));
-                setDeleting(false);
-            }
-        } catch (e) {
-            toast.error(text("deleteAccountFailed"));
-            setDeleting(false);
-        }
-    };
-
-    // If the account is already within its 7-day deletion grace window, the Danger
-    // Zone offers Restore instead of Delete.
-    const pendingDeletion = !!session?.token?.pendingDeletion;
-    const scheduledDeletionAt = session?.token?.scheduledDeletionAt;
-    const handleRestore = async () => {
-        if (restoring) return;
-        setRestoring(true);
-        try {
-            const res = await fetch(window.cConfig.apiUrl + '/api/cancelDeletion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ secret: session?.token?.secret }),
-            });
-            if (res.ok) {
-                setSession?.((prev) => prev ? { token: { ...prev.token, pendingDeletion: false, scheduledDeletionAt: null } } : prev);
-                toast.success(text("accountRestoredBody"));
-            } else {
-                const data = await res.json().catch(() => ({}));
-                toast.error(data.error || text("deleteAccountFailed"));
-            }
-        } catch (e) {
-            toast.error(text("deleteAccountFailed"));
-        } finally {
-            setRestoring(false);
         }
     };
 
@@ -642,137 +580,6 @@ export default function ModerationView({ session, setSession, inCrazyGames }) {
                 )}
             </div>
 
-            {/* Danger Zone — account deletion (own account only; hidden in CrazyGames iframe).
-                If a deletion is already scheduled, this becomes a Restore prompt instead. */}
-            {!inCrazyGames && (
-                <div style={{ ...cardStyle, border: pendingDeletion ? '1px solid rgba(255, 152, 0, 0.5)' : '1px solid rgba(220, 53, 69, 0.4)' }}>
-                    {pendingDeletion ? (
-                        <>
-                            <h3 style={{ ...titleStyle, fontSize: 'clamp(16px, 3.5vw, 24px)', color: '#ff9800' }}>
-                                {text("dangerZone")}
-                            </h3>
-                            <p style={{ color: '#e0e0e0', textAlign: 'center', marginBottom: '16px', fontSize: 'clamp(13px, 3vw, 15px)' }}>
-                                {scheduledDeletionAt
-                                    ? text("accountScheduledForDeletion", { date: new Date(scheduledDeletionAt).toLocaleDateString() })
-                                    : text("accountScheduledForDeletionShort")}
-                            </p>
-                            <div style={{ textAlign: 'center' }}>
-                                <button
-                                    onClick={handleRestore}
-                                    disabled={restoring}
-                                    style={{
-                                        background: '#2e7d32',
-                                        color: '#fff',
-                                        border: '2px solid #2e7d32',
-                                        borderRadius: '8px',
-                                        padding: '10px 20px',
-                                        cursor: 'pointer',
-                                        fontFamily: '"Lexend", sans-serif',
-                                        fontSize: 'clamp(13px, 3vw, 15px)',
-                                        opacity: restoring ? 0.6 : 1
-                                    }}
-                                >
-                                    {text("restoreAccount")}
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <h3 style={{ ...titleStyle, fontSize: 'clamp(16px, 3.5vw, 24px)', color: '#ff6b6b' }}>
-                                {text("dangerZone")}
-                            </h3>
-                            <p style={{ color: '#b0b0b0', textAlign: 'center', marginBottom: '16px', fontSize: 'clamp(12px, 2.5vw, 14px)' }}>
-                                {text("dangerZoneSubtitle")}
-                            </p>
-                            <div style={{ textAlign: 'center' }}>
-                                <button
-                                    onClick={() => { setDeleteConfirmText(''); setDeleteStep(1); }}
-                                    style={{
-                                        background: 'transparent',
-                                        color: '#ff6b6b',
-                                        border: '1px solid rgba(220, 53, 69, 0.6)',
-                                        borderRadius: '8px',
-                                        padding: '10px 20px',
-                                        cursor: 'pointer',
-                                        fontFamily: '"Lexend", sans-serif',
-                                        fontSize: 'clamp(13px, 3vw, 15px)'
-                                    }}
-                                >
-                                    {text("deleteAccount")}
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {/* Step 1 — warning + consequences */}
-            <ConfirmModal
-                isOpen={deleteStep === 1}
-                onClose={() => setDeleteStep(0)}
-                title={text("deleteAccountConfirmTitle")}
-                variant="error"
-                disableBackdropClose={true}
-                actions={
-                    <>
-                        <button onClick={() => setDeleteStep(0)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
-                            {text("cancel")}
-                        </button>
-                        <button onClick={() => setDeleteStep(2)} style={{ background: '#dc3545', border: '2px solid #dc3545' }}>
-                            {text("continue")}
-                        </button>
-                    </>
-                }
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>{text("deleteAccountConfirmBody", { days: 7 })}</p>
-                    <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>{text("deleteAccountLossList")}</p>
-                    {session?.token?.supporter && (
-                        <div style={{ padding: '12px', background: 'rgba(255, 152, 0, 0.12)', border: '1px solid rgba(255, 152, 0, 0.35)', borderRadius: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>
-                            {text("deleteAccountWarningSupporter")}
-                        </div>
-                    )}
-                </div>
-            </ConfirmModal>
-
-            {/* Step 2 — type-to-confirm */}
-            <ConfirmModal
-                isOpen={deleteStep === 2}
-                onClose={() => { if (!deleting) setDeleteStep(0); }}
-                title={text("deleteAccountFinalTitle")}
-                variant="error"
-                disableBackdropClose={true}
-                actions={
-                    <>
-                        <button onClick={() => setDeleteStep(0)} disabled={deleting} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
-                            {text("cancel")}
-                        </button>
-                        <button
-                            onClick={handleDeleteAccount}
-                            disabled={deleting || !confirmMatches}
-                            style={{ background: '#dc3545', border: '2px solid #dc3545', opacity: (deleting || !confirmMatches) ? 0.5 : 1 }}
-                        >
-                            {deleting ? text("deleting") : text("deleteAccountPermanently")}
-                        </button>
-                    </>
-                }
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>
-                        {text("deleteAccountTypeToConfirm", { username })}
-                    </p>
-                    <input
-                        type="text"
-                        value={deleteConfirmText}
-                        onChange={(e) => setDeleteConfirmText(e.target.value)}
-                        autoComplete="off"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        placeholder={username}
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '14px', fontFamily: '"Lexend", sans-serif', boxSizing: 'border-box' }}
-                    />
-                </div>
-            </ConfirmModal>
         </div>
     );
 }

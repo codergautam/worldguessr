@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { getPinIcons } from '@/lib/markerIcons';
+import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import SafeMapContainer from './SafeMapContainer';
 
@@ -108,6 +109,12 @@ export default function ResultsMap({
   // (web / no selection) → no filtering, original behavior.
   selectedPlayer = null,
   isDuel = false,
+  // Team games: map of playerId -> 'a' | 'b'. Teammates render with the blue
+  // (your) pin, enemies green, and each team's closest guesser per round gets
+  // the enlarged pin AND is the only one whose guess→dest line draws (best-
+  // guess modes only — don't pass teams for average-scoring parties). null →
+  // solo/1v1 behavior unchanged.
+  teams = null,
   isCountryGuesser = false,
   lang = 'en',
   mapType = 'm',
@@ -123,8 +130,34 @@ export default function ResultsMap({
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
   const src2IconRef = useRef(null);
+  const srcBigIconRef = useRef(null);
+  const src2BigIconRef = useRef(null);
 
   const finalHistory = useMemo(() => (Array.isArray(rounds) ? rounds : []), [rounds]);
+
+  // Team context (see `teams` prop). Same semantics as roundOverScreen.
+  const myTeam = teams && myId != null ? teams[myId] : null;
+  const isMyTeammate = (playerId) => myTeam != null && teams?.[playerId] === myTeam;
+  // Points-first, exact point ties broken by raw distance — only ONE pin per
+  // team enlarges + draws its line (mirrors roundOverScreen's
+  // bestTeamGuesserIds and the Map.js live reveal).
+  const bestTeamGuesserIds = (round) => {
+    if (!teams) return null;
+    const entries = [];
+    const consider = (id, pts, lat, lng) => {
+      const team = teams[id];
+      if (!team) return;
+      entries.push({
+        id, team, pts,
+        dist: (round.lat != null && lat != null)
+          ? findDistance(round.lat, round.long, lat, lng)
+          : Infinity,
+      });
+    };
+    Object.entries(round.players || {}).forEach(([id, p]) => consider(id, p?.points || 0, p?.lat, p?.long));
+    if (myId != null) consider(myId, round.points || 0, round.guessLat, round.guessLong);
+    return pickBestTeamGuessIds(entries);
+  };
 
   // Initialize Leaflet icons from shared cache (icons created once globally).
   // Lifted from roundOverScreen.js.
@@ -135,6 +168,8 @@ export default function ResultsMap({
         destIconRef.current = icons.dest;
         srcIconRef.current = icons.src;
         src2IconRef.current = icons.src2;
+        srcBigIconRef.current = icons.srcBig;
+        src2BigIconRef.current = icons.src2Big;
         setLeafletReady(true);
       } else {
         setTimeout(checkLeaflet, 100);
@@ -306,6 +341,8 @@ export default function ResultsMap({
         // Show every round's destination by default; once a round is highlighted,
         // collapse to only that round so the map isn't a tangle of pins and lines.
         const shouldShowDestination = activeRound === null || activeRound === index;
+        // Team games: each team's closest guesser gets the enlarged pin.
+        const bestIds = bestTeamGuesserIds(round);
 
         return (
           <React.Fragment key={index}>
@@ -352,7 +389,7 @@ export default function ResultsMap({
                 <>
                   <Marker
                     position={[round.guessLat, round.guessLong]}
-                    icon={srcIconRef.current}
+                    icon={bestIds?.has(myId) ? srcBigIconRef.current : srcIconRef.current}
                   >
                     <Popup>
                       <div>
@@ -363,12 +400,16 @@ export default function ResultsMap({
                     </Popup>
                   </Marker>
 
-                  <Polyline
-                    positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
-                    color={getPointsColor(round.points)}
-                    weight={3}
-                    opacity={0.7}
-                  />
+                  {/* Team games: only the counted (best) guess draws a line
+                      — mirrors roundOverScreen. bestIds null → all lines. */}
+                  {(!bestIds || bestIds.has(myId)) && (
+                    <Polyline
+                      positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
+                      color={getPointsColor(round.points)}
+                      weight={3}
+                      opacity={0.7}
+                    />
+                  )}
                 </>
               );
             })()}
@@ -386,9 +427,13 @@ export default function ResultsMap({
 
                 return (
                   <React.Fragment key={`${index}-${playerId}`}>
+                    {/* Teammates blue (your pin), enemies green; each team's
+                        closest guesser enlarged. */}
                     <Marker
                       position={[player.lat, player.long]}
-                      icon={src2IconRef.current}
+                      icon={isMyTeammate(playerId)
+                        ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
+                        : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current)}
                     >
                       <Popup>
                         <div>
@@ -407,12 +452,14 @@ export default function ResultsMap({
                       </Popup>
                     </Marker>
 
-                    <Polyline
-                      positions={[[round.lat, round.long], [player.lat, player.long]]}
-                      color={getPointsColor(player.points)}
-                      weight={2}
-                      opacity={0.5}
-                    />
+                    {(!bestIds || bestIds.has(playerId)) && (
+                      <Polyline
+                        positions={[[round.lat, round.long], [player.lat, player.long]]}
+                        color={getPointsColor(player.points)}
+                        weight={2}
+                        opacity={0.5}
+                      />
+                    )}
                   </React.Fragment>
                 );
               }

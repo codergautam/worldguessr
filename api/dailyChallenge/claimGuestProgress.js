@@ -67,7 +67,7 @@ async function handler(req, res) {
   if (!secret || typeof secret !== 'string') return res.status(401).json({ error: 'Missing secret' });
   if (!guestId || typeof guestId !== 'string') return res.status(400).json({ error: 'Missing guestId' });
 
-  const user = await User.findOne({ secret }).select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate dailyGraceUsedDates');
+  const user = await User.findOne({ secret }).select('_id username banned dailyStreak dailyStreakBest dailyHistory lastDailyDate dailyGraceUsedDates');
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const today = getClientLocalDate();
@@ -124,6 +124,10 @@ async function handler(req, res) {
           .select('date score totalTime rounds').lean();
         for (const gs of guestScores) {
           try {
+            // Banned claimers keep everything personal (streak, history, XP)
+            // but their backfilled rows land hidden — same shadow rule as
+            // submit.js, otherwise claiming would be a back door onto
+            // past-date leaderboards.
             await DailyChallengeScore.create({
               date: gs.date,
               userId: user._id,
@@ -131,6 +135,7 @@ async function handler(req, res) {
               score: gs.score,
               totalTime: gs.totalTime || 0,
               rounds: gs.rounds || [],
+              hidden: !!user.banned,
             });
             invalidateDailyPublicCache(gs.date);
             mergedDays++;

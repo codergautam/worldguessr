@@ -148,8 +148,13 @@ export interface Friend {
   id: string;
   name: string;
   online: boolean;
-  socketId?: string;
+  socketId?: string | null;
   supporter?: boolean;
+  /**
+   * Epoch ms of the friend's last disconnect; null while online, when the
+   * friend opted out (hideLastSeen), or on servers predating the field.
+   */
+  lastSeen?: number | null;
 }
 
 /** Outgoing or incoming friend request entry in the friends modal. */
@@ -247,6 +252,8 @@ interface MultiplayerState {
   sentRequests: FriendRequestEntry[];
   receivedRequests: FriendRequestEntry[];
   allowFriendReq: boolean;
+  /** Own "hide my last seen" preference; null until the first server echo. */
+  hideLastSeen: boolean | null;
   /** Last `friendReqState` code we received (and the moment we received it, for auto-clear). */
   friendReqState: FriendReqState | null;
   friendReqStateAt: number;
@@ -292,6 +299,7 @@ interface MultiplayerState {
   cancelFriendRequest: (id: string) => void;
   removeFriend: (id: string) => void;
   setAllowFriendReqOnServer: (allow: boolean) => void;
+  setHideLastSeenOnServer: (hide: boolean) => void;
   inviteFriendToGame: (friendSocketId: string, friendId?: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
   /**
@@ -304,16 +312,19 @@ interface MultiplayerState {
   leaveGame: () => void;
   resetGame: () => void;
   reset: () => void;
+  resetAccount: () => void;
 }
 
 // ── Initial state (ported from home.js:59-83) ───────────────
 
-const initialState = {
-  connected: false,
-  connecting: false,
-  verified: false,
-  playerCount: 0,
-  guestName: null as string | null,
+// Game-scoped state — the ONLY fields the game-lifecycle resets (reset(),
+// gameShutdown, gameCancelled) may wipe. Deliberately excludes connection
+// state (connected/verified/playerCount/guestName) and account/social state
+// (friends, requests, allowFriendReq, hideLastSeen, game invites): those
+// outlive any single game. Wiping them on an ordinary game-leave greyed out
+// the Settings toggles and emptied the friends list until the next 'friends'
+// push — add new game fields here, account-level fields below.
+const gameInitialState = {
   error: null as string | null,
   gameQueued: false as false | 'publicDuel' | 'unrankedDuel',
   publicDuelRange: null as [number, number] | null,
@@ -324,17 +335,69 @@ const initialState = {
   inGame: false,
   gameData: null as GameData | null,
   emotes: [] as EmoteReaction[],
+  // Party-scoped "invite sent" checkmarks (InviteFriendsModal) — meaningless
+  // outside the party they were sent for, so they reset with the game.
+  invitedFriends: {} as Record<string, number>,
+  toasts: [] as ToastData[],
+};
+
+// Account-scoped state — friends/presence, requests, invites, and the
+// server-backed settings toggles. Wiped ONLY on logout (resetAccount), never
+// by game-lifecycle resets.
+const accountInitialState = {
   friendRequests: [] as FriendRequest[],
   gameInvites: [] as GameInvite[],
-  invitedFriends: {} as Record<string, number>,
   friends: [] as Friend[],
   sentRequests: [] as FriendRequestEntry[],
   receivedRequests: [] as FriendRequestEntry[],
   allowFriendReq: true,
+  hideLastSeen: null as boolean | null,
   friendReqState: null as FriendReqState | null,
   friendReqStateAt: 0,
-  toasts: [] as ToastData[],
+};
+
+// ── Account-settings ack watchdog ────────────────────────────
+// An optimistic toggle flip is only truthful if the server's authoritative
+// `friends` echo eventually lands (the server echoes after EVERY write
+// attempt — accepted, cooldown-rejected, or failed). If no echo arrives —
+// half-open zombie socket (readyState OPEN but nothing delivered, the known
+// verifyLiveness gap) or a message lost mid-flight — undo the flip and
+// surface an error instead of leaving the UI showing a value the server
+// never stored.
+const SETTINGS_ACK_TIMEOUT_MS = 6000;
+const settingsAckTimers: Partial<
+  Record<'allowFriendReq' | 'hideLastSeen', ReturnType<typeof setTimeout>>
+> = {};
+
+function armSettingsAckWatchdog(
+  field: 'allowFriendReq' | 'hideLastSeen',
+  revert: () => void,
+) {
+  clearTimeout(settingsAckTimers[field]);
+  settingsAckTimers[field] = setTimeout(() => {
+    delete settingsAckTimers[field];
+    revert();
+    useMultiplayerStore.getState().pushToast({ key: 'errorOccurredTryAgain', toastType: 'error' });
+  }, SETTINGS_ACK_TIMEOUT_MS);
+}
+
+/** Any `friends` sync is authoritative for both toggles — cancel pending undos. */
+function clearSettingsAckWatchdogs() {
+  for (const field of Object.keys(settingsAckTimers) as Array<keyof typeof settingsAckTimers>) {
+    clearTimeout(settingsAckTimers[field]);
+    delete settingsAckTimers[field];
+  }
+}
+
+const initialState = {
+  connected: false,
+  connecting: false,
+  verified: false,
+  playerCount: 0,
+  guestName: null as string | null,
   maintenance: false,
+  ...accountInitialState,
+  ...gameInitialState,
 };
 
 // ── Store ───────────────────────────────────────────────────
@@ -440,8 +503,25 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   },
   cancelFriendRequest: (id) => wsService.send({ type: 'cancelRequest', id }),
   removeFriend: (id) => wsService.send({ type: 'removeFriend', id }),
-  setAllowFriendReqOnServer: (allow) =>
-    wsService.send({ type: 'setAllowFriendReq', allow }),
+  // Optimistic flips — the server pushes an authoritative 'friends' echo after
+  // every write attempt (accepted, cooldown-rejected, or failed), confirming
+  // the flip or snapping it back. Two guards keep the optimism truthful:
+  //   1. flip ONLY when send() actually delivered (Settings disables these
+  //      toggles while unverified, so a dropped send here is a rare race);
+  //   2. the ack watchdog undoes the flip if no `friends` echo lands at all
+  //      (zombie socket / old server / lost message — see armSettingsAckWatchdog).
+  setAllowFriendReqOnServer: (allow) => {
+    if (!wsService.send({ type: 'setAllowFriendReq', allow })) return;
+    const prev = get().allowFriendReq;
+    set({ allowFriendReq: allow });
+    armSettingsAckWatchdog('allowFriendReq', () => set({ allowFriendReq: prev }));
+  },
+  setHideLastSeenOnServer: (hide) => {
+    if (!wsService.send({ type: 'setHideLastSeen', hide })) return;
+    const prev = get().hideLastSeen;
+    set({ hideLastSeen: hide });
+    armSettingsAckWatchdog('hideLastSeen', () => set({ hideLastSeen: prev }));
+  },
   inviteFriendToGame: (friendSocketId, friendId) => {
     wsService.send({ type: 'inviteFriend', friendId: friendSocketId });
     // Record when we invited this friend (keyed by their accountId) so the UI
@@ -485,14 +565,18 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     wsService.send({ type: 'resetGame' });
   },
 
-  reset: () =>
-    set((s) => ({
-      ...initialState,
-      connected: s.connected,
-      verified: s.verified,
-      playerCount: s.playerCount,
-      guestName: s.guestName,
-    })),
+  // Zustand set() merges, so spreading ONLY gameInitialState leaves connection
+  // and account/social state untouched by construction — no preserve-list to
+  // keep in sync as fields are added.
+  reset: () => set({ ...gameInitialState }),
+
+  // Logout teardown: wipe account-scoped AND game-scoped state (everything but
+  // the connection itself, which the guest reconnect re-syncs). Game resets
+  // must NOT clear account state — that's why this is separate from reset().
+  resetAccount: () => {
+    clearSettingsAckWatchdogs(); // pending undos target the old account's values
+    set({ ...accountInitialState, ...gameInitialState });
+  },
 
   /**
    * Central message handler — direct port of home.js:1506-1880.
@@ -764,13 +848,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         return;
       }
       set({
-        ...initialState,
-        connected: true,
-        verified: state.verified,
+        ...gameInitialState,
         nextGameQueued: state.nextGameQueued,
         nextGameType: state.nextGameType,
-        playerCount: state.playerCount,
-        guestName: state.guestName,
       });
       return;
     }
@@ -782,13 +862,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // original type is still readable from `state.gameQueued` here because
       // `state` was captured at the top of handleMessage before this reset.
       set({
-        ...initialState,
-        connected: true,
-        verified: state.verified,
+        ...gameInitialState,
         nextGameQueued: true, // Auto re-queue
         nextGameType: state.gameQueued === 'unrankedDuel' ? 'unranked' : 'ranked',
-        playerCount: state.playerCount,
-        guestName: state.guestName,
       });
       get().pushToast({
         key: 'opponentLeftBeforeStart',
@@ -933,11 +1009,18 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // Server pushes whenever the friend list changes (accept/decline/cancel/remove,
     // setAllowFriendReq toggle) and in response to client's `getFriends` polls.
     if (data.type === 'friends') {
+      // Authoritative sync for both settings toggles — cancel any pending
+      // optimistic-flip undos before applying the server's truth.
+      clearSettingsAckWatchdogs();
       set({
         friends: Array.isArray(data.friends) ? data.friends : [],
         sentRequests: Array.isArray(data.sentRequests) ? data.sentRequests : [],
         receivedRequests: Array.isArray(data.receivedRequests) ? data.receivedRequests : [],
+        // Authoritative echo for the account-settings toggles: the server
+        // pushes this after every set* attempt (accepted OR rejected), so an
+        // optimistic flip that the server refused gets snapped back here.
         allowFriendReq: !!data.allowFriendReq,
+        hideLastSeen: !!data.hideLastSeen,
       });
       return;
     }

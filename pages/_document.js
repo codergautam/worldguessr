@@ -8,10 +8,6 @@ export default function Document() {
       <Head>
         <meta name="google" content="notranslate" />
         <link rel="preload" href={`${basePath}/street2.webp`} as="image" type="image/webp" fetchpriority="high" />
-        {/* Font preconnects and stylesheets */}
-        <link rel="preconnect" href="https://fonts.googleapis.com"/>
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
-        <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
         {/* Google Analytics */}
         <script

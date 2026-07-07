@@ -90,7 +90,10 @@ export default function Modal({
         }
 
         .modal-backdrop.closing {
-          animation: fadeOut 0.2s ease-out;
+          /* forwards: hold opacity 0 after the animation ends — the JS unmount
+             timer always lands a frame or two later, and without a fill mode
+             the backdrop snaps back to full opacity in that gap (flicker). */
+          animation: fadeOut 0.2s ease-out forwards;
         }
 
         .modal {
@@ -98,7 +101,7 @@ export default function Modal({
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           color: white;
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
           max-width: 500px;
           width: 100%;
           max-height: 80vh;
@@ -110,7 +113,7 @@ export default function Modal({
         }
 
         .modal.closing {
-          animation: slideOut 0.2s ease-out;
+          animation: slideOut 0.2s ease-out forwards;
         }
 
         .modal.error {
@@ -179,7 +182,7 @@ export default function Modal({
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
-          font-family: "Lexend", sans-serif;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
         }
 
         .modal-actions :global(button:hover) {

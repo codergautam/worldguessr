@@ -1,318 +1,142 @@
 import { useTranslation } from '@/components/useTranslations'
-import { FaCopy, FaLink } from 'react-icons/fa6';
-import { toast } from 'react-toastify';
+import { FaCrown } from 'react-icons/fa6';
 import UsernameWithFlag from './utils/usernameWithFlag';
+import getMyTeam from './utils/getMyTeam';
 
-function getPartyLink(code, inCrazyGames) {
-  if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
-    return code;
-  }
-  if (inCrazyGames) {
-    try {
-      const link = window.CrazyGames.SDK.game.showInviteButton({ code });
-      if (link) return link;
-    } catch(e) {}
-  }
-  const domain = process.env.NEXT_PUBLIC_DOMAIN || window.location.origin;
-  return `${domain}?party=${code}`;
-}
-
-async function copyToClipboard(text) {
-  // Prefer the modern Clipboard API when available.
-  if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return true;
-  }
-
-  // Fallback for browsers/environments where clipboard API is unavailable.
-  if (typeof document !== "undefined") {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    let copied = false;
-    try {
-      copied = document.execCommand("copy");
-    } catch (e) {
-      copied = false;
-    }
-
-    document.body.removeChild(textarea);
-    return copied;
-  }
-
-  return false;
-}
-
-export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut, inCrazyGames }) {
+// Between-rounds leaderboard for multiplayer games, mounted from gameUI during
+// getready (game-over screens are owned by RoundOverScreen). Styling here is
+// intentionally untouched from the original leaderboard look (white rows,
+// fade in/out via leaderboardShown/FadingOut).
+//
+// Team parties get a team-first layout: the two TEAM totals are the headline
+// (big, scorebar-style, with the last round's delta), individual players are
+// demoted to compact pills underneath.
+export default function PlayerList({ multiplayerState, fadingOut }) {
   const { t: text } = useTranslation("common");
 
-  const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
+  // Copy before sorting — sorting in place would mutate React state (gameData.players).
+  const players = [...(multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players ?? [])].sort((a, b) => b.score - a.score);
   const myId = multiplayerState?.gameData?.myId;
   const myIndex = players.findIndex(player => player.id === myId);
 
-  const waitingForStart = multiplayerState.gameData?.state === "waiting";
-  const gameOver = multiplayerState.gameData?.state === "end";
-  const host = multiplayerState.gameData?.host;
-  const N = waitingForStart ? 200 : 5; // Number of top players to show
+  const N = 5; // Number of top players to show
+
+  const teamGame = !!multiplayerState?.gameData?.teamGame;
+  const teamScores = multiplayerState?.gameData?.teamScores;
+  // Last scored round's per-team points ("+312 this round"). The server tags
+  // the stash with its round number; during getready curRound has already
+  // been bumped, so the stash always refers to the round just played.
+  const roundScores = multiplayerState?.gameData?.teamRoundScores?.scores;
+  const myTeam = teamGame ? getMyTeam(players, myId) : null;
+  // Crown the currently-leading team in the hero (hidden on ties), matching
+  // the in-round scorebar's crown.
+  const leadingTeam = teamGame && (teamScores?.a ?? 0) !== (teamScores?.b ?? 0)
+    ? ((teamScores?.a ?? 0) > (teamScores?.b ?? 0) ? 'a' : 'b') : null;
 
   const leaderboardClasses = [
     'multiplayerLeaderboard',
-    waitingForStart ? 'leaderboardWaiting g2_container' : 'leaderboardInRound',
+    'leaderboardInRound',
     fadingOut ? 'leaderboardFadingOut' : 'leaderboardShown'
   ].join(' ');
 
+  const renderRow = (player, rank) => (
+    <div key={player.id ?? rank} className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''}`}>
+      <div className="multiplayerLeaderboard__player__username">#{rank + 1} - <UsernameWithFlag
+          username={player.username}
+          countryCode={player.countryCode}
+          isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+        />
+      {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
+        color: "#28a745",
+        fontWeight: "600",
+        fontSize: "12px"
+      }}> ({text("you")})</span>}
+      {player.supporter && <span style={{
+        marginLeft: "6px",
+        backgroundColor: "#ffc107",
+        color: "#000",
+        padding: "2px 8px",
+        borderRadius: "4px",
+        fontSize: "11px",
+        fontWeight: "700",
+        textTransform: "uppercase"
+      }}>{text("supporter")}</span>}
+
+      </div>
+      <div className="multiplayerLeaderboard__player__score">{player.score}</div>
+    </div>
+  );
+
+  // One big side of the team hero: label, cumulative total, last round's gain.
+  const heroSide = (teamKey, labelKey) => (
+    <div className={`multiplayerLeaderboard__teamHeroSide ${myTeam === teamKey ? 'mine' : ''}`}>
+      <span className="multiplayerLeaderboard__teamHeroLabel">
+        {leadingTeam === teamKey && <FaCrown className="multiplayerLeaderboard__teamHeroCrown" aria-hidden />}
+        {text(labelKey)}{myTeam === teamKey ? ` · ${text("you")}` : ''}
+      </span>
+      <span className="multiplayerLeaderboard__teamHeroScore">
+        {(teamScores?.[teamKey] ?? 0).toLocaleString()}
+      </span>
+      {typeof roundScores?.[teamKey] === 'number' && (
+        <span className="multiplayerLeaderboard__teamHeroDelta">+{roundScores[teamKey].toLocaleString()}</span>
+      )}
+    </div>
+  );
+
+  // Compact member pills for one team, personal-score sorted. Cap the list
+  // but always keep the local player visible.
+  const memberColumn = (teamKey) => {
+    const members = players.filter((p) => p.team === teamKey);
+    const shown = members.slice(0, N);
+    const meHidden = members.findIndex((p) => p.id === myId) >= N;
+    if (meHidden) shown[N - 1] = members.find((p) => p.id === myId);
+    const overflow = members.length - shown.length;
+    return (
+      <div key={teamKey} className="multiplayerLeaderboard__memberColumn">
+        {shown.map((p) => (
+          <div key={p.id} className={`multiplayerLeaderboard__member ${p.id === myId ? 'me' : ''}`}>
+            <span className="multiplayerLeaderboard__memberName">
+              <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH} />
+            </span>
+            <span className="multiplayerLeaderboard__memberScore">{p.score}</span>
+          </div>
+        ))}
+        {overflow > 0 && <span className="multiplayerLeaderboard__memberMore">+{overflow}</span>}
+      </div>
+    );
+  };
+
   return (
     <div className={leaderboardClasses}>
-      <span className="bigSpan">
-        {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
-        {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}
-      {multiplayerState?.gameData?.nm && multiplayerState?.gameData?.npz && ", NMPZ"}
-      {multiplayerState?.gameData?.nm && !multiplayerState?.gameData?.npz && ", NM"}
-      {multiplayerState?.gameData?.npz && !multiplayerState?.gameData?.nm && ", NPZ"}
+      {/* Team layout is self-explanatory (two big team scores) — the
+          LEADERBOARD header is only worth its space on the FFA row list. */}
+      {!teamGame && <span className="bigSpan">{text("leaderboard")}</span>}
 
-          )</span>}
-      </span>
-      {waitingForStart &&multiplayerState?.gameData?.displayLocation &&
-      <span>
-        {text("map")}: {multiplayerState?.gameData?.displayLocation ?? ""}
-      </span>
-      }
-
-
-
-
-      { waitingForStart && (
-
-        <div style={{
-          display: "flex", 
-          flexDirection: "row", 
-          alignItems: "center",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: "10px",
-          marginTop: "8px"
-        }}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: "#fff3cd",
-          border: "1px solid #ffc107",
-          borderRadius: "8px",
-          padding: "10px 16px"
-        }}>
-          <span style={{
-            color: "#856404",
-            fontWeight: "700",
-            fontSize: "clamp(16px, 4vw, 20px)"
-          }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
-        <button onClick={async () => {
-          const link = getPartyLink(multiplayerState.gameData?.code, inCrazyGames);
-          try {
-            const copied = await copyToClipboard(link);
-            if (copied) {
-              toast.success(text("copiedToClipboard"));
-            } else {
-              toast.error(text("shareFailed"));
-            }
-          } catch (e) {
-            toast.error(text("shareFailed"));
-          }
-        }} style={{
-            marginLeft: "12px",
-            padding: "8px 12px",
-            backgroundColor: "#ffc107",
-            color: "#000",
-          border: "none",
-          cursor: "pointer",
-          pointerEvents: "all",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.15s ease"
-          }}>
-          <FaLink />
-        </button>
-        </div>
-        { host && (
-        <button onClick={() => {
-            onEditClick();
-        }} style={{
-          padding: "10px 20px",
-          backgroundColor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) 
-            ? "#6c757d" 
-            : "#28a745",
-          color: "white",
-          border: "none",
-          cursor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "not-allowed": "pointer",
-          pointerEvents: "all",
-          borderRadius: "8px",
-          fontWeight: "600",
-          fontSize: "14px",
-          transition: "all 0.15s ease",
-          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
-        }}
-        disabled={ (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) }
-        >
-          {text("editOptions")}
-        </button>
-        )}
-
-        </div>
-      )}
-
-      {players.slice(0, N).map((player, i) => {
-        return (
-          <div key={i} className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''}`}>
-            { waitingForStart ? (
-
-              <div className="multiplayerLeaderboard__player__username">
-
-                <UsernameWithFlag
-                  username={player.username}
-                  countryCode={player.countryCode}
-                  isGuest={process.env.NEXT_PUBLIC_COOLMATH}
-                />
-                {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
-                  color: "#28a745", 
-                  fontWeight: "600",
-                  fontSize: "12px"
-                }}> ({text("you")})</span>}
-                {player.supporter && <span className="badge" style={{
-                  marginLeft: "6px", 
-                  backgroundColor: "#ffc107",
-                  color: "#000",
-                  padding: "2px 8px",
-                  borderRadius: "4px",
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  textTransform: "uppercase"
-                }}>{text("supporter")}</span>}
-                {player.host && <span style={{
-                  color: "#dc3545",
-                  fontWeight: "600",
-                  fontSize: "12px",
-                  marginLeft: "4px"
-                }}> ({text("host")})</span>}
-
-              </div>
-
-            ) : (
-              <>
-            <div className="multiplayerLeaderboard__player__username">#{i + 1} - <UsernameWithFlag
-                username={player.username}
-                countryCode={player.countryCode}
-                isGuest={process.env.NEXT_PUBLIC_COOLMATH}
-              />
-            {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
-              color: "#28a745", 
-              fontWeight: "600",
-              fontSize: "12px"
-            }}> ({text("you")})</span>}
-            {player.supporter && <span className="badge" style={{
-              marginLeft: "6px", 
-              backgroundColor: "#ffc107",
-              color: "#000",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              fontSize: "11px",
-              fontWeight: "700",
-              textTransform: "uppercase"
-            }}>{text("supporter")}</span>}
-
-            </div>
-            <div className="multiplayerLeaderboard__player__score">{player.score}</div>
-            </>
-            )}
-          </div>
-        );
-      })}
-
-      {myIndex >= N && (
+      {teamGame ? (
         <>
-        <span className="multiplayerLeaderboard__separator">...</span>
-
-        <div className="multiplayerLeaderboard__player me">
-          <div className="multiplayerLeaderboard__player__username">#{myIndex + 1} - <UsernameWithFlag
-            username={players[myIndex].username}
-            countryCode={players[myIndex].countryCode}
-            isGuest={process.env.NEXT_PUBLIC_COOLMATH}
-          /> {players[myIndex].username?.startsWith('Guest #') && <span style={{
-            color: "#28a745", 
-            fontWeight: "600",
-            fontSize: "12px"
-          }}>({text("you")})</span>}</div>
-          <div className="multiplayerLeaderboard__player__score">{players[myIndex].score}</div>
-        </div>
+          <div className="multiplayerLeaderboard__teamHero">
+            {heroSide('a', 'team1')}
+            <span className="multiplayerLeaderboard__teamHeroDash" aria-hidden>—</span>
+            {heroSide('b', 'team2')}
+          </div>
+          <div className="multiplayerLeaderboard__teamMembers">
+            {memberColumn('a')}
+            {memberColumn('b')}
+          </div>
+          {/* Never drop anyone: teamless players (shouldn't happen) get plain rows */}
+          {players.filter((p) => p.team !== 'a' && p.team !== 'b').map((p, i) => renderRow(p, i))}
         </>
-      )}
+      ) : (
+        <>
+          {players.slice(0, N).map((player, i) => renderRow(player, i))}
 
-      {
-        gameOver && (
-
-          <div className="multiplayerFinalBtns">
-
-          { multiplayerState.gameData?.public && (
-            <button className="gameBtn" onClick={playAgain}>{text("playAgain")}</button>
+          {myIndex >= N && (
+            <>
+            <span className="multiplayerLeaderboard__separator">...</span>
+            {renderRow(players[myIndex], myIndex)}
+            </>
           )}
-          { multiplayerState.gameData?.public || host && (
-
-            <button className="gameBtn" onClick={backBtn}>{text("back")}</button>
-          )}
-            </div>
-
-        )
-      }
-
-      { waitingForStart && host && (
-        <div className="multiplayerFinalBtns">
-          { players.length < 2 ?
-          <p style={{
-            color: "#721c24",
-            fontSize: "14px",
-            fontWeight: "500",
-            padding: "10px 20px",
-            backgroundColor: "#f8d7da",
-            borderRadius: "6px",
-            border: "1px solid #f5c6cb"
-          }}>{text("singlePlayerNeeded")}</p>
-        : multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated) ?
-        null
-        :
-        <button className="gameBtn g2_green_button g2_button_style"
-        onClick={() => startGameHost()}>{text("startGame")}</button> }
-
-        </div>
-      )}
-
-      {(multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) &&
-        <p style={{
-          color: "#856404",
-          fontSize: "14px",
-          fontWeight: "500",
-          padding: "10px 20px",
-          backgroundColor: "#fff3cd",
-          borderRadius: "6px",
-          border: "1px solid #ffc107",
-          marginTop: "10px"
-        }}>{text("generating")}</p>}
-
-{ waitingForStart && !host && (multiplayerState?.gameData?.rounds== multiplayerState?.gameData?.generated) && (
-          <p style={{
-            color: "#fff",
-            fontSize: "14px",
-            fontWeight: "500",
-            padding: "10px 20px",
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderRadius: "6px",
-            marginTop: "10px"
-          }}>{text("waitingForHostToStart")}...</p>
+        </>
       )}
     </div>
   );

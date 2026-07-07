@@ -230,7 +230,7 @@ const styles = {
     margin: 0,
     color: '#ffa657',
     fontSize: '1.5rem',
-    fontFamily: 'Lexend, sans-serif',
+    fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
   },
   closeBtn: {
     background: 'none',
@@ -339,7 +339,7 @@ const styles = {
     borderRadius: '6px',
     backgroundColor: '#0d1117',
     color: '#e6edf3',
-    fontFamily: 'Lexend, sans-serif',
+    fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
     outline: 'none',
     boxSizing: 'border-box',
   },
@@ -367,7 +367,7 @@ const styles = {
     backgroundColor: '#3fb950',
     color: '#0d1117',
     cursor: 'pointer',
-    fontFamily: 'Lexend, sans-serif',
+    fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
     marginBottom: '20px',
   },
   contactInfo: {

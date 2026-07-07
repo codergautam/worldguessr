@@ -1,5 +1,5 @@
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';

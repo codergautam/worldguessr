@@ -3,7 +3,7 @@
  */
 
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import PlayerName from '../PlayerName';

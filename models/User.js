@@ -131,6 +131,21 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Written on ws connect AND disconnect — powers the friends list
+  // "Offline · last seen Xh ago" (unlike lastLogin, which only marks session
+  // start and feeds the streak logic — do not conflate the two).
+  // Deliberately NO default: mongoose applies defaults at hydration, so a
+  // Date.now default makes every legacy user read "last seen just now" on
+  // every query. Absent ⇒ sendFriendData falls back to lastLogin.
+  lastSeen: {
+    type: Date
+  },
+  // Privacy opt-out (profile view setting): friends see plain "Offline"
+  // instead of the last-seen time. Enforced server-side in sendFriendData.
+  hideLastSeen: {
+    type: Boolean,
+    default: false
+  },
   firstLoginComplete: {
     type: Boolean,
     default: false
@@ -193,6 +208,19 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // 2v2 team mode stats (unranked, no ELO). Defaults keep all existing docs valid.
+  team2v2_wins: {
+    type: Number,
+    default: 0,
+  },
+  team2v2_losses: {
+    type: Number,
+    default: 0,
+  },
+  team2v2_tied: {
+    type: Number,
+    default: 0
+  },
   lastNameChange: {
     type: Date,
     default: 0
@@ -202,8 +230,8 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
 
-  // ===== SELF-SERVICE ACCOUNT DELETION (7-day grace period) =====
-  // When a user requests deletion, scheduledDeletionAt is set to (now + 7 days)
+  // ===== SELF-SERVICE ACCOUNT DELETION (30-day grace period) =====
+  // When a user requests deletion, scheduledDeletionAt is set to (now + 30 days)
   // and the user is logged out instantly. Re-login within the window offers a
   // "Restore" prompt (api/cancelDeletion.js). The cron purge (cron.js ->
   // serverUtils/purgeUserCascade.js) hard-deletes the account + all associated

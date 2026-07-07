@@ -3,11 +3,13 @@ import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import { getPinIcons } from '@/lib/markerIcons';
+import calcPoints, { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
 import SafeMapContainer from './SafeMapContainer';
+import getMyTeam from './utils/getMyTeam';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -799,6 +801,36 @@ const ZoomFix = memo(function ZoomFix() {
   return null;
 });
 
+/**
+ * Leaflet 1.9.4 canvas-teardown guard (installed once, on the prototype so it
+ * covers BOTH our shared polyline renderer and the map's own preferCanvas
+ * default renderer). A redraw scheduled in the narrow window while the
+ * renderer is being removed (round transitions unmount the map mid pan/zoom
+ * constantly) fires its animation frame after `_destroyContainer` has deleted
+ * the 2d context, crashing in `_clear` with "Cannot read properties of
+ * undefined (reading 'save')" — upstream Leaflet #8577. `_redraw` is the
+ * single choke point that touches the context (`_clear`/`_draw` are only ever
+ * called from it), and skipping the orphaned redraw is correct, not a
+ * suppression: a destroyed renderer has nothing to draw to, and a re-added one
+ * gets a fresh context plus a full redraw from `onAdd`.
+ */
+let canvasTeardownGuardInstalled = false;
+function installCanvasTeardownGuard(L) {
+  if (canvasTeardownGuardInstalled || !L?.Canvas?.prototype?._redraw) return;
+  canvasTeardownGuardInstalled = true;
+  const origRedraw = L.Canvas.prototype._redraw;
+  L.Canvas.prototype._redraw = function () {
+    if (!this._ctx) {
+      // Mirror _redraw's own state reset so a later legitimate redraw
+      // starts clean instead of inheriting stale request/bounds.
+      this._redrawRequest = null;
+      this._redrawBounds = null;
+      return;
+    }
+    origRedraw.call(this);
+  };
+}
+
 /* ---------------------------------------------------------------------------
  *  Overlay layers — each is React.memo'd so unrelated parent re-renders
  *  (e.g. WebSocket-driven multiplayerState updates) don't recreate the
@@ -895,6 +927,8 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
  */
 const PlayerLine = memo(function PlayerLine({
   playerId, displayName, countryCode, guess, dest, icon, polylineRenderer,
+  // Faded pins mark guesses still in motion (interim teammate placements).
+  markerOpacity = 1,
 }) {
   const guessLat = guess[0];
   const guessLng = guess[1];
@@ -906,11 +940,11 @@ const PlayerLine = memo(function PlayerLine({
 
   return (
     <>
-      <Marker position={{ lat: guess[0], lng: guess[1] }} icon={icon}>
+      <Marker position={{ lat: guess[0], lng: guess[1] }} icon={icon} opacity={markerOpacity}>
         <Tooltip
           direction="top"
           offset={[0, -45]}
-          opacity={1}
+          opacity={markerOpacity < 1 ? 0.75 : 1}
           permanent
           position={{ lat: guess[0], lng: guess[1] }}
         >
@@ -939,17 +973,34 @@ const PlayerLine = memo(function PlayerLine({
   a.guess[1] === b.guess[1] &&
   a.dest?.lat === b.dest?.lat &&
   a.dest?.long === b.dest?.long &&
-  a.icon === b.icon
+  a.icon === b.icon &&
+  (a.markerOpacity ?? 1) === (b.markerOpacity ?? 1)
 );
 
 const MultiplayerLayer = memo(function MultiplayerLayer({
   players, myId, dest, srcIcon, polandballIcon, polylineRenderer, isCoolMath,
+  // Team games: teammates render with YOUR (blue src) pin so the map reads
+  // team-vs-team, and each team's closest guesser renders ENLARGED so the
+  // counting guess pops out. Callers pass ids + the matching icons.
+  teammateIds = null, teammateIcon = null,
+  bestIds = null, bigSrcIcon = null, bigTeammateIcon = null,
+  // Best-guess team reveals: only these ids draw a guess→dest line (null =
+  // everyone does). Non-best players keep their pin via dest=null, the same
+  // pin-only path the interim teammate layer uses.
+  lineIds = null,
+  // Faded pins: guesses still in motion (teammate hasn't locked in yet).
+  fadedIds = null,
 }) {
   if (!Array.isArray(players)) return null;
   return players.map((player) => {
     if (player.id === myId || !player.guess) return null;
     const displayName = isCoolMath ? guestNameString(player.username) : player.username;
-    const icon = customPins[displayName] === "polandball" ? polandballIcon : srcIcon;
+    const isTeammate = teammateIcon && teammateIds?.has?.(player.id);
+    const base = isTeammate ? teammateIcon : srcIcon;
+    const big = isTeammate ? bigTeammateIcon : bigSrcIcon;
+    const icon = customPins[displayName] === "polandball"
+      ? polandballIcon
+      : (big && bestIds?.has?.(player.id) ? big : base);
     return (
       <PlayerLine
         key={player.id}
@@ -957,9 +1008,10 @@ const MultiplayerLayer = memo(function MultiplayerLayer({
         displayName={displayName}
         countryCode={player.countryCode}
         guess={player.guess}
-        dest={dest}
+        dest={lineIds && !lineIds.has(player.id) ? null : dest}
         icon={icon}
         polylineRenderer={polylineRenderer}
+        markerOpacity={fadedIds?.has?.(player.id) ? 0.55 : 1}
       />
     );
   });
@@ -1000,6 +1052,9 @@ function copyMultiplayerAnswerPlayers(multiplayerState) {
     id: player.id,
     username: player.username,
     countryCode: player.countryCode,
+    // Team frozen with the pins: a teammate disconnecting mid-reveal must not
+    // flip their still-visible pin from teammate-blue to enemy-green.
+    team: player.team ?? null,
     guess: player.guess ? [player.guess[0], player.guess[1]] : null,
   }));
 }
@@ -1089,6 +1144,7 @@ const MapComponent = ({
   // tiles).
   const canvasRenderer = useMemo(() => {
     if (typeof window === 'undefined' || !window.L) return null;
+    installCanvasTeardownGuard(window.L);
     return L.canvas({ padding: 0.5 });
   }, []);
 
@@ -1100,6 +1156,8 @@ const MapComponent = ({
       dest: shared.destSmall,
       src: shared.srcSmall,
       src2: shared.src2Small,
+      srcBig: shared.srcBig,
+      src2Big: shared.src2Big,
       polandball: shared.polandball,
     };
   }, []);
@@ -1117,6 +1175,56 @@ const MapComponent = ({
     const meters = guessLatLng.distanceTo({ lat: answerLocation.lat, lng: answerLocation.long });
     setKm(formatKm(meters));
   }, [answerShown, renderedPinPoint, answerLocation, setKm]);
+
+  // Team reveal context: teammate ids (blue pins) + each team's BEST guesser
+  // (enlarged pin). Scored with the game's own calcPoints so it matches
+  // teamRoundScore, but exact point ties (capped 5000s / same rounded score
+  // between close teammates) fall back to raw distance — only ONE pin per
+  // team enlarges + draws its line (same rule as roundOverScreen/ResultsMap).
+  const teamRevealCtx = useMemo(() => {
+    const gd = multiplayerState?.gameData;
+    if (!answerShown || !(gd?.team2v2 || gd?.teamGame) || !answerLocation) return null;
+    // Teams come from the same frozen roster as the pins (answerPlayers IS
+    // the reveal snapshot): reading the live roster here let a mid-reveal
+    // disconnect flip a frozen pin from teammate-blue to enemy-green. Live
+    // roster only backfills entries from pre-snapshot payloads.
+    const live = gd?.players || [];
+    const teamFor = (p) => p.team ?? live.find(g => g.id === p.id)?.team ?? null;
+    const roster = (answerPlayers?.length ? answerPlayers : live);
+    const myId = gd?.myId;
+    const myTeam = roster.some(p => p.id === myId)
+      ? teamFor(roster.find(p => p.id === myId))
+      : live.find(p => p.id === myId)?.team;
+    if (!myTeam) return null;
+    const teammateIds = new Set(roster.filter(p => teamFor(p) === myTeam).map(p => p.id));
+    // Under 'average' scoring no single guess "counted" — enlarging the
+    // closest pin would be a lie, so nothing gets the big icon. lineIds
+    // follows the same logic for the guess→dest lines: null = every guess
+    // draws its line (average mode), a Set = only the counted guesses do
+    // (best-guess modes) so the reveal isn't a tangle.
+    if (gd?.teamGame && gd?.teamScoring === 'average') {
+      return { myId, teammateIds, bestIds: new Set(), lineIds: null };
+    }
+    const maxDist = gameOptions?.maxDist ?? 20000;
+    const entries = []; // { id, team, pts, dist }
+    const consider = (id, team, lat, lng) => {
+      if (!team || lat == null || lng == null) return;
+      const pts = calcPoints({
+        lat: answerLocation.lat, lon: answerLocation.long,
+        guessLat: lat, guessLon: lng,
+        usedHint: false, maxDist
+      });
+      entries.push({ id, team, pts, dist: findDistance(answerLocation.lat, answerLocation.long, lat, lng) });
+    };
+    (answerPlayers || []).forEach(p => {
+      if (p.guess) consider(p.id, teamFor(p), p.guess[0], p.guess[1]);
+    });
+    if (renderedPinPoint) consider(myId, myTeam, renderedPinPoint.lat, renderedPinPoint.lng);
+    const bestIds = pickBestTeamGuessIds(entries);
+    return { myId, teammateIds, bestIds, lineIds: bestIds };
+  }, [answerShown, answerLocation, answerPlayers, renderedPinPoint, gameOptions?.maxDist,
+      multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.teamScoring,
+      multiplayerState?.gameData?.players, multiplayerState?.gameData?.myId]);
 
   // Tooltip strings — captured once per language change so we don't churn
   // memoized layers.
@@ -1178,9 +1286,15 @@ const MapComponent = ({
       <YourGuessLayer
         pinPoint={renderedPinPoint}
         location={answerLocation}
-        icon={myIcon}
+        // Your pin enlarges too when YOU are your team's closest guesser
+        // (custom polandball pins are already oversized — leave them be).
+        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && myIconKey !== 'polandball' && icons.srcBig
+          ? icons.srcBig
+          : myIcon}
         polylineRenderer={canvasRenderer}
-        showLine={Boolean(answerShown && answerLocation)}
+        // Best-guess team reveals: your line only draws if YOUR guess counted.
+        showLine={Boolean(answerShown && answerLocation
+          && (!teamRevealCtx?.lineIds || teamRevealCtx.lineIds.has(teamRevealCtx.myId)))}
         tooltipText={yourGuessText}
       />
 
@@ -1200,11 +1314,43 @@ const MapComponent = ({
           myId={multiplayerState?.gameData?.myId}
           dest={answerLocation}
           srcIcon={icons.src2}
+          teammateIds={teamRevealCtx?.teammateIds || null}
+          teammateIcon={icons.src}
+          bestIds={teamRevealCtx?.bestIds || null}
+          lineIds={teamRevealCtx?.lineIds || null}
+          bigSrcIcon={icons.src2Big}
+          bigTeammateIcon={icons.srcBig}
           polandballIcon={icons.polandball}
           polylineRenderer={canvasRenderer}
           isCoolMath={isCoolMath}
         />
       )}
+
+      {/* 2v2: show teammate's live (interim) guess during the guess phase */}
+      {!answerShown && (multiplayerState?.gameData?.team2v2 || multiplayerState?.gameData?.teamGame) && multiplayerState?.gameData?.state === 'guess' && (() => {
+        const myId = multiplayerState?.gameData?.myId;
+        const players = multiplayerState?.gameData?.players || [];
+        const myTeam = getMyTeam(players, myId);
+        const mates = players
+          .filter(p => p.id !== myId && p.team && p.team === myTeam && (p.latLong || p.guess))
+          .map(p => ({ ...p, guess: p.latLong || p.guess }));
+        if (!mates.length) return null;
+        return (
+          <MultiplayerLayer
+            players={mates}
+            myId={myId}
+            dest={null}
+            // This layer only ever contains teammates — blue, same as you.
+            srcIcon={icons.src}
+            polandballIcon={icons.polandball}
+            polylineRenderer={canvasRenderer}
+            isCoolMath={isCoolMath}
+            // A locked teammate pin is a commitment; a faded one is still
+            // moving — same signal the minimap status line gives in text.
+            fadedIds={new Set(mates.filter(p => !p.final).map(p => p.id))}
+          />
+        );
+      })()}
 
       {showHint && location && (
         <HintCircle location={location} gameOptions={gameOptions} round={round} />

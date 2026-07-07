@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
+import { timeAgo } from '@/shared/time/timeAgo';
 import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
@@ -66,6 +67,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
     const types = {
       'singleplayer': { label: text('singleplayer'), icon: '👤', color: '#4CAF50' },
       'ranked_duel': { label: text('rankedDuel'), icon: '⚔️', color: '#FF5722' },
+      '2v2': { label: text('twovtwo'), icon: '🛡️', color: '#e91e63' },
       'unranked_multiplayer': { label: text('multiplayer'), icon: '👥', color: '#2196F3' },
       'private_multiplayer': { label: text('privateGame'), icon: '🔒', color: '#9C27B0' },
       'daily_challenge': { label: text('dailyChallenge'), icon: '🗓', color: '#ffd700' }
@@ -73,21 +75,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
     return types[gameType] || { label: gameType, icon: '🎮', color: '#757575' };
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-    if (diffMinutes < 1) return text('justNow');
-    if (diffMinutes < 60) return text('minutesAgo', { minutes: diffMinutes });
-    if (diffHours < 24) return text('hoursAgo', { hours: diffHours });
-    if (diffDays < 7) return text('daysAgo', { days: diffDays });
-
-    return date.toLocaleDateString();
-  };
+  const formatDate = (dateString) => timeAgo(text, dateString);
 
   const getLocationDisplay = (location, settings) => {
     if (settings?.countryGuesser) {
@@ -250,15 +238,33 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                     </div>
                   </>
                 ) : (
-                  <div className={styles.statItem}>
-                    <span className={styles.statLabel}>{text('points')}</span>
-                    <span className={styles.statValue}>
-                      {game.userStats.totalPoints.toLocaleString()}
-                      <span className={styles.statPercentage}>
-                        / {game.result.maxPossiblePoints.toLocaleString()}
+                  <>
+                    {/* Team games — BOTH kinds: party team mode (settings.teamGame)
+                        and matchmade 2v2 duels (gameType '2v2', which never sets
+                        settings.teamGame — that's the party-only flag). W/L/D by
+                        team result, ahead of points. */}
+                    {(game.settings?.teamGame || game.gameType === '2v2') && game.userStats?.team && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>{text('result')}</span>
+                        <span className={styles.statValue} style={{
+                          color: game.result?.winningTeam == null ? '#9E9E9E'
+                            : game.result.winningTeam === game.userStats.team ? '#4CAF50' : '#F44336'
+                        }}>
+                          {game.result?.winningTeam == null ? text('draw')
+                            : game.result.winningTeam === game.userStats.team ? text('victory') : text('defeat')}
+                        </span>
+                      </div>
+                    )}
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('points')}</span>
+                      <span className={styles.statValue}>
+                        {game.userStats.totalPoints.toLocaleString()}
+                        <span className={styles.statPercentage}>
+                          / {game.result.maxPossiblePoints.toLocaleString()}
+                        </span>
                       </span>
-                    </span>
-                  </div>
+                    </div>
+                  </>
                 )}
 
                 {game.userStats.totalXp > 0 && (

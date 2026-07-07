@@ -85,9 +85,10 @@ export default async function handler(req, res) {
           totalXp: userPlayer?.totalXp || 0,
           averageTimePerRound: userPlayer?.averageTimePerRound || 0,
           finalRank: userPlayer?.finalRank || 1,
-          elo: userPlayer?.elo || null
+          elo: userPlayer?.elo || null,
+          team: userPlayer?.team || null
         },
-        
+
         // Game settings
         settings: {
           location: game.settings?.location || 'all',
@@ -96,13 +97,16 @@ export default async function handler(req, res) {
           timePerRound: game.settings?.timePerRound,
           official: game.settings?.official ?? true,
           countryGuesser: game.settings?.countryGuesser || false,
-          countryGuessrSubMode: game.settings?.countryGuessrSubMode || null
+          countryGuessrSubMode: game.settings?.countryGuessrSubMode || null,
+          teamGame: game.settings?.teamGame || false,
+          teamScoring: game.settings?.teamScoring || null
         },
-        
+
         // Game result
         result: {
           maxPossiblePoints: game.result?.maxPossiblePoints || (game.settings?.rounds || 5) * (game.settings?.countryGuesser ? 1000 : 5000),
           winner: game.result?.winner,
+          winningTeam: game.result?.winningTeam || null,
           isDraw: game.result?.isDraw || false
         },
         

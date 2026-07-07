@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t, getCurrentLanguage } from '../../src/shared';
 import { nameFromCode } from '../../src/shared/data/countryHelpers';
 import { api, MapItem } from '../../src/services/api';

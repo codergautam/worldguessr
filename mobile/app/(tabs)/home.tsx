@@ -19,7 +19,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, getLeague, t, formatCompact } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
@@ -374,7 +374,7 @@ export default function HomeScreen() {
     setAccountSheetVisible(true);
   }, [authLoading, googleReady, googleSignIn]);
 
-  // Restore an account that's within its 7-day deletion grace period. Explicit
+  // Restore an account that's within its 30-day deletion grace period. Explicit
   // user action (we never auto-cancel on login) — see api/cancelDeletion.js.
   const handleRestoreAccount = useCallback(() => {
     if (!secret || restoringAccount) return;
@@ -899,7 +899,7 @@ export default function HomeScreen() {
           {/* Menu */}
           <View style={styles.menu}>
             {/* Pending-deletion restore banner — shown when the account is inside
-                its 7-day deletion grace window. Tapping prompts to cancel deletion
+                its 30-day deletion grace window. Tapping prompts to cancel deletion
                 (explicit Restore, never auto-cancel on login). */}
             {isAuthenticated && user?.pendingDeletion && (
               <Pressable

@@ -438,7 +438,7 @@ export default function DailyChallengeScreen({
   const sessionReady = sessionResolved || sessionGracePassed;
 
   // Cold-mount guard: with no cache and the first fetch still in flight, the
-  // landing would otherwise paint with empty top10, no streak, and a "Next
+  // landing would otherwise paint with an empty distribution, no streak, and a "Next
   // challenge in…" CTA that may flip to "View results" half a second later.
   // Show a brief loading screen instead so the landing only ever appears with
   // its real values. landingBootstrap (if provided) gives us userData up
@@ -470,7 +470,7 @@ export default function DailyChallengeScreen({
     const landing = (
       <DailyLanding
         today={today}
-        todayTop10={results?.top10 || []}
+        distribution={results?.distribution || null}
         userData={results?.user || landingBootstrap?.userData}
         isLoggedIn={!!session?.token?.secret}
         onStartChallenge={handleStart}

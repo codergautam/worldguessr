@@ -107,13 +107,13 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
-  // Banned users must not write scores, bump the distribution buckets, or
-  // grow their streak. takeAction.js scrubs existing rows on ban, but submit
-  // is the ingress — without this gate, a banned user with a stale secret in
-  // localStorage can keep poisoning DailyChallengeStats post-ban.
-  if (user.banned) {
-    return res.status(403).json({ error: 'Account banned' });
-  }
+  // Banned users still play: the run is stored (game history, streak,
+  // dailyHistory, XP all advance) and the response looks completely normal —
+  // but the score row is written hidden:true so it never reaches the public
+  // top-10, and incrementStats is skipped so DailyChallengeStats (the
+  // distribution honest players compare against) stays unpoisoned. Their
+  // rank/percentile is computed against that honest distribution.
+  const shadowed = !!user.banned;
 
   const existing = await DailyChallengeScore.findOne({ date, userId: user._id }).lean();
   if (existing) {
@@ -153,8 +153,10 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   // the computed rank for its historyEntry, so it waits on the rank chain
   // — but the score-create + Game-history writes still run alongside it.
   const rankPromise = (async () => {
-    await incrementStats(date, finalScore, normalizedRounds);
-    invalidateDailyPublicCache(date);
+    if (!shadowed) {
+      await incrementStats(date, finalScore, normalizedRounds);
+      invalidateDailyPublicCache(date);
+    }
     return computeRankAndPercentile(date, finalScore);
   })();
 
@@ -184,6 +186,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
       score: finalScore,
       totalTime: Number.isFinite(totalTime) ? totalTime : 0,
       rounds: normalizedRounds,
+      hidden: shadowed,
     }),
     writeLoggedInDailyGame({
       user,
@@ -372,10 +375,9 @@ async function handler(req, res) {
       const percentile = stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null;
 
       if (secret && typeof secret === 'string') {
-        const user = await User.findOne({ secret }).select('_id username banned').lean();
-        if (user?.banned) {
-          return res.status(403).json({ error: 'Account banned' });
-        }
+        // No banned gate here: a DQ marker is invisible everywhere public
+        // already, so banned users can lock the date like anyone else.
+        const user = await User.findOne({ secret }).select('_id username').lean();
         if (user) {
           try {
             await DailyChallengeScore.create({
