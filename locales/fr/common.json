@@ -245,6 +245,7 @@
   "pointsEarnedTemplate": "Points : {{p}}",
   "youGotFriendReq": "{{from}} vous a envoyé une demande d'ami !",
   "youGotInvite": "{{from}} vous a invité à une partie !",
+  "acceptInviteWarning": "Vous êtes encore en match. Rejoindre la partie de {{from}} maintenant vaut abandon. Cela peut compter comme une défaite et vous coûter de l'ELO.",
   "accept": "Accepter",
   "decline": "Refuser",
   "newFriend": "Vous êtes maintenant ami avec {{name}}",
