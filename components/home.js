@@ -32,12 +32,10 @@ import { preloadPinImages } from '@/lib/markerIcons';
 // Pre-existing dynamic chunks: results screen and daily-challenge screen are
 // big and only render after a round/onboarding completes. AccountModal stays
 // dynamic because it pulls in chart.js (~220 KB) for the XP graph — saving
-// that on the critical path is worth the one-time async open. MapGuessrModal
-// is also kept dynamic to match its prior behavior.
+// that on the critical path is worth the one-time async open.
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
 const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
-const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
 // Conditionally-rendered modals/screens ship as async chunks so they (and the
 // react-responsive-modal dep most of them share) stay out of the initial index
 // bundle — the welcome modal (our LCP element) can't paint until hydration
@@ -125,7 +123,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
     const [merchModal, setMerchModal] = useState(false)
-    const [mapGuessrModal, setMapGuessrModal] = useState(false)
+    // In-duel reload button normally sits at (10, 90) under the left HP bar.
+    // A team duel stacks two name rows in the centered pill, and a long
+    // teammate name can widen it far enough left to swallow the button —
+    // measure the real pill rect and drop below it only on actual overlap.
+    const [duelReloadBtnTop, setDuelReloadBtnTop] = useState(90)
     const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
     const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
     const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
@@ -1446,6 +1448,30 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setConnectionErrorModalShown(false);
         }
     }, [multiplayerState.connected]);
+
+    // Collision probe for the in-duel reload button (see duelReloadBtnTop).
+    // Runs after commit so the HP bars' DOM is current; players in the deps
+    // re-measures when names/elo/disconnect markers reshape the pill. Only
+    // desktop: compact mobile bars never reach the button (and the probe
+    // staying inert keeps mobile pixel-identical to before).
+    useEffect(() => {
+        const gd = multiplayerState?.gameData;
+        if (!(gd?.duel && gd?.state === "guess")) return;
+        let top = 90;
+        if (width > 830) {
+            const pill = document.querySelector(".hb-left .player-name-wrapper");
+            if (pill) {
+                const r = pill.getBoundingClientRect();
+                // Default button box (left 10, top 90, ~44px) with a few px of
+                // grace so a near-graze also drops.
+                const btn = { left: 10, top: 90, size: 48 };
+                if (r.right > btn.left && r.left < btn.left + btn.size && r.bottom > btn.top && r.top < btn.top + btn.size) {
+                    top = Math.ceil(r.bottom) + 6;
+                }
+            }
+        }
+        setDuelReloadBtnTop(top);
+    }, [multiplayerState?.gameData?.state, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.players, width]);
 
     useEffect(() => {
         if (!session?.token?.secret) return;
@@ -3178,7 +3204,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {suggestModalMountedRef.current && <SuggestAccountModal shown={showSuggestLoginModal && !linkGoogleModalOpen} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
             {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) setLinkGoogleModalOpen(false); }} variant={linkGoogleModal} inCrazyGames={inCrazyGames} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
-            {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
             <ToastContainer pauseOnFocusLoss={false} />
@@ -3455,9 +3480,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 
-                {/* reload button for public game */}
+                {/* reload button for public game. duelReloadBtnTop is 90 unless
+                    the collision probe found the HP-bar name pill actually
+                    covering it (long teammate names in team duels). */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
-                    <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '90px', left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
+                    <div className="gameBtnContainer" style={{ position: 'fixed', top: `${duelReloadBtnTop}px`, left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
                         <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
@@ -3633,12 +3660,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             <div className="g2_nav_group">
                                                 <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
 
-                                                {inCrazyGames && (
-                                                    <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
-                                                        navSlideOutThen(() => setMapGuessrModal(true));
-                                                    }}>MapGuessr</button>
-                                                )}
-
                                             </div>
                                         </>
                                     )}
@@ -3650,7 +3671,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         </div>
 
                         {/* Footer moved outside of sliding navigation */}
-                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !mapGuessrModal) ? "visible" : ""}`}>
+                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && (
                                     <>

@@ -1194,8 +1194,8 @@ app.ws('/wg', {
         // only covers stale or hand-rolled clients. In-flight 2v2 games are
         // untouched: this guards staging-lobby creation only.
         if (json.mode === '2v2' && !player.accountId) {
-          player.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
-          return;
+          // player.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
+          // return;
         }
 
         // Creating a lobby cancels any matchmaking search. addPlayer below
@@ -1371,11 +1371,11 @@ app.ws('/wg', {
           // one anyway — queue2v2Members re-checks). Party/team lobbies stay
           // open to guests: intra-party team games are deliberately allowed.
           if (game.is2v2Lobby && !player.accountId) {
-            player.send({
-              type: 'gameJoinError',
-              error: 'Link your Google account to play 2v2'
-            });
-            return;
+            // player.send({
+            //   type: 'gameJoinError',
+            //   error: 'Link your Google account to play 2v2'
+            // });
+            // return;
           }
           // Joining by code cancels any matchmaking search. addPlayer below
           // already drops the inQueue flag (which every pairer re-checks),
@@ -1971,10 +1971,10 @@ try {
     // snapshot must not slip a guest into the matchmaker. In-flight games
     // are untouched — this only guards queue entry.
     if (members.some((sock) => !sock.accountId)) {
-      for (const sock of members) {
-        sock.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
-      }
-      return;
+      // for (const sock of members) {
+      //   sock.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
+      // }
+      // return;
     }
     const teamId = members.length >= 2 ? uuidv4() : null;
     const now = Date.now();

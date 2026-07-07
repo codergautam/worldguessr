@@ -8,9 +8,11 @@ import { FaGoogle, FaTrophy, FaChartLine, FaGamepad, FaUsers } from 'react-icons
 // modal shell with mode-specific copy ("link Google", never "make an account")
 // and "Maybe later" instead of "Continue as Guest" (dismissing doesn't unlock
 // the mode). The default variant stays the periodic home-screen suggestion.
+// On CrazyGames the linked account is the platform's, not Google, so titles
+// and the CTA swap to CrazyGames-branded keys.
 const VARIANTS = {
-  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', descKey: 'linkGoogle2v2Desc' },
-  'ranked': { Icon: FaTrophy, titleKey: 'linkGoogleRankedTitle', descKey: 'linkGoogleRankedDesc' },
+  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', crazyTitleKey: 'linkCrazyGames2v2Title', descKey: 'linkGoogle2v2Desc' },
+  'ranked': { Icon: FaTrophy, titleKey: 'linkGoogleRankedTitle', crazyTitleKey: 'linkCrazyGamesRankedTitle', descKey: 'linkGoogleRankedDesc' },
 };
 
 export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inCrazyGames = false }) {
@@ -131,7 +133,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text'
       }}>
-        {text(variantDef ? variantDef.titleKey : "trackYourProgress")}
+        {text(variantDef ? (inCrazyGames ? variantDef.crazyTitleKey : variantDef.titleKey) : "trackYourProgress")}
       </h2>
 
       <p style={{
@@ -141,7 +143,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         lineHeight: '1.6',
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
       }}>
-        {text(variantDef ? variantDef.descKey : "trackYourProgress1")}
+        {text(variantDef ? variantDef.descKey : (inCrazyGames ? "trackYourProgressCrazy" : "trackYourProgress1"))}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -173,8 +175,8 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
             e.target.style.boxShadow = '0 4px 15px rgba(66, 133, 244, 0.4)';
           }}
         >
-          <FaGoogle />
-          {text("loginWithGoogle1")}
+          {inCrazyGames ? <FaGamepad /> : <FaGoogle />}
+          {text(inCrazyGames ? "linkWithCrazyGames" : "loginWithGoogle1")}
         </button>
         
         <button 

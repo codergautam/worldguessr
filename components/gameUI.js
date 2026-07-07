@@ -35,8 +35,9 @@ function DuelIntroBars({ isStartingDuel, countdown, leftBar, rightBar }) {
   return (
     <div className={isStartingDuel ? 'hb-parent' : ''}>
       <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
+        {/* hb-left: stable hook for home.js's reload-button collision probe */}
         <div style={{ zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none' }}
-          className={isStartingDuel ? 'hb-start1' : ''}>
+          className={`hb-left ${isStartingDuel ? 'hb-start1' : ''}`}>
           {leftBar}
         </div>
 
