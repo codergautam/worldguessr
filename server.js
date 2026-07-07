@@ -178,6 +178,11 @@ if (!process.env.MONGODB) {
 if(process.env.DISCORD_WEBHOOK) {
   console.log("[INFO] Discord Webhook Enabled");
 }
+if(process.env.CHEAT_WEBHOOK_URL) {
+  console.log("[INFO] Cheat report webhook enabled");
+} else {
+  console.log("[MISSING-ENV WARN] CHEAT_WEBHOOK_URL not set — cheat reports will be dropped".yellow);
+}
 if(!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
   console.log("[MISSING-ENV WARN] NEXT_PUBLIC_GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
   dbEnabled = false;

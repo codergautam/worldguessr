@@ -138,7 +138,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
           -{damageIndicator}
         </div>
       )}
-      
+
       { !isStartingDuel && (
         <div className="health-bar-wrapper">
           <div className="health-bar-bg">
@@ -162,7 +162,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
           </div>
         </div>
       )}
-      
+
       <div className={`player-info-modern ${isStartingDuel ? 'starting' : ''}`}>
         <div className="player-name-wrapper">
           {Array.isArray(names) && names.length > 0 ? (
@@ -196,7 +196,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
                   is inert on the flex link itself, which hard-clipped long names
                   mid-character and pushed the flag out of view. */}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
-              {countryCode && <CountryFlag countryCode={countryCode} />}
+              {countryCode && <CountryFlag countryCode={countryCode} marginRight="0" />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </Link>
           ) : (
@@ -204,13 +204,13 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
             // it keeps the same disconnect furniture as the linked branch.
             <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', maxWidth: '100%', minWidth: 0, opacity: disconnected ? 0.55 : undefined }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
-              {countryCode && <CountryFlag countryCode={countryCode} />}
+              {countryCode && <CountryFlag countryCode={countryCode} marginRight="0" />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </span>
           )}
           {elo && (
-            <span 
-              className="player-elo" 
+            <span
+              className="player-elo"
               style={{
                 color: getLeague(elo)?.light ?? getLeague(elo)?.color ?? "#60a5fa",
                 textShadow: `0 0 10px ${getLeague(elo)?.light ?? getLeague(elo)?.color ?? "#60a5fa"}60`

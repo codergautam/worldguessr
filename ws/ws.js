@@ -1189,6 +1189,15 @@ app.ws('/wg', {
           return;
         }
 
+        // Guests can't start NEW 2v2 games — the client shows a link-Google
+        // modal instead of ever sending this, so the sentence-as-key toast
+        // only covers stale or hand-rolled clients. In-flight 2v2 games are
+        // untouched: this guards staging-lobby creation only.
+        if (json.mode === '2v2' && !player.accountId) {
+          player.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
+          return;
+        }
+
         // Creating a lobby cancels any matchmaking search. addPlayer below
         // already drops the inQueue flag (which every pairer re-checks), but
         // do it explicitly like acceptInvite so the invariant is local and
@@ -1355,6 +1364,16 @@ app.ws('/wg', {
             player.send({
               type: 'gameJoinError',
               error: 'Play team games on worldguessr.com for now'
+            });
+            return;
+          }
+          // Guests can't enter 2v2 staging lobbies (they couldn't queue from
+          // one anyway — queue2v2Members re-checks). Party/team lobbies stay
+          // open to guests: intra-party team games are deliberately allowed.
+          if (game.is2v2Lobby && !player.accountId) {
+            player.send({
+              type: 'gameJoinError',
+              error: 'Link your Google account to play 2v2'
             });
             return;
           }
@@ -1945,6 +1964,18 @@ try {
       .map((m) => players.get(m.id))
       .filter((sock) => sock && !sock.disconnected);
     if (members.length > 2) return; // 2v2 takes at most a duo (find2v2Match enforces the same)
+    // Guest backstop for EVERY path into the 2v2 queue (Find Match, the
+    // post-pairing auto-queue, Play Again regroups, cancel requeues): guests
+    // can't queue NEW games. The creation/join gates make this near
+    // unreachable, but raw messages and pre-gate lobbies restored from a
+    // snapshot must not slip a guest into the matchmaker. In-flight games
+    // are untouched — this only guards queue entry.
+    if (members.some((sock) => !sock.accountId)) {
+      for (const sock of members) {
+        sock.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
+      }
+      return;
+    }
     const teamId = members.length >= 2 ? uuidv4() : null;
     const now = Date.now();
     for (const sock of members) {

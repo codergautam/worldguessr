@@ -2,16 +2,44 @@ import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from "@/components/auth/auth";
 import gameStorage from "./utils/localStorage";
-import { FaGoogle, FaTrophy, FaChartLine, FaGamepad } from 'react-icons/fa';
+import { FaGoogle, FaTrophy, FaChartLine, FaGamepad, FaUsers } from 'react-icons/fa';
 
-export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) {
+// Locked-mode conversion variants: guests clicking 2v2 / Ranked get this same
+// modal shell with mode-specific copy ("link Google", never "make an account")
+// and "Maybe later" instead of "Continue as Guest" (dismissing doesn't unlock
+// the mode). The default variant stays the periodic home-screen suggestion.
+const VARIANTS = {
+  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', descKey: 'linkGoogle2v2Desc' },
+  'ranked': { Icon: FaTrophy, titleKey: 'linkGoogleRankedTitle', descKey: 'linkGoogleRankedDesc' },
+};
+
+export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inCrazyGames = false }) {
   const { t: text } = useTranslation("common");
+  const variantDef = variant ? VARIANTS[variant] : null;
+  const Icon = variantDef?.Icon || FaTrophy;
 
   const handleClose = () => {
     setOpen(false);
   };
 
   const handleGoogleLogin = () => {
+    // CrazyGames accounts link through the platform's own auth popup; the SDK
+    // auth listener registered in home.js picks up the result and completes
+    // the wg session + ws re-verify automatically, which then auto-closes
+    // this modal via the session effect.
+    if (inCrazyGames && typeof window !== 'undefined' && window.CrazyGames?.SDK?.user) {
+      window.CrazyGames.SDK.user.showAuthPrompt((error, user) => {
+        const code = error?.code || error;
+        // userCancelled keeps the modal up (they may reconsider);
+        // userAlreadySignedIn means the auth listener already has it covered.
+        if (error && code !== 'userAlreadySignedIn') {
+          console.log('CrazyGames auth prompt:', code);
+          return;
+        }
+        setOpen(false);
+      });
+      return;
+    }
     signIn('google');
   };
 
@@ -85,16 +113,16 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
         marginBottom: '24px',
         animation: 'float 3s ease-in-out infinite'
       }}>
-        <FaTrophy style={{ 
-          fontSize: '56px', 
-          color: '#ffd700', 
+        <Icon style={{
+          fontSize: '56px',
+          color: '#ffd700',
           filter: 'drop-shadow(0 4px 8px rgba(255, 215, 0, 0.5))'
         }} />
       </div>
-      
-      <h2 style={{ 
-        fontSize: '1.8rem', 
-        marginBottom: '12px', 
+
+      <h2 style={{
+        fontSize: '1.8rem',
+        marginBottom: '12px',
         fontWeight: '700',
         color: 'white',
         textShadow: '2px 2px 4px rgba(0, 0, 0, 0.4)',
@@ -103,17 +131,17 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text'
       }}>
-        {text("trackYourProgress")}
+        {text(variantDef ? variantDef.titleKey : "trackYourProgress")}
       </h2>
-      
-      <p style={{ 
-        fontSize: '1rem', 
-        marginBottom: '28px', 
+
+      <p style={{
+        fontSize: '1rem',
+        marginBottom: '28px',
         color: 'rgba(255, 255, 255, 0.9)',
         lineHeight: '1.6',
-        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' 
+        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
       }}>
-        {text("trackYourProgress1")}
+        {text(variantDef ? variantDef.descKey : "trackYourProgress1")}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -174,7 +202,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
             e.target.style.transform = 'translateY(0)';
           }}
         >
-          {text("playAsGuest")}
+          {text(variantDef ? "maybeLater" : "playAsGuest")}
         </button>
       </div>
 

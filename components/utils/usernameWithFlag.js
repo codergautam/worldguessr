@@ -22,7 +22,7 @@ export default function UsernameWithFlag({
     <>
       {displayName}
       {countryCode && ' '}
-      {countryCode && <CountryFlag countryCode={countryCode} style={flagStyle} />}
+      {countryCode && <CountryFlag countryCode={countryCode} marginRight="0" style={flagStyle} />}
     </>
   );
 }

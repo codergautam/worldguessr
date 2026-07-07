@@ -289,17 +289,36 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 : teamCarrier.name ? text("guessCountedBy", { name: teamCarrier.name }) : null)
         : null;
     // Compact points for the parenthetical: 3412 → "3.4k", 5000 → "5k".
-    const compactPts = (n) => n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${n}`;
+    // Exception: 4950-4999 also compact to "5k", a perfect-score claim they
+    // didn't earn (real 5000s wear the gold chip) — those render exact. Same
+    // guard covers the damage line, where a fake "5k" would claim a full wipe.
+    const compactPts = (n) => {
+        if (n < 1000) return `${n}`;
+        const compact = `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+        return (compact === '5k' && n !== 5000) ? `${n}` : compact;
+    };
+    // A flat 5000 is the game's rarest personal outcome — it outranks the
+    // humble points text and renders as the gold chip instead, in every mode
+    // that shows personal points (classic gotPoints line, HP/team parenthetical).
+    const isPerfectRound = guessed && displayPoints === 5000;
+    const perfectChip = <span className="perfect5k">{text("perfectFiveK")}</span>;
+    // On a perfect the chip gets its own full-brightness line (the personal
+    // line is dimmed 0.8 — burying the star moment there undersold it), and
+    // the distance drops its "(5k pts)" parenthetical echo.
     const personalRoundText = distanceText
-        ? `${distanceText} (${text("ptsCount", { points: compactPts(displayPoints) })})`
+        ? (isPerfectRound
+            ? distanceText
+            : `${distanceText} (${text("ptsCount", { points: compactPts(displayPoints) })})`)
         : text("didntGuess");
     // Team party rounds fold the points into the distance line (2v2-style
     // parenthetical) so the banner stays compact; other modes keep gotPoints.
     const classicDistanceLine = showTeamGameRoundLine ? personalRoundText : distanceText;
-    // 2v2 (teamGame has no HP): |a−b| is exactly what the losing team's
-    // health dropped by, same construction as the server's subtraction.
+    // 2v2: the server stamps the HP actually applied (1.5x multiplier) on
+    // teamRoundScores.damage — never re-derive |a−b| here or the banner
+    // drifts from the bars. The |a−b| fallback only covers a stale ws that
+    // predates the stamp.
     const teamRoundDamage = (showTeamDuelRoundSummary && winningRoundTeam)
-        ? Math.abs(teamRoundScores.a - teamRoundScores.b)
+        ? (gd?.teamRoundScores?.damage ?? Math.abs(teamRoundScores.a - teamRoundScores.b))
         : 0;
     // 1v1 duels get the same damage-verdict banner. No server stamp there —
     // rebuild both round scores exactly like the server's HP subtraction
@@ -364,6 +383,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                                 ? `${damageHeadline.dealt ? '⚔️' : '💔'} ${text(damageHeadline.dealt ? "dealtDamage" : "tookDamage", { dmg: compactPts(damageHeadline.dmg) })}`
                                 : text("teamRoundTied")}
                         </span>
+                        {isPerfectRound && (
+                            <p className='motivation perfect5kLine'>{perfectChip}</p>
+                        )}
                         {teamCarrierText && (
                             <span className='smallmainBannerTxt'>{teamCarrierText}</span>
                         )}
@@ -392,13 +414,16 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
                 {/* Points (classic only; team rounds carry them in the distance line) */}
                 {!countryGuesser && !damageHeadline && !showTeamGameRoundLine && (
-                    <p className="motivation bannerPoints">
-                        {text("gotPoints", { p: displayPoints })}
+                    <p className={`motivation bannerPoints${isPerfectRound ? ' perfect5kLine' : ''}`}>
+                        {isPerfectRound ? perfectChip : text("gotPoints", { p: displayPoints })}
                     </p>
                 )}
 
                 {showTeamGameRoundLine && (
                     <>
+                        {isPerfectRound && (
+                            <p className="motivation perfect5kLine">{perfectChip}</p>
+                        )}
                         <p className="motivation team-round-line">{text(teamRoundResultKey)}</p>
                         {teamCarrierText && (
                             <p className="motivation team-round-line">{teamCarrierText}</p>

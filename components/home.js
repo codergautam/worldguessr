@@ -559,6 +559,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const lastSingleplayerScreen = useRef(null);
 
     const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
+    // Both login modals stay MOUNTED after their first open and close through
+    // react-responsive-modal's `open` prop — conditional unmount tore them out
+    // of the tree mid-close and skipped the exit animation. The ref delays the
+    // first mount so the dynamic chunk isn't fetched pre-interaction.
+    const suggestModalMountedRef = useRef(false);
+    if (showSuggestLoginModal) suggestModalMountedRef.current = true;
+    // Guest clicked a login-locked mode: '2v2' | 'ranked' picks the variant
+    // copy, and (leaveConfirm-style) survives closing so the modal doesn't
+    // blank mid fade-out; the boolean drives open/close.
+    const [linkGoogleModal, setLinkGoogleModal] = useState(null);
+    const [linkGoogleModalOpen, setLinkGoogleModalOpen] = useState(false);
     const [showDiscordModal, setShowDiscordModal] = useState(false);
     const [singlePlayerRound, setSinglePlayerRound] = useState(null);
     const [partyModalShown, setPartyModalShown] = useState(false);
@@ -646,7 +657,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (session?.token?.secret && showSuggestLoginModal) {
             setShowSuggestLoginModal(false);
         }
-    }, [session?.token?.secret, showSuggestLoginModal]);
+        // Same for the link-Google conversion modal (covers the CrazyGames
+        // auth-listener path too, which resolves outside the modal's control).
+        if (session?.token?.secret && linkGoogleModalOpen) {
+            setLinkGoogleModalOpen(false);
+        }
+    }, [session?.token?.secret, showSuggestLoginModal, linkGoogleModalOpen]);
 
     // Show SuggestAccountModal on the home screen for logged-out users.
     //   1st time  — any home visit (never seen before). Just Sign-in / Continue as Guest.
@@ -666,6 +682,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // Skip re-running while the modal is currently open — otherwise opening it
         // would immediately trigger another evaluation and double-increment the count.
         if (showSuggestLoginModal) return;
+        // Never stack on top of the link-Google conversion modal. Also closes
+        // the race where the 2.5s timer below is already pending when the user
+        // clicks 2v2/Ranked: this dep change re-runs the effect, whose cleanup
+        // cancels the pending timer.
+        if (linkGoogleModalOpen) return;
 
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         let willShowNeverAgain = false;
@@ -707,7 +728,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }, 2500);
 
         return () => clearTimeout(timer);
-    }, [screen, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal]);
+    }, [screen, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal, linkGoogleModalOpen]);
 
     // check if ?coolmath=true
     useEffect(() => {
@@ -3011,38 +3032,101 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
     useEffect(() => {
-        function checkForCheats() {
-            if (document.getElementById("coo1rdinates")) return true;
-            if (document.getElementById("map-canvas")) return true;
-            if (document.querySelector(".sgp-fab")) return true;
-            if (document.getElementById("gmf-panel")) return true;
-            if (document.getElementById("wg-helper-ui")) return true;
-            if (document.getElementById("cgx-settings-panel")) return true;
-            if (document.getElementById("cmTitle")) return true;
+        // Silent cheat detection. We deliberately do NOT notify the user, redirect,
+        // write to localStorage, or fire a gtag event: the popular "CheatGuessr"
+        // userscript neutralizes all three on worldguessr (it swallows gtag events
+        // whose name contains "cheat", drops localStorage writes whose key contains
+        // "banned", and its settings panel has no id, so the old DOM-id checks miss
+        // it entirely). Instead we fingerprint the artifacts it leaves on the page
+        // and quietly report which signals tripped over the already-authenticated
+        // websocket, so the server can attribute it to the logged-in account.
+        // The client never transmits the account secret — the server derives
+        // identity from the socket it verified.
+        function detectCheatSignals() {
+            const signals = [];
+
+            // Injected DOM from other overlay cheats (kept from the prior check).
+            if (document.getElementById("coo1rdinates")) signals.push("dom:coordinates");
+            if (document.getElementById("map-canvas")) signals.push("dom:mapcanvas");
+            if (document.querySelector(".sgp-fab")) signals.push("dom:sgpfab");
+            if (document.getElementById("gmf-panel")) signals.push("dom:gmfpanel");
+            if (document.getElementById("wg-helper-ui")) signals.push("dom:wghelper");
+            if (document.getElementById("cgx-settings-panel")) signals.push("dom:cgx");
+            if (document.getElementById("cmTitle")) signals.push("dom:cmtitle");
+
+            // CheatGuessr Universal (v12.x) fingerprints — the parts of the script
+            // that patch the page to defeat detection are themselves detectable:
+
+            // 1. It pins document.visibilityState to always return "visible" (killing
+            //    tab-switch detection) by redefining the prototype getter with a plain
+            //    JS function. A real browser's getter stringifies to "[native code]".
             try {
-            if(window.localStorage.getItem("bannedv2")) return true;
-            } catch(e) {
+                const d = Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState");
+                if (d && typeof d.get === "function" && !String(d.get).includes("[native code]")) {
+                    signals.push("vis-getter");
+                }
+            } catch (e) {}
+
+            // 2. It proxies Storage.setItem to silently drop any key containing
+            //    "banned". Probe it: a value we write but can't read back was eaten.
+            try {
+                const k = "wg_bannedprobe";
+                window.localStorage.removeItem(k);
+                window.localStorage.setItem(k, "1");
+                if (window.localStorage.getItem(k) !== "1") signals.push("ls-swallow");
+                window.localStorage.removeItem(k);
+            } catch (e) {}
+
+            // 3. It locks window.banned to an immutable, non-configurable `true`.
+            try {
+                const d = Object.getOwnPropertyDescriptor(window, "banned");
+                if (d && d.value === true && d.writable === false && d.configurable === false) {
+                    signals.push("win-banned-lock");
+                }
+            } catch (e) {}
+
+            return signals;
+        }
+
+        // A logged-in user has an account secret; the server verifies identity
+        // from it and pulls username + ELO from the DB. A guest has no secret at
+        // all, only an ephemeral name, so it is reported best-effort and flagged
+        // unverified server-side. The secret (when present) goes to our own API
+        // over HTTPS solely as the identity lookup key; it is never forwarded to
+        // the webhook, and the webhook URL is server-only.
+        const token = session?.token?.secret || null;
+        const guestName = (!token && multiplayerState?.guestName) ? multiplayerState.guestName : null;
+
+        let lastReported = "";
+        async function reportIfCheating() {
+            const signals = detectCheatSignals();
+            if (!signals.length) return;
+            const sig = signals.slice().sort().join(",");
+            if (sig === lastReported) return; // don't re-send an unchanged finding
+
+            if (!window.cConfig?.apiUrl) return;
+            // Need something to attribute the report to — a logged-in secret or,
+            // failing that, a guest name. Anonymous with neither: nothing to send.
+            if (!token && !guestName) return;
+
+            try {
+                const res = await fetch(window.cConfig.apiUrl + "/api/reportClientState", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token, guestName, signals }),
+                });
+                // Only latch once the server accepted it, so a transient failure
+                // (offline, not yet connected) retries on the next tick.
+                if (res.ok) lastReported = sig;
+            } catch (e) {
+                // Silent by design — never surface anything to the user.
             }
-            return false;
         }
-        function banGame() {
-            sendEvent("cheat_detected", {
-                username: session?.token?.username || "Guest",
-                secret: session?.token?.secret || "None"
-            });
-            // redirect to banned page
-            window.localStorage.setItem("bannedv2", "true")
-        }
-        if (checkForCheats()) {
-            banGame();
-        }
-        const i = setInterval(() => {
-            if (checkForCheats()) {
-                banGame();
-            }
-        }, 10000);
+
+        reportIfCheating();
+        const i = setInterval(reportIfCheating, 10000);
         return () => clearInterval(i);
-    }, [])
+    }, [session?.token?.secret, multiplayerState?.guestName])
 
     // Note: Both banned users and users with pending name change CAN still play singleplayer
     // They just can't do multiplayer - the check is done in the websocket server
@@ -3087,7 +3171,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 } sendInvite={sendInvite} options={options}
             />}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
-            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
+            {/* The link-Google variant always wins over the periodic suggestion —
+                the two must never stack (also enforced at open time). Both stay
+                mounted after first open so closes animate (open-prop driven);
+                react-responsive-modal renders nothing while closed. */}
+            {suggestModalMountedRef.current && <SuggestAccountModal shown={showSuggestLoginModal && !linkGoogleModalOpen} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
+            {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) setLinkGoogleModalOpen(false); }} variant={linkGoogleModal} inCrazyGames={inCrazyGames} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
@@ -3470,8 +3559,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     }}>
                                                     {text("singleplayer")}
                                                 </button>
-                                                {session?.token?.secret && (
+                                                {/* Ranked shows for guests too — clicking opens the link-Google
+                                                    conversion modal instead of the queue (server publicDuel
+                                                    requires accountId anyway). Hidden on CoolMathGames. */}
+                                                {!inCoolMathGames && (
                                                     <button className="g2_nav_text" aria-label="Duels" onClick={() => {
+                                                        if (!session?.token?.secret) {
+                                                            setShowSuggestLoginModal(false); // never stack the two login modals
+                                                            setLinkGoogleModal('ranked');
+                                                            setLinkGoogleModalOpen(true);
+                                                            return;
+                                                        }
                                                         if (!ws || !multiplayerState?.connected) {
                                                             setConnectionErrorModalShown(true);
                                                             return;
@@ -3488,16 +3586,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 }}>{
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
-                                                <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
-                                                    if (!ws || !multiplayerState?.connected) {
-                                                        setConnectionErrorModalShown(true);
-                                                        return;
-                                                    }
-                                                    navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
-                                                }}>
-                                                    {text("twovtwo")}
-                                                    <span className="g2_nav_new_sticker" aria-hidden="true">{text("newSticker")}</span>
-                                                </button>
+                                                {!inCoolMathGames && (
+                                                    <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
+                                                        if (!session?.token?.secret) {
+                                                            setShowSuggestLoginModal(false); // never stack the two login modals
+                                                            setLinkGoogleModal('2v2');
+                                                            setLinkGoogleModalOpen(true);
+                                                            return;
+                                                        }
+                                                        if (!ws || !multiplayerState?.connected) {
+                                                            setConnectionErrorModalShown(true);
+                                                            return;
+                                                        }
+                                                        navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
+                                                    }}>
+                                                        {text("twovtwo")}
+                                                        <span className="g2_nav_new_sticker" aria-hidden="true">{text("newSticker")}</span>
+                                                    </button>
+                                                )}
 
 
 

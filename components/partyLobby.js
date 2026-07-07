@@ -4,6 +4,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { FaLink, FaUserPlus, FaBolt, FaPlay, FaCrown, FaPen, FaEye, FaEyeSlash, FaXmark, FaShuffle, FaChevronRight, FaChevronLeft } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
+import { getLeague } from './utils/leagues';
 import { copyPartyLink } from './utils/partyLink';
 import { asset } from '@/lib/basePath';
 import Modal from './ui/Modal';
@@ -121,6 +122,16 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
     >
       <span className="party-lobby__player-name">
         <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH} />
+        {/* League-colored "(elo)" like the duel HP bars; guests carry no elo
+            (and the pending-shell placeholder row has none) so it just skips. */}
+        {typeof p.elo === 'number' && (
+          <span className="party-lobby__elo" style={{
+            color: getLeague(p.elo)?.light ?? getLeague(p.elo)?.color ?? '#60a5fa',
+            textShadow: `0 0 10px ${getLeague(p.elo)?.light ?? getLeague(p.elo)?.color ?? '#60a5fa'}60`
+          }}>
+            ({p.elo})
+          </span>
+        )}
       </span>
       <span className="party-lobby__player-tags">
         {p.id === myId && <span className="party-lobby__you">{text("you")}</span>}

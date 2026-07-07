@@ -2959,6 +2959,32 @@ h1, h2, h3, span, label {
     font-size: 0.95em !important;
 }
 
+// Perfect-round chip: a flat 5000 replaces the plain points text in the end
+// banner. Same pill construction as .streakBadge above (tinted glass +
+// 1px border + one-shot entrance) so the two badges sharing this banner
+// read as one system — gold is the sanctioned crown/supporter accent.
+// Its host line is bumped to headline scale: .motivation's 0.8em undersold
+// the moment (and the duel personal line dims to 0.8 on top of that).
+.perfect5kLine {
+    font-size: 1.1em !important;
+}
+
+.perfect5k {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.22) 0%, rgba(255, 179, 0, 0.14) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.45);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-weight: 700;
+    font-size: 0.95em;
+    color: #ffd700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 14px rgba(255, 215, 0, 0.15);
+    animation: streakPulse 0.5s ease;
+}
+
 .locationFact {
     font-size: 0.8em !important;
     color: rgba(255, 255, 255, 0.75);
@@ -3594,6 +3620,15 @@ h1, h2, h3, span, label {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.8rem;
     font-weight: 500;
+}
+
+// League-colored "(elo)" beside the name — color/glow arrive inline from
+// getLeague, same as the duel HP bars. flex:none so a long name's ellipsis
+// never eats the rating.
+.party-lobby__elo {
+    font-size: 0.85em;
+    font-weight: 500;
+    flex: none;
 }
 
 .party-lobby__crown {

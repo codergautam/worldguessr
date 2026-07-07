@@ -53,7 +53,9 @@ export default class Game {
     this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
     if(this.duel) {
-      this.waitBetweenRounds = 8000;
+      // 1v1 keeps the tight 8s reveal; team duels get a 9s base — the ws
+      // loop adds +1s to all team modes on top, landing 2v2 at 10s total.
+      this.waitBetweenRounds = this.teamDuel ? 9000 : 8000;
       this.timePerRound = 60000;
 
     }
@@ -461,10 +463,15 @@ export default class Game {
 
       const scoreA = this.teamRoundScore('a', loc);
       const scoreB = this.teamRoundScore('b', loc);
-      this.lastRoundTeamScores = { round: this.curRound, scores: { a: scoreA, b: scoreB } };
+      // 1.5x damage (matchmade 2v2 only — party team games have no HP) so
+      // matches close out faster. Stamped on the wire because the reveal
+      // banner must show the HP actually applied; a client re-deriving |a−b|
+      // would drift from the bars.
+      const damage = Math.round(Math.abs(scoreA - scoreB) * 1.5);
+      this.lastRoundTeamScores = { round: this.curRound, scores: { a: scoreA, b: scoreB }, damage };
       if (scoreA !== scoreB) {
         const loser = scoreA > scoreB ? 'b' : 'a';
-        this.teamScores[loser] = Math.max(0, this.teamScores[loser] - Math.abs(scoreA - scoreB));
+        this.teamScores[loser] = Math.max(0, this.teamScores[loser] - damage);
         if (this.teamScores[loser] <= 0) {
           this.teamScores[loser] = 0;
           this.readyToEnd = true;
