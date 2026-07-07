@@ -703,6 +703,10 @@ const GameSummary = ({
             // Server-computed per-round team scores (cumulative parties) —
             // must survive the transform for the round breakdown.
             teamRoundScores: roundData.teamRoundScores ?? null,
+            // 2v2 stamp: HP actually applied + multiplier used (Game.js
+            // saveRoundToHistory); null on rounds from a pre-stamp server.
+            teamDamage: roundData.teamDamage ?? null,
+            teamDamageMultiplier: roundData.teamDamageMultiplier ?? null,
             timeTaken: null
           };
         });
@@ -1280,6 +1284,11 @@ const GameSummary = ({
                     ? membersOf(team).find(p => (round.players?.[p.id]?.points || 0) === best)
                     : null;
                   const displayScore = isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best;
+                  // ×1 means "no multiplier" — tag and tooltip only render
+                  // when a real multiplier shaped the damage (per-round
+                  // stamps may legitimately be 1 someday).
+                  const dmgMult = round.teamDamageMultiplier ?? 1.5;
+                  const showMult = !isCumulativeTeam && dmgMult !== 1;
                   return (
                     <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
                       <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{label}</span>
@@ -1295,7 +1304,15 @@ const GameSummary = ({
                       <span className="score-points" style={{ color: getPointsColor(displayScore), fontWeight: 'bold' }}>
                         {isCumulativeTeam ? text("teamRoundPoints", { pts: displayScore }) : `${displayScore} ${text("pts")}`}
                       </span>
-                      {!isCumulativeTeam && dmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{dmg} ❤️</span>}
+                      {/* Damage already includes the multiplier; the ×n tag
+                          mentions it (server-stamped per round, 1.5 fallback
+                          for pre-stamp rounds). */}
+                      {!isCumulativeTeam && dmg > 0 && (
+                        <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}
+                          title={showMult ? text("teamDamageMultiplierHint", { mult: dmgMult }) : undefined}>
+                          -{dmg} ❤️{showMult && <span style={{ opacity: 0.6, fontSize: '0.9em' }}> ×{dmgMult}</span>}
+                        </span>
+                      )}
                     </div>
                   );
                 };
@@ -1310,8 +1327,16 @@ const GameSummary = ({
                         if (teamOf[id] === myTeam) myBest = Math.max(myBest, pts);
                         else if (teamOf[id] === enemyTeam) enemyBest = Math.max(enemyBest, pts);
                       });
-                      const myDmg = myBest < enemyBest ? enemyBest - myBest : 0;
-                      const enemyDmg = enemyBest < myBest ? myBest - enemyBest : 0;
+                      // 2v2 hearts show the HP actually applied. The server
+                      // stamps damage + multiplier per round (Game.js
+                      // saveRoundToHistory) — the formula lives THERE alone,
+                      // never here; the gap ×1.5 fallback only covers rounds
+                      // recorded before the stamp shipped. Cumulative parties
+                      // render +pts instead of hearts, so dmg never shows.
+                      const stampedDmg = typeof round.teamDamage === 'number' ? round.teamDamage : null;
+                      const dmgOf = (gap) => stampedDmg ?? (isCumulativeTeam ? gap : Math.round(gap * 1.5));
+                      const myDmg = myBest < enemyBest ? dmgOf(enemyBest - myBest) : 0;
+                      const enemyDmg = enemyBest < myBest ? dmgOf(myBest - enemyBest) : 0;
                       const myTime = round.players?.[myId]?.timeTaken;
                       return (
                         <div

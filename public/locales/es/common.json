@@ -905,6 +905,7 @@
   "guessCountedTie": "Ambas suposiciones contaron 🎯",
   "dealtDamage": "¡Infligiste {{dmg}} de daño!",
   "tookDamage": "Recibiste {{dmg}} de daño",
+  "teamDamageMultiplierHint": "El daño es la diferencia de puntos de la ronda por {{mult}}",
   "leaveTeamGameWarning": "¿Salir de la partida de equipos? Tu equipo seguirá jugando sin ti.",
   "endMatchWarning": "¿Terminar la partida para todos y volver a la sala?",
   "endMatch": "Terminar partida",

@@ -163,8 +163,8 @@ export default function DailyLanding({
             average is a reachable target for beginners); the named top-100
             board is deliberately tucked behind an opt-in slide-up sheet so it
             isn't the main attraction. Mirrors web DailyLanding.js and the
-            results screen's distribution card: chart (≥10 plays) → meta →
-            standing/hook. */}
+            results screen's distribution card: hook (pre-play, as a subtitle)
+            → chart (≥10 plays) → meta → standing. */}
         <StaggerSection delay={150}>
           {/* "How you compare" only makes sense once there's a score to compare —
               pre-play it's just today's scores. */}
@@ -178,6 +178,14 @@ export default function DailyLanding({
             ) : undefined}
             style={styles.sectionGap}
           >
+            {/* Pre-play incentive: the reachable target reads as a subtitle
+                right under the title, not buried below the chart. Mirrors web
+                .daily-distribution-hook. */}
+            {!playedToday && (distribution?.totalPlays || 0) > 0 && (
+              <Text style={styles.hook}>
+                {t('dailyBeatAvgHook', { avg: (distribution!.avgScore || 0).toLocaleString() })}
+              </Text>
+            )}
             {(distribution?.totalPlays || 0) > 0 ? (
               <>
                 {distribution!.totalPlays >= 10 ? (
@@ -189,10 +197,13 @@ export default function DailyLanding({
                 ) : (
                   <Text style={styles.empty}>{t('tooFewPlaysForChart')}</Text>
                 )}
-                <View style={styles.distMeta}>
-                  <Text style={styles.distMetaText}>
-                    {t('averageScoreToday', { avg: distribution!.avgScore || 0 })}
-                  </Text>
+                <View style={[styles.distMeta, !playedToday && styles.distMetaSolo]}>
+                  {/* Pre-play the hook subtitle already states the average. */}
+                  {playedToday && (
+                    <Text style={styles.distMetaText}>
+                      {t('averageScoreToday', { avg: distribution!.avgScore || 0 })}
+                    </Text>
+                  )}
                   <Text style={styles.distMetaText}>
                     {t('sampleSize', { count: distribution!.totalPlays.toLocaleString() })}
                   </Text>
@@ -211,13 +222,6 @@ export default function DailyLanding({
                           {t('rankOfTotal', { rank: userData.ownRank, total: distribution!.totalPlays.toLocaleString() })}
                         </Text>
                       </View>
-                    );
-                  }
-                  if (!playedToday) {
-                    return (
-                      <Text style={styles.empty}>
-                        {t('dailyBeatAvgHook', { avg: (distribution!.avgScore || 0).toLocaleString() })}
-                      </Text>
                     );
                   }
                   return null;
@@ -351,8 +355,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 16,
   },
+  // Pre-play incentive hook — subtitle tucked right under the section title
+  // (negative top margin eats into the title row's 12px gap). Mirrors web
+  // .daily-distribution-hook.
+  hook: {
+    color: dailyColors.gold,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 14.5,
+    marginTop: -6,
+    marginBottom: 12,
+  },
   // Distribution meta/standing — same look as DailyResultsScreen's card.
   distMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  // Pre-play only the plays count renders — keep it on the right edge where
+  // it always sits.
+  distMetaSolo: { justifyContent: 'flex-end' },
   distMetaText: { color: 'rgba(255,255,255,0.55)', fontFamily: 'Lexend', fontSize: 11 },
   distStanding: { marginTop: 12, alignItems: 'center', gap: 4 },
   distStandingPct: { color: dailyColors.gold, fontFamily: 'Lexend-Bold', fontSize: 16 },

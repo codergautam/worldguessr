@@ -451,6 +451,15 @@ export default class Game {
     this.sendStateUpdate();
   }
 
+  // 2v2 damage multiplier for a given round — THE single source of truth for
+  // the formula. Every surface (live banner, round-over hearts, DB replays)
+  // displays the stamped damage/multiplier, so tweaking this value or making
+  // it ramp per round later needs no client change. The client's gap×1.5
+  // fallback exists only for rounds recorded before the stamp shipped.
+  teamDamageMultiplier(round) {
+    return 1.5;
+  }
+
   givePoints() {
     if(this.teamDuel) {
       // Team duel: the losing team's shared health drops by the round-score
@@ -463,12 +472,14 @@ export default class Game {
 
       const scoreA = this.teamRoundScore('a', loc);
       const scoreB = this.teamRoundScore('b', loc);
-      // 1.5x damage (matchmade 2v2 only — party team games have no HP) so
-      // matches close out faster. Stamped on the wire because the reveal
-      // banner must show the HP actually applied; a client re-deriving |a−b|
-      // would drift from the bars.
-      const damage = Math.round(Math.abs(scoreA - scoreB) * 1.5);
-      this.lastRoundTeamScores = { round: this.curRound, scores: { a: scoreA, b: scoreB }, damage };
+      // Multiplied damage (matchmade 2v2 only — party team games have no HP)
+      // so matches close out faster. damage + multiplier are stamped on the
+      // wire (reveal banner) AND into roundHistory (saveRoundToHistory) so
+      // clients show the HP actually applied instead of re-deriving |a−b|,
+      // which would drift from the bars.
+      const multiplier = this.teamDamageMultiplier(this.curRound);
+      const damage = Math.round(Math.abs(scoreA - scoreB) * multiplier);
+      this.lastRoundTeamScores = { round: this.curRound, scores: { a: scoreA, b: scoreB }, damage, multiplier };
       if (scoreA !== scoreB) {
         const loser = scoreA > scoreB ? 'b' : 'a';
         this.teamScores[loser] = Math.max(0, this.teamScores[loser] - damage);
@@ -601,6 +612,14 @@ export default class Game {
       if (this.teamGame && this.lastRoundTeamScores?.round === this.curRound) {
         roundData.teamRoundScores = this.lastRoundTeamScores.scores;
         roundData.teamTotals = { ...this.teamScores };
+      }
+
+      // 2v2 rounds: stamp the HP actually applied plus the multiplier it was
+      // computed with (see teamDamageMultiplier) — round-over hearts and DB
+      // replays read these instead of re-deriving the formula.
+      if (this.teamDuel && this.lastRoundTeamScores?.round === this.curRound) {
+        roundData.teamDamage = this.lastRoundTeamScores.damage;
+        roundData.teamDamageMultiplier = this.lastRoundTeamScores.multiplier;
       }
 
       // Save each player's guess and calculated points for this round
@@ -1808,6 +1827,11 @@ export default class Game {
     return this.roundHistory.map((roundData, index) => ({
       roundNumber: index + 1,
       ...(roundData.teamRoundScores ? { teamRoundScores: roundData.teamRoundScores } : {}),
+      // 2v2: applied damage + multiplier (see saveRoundToHistory) persist so
+      // history replays render the same hearts the live game showed.
+      ...(typeof roundData.teamDamage === 'number'
+        ? { teamDamage: roundData.teamDamage, teamDamageMultiplier: roundData.teamDamageMultiplier }
+        : {}),
       location: {
         lat: roundData.location.lat,
         long: roundData.location.long,

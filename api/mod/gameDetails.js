@@ -74,6 +74,9 @@ export default async function handler(req, res) {
           // denominator — roster at scoring time — isn't reconstructable
           // client-side), diverging from what players see.
           teamRoundScores: round.teamRoundScores ?? null,
+          // Parity with api/gameDetails.js: 2v2 damage stamp + multiplier.
+          teamDamage: round.teamDamage ?? null,
+          teamDamageMultiplier: round.teamDamageMultiplier ?? null,
 
           // User's guess data (from perspective user)
           guess: userGuess ? {

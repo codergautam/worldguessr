@@ -41,6 +41,13 @@ const roundSchema = new mongoose.Schema({
     b: { type: Number, default: null }
   },
 
+  // 2v2 rounds: the HP actually applied to the losing team and the multiplier
+  // it was computed with (damage = best-guess gap × multiplier; the value may
+  // change or become per-round — ws/classes/Game.js teamDamageMultiplier is
+  // the source of truth). null for other modes and pre-stamp saves.
+  teamDamage: { type: Number, default: null },
+  teamDamageMultiplier: { type: Number, default: null },
+
   // Round metadata
   startedAt: { type: Date, default: Date.now },
   endedAt: { type: Date, default: null },

@@ -101,7 +101,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
           average is a reachable target for beginners); the named top-100 board
           is deliberately tucked behind an opt-in modal so it isn't the main
           attraction. Mirrors the results screen's distribution card:
-          chart (≥10 plays) → meta → standing/hook. */}
+          hook (pre-play, as a subtitle) → chart (≥10 plays) → meta → standing. */}
       <section className="daily-landing-section">
         {/* "How you compare" only makes sense once there's a score to compare —
             pre-play it's just today's scores. */}
@@ -116,6 +116,13 @@ export default function DailyLanding({ today, distribution = null, userData = nu
             </button>
           )}
         </div>
+        {/* Pre-play incentive: the reachable target reads as a subtitle right
+            under the title, not buried below the chart. */}
+        {!playedToday && (distribution?.totalPlays || 0) > 0 && (
+          <div className="daily-distribution-hook">
+            {text('dailyBeatAvgHook', { avg: (distribution.avgScore || 0).toLocaleString() })}
+          </div>
+        )}
         {(distribution?.totalPlays || 0) > 0 ? (
           <>
             {distribution.totalPlays >= 10 ? (
@@ -128,7 +135,10 @@ export default function DailyLanding({ today, distribution = null, userData = nu
               <div className="daily-distribution-empty">{text('tooFewPlaysForChart')}</div>
             )}
             <div className="daily-distribution-meta">
-              <span>{text('averageScoreToday', { avg: distribution.avgScore || 0 })}</span>
+              {/* Pre-play the hook subtitle already states the average. */}
+              {playedToday && (
+                <span>{text('averageScoreToday', { avg: distribution.avgScore || 0 })}</span>
+              )}
               <span>{text('sampleSize', { count: distribution.totalPlays.toLocaleString() })}</span>
             </div>
             {(() => {
@@ -144,13 +154,6 @@ export default function DailyLanding({ today, distribution = null, userData = nu
                     <span className="daily-distribution-rank">
                       {text('rankOfTotal', { rank: userData.ownRank, total: distribution.totalPlays.toLocaleString() })}
                     </span>
-                  </div>
-                );
-              }
-              if (!playedToday) {
-                return (
-                  <div className="daily-distribution-empty">
-                    {text('dailyBeatAvgHook', { avg: (distribution.avgScore || 0).toLocaleString() })}
                   </div>
                 );
               }

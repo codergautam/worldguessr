@@ -61,6 +61,10 @@ export default async function handler(req, res) {
           // Server-computed per-round team scores (party team mode); null on
           // solo modes and on games saved before the field existed.
           teamRoundScores: round.teamRoundScores ?? null,
+          // 2v2 stamp: HP actually applied + the multiplier used; null on
+          // pre-stamp saves (client falls back to gap ×1.5).
+          teamDamage: round.teamDamage ?? null,
+          teamDamageMultiplier: round.teamDamageMultiplier ?? null,
 
           // User's guess data
           guess: userGuess ? {

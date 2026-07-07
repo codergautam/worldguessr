@@ -194,7 +194,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
       players: players, // Include players data for duels/multiplayer
       // Per-round team scores (cumulative party team games; null on older
       // saves — the summary falls back to recomputing from player points)
-      teamRoundScores: round.teamRoundScores ?? null
+      teamRoundScores: round.teamRoundScores ?? null,
+      // 2v2 damage stamp + multiplier (null on pre-stamp saves — the summary
+      // falls back to gap ×1.5)
+      teamDamage: round.teamDamage ?? null,
+      teamDamageMultiplier: round.teamDamageMultiplier ?? null
     };
   }).filter(round => round !== null); // Remove null entries
 

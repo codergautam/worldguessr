@@ -781,6 +781,15 @@
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
 }
+/* Pre-play incentive hook — subtitle tucked right under the "Today's Scores"
+   title (negative top margin eats into the title row's 14px gap). */
+.daily-distribution-hook {
+  margin: -8px 0 14px;
+  color: #ffd700;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 .daily-distribution-standing {
   display: flex;
   justify-content: space-between;
@@ -830,6 +839,11 @@
   margin-top: 8px;
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.7);
+}
+/* Pre-play only the plays count renders — keep it on the right edge where it
+   always sits. */
+.daily-distribution-meta span:only-child {
+  margin-left: auto;
 }
 
 /* Leaderboard (top-100 modal, opened from the landing's scores section) */
