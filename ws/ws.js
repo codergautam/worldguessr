@@ -994,6 +994,19 @@ app.ws('/wg', {
           return;
         }
 
+        // Full party / 2v2 staging lobby: the invite could never be accepted
+        // (joinGameByCode bounces with gameIsFull) — refuse at send time so
+        // the INVITER learns immediately instead of the friend on accept.
+        // After the already-in-game check so that more specific toast wins.
+        if (Object.keys(game.players).length >= game.maxPlayers) {
+          player.send({
+            type: 'toast',
+            key: 'gameIsFull',
+            toastType: 'error'
+          });
+          return;
+        }
+
         // make sure the friend is friends with the player
         if (!player.friends.find((f) => f.id === friend.accountId)) {
           return;

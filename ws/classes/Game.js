@@ -1761,8 +1761,9 @@ export default class Game {
     // Save duel game to MongoDB for history tracking
     if(this.duel && this.accountIds?.p1 && this.accountIds?.p2 && p1OldElo && p2OldElo) {
       this.saveInProgress = true;
-      const p1Xp = this.calculatePlayerXp(this.pIds?.p1);
-      const p2Xp = this.calculatePlayerXp(this.pIds?.p2);
+      // Ranked duels award double XP (2v2 and casual modes stay at 1x).
+      const p1Xp = this.calculatePlayerXp(this.pIds?.p1) * 2;
+      const p2Xp = this.calculatePlayerXp(this.pIds?.p2) * 2;
 
       console.log(`Player 1 XP: ${p1Xp}, Player 2 XP: ${p2Xp}`);
 

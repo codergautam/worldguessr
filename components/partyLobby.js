@@ -74,6 +74,10 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
   // 2v2 staging shows its one empty seat explicitly; open parties just grow.
   const seatCount = gameData?.maxPlayers ?? (is2v2 ? 2 : Infinity);
   const emptySeats = seatCount <= 4 ? Math.max(0, seatCount - players.length) : 0;
+  // Full lobby: nobody left to invite. Greys the invite-friends button here;
+  // the friends modal hides its invite buttons (canSendInvite) and the server
+  // refuses inviteFriend with gameIsFull, so all three layers agree.
+  const partyFull = players.length >= seatCount;
 
   const generatingBlocked = pending || (gameData?.rounds > gameData?.generated);
   const isLoggedIn = !!session?.token?.secret;
@@ -242,7 +246,7 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
                 className="party-lobby__icon-btn"
                 aria-label={text("inviteFriends")}
                 title={text("inviteFriends")}
-                disabled={pending}
+                disabled={pending || partyFull}
                 onClick={openFriends}
               ><FaUserPlus /></button>
             )}

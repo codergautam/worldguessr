@@ -583,6 +583,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [leaveConfirm, setLeaveConfirm] = useState(null);
     const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
+    // Friend-invite accept confirmation: accepting while in a live game
+    // forfeits it server-side (acceptInvite → removePlayer), which can cost
+    // ELO or count as an instant loss. Same payload-survives-close pattern
+    // as leaveConfirm above.
+    const [inviteConfirm, setInviteConfirm] = useState(null);
+    const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
+
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
@@ -1400,6 +1407,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // multiplayer stuff — connection lives in MultiplayerProvider (mounted in
     // _app.js) so it survives Next.js route changes and can't be opened twice.
     const { ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, ensureConnected } = useMultiplayer();
+    // Fresh handle for long-lived closures: an invite toast lives ~10s, and
+    // its accept handler must judge "am I in a live game?" against the state
+    // at CLICK time, not at toast creation (a match can start in between).
+    const multiplayerStateRef = useRef(multiplayerState);
+    multiplayerStateRef.current = multiplayerState;
     // Tell the provider to actually open the WS. Provider is lazy by default
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
@@ -2324,6 +2336,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 const { code, invitedByName, invitedById } = data;
 
                 const toAccept = (closeToast) => {
+                    // Accepting yanks you out of the current game server-side
+                    // (forfeit): mid-match that can cost ELO or insta-lose, so
+                    // route through the confirm modal instead of sending.
+                    // Read through the ref — this closure can outlive several
+                    // state changes while the toast sits on screen.
+                    const mp = multiplayerStateRef.current;
+                    const liveGame = mp?.inGame && mp?.gameData && !["waiting", "end"].includes(mp.gameData.state);
+                    if (liveGame) {
+                        setInviteConfirm({ code, invitedById, from: invitedByName });
+                        setInviteConfirmOpen(true);
+                        closeToast();
+                        return;
+                    }
                     ws.send(JSON.stringify({ type: 'acceptInvite', code, invitedById }))
                     closeToast()
                 }
@@ -3194,6 +3219,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
                     multiplayerState?.inGame && !multiplayerState?.gameData?.public
+                    // No inviting into a full party / 2v2 staging lobby — the
+                    // invite could only ever bounce off gameIsFull. Same seat
+                    // fallback as partyLobby (2v2 lobbies cap at 2).
+                    && (multiplayerState?.gameData?.players?.length ?? 0) <
+                        (multiplayerState?.gameData?.maxPlayers ?? (multiplayerState?.gameData?.is2v2Lobby ? 2 : Infinity))
                 } sendInvite={sendInvite} options={options}
             />}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
@@ -3795,6 +3825,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                 >
                     <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{leaveConfirm ? text(leaveConfirm.messageKey) : ""}</p>
+                </Modal>
+
+                {/* Friend-invite accept while in a live game — same design as
+                    the leave confirm above. Confirming sends the acceptInvite
+                    the toast would have sent; the server then pulls us out of
+                    the current game (forfeit) and into the friend's party. */}
+                <Modal
+                    isOpen={inviteConfirmOpen}
+                    onClose={() => setInviteConfirmOpen(false)}
+                    title={text("areYouSure")}
+                    actions={
+                        <>
+                            <button onClick={() => setInviteConfirmOpen(false)}>{text("cancel")}</button>
+                            <button onClick={() => {
+                                setInviteConfirmOpen(false);
+                                try {
+                                    ws?.send(JSON.stringify({ type: 'acceptInvite', code: inviteConfirm?.code, invitedById: inviteConfirm?.invitedById }));
+                                } catch (e) {}
+                            }}>{text("join")}</button>
+                        </>
+                    }
+                >
+                    <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{inviteConfirm ? text("acceptInviteWarning", { from: inviteConfirm.from }) : ""}</p>
                 </Modal>
 
                 {connectionErrorModalShown && <AlertModal
