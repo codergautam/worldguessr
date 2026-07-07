@@ -891,7 +891,6 @@
   "teamRoundWon": "Dein Team hat die Runde gewonnen!",
   "teamRoundLost": "Dein Team hat die Runde verloren.",
   "teamRoundTied": "Die Runde endete unentschieden.",
-  "guessCounted": "Deine Vermutung hat gezählt 🎯",
   "guessCountedBy": "Die Vermutung von {{name}} hat gezählt",
   "guessCountedTie": "Beide Vermutungen haben gezählt 🎯",
   "dealtDamage": "{{dmg}} Schaden ausgeteilt!",

@@ -20,8 +20,8 @@ const easeOutBack = (t) => {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
 
-// Team name block: one name per line ("You" / "& mate"). Teams are capped at
-// 2 players, so the stack never grows past two lines.
+// Team name block: one name per line. Teams are capped at 2 players, so the
+// stack never grows past two lines.
 // Flex column (NOT inline with block children): an inline .player-name keeps
 // its own empty line-strut below block children — the "phantom third row".
 const stackStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: 0, maxWidth: '100%', minWidth: 0 };
@@ -45,23 +45,34 @@ const TeamNames = ({ names, dcLabel }) => {
             {/* Ellipsis must live on the text box itself — it has no effect on a
                 flex parent, which just hard-clipped long names mid-character. */}
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-              {i > 0 ? `& ${entry.name}` : entry.name}
+              {entry.name}
             </span>
             {entry.countryCode && <CountryFlag countryCode={entry.countryCode} />}
-            {entry.disconnected && <MdWifiOff className="hb-dc" title={dcLabel} aria-label={dcLabel} />}
           </>
         );
+        const leagueColor = typeof entry.elo === 'number'
+          ? (getLeague(entry.elo)?.light ?? getLeague(entry.elo)?.color ?? '#60a5fa')
+          : null;
         // Every registered player but yourself gets the same profile link
         // 1v1 opponents have (the multi-name stack used to drop it
         // entirely). Guests have no /user page — hasProfile keeps their
-        // names as plain text instead of dead links.
-        return entry.username && !entry.isMe && entry.hasProfile ? (
-          <Link key={i} href={`/user?u=${encodeURIComponent(entry.username)}`} target="_blank"
-            style={{ ...rowStyle, color: 'inherit', textDecoration: 'underline', pointerEvents: 'auto' }}>
-            {inner}
-          </Link>
-        ) : (
-          <span key={i} style={rowStyle}>{inner}</span>
+        // names as plain text instead of dead links. The link wraps only
+        // name+flag so the elo suffix stays un-underlined, like the 1v1 bar.
+        return (
+          <span key={i} style={rowStyle}>
+            {entry.username && !entry.isMe && entry.hasProfile ? (
+              <Link href={`/user?u=${encodeURIComponent(entry.username)}`} target="_blank"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', maxWidth: '100%', minWidth: 0, color: 'inherit', textDecoration: 'underline', pointerEvents: 'auto' }}>
+                {inner}
+              </Link>
+            ) : inner}
+            {leagueColor && (
+              <span className="player-elo" style={{ flex: 'none', color: leagueColor, textShadow: `0 0 10px ${leagueColor}60` }}>
+                ({entry.elo})
+              </span>
+            )}
+            {entry.disconnected && <MdWifiOff className="hb-dc" title={dcLabel} aria-label={dcLabel} />}
+          </span>
         );
       })}
     </span>
@@ -170,6 +181,8 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                maxWidth: '100%',
+                minWidth: 0,
                 opacity: disconnected ? 0.55 : undefined
               }}
               onMouseEnter={(e) => {
@@ -179,15 +192,18 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
                 e.currentTarget.style.opacity = disconnected ? '0.55' : '1';
               }}
             >
-              {name}
+              {/* Same ellipsis-on-the-text-box trick as TeamNames — text-overflow
+                  is inert on the flex link itself, which hard-clipped long names
+                  mid-character and pushed the flag out of view. */}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
               {countryCode && <CountryFlag countryCode={countryCode} />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </Link>
           ) : (
             // Also the guest-opponent fallback (no /user page → no link), so
             // it keeps the same disconnect furniture as the linked branch.
-            <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: disconnected ? 0.55 : undefined }}>
-              {name}
+            <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', maxWidth: '100%', minWidth: 0, opacity: disconnected ? 0.55 : undefined }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
               {countryCode && <CountryFlag countryCode={countryCode} />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </span>

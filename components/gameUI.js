@@ -939,6 +939,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     hasProfile: !!p.accountId,
     countryCode: p.countryCode || null,
     disconnected: !!p.disconnected,
+    // League-colored "(elo)" suffix, same as the 1v1 bars. Guests have no elo
+    // (null/undefined) so the suffix simply doesn't render for them.
+    elo: typeof p.elo === 'number' ? p.elo : null,
   });
   const myNames = players.filter(p => p.team === myTeam)
     .sort((a, b) => (b.id === myId) - (a.id === myId))

@@ -278,11 +278,14 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         carrierRef.current = { key: teamRevealKey, carrier };
     }
     const teamCarrier = teamRevealKey ? carrierRef.current.carrier : null;
+    // "Your guess counted" is self-evident noise (user ruling) — the credit
+    // line only earns its space when the TEAMMATE carried, or on an exact tie
+    // (which still tells you your mate matched your guess).
     const teamCarrierText = teamCarrier
         ? (teamCarrier.tie
             ? text("guessCountedTie")
             : teamCarrier.isMe
-                ? text("guessCounted")
+                ? null
                 : teamCarrier.name ? text("guessCountedBy", { name: teamCarrier.name }) : null)
         : null;
     // Compact points for the parenthetical: 3412 → "3.4k", 5000 → "5k".
