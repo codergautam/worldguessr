@@ -1284,10 +1284,11 @@ const GameSummary = ({
                     ? membersOf(team).find(p => (round.players?.[p.id]?.points || 0) === best)
                     : null;
                   const displayScore = isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best;
-                  // ×1 means "no multiplier" — tag and tooltip only render
-                  // when a real multiplier shaped the damage (per-round
-                  // stamps may legitimately be 1 someday).
-                  const dmgMult = round.teamDamageMultiplier ?? 1.5;
+                  // Unstamped rounds (pre-stamp server/saves) were 1x, so the
+                  // fallback is 1 — and ×1 means "no multiplier": the tag and
+                  // tooltip only render when a real multiplier shaped the
+                  // damage (per-round stamps may also legitimately be 1).
+                  const dmgMult = round.teamDamageMultiplier ?? 1;
                   const showMult = !isCumulativeTeam && dmgMult !== 1;
                   return (
                     <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -1330,11 +1331,12 @@ const GameSummary = ({
                       // 2v2 hearts show the HP actually applied. The server
                       // stamps damage + multiplier per round (Game.js
                       // saveRoundToHistory) — the formula lives THERE alone,
-                      // never here; the gap ×1.5 fallback only covers rounds
-                      // recorded before the stamp shipped. Cumulative parties
-                      // render +pts instead of hearts, so dmg never shows.
+                      // never here. Unstamped rounds (pre-stamp servers and
+                      // old saves) applied NO multiplier, so the fallback is
+                      // the raw gap. Cumulative parties render +pts instead
+                      // of hearts, so dmg never shows there.
                       const stampedDmg = typeof round.teamDamage === 'number' ? round.teamDamage : null;
-                      const dmgOf = (gap) => stampedDmg ?? (isCumulativeTeam ? gap : Math.round(gap * 1.5));
+                      const dmgOf = (gap) => stampedDmg ?? gap;
                       const myDmg = myBest < enemyBest ? dmgOf(enemyBest - myBest) : 0;
                       const enemyDmg = enemyBest < myBest ? dmgOf(myBest - enemyBest) : 0;
                       const myTime = round.players?.[myId]?.timeTaken;

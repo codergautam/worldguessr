@@ -62,7 +62,7 @@ export default async function handler(req, res) {
           // solo modes and on games saved before the field existed.
           teamRoundScores: round.teamRoundScores ?? null,
           // 2v2 stamp: HP actually applied + the multiplier used; null on
-          // pre-stamp saves (client falls back to gap ×1.5).
+          // pre-stamp saves (client falls back to the raw gap, ×1).
           teamDamage: round.teamDamage ?? null,
           teamDamageMultiplier: round.teamDamageMultiplier ?? null,
 

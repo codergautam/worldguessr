@@ -454,8 +454,9 @@ export default class Game {
   // 2v2 damage multiplier for a given round — THE single source of truth for
   // the formula. Every surface (live banner, round-over hearts, DB replays)
   // displays the stamped damage/multiplier, so tweaking this value or making
-  // it ramp per round later needs no client change. The client's gap×1.5
-  // fallback exists only for rounds recorded before the stamp shipped.
+  // it ramp per round later needs no client change. Unstamped rounds fall
+  // back to the raw gap (×1) client-side, matching the pre-stamp servers
+  // that applied no multiplier.
   teamDamageMultiplier(round) {
     return 1.5;
   }

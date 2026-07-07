@@ -196,7 +196,7 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
       // saves — the summary falls back to recomputing from player points)
       teamRoundScores: round.teamRoundScores ?? null,
       // 2v2 damage stamp + multiplier (null on pre-stamp saves — the summary
-      // falls back to gap ×1.5)
+      // falls back to the raw gap, ×1)
       teamDamage: round.teamDamage ?? null,
       teamDamageMultiplier: round.teamDamageMultiplier ?? null
     };
