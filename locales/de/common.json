@@ -905,6 +905,7 @@
   "guessCountedTie": "Beide Vermutungen haben gezählt 🎯",
   "dealtDamage": "{{dmg}} Schaden ausgeteilt!",
   "tookDamage": "{{dmg}} Schaden erlitten",
+  "teamDamageMultiplierHint": "Der Schaden ist die Punktedifferenz der Runde mal {{mult}}",
   "leaveTeamGameWarning": "Team-Match verlassen? Dein Team spielt ohne dich weiter.",
   "endMatchWarning": "Das Match für alle beenden und zur Lobby zurückkehren?",
   "endMatch": "Match beenden",

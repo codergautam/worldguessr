@@ -905,6 +905,7 @@
   "guessCountedTie": "Оба ответа засчитаны 🎯",
   "dealtDamage": "Нанесено {{dmg}} урона!",
   "tookDamage": "Получено {{dmg}} урона",
+  "teamDamageMultiplierHint": "Урон равен разнице очков за раунд, умноженной на {{mult}}",
   "leaveTeamGameWarning": "Покинуть командный матч? Ваша команда продолжит без вас.",
   "endMatchWarning": "Завершить матч для всех и вернуться в лобби?",
   "endMatch": "Завершить матч",

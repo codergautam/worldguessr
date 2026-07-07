@@ -906,6 +906,7 @@
   "guessCountedTie": "Both guesses counted 🎯",
   "dealtDamage": "Dealt {{dmg}} damage!",
   "tookDamage": "Took {{dmg}} damage",
+  "teamDamageMultiplierHint": "Damage is the round score difference times {{mult}}",
   "leaveTeamGameWarning": "Leave the team match? Your team will keep playing without you.",
   "endMatchWarning": "End the match for everyone and return to the party lobby?",
   "endMatch": "End match",
