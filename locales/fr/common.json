@@ -905,6 +905,7 @@
   "guessCountedTie": "Les deux estimations ont compté 🎯",
   "dealtDamage": "Vous avez infligé {{dmg}} dégâts !",
   "tookDamage": "Vous avez subi {{dmg}} dégâts",
+  "teamDamageMultiplierHint": "Les dégâts correspondent à l'écart de points de la manche multiplié par {{mult}}",
   "leaveTeamGameWarning": "Quitter le match d'équipe ? Votre équipe continuera sans vous.",
   "endMatchWarning": "Terminer le match pour tout le monde et revenir au salon ?",
   "endMatch": "Terminer le match",
