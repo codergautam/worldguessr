@@ -1944,6 +1944,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         lobbyIntent: null,
                         gameQueued: "2v2",
                         queueStage: "opponents",
+                        // Emotes stay live on the queue banner (the duo still
+                        // shares its staging lobby server-side) — keep my id
+                        // around for self-styling now that gameData is gone.
+                        queueMyId: data.myId,
                         joinOptions: initialMultiplayerState.joinOptions,
                     }));
                     return;
@@ -2066,6 +2070,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     lobbyIntent: teammateStage ? prev.lobbyIntent : null,
                     gameQueued: "2v2",
                     queueStage: teammateStage ? "teammate" : "opponents",
+                    // Stage 2 wipes gameData but the duo still shares its
+                    // staging lobby server-side, so emotes keep flowing on the
+                    // queue banner — preserve my id for self-styling.
+                    queueMyId: prev.gameData?.myId ?? prev.queueMyId,
                 }))
             } else if (data.type === "publicDuelRange") {
                 // Also a valid join confirmation for ranked — retire the watchdog.
@@ -2981,19 +2989,23 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // the memo so it only re-renders on an actual team change, not on every
     // players-array update.
     const myEmoteTeam = getMyTeam(multiplayerState?.gameData?.players, multiplayerState?.gameData?.myId);
+    // 2v2 queue (stage-2 "finding opponents" banner) keeps emotes alive: the
+    // duo still shares its staging lobby server-side, so sends/broadcasts work
+    // even though inGame is false and gameData is wiped.
+    const emotesLive = multiplayerState?.inGame || multiplayerState?.gameQueued === '2v2';
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
         subscribeMessages={subscribeMessages}
         enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
-        inGame={multiplayerState?.inGame}
-        myId={multiplayerState?.gameData?.myId}
+        inGame={emotesLive}
+        myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
         myTeam={myEmoteTeam}
         // Hide names only in 1v1 duels, where attribution is obvious (you or
         // the one opponent). 2v2 duels NEED the name + team color — with four
         // players an anonymous emote is unreadable.
         hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [ws, subscribeMessages, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state])
+    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state])
 
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 

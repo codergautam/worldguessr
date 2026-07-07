@@ -165,39 +165,51 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         ? (singlePlayerRound?.lastPoint ?? (countryGuesserCorrect ? 1000 : 0))
         : (singlePlayerRound?.lastPoint ?? points);
 
-    // On the world map, promote the country reveal when the guess landed in the
-    // wrong country — that's the interesting signal, distance/points are secondary.
+    // Resolve which country MY pin landed in. Two consumers, opposite jobs:
+    //   - classic SP/daily world map: a wrong-country pin PROMOTES the reveal
+    //     to the headline — that's the interesting signal there;
+    //   - HP modes (1v1 + 2v2 duels): a right-country pin SUPPRESSES the
+    //     "It was X" line above the damage verdict (singleplayer parity).
     // Borders data is fetched lazily; on a cold first guess we may render once
-    // without the wrongCountry copy and then re-render once the data arrives.
-    const wantsWrongCountry = isClassicRound && (isWorldMap || dailyMode) && pinPoint && latLong?.country;
-    const [wrongCountryName, setWrongCountryName] = useState(null);
+    // with the match unresolved and settle when the data arrives.
+    const gd = multiplayerState?.gameData;
+    const wantsPinCountry = ((isClassicRound && (isWorldMap || dailyMode)) || (multiplayerState?.inGame && gd?.duel))
+        && pinPoint && latLong?.country && latLong.country !== 'unknown';
+    // true/false once resolved; null = no pin / still resolving / lookup failed.
+    const [pinInRoundCountry, setPinInRoundCountry] = useState(null);
     useEffect(() => {
-        if (!wantsWrongCountry) {
-            setWrongCountryName(null);
+        if (!wantsPinCountry) {
+            setPinInRoundCountry(null);
             return;
         }
+        const resolve = (guessCountry) => setPinInRoundCountry(
+            guessCountry && guessCountry !== "Unknown" ? guessCountry === latLong.country : null
+        );
         // Try sync (cached) first to avoid an extra render.
         const sync = findCountryLocalSync({ lat: pinPoint.lat, lon: pinPoint.lng });
         if (sync !== null) {
-            setWrongCountryName(sync && sync !== "Unknown" && sync !== latLong.country ? nameFromCode(latLong.country, lang) : null);
+            resolve(sync);
             return;
         }
         let cancelled = false;
         findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng })
             .then((guessCountry) => {
-                if (cancelled) return;
-                setWrongCountryName(guessCountry && guessCountry !== "Unknown" && guessCountry !== latLong.country ? nameFromCode(latLong.country, lang) : null);
+                if (!cancelled) resolve(guessCountry);
             })
             .catch(() => {
-                if (!cancelled) setWrongCountryName(null);
+                if (!cancelled) setPinInRoundCountry(null);
             });
         return () => { cancelled = true; };
-    }, [wantsWrongCountry, pinPoint?.lat, pinPoint?.lng, latLong?.country, lang]);
+    }, [wantsPinCountry, pinPoint?.lat, pinPoint?.lng, latLong?.country]);
+    // Classic wrong-country headline: only once the pin is CONFIRMED outside
+    // the round's country (same visibility as before the tri-state refactor).
+    const wrongCountryName = isClassicRound && (isWorldMap || dailyMode) && pinInRoundCountry === false && latLong?.country
+        ? nameFromCode(latLong.country, lang)
+        : null;
 
     const distanceText = (pinPoint && km >= 0)
         ? text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })
         : null;
-    const gd = multiplayerState?.gameData;
     const players = gd?.players || [];
     const myTeam = (gd?.team2v2 || gd?.teamGame) ? getMyTeam(players, gd?.myId) : null;
     const teamRoundScores = gd?.teamRoundScores?.scores;
@@ -313,10 +325,12 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const damageHeadline = showTeamDuelRoundSummary
         ? { dealt: winningRoundTeam === myTeam, dmg: teamRoundDamage }
         : duelRoundDamage;
-    // Country reveal above the damage verdict. Matchmade HP modes always run
-    // the world pool so country is present; community-map locations stamp
-    // 'unknown' server-side and skip the line.
+    // Country reveal above the damage verdict. Matchmade HP modes run world
+    // pools so country is present; community-map locations stamp 'unknown'
+    // server-side and skip the line. Singleplayer parity: naming the right
+    // country silences the reveal — no pin or a wrong-country pin keeps it.
     const duelRevealCountry = damageHeadline && latLong?.country && latLong.country !== 'unknown'
+        && (!pinPoint || pinInRoundCountry === false)
         ? nameFromCode(latLong.country, lang)
         : null;
     // Shared "It was {country}" + flag img reveal — HP-mode line, classic

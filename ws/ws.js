@@ -47,18 +47,37 @@ const main = async () => {
 main();
 }
 
+function normalizeArbLoc(r) {
+  const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
+  if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
+  if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
+  if (r.panoId) loc.panoId = r.panoId;
+  return loc;
+}
+
 function pick5RandomArb() {
   const rand = new Set();
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => {
-    const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
-    if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
-    if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
-    if (r.panoId) loc.panoId = r.panoId;
-    return loc;
-  });
+  return [...rand].map(normalizeArbLoc);
+}
+
+// 2v2 team duels: each round draws 50/50 from the standard world pool and the
+// arbitrary pool (the harder map high-elo 1v1 duels play on). A coin flip per
+// round rather than a pool merge, so the mix holds regardless of pool sizes.
+function pick5WorldArbMix(worldPool) {
+  const seen = new Set();
+  const locs = [];
+  while (locs.length < 5) {
+    const fromArb = Math.random() < 0.5;
+    const pool = fromArb ? arbitraryWorld : worldPool;
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    if (seen.has(r)) continue;
+    seen.add(r);
+    locs.push(fromArb ? normalizeArbLoc(r) : r);
+  }
+  return locs;
 }
 
 
@@ -2304,6 +2323,10 @@ try {
         const gameId = uuidv4();
         // public=true (loop manages lifecycle like a public duel), teamDuel=true.
         const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+        // Matchmade 2v2s play a world + arbitrary-map mix (same override
+        // pattern as the high-elo 1v1 path below — constructor generation of
+        // the "all" pool is synchronous, so replacing here is safe).
+        game.locations = pick5WorldArbMix(allLocations);
         game.autoPairedTeams = autoPairedTeams;
         game.teamHostIds = teamHostIds;
         games.set(gameId, game);
