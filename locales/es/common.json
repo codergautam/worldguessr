@@ -891,7 +891,6 @@
   "teamRoundWon": "¡Tu equipo ganó la ronda!",
   "teamRoundLost": "Tu equipo perdió la ronda.",
   "teamRoundTied": "La ronda terminó empatada.",
-  "guessCounted": "Tu suposición contó 🎯",
   "guessCountedBy": "Contó la suposición de {{name}}",
   "guessCountedTie": "Ambas suposiciones contaron 🎯",
   "dealtDamage": "¡Infligiste {{dmg}} de daño!",

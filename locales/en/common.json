@@ -892,7 +892,6 @@
   "teamRoundWon": "Your team won the round!",
   "teamRoundLost": "Your team lost the round.",
   "teamRoundTied": "The round was tied.",
-  "guessCounted": "Your guess counted 🎯",
   "guessCountedBy": "{{name}}'s guess counted",
   "guessCountedTie": "Both guesses counted 🎯",
   "dealtDamage": "Dealt {{dmg}} damage!",

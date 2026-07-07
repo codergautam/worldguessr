@@ -891,7 +891,6 @@
   "teamRoundWon": "Votre équipe a gagné la manche !",
   "teamRoundLost": "Votre équipe a perdu la manche.",
   "teamRoundTied": "La manche est à égalité.",
-  "guessCounted": "Votre estimation a compté 🎯",
   "guessCountedBy": "L'estimation de {{name}} a compté",
   "guessCountedTie": "Les deux estimations ont compté 🎯",
   "dealtDamage": "Vous avez infligé {{dmg}} dégâts !",
