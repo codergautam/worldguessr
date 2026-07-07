@@ -891,7 +891,6 @@
   "teamRoundWon": "Ваша команда выиграла раунд!",
   "teamRoundLost": "Ваша команда проиграла раунд.",
   "teamRoundTied": "Раунд завершился вничью.",
-  "guessCounted": "Ваш ответ засчитан 🎯",
   "guessCountedBy": "Засчитан ответ игрока {{name}}",
   "guessCountedTie": "Оба ответа засчитаны 🎯",
   "dealtDamage": "Нанесено {{dmg}} урона!",
