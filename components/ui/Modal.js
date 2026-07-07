@@ -104,7 +104,9 @@ export default function Modal({
           font-family: "Lexend", "Lexend Fallback", sans-serif;
           max-width: 500px;
           width: 100%;
-          max-height: 80vh;
+          /* 100% = backdrop's padded box; the backdrop is fixed top/bottom so
+             this tracks the real visible viewport (vh lies on mobile URL bars) */
+          max-height: min(80vh, 100%);
           overflow: hidden;
           animation: slideIn 0.2s ease-out;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
@@ -125,8 +127,10 @@ export default function Modal({
           display: flex;
           justify-content: space-between;
           align-items: center;
+          gap: 12px;
           padding: 20px 24px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
         }
 
         .modal-title {
@@ -134,6 +138,8 @@ export default function Modal({
           font-size: 1.5rem;
           font-weight: 600;
           color: white;
+          min-width: 0;
+          overflow-wrap: break-word;
         }
 
         .modal-close {
@@ -149,6 +155,7 @@ export default function Modal({
           cursor: pointer;
           font-size: 18px;
           transition: all 0.2s ease;
+          flex-shrink: 0;
         }
 
         .modal-close:hover {
@@ -161,6 +168,7 @@ export default function Modal({
           overflow-y: auto;
           flex: 1;
           min-height: 0;
+          overflow-wrap: break-word;
         }
 
         .modal-actions {
@@ -224,10 +232,16 @@ export default function Modal({
         }
 
         @media (max-width: 768px) {
+          .modal-backdrop {
+            padding: 12px;
+          }
+
           .modal {
-            margin: 20px 10px;
-            max-width: calc(100vw - 20px);
-            max-height: calc(100vh - 40px);
+            /* the backdrop's padding is the only inset — margins here made the
+               modal overflow the centered flex box and clipped the header/X */
+            margin: 0;
+            max-width: 100%;
+            max-height: 100%;
           }
           
           .modal-header {
