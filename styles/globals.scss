@@ -1701,7 +1701,12 @@ h1, h2, h3, span, label {
 // screens — the old <=540px "scorebar to 110px" reversal was dodging exactly
 // this and is now gone. Double class beats .timer.shown's transform, same
 // trick as .timer.duel.
-@media screen and (max-width: 830px) {
+// Portrait-only: the stack burns ~100px of the scarce vertical band, and in
+// landscape there's ample horizontal room for the centered scorebar and a
+// right-anchored timer to coexist — so landscape keeps the base top:50/right:0
+// spot (same as desktop and every other mode; wide landscape phones >830px
+// never stacked to begin with).
+@media screen and (max-width: 830px) and (orientation: portrait) {
     .timer.timer--with-scorebar {
         // Scorebar band ends ~91px (top 40 + ~51 tall) — 96 keeps real
         // headroom instead of the 1px razor a 92px top left.
@@ -1715,6 +1720,17 @@ h1, h2, h3, span, label {
     // conflict .timer.duel.critical already patches for the duel timer).
     .timer.timer--with-scorebar.critical {
         transform: translateX(50%) scale(1.05);
+    }
+}
+
+// Landscape phones (same height gate as the other mobile-landscape tiers):
+// no ad band up there and only ~360-430px of viewport height, so the team
+// timer hugs the true top-right corner instead of base .timer's top:50 —
+// that 50px gap only exists to clear the desktop ad band. Scoped to
+// timer--with-scorebar so no other mode's timer moves.
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    .timer.timer--with-scorebar {
+        top: 10px;
     }
 }
 

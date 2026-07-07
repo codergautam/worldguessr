@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "2.2.1",
+    "version": "2.3.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -40,7 +40,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#112b18"
       },
-      "versionCode": 23,
+      "versionCode": 24,
       "edgeToEdgeEnabled": true,
       "package": "com.codergautamyt.worldguessr",
       "intentFilters": [

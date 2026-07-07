@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
+  Linking,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -42,20 +43,24 @@ function getLatestVersion(entries: ChangelogEntry[]): ChangelogEntry | null {
 }
 
 // ── Minimal markdown renderer for the changelog subset ───────────────────────
-// Supports: ### / ## / # headers, **bold**, "-"/"*" bullets, and paragraphs.
-// Returns an array of React nodes (one per line/block).
-type InlineSeg = { text: string; bold: boolean };
+// Supports: ### / ## / # headers, **bold**, [text](url) links, "-"/"*" bullets,
+// and paragraphs. Returns an array of React nodes (one per line/block).
+type InlineSeg = { text: string; bold: boolean; url?: string };
 
 function parseInline(text: string): InlineSeg[] {
   const segments: InlineSeg[] = [];
-  const regex = /\*\*(.+?)\*\*/g;
+  const regex = /\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)]+)\)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ text: text.slice(lastIndex, match.index), bold: false });
     }
-    segments.push({ text: match[1], bold: true });
+    if (match[1] !== undefined) {
+      segments.push({ text: match[1], bold: true });
+    } else {
+      segments.push({ text: match[2], bold: false, url: match[3] });
+    }
     lastIndex = regex.lastIndex;
   }
   if (lastIndex < text.length) {
@@ -68,11 +73,21 @@ function InlineText({ text, style }: { text: string; style?: any }) {
   const segs = parseInline(text);
   return (
     <Text style={style}>
-      {segs.map((s, i) => (
-        <Text key={i} style={s.bold ? styles.bold : undefined}>
-          {s.text}
-        </Text>
-      ))}
+      {segs.map((s, i) =>
+        s.url ? (
+          <Text
+            key={i}
+            style={styles.link}
+            onPress={() => Linking.openURL(s.url!).catch(() => {})}
+          >
+            {s.text}
+          </Text>
+        ) : (
+          <Text key={i} style={s.bold ? styles.bold : undefined}>
+            {s.text}
+          </Text>
+        )
+      )}
     </Text>
   );
 }
@@ -334,6 +349,11 @@ const styles = StyleSheet.create({
   bold: {
     color: '#fff',
     fontFamily: 'Lexend-SemiBold',
+  },
+  link: {
+    color: '#4CAF50',
+    fontFamily: 'Lexend-SemiBold',
+    textDecorationLine: 'underline',
   },
   spacer: {
     height: 8,
