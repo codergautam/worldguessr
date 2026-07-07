@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
   StyleProp,
   ViewStyle,
 } from 'react-native';
@@ -28,7 +27,7 @@ import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
-import { useGoogleSignIn } from '../../src/hooks/useGoogleSignIn';
+import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
 import PlayerName from '../../src/components/PlayerName';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
@@ -234,9 +233,9 @@ export default function HomeScreen() {
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
   const [animatedElo, setAnimatedElo] = useState(0);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
-  // Android offers only Google, so the login button signs in directly via this
-  // hook instead of opening the chooser sheet (see handleLogin).
-  const { signIn: googleSignIn, isReady: googleReady } = useGoogleSignIn();
+  // Android signs in with Google directly (single provider — no chooser
+  // sheet); iOS opens the sheet. The platform fork lives in useLoginPrompt.
+  const handleLogin = useLoginPrompt(() => setAccountSheetVisible(true));
   const [whatsNewDemo, setWhatsNewDemo] = useState(false);
   const [restoringAccount, setRestoringAccount] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
@@ -358,21 +357,6 @@ export default function HomeScreen() {
       modPopupAnim.setValue(0);
     }
   }, [showModPopup]);
-
-  const handleLogin = useCallback(() => {
-    if (authLoading) return;
-    // Android has a single provider (Google) — skip the chooser sheet and run the
-    // Google flow straight away. iOS keeps the sheet because it also offers Apple.
-    // If the Google request isn't ready yet, fall back to the sheet so the tap is
-    // never a dead end.
-    if (Platform.OS === 'android' && googleReady) {
-      googleSignIn().then((res) => {
-        if (!res.ok && res.error) Alert.alert(t('signIn'), res.error);
-      });
-      return;
-    }
-    setAccountSheetVisible(true);
-  }, [authLoading, googleReady, googleSignIn]);
 
   // Restore an account that's within its 30-day deletion grace period. Explicit
   // user action (we never auto-cancel on login) — see api/cancelDeletion.js.

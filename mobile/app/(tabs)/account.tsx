@@ -8,6 +8,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import ProfileView from '../../src/components/account/ProfileView';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
+import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 
 type AccountTabParam = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
 const VALID_ACCOUNT_TABS: AccountTabParam[] = ['profile', 'history', 'elo', 'friends', 'moderation'];
@@ -26,10 +27,8 @@ export default function AccountScreen() {
     router.navigate('/(tabs)/home');
   };
 
-  const handleLogin = async () => {
-    if (authLoading) return;
-    setAccountSheetVisible(true);
-  };
+  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  const handleLogin = useLoginPrompt(() => setAccountSheetVisible(true));
 
   if (!user) {
     return (

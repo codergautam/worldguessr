@@ -21,6 +21,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
+import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 
 const TOTAL_ROUNDS = 3;
 const COUNTRY_MAX = 3000;
@@ -208,14 +209,24 @@ export default function OnboardingPlay() {
     });
   }, [round]);
 
-  // Auth-gated continuation
+  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  const promptLogin = useLoginPrompt(() => setAuthSheetVisible(true));
+
+  // Auth-gated continuation. iOS runs the pending action from the sheet's
+  // onClose (handleAuthSheetClose); Android's direct Google flow never opens
+  // the sheet, so promptLogin's onSuccess drains the same ref instead — and
+  // clears it so a later sheet close can't double-fire the action.
   const requireAuth = (action: () => void) => {
     if (isAuthenticated) {
       action();
       return;
     }
     pendingAuthAction.current = action;
-    setAuthSheetVisible(true);
+    promptLogin(() => {
+      const pending = pendingAuthAction.current;
+      pendingAuthAction.current = null;
+      pending?.();
+    });
   };
 
   const handleAuthSheetClose = () => {

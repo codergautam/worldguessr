@@ -6,6 +6,7 @@ import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import { useAuthStore } from '../../store/authStore';
 import AccountSelectSheet from '../auth/AccountSelectSheet';
+import { useLoginPrompt } from '../../hooks/useGoogleSignIn';
 
 interface TopRightActionsProps {
   children?: ReactNode;
@@ -17,6 +18,8 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const username = useAuthStore((s) => s.user?.username);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
+  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  const promptLogin = useLoginPrompt(() => setAccountSheetVisible(true));
 
   const beforeNavigate = () => {
     onBeforeNavigate?.();
@@ -41,7 +44,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
               beforeNavigate();
               router.push('/(tabs)/account');
             } else {
-              setAccountSheetVisible(true);
+              promptLogin();
             }
           }}
           style={({ pressed }) => [styles.toolbarBtn, pressed && { opacity: 0.85 }]}

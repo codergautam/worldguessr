@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import type { AuthSessionResult } from 'expo-auth-session';
 import { t } from '../shared';
 import { useGoogleAuth } from './useGoogleAuth';
@@ -138,6 +138,36 @@ async function getBrowserIdToken(
   }
   // 'cancel' / 'dismiss' — the user backed out.
   return { ok: false, cancelled: true };
+}
+
+/**
+ * Shared login entry point for every "Sign in" affordance. Android has a
+ * single provider (Google), so a tap runs the native Google flow directly —
+ * no chooser sheet. iOS opens the AccountSelectSheet (Apple + Google). If the
+ * Android flow isn't ready, fall back to the sheet so the tap is never a
+ * dead end.
+ *
+ * `onSuccess` runs only after a successful ANDROID direct sign-in — the iOS
+ * sheet path signals completion through the sheet's own onClose instead.
+ * Callers passing the prompt straight to onPress are safe: a press event in
+ * the first arg is ignored (only functions are honored).
+ */
+export function useLoginPrompt(openSheet: () => void) {
+  const { signIn, isReady, loading } = useGoogleSignIn();
+  const authLoading = useAuthStore((s) => s.isLoading);
+
+  return useCallback((onSuccess?: unknown) => {
+    if (authLoading || loading) return;
+    const after = typeof onSuccess === 'function' ? (onSuccess as () => void) : undefined;
+    if (Platform.OS === 'android' && isReady) {
+      signIn().then((res) => {
+        if (res.ok) after?.();
+        else if (res.error) Alert.alert(t('signIn'), res.error);
+      });
+      return;
+    }
+    openSheet();
+  }, [authLoading, loading, isReady, signIn, openSheet]);
 }
 
 export function useGoogleSignIn() {
