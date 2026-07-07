@@ -226,6 +226,7 @@
   "pointsEarnedTemplate": "Points: {{p}}",
   "youGotFriendReq": "{{from}} sent you a friend request!",
   "youGotInvite": "{{from}} invited you to a game",
+  "acceptInviteWarning": "You're still in a match. Joining {{from}}'s game now will forfeit it, which may count as a loss and cost ELO.",
   "accept": "Accept",
   "decline": "Decline",
   "newFriend": "You are now friends with {{name}}",

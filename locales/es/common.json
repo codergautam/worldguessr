@@ -245,6 +245,7 @@
   "pointsEarnedTemplate": "Puntos: {{p}}",
   "youGotFriendReq": "¡{{from}} te envió una solicitud de amistad!",
   "youGotInvite": "¡{{from}} te invitó a un juego!",
+  "acceptInviteWarning": "Todavía estás en una partida. Si te unes ahora al juego de {{from}}, la abandonarás. Esto puede contar como derrota y costarte ELO.",
   "accept": "Aceptar",
   "decline": "Rechazar",
   "newFriend": "Ahora eres amigo de {{name}}",
