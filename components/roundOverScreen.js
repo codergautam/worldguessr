@@ -1306,7 +1306,7 @@ const GameSummary = ({
                         {isCumulativeTeam ? text("teamRoundPoints", { pts: displayScore }) : `${displayScore} ${text("pts")}`}
                       </span>
                       {/* Damage already includes the multiplier; the ×n tag
-                          mentions it (server-stamped per round, 1.5 fallback
+                          mentions it (server-stamped per round, ×1 fallback
                           for pre-stamp rounds). */}
                       {!isCumulativeTeam && dmg > 0 && (
                         <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}

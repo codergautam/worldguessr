@@ -313,7 +313,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // Team party rounds fold the points into the distance line (2v2-style
     // parenthetical) so the banner stays compact; other modes keep gotPoints.
     const classicDistanceLine = showTeamGameRoundLine ? personalRoundText : distanceText;
-    // 2v2: the server stamps the HP actually applied (1.5x multiplier) on
+    // 2v2: the server stamps the HP actually applied (multiplier included) on
     // teamRoundScores.damage — never re-derive |a−b| here or the banner
     // drifts from the bars. The |a−b| fallback only covers a stale ws that
     // predates the stamp.

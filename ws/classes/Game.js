@@ -458,7 +458,7 @@ export default class Game {
   // back to the raw gap (×1) client-side, matching the pre-stamp servers
   // that applied no multiplier.
   teamDamageMultiplier(round) {
-    return 1.5;
+    return 1.3;
   }
 
   givePoints() {
