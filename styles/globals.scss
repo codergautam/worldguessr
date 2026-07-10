@@ -2470,6 +2470,19 @@ h1, h2, h3, span, label {
         pointer-events: none;
     }
 
+    /* The container's visibility flips instantly (no transition on it), but
+       the child buttons carry `transition: all` — and since visibility is
+       inherited AND animatable, a visible→hidden transition keeps them
+       VISIBLE for the whole duration, flipping only at the end. That made
+       the buttons linger ~0.3s after a guess instead of vanishing on the
+       reveal (master's display:none had no such delay). Cut the transition
+       and pin them hidden so the hide is instant; they re-show with the
+       parent when the class drops between rounds. */
+    .mobile_minimap__btns.answerShownBtns * {
+        visibility: hidden;
+        transition: none;
+    }
+
     /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
        expanded-map button row only when the row's top edge (0.3H - 56px) falls
        above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
