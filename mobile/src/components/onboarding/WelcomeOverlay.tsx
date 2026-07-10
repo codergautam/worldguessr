@@ -24,10 +24,15 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
   const { width, height } = useWindowDimensions();
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
+  const shownSentRef = useRef(false);
+  const choiceMadeRef = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
-    onboardingAnalytics.shown();
+    if (!shownSentRef.current) {
+      shownSentRef.current = true;
+      onboardingAnalytics.shown();
+    }
     fade.setValue(0);
     scale.setValue(0.96);
     Animated.parallel([
@@ -49,6 +54,8 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
   }, [visible]);
 
   const dismiss = (cb: () => void) => {
+    if (choiceMadeRef.current) return;
+    choiceMadeRef.current = true;
     Animated.timing(fade, {
       toValue: 0,
       duration: 220,

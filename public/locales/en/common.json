@@ -9,6 +9,8 @@
   "welcomeDesc": "You've been dropped somewhere on Earth. Look for clues and guess where you are!",
   "recommended": "Best for beginners",
   "classicDesc": "Try to guess the exact location",
+  "classicTutorialCoachDesktop": "Open the map, place a pin, then press Guess.",
+  "classicTutorialCoachMobile": "Tap Guess to open the map, place a pin, then submit.",
   "countryGuessrDesc": "Just choose the right country",
   "continentGuessrDesc": "Just guess the continent",
   "skipTutorial": "Skip tutorial →",

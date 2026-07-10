@@ -552,6 +552,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, []);
 
     const [onboarding, setOnboarding] = useState(null);
+    const onboardingRef = useRef(null);
+    const onboardingPreparedRef = useRef(false);
+    const onboardingBeginSentRef = useRef(false);
+    const onboardingExitSentRef = useRef(false);
+    onboardingRef.current = onboarding;
     // Mirror DailyChallengeScreen's internal phase so the navbar can hide its
     // back button only during the actual round, not on landing/results.
     const [dailyPhase, setDailyPhase] = useState(null);
@@ -564,7 +569,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // preload — until load + idle while the welcome overlay is up. See the
     // effect next to the onboarding-start effect.
     const [svPreloadReady, setSvPreloadReady] = useState(false);
-    const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
     const lastSingleplayerScreen = useRef(null);
@@ -872,7 +876,35 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const [allLocsArray, setAllLocsArray] = useState([]);
 
-    function startOnboarding(mode = "classic") {
+    function beginOnboarding(mode) {
+        const current = onboardingRef.current;
+        if (!current || current.completed || onboardingBeginSentRef.current) return;
+
+        onboardingBeginSentRef.current = true;
+        onboardingExitSentRef.current = false;
+        const startedAt = Date.now();
+        onboardingRef.current = { ...current, mode, started: true, startTime: startedAt };
+        setOnboarding((prev) => {
+            if (!prev || prev.completed || prev.started) return prev;
+            return { ...prev, mode, started: true, startTime: startedAt };
+        });
+        setShowCountryButtons(mode !== "classic");
+        sendEvent("tutorial_begin", { mode });
+    }
+
+    function trackOnboardingExit(reason) {
+        const current = onboardingRef.current;
+        if (!current?.started || current.completed || onboardingExitSentRef.current) return;
+
+        onboardingExitSentRef.current = true;
+        sendEvent("tutorial_exit", {
+            mode: current.mode,
+            round: current.round,
+            reason,
+        });
+    }
+
+    function startOnboarding() {
 
         if (inCrazyGames || window.inCrazyGames) {
             // make sure its not an invite link
@@ -892,6 +924,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         }
 
+        if (onboardingPreparedRef.current) return true;
+        onboardingPreparedRef.current = true;
+        onboardingBeginSentRef.current = false;
+        onboardingExitSentRef.current = false;
         setScreen("onboarding")
 
         // 3 universally recognizable locations for the tutorial
@@ -904,11 +940,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         setOnboarding({
             round: 1,
             locations: onboardingLocations,
-            startTime: Date.now(),
-            mode: mode,
+            startTime: null,
+            mode: null,
+            started: false,
         })
-        sendEvent("tutorial_begin", { mode })
-        setShowCountryButtons(mode !== "classic")
+        setShowCountryButtons(false)
         return true;
     }
     function openMap(mapSlug) {
@@ -1218,7 +1254,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // starve first paint / hydration on slow connections.
                 // CrazyGames used to skip this branch, which started the tutorial without
                 // letting players choose the onboarding mode.
-                if (startOnboarding("classic")) {
+                if (startOnboarding()) {
                     setWelcomeOverlayShown(true);
                     return;
                 }
@@ -1277,12 +1313,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => {
         if (session && session.token && session.token.username && !inCrazyGames) {
             setOnboardingCompleted(true)
-            try {
-                gameStorage.setItem("onboarding", 'done')
-            } catch (e) { }
 
             // If user is currently in onboarding, redirect to home
             if (screen === "onboarding") {
+                trackOnboardingExit("login");
                 setScreen("home")
                 setOnboarding(null)
             }
@@ -1876,6 +1910,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         }
                     }
 
+                    trackOnboardingExit("party")
                     setOnboardingCompleted(true)
                     setOnboarding(null)
                     setLoading(false)
@@ -1928,6 +1963,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (multiplayerState?.inGame && multiplayerState?.gameData?.code === code) return;
 
         // Clear onboarding state if active
+        trackOnboardingExit("party");
         setOnboardingCompleted(true);
         setOnboarding(null);
         setLoading(false);
@@ -2798,11 +2834,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
 
         if (screen === "onboarding") {
+            trackOnboardingExit("menu")
             setLatLong(null)
             setShowAnswer(false)
             setScreen("home")
             setOnboarding(null)
-            gameStorage.setItem("onboarding", 'done')
 
             return;
         }
@@ -3351,16 +3387,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
                     onModeSelected={(mode) => {
-                        setOnboardingMode(mode);
-                        try { gameStorage.setItem("onboarding_seen", "true"); } catch(e) {}
-                        // Update the running onboarding with the chosen mode
-                        setOnboarding((prev) => prev ? { ...prev, mode } : prev);
-                        setShowCountryButtons(mode !== "classic");
+                        beginOnboarding(mode);
                         setWelcomeOverlayShown(false);
                     }}
                     onSkip={() => {
                         try {
-                            gameStorage.setItem("onboarding_seen", "true");
                             gameStorage.setItem("onboarding", "done");
                         } catch(e) {}
                         // GameUI mounts under this overlay at load+idle and starts
@@ -3462,9 +3493,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 <Navbar
                     joinCodePress={() => {
+                        trackOnboardingExit("join_game")
                         setOnboarding(null)
                         setOnboardingCompleted(true)
-                        gameStorage.setItem("onboarding", 'done')
                         setScreen("multiplayer")
                         setMultiplayerState((prev) => ({
                             ...prev,
@@ -4034,8 +4065,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         points={onboarding.points}
                         maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
                         onClassic={() => {
-                            sendEvent("tutorial_end", { mode: "classic" });
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
@@ -4044,16 +4073,12 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             setScreen("singleplayer");
                         }}
                         onDuel={() => {
-                            sendEvent("tutorial_end", { mode: "duel" });
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
                             handleMultiplayerAction("unrankedDuel");
                         }}
                         onCommunityMaps={() => {
-                            sendEvent("tutorial_end", { mode: "community" });
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
@@ -4061,8 +4086,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             setTimeout(() => setMapModal(true), 350);
                         }}
                         onCountryGuesser={() => {
-                            sendEvent("tutorial_end", { mode: "country" });
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
@@ -4070,8 +4093,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             enterCountryGuessrMode("country");
                         }}
                         onHome={() => {
-                            sendEvent("tutorial_end", { mode: "home" });
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setLatLong(null);
                             setShowAnswer(false);
                             setOnboarding(null);

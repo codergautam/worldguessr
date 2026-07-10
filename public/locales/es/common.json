@@ -28,6 +28,8 @@
   "welcomeDesc": "Te han dejado en algún lugar de la Tierra. ¡Busca pistas y adivina dónde estás!",
   "recommended": "Lo mejor para principiantes",
   "classicDesc": "Intenta adivinar la ubicación exacta.",
+  "classicTutorialCoachDesktop": "Abre el mapa, coloca un marcador y pulsa Adivinar.",
+  "classicTutorialCoachMobile": "Toca Adivinar para abrir el mapa, coloca un marcador y envía tu respuesta.",
   "countryGuessrDesc": "Simplemente elige el país correcto",
   "continentGuessrDesc": "Solo adivina el continente",
   "skipTutorial": "Saltar tutorial →",

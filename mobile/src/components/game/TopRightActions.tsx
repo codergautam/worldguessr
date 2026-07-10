@@ -10,7 +10,7 @@ import { useLoginPrompt } from '../../hooks/useGoogleSignIn';
 
 interface TopRightActionsProps {
   children?: ReactNode;
-  onBeforeNavigate?: () => void;
+  onBeforeNavigate?: (reason: 'join_game' | 'login') => void;
 }
 
 export default function TopRightActions({ children, onBeforeNavigate }: TopRightActionsProps) {
@@ -21,8 +21,8 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
   // Android: straight to native Google sign-in; iOS: chooser sheet.
   const promptLogin = useLoginPrompt(() => setAccountSheetVisible(true));
 
-  const beforeNavigate = () => {
-    onBeforeNavigate?.();
+  const beforeNavigate = (reason: 'join_game' | 'login') => {
+    onBeforeNavigate?.(reason);
   };
 
   return (
@@ -30,7 +30,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
       <View style={styles.toolbar}>
         <Pressable
           onPress={() => {
-            beforeNavigate();
+            beforeNavigate('join_game');
             router.push('/party/join');
           }}
           style={({ pressed }) => [styles.toolbarBtn, styles.toolbarBtnBlue, pressed && { opacity: 0.85 }]}
@@ -41,7 +41,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
         <Pressable
           onPress={() => {
             if (isAuthenticated) {
-              beforeNavigate();
+              beforeNavigate('login');
               router.push('/(tabs)/account');
             } else {
               promptLogin();

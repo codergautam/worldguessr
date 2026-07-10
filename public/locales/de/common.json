@@ -28,6 +28,8 @@
   "welcomeDesc": "Du wurdest irgendwo auf der Erde abgesetzt. Suche nach Hinweisen und rate, wo du bist!",
   "recommended": "Am besten für Anfänger",
   "classicDesc": "Versuche den genauen Standort zu erraten",
+  "classicTutorialCoachDesktop": "Öffne die Karte, setze eine Markierung und drücke dann auf Raten.",
+  "classicTutorialCoachMobile": "Tippe auf Raten, um die Karte zu öffnen, setze eine Markierung und bestätige.",
   "countryGuessrDesc": "Wähle einfach das richtige Land",
   "continentGuessrDesc": "Rate einfach den Kontinent",
   "skipTutorial": "Tutorial überspringen →",
