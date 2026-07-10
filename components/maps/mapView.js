@@ -15,6 +15,7 @@ export default function MapView({
     showOptions,
     showTimerOption,
     close,
+    closeLabel,
     session,
     text,
     onMapClick,
@@ -350,7 +351,7 @@ export default function MapView({
                 <div className="map-header">
                     <div className="map-header-left">
                         <button onClick={close} className="map-back-btn">
-                            <FaArrowLeft /> {text("close")}
+                            <FaArrowLeft /> {closeLabel || text("close")}
                         </button>
                         <h1 className="map-title">{text("maps")}</h1>
                     </div>

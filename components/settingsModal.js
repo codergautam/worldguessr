@@ -315,14 +315,14 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 )}
 
             </div>
-            {/* Footer links: position FIXED (viewport-anchored), because the
-                scroll surface differs by layout — desktop scrolls inside
-                .g2_content, mobile scrolls the outer react-responsive-modal
-                container (the only surface iOS body-scroll-lock allows).
-                Fixed stays pinned to the screen bottom under both; safe-area
-                keeps it clear of the iOS home indicator. */}
+            {/* Footer links. Positioning lives in .settingsFooterLinks because it
+                differs by layout: desktop (row) pins them fixed over the nav
+                column while .g2_content scrolls internally; small screens
+                (column) scroll the outer react-responsive-modal container, where
+                fixed would float over the option rows — there they go static, as
+                the last in-flow flex child at the true bottom of the scroll. */}
             {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && (
-                <div className="g2_slide_in" style={{ position: 'fixed', bottom: 'calc(25px + env(safe-area-inset-bottom))', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
+                <div className="g2_slide_in settingsFooterLinks">
                     <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
                     </a>

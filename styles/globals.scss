@@ -310,6 +310,19 @@ html {
 .settingsModal > * {
     flex-shrink: 0;
 }
+/* GitHub / Terms footer links. Desktop row layout: viewport-pinned bottom
+   left, over the nav column; .settingsModal's padding-bottom lets the
+   internally-scrolling content clear it on narrow-but-tall windows. The
+   small-screen media block flips this to static/in-flow — a fixed footer
+   there floats over the option rows. */
+.settingsFooterLinks {
+    position: fixed;
+    bottom: calc(25px + env(safe-area-inset-bottom));
+    left: 25px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
 .settingsModalInner {
     margin-left: 32px;
     margin-right: 10px;
@@ -573,6 +586,15 @@ html {
     transition: opacity 0.3s ease-in-out;
 }
 
+/* Pre-onboarding gate: the exported HTML ships this class (onboardingCompleted
+   starts null), and without a rule the empty gradient column paints from first
+   frame until startOnboarding() unmounts home — a green flash on first visit.
+   display:none also replays the children's nav_slide_in when the class drops,
+   matching what a fresh mount looks like. */
+.g2_nav_ui.hide {
+    display: none;
+}
+
 .g2_slide_out {
     animation: nav_slide_out 0.3s ease-in-out forwards;
 }
@@ -731,6 +753,21 @@ html {
     .g2_content.settingsModal {
         width: 100%;
         height: auto;
+        /* The footer links sit in-flow right below this box here (see
+           .settingsFooterLinks) — the base 120px pinned-footer clearance
+           would just open a dead gap between the last option and them. */
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    /* Column layout scrolls on the outer modal container, so a fixed footer
+       floats over whichever option rows are at the screen bottom. In-flow as
+       the modal's last flex child instead: g2_content's flex-grow pins it to
+       the screen bottom while the list is short, and it sits below the last
+       option once the list is tall enough to scroll. */
+    .settingsFooterLinks {
+        position: static;
+        flex-shrink: 0;
+        margin: 10px 0 calc(20px + env(safe-area-inset-bottom)) 28px;
     }
 
     .g2_nav_text {

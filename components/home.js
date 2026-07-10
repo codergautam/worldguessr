@@ -1453,6 +1453,54 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (multinotiPossible) preloadSfx('multinoti');
     }, [multinotiPossible]);
 
+    // ---- GA4 engagement instrumentation ----
+    // The whole site is one Next page, so GA4 never saw a second page_view and
+    // engagement rested entirely on the 10s timer — which only starts counting
+    // once the deferred gtag lib boots on window load (_document.js). Players
+    // who demonstrably played were logged as bounces.
+
+    // Virtual page_view per screen change. The initial screen's real page_view
+    // already fires from the gtag config snippet. The automatic home→onboarding
+    // flip under the welcome overlay is the landing experience, not a
+    // navigation, so it stays silent until the user picks a mode (overlay
+    // drops → effect re-runs → fires then).
+    const prevScreenForGaRef = useRef(screen);
+    useEffect(() => {
+        if (screen === prevScreenForGaRef.current) return;
+        if (screen === "onboarding" && welcomeOverlayShown) return;
+        prevScreenForGaRef.current = screen;
+        sendEvent("page_view", {
+            page_location: window.location.origin + (screen === "home" ? "/" : `/${screen.toLowerCase()}`),
+            page_title: `WorldGuessr - ${screen}`,
+        });
+    }, [screen, welcomeOverlayShown]);
+
+    // game_start = a round is actually in front of the player. Every mode
+    // funnels its round location through latLong (SP/CG fetch or rotate,
+    // onboarding stamps tutorial spots, MP stamps incoming round locations,
+    // daily drives it from singlePlayerRound), so one effect covers them all.
+    // Mark game_start as a key event in GA4 admin: any session that reaches
+    // gameplay then counts as engaged regardless of the 10s timer.
+    const lastGameStartRef = useRef(null);
+    useEffect(() => {
+        // {0,0} is the cleared-location sentinel (clearLocation/initial state)
+        if (!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
+        // home menu keeps a live background pano — not a round
+        if (screen === "home") return;
+        // round-1 street view preloading behind the welcome modal isn't play
+        if (screen === "onboarding" && welcomeOverlayShown) return;
+        // daily landing/results keep the last pano mounted for the crossfade
+        if (screen === "daily" && dailyPhase !== "game") return;
+        // MP stamps latLong on the getready→guess flip; anything else holding
+        // a location (lobby leftovers, rejoin answer-view restore) isn't a
+        // fresh round
+        if (screen === "multiplayer" && multiplayerState?.gameData?.state !== "guess") return;
+        const key = `${screen}:${latLong.lat},${latLong.long}`;
+        if (lastGameStartRef.current === key) return;
+        lastGameStartRef.current = key;
+        sendEvent("game_start", { mode: screen });
+    }, [latLong, screen, welcomeOverlayShown, dailyPhase, multiplayerState?.gameData?.state]);
+
     const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
         if (typeof window === 'undefined') return true;
         try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
@@ -3335,7 +3383,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
             {/* Background street2 image is rendered via body::before in _document.js */}
 
-            <main className={`home`} id="main">
+            {/* data-nosnippet: everything in here is game chrome, not prose —
+                Google was assembling search snippets out of it ("© Google
+                Google Adivinar", the guess button, SV attribution) instead of
+                using the meta description. Snippet-only; indexing unaffected. */}
+            <main className={`home`} id="main" data-nosnippet="">
 
                 {/* Daily challenge rules are fixed for everyone (no NMPZ, road
                     labels on). gameOptions still holds whatever the last

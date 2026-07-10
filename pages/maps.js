@@ -1,9 +1,10 @@
 // pages/maps.js
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import MapView from "@/components/maps/mapView";
 import { useTranslation } from '@/components/useTranslations'
-import config from "@/clientConfig";
+import { asset } from '@/lib/basePath';
 
 import { useSession } from "@/components/auth/auth";
 
@@ -18,35 +19,43 @@ const initMakeMap = {
     mapId: "",
 };
 
-export default function MapsPage({  }) {
+// Platform builds (Poki/CoolMath/GD/SchoolGuessr) export this page on other
+// origins, so worldguessr.com SEO tags stay off those.
+const isMainSite = process.env.NEXT_PUBLIC_POKI !== "true" &&
+    process.env.NEXT_PUBLIC_COOLMATH !== "true" &&
+    process.env.NEXT_PUBLIC_GAMEDISTRIBUTION !== "true" &&
+    process.env.NEXT_PUBLIC_SCHOOLGUESSR !== "true";
+
+export default function MapsPage({ }) {
     const router = useRouter();
     const { t: text } = useTranslation("common");
-    const { data: session, status } = useSession();
+    const { data: session } = useSession();
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
 
-    useEffect(() => {
-        window.cConfig = config();
-    }, []);
-
-    const handleMapClick = (map) => {
-            router.push(`/map?s=${map.slug}`);
-    };
-
     return (
-        <div style={styles.pageContainer}>
-            <div style={styles.pageContent}>
+        <div style={styles.page}>
+            <Head>
+                <title>{`${text("communityMaps")} - WorldGuessr`}</title>
+                <meta name="description" content="Browse community-made maps for WorldGuessr, a free GeoGuessr alternative. Play countries, cities and themed challenges, or create your own map." />
+                {isMainSite && <link rel="canonical" href="https://www.worldguessr.com/maps" />}
+                <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+            </Head>
+            {/* body::before (street2.webp over black) supplies the backdrop —
+                the same one the home screen and maps modal sit on. MapView
+                draws its own glass panel, so the page adds no shell of its
+                own: just the single scroll container (outer-only scroll, iOS). */}
+            <div style={styles.scroll}>
                 <MapView
                     showOptions={false}
                     showAllCountriesOption={false}
-                    chosenMap={undefined}
-                    close={() => router.back()} // Use router.back() to go back on close
+                    close={() => router.push("/")}
+                    closeLabel={text("backToGame")}
                     session={session}
                     text={text}
-                    onMapClick={handleMapClick}
-                    gameOptions={undefined}
-                    setGameOptions={undefined}
+                    onMapClick={(map) => router.push(`/map?s=${map.slug}`)}
                     makeMap={makeMap}
                     setMakeMap={setMakeMap}
                     initMakeMap={initMakeMap}
@@ -61,22 +70,20 @@ export default function MapsPage({  }) {
 }
 
 const styles = {
-    pageContainer: {
-        width: "100vw",
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "linear-gradient(135deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 10, 5, 0.95) 50%, rgba(0, 0, 0, 0.98) 100%)",
+    // Fixed viewport shell instead of 100vh (mobile URL bars make vh lie),
+    // mirroring the maps modal's fixed-container + single-scroll structure.
+    page: {
+        position: "fixed",
+        inset: 0,
+        overflow: "hidden",
     },
-    pageContent: {
-        background: "linear-gradient(135deg, rgba(5, 15, 8, 0.98) 0%, rgba(2, 8, 4, 0.99) 100%)",
-        width: "calc(100vw - 40px)",
-        height: "100vh",
+    scroll: {
+        height: "100%",
         overflowY: "auto",
-        borderRadius: "8px",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
+        overscrollBehavior: "contain",
         padding: "20px",
-        position: "relative",
+        boxSizing: "border-box",
     },
 };
-
