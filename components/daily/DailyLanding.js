@@ -20,6 +20,10 @@ export default function DailyLanding({ today, distribution = null, userData = nu
   }, []);
 
   const playedToday = userData?.playedToday;
+  // A DQ'd run counts as played (date locked, streak advanced) but tapping
+  // the CTA opens the "done for today" modal instead of results — swap the
+  // subtitle so it doesn't promise results that aren't there.
+  const disqualifiedToday = !!userData?.disqualifiedToday;
   // graceDay is only true for logged-in users whose stored streak is alive
   // today purely because of the unused-grace branch (server-computed in
   // api/dailyChallenge/results.js). Don't show the warning if they've
@@ -34,7 +38,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
         <button
           className={`g2_green_button daily-landing-cta ${playedToday ? 'played' : ''}`}
           onClick={onStartChallenge}
-          aria-label={playedToday ? text('alreadyPlayedViewResults') : text('openTodaysChallenge')}
+          aria-label={playedToday ? text(disqualifiedToday ? 'dailyAlreadyDisqualifiedTitle' : 'alreadyPlayedViewResults') : text('openTodaysChallenge')}
         >
           {!playedToday && <FaPlay style={{ verticalAlign: '-2px', marginRight: 8 }} />}
           {playedToday
@@ -42,7 +46,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
             : text('openTodaysChallenge')}
           <span className="daily-landing-cta-subtitle">
             {playedToday
-              ? text('alreadyPlayedViewResults')
+              ? text(disqualifiedToday ? 'dailyAlreadyDisqualifiedTitle' : 'alreadyPlayedViewResults')
               : text('nextChallengeIn', { time: formatCountdown(countdown) })}
           </span>
         </button>
@@ -107,7 +111,9 @@ export default function DailyLanding({ today, distribution = null, userData = nu
             pre-play it's just today's scores. */}
         <div className="daily-landing-section-title-row">
           <div className="daily-landing-section-title">
-            {text(playedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
+            {/* DQ days have no own score on the chart, so "how you compare"
+                would be comparing nothing — keep the neutral title. */}
+            {text(playedToday && !disqualifiedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
           </div>
           {(distribution?.totalPlays || 0) > 0 && (
             <button className="daily-leaderboard-open-btn" onClick={() => setShowLeaderboard(true)}>

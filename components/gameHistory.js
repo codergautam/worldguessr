@@ -215,14 +215,19 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                       <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {game.opponent?.username ? (
                           <>
-                            <Link
-                              href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              target="_blank"
-                              style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
-                            >
-                              {game.opponent.username}
-                            </Link>
+                            {game.opponent.accountId ? (
+                              <Link
+                                href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                target="_blank"
+                                style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
+                              >
+                                {game.opponent.username}
+                              </Link>
+                            ) : (
+                              // Account-less opponent (bot/guest): no profile page to link
+                              <span>{game.opponent.username}</span>
+                            )}
                             {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
                           </>
                         ) : (

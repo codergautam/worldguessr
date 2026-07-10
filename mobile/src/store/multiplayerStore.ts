@@ -986,20 +986,18 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
-    // ── streak (home.js:1868-1877) ────────────────────────
+    // ── streak (home.js streak handler — web parity) ────────────────────────
     if (data.type === 'streak') {
-      const key =
-        data.streak === 0
-          ? 'streakLost'
-          : data.streak === 1
-            ? 'streakStarted'
-            : 'streakGained';
+      // Only streak CONTINUATIONS (2+) toast. Resets are silent by ruling,
+      // and the "streak started" toast was removed (server no longer sends
+      // streak:1; the guard also keeps a stale server from rendering a
+      // bogus started/0-day toast).
+      if (!data.streak || data.streak < 2) return;
       get().pushToast({
-        key,
+        key: 'streakGained',
         toastType: 'info',
-        // `streakGained` (and `restoreYourStreak` etc.) contain a `{{streak}}`
-        // placeholder — pass the value via `vars` so `t()` interpolates it.
-        // `streakLost`/`streakStarted` have no placeholder and ignore it.
+        // `streakGained` contains a `{{streak}}` placeholder — pass the value
+        // via `vars` so `t()` interpolates it.
         vars: { streak: data.streak },
       });
       return;

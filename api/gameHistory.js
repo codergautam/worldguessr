@@ -117,9 +117,13 @@ export default async function handler(req, res) {
           gameCode: game.multiplayer?.gameCode
         } : null,
         
-        // Opponent info (for ranked duels)
+        // Opponent info (for ranked duels). accountId is null for bot
+        // opponents — clients use it to skip the profile link (bots have no
+        // profile page).
         opponent: opponentPlayer ? {
           username: opponentPlayer.username,
+          accountId: opponentPlayer.accountId || null,
+          countryCode: opponentPlayer.countryCode ?? null,
           totalPoints: opponentPlayer.totalPoints || 0,
           finalRank: opponentPlayer.finalRank || 2,
           elo: opponentPlayer.elo || null

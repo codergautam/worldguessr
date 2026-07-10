@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Invalid game ID' });
   }
 
-  if (!gameType || !['ranked_duel', 'unranked_multiplayer', 'private_multiplayer'].includes(gameType)) {
+  if (!gameType || !['ranked_duel', 'unranked_multiplayer', 'private_multiplayer', '2v2'].includes(gameType)) {
     return res.status(400).json({ message: 'Invalid game type' });
   }
 
@@ -86,6 +86,12 @@ export default async function handler(req, res) {
       }
 
       finalReportedUserAccountId = reportedUserAccountId;
+    } else if (gameType === '2v2') {
+      // Team games always have >2 seats — "the other player" is ambiguous
+      // (and a 2-account 2v2 vs bots would infer the reporter's TEAMMATE).
+      return res.status(400).json({
+        message: 'For team games, you must specify which player to report'
+      });
     } else {
       // If not provided, try to infer from game (works for duels only)
       const playersWithAccounts = game.players.filter(p => p.accountId);
@@ -146,6 +152,13 @@ export default async function handler(req, res) {
       return res.status(429).json({ message: 'You are submitting reports too quickly. Please try again later.' });
     }
 
+    // Team games: stamp whether the reporter was the reported player's
+    // teammate or opponent (mod triage signal — see Report model). Both
+    // roster entries are already in hand; null when teams aren't recorded.
+    const relationship = (reporterInGame.team && reportedPlayerInGame.team)
+      ? (reporterInGame.team === reportedPlayerInGame.team ? 'teammate' : 'opponent')
+      : null;
+
     // Create the report - use username from game data for accuracy
     const report = new Report({
       reportedBy: {
@@ -160,6 +173,7 @@ export default async function handler(req, res) {
       description: description.trim(),
       gameId,
       gameType,
+      relationship,
       status: 'pending'
     });
 

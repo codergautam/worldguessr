@@ -94,6 +94,9 @@ export default function DailyChallengeScreen({
   onPhaseChange,
 }) {
   const { t: text } = useTranslation();
+  // Poki has no login surface; suppressing onSignIn hides every daily sign-in
+  // CTA (landing, results, leaderboard modal) since they all gate on it.
+  const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
   const today = getClientLocalDate();
   const { locationData, locationError, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
 
@@ -151,8 +154,9 @@ export default function DailyChallengeScreen({
   // Shape: { promise, response: T | null, rounds, totalScore, atDisqualified }
   const prefetchRef = useRef(null);
   // If user tab-switches / blurs window during the game, the score is
-  // submitted as disqualified — counted in anon distribution only, no
-  // leaderboard entry, no streak, no XP, no game history.
+  // submitted as disqualified — handled normally (date locks, streak
+  // advances, game-history entry with real rounds) except no XP, no
+  // leaderboard entry, and no distribution contribution (July 9-10 rulings).
   const [disqualified, setDisqualified] = useState(false);
   const [showDisqualifiedModal, setShowDisqualifiedModal] = useState(false);
   const [gameOptions, setGameOptions] = useState({
@@ -474,7 +478,7 @@ export default function DailyChallengeScreen({
         userData={results?.user || landingBootstrap?.userData}
         isLoggedIn={!!session?.token?.secret}
         onStartChallenge={handleStart}
-        onSignIn={() => signIn()}
+        onSignIn={inPoki ? undefined : () => signIn()}
         animateEntrance={phase === 'landing' && landingEntranceActive}
       />
     );
@@ -584,7 +588,7 @@ export default function DailyChallengeScreen({
         isLoggedIn={!!session?.token?.secret}
         disqualified={disqualified || submitResponse?.disqualified}
         onClose={onExit}
-        onSignIn={() => signIn()}
+        onSignIn={inPoki ? undefined : () => signIn()}
         inCoolMathGames={inCoolMathGames}
       />
     );

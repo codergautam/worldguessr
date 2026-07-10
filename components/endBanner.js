@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import calcPoints, { findDistance, pickBestTeamGuessIds } from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 import triggerConfetti from "./utils/triggerConfetti";
+import { playSfx } from "./utils/audio";
 import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
@@ -106,6 +107,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 clearAutoAdvance();
                 setAutoAdvanceCountdown(0);
                 logOnboardingAdvance("timer-fired");
+                // Same sound a manual Next Round press makes (the delegated
+                // click listener can't see a programmatic advance).
+                playSfx('click_2');
                 // fullReset → gameUI.advanceRound → setMapFadingOut(true),
                 // which hides this banner via the mapFadingOut prop.
                 fullResetRef.current({ source: "endBannerAutoAdvance" });
@@ -364,8 +368,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         </>
     );
 
+    // singlePlayerRound.done: the game-ending advance keeps the answer scene
+    // (and its `guessed` state) mounted beneath the results summary, but this
+    // banner lives in .endCards (z-index 1001, above the summary's 1000) — it
+    // must yield on the click that ended the game or its buttons float over
+    // the results.
     return (
-        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
+        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut && !singlePlayerRound?.done ? '' : 'none' }}>
 
             <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
                 {panoShown ? text("showMap") : text("showPano")}

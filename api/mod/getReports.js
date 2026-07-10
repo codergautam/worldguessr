@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { secret, status, reason, limit = 50, skip = 0, showAll = false } = req.body;
+  const { secret, status, reason, gameType, limit = 50, skip = 0, showAll = false } = req.body;
 
   // Validate secret
   if (!secret || typeof secret !== 'string') {
@@ -31,6 +31,43 @@ export default async function handler(req, res) {
     if (reason && ['inappropriate_username', 'cheating', 'other'].includes(reason)) {
       matchQuery.reason = reason;
     }
+
+    // Add game-type filter if provided (1v1 duels vs 2v2 vs casual modes)
+    const VALID_GAME_TYPES = ['ranked_duel', 'unranked_multiplayer', 'private_multiplayer', '2v2'];
+    if (gameType && VALID_GAME_TYPES.includes(gameType)) {
+      matchQuery.gameType = gameType;
+    }
+
+    // Co-reported linkage: for every report in the response, find OTHER
+    // players the same reporter reported from the SAME game (the co-cheating
+    // 2v2 duo case). Attached as coReported so mods see the pair even though
+    // the queue groups each accused player separately — banning one or both
+    // stays at mod discretion.
+    const attachCoReported = async (reports) => {
+      const clauses = [];
+      const seen = new Set();
+      for (const r of reports) {
+        const key = `${r.gameId}|${r.reportedBy.accountId}`;
+        if (!r.gameId || seen.has(key)) continue;
+        seen.add(key);
+        clauses.push({ gameId: r.gameId, 'reportedBy.accountId': r.reportedBy.accountId });
+      }
+      if (!clauses.length) return;
+      const siblings = await Report.find({ $or: clauses })
+        .select('gameId reportedBy.accountId reportedUser')
+        .lean();
+      const byKey = {};
+      for (const s of siblings) {
+        const key = `${s.gameId}|${s.reportedBy.accountId}`;
+        (byKey[key] = byKey[key] || []).push(s.reportedUser);
+      }
+      for (const r of reports) {
+        const key = `${r.gameId}|${r.reportedBy.accountId}`;
+        r.coReported = (byKey[key] || [])
+          .filter(u => u?.accountId && u.accountId !== r.reportedUser?.accountId)
+          .filter((u, i, arr) => arr.findIndex(x => x.accountId === u.accountId) === i);
+      }
+    };
     
     // If showAll is true, we want all reports regardless of status
     const wantAllReports = showAll || (status !== 'pending' && status !== undefined);
@@ -93,6 +130,25 @@ export default async function handler(req, res) {
 
     stats.pendingByReason = pendingReasonCounts;
 
+    // Pending counts by game type (drives the dashboard's game-type filter
+    // dropdown; same anonymized-target guard as the reason counts).
+    const gameTypeCounts = await Report.aggregate([
+      { $match: { status: 'pending', 'reportedUser.accountId': { $ne: null } } },
+      { $group: { _id: '$gameType', count: { $sum: 1 } } }
+    ]);
+    const pendingGameTypeCounts = {
+      ranked_duel: 0,
+      unranked_multiplayer: 0,
+      private_multiplayer: 0,
+      '2v2': 0
+    };
+    gameTypeCounts.forEach(item => {
+      if (item._id in pendingGameTypeCounts) {
+        pendingGameTypeCounts[item._id] = item.count;
+      }
+    });
+    stats.pendingByGameType = pendingGameTypeCounts;
+
     // For pending reports, we want to group by reported user and order by:
     // 1. Number of reports against user (descending)
     // 2. Oldest report date (ascending) - so oldest reports are seen first
@@ -108,6 +164,9 @@ export default async function handler(req, res) {
       const pendingMatchQuery = { status: 'pending', 'reportedUser.accountId': { $ne: null } };
       if (reason && ['inappropriate_username', 'cheating', 'other'].includes(reason)) {
         pendingMatchQuery.reason = reason;
+      }
+      if (gameType && VALID_GAME_TYPES.includes(gameType)) {
+        pendingMatchQuery.gameType = gameType;
       }
       
       // Get pending reports grouped by reported user
@@ -190,6 +249,9 @@ export default async function handler(req, res) {
         };
       });
 
+      // Co-reported linkage across the whole page of groups (one query).
+      await attachCoReported(groupedReports.flatMap(g => g.reports));
+
       // Enrich reports with reporter stats and status info
       const enrichedGroups = groupedReports.map(group => ({
         reportedUser: {
@@ -271,6 +333,9 @@ export default async function handler(req, res) {
         hasBanHistory: reportersWithBanHistory.has(user._id.toString())
       };
     });
+
+    // Co-reported linkage (one query over the page).
+    await attachCoReported(reports);
 
     // Enrich reports with reporter stats and status info
     const enrichedReports = reports.map(report => ({

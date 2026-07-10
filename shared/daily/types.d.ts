@@ -55,6 +55,8 @@ export interface DailyUser {
   streak?: number;
   streakBest?: number;
   graceDay?: boolean;
+  /** True once today is locked for this identity — INCLUDING disqualified
+   * runs (a DQ still advances the streak; only ranking fields are nulled). */
   playedToday?: boolean;
   disqualifiedToday?: boolean;
   ownScore?: number;

@@ -8,6 +8,10 @@ export function getPlatform() {
       return "schoolguessr";
     } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
       return "coolmath";
+    } else if (process.env.NEXT_PUBLIC_POKI === "true") {
+      // Build-time flag beats the iframe fallback below so the Poki audience
+      // is tagged deterministically (their sandbox origins vary).
+      return "poki";
     } else if (typeof window !== "undefined" && window.CrazyGames) {
       return "crazygames";
     } else if (typeof window === "undefined") {

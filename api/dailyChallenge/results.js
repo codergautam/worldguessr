@@ -85,9 +85,12 @@ async function fetchGuestBlock(date, guestId) {
     // is always false here. Included for shape parity with the logged-in
     // response so the client doesn't need a different render path.
     graceDay: false,
-    // playedToday reflects only valid scored runs; a DQ locks the day but
-    // doesn't count as "played" for the menu badge / "view results" CTA.
-    playedToday: !!own && !isDq,
+    // A DQ still counts as "played" — the run is handled normally (date
+    // locked, streak advanced per the July 9 ruling); only ranking surfaces
+    // (score/rank/rounds, nulled below) treat it differently. Clients key the
+    // menu badge / landing CTA off this and gate the start path on
+    // disqualifiedToday.
+    playedToday: !!own,
     disqualifiedToday: isDq,
     ownScore: isDq ? null : (own?.score ?? null),
     ownRank: rank,
@@ -159,16 +162,18 @@ async function fetchUserBlock(date, secret) {
   // graceDay means: streak is alive today only because of the unused-grace
   // branch (diff=2 from lastDate, no grace consumed in last 7 days). If the
   // user doesn't play today, tomorrow's diff becomes 3 and the streak dies.
-  // Don't surface graceDay if they've already played today — there's nothing
-  // at risk in that case.
-  const graceDay = !(!!own && !isDq) && isGraceDay(streakInputs);
+  // Don't surface graceDay once today is locked (played OR DQ'd) — nothing
+  // is at risk in either case, the streak already advanced.
+  const graceDay = !own && isGraceDay(streakInputs);
 
   return {
     username: user.username,
     streak: liveStreak,
     streakBest: user.dailyStreakBest || 0,
     graceDay,
-    playedToday: !!own && !isDq,
+    // Same rule as the guest block: a DQ still counts as "played" (streak
+    // advanced, date locked); only ranking surfaces are nulled.
+    playedToday: !!own,
     disqualifiedToday: isDq,
     ownScore: isDq ? null : (own?.score ?? null),
     ownRank: rank,

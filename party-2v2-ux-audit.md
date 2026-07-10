@@ -580,8 +580,10 @@ server + two client root causes, all around `autoQueue2v2At`:
   server-side rejoin window. Known design (web parity), listed as improvement.
 - **Blank no-history fallback**: `roundOverScreen.js` ~804-827 renders an empty
   full-screen div (its message is commented out INSIDE the live JSX).
-- **Leaflet-not-ready early return** misses the `.round-over-screen` overlay
-  wrapper (renders in document flow).
+- ~~Leaflet-not-ready early return misses the `.round-over-screen` overlay
+  wrapper (renders in document flow)~~ FIXED (July 9: placeholder wrapped in
+  `.round-over-screen`, joins the entry fade; same-node swap so the fade
+  doesn't restart when real content lands).
 - **1v1 duel end screen renders a duplicate "Final Scores" block**:
   `(!duel || finalHistory.length > 0)` contradicts its own comment; should
   exclude the duel case handled above.
@@ -741,6 +743,17 @@ server + two client root causes, all around `autoQueue2v2At`:
   party sizes; the fairness note (scoring) stands.
 
 ## 4. User rulings (design decisions — respect these)
+- **July 9: reporting is HISTORY-VIEW ONLY (cooling-off, anti-spam).** The
+  detour through the game-history tab is deliberate friction so a fresh loss
+  can't be rage-reported from the live end screen. Web's live end-screen
+  report button (1v1 + the new 2v2 picker) was gated to
+  `options?.isHistoryView` (`roundOverScreen.js`, flag stamped by
+  `historicalGameView.js`); mobile's existing flow was already
+  `isHistoryView`-only and stays that way (parity plan Phase 4 item 4
+  REVERSED from "widen to live end card"). The `duelEnd`
+  `historyGameId`/`opponent` stamps are KEPT: they fix the saved-doc id for
+  matchmade games (code=null), feed the copy-game-ID surface, and keep the
+  wire shape; they just no longer drive a live report path.
 - July 5 night sweep rulings: early-KO dead-air (full getready beat after HP
   hits 0) = INTENDED behavior, keep. Navbar-Back-vs-card-Cancel asymmetry in
   stage-1, find2v2Match watchdog absence, stage-2-only rejoin re-sync, and the

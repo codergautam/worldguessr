@@ -32,7 +32,7 @@ interface Game {
     finalRank?: number;
     elo?: { change: number };
   };
-  opponent?: { username: string; countryCode?: string };
+  opponent?: { username: string; countryCode?: string; accountId?: string | null };
   roundsPlayed: number;
   totalDuration: number;
   result: { maxPossiblePoints: number };
@@ -187,11 +187,18 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                   {game.opponent?.username && (
                     <View style={styles.gameStat}>
                       <Text style={styles.gameStatLabel}>{t('opponent')}</Text>
-                      <Pressable onPress={() => onNavigateToUser?.(game.opponent!.username)}>
-                        <Text style={[styles.gameStatValue, { color: '#4dabf7', fontSize: 13 }]}>
+                      {game.opponent.accountId ? (
+                        <Pressable onPress={() => onNavigateToUser?.(game.opponent!.username)}>
+                          <Text style={[styles.gameStatValue, { color: '#4dabf7', fontSize: 13 }]}>
+                            {game.opponent.username}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        // Account-less opponent (bot/guest): no profile to open (web parity)
+                        <Text style={[styles.gameStatValue, { fontSize: 13 }]}>
                           {game.opponent.username}
                         </Text>
-                      </Pressable>
+                      )}
                     </View>
                   )}
                   <View style={styles.gameStat}>

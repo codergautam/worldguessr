@@ -1,18 +1,43 @@
-import { FaArrowLeft, FaUser, FaUserFriends } from "react-icons/fa";
+import { FaArrowLeft, FaUser, FaUserFriends, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
-import { useState, useEffect } from "react";
+import SoundModal from "../soundModal";
+import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
+import { useState, useEffect, useSyncExternalStore } from "react";
 
 export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
     const { t: text, lang } = useTranslation("common");
 
+    // Poki has no login surface (same treatment as CoolMathGames)
+    const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
+
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
 
     const [showAccBtn, setShowAccBtn] = useState(true);
+    // Sound button + modal, party waiting lobby only (private lobbies incl.
+    // the 2v2 staging one — in-game has no navbar surface and home already
+    // has the full settings page). Entirely navbar-owned: no home.js plumbing.
+    const inPartyLobby = screen === 'multiplayer' && multiplayerState?.inGame
+        && multiplayerState?.gameData?.state === "waiting" && !multiplayerState?.gameData?.public;
+    const [soundModalOpen, setSoundModalOpen] = useState(false);
+    useEffect(() => {
+        // Game started / lobby dissolved with the modal up — don't leave it
+        // floating over the round.
+        if (!inPartyLobby) setSoundModalOpen(false);
+    }, [inPartyLobby]);
+    // Muted glyph when BOTH channels sit at 0. Subscribed to the audio
+    // manager so dragging the modal's sliders flips the icon live; server
+    // snapshot is "not muted" (volumes are client storage — unknowable at
+    // build, and the button only renders in a lobby anyway).
+    const allMuted = useSyncExternalStore(
+        subscribeVolumes,
+        () => getMusicVolume() <= 0 && getSfxVolume() <= 0,
+        () => false
+    );
     // Custom tooltip for the blue reload button. Rendered position:fixed (not as a
     // child) so it isn't clipped by the navbar's overflow. null = hidden.
     const [reloadTip, setReloadTip] = useState(null);
@@ -78,6 +103,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 )}
                 <div className="navbar__right">
 
+                    {inPartyLobby && !accountModalOpen && !partyModalShown && (
+                        <button className="gameBtn friendBtn" onClick={() => setSoundModalOpen(true)} aria-label={text("audioSettings")}>
+                            {allMuted
+                                ? <FaVolumeMute size={40} className="friendBtnIcon" />
+                                : <FaVolumeUp size={40} className="friendBtnIcon" />}
+                        </button>
+                    )}
+
                     {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
                         <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
                             {screen === 'countryGuesser'
@@ -98,7 +131,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
@@ -117,6 +150,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     )}
                 </div>
             </div>
+            <SoundModal isOpen={soundModalOpen} onClose={() => setSoundModalOpen(false)} />
             {screen === "onboarding" && (
                 <div className="onboardingTopRightBtns">
                     <button
@@ -125,7 +159,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     >
                         <span className="onboardingJoinPartyBtn__content">{text("joinGame")}</span>
                     </button>
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && !accountModalOpen && !mapModalOpen && (
                         <div className="onboardingLoginBtn">
                             <AccountBtn
                                 inCrazyGames={inCrazyGames}

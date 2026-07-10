@@ -1,7 +1,8 @@
 import { players } from './states.js';
 
 function isActivePlayer(player) {
-  return !!player && player.verified && !player.disconnected;
+  // Duel bots live in the players map but are not humans online.
+  return !!player && player.verified && !player.disconnected && !player.isBot;
 }
 
 function getActivePlayerCount() {

@@ -13,6 +13,9 @@ function countryDiv({country, onPress, index, interactive, lang}) {
       style={{ animationDelay: `${index * 0.07}s` }}
       onClick={() => interactive && onPress(country)}
       title={fullName}
+      // Pressing = guessing, and the reveal whoosh fires on the same press —
+      // mute the generic click so the two don't stack.
+      data-no-click-sfx=""
     >
       <img
         className="countryGuessrBtn__flag"
@@ -33,6 +36,7 @@ function continentDiv({continent, onPress, index, interactive, text}) {
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
       title={fullName}
+      data-no-click-sfx=""
     >
       <ContinentIcon continent={continent} size={34} className="countryGuessrBtn__emoji" />
       <span className="countryGuessrBtn__name">{fullName}</span>

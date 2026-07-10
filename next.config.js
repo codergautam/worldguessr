@@ -25,9 +25,12 @@ const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
-    // Production builds can set NEXT_DIST_DIR (e.g. '.next-prod') so `next build`
-    // never shares .next with a running `next dev` — concurrent access corrupts
-    // the build at the trace-collection step on Windows.
+    // NEXT_DIST_DIR (e.g. '.next-poki') controls where the static EXPORT lands.
+    // WARNING: it does NOT isolate the build itself. With output:'export',
+    // Next repurposes a custom distDir as the export outDir and forces build
+    // internals back into `.next` (next/dist/build/index.js: config.distDir =
+    // '.next' inside hasCustomExportOutput). So ANY `next build` stomps the
+    // running dev server's .next — never build while `pnpm dev` is up.
     distDir: process.env.NEXT_DIST_DIR || '.next',
     env: {
         NEXT_PUBLIC_COMMIT_HASH: getCommitHash(),

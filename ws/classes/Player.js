@@ -38,6 +38,11 @@ export default class Player {
     this.disconnected = false;
     this.disconnectTime =0;
 
+    // Server-driven duel bot (ws stays null). Gates the tickBots lifecycle
+    // sweep + guess driver, and exempts them from human-only paths
+    // (player counts, restart-recovery reconnect bookkeeping).
+    this.isBot = false;
+
     this.rejoinCode = createUUID();
   }
 
@@ -67,6 +72,9 @@ export default class Player {
       banned: this.banned,
       platform: this.platform,
       teamSupport: this.teamSupport,
+      // Must survive gamestate restarts: a restored bot that loses this flag
+      // becomes a permanent zombie (never guesses, never reaped).
+      isBot: this.isBot,
     }
   }
 
@@ -344,23 +352,26 @@ export default class Player {
 
             if (userTimezoneDay.diff(lastLoginUserTimezone, 'days') === 1) {
               streak++;
-              this.send({
-                type: 'streak',
-                streak
-              })
+              // Only CONTINUATIONS (2+) get a toast: a 0→1 bump is a fresh
+              // start, and the "streak started" toast is gone (removed
+              // server-side like streakLost, so old bundles stop showing it
+              // too — pure noise on login).
+              if (streak > 1) {
+                this.send({
+                  type: 'streak',
+                  streak
+                })
+              }
             } else if(userTimezoneDay.diff(lastLoginUserTimezone, 'days') > 1) {
+              // Streak still resets, but SILENTLY — no message means no
+              // client renders the streakLost toast (removed server-side so
+              // old bundles stop showing it too). Greeting a returning
+              // player with "you lost your streak" was a kick in the teeth.
               streak = 0;
-              this.send({
-                type: 'streak',
-                streak
-              })
             }
             if(!valid.firstLoginComplete) {
+              // Starts the streak silently — see the no-toast-on-start rule.
               streak = 1;
-              this.send({
-                type: 'streak',
-                streak
-              })
             }
 
             updateFields.timeZone = json.tz;

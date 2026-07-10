@@ -135,9 +135,12 @@ NEXT_PUBLIC_POKI=true
 ```
 
 This enables:
-- Poki SDK integration
-- Poki-specific ad handling
-- Platform-appropriate UI modifications
+- Poki SDK integration (NitroPay/AdInPlay are skipped entirely)
+- `PokiSDK.commercialBreak()` interstitials at the same break points as the CrazyGames midgame ads
+- Account features hidden (same treatment as CoolMathGames): no login button, no ranked/2v2, no suggest-login modals, no social/external links
+- GA events tagged with `platform: "poki"` via `getPlatform()`
+
+Build with `pnpm build:poki` (static export lands in `.next-poki/`). Warning: with `output: 'export'`, Next still writes build internals to `.next` regardless of `NEXT_DIST_DIR`, so never run any build while `pnpm dev` is running — it corrupts the dev server (stop dev, delete `.next`, restart to recover).
 
 ### CrazyGames
 

@@ -3,10 +3,22 @@ import Modal from './ui/Modal';
 import { useTranslation } from '@/components/useTranslations';
 import { toast } from 'react-toastify';
 
+// Two shapes:
+//   1v1 (unchanged callers): `reportedUser={accountId, username}` — straight
+//      to the report form.
+//   Team games: `candidates=[{accountId, username}, ...]` (everyone except
+//      the reporter) — a picker step first. Multi-select: the co-cheating
+//      duo is the core 2v2 case, so both opponents can be reported in one
+//      pass (one Report doc per selection, shared reason/description; each
+//      lands in its own mod-queue group and banning one or both stays at
+//      mod discretion).
+// Account-less selections (bots/guests) are never sent — the submit fakes
+// success for them so bots stay indistinguishable.
 export default function ReportModal({
   isOpen,
   onClose,
   reportedUser,
+  candidates = null,
   gameId,
   gameType,
   session
@@ -16,6 +28,22 @@ export default function ReportModal({
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [wordCount, setWordCount] = useState(0);
+  const usePicker = Array.isArray(candidates) && candidates.length > 0;
+  const [selectedIds, setSelectedIds] = useState([]); // candidate indexes (ids may be null for bots)
+  const [pickerDone, setPickerDone] = useState(false);
+
+  const selectedTargets = usePicker
+    ? selectedIds.map(i => candidates[i]).filter(Boolean)
+    : (reportedUser ? [reportedUser] : []);
+
+  const resetAndClose = () => {
+    setReason('');
+    setDescription('');
+    setWordCount(0);
+    setSelectedIds([]);
+    setPickerDone(false);
+    onClose();
+  };
 
   const handleDescriptionChange = (e) => {
     const text = e.target.value;
@@ -50,33 +78,60 @@ export default function ReportModal({
       return;
     }
 
+    if (!selectedTargets.length) {
+      toast.error('Please select a player to report');
+      return;
+    }
+
+    // Account-less targets (bots or guests): there is no account for mods to
+    // act on, so no real report can exist. They're silently skipped — bots
+    // must stay indistinguishable from real opponents.
+    const realTargets = selectedTargets.filter(t => t?.accountId);
+
+    if (realTargets.length === 0) {
+      toast.success('Report submitted successfully. Our moderators will review it.');
+      resetAndClose();
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const response = await fetch(window.cConfig.apiUrl + '/api/submitReport', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          secret: session.token.secret,
-          reportedUserAccountId: reportedUser.accountId,
-          reason,
-          description: description.trim(),
-          gameId,
-          gameType
-        }),
-      });
+      // One report per selected player (shared reason/description). The mod
+      // queue groups by reported user, so each target gets its own group.
+      let failureMessage = null;
+      for (const target of realTargets) {
+        const response = await fetch(window.cConfig.apiUrl + '/api/submitReport', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            secret: session.token.secret,
+            reportedUserAccountId: target.accountId,
+            reason,
+            description: description.trim(),
+            gameId,
+            gameType
+          }),
+        });
 
-      if (response.ok) {
-        toast.success('Report submitted successfully. Our moderators will review it.');
-        setReason('');
-        setDescription('');
-        setWordCount(0);
-        onClose();
+        if (!response.ok) {
+          const errorData = await response.json();
+          failureMessage = errorData.message || 'Failed to submit report';
+        }
+      }
+
+      if (failureMessage && realTargets.length === 1) {
+        toast.error(failureMessage);
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to submit report');
+        if (failureMessage) {
+          // Partial failure on a multi-target submit (e.g. one duplicate):
+          // the rest went through — surface the one that didn't.
+          toast.warn(failureMessage);
+        }
+        toast.success('Report submitted successfully. Our moderators will review it.');
+        resetAndClose();
       }
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -92,39 +147,112 @@ export default function ReportModal({
     { value: 'other', label: 'Other' }
   ];
 
+  const toggleCandidate = (index) => {
+    setSelectedIds(prev =>
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+    );
+  };
+
+  const inPickerStep = usePicker && !pickerDone;
+
+  const title = inPickerStep
+    ? 'Report a player'
+    : `Report ${selectedTargets.map(t => t?.username).filter(Boolean).join(', ') || reportedUser?.username || 'Player'}`;
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title={`Report ${reportedUser?.username || 'Player'}`}
+      onClose={resetAndClose}
+      title={title}
       disableBackdropClose={true}
       actions={
-        <>
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !reason || !description.trim()}
-            style={{
-              opacity: (submitting || !reason || !description.trim()) ? 0.5 : 1
-            }}
-          >
-            {submitting ? 'Submitting...' : 'Submit Report'}
-          </button>
-        </>
+        inPickerStep ? (
+          <>
+            <button
+              onClick={resetAndClose}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => setPickerDone(true)}
+              disabled={selectedIds.length === 0}
+              style={{ opacity: selectedIds.length === 0 ? 0.5 : 1 }}
+            >
+              Next
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={usePicker ? () => setPickerDone(false) : resetAndClose}
+              disabled={submitting}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              {usePicker ? 'Back' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !reason || !description.trim()}
+              style={{
+                opacity: (submitting || !reason || !description.trim()) ? 0.5 : 1
+              }}
+            >
+              {submitting ? 'Submitting...' : 'Submit Report'}
+            </button>
+          </>
+        )
       }
     >
+      {inPickerStep ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+            Who are you reporting? Select one or more players.
+          </p>
+          {candidates.map((c, index) => (
+            <label
+              key={index}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: selectedIds.includes(index)
+                  ? '1px solid rgba(76, 175, 80, 0.6)'
+                  : '1px solid rgba(255, 255, 255, 0.2)',
+                background: selectedIds.includes(index)
+                  ? 'rgba(76, 175, 80, 0.12)'
+                  : 'rgba(255, 255, 255, 0.05)',
+                color: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(index)}
+                onChange={() => toggleCandidate(index)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>{c.username || 'Player'}</span>
+              {c.relationshipLabel && (
+                <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  {c.relationshipLabel}
+                </span>
+              )}
+            </label>
+          ))}
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-          Please provide details about why you are reporting this player. False reports may result in restrictions.
+          Please provide details about why you are reporting {selectedTargets.length > 1 ? 'these players' : 'this player'}. False reports may result in restrictions.
         </p>
 
         <div>
@@ -222,7 +350,7 @@ export default function ReportModal({
           <strong>Note:</strong> This report will be reviewed by moderators. Abuse of the reporting system may result in action against your account.
         </div>
       </div>
+      )}
     </Modal>
   );
 }
-

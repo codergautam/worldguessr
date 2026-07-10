@@ -128,6 +128,9 @@ function MapTile({
         <div
             className={`map-tile ${country ? 'country' : ''} ${!imageUrl ? 'no-image' : ''}`}
             onClick={onClick}
+            // The whole tile acts as a button; role="button" also opts it into
+            // the app-wide delegated click sound (audio.js watches [role="button"]).
+            role="button"
             style={forcedWidth ? { width: forcedWidth } : {}}
         >
             {/* Top half: Image (only if present) — real <img> so the browser

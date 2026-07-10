@@ -299,6 +299,16 @@ html {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    /* Scroll-past space so the last section (Danger Zone) clears the pinned
+       footer links (GitHub / Terms, ~75px tall incl. offset) with room to
+       breathe — replaces the old inline 40vh spacer div. */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+/* This is the scroll surface: shrinkable children absorb overflow (the
+   spacer divs collapse first, then rows cram), so scrollHeight never grows
+   and the modal crushes itself instead of scrolling. */
+.settingsModal > * {
+    flex-shrink: 0;
 }
 .settingsModalInner {
     margin-left: 32px;
@@ -312,6 +322,45 @@ html {
 }
 .settingsModalInner select, .settingsModalInner input {
     margin-left: 20px;
+}
+/* Volume sliders: custom track/thumb because the native control (iOS
+   especially) is a fiddly sliver — a fat round thumb is the touch target.
+   Pseudo-element selectors must stay vendor-split: browsers drop a rule
+   whose selector list contains an unknown pseudo, so -webkit- and -moz-
+   variants can never be comma-joined. */
+.settingsVolumeSlider {
+    width: min(140px, 30vw);
+    align-self: center;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+.settingsVolumeSlider::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.25);
+}
+.settingsVolumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--primaryDark);
+    margin-top: -9px; /* center 26px thumb on the 8px track */
+}
+.settingsVolumeSlider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.25);
+}
+.settingsVolumeSlider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--primaryDark);
 }
 .settingsModalInner.g2_input {
     width: min-content;
@@ -333,7 +382,12 @@ html {
     .settingsModalInner label {
         flex: 1;
         text-align: left;
-        white-space: nowrap;
+        /* Labels must be allowed to WRAP: nowrap makes the full text width
+           the label's min-content width, and a flex child can't shrink
+           below that — long labels (Sound Effects Volume; longer still in
+           de/ru) pushed the row's slider + % readout off screen. */
+        white-space: normal;
+        min-width: 0;
     }
 
     .settingsModalInner select,
@@ -341,6 +395,43 @@ html {
         flex-shrink: 0;
         margin-left: 20px;
     }
+
+    /* Touch devices get a real slider, not a 30vw sliver: grow into the
+       row's spare space and give the strip Apple-HIG 44px hit height. */
+    .settingsVolumeSlider {
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 120px;
+        max-width: 260px;
+        height: 44px;
+    }
+}
+
+/* Volume rows inside the party-lobby sound modal (ui/Modal card).
+   settingsModalInner is settings-PAGE layout (32px indent, max-content
+   width) and doesn't fit a ~500px centered card, so the modal gets its own
+   row class; the sliders themselves stay .settingsVolumeSlider. Same
+   wrap-tolerant shape as the mobile settings row: label may wrap, slider
+   grows, % readout stays fixed. */
+.soundModalRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.soundModalRow + .soundModalRow {
+    margin-top: 18px;
+}
+.soundModalRow label {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.1em;
+}
+.soundModalRow .settingsVolumeSlider {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 110px;
+    max-width: 220px;
+    height: 44px;
 }
 .g2_modal {
     width: 100%;
@@ -626,6 +717,20 @@ html {
         overflow-y: visible;
         // width: 100%;
         padding-top: 0px;
+    }
+
+    /* Mobile g2 modals scroll on the OUTER react-responsive-modal container
+       and that is load-bearing on iOS: the library registers its modal
+       element with body-scroll-lock, whose touchmove preventDefault kills
+       any NESTED overflow:auto surface (a previous inner-scroll attempt
+       here was completely unscrollable on iOS). height:auto (vs the base
+       height:100%) lets this box grow with its rows so the padding-bottom
+       lands after the last section — a 100svh-pinned box lets rows overflow
+       PAST its own padding. width:100%: the base 70vw column wasted a third
+       of the screen and squeezed the row labels. */
+    .g2_content.settingsModal {
+        width: 100%;
+        height: auto;
     }
 
     .g2_nav_text {
@@ -2312,6 +2417,20 @@ h1, h2, h3, span, label {
         right: 0;
         padding: 0 12px;
         gap: 10px;
+    }
+
+    /* Hidden during the answer reveal — but NOT via the global
+       .answerShownBtns display:none: a display round-trip takes the element
+       out of the render tree, and the browser REPLAYS the fadeIn above when
+       it returns, so the Guess button faded in for 1s at the start of every
+       round. Keep it in the tree, input-off; the entry fade then runs once
+       per game mount, as intended. (visibility, not opacity: the finished
+       fadeIn's forwards fill pins animated opacity at 1, so an opacity
+       override here would silently lose.) */
+    .mobile_minimap__btns.answerShownBtns {
+        display: flex;
+        visibility: hidden;
+        pointer-events: none;
     }
 
     /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
@@ -5126,6 +5245,12 @@ img.countryGuessrBtn__emoji {
 .leaflet-tile {
     max-width: none !important;
 }
+/* The 500ms entry fade assumes the previous scene (fullscreen answer map)
+   is still mounted beneath as the crossfade base — every mount site keeps
+   it there (MP: answer scene survives into state === 'end'; SP: advanceRound
+   skips teardown on the game-ending advance). Fading over a torn-down scene
+   exposes the raw pano — don't "fix" a flash by fading faster; keep the
+   scene beneath instead. */
 .round-over-screen {
     position: fixed;
     top: 0;

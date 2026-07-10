@@ -107,6 +107,9 @@ const GameSummary = ({
   const [copiedGameId, setCopiedGameId] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
+  // Team-game report flow: candidate list for the modal's picker step
+  // (everyone except self). Mutually exclusive with reportTarget (1v1 path).
+  const [reportCandidates, setReportCandidates] = useState(null);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -521,12 +524,13 @@ const GameSummary = ({
       url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
     }
 
-    // Check if we're on CrazyGames or CoolMathGames platforms
+    // Check if we're on an embedded portal that can't open external links
     const isCrazyGames = typeof window !== 'undefined' && window.inCrazyGames;
     const isCoolMathGames = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_COOLMATH === "true";
     const isGameDistribution = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
+    const isPoki = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_POKI === "true";
 
-    if (isCrazyGames || isCoolMathGames || isGameDistribution) {
+    if (isCrazyGames || isCoolMathGames || isGameDistribution || isPoki) {
       // Copy URL to clipboard instead of opening
       navigator.clipboard.writeText(url).then(() => {
         toast.success(text("copiedToClipboard"));
@@ -805,18 +809,14 @@ const GameSummary = ({
     return b.isValid() ? b : null;
   }, [gameHistory, leafletReady]);
 
-  // Don't render until Leaflet is ready
+  // Don't render until Leaflet is ready. Must keep the .round-over-screen
+  // wrapper: it carries the opaque backdrop, and without it this placeholder
+  // is a transparent div in document flow — the pano flashes through until
+  // Leaflet resolves.
   if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
     return (
-      <div className="game-summary-container">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          color: 'white',
-          fontSize: '1.5rem'
-        }}>
+      <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+        <div className="game-summary-container">
         </div>
       </div>
     );
@@ -869,28 +869,70 @@ const GameSummary = ({
     // component scope, above the early returns.)
     const getOpponents = () => {
       const myId = multiplayerState?.gameData?.myId;
+      const roster = multiplayerState?.gameData?.players || [];
       const firstRound = multiplayerState?.gameData?.roundHistory?.[0] || finalHistory[0];
       if (!firstRound?.players) return [];
       return Object.entries(firstRound.players)
         .filter(([id]) => id !== myId && !isMyTeammate(id))
-        .map(([id, p]) => ({ accountId: id, username: p.username }));
+        // Reporting needs the real ACCOUNT id, but round keys are per-game
+        // ids (live: socket uuid; history: accountId-or-socket), so resolve
+        // through the roster. null accountId (bot/guest/opponent already
+        // gone) makes ReportModal fake the submission instead of erroring.
+        .map(([id, p]) => ({
+          accountId: roster.find(r => r.id === id)?.accountId ?? null,
+          username: p.username
+        }));
     };
 
     const opponents = getOpponents();
+    // Prefer the explicit opponent stamp on `data` — the history view (the
+    // only surface that renders the report button) fills it from the saved
+    // game doc; live duelEnd stamps the same shape.
+    const reportOpponent = (data?.opponent?.username != null || data?.opponent?.accountId != null)
+      ? { accountId: data.opponent.accountId ?? null, username: data.opponent.username }
+      : opponents[0];
+
+    // Matchmade 2v2 reporting (cumulative team parties deliberately stay
+    // report-free): everyone except self is a candidate — teammate included,
+    // and BOTH opponents selectable in one pass (co-cheating duo case).
+    // Only rendered in the history view; candidates come from `data.players`
+    // (saved doc roster) or the gameData roster. null accountId (bot/guest)
+    // candidates fake-submit in the modal.
+    const isMatchmade2v2 = !!(data?.team2v2 || multiplayerState?.gameData?.team2v2) && !isCumulativeTeam;
+    const teamReportCandidates = (() => {
+      if (!isMatchmade2v2) return [];
+      const gd = multiplayerState?.gameData;
+      const src = (Array.isArray(data?.players) && data.players.length ? data.players : gd?.players) || [];
+      const mine = src.find(p => p.id === gd?.myId)?.team ?? myTeam;
+      return src
+        .filter(p => p.id !== gd?.myId)
+        .map(p => ({
+          accountId: p.accountId ?? null,
+          username: p.username,
+          relationshipLabel: p.team ? (p.team === mine ? text('yourTeam') : text('enemyTeam')) : null
+        }));
+    })();
 
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
         {/* Report Modal */}
-        {reportTarget && (
+        {(reportTarget || reportCandidates) && (
           <ReportModal
             isOpen={reportModalOpen}
             onClose={() => {
               setReportModalOpen(false);
               setReportTarget(null);
+              setReportCandidates(null);
             }}
             reportedUser={reportTarget}
+            candidates={reportCandidates}
             gameId={gameId}
-            gameType={multiplayerState?.gameData?.public ? 'unranked_multiplayer' : 'ranked_duel'}
+            // The duel end screen only hosts 1v1 duels (ranked matchmade +
+            // private) and matchmade 2v2 — unranked games render the
+            // non-duel summary, which has no report button by design. The
+            // old public→'unranked_multiplayer' expr mislabeled live ranked
+            // reports (matchmade duels are public:true).
+            gameType={reportCandidates ? '2v2' : 'ranked_duel'}
             session={session}
           />
         )}
@@ -1224,12 +1266,27 @@ const GameSummary = ({
                   </button>
                 )}
 
-                {/* Report button — 1v1 duels only (team games don't offer
-                    reporting yet). Hidden in mod view. */}
-                {!options?.isModView && !isTeamGame && (multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && session?.token?.secret && opponents[0] && (
+                {/* Report button — HISTORY VIEW ONLY, deliberately: the
+                    detour through the game-history tab is a cooling-off step
+                    so a fresh loss can't be rage-reported from the live end
+                    screen. 1v1 duels get the direct flow, matchmade 2v2 the
+                    multi-select picker (everyone except self). Cumulative
+                    team parties stay report-free by ruling. Hidden in mod
+                    view. */}
+                {options?.isHistoryView && !options?.isModView
+                  && ((!isTeamGame && multiplayerState?.gameData?.duel && reportOpponent)
+                      || (isMatchmade2v2 && teamReportCandidates.length > 0))
+                  && session?.token?.secret && (
                   <button
                     className="action-btn report-btn"
-                    onClick={() => handleReportUser(opponents[0].accountId, opponents[0].username)}
+                    onClick={() => {
+                      if (isMatchmade2v2) {
+                        setReportCandidates(teamReportCandidates);
+                        setReportModalOpen(true);
+                      } else {
+                        handleReportUser(reportOpponent.accountId, reportOpponent.username);
+                      }
+                    }}
                     style={{
                       background: 'rgba(255, 69, 58, 0.2)',
                       border: '1px solid rgba(255, 69, 58, 0.4)',
