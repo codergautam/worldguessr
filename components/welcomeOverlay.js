@@ -1,17 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
 
 export default function WelcomeOverlay({ onModeSelected, onSkip }) {
   const { t: text } = useTranslation("common");
   const [visible, setVisible] = useState(false);
+  const shownSentRef = useRef(false);
+  const choiceMadeRef = useRef(false);
 
   useEffect(() => {
-    sendEvent("onboarding_shown");
-    requestAnimationFrame(() => setVisible(true));
+    if (!shownSentRef.current) {
+      shownSentRef.current = true;
+      sendEvent("onboarding_shown");
+    }
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   function selectMode(mode) {
+    if (choiceMadeRef.current) return;
+    choiceMadeRef.current = true;
     setVisible(false);
     setTimeout(() => {
       sendEvent("onboarding_mode_selected", { mode });
@@ -20,9 +28,11 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
   }
 
   function skip() {
+    if (choiceMadeRef.current) return;
+    choiceMadeRef.current = true;
     setVisible(false);
     setTimeout(() => {
-      sendEvent("onboarding_mode_selected", { mode: "skipped" });
+      sendEvent("onboarding_skipped");
       onSkip();
     }, 300);
   }

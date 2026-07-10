@@ -75,21 +75,23 @@ export default function OnboardingComplete({
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        try { sendEvent('tutorial_home_clicked'); } catch (err) {}
+        try { sendEvent('tutorial_home_clicked', { mode, next_action: 'home' }); } catch (err) {}
         onHome?.();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onHome]);
+  }, [mode, onHome]);
 
-  const fire = (name) => { try { sendEvent(name); } catch (e) {} };
+  const fire = (name, nextAction) => {
+    try { sendEvent(name, { mode, next_action: nextAction }); } catch (e) {}
+  };
 
-  const handleClassic        = () => { fire('tutorial_continue_classic');        onClassic?.(); };
-  const handleDuel           = () => { fire('tutorial_continue_duel');           onDuel?.(); };
-  const handleCommunityMaps  = () => { fire('tutorial_continue_communitymaps');  onCommunityMaps?.(); };
-  const handleCountryGuesser = () => { fire('tutorial_continue_countryguesser'); onCountryGuesser?.(); };
-  const handleHome           = () => { fire('tutorial_home_clicked');            onHome?.(); };
+  const handleClassic        = () => { fire('tutorial_continue_classic', 'classic');               onClassic?.(); };
+  const handleDuel           = () => { fire('tutorial_continue_duel', 'duel');                     onDuel?.(); };
+  const handleCommunityMaps  = () => { fire('tutorial_continue_communitymaps', 'communitymaps');   onCommunityMaps?.(); };
+  const handleCountryGuesser = () => { fire('tutorial_continue_countryguesser', 'countryguesser'); onCountryGuesser?.(); };
+  const handleHome           = () => { fire('tutorial_home_clicked', 'home');                       onHome?.(); };
 
   const safeMax = Number(maxPoints) || 0;
   const safePoints = Number(points) || 0;

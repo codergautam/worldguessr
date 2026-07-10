@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { calcPoints, findDistance } from '../../src/shared';
+import { calcPoints, findDistance, t } from '../../src/shared';
 import { haptics, hapticForScore } from '../../src/services/haptics';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
@@ -97,6 +97,9 @@ export default function OnboardingPlay() {
   const pendingAuthAction = useRef<null | (() => void)>(null);
   const surfaceRef = useRef<GameSurfaceHandle>(null);
   const resultSubmittingRef = useRef(false);
+  const tutorialBeginSentRef = useRef(false);
+  const tutorialExitSentRef = useRef(false);
+  const tutorialCompletionHandledRef = useRef(false);
 
   const totalPoints = useMemo(
     () => results.reduce((sum, r) => sum + r.points, 0),
@@ -117,30 +120,41 @@ export default function OnboardingPlay() {
     });
   }, []);
 
-  // Fire tutorial_begin once a real mode is picked.
-  useEffect(() => {
-    if (mode === 'country' || mode === 'classic') {
-      onboardingAnalytics.begin(mode);
-    }
-  }, [mode]);
-
-  const handleWelcomeMode = useCallback((picked: 'country' | 'classic') => {
-    onboardingAnalytics.modeSelected(picked);
-    setMode(picked);
+  const beginTutorial = useCallback((picked: Mode) => {
+    if (tutorialBeginSentRef.current) return;
+    tutorialBeginSentRef.current = true;
+    onboardingAnalytics.begin(picked);
   }, []);
 
+  // A mode query can preload a real choice; guard it the same way as the welcome modal.
+  useEffect(() => {
+    if (mode === 'country' || mode === 'classic') {
+      beginTutorial(mode);
+    }
+  }, [beginTutorial, mode]);
+
+  const handleWelcomeMode = useCallback((picked: 'country' | 'classic') => {
+    if (tutorialBeginSentRef.current) return;
+    onboardingAnalytics.modeSelected(picked);
+    beginTutorial(picked);
+    setMode(picked);
+  }, [beginTutorial]);
+
   const handleWelcomeSkip = useCallback(() => {
-    onboardingAnalytics.modeSelected('skipped');
+    onboardingAnalytics.skipped();
     markComplete();
     dismissAllSafe();
     router.replace('/(tabs)/home');
   }, [markComplete, router]);
 
+  const trackTutorialExit = useCallback((reason: 'menu' | 'join_game' | 'login' | 'party') => {
+    if (!tutorialBeginSentRef.current || tutorialCompletionHandledRef.current || tutorialExitSentRef.current) return;
+    tutorialExitSentRef.current = true;
+    onboardingAnalytics.exit(settledMode, round, reason);
+  }, [round, settledMode]);
+
   const handleQuit = () => {
-    if (mode === 'country' || mode === 'classic') {
-      onboardingAnalytics.end(settledMode, 'quit');
-    }
-    markComplete();
+    trackTutorialExit('menu');
     dismissAllSafe();
     router.replace('/(tabs)/home');
   };
@@ -193,9 +207,16 @@ export default function OnboardingPlay() {
     ]);
   };
 
+  const completeTutorial = useCallback(() => {
+    if (tutorialCompletionHandledRef.current) return;
+    tutorialCompletionHandledRef.current = true;
+    onboardingAnalytics.end(settledMode, TOTAL_ROUNDS);
+    void markComplete().finally(() => setShowComplete(true));
+  }, [markComplete, settledMode]);
+
   const advanceRound = useCallback(() => {
     if (round >= TOTAL_ROUNDS) {
-      setShowComplete(true);
+      completeTutorial();
       return;
     }
     // Drive the round bump through GameSurface so the loading banner is
@@ -207,7 +228,7 @@ export default function OnboardingPlay() {
       setShowResult(false);
       resultSubmittingRef.current = false;
     });
-  }, [round]);
+  }, [completeTutorial, round]);
 
   // Android: straight to native Google sign-in; iOS: chooser sheet.
   const promptLogin = useLoginPrompt(() => setAuthSheetVisible(true));
@@ -246,7 +267,6 @@ export default function OnboardingPlay() {
     // a separate native window), so it looks "stuck open" after a choice.
     // Mirrors how handleAuthSheetClose hides the sheet before its action runs.
     setShowComplete(false);
-    markComplete();
     cb();
   };
 
@@ -266,8 +286,7 @@ export default function OnboardingPlay() {
   };
 
   const onClassicCard = () => {
-    onboardingAnalytics.continue('classic');
-    onboardingAnalytics.end(settledMode, 'classic');
+    onboardingAnalytics.continue(settledMode, 'classic');
     finish(() => {
       launchFromOnboarding({
         pathname: '/game/[id]',
@@ -278,8 +297,7 @@ export default function OnboardingPlay() {
 
   const onDuelCard = () => {
     requireAuth(() => {
-      onboardingAnalytics.continue('duel');
-      onboardingAnalytics.end(settledMode, 'duel');
+      onboardingAnalytics.continue(settledMode, 'duel');
       finish(() => {
         useMultiplayerStore.getState().joinQueue('publicDuel');
         launchFromOnboarding('/queue');
@@ -288,8 +306,7 @@ export default function OnboardingPlay() {
   };
 
   const onCommunityMapsCard = () => {
-    onboardingAnalytics.continue('communitymaps');
-    onboardingAnalytics.end(settledMode, 'communitymaps');
+    onboardingAnalytics.continue(settledMode, 'communitymaps');
     finish(() => {
       dismissAllSafe();
       router.replace('/(tabs)/maps');
@@ -297,8 +314,7 @@ export default function OnboardingPlay() {
   };
 
   const onCountryGuesserCard = () => {
-    onboardingAnalytics.continue('countryguesser');
-    onboardingAnalytics.end(settledMode, 'countryguesser');
+    onboardingAnalytics.continue(settledMode, 'countryguesser');
     finish(() => {
       AsyncStorage.setItem(SINGLEPLAYER_DEFAULT_MODE_KEY, 'countryGuesser').catch(() => {});
       launchFromOnboarding({
@@ -309,8 +325,7 @@ export default function OnboardingPlay() {
   };
 
   const onHomeCard = () => {
-    onboardingAnalytics.homeClicked();
-    onboardingAnalytics.end(settledMode, 'home');
+    onboardingAnalytics.homeClicked(settledMode);
     finish(() => {
       dismissAllSafe();
       router.replace('/(tabs)/home');
@@ -331,8 +346,8 @@ export default function OnboardingPlay() {
 
   const topRightSlot = (
     <TopRightActions
-      onBeforeNavigate={() => {
-        markComplete();
+      onBeforeNavigate={(reason) => {
+        trackTutorialExit(reason);
         dismissAllSafe();
       }}
     >
@@ -404,6 +419,12 @@ export default function OnboardingPlay() {
         loadingMessage="Loading…"
       />
 
+      {settledMode === 'classic' && !isUndecided && round === 1 && !showResult && (
+        <View pointerEvents="none" style={styles.classicCoach}>
+          <Text style={styles.classicCoachText}>{t('classicTutorialCoachMobile')}</Text>
+        </View>
+      )}
+
       <OnboardingComplete
         visible={showComplete}
         mode={settledMode}
@@ -425,3 +446,29 @@ export default function OnboardingPlay() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  classicCoach: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 112,
+    zIndex: 1900,
+    elevation: 20,
+    alignItems: 'center',
+  },
+  classicCoachText: {
+    maxWidth: 360,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(12,18,25,0.9)',
+    color: '#fff',
+    fontFamily: 'Lexend-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+});

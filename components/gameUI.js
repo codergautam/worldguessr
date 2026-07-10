@@ -26,6 +26,7 @@ import HealthBar from "./duelHealthbar";
 import TeamScorebar from "./teamScorebar";
 import deriveTeamEndFallback from "./utils/teamDuelEndFallback";
 import getMyTeam from "./utils/getMyTeam";
+import { advanceOnboardingState } from "./utils/onboardingState";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
@@ -68,6 +69,17 @@ const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false 
 export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
   const { t: text } = useTranslation("common");
   const onboardingRevealStartedAt = useRef(0);
+  const onboardingCompletionHandledRef = useRef(false);
+
+  function completeOnboardingOnce(completedOnboarding) {
+    if (onboardingCompletionHandledRef.current) return;
+    onboardingCompletionHandledRef.current = true;
+    try { gameStorage.setItem("onboarding", "done"); } catch (e) {}
+    sendEvent("tutorial_end", {
+      mode: completedOnboarding.mode,
+      round: completedOnboarding.round,
+    });
+  }
 
   function logOnboardingAdvance(event, details = {}) {
     if (process.env.NEXT_PUBLIC_COOLMATH !== "true") return;
@@ -86,40 +98,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       logOnboardingAdvance("loadLocationFuncRaw", { keepAnswer, advanceSource });
     }
     if(onboarding) {
-      if(onboarding.completed) {
-        // Reset onboarding to start over - preserve template locations
-        setOnboarding({
-          round: 1,
-          points: 0,
-          startTime: Date.now(),
-          locations: onboarding.locations, // Keep template locations for gameplay
-          gameResults: [] // Clear previous game results
-        })
-      } else if(onboarding.round === (onboarding.locations?.length || 3)) {
-        console.log("Setting onboarding to completed", onboarding);
-        setOnboarding((prev)=>{
-          const completedOnboarding = {
-            completed: true,
-            finalOnboardingShown: true,
-            round: prev.round,
-            points: prev.points,
-            mode: prev.mode,
-            timeTaken: Date.now() - prev.startTime,
-            locations: prev.gameResults || []
-          };
-          console.log("Completed onboarding state:", completedOnboarding);
-          return completedOnboarding;
-        })
-        if (!keepAnswer) setShowAnswer(false)
-      } else {
+      const advancedAt = Date.now();
       setOnboarding((prev) => {
-        return {
-          ...prev,
-          round: prev.round + 1,
-          nextRoundTime: 0
-        }
+        const next = advanceOnboardingState(prev, advancedAt);
+        if (next !== prev && next?.completed) completeOnboardingOnce(next);
+        return next;
       })
-    }
+      if (!keepAnswer) setShowAnswer(false)
     } else if(singlePlayerRound && singlePlayerRound.round === singlePlayerRound.totalRounds && !singlePlayerRound?.done) {
 
 
@@ -1257,6 +1242,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && !!latLong?.country} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
          onCountryPress={submitCountryGuess}/>
+      )}
+
+      {onboarding?.mode === "classic" && onboarding.round === 1 && !onboarding.completed && !showAnswer && !loading && (
+        <div className="onboardingClassicCoach" role="status">
+          <span className="desktop">{text("classicTutorialCoachDesktop")}</span>
+          <span className="mobile">{text("classicTutorialCoachMobile")}</span>
+        </div>
       )}
 
       {/* Duel timer — single line, old style */}

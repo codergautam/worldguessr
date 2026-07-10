@@ -1313,6 +1313,25 @@ html {
     pointer-events: all;
 }
 
+.onboardingClassicCoach {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    z-index: 1002;
+    width: min(460px, calc(100vw - 32px));
+    transform: translateX(-50%);
+    padding: 9px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(12, 18, 25, 0.88);
+    color: #fff;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    text-align: center;
+    pointer-events: none;
+}
+
 /* Keep toasts above onboarding top-right controls */
 .Toastify__toast-container {
     z-index: 10020 !important;
@@ -1359,6 +1378,13 @@ html {
 }
 
 @media screen and (max-width: 600px) {
+    .onboardingClassicCoach {
+        top: auto;
+        bottom: 104px;
+        width: min(360px, calc(100vw - 24px));
+        font-size: 0.82rem;
+    }
+
     .onboardingTopRightBtns {
         gap: 4px;
         right: 6px;

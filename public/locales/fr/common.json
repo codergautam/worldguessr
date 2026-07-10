@@ -28,6 +28,8 @@
   "welcomeDesc": "Vous avez été déposé quelque part sur Terre. Cherchez des indices et devinez où vous êtes !",
   "recommended": "Idéal pour les débutants",
   "classicDesc": "Essayez de deviner l'emplacement exact",
+  "classicTutorialCoachDesktop": "Ouvrez la carte, placez un repère, puis appuyez sur Deviner.",
+  "classicTutorialCoachMobile": "Touchez Deviner pour ouvrir la carte, placez un repère, puis validez.",
   "countryGuessrDesc": "Choisissez simplement le bon pays",
   "continentGuessrDesc": "Devine juste le continent",
   "skipTutorial": "Passer le tutoriel →",
