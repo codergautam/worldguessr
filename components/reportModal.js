@@ -99,43 +99,65 @@ export default function ReportModal({
     try {
       // One report per selected player (shared reason/description). The mod
       // queue groups by reported user, so each target gets its own group.
-      let failureMessage = null;
-      for (const target of realTargets) {
-        const response = await fetch(window.cConfig.apiUrl + '/api/submitReport', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            secret: session.token.secret,
-            reportedUserAccountId: target.accountId,
-            reason,
-            description: description.trim(),
-            gameId,
-            gameType
-          }),
-        });
+      // Each target is attempted independently — one bad response must not
+      // abort the rest — and outcomes are tracked per target so the closing
+      // success toast can never fire for a report that was never filed.
+      const failures = []; // { target, message }
+      const succeededIds = new Set(); // accountIds whose report landed
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          failureMessage = errorData.message || 'Failed to submit report';
+      for (const target of realTargets) {
+        try {
+          const response = await fetch(window.cConfig.apiUrl + '/api/submitReport', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              secret: session.token.secret,
+              reportedUserAccountId: target.accountId,
+              reason,
+              description: description.trim(),
+              gameId,
+              gameType
+            }),
+          });
+
+          if (response.ok) {
+            succeededIds.add(target.accountId);
+          } else {
+            // The API always answers JSON, but a gateway 502/504 serves
+            // HTML — parse defensively instead of throwing mid-loop.
+            const errorData = await response.json().catch(() => null);
+            failures.push({ target, message: errorData?.message || 'Failed to submit report' });
+          }
+        } catch (error) {
+          console.error('Error submitting report:', error);
+          failures.push({ target, message: 'Network error occurred' });
         }
       }
 
-      if (failureMessage && realTargets.length === 1) {
-        toast.error(failureMessage);
-      } else {
-        if (failureMessage) {
-          // Partial failure on a multi-target submit (e.g. one duplicate):
-          // the rest went through — surface the one that didn't.
-          toast.warn(failureMessage);
-        }
+      if (failures.length === 0) {
         toast.success('Report submitted successfully. Our moderators will review it.');
         resetAndClose();
+      } else {
+        // At least one report did NOT go through: keep the modal open with
+        // reason/description intact so the user can retry or bail out
+        // knowing the truth. Targets that DID land are deselected so a
+        // retry only resends the failures (re-sending a success would 409).
+        if (succeededIds.size > 0) {
+          const reportedNames = realTargets
+            .filter(t => succeededIds.has(t.accountId))
+            .map(t => t.username || 'Player')
+            .join(', ');
+          toast.success(`Report submitted for ${reportedNames}`);
+          if (usePicker) {
+            setSelectedIds(prev => prev.filter(i => !succeededIds.has(candidates[i]?.accountId)));
+          }
+        }
+        for (const { target, message } of failures) {
+          toast.error(realTargets.length > 1 ? `${target.username || 'Player'}: ${message}` : message);
+        }
       }
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      toast.error('Network error occurred');
     } finally {
       setSubmitting(false);
     }
