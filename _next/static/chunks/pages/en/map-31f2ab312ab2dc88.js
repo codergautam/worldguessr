@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7710],{5261:(_,e,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/en/map",function(){return u(9368)}])},9368:(_,e,u)=>{"use strict";u.r(e),u.d(e,{default:()=>n.default});var n=u(5444)}},_=>{_.O(0,[8430,5592,6637,7321,8781,3250,636,6593,8792],()=>_(_.s=5261)),_N_E=_.O()}]);
