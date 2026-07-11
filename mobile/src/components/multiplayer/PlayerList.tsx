@@ -2,9 +2,10 @@
  * Reusable player list for lobby, between-round, and end-game displays.
  */
 
+import type { ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, t } from '../../shared';
+import { colors, getLeague, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import PlayerName from '../PlayerName';
 import type { MPPlayer } from '../../store/multiplayerStore';
@@ -15,6 +16,16 @@ interface PlayerListProps {
   showScores?: boolean;
   mode?: 'lobby' | 'betweenRounds' | 'endGame';
   roundDeltas?: Record<string, number>;
+  /**
+   * Lobby-mode slot for per-row controls owned by the parent (kick button,
+   * team-move chevrons). Rendered at the row's trailing edge — keeps team
+   * semantics out of this shared component.
+   */
+  rowAccessory?: (player: MPPlayer) => ReactNode;
+  /** Rows to briefly highlight (e.g. just switched team columns). */
+  highlightIds?: Set<string>;
+  /** League-colored "(elo)" after the name (party lobby rows, web parity). */
+  showLobbyElo?: boolean;
 }
 
 export default function PlayerList({
@@ -23,6 +34,9 @@ export default function PlayerList({
   showScores = false,
   mode = 'lobby',
   roundDeltas,
+  rowAccessory,
+  highlightIds,
+  showLobbyElo = false,
 }: PlayerListProps) {
   const sortedPlayers = mode === 'lobby'
     ? players
@@ -48,6 +62,7 @@ export default function PlayerList({
           dense && styles.playerRowDense,
           dense && styles.playerRowBetween,
           player.id === myId && (dense ? styles.playerRowSelfBetween : styles.playerRowSelf),
+          highlightIds?.has(player.id) && styles.playerRowMoved,
         ]}
       >
         <View style={styles.playerLeft}>
@@ -72,8 +87,21 @@ export default function PlayerList({
             {player.supporter && (
               <Ionicons name="heart" size={12} color="#ff6b9d" />
             )}
+            {/* League-colored "(elo)" like the duel HP bars; guests carry no
+                elo so it just skips (web partyLobby.js parity). */}
+            {showLobbyElo && typeof player.elo === 'number' && (
+              <Text
+                style={[
+                  styles.lobbyElo,
+                  { color: getLeague(player.elo)?.light ?? getLeague(player.elo)?.color ?? '#60a5fa' },
+                ]}
+              >
+                ({player.elo})
+              </Text>
+            )}
           </PlayerName>
         </View>
+        {mode === 'lobby' && rowAccessory?.(player)}
         {shouldShowScores && (
           <View style={styles.playerRight}>
             {/* Web in-round leaderboard shows the total score only — no ELO,
@@ -136,6 +164,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(74, 222, 128, 0.65)',
   },
+  // Brief highlight on a row that just switched team columns (web
+  // party-lobby__player--moved pulse; cleared by the parent after ~450ms).
+  playerRowMoved: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
   // Between-rounds leaderboard — white cards w/ dark text (matches web).
   playerRowBetween: {
     backgroundColor: '#ffffff',
@@ -182,6 +215,11 @@ const styles = StyleSheet.create({
   playerNameBetween: { color: '#15202b' },
   hostText: {
     color: '#dc3545',
+    fontSize: fontSizes.xs,
+    fontFamily: 'Lexend-SemiBold',
+    marginLeft: 2,
+  },
+  lobbyElo: {
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-SemiBold',
     marginLeft: 2,

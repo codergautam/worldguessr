@@ -16,7 +16,7 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import { wsService } from '../services/websocket';
-import { useMultiplayerStore } from '../store/multiplayerStore';
+import { useMultiplayerStore, queueTeardownState } from '../store/multiplayerStore';
 import { useAuthStore } from '../store/authStore';
 
 /**
@@ -75,7 +75,10 @@ function tearDownPhantomQueue(): boolean {
   // restart that takes longer than the ~30s in-game budget would tolerate. The
   // inMultiplayer effect would also do this, but only on a later async render.
   wsService.setInGame(false);
-  useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
+  // The full queue slice, not just gameQueued — a 2v2 stage-2 drop must also
+  // clear queueStage/queueMyId/lobbyIntent or the nav machine reads a stale
+  // stage after reconnect.
+  useMultiplayerStore.setState({ ...queueTeardownState });
   state.pushToast({ key: 'queueLeftDisconnect', toastType: 'error' });
   return true;
 }
@@ -139,9 +142,17 @@ export function useWebSocket() {
       // Active game/party drop → leave and go home. setInGame(false) must run
       // BEFORE the service reads its reconnect budget (synchronous here, like
       // tearDownPhantomQueue) so the retry uses the full home budget.
+      // queueTeardownState covers 2v2 stage-1: queued (gameQueued '2v2') while
+      // still inside the staging lobby, so tearDownPhantomQueue's early-return
+      // (inGame true) never handled it.
       wsService.setInGame(false);
       wsService.clearRejoinCode();
-      useMultiplayerStore.setState({ inGame: false, gameData: null, emotes: [] });
+      useMultiplayerStore.setState({
+        inGame: false,
+        gameData: null,
+        emotes: [],
+        ...queueTeardownState,
+      });
       state.pushToast({ key: 'connectionLostRecov', toastType: 'error' });
     });
     return unsub;
@@ -158,8 +169,8 @@ export function useWebSocket() {
         connecting: false,
         inGame: false,
         gameData: null,
-        gameQueued: false,
         emotes: [],
+        ...queueTeardownState,
       });
     });
     return unsub;
@@ -195,9 +206,13 @@ export function useWebSocket() {
         connecting: true,
         // A reconnect starts from "not in a game"; only a server replay puts us
         // back. Matches web's onclose reset and the onDisconnect teardown above.
+        // The queue slice must go too (stage-1 slips past tearDownPhantomQueue's
+        // inGame early-return; a stage-2 rejoin gets re-synced by the server's
+        // enter2v2Queue replay if the teammate kept searching).
         inGame: false,
         gameData: null,
         emotes: [],
+        ...queueTeardownState,
       });
     });
     return unsub;

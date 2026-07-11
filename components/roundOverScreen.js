@@ -1296,10 +1296,10 @@ const GameSummary = ({
                       gap: '6px',
                       fontSize: '0.9rem'
                     }}
-                    title="Report player"
+                    title={text("reportPlayer")}
                   >
                     <FaFlag size={14} />
-                    Report
+                    {text("report")}
                   </button>
                 )}
               </div>
@@ -1570,7 +1570,7 @@ const GameSummary = ({
                                 fontWeight: 'bold',
                                 color: 'rgba(255, 255, 255, 0.6)',
                                 fontSize: '0.9em'
-                              }}>VS</div>
+                              }}>{text("versus")}</div>
                             )}
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>

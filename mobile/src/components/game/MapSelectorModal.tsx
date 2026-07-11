@@ -41,6 +41,19 @@ interface MapSelectorModalProps {
   /** Optional rounds stepper (for party mode) */
   rounds?: number;
   onRoundsChange?: (r: number) => void;
+  /**
+   * Optional intra-party team-mode config (party mode only — web
+   * partyModal.js Game Mode section). Purely presentational: the parent owns
+   * the state, the send, and the team-duel timer-default rule.
+   */
+  teamConfig?: TeamConfig;
+  onTeamConfigChange?: (config: TeamConfig) => void;
+}
+
+export interface TeamConfig {
+  enabled: boolean;
+  scoring: 'closest' | 'average';
+  allowTeamPick: boolean;
 }
 
 interface SelectedMapInfo {
@@ -65,6 +78,8 @@ export default function MapSelectorModal({
   currentSingleplayerMode = null,
   rounds,
   onRoundsChange,
+  teamConfig,
+  onTeamConfigChange,
 }: MapSelectorModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -416,6 +431,77 @@ export default function MapSelectorModal({
               {/* ── Game Options ── */}
               {showOptions && (
               <View style={styles.optionsCard}>
+                {/* Game Mode: Classic (FFA) vs Team Duel + the team
+                    sub-options (party mode only — web partyModal.js). */}
+                {teamConfig && onTeamConfigChange && (
+                  <>
+                    <View style={styles.optionRow}>
+                      <View style={styles.optionLabel}>
+                        <Ionicons name="people-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>{t('gameMode')}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.segRow}>
+                      {([false, true] as const).map((team) => (
+                        <Pressable
+                          key={String(team)}
+                          style={[styles.segBtn, teamConfig.enabled === team && styles.segBtnActive]}
+                          onPress={() => onTeamConfigChange({ ...teamConfig, enabled: team })}
+                        >
+                          <Text
+                            style={[
+                              styles.segBtnText,
+                              teamConfig.enabled === team && styles.segBtnTextActive,
+                            ]}
+                          >
+                            {t(team ? 'teamDuel' : 'classicMode')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={styles.optionHint}>
+                      {t(teamConfig.enabled ? 'teamDuelModeHint' : 'classicModeHint')}
+                    </Text>
+                    {teamConfig.enabled && (
+                      <>
+                        <View style={styles.segRow}>
+                          {(['closest', 'average'] as const).map((mode) => (
+                            <Pressable
+                              key={mode}
+                              style={[styles.segBtn, teamConfig.scoring === mode && styles.segBtnActive]}
+                              onPress={() => onTeamConfigChange({ ...teamConfig, scoring: mode })}
+                            >
+                              <Text
+                                style={[
+                                  styles.segBtnText,
+                                  teamConfig.scoring === mode && styles.segBtnTextActive,
+                                ]}
+                              >
+                                {t(mode === 'average' ? 'scoringAverage' : 'scoringClosest')}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Text style={styles.optionHint}>
+                          {t(teamConfig.scoring === 'average' ? 'scoringAverageHint' : 'scoringClosestHint')}
+                        </Text>
+                        <View style={styles.optionRow}>
+                          <View style={styles.optionLabel}>
+                            <Ionicons name="swap-horizontal-outline" size={20} color="#fff" />
+                            <Text style={styles.optionText}>{t('allowTeamPick')}</Text>
+                          </View>
+                          <Switch
+                            value={teamConfig.allowTeamPick}
+                            onValueChange={(v) => onTeamConfigChange({ ...teamConfig, allowTeamPick: v })}
+                            trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
+                            thumbColor="#fff"
+                          />
+                        </View>
+                      </>
+                    )}
+                    <View style={styles.divider} />
+                  </>
+                )}
                 {/* Rounds (party mode only) */}
                 {onRoundsChange && rounds !== undefined && (
                   <>
@@ -776,6 +862,40 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginVertical: 12,
+  },
+  // Segmented control (Game Mode / Scoring — web party-lobby__seg parity).
+  segRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 3,
+    marginTop: 8,
+  },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  segBtnActive: {
+    backgroundColor: '#4CAF50',
+  },
+  segBtnText: {
+    fontSize: 14,
+    fontFamily: 'Lexend-SemiBold',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  segBtnTextActive: {
+    color: '#fff',
+  },
+  optionHint: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 6,
+    marginBottom: 4,
   },
   stepperRow: {
     flexDirection: 'row',

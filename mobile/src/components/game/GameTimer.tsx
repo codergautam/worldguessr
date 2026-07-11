@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -16,6 +16,7 @@ import { t } from '../../shared/locale';
 import { fontSizes } from '../../styles/theme';
 import { useGameUiScale } from '../../styles/responsive';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
+import { playSfx, stopSfx } from '../../services/sound';
 
 interface GameTimerProps {
   timeRemaining: number;
@@ -159,6 +160,32 @@ export default function GameTimer({
     timeRemaining > 0 &&
     !isPaused &&
     !hasGuess;
+
+  // Round-clock ticking bed: the last-5s window, one shot per round, and —
+  // unlike the red critical skin — deliberately NOT gated on having guessed
+  // (user ruling: a locked-in player still hears the reveal closing in).
+  // Stopped the moment the window exits (early round advance, pause) and on
+  // unmount, so ticks can never play over the reveal.
+  const inTickingWindow =
+    criticalEnabled && shouldShowCountdown && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;
+  const tickingRoundRef = useRef<number | string | null>(null);
+  useEffect(() => {
+    if (inTickingWindow) {
+      if (tickingRoundRef.current !== (roundKey ?? 'round')) {
+        tickingRoundRef.current = roundKey ?? 'round';
+        // Web mix (gameUI.js): fixed pitch — a wobbling clock reads broken —
+        // at a bed level under the one-shots.
+        playSfx('ticking', { pitchJitter: 0, volume: 0.6 });
+      }
+      return;
+    }
+    // Re-arm on window exit: within a round time only moves forward, so the
+    // window can only re-enter via a pause (map modal) — clearing here lets
+    // the bed resume for the remaining seconds instead of staying silent.
+    tickingRoundRef.current = null;
+    stopSfx('ticking');
+  }, [inTickingWindow, roundKey]);
+  useEffect(() => () => stopSfx('ticking'), []);
 
   // Drive the two shared values off `isCritical`. The skin tweens smoothly both
   // ways; the breathe loop only runs while critical (and is cancelled + reset

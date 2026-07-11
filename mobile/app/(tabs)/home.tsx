@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, getLeague, t, formatCompact } from '../../src/shared';
@@ -37,8 +37,11 @@ import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailySta
 import DailyStreakBadge from '../../src/components/daily/DailyStreakBadge';
 import { useDailyMenuStatus } from '../../src/components/daily/useDailyMenuStatus';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
+import { dismissAllSafe } from '../../src/utils/navigation';
+import { TEAM_SUPPORT } from '../../src/services/websocketConfig';
+import { sound } from '../../src/services/sound';
 
-type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
+type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | '2v2' | 'createGame' | 'joinGame' | 'communityMaps';
 
 interface MenuButtonProps {
   label: string;
@@ -111,6 +114,18 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
         </View>
       </Pressable>
     </Animated.View>
+  );
+}
+
+/**
+ * Gold "NEW" sticker on a fresh menu entry (web `.g2_nav_new_sticker`, minus
+ * the star clip-path — a tilted gold chip reads the same at menu-row size).
+ */
+function NewSticker() {
+  return (
+    <View style={styles.newSticker}>
+      <Text style={styles.newStickerText}>{t('newSticker')}</Text>
+    </View>
   );
 }
 
@@ -403,11 +418,82 @@ export default function HomeScreen() {
   const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
   const nextGameType = useMultiplayerStore((s) => s.nextGameType);
 
+  // ── 2v2 navigation owner ──────────────────────────────────────────────────
+  // The 2v2 pipeline is the one flow where the store swaps between "in a game"
+  // (lobby/match on /game/[id]) and "queued with NO game" (stage-2 opponent
+  // search on /queue) several times per session. This effect owns BOTH
+  // directions of that /game/[id] ⇄ /queue toggle with router.replace, so the
+  // stack keeps exactly one of the two mounted (canonical shapes:
+  // [tabs, game], [tabs, queue], [tabs, game, results]) and repeated
+  // find/cancel/play-again cycles can't grow a tower of dead screens.
+  // The generic auto-nav effect below handles every OTHER entry into the game
+  // screen (it runs after this one — declaration order — and skips when this
+  // effect already navigated via the shared hasAutoNavigated ref).
+  //
+  // Covered transition rows (see mobile-team-parity-plan.md §3):
+  //   3. stage-2 enter (gameData wiped)          game/lobby → /queue   (replace)
+  //   4. match found (game snapshot, team2v2)    /queue → /game/[id]   (replace)
+  //   5. stage-2 cancel (lobby snapshot returns) /queue → /game/[id]   (replace)
+  //   6. auto-demotion (fresh lobby + stage-1)   /queue → /game/[id]   (replace)
+  //  10. play-again queue-bound burst            results → /queue      (dismiss+push)
+  // Rows 1/2/7/8 are pure re-renders (no navigation); row 9 (duelEnd→results)
+  // is owned by [id].tsx; rows 11/12 ride the same snapshots as 5/6.
+  const hasAutoNavigated = useRef(false);
+  const queueStage = useMultiplayerStore((s) => s.queueStage);
+  const is2v2Context = useMultiplayerStore(
+    (s) => !!(s.gameData?.is2v2Lobby || s.gameData?.team2v2),
+  );
+  const pathname = usePathname();
+  // Read the live pathname inside effects without re-running them on every
+  // route change — navigation is driven by STORE transitions, not the route.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+  const on2v2Queue = gameQueued === '2v2' && queueStage === 'opponents' && !inGame;
+  useEffect(() => {
+    // game → queue (rows 3/10): whenever we're opponent-searching with no game
+    // mounted, the queue screen must be the top route.
+    if (on2v2Queue) {
+      const path = pathnameRef.current;
+      if (path.startsWith('/queue')) return;
+      if (path.startsWith('/game/results')) {
+        // Play-again burst: unwind results + the finished game, then queue.
+        // The push waits one macrotask so expo-router drains the POP_TO_TOP
+        // first (same two-beat shape as the 1v1 play-again results→home→queue
+        // hop; dismissAllSafe's action queue is NOT synchronous). Re-check the
+        // live store at fire time: a match `game` snapshot can land in the
+        // same burst (instant match against a waiting duo), and a stale push
+        // would stack a dead /queue over the freshly mounted game.
+        dismissAllSafe();
+        setTimeout(() => {
+          const s = useMultiplayerStore.getState();
+          if (s.gameQueued === '2v2' && s.queueStage === 'opponents' && !s.inGame) {
+            router.push('/queue');
+          }
+        }, 0);
+      } else if (path.startsWith('/game/')) {
+        // Stage-2 enter from the staging lobby. [id].tsx's beforeRemove guard
+        // passes (inGame already false) and its !inGame dismiss effect is
+        // gated on !gameQueued, so this replace is the only navigation.
+        router.replace('/queue');
+      } else {
+        // Reconnect re-synced us into a queue while elsewhere (e.g. home).
+        router.push('/queue');
+      }
+      return;
+    }
+    // queue → game (rows 4/5/6): a game snapshot (match, restored lobby, or
+    // demotion lobby) arrived while the queue screen is up. Replace so the
+    // queue doesn't linger under the game and cycles can't stack.
+    if (inGame && is2v2Context && pathnameRef.current.startsWith('/queue')) {
+      hasAutoNavigated.current = true;
+      router.replace({ pathname: '/game/[id]', params: { id: 'multiplayer' } });
+    }
+  }, [on2v2Queue, inGame, is2v2Context]);
+
   // Single owner of "enter the unified multiplayer screen". Fires for ANY
   // in-game state (waiting lobby, duel match, game start, reconnect, accepted
   // invite). The entry screens (create/join/queue) no longer navigate to the
   // game themselves, so there's no double-push race.
-  const hasAutoNavigated = useRef(false);
   useEffect(() => {
     if (!inGame || !gameState) {
       hasAutoNavigated.current = false;
@@ -421,12 +507,16 @@ export default function HomeScreen() {
     // round actually starts (state → getready).
     if (gameState === 'waiting' && gamePublic) return;
     if (hasAutoNavigated.current) return;
+    // 2v2 queue → game transitions are owned by the effect above (replace, not
+    // push). It runs first (declaration order) and marks hasAutoNavigated; this
+    // guard covers the edge where THIS effect's deps fire on a later commit.
+    if (is2v2Context && pathnameRef.current.startsWith('/queue')) return;
     hasAutoNavigated.current = true;
     router.push({
       pathname: '/game/[id]',
       params: { id: 'multiplayer' },
     });
-  }, [inGame, gameState, gamePublic]);
+  }, [inGame, gameState, gamePublic, is2v2Context]);
 
   // Handle auto re-queue after gameCancelled (opponent left before start).
   // Preserve the original queue type so unranked players re-queue into the
@@ -441,9 +531,34 @@ export default function HomeScreen() {
     }
   }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
 
+  // Guest tapped an account-gated mode: link-Google conversion prompt (web
+  // SuggestAccountModal locked variants — same locale keys, native Alert shape).
+  // Shared by the 2v2 entry and, later, the guest-visible Ranked entry.
+  const promptLinkGoogle = (variant: '2v2' | 'ranked') => {
+    Alert.alert(
+      t(variant === '2v2' ? 'linkGoogle2v2Title' : 'linkGoogleRankedTitle'),
+      t(variant === '2v2' ? 'linkGoogle2v2Desc' : 'linkGoogleRankedDesc'),
+      [
+        { text: t('maybeLater'), style: 'cancel' },
+        { text: t('loginWithGoogle1'), onPress: handleLogin },
+      ],
+    );
+  };
+
   const handleModePress = async (mode: GameMode) => {
+    sound.uiClick(); // home main-menu scope = ui_click (web .g2_nav_ui parity)
     haptics.light(); // tap on any main menu mode button
-    const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === 'createGame' || mode === 'joinGame';
+    // Account-gated modes mirror web's button order: guest upsell BEFORE the
+    // connection check (a guest doesn't need a live socket to see the prompt).
+    if (mode === '2v2' && !isAuthenticated) {
+      promptLinkGoogle('2v2');
+      return;
+    }
+    if (mode === 'rankedDuel' && !isAuthenticated) {
+      promptLinkGoogle('ranked');
+      return;
+    }
+    const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === '2v2' || mode === 'createGame' || mode === 'joinGame';
     if (needsConnection && !connected) {
       Alert.alert(
         t('multiplayerNotConnected'),
@@ -478,6 +593,15 @@ export default function HomeScreen() {
         await runGameInterstitial('unrankedDuel');
         useMultiplayerStore.getState().joinQueue('unrankedDuel');
         router.push('/queue');
+        break;
+      case '2v2':
+        // Lobby-first (binding ruling — never instant-queue): reuse the party
+        // create route — its skeleton shell paints instantly while the server
+        // builds the staging lobby, and the auto-nav effect swaps in
+        // /game/[id] when the snapshot arrives (exact createGame flow). No
+        // interstitial here (web parity: lobby creation is ad-free); the ad
+        // runs at Find Match, the actual queue entry.
+        router.push({ pathname: '/party/create', params: { mode: '2v2' } });
         break;
       case 'createGame':
         router.push('/party/create');
@@ -971,20 +1095,33 @@ export default function HomeScreen() {
                   ) : null
                 }
               />
-              {isAuthenticated && (
-                <MenuButton
-                  label={t('rankedDuel')}
-                  onPress={() => handleModePress('rankedDuel')}
-                  delay={getDelay()}
-                  ready={!authLoading}
-                />
-              )}
+              {/* Visible to GUESTS too (web parity — a hidden button is a lost
+                  conversion funnel): a guest tap opens the link-Google prompt
+                  instead of the queue. */}
+              <MenuButton
+                label={t('rankedDuel')}
+                onPress={() => handleModePress('rankedDuel')}
+                delay={getDelay()}
+                ready={!authLoading}
+              />
               <MenuButton
                 label={isAuthenticated ? t('unrankedDuel') : t('findDuel')}
                 onPress={() => handleModePress('unrankedDuel')}
                 delay={getDelay()}
                 ready={!authLoading}
               />
+              {/* Gated on the SAME rollout switch as the verify flag: a build
+                  that doesn't announce teamSupport gets server-rejected from
+                  every team surface, so the entry must not exist either. */}
+              {TEAM_SUPPORT && (
+                <MenuButton
+                  label={t('twovtwo')}
+                  onPress={() => handleModePress('2v2')}
+                  delay={getDelay()}
+                  ready={!authLoading}
+                  accessory={<NewSticker />}
+                />
+              )}
             </View>
 
             <MenuDivider delay={getDelay()} ready={!authLoading} />
@@ -1341,6 +1478,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     fontWeight: '400',
     color: colors.white,
+  },
+  // Gold "NEW" chip (web .g2_nav_new_sticker palette: #ffd700→#ffb300 on #1a0a00).
+  newSticker: {
+    backgroundColor: '#ffc400',
+    borderRadius: borderRadius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    transform: [{ rotate: '8deg' }],
+    shadowColor: '#ffd700',
+    shadowOpacity: 0.55,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  newStickerText: {
+    color: '#1a0a00',
+    fontSize: 10,
+    fontFamily: 'Lexend-Bold',
+    letterSpacing: 0.3,
   },
   // Bottom icons
   bottomIcons: {

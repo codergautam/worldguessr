@@ -17,6 +17,11 @@ interface EloData {
   duels_losses: number;
   duels_tied: number;
   win_rate: number;
+  // 2v2 team stats (unranked) — absent on servers predating the fields.
+  team2v2_wins?: number;
+  team2v2_losses?: number;
+  team2v2_tied?: number;
+  team2v2_win_rate?: number;
 }
 
 interface EloTabProps {
@@ -97,6 +102,25 @@ export default function EloTab({
               label={t('win_rate')}
               value={`${(eloData.win_rate * 100).toFixed(2)}%`}
             />
+          )}
+          {/* 2v2 team stats (unranked) — only once the user has played 2v2
+              (web eloView.js parity). */}
+          {((eloData.team2v2_wins ?? 0) + (eloData.team2v2_losses ?? 0) + (eloData.team2v2_tied ?? 0)) > 0 && (
+            <>
+              <StatItem label={t('twovtwoWon')} value={String(eloData.team2v2_wins ?? 0)} />
+              <StatItem label={t('twovtwoLost')} value={String(eloData.team2v2_losses ?? 0)} />
+              {(eloData.team2v2_tied ?? 0) > 0 && (
+                <StatItem label={t('twovtwoTied')} value={String(eloData.team2v2_tied)} />
+              )}
+              {/* typeof: a genuine 0% win rate must still render (falsy-zero
+                  hid the tile for 0-win records — web comment ported). */}
+              {typeof eloData.team2v2_win_rate === 'number' && (
+                <StatItem
+                  label={t('twovtwoWinRate')}
+                  value={`${(eloData.team2v2_win_rate * 100).toFixed(2)}%`}
+                />
+              )}
+            </>
           )}
         </View>
       </GlassCard>

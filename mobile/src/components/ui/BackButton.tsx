@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../shared';
 import { haptics } from '../../services/haptics';
+import { sound } from '../../services/sound';
 
 // Canonical brand gradient for the back/leave button (matches web's red navbar btn).
 const BACK_GRADIENT = [
@@ -29,6 +30,9 @@ export default function BackButton({ onPress, icon = 'close', style }: BackButto
   return (
     <Pressable
       onPress={() => {
+        // Web parity (attachUiClickSounds): sound and touch fire together at
+        // the same press site.
+        sound.click();
         haptics.light();
         onPress();
       }}

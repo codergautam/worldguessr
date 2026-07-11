@@ -162,7 +162,6 @@
   "hint": "Pista",
   "guess": "Adivinar",
   "waitingForPlayers": "Esperando a {{p}} jugadores",
-  "waitingForTeammate": "Esperando a tu compañero",
   "waitingForTeammates": "Esperando a {{p}} compañeros",
   "waitingForOpponents": "Esperando a los rivales",
   "disconnectedTag": "Desconectado",
@@ -930,5 +929,8 @@
   "hideCode": "Ocultar código",
   "showCode": "Mostrar código",
   "teammateNeedsUpdate": "Tu compañero solo puede jugar partidas en equipo en worldguessr.com por ahora",
-  "kickConfirm": "¿Expulsar a {{name}} del grupo?"
+  "kickConfirm": "¿Expulsar a {{name}} del grupo?",
+  "multiplayerEmoteReactions": "Reacciones con emotes en multijugador",
+  "forfeit2v2Warning": "Si te vas ahora, tu equipo pierde la partida y el juego termina para los 4 jugadores.",
+  "teamBackgroundWarning": "Ojo: si sales de la app mucho tiempo, abandonas a tu compañero."
 }

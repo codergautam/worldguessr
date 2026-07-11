@@ -28,6 +28,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
+import VolumeSliders from '../src/components/VolumeSliders';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -274,8 +275,14 @@ export default function SettingsScreen() {
             </View>
           </Section>
 
+          {/* Audio — two sliders shared with the party-lobby sound modal
+              (one VolumeSliders component, two surfaces — web parity). */}
+          <Section title={t('audioSettings')} icon="volume-high-outline" index={4}>
+            <VolumeSliders />
+          </Section>
+
           {/* Haptics */}
-          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={4}>
+          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={5}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
@@ -306,7 +313,7 @@ export default function SettingsScreen() {
 
           {/* Account — server-backed, logged-in only */}
           {user?.accountId && (
-            <Section title={t('accountSettings')} icon="person-circle-outline" index={5}>
+            <Section title={t('accountSettings')} icon="person-circle-outline" index={6}>
               <View style={[styles.row, accountSettingsLocked && styles.rowLocked]}>
                 <View style={styles.rowTextWrap}>
                   <Text style={styles.rowLabel}>{t('allowFriendRequests')}</Text>
@@ -345,13 +352,13 @@ export default function SettingsScreen() {
           {/* Danger Zone — account deletion (moved here from the account
               moderation tab; web parity: sits right under Account settings) */}
           {user?.accountId && (
-            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={6}>
+            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={7}>
               <DangerZoneSection />
             </Section>
           )}
 
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={7}>
+          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={8}>
             <Pressable
               onPress={openPrivacy}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

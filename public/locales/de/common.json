@@ -162,7 +162,6 @@
   "hint": "Hinweis",
   "guess": "Raten",
   "waitingForPlayers": "Warten auf {{p}} Spieler",
-  "waitingForTeammate": "Warten auf deinen Teamkollegen",
   "waitingForTeammates": "Warten auf {{p}} Teamkollegen",
   "waitingForOpponents": "Warten auf die Gegner",
   "disconnectedTag": "Getrennt",
@@ -930,5 +929,8 @@
   "hideCode": "Code verbergen",
   "showCode": "Code anzeigen",
   "teammateNeedsUpdate": "Dein Teamkollege kann Teamspiele vorerst nur auf worldguessr.com spielen",
-  "kickConfirm": "{{name}} aus der Party entfernen?"
+  "kickConfirm": "{{name}} aus der Party entfernen?",
+  "multiplayerEmoteReactions": "Multiplayer-Emote-Reaktionen",
+  "forfeit2v2Warning": "Wenn du jetzt gehst, verliert dein Team das Match und das Spiel endet für alle 4 Spieler.",
+  "teamBackgroundWarning": "Achtung: Wenn du die App länger verlässt, lässt du deinen Teamkameraden im Stich."
 }

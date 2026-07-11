@@ -162,7 +162,6 @@
   "hint": "Подсказка",
   "guess": "Угадать",
   "waitingForPlayers": "Ожидание {{p}} игроков",
-  "waitingForTeammate": "Ждём твоего напарника",
   "waitingForTeammates": "Ждём напарников: {{p}}",
   "waitingForOpponents": "Ждём соперников",
   "disconnectedTag": "Отключился",
@@ -930,5 +929,8 @@
   "hideCode": "Скрыть код",
   "showCode": "Показать код",
   "teammateNeedsUpdate": "Ваш напарник пока может играть в командные игры только на worldguessr.com",
-  "kickConfirm": "Исключить {{name}} из группы?"
+  "kickConfirm": "Исключить {{name}} из группы?",
+  "multiplayerEmoteReactions": "Эмоты в мультиплеере",
+  "forfeit2v2Warning": "Если выйдешь сейчас, твоя команда проиграет матч, и игра закончится для всех 4 игроков.",
+  "teamBackgroundWarning": "Внимание: если надолго свернуть приложение, ты бросишь напарника."
 }

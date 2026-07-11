@@ -162,7 +162,6 @@
   "hint": "Indice",
   "guess": "Deviner",
   "waitingForPlayers": "En attente de {{p}} joueurs",
-  "waitingForTeammate": "En attente de ton coéquipier",
   "waitingForTeammates": "En attente de {{p}} coéquipiers",
   "waitingForOpponents": "En attente des adversaires",
   "disconnectedTag": "Déconnecté",
@@ -930,5 +929,8 @@
   "hideCode": "Masquer le code",
   "showCode": "Afficher le code",
   "teammateNeedsUpdate": "Votre coéquipier ne peut jouer en équipe que sur worldguessr.com pour le moment",
-  "kickConfirm": "Expulser {{name}} du groupe ?"
+  "kickConfirm": "Expulser {{name}} du groupe ?",
+  "multiplayerEmoteReactions": "Réactions emotes en multijoueur",
+  "forfeit2v2Warning": "Partir maintenant fait perdre le match à ton équipe et met fin à la partie pour les 4 joueurs.",
+  "teamBackgroundWarning": "Attention : quitter l'app trop longtemps abandonne ton coéquipier."
 }

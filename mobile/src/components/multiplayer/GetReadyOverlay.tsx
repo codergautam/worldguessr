@@ -23,14 +23,17 @@ import { colors, getLeague, t } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
+import getMyTeam from '../../shared/game/getMyTeam';
 import WgWordmark from '../ui/WgWordmark';
 import PlayerName from '../PlayerName';
 
 interface GetReadyOverlayProps {
-  /** Both duel players — drives the opponent-introduction matchup. */
+  /** The duel players — drives the opponent-introduction matchup. */
   players?: MPPlayer[];
   /** My player id (so the matchup knows which side is "You"). */
   myId?: string;
+  /** Matchmade 2v2 → the matchup becomes a team VS card (Your/Enemy Team). */
+  team2v2?: boolean;
   round: number;
   totalRounds: number;
   /** Server timestamp when getready phase ends */
@@ -46,6 +49,7 @@ const COUNTDOWN_WINDOW = 5;
 export default function GetReadyOverlay({
   players,
   myId,
+  team2v2,
   round,
   totalRounds,
   nextEvtTime,
@@ -57,7 +61,22 @@ export default function GetReadyOverlay({
 
   const me = players?.find((p) => p.id === myId);
   const opponent = players?.find((p) => p.id !== myId);
-  const showMatchup = !!(me && opponent);
+  // 2v2: split the roster by team. Null/unresolved myTeam or an empty side →
+  // skip the matchup (plain countdown) — NEVER guess sides.
+  const myTeam = team2v2 ? getMyTeam(players, myId) : null;
+  const mySidePlayers =
+    team2v2 && myTeam
+      ? (players ?? [])
+          .filter((p) => p.team === myTeam)
+          .sort((a, b) => Number(b.id === myId) - Number(a.id === myId))
+      : [];
+  const enemySidePlayers =
+    team2v2 && myTeam
+      ? (players ?? []).filter((p) => (p.team === 'a' || p.team === 'b') && p.team !== myTeam)
+      : [];
+  const showMatchup = team2v2
+    ? mySidePlayers.length > 0 && enemySidePlayers.length > 0
+    : !!(me && opponent);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -110,13 +129,31 @@ export default function GetReadyOverlay({
       <View style={styles.body}>
         {showMatchup && (
           <View style={styles.matchup}>
-            <PlayerColumn player={me} label={t('you', undefined, 'You')} side="left" />
+            {team2v2 ? (
+              <PlayerColumn
+                players={mySidePlayers}
+                myId={myId}
+                teamTitle={t('yourTeam')}
+                side="left"
+              />
+            ) : (
+              <PlayerColumn players={me ? [me] : []} label={t('you', undefined, 'You')} side="left" />
+            )}
             <Reanimated.View
               entering={ZoomIn.delay(200).duration(380).reduceMotion(ReduceMotion.Never)}
             >
               <Text style={styles.vsText}>VS</Text>
             </Reanimated.View>
-            <PlayerColumn player={opponent} side="right" />
+            {team2v2 ? (
+              <PlayerColumn
+                players={enemySidePlayers}
+                myId={myId}
+                teamTitle={t('enemyTeam')}
+                side="right"
+              />
+            ) : (
+              <PlayerColumn players={opponent ? [opponent] : []} side="right" />
+            )}
           </View>
         )}
 
@@ -132,39 +169,80 @@ export default function GetReadyOverlay({
 }
 
 function PlayerColumn({
-  player,
+  players,
+  myId,
   label,
+  teamTitle,
   side,
 }: {
-  player: MPPlayer;
-  /** Override the displayed name (e.g. "You" for the local player). */
+  /** 1 player (1v1) or a team of up to 2 (2v2). */
+  players: MPPlayer[];
+  myId?: string;
+  /** Override the displayed name (e.g. "You" for the 1v1 local player). */
   label?: string;
+  /** Column heading in team mode ("Your Team" / "Enemy Team"). */
+  teamTitle?: string;
   side: 'left' | 'right';
 }) {
-  const league = player.elo !== undefined ? getLeague(player.elo) : null;
-  const accent = league?.light ?? league?.color ?? '#cbd5e1';
-  const name = label ?? player.username;
   const Entering = side === 'left' ? FadeInLeft : FadeInRight;
+  const single = players.length === 1 && !teamTitle;
+
+  if (single) {
+    // 1v1 keeps its ORIGINAL stacked layout byte-for-byte: PlayerName + eloRow
+    // as direct children of the animated column — no extra wrapper (a nested
+    // styles.player would double-apply the column layout).
+    const p = players[0];
+    const league = p.elo !== undefined ? getLeague(p.elo) : null;
+    const accent = league?.light ?? league?.color ?? '#cbd5e1';
+    return (
+      <Reanimated.View
+        style={styles.player}
+        entering={Entering.duration(460).reduceMotion(ReduceMotion.Never)}
+      >
+        <PlayerName
+          name={label ?? p.username}
+          countryCode={p.countryCode}
+          flagSize={15}
+          flagStyle={styles.flag}
+          textStyle={styles.name}
+          style={styles.nameRow}
+        />
+        {p.elo !== undefined && (
+          <View style={styles.eloRow}>
+            <Text style={[styles.eloText, { color: accent }]}>({p.elo})</Text>
+          </View>
+        )}
+      </Reanimated.View>
+    );
+  }
 
   return (
     <Reanimated.View
       style={styles.player}
       entering={Entering.duration(460).reduceMotion(ReduceMotion.Never)}
     >
-      <PlayerName
-        name={name}
-        countryCode={player.countryCode}
-        flagSize={15}
-        flagStyle={styles.flag}
-        textStyle={styles.name}
-        style={styles.nameRow}
-      />
-
-      {player.elo !== undefined && (
-        <View style={styles.eloRow}>
-          <Text style={[styles.eloText, { color: accent }]}>({player.elo})</Text>
-        </View>
-      )}
+      {teamTitle && <Text style={styles.teamTitle}>{teamTitle}</Text>}
+      {players.map((p) => {
+        const league = p.elo !== undefined ? getLeague(p.elo) : null;
+        const accent = league?.light ?? league?.color ?? '#cbd5e1';
+        return (
+          // Team rows: compact name + inline elo, stacked 1–2 per side.
+          <View key={p.id} style={styles.nameRow}>
+            <PlayerName
+              name={p.id === myId ? t('you', undefined, 'You') : p.username}
+              countryCode={p.countryCode}
+              flagSize={14}
+              flagStyle={styles.flag}
+              textStyle={styles.name}
+              style={styles.nameRow}
+            >
+              {p.elo !== undefined && (
+                <Text style={[styles.eloText, styles.eloInline, { color: accent }]}>({p.elo})</Text>
+              )}
+            </PlayerName>
+          </View>
+        );
+      })}
     </Reanimated.View>
   );
 }
@@ -299,6 +377,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     fontSize: fontSizes.md,
     fontVariant: ['tabular-nums'],
+  },
+  eloInline: {
+    fontSize: fontSizes.sm,
+  },
+  teamTitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Lexend-Bold',
+    fontSize: fontSizes.xs,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   vsText: {
     color: 'rgba(255,255,255,0.55)',

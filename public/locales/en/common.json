@@ -143,7 +143,6 @@
   "hint": "Hint",
   "guess": "Guess",
   "waitingForPlayers": "Waiting for {{p}} players",
-  "waitingForTeammate": "Waiting for your teammate",
   "waitingForTeammates": "Waiting for {{p}} teammates",
   "waitingForOpponents": "Waiting for opponents",
   "disconnectedTag": "Disconnected",
@@ -931,5 +930,8 @@
   "hideCode": "Hide code",
   "showCode": "Show code",
   "teammateNeedsUpdate": "Your teammate can only play team games on worldguessr.com for now",
-  "kickConfirm": "Kick {{name}} from the party?"
+  "kickConfirm": "Kick {{name}} from the party?",
+  "multiplayerEmoteReactions": "Multiplayer emote reactions",
+  "forfeit2v2Warning": "Leaving now forfeits the match for your teammate and ends the game for all 4 players. Your team takes the loss.",
+  "teamBackgroundWarning": "Heads up: leaving the app for long abandons your teammate."
 }

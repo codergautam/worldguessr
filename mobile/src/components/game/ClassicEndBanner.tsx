@@ -55,6 +55,41 @@ interface Props {
    */
   streak?: number;
   lostStreak?: number;
+  /**
+   * Team/duel round verdict (web endBanner.js team sections). Numbers stay on
+   * the HP bars / team scorebar — the banner's job here is interpretation
+   * (won/lost + credit), by ruling: NO score digits in the banner.
+   */
+  verdict?: MpRoundVerdict;
+}
+
+export interface MpRoundVerdict {
+  /**
+   * HP modes (1v1 duel + team2v2): the damage verdict IS the headline.
+   * `null` = a 0-damage round (renders the tied line); omit the field
+   * entirely for non-HP modes.
+   */
+  damage?: { dealt: boolean; dmg: number } | null;
+  /** Cumulative team parties: verdict line under the classic headline. */
+  teamRound?: 'won' | 'lost' | 'tied';
+  /**
+   * Pre-translated carrier credit ("X's guess counted" / tie). Null when
+   * suppressed: you carried (self-credit is noise, by ruling), average
+   * scoring (no single guess counted), or no data.
+   */
+  carrierText?: string | null;
+}
+
+/**
+ * Compact points for parentheticals: 3412 → "3.4k", 5000 → "5k". Exception:
+ * 4950–4999 would also compact to "5k" — a perfect-score claim they didn't
+ * earn (real 5000s wear the gold chip) — those render exact. The same guard
+ * covers the damage line, where a fake "5k" would claim a full wipe.
+ */
+function compactPts(n: number): string {
+  if (n < 1000) return `${n}`;
+  const compact = `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return compact === '5k' && n !== 5000 ? `${n}` : compact;
 }
 
 export default function ClassicEndBanner({
@@ -73,6 +108,7 @@ export default function ClassicEndBanner({
   footerSlot,
   streak,
   lostStreak,
+  verdict,
 }: Props) {
   // Mirror web's #endBanner: a centered card that HUGS its content (web is
   // `display:flex; flex-direction:column; align-items:center` with no width —
@@ -134,6 +170,43 @@ export default function ClassicEndBanner({
     };
   }, [answerCountry, guessLat, guessLng]);
 
+  // ── HP-mode / team-round derivations (web endBanner.js team sections) ────
+  const isHpMode = verdict?.damage !== undefined; // 1v1 duel + team2v2
+  const isTeamGameRound = !!verdict?.teamRound; // cumulative team party
+  // A flat 5000 is the game's rarest personal outcome — it outranks the humble
+  // points text and renders as the gold chip in every mode that shows points.
+  const isPerfectRound = didGuess && Math.round(points) === 5000;
+  // "{distance} (3.4k pts)" — team modes fold the points into the distance
+  // line so the banner stays compact; on a perfect the parenthetical drops
+  // (the chip carries the moment).
+  const personalRoundText = distanceText
+    ? isPerfectRound
+      ? distanceText
+      : `${distanceText} (${t('ptsCount', { points: compactPts(Math.round(points)) })})`
+    : t('didntGuess');
+  // HP-mode country reveal above the damage verdict (singleplayer parity):
+  // naming the RIGHT country silences the line — no pin or a wrong-country
+  // pin keeps it. wrongCountryName is only set when the pin landed outside
+  // the answer country, so `!didGuess || wrongCountryName` is exactly web's
+  // `(!pinPoint || pinInRoundCountry === false)`.
+  const hpCountryRevealName =
+    isHpMode && answerCountry && (!didGuess || wrongCountryName)
+      ? nameFromCode(answerCountry)
+      : null;
+  const damageHeadlineText = isHpMode
+    ? verdict?.damage && verdict.damage.dmg > 0
+      ? `${verdict.damage.dealt ? '⚔️' : '💔'} ${t(verdict.damage.dealt ? 'dealtDamage' : 'tookDamage', { dmg: compactPts(verdict.damage.dmg) })}`
+      : t('teamRoundTied')
+    : null;
+  // One chip, rendered by whichever branch owns the perfect moment.
+  const perfectChipEl = isPerfectRound ? (
+    <View style={styles.perfectChip}>
+      <Text style={[styles.perfectChipText, { fontSize: sc(13) }]}>{t('perfectFiveK')}</Text>
+    </View>
+  ) : null;
+  // Non-HP headline: team rounds fold points into the distance line.
+  const classicHeadline = (isTeamGameRound ? personalRoundText : distanceText) ?? t('didntGuess');
+
   // bannerPop on the main line (core Animated → ignores Reduce Motion, like web).
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -144,7 +217,9 @@ export default function ClassicEndBanner({
       easing: Easing.bezier(0.34, 1.56, 0.64, 1),
       useNativeDriver: true,
     }).start();
-  }, [wrongCountryName, distanceText, didGuess]);
+    // damageHeadlineText in the deps: HP-mode reveals swap the headline
+    // between rounds without remounting — the new verdict must re-pop.
+  }, [wrongCountryName, distanceText, didGuess, damageHeadlineText]);
   const popStyle = {
     opacity: pop,
     transform: [
@@ -187,7 +262,32 @@ export default function ClassicEndBanner({
       )}
 
       <View style={[styles.content, compactLandscape && styles.contentLandscape, isTablet && { gap: sc(8) }]}>
-        {wrongCountryName ? (
+        {isHpMode ? (
+          /* HP modes (1v1 + team2v2): damage direction IS the verdict. The
+             emoji is the win/lose signal — no colored verdict text (ruling). */
+          <>
+            {hpCountryRevealName && (
+              <View style={styles.mainRow}>
+                <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
+                  {t('incorrectCountryWas', { country: hpCountryRevealName })}
+                </Text>
+                <CountryFlag countryCode={answerCountry ?? ''} size={sc(compactLandscape ? 12 : 13)} />
+              </View>
+            )}
+            <Animated.Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }, popStyle]}>
+              {damageHeadlineText}
+            </Animated.Text>
+            {perfectChipEl}
+            {verdict?.carrierText ? (
+              <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
+                {verdict.carrierText}
+              </Text>
+            ) : null}
+            <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
+              {personalRoundText}
+            </Text>
+          </>
+        ) : wrongCountryName ? (
           <>
             <Animated.View style={[styles.mainRow, popStyle]}>
               <Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }]}>
@@ -197,19 +297,48 @@ export default function ClassicEndBanner({
             </Animated.View>
             {distanceText ? (
               <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
-                {distanceText}
+                {isTeamGameRound ? personalRoundText : distanceText}
               </Text>
             ) : null}
           </>
         ) : (
           <Animated.Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }, popStyle]}>
-            {distanceText ?? t('didntGuess')}
+            {classicHeadline}
           </Animated.Text>
         )}
 
-        <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
-          {t('gotPoints', { p: Math.round(points) })}
-        </Text>
+        {/* Points line (classic only). Team rounds fold points into the
+            distance line above; HP modes render their own personal line. A
+            perfect 5000 outranks the humble text and wears the gold chip. */}
+        {!isHpMode && !isTeamGameRound && (
+          perfectChipEl ?? (
+            <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
+              {t('gotPoints', { p: Math.round(points) })}
+            </Text>
+          )
+        )}
+
+        {/* Cumulative team party: verdict + credit only, damage-free (ruling:
+            the scoreline is already visible on the team scorebar). */}
+        {isTeamGameRound && (
+          <>
+            {perfectChipEl}
+            <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
+              {t(
+                verdict!.teamRound === 'won'
+                  ? 'teamRoundWon'
+                  : verdict!.teamRound === 'lost'
+                    ? 'teamRoundLost'
+                    : 'teamRoundTied',
+              )}
+            </Text>
+            {verdict?.carrierText ? (
+              <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
+                {verdict.carrierText}
+              </Text>
+            ) : null}
+          </>
+        )}
 
         {/* Country streak (world map only). Mirrors web endBanner.js: a 🔥 chip
             while the run is alive, or a muted "lost your N streak" line. */}
@@ -319,6 +448,17 @@ const styles = StyleSheet.create({
   // bannerPoints: small, white — not colored by score.
   points: { color: 'rgba(255,255,255,0.92)', fontFamily: 'Lexend', fontSize: 13, textAlign: 'center' },
   pointsLandscape: { fontSize: 12 },
+  // .perfect5k — gold chip for a flat 5000 (web endBanner.js perfect5kLine).
+  perfectChip: {
+    backgroundColor: 'rgba(255,215,0,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.45)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  perfectChipText: { color: '#ffd700', fontFamily: 'Lexend-Bold', fontSize: 13, textAlign: 'center' },
   // .streakBadge — amber 🔥 pill (web endBanner.js), matches CountryEndBanner.
   streakBadge: {
     backgroundColor: 'rgba(251,191,36,0.18)',

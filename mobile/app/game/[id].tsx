@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Pressable,
   useWindowDimensions,
   Animated,
+  AppState,
+  type AppStateStatus,
   Easing,
   Platform,
   Alert,
@@ -21,17 +23,20 @@ import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, calcPoints, findDistance, getPlayerColor } from '../../src/shared';
+import { colors, calcPoints, findDistance, getPlayerColor, pickBestTeamGuessIds } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { gameUiScale, isTabletSize, useGameUiScale } from '../../src/styles/responsive';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
 import { haptics, hapticForScore } from '../../src/services/haptics';
+import { playSfx, preloadSfx, stopSfx } from '../../src/services/sound';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore, type GameData, type MPPlayer, type RoundHistoryEntry } from '../../src/store/multiplayerStore';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { findCountryLocal } from '../../src/shared/game/findCountry';
+import getMyTeam from '../../src/shared/game/getMyTeam';
+import deriveTeamEndFallback from '../../src/shared/game/teamDuelEndFallback';
 import { wsService } from '../../src/services/websocket';
 import { dismissAllSafe } from '../../src/utils/navigation';
 
@@ -44,9 +49,11 @@ import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal from '../../src/components/game/MapSelectorModal';
 import CountryEndBanner from '../../src/components/game/CountryEndBanner';
-import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
+import ClassicEndBanner, { type MpRoundVerdict } from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD, { BAR_WIDTH as DUEL_BAR_WIDTH, BAR_MAX_FRACTION as DUEL_BAR_MAX_FRACTION } from '../../src/components/multiplayer/DuelHUD';
+import TeamScorebar from '../../src/components/multiplayer/TeamScorebar';
+import TeamScoreline from '../../src/components/multiplayer/TeamScoreline';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import EmoteReactions, { EMOTE_TOGGLE_SIZE } from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
@@ -270,6 +277,24 @@ function BetweenRoundsLeaderboard({
       >
         <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
           <Text style={[styles.betweenRoundsTitle, isTablet && { fontSize: sc(30) }]}>{t('leaderboard')}</Text>
+          {/* Team-party hero: the cumulative team totals, big, above the
+              individual rows (web's between-rounds team hero). Crown on the
+              leader, never on ties. The individual PlayerList below keeps its
+              GLOBAL ranks (ruling). */}
+          {gameData.teamGame && !gameData.team2v2 && gameData.teamScores && (
+            <TeamScoreline
+              scores={gameData.teamScores}
+              crownTeam={
+                gameData.teamScores.a === gameData.teamScores.b
+                  ? null
+                  : gameData.teamScores.a > gameData.teamScores.b
+                    ? 'a'
+                    : 'b'
+              }
+              myTeam={getMyTeam(gameData.players, gameData.myId)}
+              size="lg"
+            />
+          )}
           <View style={styles.betweenRoundsListWrap}>
             <PlayerList
               players={gameData.players}
@@ -456,11 +481,17 @@ export default function GameScreen() {
   // for a party/private game (the public&&end sticky guard in the store doesn't apply)
   // flips inGame false and would otherwise fire dismissAllSafe from underneath results,
   // yanking the user off the summary mid-read. Unfocused → results owns the exit.
+  //
+  // Guard on !gameQueued: the 2v2 stage-2 queue wipe sets inGame false WHILE
+  // gameQueued stays '2v2' — that transition belongs to the nav owner in
+  // home.tsx (replace to /queue), and this dismiss racing it would dump the
+  // user home instead.
+  const gameQueuedNow = useMultiplayerStore((s) => s.gameQueued);
   useEffect(() => {
-    if (isMultiplayer && !inGame && navigation.isFocused()) {
+    if (isMultiplayer && !inGame && !gameQueuedNow && navigation.isFocused()) {
       dismissAllSafe();
     }
-  }, [isMultiplayer, inGame, navigation]);
+  }, [isMultiplayer, inGame, gameQueuedNow, navigation]);
 
   useEffect(() => {
     if (
@@ -475,6 +506,36 @@ export default function GameScreen() {
       setDuelWarningVisible(true);
     }
   }, [gameData?.curRound, gameData?.duel, gameData?.public, gameData?.state, isMultiplayer]);
+
+  // Light AppState advisory for LIVE TEAM rounds (plan §6.1.3, daily-DQ
+  // precedent shape — but a toast, never a DQ): a suspended team player hurts
+  // 1-3 other humans, and >25s backgrounded force-reconnects out of the match.
+  // Fires ONCE per match, only for users who actually background ('background'
+  // only — iOS 'inactive' is call banners / Control Center, transient).
+  // [Advisory copy pending user sign-off — inline fallback ships until then.]
+  const teamBgWarnedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const gd = gameData;
+    const liveTeamRound =
+      isMultiplayer && !!(gd?.team2v2 || gd?.teamGame) && (gd?.state === 'guess' || gd?.state === 'getready');
+    if (!liveTeamRound) return;
+    // Match identity captured at SUBSCRIBE time (gd is non-null here) — an
+    // event-time getState() read could see gameData already wiped by the
+    // background reconnect teardown and stamp '' instead, letting the toast
+    // re-fire next match.
+    const matchKey = gd!.code ?? 'matchmade';
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' && teamBgWarnedRef.current !== matchKey) {
+        teamBgWarnedRef.current = matchKey;
+        useMultiplayerStore.getState().pushToast({
+          key: 'teamBackgroundWarning',
+          toastType: 'info',
+          message: 'Heads up: leaving the app for long abandons your teammate.',
+        });
+      }
+    });
+    return () => sub.remove();
+  }, [isMultiplayer, gameData?.team2v2, gameData?.teamGame, gameData?.state, gameData?.code]);
 
   // Sync multiplayer gameData → local gameState for rendering
   useEffect(() => {
@@ -731,6 +792,16 @@ export default function GameScreen() {
       return () => clearTimeout(timer);
     }
   }, [isLoading, mapMounted]);
+
+  // Preload discipline (web parity): decode ahead of the moment that needs
+  // zero latency — pin/guess with the map, ticking once a timed round is
+  // possible, multinoti whenever a live multiplayer game could ping. No-ops
+  // while muted (mute = zero cost).
+  useEffect(() => {
+    if (!mapMounted) return;
+    preloadSfx('pin', 'guess', 'ticking');
+    if (isMultiplayer) preloadSfx('multinoti');
+  }, [mapMounted, isMultiplayer]);
 
   useEffect(() => {
     Animated.timing(singleplayerTopRightAnim, {
@@ -1148,12 +1219,23 @@ export default function GameScreen() {
   // answerShown=true so it stays the full answer map (no reflow to the guess band →
   // no #08120d green void) for the whole fade. The slide effect clears the latch +
   // bumps revealExitTick once the overlay is invisible. See mapResultLatchRef.
+  // Join reveal rows back to the roster for team + REAL final: the embed's
+  // compiled Map.js team layers (blue teammate pins, per-team enlarged best
+  // guess) key off `.team`, and a hardcoded final:true would paint an interim
+  // teammate placement as locked. History-built rows have no roster entry →
+  // final true (the round is over). Memoized: this screen re-renders on every
+  // store broadcast and per-second timer tick — don't rebuild the Map each time.
+  const rosterById = useMemo(
+    () => new Map((gameData?.players ?? []).map((p) => [p.id, p])),
+    [gameData?.players],
+  );
   const liveRevealPlayers = (showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses)
     .map((p) => ({
       id: p.id,
       username: p.username,
       guess: [p.lat, p.lng] as [number, number],
-      final: true,
+      final: rosterById.get(p.id)?.final ?? true,
+      team: rosterById.get(p.id)?.team,
     }));
   if (isMultiplayer && showMapResult) {
     mapResultLatchRef.current = true;
@@ -1214,6 +1296,119 @@ export default function GameScreen() {
       }
     : null;
 
+  // ── HP/team round verdict for the reveal banner (web endBanner.js) ────────
+  // All three verdict flavors freeze per reveal in refs: the next round's
+  // broadcast wipes players[].guess / bumps teamRoundScores while the banner
+  // is still fading out, and a re-derivation mid-fade would flip the text.
+  // The two freeze keys deliberately use DIFFERENT round sources (web parity):
+  // team data keys off the STAMPED teamRoundScores.round (it stays at the
+  // finished round N through the ghost getready window), 1v1 keys off live
+  // curRound. Unify them and the carrier key drifts mid-fade.
+  const teamVerdictRef = useRef<{ key: string; verdict: MpRoundVerdict | undefined }>({
+    key: '',
+    verdict: undefined,
+  });
+  const duelDamageRef = useRef<{ key: string; verdict: MpRoundVerdict | undefined }>({
+    key: '',
+    verdict: undefined,
+  });
+  let mpVerdict: MpRoundVerdict | undefined;
+  if (mpReveal && gameData) {
+    const isTeamMode = !!(gameData.team2v2 || gameData.teamGame);
+    if (isTeamMode) {
+      const trs = gameData.teamRoundScores;
+      const teamKey = `${gameData.code ?? ''}:${trs?.round ?? ''}`;
+      if (teamVerdictRef.current.key !== teamKey) {
+        let verdict: MpRoundVerdict | undefined;
+        const myTeam = getMyTeam(gameData.players, gameData.myId);
+        const scores = trs?.scores;
+        if (myTeam && typeof scores?.a === 'number' && typeof scores?.b === 'number') {
+          const winningTeam = scores.a === scores.b ? null : scores.a > scores.b ? 'a' : 'b';
+          // Carrier credit: same calcPoints + distance tie-break as the map's
+          // enlarged pin (pickBestTeamGuessIds), so the name always matches.
+          // Suppressed under 'average' scoring (no single guess counted) and
+          // when I carried (self-credit is noise — ruling).
+          let carrierText: string | null = null;
+          const averageScoring = !!gameData.teamGame && !gameData.team2v2 && gameData.teamScoring === 'average';
+          if (!averageScoring && mapActualLocation) {
+            const entries = gameData.players
+              .filter((p) => p.team === myTeam && p.latLong && (p.latLong[0] !== 0 || p.latLong[1] !== 0))
+              .map((p) => ({
+                id: p.id,
+                team: myTeam,
+                pts: calcPoints({
+                  lat: mapActualLocation.lat,
+                  lon: mapActualLocation.long,
+                  guessLat: p.latLong![0],
+                  guessLon: p.latLong![1],
+                  maxDist: gameState.maxDist,
+                }),
+                dist: findDistance(mapActualLocation.lat, mapActualLocation.long, p.latLong![0], p.latLong![1]),
+              }));
+            const bestId = [...pickBestTeamGuessIds(entries)][0];
+            if (bestId != null && bestId !== gameData.myId) {
+              // Exact point ties (both teammates capping 5000 is common) mean
+              // either guess IS the team score — credit both instead of naming
+              // whoever was centimeters closer.
+              const bestPts = entries.find((e) => e.id === bestId)?.pts;
+              const tied = entries.filter((e) => e.pts === bestPts).length > 1;
+              const mateName = gameData.players.find((p) => p.id === bestId)?.username;
+              carrierText = tied
+                ? t('guessCountedTie')
+                : mateName
+                  ? t('guessCountedBy', { name: mateName })
+                  : null;
+            } else if (bestId === gameData.myId) {
+              const bestPts = entries.find((e) => e.id === bestId)?.pts;
+              if (entries.filter((e) => e.pts === bestPts).length > 1) carrierText = t('guessCountedTie');
+            }
+          }
+          if (gameData.team2v2) {
+            // 2v2: the server stamps the HP actually applied (multiplier
+            // included) — never re-derive |a−b| or the banner drifts from the
+            // bars. The |a−b| fallback only covers a stale pre-stamp server.
+            const dmg = winningTeam ? (trs!.damage ?? Math.abs(scores.a - scores.b)) : 0;
+            verdict = {
+              damage: dmg > 0 ? { dealt: winningTeam === myTeam, dmg } : null,
+              carrierText,
+            };
+          } else {
+            verdict = {
+              teamRound: winningTeam == null ? 'tied' : winningTeam === myTeam ? 'won' : 'lost',
+              carrierText,
+            };
+          }
+        }
+        teamVerdictRef.current = { key: teamKey, verdict };
+      }
+      mpVerdict = teamVerdictRef.current.verdict;
+    } else if (gameData.duel) {
+      // 1v1 duel: no server stamp — rebuild both round scores exactly like the
+      // server's HP subtraction (calcPoints per guess, absolute diff).
+      const duelKey = `${gameData.code ?? ''}:${gameData.curRound ?? ''}`;
+      if (duelDamageRef.current.key !== duelKey) {
+        let verdict: MpRoundVerdict | undefined;
+        if (mapActualLocation) {
+          const opp = gameData.players.find((p) => p.id !== gameData.myId);
+          const oppGuess = opp?.latLong && (opp.latLong[0] !== 0 || opp.latLong[1] !== 0) ? opp.latLong : null;
+          const oppPts = oppGuess
+            ? calcPoints({
+                lat: mapActualLocation.lat,
+                lon: mapActualLocation.long,
+                guessLat: oppGuess[0],
+                guessLon: oppGuess[1],
+                maxDist: gameState.maxDist,
+              })
+            : 0;
+          const dmg = Math.abs(mpReveal.points - oppPts);
+          verdict = { damage: dmg > 0 ? { dealt: mpReveal.points > oppPts, dmg } : null };
+        }
+        duelDamageRef.current = { key: duelKey, verdict };
+      }
+      mpVerdict = duelDamageRef.current.verdict;
+    }
+  }
+
   // Multiplayer reveal feedback, once per reveal: the score-graded haptic the
   // submit handler defers to ("the result reveal haptic comes later"), plus
   // confetti on a near-perfect guess (web parity: endBanner.js fires at >= 4850
@@ -1228,6 +1423,12 @@ export default function GameScreen() {
     const revealKey = `${gameData.code}:${gameData.curRound}`;
     if (mpRevealFeltRef.current === revealKey) return;
     mpRevealFeltRef.current = revealKey;
+    // MP guess whoosh fires at the ANSWER-REVEAL edge, not the button press —
+    // the reveal lags the press in multiplayer (web gameUI.js parity). Same
+    // deterministic score→pitch mapping as singleplayer; the round-clock
+    // ticking bed must never survive into the reveal.
+    stopSfx('ticking');
+    playSfx('guess', { rate: 0.85 + 0.35 * Math.min(1, mpReveal.points / 5000) });
     hapticForScore(mpReveal.points);
     if (mpReveal.points >= 4850) setConfettiKey((k) => k + 1);
   }, [isMultiplayer, showMapResult, mpReveal?.didGuess, mpReveal?.points, gameData?.code, gameData?.curRound]);
@@ -1238,6 +1439,10 @@ export default function GameScreen() {
     // waiting for other players (web parity). Belt-and-suspenders alongside the
     // map's `interactive={false}`.
     if (mpGuessSentRef.current) return;
+    // Pin-placement click, played NATIVELY (the embed WebView's audio module
+    // is shimmed to a no-op — §11.5 — so the app's SFX slider governs it).
+    // The guards above mirror web Map.js: never after the answer or a final.
+    playSfx('pin');
     setGuessPosition({ lat, lng });
 
     // Multiplayer: send an interim (final:false) placement on every pin move
@@ -1337,7 +1542,11 @@ export default function GameScreen() {
     setMiniMapShown(false);
     setShowPano(false);
     if (points >= 4850) setConfettiKey((k) => k + 1);
-    // Score-graded reveal — the closer the guess, the stronger the buzz.
+    // Score-graded reveal — sound + touch encode the same quality signal
+    // (the whoosh COMPLEMENTS hapticForScore, never replaces it). Pitch
+    // carries MEANING here, so `rate` is deterministic — never jittered
+    // (web gameUI.js: 0.85 + 0.35·min(1, score/5000)).
+    playSfx('guess', { rate: 0.85 + 0.35 * Math.min(1, points / 5000) });
     hapticForScore(points);
 
     // Country streak — world map only (web gameUI.js: `gameOptions.location ===
@@ -1462,13 +1671,24 @@ export default function GameScreen() {
     mpHoldTimer.current = setTimeout(() => {
       const gd = useMultiplayerStore.getState().gameData;
       if (!gd) return;
+      // Re-verify END-ness at fire time: a host resetGame landing inside this
+      // 900ms hold flips gameData to a fresh 'waiting' lobby (roundHistory/
+      // duelEnd wiped) — pushing results built from THAT strands non-host
+      // members on a zero-round screen whose only exits eject them from the
+      // party.
+      if (!(gd.duelEnd || gd.state === 'end')) return;
+      // Reconnect race: a rejoin into state==='end' can miss the duelEnd
+      // message. Team games derive a fallback payload from teamScores so the
+      // results screen still renders the team verdict (1v1 has no client-side
+      // fallback — the server replays its duelEnd on rejoin).
+      const duelEndPayload = gd.duelEnd ?? deriveTeamEndFallback(gd);
       router.push({
         pathname: '/game/results',
         params: {
           totalScore: (gd.players.find((p) => p.id === gd.myId)?.score ?? 0).toString(),
           rounds: JSON.stringify(gd.roundHistory ?? []),
           multiplayer: 'true',
-          duelEnd: gd.duelEnd ? JSON.stringify(gd.duelEnd) : '',
+          duelEnd: duelEndPayload ? JSON.stringify(duelEndPayload) : '',
           players: JSON.stringify(gd.players),
           myId: gd.myId,
           gameId: gd.code ?? '',
@@ -1492,9 +1712,17 @@ export default function GameScreen() {
   // broadcasts game{state:'waiting'} and game/[id] re-renders the lobby BENEATH
   // the pushed results route (this screen is never unmounted across a reset).
   // Re-arm the one-shot results-nav guard so the NEXT party game navigates to
-  // results again.
+  // results again — and clear the reveal freeze refs: their keys are
+  // `${code}:${round}`, and a replayed party reuses BOTH (same lobby code,
+  // rounds restart at 1), so a stale entry would serve game 1's verdict /
+  // haptic-dedup for game 2's identical key.
   useEffect(() => {
-    if (isMultiplayer && gameData?.state === 'waiting') mpResultsNavigated.current = false;
+    if (isMultiplayer && gameData?.state === 'waiting') {
+      mpResultsNavigated.current = false;
+      teamVerdictRef.current = { key: '', verdict: undefined };
+      duelDamageRef.current = { key: '', verdict: undefined };
+      mpRevealFeltRef.current = null;
+    }
   }, [isMultiplayer, gameData?.state]);
 
   const spResultsNavigated = useRef(false);
@@ -1590,12 +1818,12 @@ export default function GameScreen() {
     dismissAllSafe();
   };
 
-  // Multiplayer leave — direct port of web backBtnPressed (home.js:2453-2513):
-  //   • ranked duel in progress → forfeit confirm
-  //   • host of a non-waiting private game → resetGame (back to the lobby, stays)
-  //   • everyone else → leaveGame + reset + exit home
-  // This is the single source of truth for leaving; the visible back button and
-  // the Android hardware-back listener both route through it.
+  // Multiplayer leave — the single owner of EVERY leave/disband/forfeit
+  // confirm (web backBtnPressed, home.js:2453-2513 + the party-confirm
+  // matrix). The visible back button and the Android hardware-back listener
+  // both route through it, so no path can double-prompt. One modal shape,
+  // title `areYouSure` (never "Warning") for party confirms; ranked keeps its
+  // forfeit-specific title.
   const handleLeave = useCallback(() => {
     if (!isMultiplayer) {
       dismissAllSafe();
@@ -1603,7 +1831,7 @@ export default function GameScreen() {
     }
     const gd = useMultiplayerStore.getState().gameData;
     const doLeave = () => {
-      if (gd && gd.host && gd.state !== 'waiting') {
+      if (gd && gd.host && gd.state !== 'waiting' && !gd.public) {
         // Host backing out of an in-progress/finished private game: reset to the
         // lobby instead of ending it. The server flips state→'waiting' and this
         // screen re-renders <MultiplayerLobby/> (no navigation).
@@ -1615,18 +1843,63 @@ export default function GameScreen() {
       useMultiplayerStore.getState().leaveGame();
       dismissAllSafe();
     };
-    // Ranked duel = duel && public (server: ws.js `game.duel && game.public`).
-    const isRankedDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
-    if (isRankedDuel) {
+    const confirm = (bodyKey: string, bodyFallback: string, actionKey: string, actionFallback: string, onConfirm: () => void) => {
+      Alert.alert(t('areYouSure'), t(bodyKey, undefined, bodyFallback), [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t(actionKey, undefined, actionFallback), style: 'destructive', onPress: onConfirm },
+      ]);
+    };
+
+    // Matchmade duel (1v1 AND 2v2 — the wire stamps duel:true on both) mid-
+    // match → forfeit confirm. 2v2 gets team-aware copy: leaving costs the
+    // teammate the match too. [forfeit2v2Warning copy pending user sign-off —
+    // the inline fallback ships until the key lands ×5.]
+    const isMatchmadeDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
+    if (isMatchmadeDuel) {
       Alert.alert(
         t('forfeitGameTitle', undefined, 'Forfeit game?'),
-        t('forfeitGameMessage', undefined, 'Leaving now will count as a loss.'),
+        gd?.team2v2
+          ? t('forfeit2v2Warning', undefined, 'Leaving now forfeits the match for your teammate and ends the game for all 4 players. Your team takes the loss.')
+          : t('forfeitGameMessage', undefined, 'Leaving now will count as a loss.'),
         [
           { text: t('cancel'), style: 'cancel' },
           { text: t('forfeit', undefined, 'Forfeit'), style: 'destructive', onPress: doLeave },
         ],
       );
       return;
+    }
+
+    // Private-party confirm matrix. 2v2 staging lobbies are DISPOSABLE —
+    // exempt from every confirm (ruling).
+    if (gd && !gd.public && !gd.is2v2Lobby) {
+      if (gd.host) {
+        if (gd.state === 'waiting') {
+          // Disband confirm only when someone else is actually in the party.
+          if (gd.players.length > 1) {
+            confirm('disbandPartyWarning', 'Disband the party? Everyone will be removed from the party.', 'disbandParty', 'Disband party', doLeave);
+            return;
+          }
+        } else {
+          // Round-1 countdown = silent cancel-start (nothing played yet). The
+          // post-final GHOST getready (curRound = rounds+1) keeps the confirm
+          // — bound the exemption exactly (curRound <= 1, not "getready").
+          const round1Countdown = gd.state === 'getready' && gd.curRound <= 1;
+          if (!round1Countdown && gd.state !== 'end') {
+            confirm('endMatchWarning', 'End the match for everyone and return to the party lobby?', 'endMatch', 'End match', doLeave);
+            return;
+          }
+        }
+      } else {
+        // Member leave: confirm in ALL states (ruling) — team-aware copy for
+        // a live cumulative team round.
+        const liveTeamRound = !!gd.teamGame && !['waiting', 'end'].includes(gd.state);
+        if (liveTeamRound) {
+          confirm('leaveTeamGameWarning', 'Leave the team match? Your team will keep playing without you.', 'leaveMatch', 'Leave match', doLeave);
+        } else {
+          confirm('leavePartyWarning', "Leave the party? You'll need the code to rejoin.", 'leaveParty', 'Leave party', doLeave);
+        }
+        return;
+      }
     }
     doLeave();
   }, [isMultiplayer, router]);
@@ -1658,17 +1931,12 @@ export default function GameScreen() {
         // let the removal proceed; only intercept while still in a game.
         if (!useMultiplayerStore.getState().inGame) return;
         e.preventDefault();
-        // Ranked duel: handleLeave shows the web forfeit confirm (ELO warning)
-        // itself, so don't double-prompt — delegate straight to it.
-        const gd = useMultiplayerStore.getState().gameData;
-        const isRankedDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
-        if (isRankedDuel) {
-          handleLeave();
-          return;
-        }
-        // Casual game / private-game host: confirm the accidental gesture, then
-        // run the normal web leave (host → resetGame, everyone else → exit).
-        confirmLeave(handleLeave);
+        // handleLeave owns EVERY multiplayer confirm (forfeit / disband /
+        // end-match / member-leave, with their exemptions) — delegate the
+        // gesture straight to it so no path double-prompts. Cases it lets
+        // through silently (2v2 staging, solo-host waiting lobby, unranked
+        // public FFA) are deliberately confirm-free (disposable / no cost).
+        handleLeave();
         return;
       }
       // Singleplayer: confirm, then leave.
@@ -2011,6 +2279,19 @@ export default function GameScreen() {
   // lobby and the game live on ONE route. Lobby→game and game→lobby (host reset)
   // are pure re-renders, eliminating the router.replace leave/back races. When a
   // private game finishes, the server resets it to 'waiting' and this re-renders.
+  // Crash guard: the 2v2 stage-2 wipe nulls gameData while this screen is still
+  // mounted for one commit (the nav owner's replace runs in effects, AFTER the
+  // render with the wiped store). Neither the lobby branch nor the active-game
+  // scene has anything to draw from — paint the shared street2 loading layer
+  // for that frame instead of rendering the game shell off nothing.
+  if (isMultiplayer && !gameData) {
+    return (
+      <View style={styles.container}>
+        <GameLoadingOverlay />
+      </View>
+    );
+  }
+
   const isLobby = isMultiplayer && gameData?.state === 'waiting';
   const mpGetReady = isMultiplayer && gameData?.state === 'getready';
   // Ranked duel (matchmade, ELO-affecting) = duel && public. Used to hide the
@@ -2202,6 +2483,11 @@ export default function GameScreen() {
               players={gameData.players}
               myId={gameData.myId}
               centerSlot={duelTimerInMiddle ? duelTimer : undefined}
+              // duel:true rides every team2v2 game too — without these the
+              // 1v1 layout would pick a teammate as "the opponent" and read
+              // per-player score as HP.
+              team2v2={gameData.team2v2}
+              teamScores={gameData.teamScores}
             />
             {!duelTimerInMiddle && (
               <Reanimated.View
@@ -2246,13 +2532,30 @@ export default function GameScreen() {
                 // All players (self + opponents) → Map.js multiplayerState; its
                 // MultiplayerLayer renders opponents and freezes the reveal. Frozen
                 // to the snapshot during the fade so the pins don't change/clear.
+                // During the guess phase the RAW roster goes through instead —
+                // the compiled Map.js teammate layer (team modes) reads each
+                // player's live latLong/final/team itself and never paints
+                // enemies mid-round, so faithful data is all it needs.
                 multiplayerState={{
                   inGame: true,
                   gameData: {
                     myId: gameData?.myId,
                     state: renderMapAsResult ? 'end' : 'guess',
                     curRound: gameState.currentRound,
-                    players: embedRevealPlayers,
+                    // Team-mode flags drive the embed's teammate/best-guess
+                    // layers (teamRevealCtx, faded interim pins).
+                    team2v2: gameData?.team2v2,
+                    teamGame: gameData?.teamGame,
+                    teamScoring: gameData?.teamScoring,
+                    players: renderMapAsResult
+                      ? embedRevealPlayers
+                      : (gameData?.players ?? []).map((p) => ({
+                          id: p.id,
+                          username: p.username,
+                          guess: p.latLong ?? null,
+                          final: !!p.final,
+                          team: p.team,
+                        })),
                   },
                 }}
               />
@@ -2293,11 +2596,30 @@ export default function GameScreen() {
               const waitingCount = isMultiplayer && gameData
                 ? gameData.players.reduce((acc, p) => (p.final ? acc - 1 : acc), gameData.players.length)
                 : 0;
-              const buttonText = locked
-                ? (waitingCount > 0
+              // Team modes split the wait by allegiance (web gameUI.js
+              // renderGuessHintBtns): a teammate blocking the team's score is
+              // a different message than opponents taking their time.
+              // Grace-window disconnected mates don't hold the label. This is
+              // the ONLY per-mate status surface — never grow it into a
+              // status chip (removed by ruling).
+              const teamMode = isMultiplayer && !!(gameData?.team2v2 || gameData?.teamGame);
+              const myTeam = teamMode ? getMyTeam(gameData?.players, gameData?.myId) : null;
+              const matesWaiting = myTeam
+                ? gameData!.players.filter(
+                    (p) => p.id !== gameData!.myId && p.team === myTeam && !p.final && !p.disconnected,
+                  ).length
+                : 0;
+              const waitingLabel =
+                myTeam == null
+                  ? waitingCount > 0
                     ? `${t('waitingForPlayers', { p: waitingCount })}...`
-                    : `${t('waiting')}...`)
-                : t('guess');
+                    : `${t('waiting')}...`
+                  : matesWaiting > 0
+                    ? `${matesWaiting === 1 ? t('waitingForTeammate') : t('waitingForTeammates', { p: matesWaiting })}...`
+                    : waitingCount > 0
+                      ? `${t('waitingForOpponents')}...`
+                      : `${t('waiting')}...`;
+              const buttonText = locked ? waitingLabel : t('guess');
               const disabled = !guessPosition || locked;
               const showActive = !!guessPosition && !locked;
               return (
@@ -2441,6 +2763,7 @@ export default function GameScreen() {
               guessLng={mpReveal.guessLng}
               totalRounds={gameData?.rounds}
               isFinal={mpReveal.isFinal}
+              verdict={mpVerdict}
             />
           )}
         </RevealView>
@@ -2455,6 +2778,21 @@ export default function GameScreen() {
             gameData={gameData}
             timeOffset={timeOffset}
           />
+        )}
+
+        {/* ═══ TEAM SCOREBAR — cumulative party team totals (web gameUI.js) ═══ */}
+        {/* NOT the 2v2 HP bars (team2v2 stays on DuelHUD). Hidden during the
+            round-1 countdown; it STAYS MOUNTED through getready — the round's
+            score update lands at reveal time, so unmounting there would eat
+            the +Δ animation — and the between-rounds leaderboard (zIndex 1200
+            dark overlay) covers it for its last-5s window, which is exactly
+            web's "hidden while leaderboardVisible" behavior via z-order. */}
+        {isMultiplayer && gameData?.teamGame && !gameData.team2v2
+          && gameData.state !== 'end'
+          && !(gameData.state === 'getready' && gameData.curRound === 1) && (
+          <SafeAreaView style={styles.teamScorebarContainer} edges={['top']} pointerEvents="none">
+            <TeamScorebar gameData={gameData} />
+          </SafeAreaView>
         )}
 
         {/* Duel round 1 only — between-round duel getready shows the answer map underneath,
@@ -2473,6 +2811,7 @@ export default function GameScreen() {
             <GetReadyOverlay
               players={gameData.players}
               myId={gameData.myId}
+              team2v2={gameData.team2v2}
               round={gameData.curRound}
               totalRounds={gameData.rounds}
               nextEvtTime={gameData.nextEvtTime}
@@ -2496,9 +2835,11 @@ export default function GameScreen() {
           `isScreenFocused` gate hands ownership to /game/results once it's pushed on
           top at 'end' (which renders its own EmoteReactions) — without it BOTH would
           mount and double-render incoming reactions. */}
+      {/* 1v1 duels hide the sender name (2 players — attribution is obvious);
+          team modes SHOW name+flag, or a 4-player emote is unreadable. */}
       {emotesEnabled && isMultiplayer && isScreenFocused && gameData
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
-        <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel} />
+        <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel && !gameData.team2v2} />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
@@ -2629,6 +2970,17 @@ const styles = StyleSheet.create({
   },
 
   // ── Duel HUD (top center) ──
+  // Cumulative team totals pinned top-center (web .team-scorebar) — same
+  // layer/paddings as the duel HUD so the two mode banners sit identically.
+  teamScorebarContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 101,
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+  },
   duelHudContainer: {
     position: 'absolute',
     top: 0,

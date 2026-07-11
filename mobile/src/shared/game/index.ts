@@ -1,1 +1,7 @@
-export { calcPoints, findDistance, type CalcPointsParams } from './calcPoints';
+export {
+  calcPoints,
+  findDistance,
+  pickBestTeamGuessIds,
+  type CalcPointsParams,
+  type TeamGuessEntry,
+} from './calcPoints';

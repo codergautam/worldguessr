@@ -25,8 +25,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../shared';
 import { haptics } from '../../services/haptics';
+import { sound } from '../../services/sound';
 import { spacing, fontSizes } from '../../styles/theme';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
+import getMyTeam from '../../shared/game/getMyTeam';
 import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayerStore';
 import PlayerName from '../PlayerName';
 
@@ -41,7 +43,15 @@ const NEVER = ReduceMotion.Never;
  *   100% translateY(-220) scale(0.85) opacity(0)
  * Progress is driven linearly over the same TTL the store uses to remove the item.
  */
-function FloatingEmote({ reaction, hideName }: { reaction: EmoteReaction; hideName: boolean }) {
+function FloatingEmote({
+  reaction,
+  hideName,
+  myTeam,
+}: {
+  reaction: EmoteReaction;
+  hideName: boolean;
+  myTeam: 'a' | 'b' | null;
+}) {
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withTiming(1, { duration: EMOTE_TTL_MS, easing: Easing.linear, reduceMotion: NEVER });
@@ -58,9 +68,18 @@ function FloatingEmote({ reaction, hideName }: { reaction: EmoteReaction; hideNa
     };
   });
 
+  // Team modes: color by allegiance — blue for my team (incl. me), green for
+  // opponents (web .emoteFloatItem.teamMine/.teamOpp). Outside team modes
+  // r.team is null and the self/default styling applies unchanged.
+  const teamStyle =
+    reaction.team && myTeam
+      ? reaction.team === myTeam
+        ? styles.floatItemTeamMine
+        : styles.floatItemTeamOpp
+      : null;
   return (
     <Animated.View
-      style={[styles.floatItem, reaction.isSelf && styles.floatItemSelf, hideName && styles.floatItemNoName, style]}
+      style={[styles.floatItem, reaction.isSelf && styles.floatItemSelf, teamStyle, hideName && styles.floatItemNoName, style]}
     >
       <Text style={[styles.floatGlyph, hideName && styles.floatGlyphNoName]}>{reaction.emote}</Text>
       {!hideName && !!reaction.name && (
@@ -91,6 +110,14 @@ export default function EmoteReactions({
   const insets = useSafeAreaInsets();
   const emotes = useMultiplayerStore((s) => s.emotes);
   const sendEmote = useMultiplayerStore((s) => s.sendEmote);
+  // Allegiance for team-mode float coloring. Derived from the live roster —
+  // during the 2v2 stage-2 queue window (gameData null) this is null and only
+  // self-coloring survives, same as web.
+  const myTeam = useMultiplayerStore((s) =>
+    s.gameData?.team2v2 || s.gameData?.teamGame
+      ? getMyTeam(s.gameData.players, s.gameData.myId)
+      : null,
+  );
   const [open, setOpen] = useState(false);
   // Cooldown feedback (mirrors web): disable buttons until the next send is allowed.
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -133,6 +160,7 @@ export default function EmoteReactions({
 
   const handleSend = (index: number) => {
     if (inCooldown) return;
+    sound.click();
     haptics.light();
     sendEmote(index);
     setCooldownUntil(Date.now() + EMOTE_COOLDOWN_MS);
@@ -152,7 +180,7 @@ export default function EmoteReactions({
       {/* Floating incoming reactions — rise above the toggle */}
       <View style={styles.floatStack} pointerEvents="none">
         {emotes.map((r) => (
-          <FloatingEmote key={r.id} reaction={r} hideName={hideName} />
+          <FloatingEmote key={r.id} reaction={r} hideName={hideName} myTeam={myTeam} />
         ))}
       </View>
 
@@ -222,6 +250,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   floatItemSelf: {
+    backgroundColor: 'rgba(34, 139, 34, 0.7)',
+  },
+  // Team-mode allegiance tints (web .emoteFloatItem.teamMine/.teamOpp) —
+  // listed AFTER floatItemSelf so my own team-blue wins over the self green.
+  floatItemTeamMine: {
+    backgroundColor: 'rgba(59, 130, 246, 0.72)',
+  },
+  floatItemTeamOpp: {
     backgroundColor: 'rgba(34, 139, 34, 0.7)',
   },
   floatItemNoName: {

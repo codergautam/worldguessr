@@ -89,3 +89,18 @@ export const RECONNECT_WINDOW_MS = 25000;
 // them home. The ack is a same-tick server response, so 8s is far above a normal
 // round-trip while still short enough not to feel stuck.
 export const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
+
+// ── THE TEAM ROLLOUT SWITCH — flip LAST, in the release build only ──────────
+// One flag turns on everything team-shaped at once: the `teamSupport: true`
+// verify field (websocket.ts) AND the 2v2 entry button on home. The server
+// locks every team surface behind the verify flag (5 ws.js gates + reconnect
+// eject), so a build with this false behaves exactly like today's app — and a
+// build must NEVER show the 2v2 button without announcing the flag, or the
+// button dead-ends on server rejections.
+//
+// Treat flipping this as IRREVERSIBLE: it's a compile-time literal with no
+// OTA/expo-updates in this repo — walking it back means a new binary + full
+// store review. Flip only when the team-parity phases pass e2e
+// (mobile-team-parity-plan.md §9), and never compile an interim flag-on build
+// against the production WS (override EXPO_PUBLIC_WS_URL for QA builds).
+export const TEAM_SUPPORT = false;

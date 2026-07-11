@@ -27,6 +27,7 @@ import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
 import { haptics, hapticForScore } from '../../src/services/haptics';
+import { sound } from '../../src/services/sound';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
@@ -34,6 +35,7 @@ import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/servic
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
+import TeamScoreline from '../../src/components/multiplayer/TeamScoreline';
 import BackButton from '../../src/components/ui/BackButton';
 import ReviewPromptModal from '../../src/components/ReviewPromptModal';
 import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
@@ -74,17 +76,37 @@ interface PlayerInfo {
   totalPoints: number;
   finalRank?: number;
   elo?: { before?: number; after?: number; change?: number };
+  /** Team assignment in team games — from the FROZEN end roster, never live. */
+  team?: 'a' | 'b';
+  /** null for guests/bots — gates profile links + report eligibility. */
+  accountId?: string | null;
 }
 
 interface MultiplayerInfo {
   gameType: string;
   players: PlayerInfo[];
   myId: string;
+  /**
+   * 1v1 duel RENDERING (HP framing, single opponent). Deliberately FALSE for
+   * team2v2 even though gameData.duel is true on the wire (the duel:true
+   * trap) — team games branch on team2v2/teamGame instead.
+   */
   isDuel: boolean;
   isWinner: boolean;
   isDraw: boolean;
   roundData: Record<string, PlayerRoundData[]>;
   timeElapsedMs?: number;
+  // ── Team games (fields absent for 1v1/FFA) ────────────────────────────
+  team2v2?: boolean;
+  teamGame?: boolean;
+  teamScoring?: 'closest' | 'average';
+  winningTeam?: 'a' | 'b' | null;
+  teamScores?: { a: number; b: number } | null;
+  /** My team from the frozen roster; null → render neutrally, never guess. */
+  myTeam?: 'a' | 'b' | null;
+  /** team2v2 end-card Back visibility (per-recipient server stamps). */
+  autoPaired?: boolean;
+  teamHostId?: string | null;
 }
 
 interface DuelOpponent {
@@ -108,6 +130,16 @@ interface RoundResult {
   opponents?: OpponentGuess[];
   allPlayerGuesses?: PlayerMapGuess[];
   duelOpponent?: DuelOpponent;
+  /**
+   * Server round stamps for team modes. teamRoundScores is stamped for team
+   * PARTIES only (the client can't reconstruct 'average' retroactively);
+   * teamDamage/Multiplier for 2v2 only (the HP actually applied — never
+   * re-derive |a−b|, the multiplier would drift). Missing stamps fall back
+   * to client compute (closest-scoring only) / raw gap.
+   */
+  teamRoundScores?: { a: number; b: number } | null;
+  teamDamage?: number | null;
+  teamDamageMultiplier?: number | null;
 }
 
 interface LiveRoundHistoryEntry {
@@ -126,6 +158,10 @@ interface LiveRoundHistoryEntry {
     final: boolean;
     timeTaken?: number;
   }>;
+  // Team-mode round stamps (ws Game.js saveRoundToHistory) — see RoundResult.
+  teamRoundScores?: { a: number; b: number } | null;
+  teamDamage?: number | null;
+  teamDamageMultiplier?: number | null;
 }
 
 // Star tier colors matching web exactly
@@ -231,6 +267,9 @@ function transformLiveRounds(history: LiveRoundHistoryEntry[], myId: string): Ro
       opponents: opponents.length > 0 ? opponents : undefined,
       allPlayerGuesses: allPlayerGuesses.length > 0 ? allPlayerGuesses : undefined,
       duelOpponent,
+      teamRoundScores: round.teamRoundScores ?? null,
+      teamDamage: round.teamDamage ?? null,
+      teamDamageMultiplier: round.teamDamageMultiplier ?? null,
     };
   });
 }
@@ -294,11 +333,27 @@ export default function GameResultsScreen() {
   const isLiveMultiplayer = mpParam === 'true';
   const secret = useAuthStore((s) => s.secret);
 
+  // Parse the frozen duelEnd payload ONCE — three shapes ride the same
+  // message (1v1 / team2v2 / teamGame) and several derivations below branch
+  // on which one this is. Never re-derive team facts from the live store:
+  // the live roster shrinks as opponents leave the finished game (the
+  // roster-freeze invariant).
+  const liveDuelEnd = useMemo<any>(() => {
+    if (!duelEndParam) return null;
+    try {
+      return JSON.parse(duelEndParam);
+    } catch {
+      return null;
+    }
+  }, [duelEndParam]);
+  const is2v2Game = !!liveDuelEnd?.team2v2;
+  const isTeamPartyGame = !!liveDuelEnd?.teamGame;
+
   // Rate-us prompt: this screen mounts once per finished game, so mounting is the
   // completion signal. Count every game EXCEPT private parties (and never history
-  // replays). A live MP game is a private party when it's neither a duel nor a
-  // public/matchmade game — derivable straight from the route params.
-  const isDuelGame = !!duelEndParam || duelParam === 'true';
+  // replays). A team party sends a duelEnd too (the teamGame shape) — it is
+  // still a private party, so it must not count either.
+  const isDuelGame = (!!duelEndParam && !isTeamPartyGame) || duelParam === 'true';
   const isPrivateParty = isLiveMultiplayer && !isDuelGame && publicParam !== 'true';
   const review = useReviewPrompt(!isHistoryView && !isPrivateParty);
 
@@ -309,6 +364,28 @@ export default function GameResultsScreen() {
   const mpHost = useMultiplayerStore((s) => s.gameData?.host);
   const mpState = useMultiplayerStore((s) => s.gameData?.state);
   const isPartyHost = isPrivateParty && !!mpHost;
+
+  // 2v2 Play-Again consensus counter — LIVE from the store (the session stays
+  // attached to the finished game; the server re-broadcasts on every ack and
+  // teammate departure, and departures can DOWNGRADE the counter — render
+  // whatever it says). Defaults mirror web roundOverScreen: needed ?? 2, and
+  // never mark self acked when myId is unresolved.
+  const playAgain2v2 = useMultiplayerStore((s) => s.gameData?.playAgain2v2);
+  const mpMyId = useMultiplayerStore((s) => s.gameData?.myId);
+  const pa2v2Needed = playAgain2v2?.needed ?? 2;
+  const pa2v2Acked = playAgain2v2?.ackedIds?.length ?? 0;
+  const selfAcked2v2 = !!(mpMyId && playAgain2v2?.ackedIds?.includes(mpMyId));
+  // Solo survivor (teammate left): Play Again is a plain instant requeue.
+  const soloRequeue2v2 = pa2v2Needed <= 1;
+  // Back-to-lobby visibility (server enforces the same rule on teamDuelBack):
+  // auto-paired members always; chosen-duo only its host; solo survivors.
+  // Null guards matter: teamHostId is ABSENT on fallback-derived duelEnds and
+  // mpMyId nulls when a reconnect wipes gameData under this screen — an
+  // undefined === undefined match would show Back to chosen-duo guests.
+  const show2v2Back = is2v2Game
+    && (liveDuelEnd?.autoPaired === true
+      || (liveDuelEnd?.teamHostId != null && mpMyId != null && liveDuelEnd.teamHostId === mpMyId)
+      || soloRequeue2v2);
 
   // History mode: fetch game details and transform into RoundResult[]
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
@@ -326,8 +403,16 @@ export default function GameResultsScreen() {
         const data = await api.gameDetails(secret, gameId);
         const game = data.game as any;
         const myId: string = game.currentUserId;
-        const isDuel = game.gameType === 'ranked_duel';
         const myPlayer = game.players.find((p: any) => p.accountId === myId);
+        // Team detection via the roster (web historicalGameView.js) — never
+        // the gameType string alone, so team parties (gameType
+        // 'private_multiplayer') classify correctly too.
+        const historyHasTeams = game.players.some((p: any) => p.team === 'a' || p.team === 'b');
+        const historyTeam2v2 = historyHasTeams && game.gameType === '2v2';
+        const historyTeamGame = historyHasTeams && !historyTeam2v2;
+        const isDuel = game.gameType === 'ranked_duel' && !historyHasTeams;
+        const historyMyTeam: 'a' | 'b' | null =
+          myPlayer?.team === 'a' || myPlayer?.team === 'b' ? myPlayer.team : null;
         if (game.settings?.countryGuesser) {
           setHistoryMode(
             game.settings.countryGuessrSubMode === 'continent'
@@ -395,6 +480,9 @@ export default function GameResultsScreen() {
               opponents: opponents.length > 0 ? opponents : undefined,
               allPlayerGuesses: allPlayerGuesses.length > 0 ? allPlayerGuesses : undefined,
               duelOpponent,
+              teamRoundScores: round.teamRoundScores ?? null,
+              teamDamage: round.teamDamage ?? null,
+              teamDamageMultiplier: round.teamDamageMultiplier ?? null,
             };
           });
 
@@ -420,6 +508,10 @@ export default function GameResultsScreen() {
 
         // Build multiplayer info if more than 1 player
         if (game.players.length > 1) {
+          const winningTeam: 'a' | 'b' | null =
+            game.result?.winningTeam === 'a' || game.result?.winningTeam === 'b'
+              ? game.result.winningTeam
+              : null;
           setMultiplayerInfo({
             gameType: game.gameType,
             players: game.players.map((p: any) => ({
@@ -429,12 +521,30 @@ export default function GameResultsScreen() {
               totalPoints: p.totalPoints,
               finalRank: p.finalRank,
               elo: p.elo,
+              team: p.team === 'a' || p.team === 'b' ? p.team : undefined,
+              accountId: p.accountId ?? null,
             })),
             myId,
             isDuel,
-            isWinner: myPlayer?.finalRank === 1,
-            isDraw: game.result?.isDraw ?? false,
+            // Team games: verdict from winningTeam vs MY team (finalRank in
+            // team modes is 1-for-winners/2-for-losers, so ===1 happens to
+            // agree, but winningTeam is the documented source of truth).
+            isWinner: historyHasTeams
+              ? winningTeam != null && winningTeam === historyMyTeam
+              : myPlayer?.finalRank === 1,
+            isDraw: historyHasTeams ? winningTeam == null : (game.result?.isDraw ?? false),
             roundData,
+            team2v2: historyTeam2v2,
+            teamGame: historyTeamGame,
+            teamScoring: game.settings?.teamScoring,
+            winningTeam: historyHasTeams ? winningTeam : undefined,
+            teamScores:
+              historyHasTeams
+                && typeof game.result?.teamScores?.a === 'number'
+                && typeof game.result?.teamScores?.b === 'number'
+                ? game.result.teamScores
+                : undefined,
+            myTeam: historyHasTeams ? historyMyTeam : undefined,
           });
         }
       } catch (err) {
@@ -452,31 +562,107 @@ export default function GameResultsScreen() {
     if (!isLiveMultiplayer || !playersParam) return;
     try {
       const players = JSON.parse(playersParam);
-      const duelEnd = duelEndParam ? JSON.parse(duelEndParam) : null;
+      const duelEnd = liveDuelEnd;
       const liveHistory = parseLiveRoundHistory(rounds);
       const myId = liveMyIdParam ?? players.find((p: any) => p.id)?.id ?? '';
       const roundData = buildLiveRoundData(liveHistory);
 
+      // Team games: everything team-shaped reads the FROZEN duelEnd.players
+      // snapshot, never the live/params roster — the live array shrinks as
+      // opponents hit Play Again on the finished game (roster-freeze
+      // invariant). The params roster only backfills anyone the frozen
+      // snapshot lacks (a mid-game leaver still shown in rounds).
+      const isTeam = !!(duelEnd?.team2v2 || duelEnd?.teamGame);
+      const frozenRoster: any[] = isTeam && Array.isArray(duelEnd.players) ? duelEnd.players : [];
+      const teamOf = (id: string): 'a' | 'b' | undefined => {
+        const team = frozenRoster.find((p) => p.id === id)?.team;
+        return team === 'a' || team === 'b' ? team : undefined;
+      };
+      const rosterSource: any[] = isTeam
+        ? [
+            ...frozenRoster,
+            ...players.filter((p: any) => !frozenRoster.some((f) => f.id === p.id)),
+          ]
+        : players;
+      const myTeam = isTeam ? (teamOf(myId) ?? null) : null;
+
       setMultiplayerInfo({
-        gameType: duelEnd ? 'ranked_duel' : (duelParam === 'true' ? 'ranked_duel' : 'party'),
-        players: players.map((p: any) => ({
+        // The duel:true trap — a team2v2 duelEnd must NEVER classify as
+        // ranked_duel: that made Play Again requeue 1v1 RANKED and rendered
+        // the end screen as you-vs-one-arbitrary-player.
+        gameType: duelEnd?.team2v2
+          ? '2v2'
+          : duelEnd?.teamGame
+            ? 'party'
+            : duelEnd
+              ? 'ranked_duel'
+              : duelParam === 'true'
+                ? 'ranked_duel'
+                : 'party',
+        players: rosterSource.map((p: any) => ({
           playerId: p.id,
           username: p.username,
           countryCode: p.countryCode,
-          totalPoints: p.score ?? 0,
-          elo: duelEnd && p.id === myId
+          // teamGame duelEnd players carry score; the 2v2 shape doesn't —
+          // backfill from the params roster.
+          totalPoints: p.score ?? players.find((lp: any) => lp.id === p.id)?.score ?? 0,
+          elo: duelEnd && !isTeam && p.id === myId
             ? { before: duelEnd.oldElo, after: duelEnd.newElo, change: duelEnd.newElo - duelEnd.oldElo }
             : undefined,
+          team: isTeam ? teamOf(p.id) : undefined,
+          accountId: p.accountId ?? null,
         })),
         myId,
-        isDuel: !!duelEnd,
-        isWinner: duelEnd?.winner ?? false,
+        isDuel: !!duelEnd && !isTeam,
+        // Trust the server's per-recipient winner bool when present; a
+        // fallback-derived team payload omits it for unresolved viewers —
+        // derive from winningTeam vs myTeam at synthesis time instead (web
+        // roundOverScreen's typeof check, ported).
+        isWinner:
+          typeof duelEnd?.winner === 'boolean'
+            ? duelEnd.winner
+            : isTeam
+              ? !duelEnd?.draw && duelEnd?.winningTeam != null && duelEnd.winningTeam === myTeam
+              : false,
         isDraw: duelEnd?.draw ?? false,
         roundData,
         timeElapsedMs: typeof duelEnd?.timeElapsed === 'number' ? duelEnd.timeElapsed : undefined,
+        team2v2: !!duelEnd?.team2v2,
+        teamGame: !!duelEnd?.teamGame,
+        teamScoring: duelEnd?.teamScoring,
+        winningTeam: isTeam ? (duelEnd.winningTeam ?? null) : undefined,
+        teamScores: isTeam ? (duelEnd.teamScores ?? null) : undefined,
+        myTeam,
+        autoPaired: duelEnd?.autoPaired,
+        teamHostId: duelEnd?.teamHostId ?? null,
       });
     } catch {}
-  }, [isLiveMultiplayer, playersParam, duelEndParam, rounds, liveMyIdParam, duelParam]);
+  }, [isLiveMultiplayer, playersParam, liveDuelEnd, rounds, liveMyIdParam, duelParam]);
+
+  // Team pin coloring for the results map (embed `teams` prop): playerId →
+  // 'a'|'b' from the FROZEN duelEnd roster (the server's end-of-game
+  // snapshot), with the push-time params roster as backfill. Never derive
+  // from the live store — the live roster shrinks as opponents hit Play
+  // Again on the finished game, which on web stripped teammates of their
+  // team and flipped their pins to enemy-green (the roster-freeze invariant).
+  const resultsTeams = useMemo<Record<string, string> | null>(() => {
+    const map: Record<string, string> = {};
+    const collect = (roster: Array<{ id: string; team?: string }> | null | undefined) => {
+      for (const p of roster ?? []) {
+        if (map[p.id] == null && (p.team === 'a' || p.team === 'b')) map[p.id] = p.team;
+      }
+    };
+    collect(liveDuelEnd?.players);
+    try {
+      collect(playersParam ? JSON.parse(playersParam) : null);
+    } catch {}
+    // History replays have no params roster — their teams ride the fetched
+    // multiplayerInfo (pin ids there are accountIds, matching its playerId).
+    collect(
+      multiplayerInfo?.players.map((p) => ({ id: p.playerId, team: p.team })),
+    );
+    return Object.keys(map).length > 0 ? map : null;
+  }, [playersParam, liveDuelEnd, multiplayerInfo]);
 
   // Parse extent [west, south, east, north] if provided
   const extent: [number, number, number, number] | null = useMemo(() => {
@@ -580,7 +766,10 @@ export default function GameResultsScreen() {
   const [reportReason, setReportReason] = useState<'inappropriate_username' | 'cheating' | 'other' | ''>('');
   const [reportDescription, setReportDescription] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
-  const [reportTarget, setReportTarget] = useState<string | null>(null);
+  // Multi-select (web reportModal.js): team games can need several reports at
+  // once — the co-cheating 2v2 duo is the core case — so the picker is
+  // checkbox rows over everyone-except-self, teammate included.
+  const [reportTargets, setReportTargets] = useState<string[]>([]);
 
   // Animated panel height for smooth expand/collapse
   const panelAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
@@ -691,8 +880,20 @@ export default function GameResultsScreen() {
   }, [detailsExpanded, panelAnim]);
 
   const handlePlayAgain = () => {
+    sound.click();
     haptics.medium();
     if (isLiveMultiplayer) {
+      // Matchmade 2v2: an ACK, not a leave. The session must stay attached —
+      // on consensus the server regroups the duo into a queue-bound staging
+      // lobby (queueBoundDuo burst) and home.tsx's nav owner replaces this
+      // screen with the queue. The interstitial runs concurrently with the
+      // WIRE (send first, never gated behind the ad — web sends synchronously
+      // with zero ad code; the ad here is a deliberate mobile divergence).
+      if (is2v2Game) {
+        useMultiplayerStore.getState().sendPlayAgain2v2();
+        runGameInterstitial('2v2');
+        return;
+      }
       // Party host (B14): web parity (home.js backBtnPressed → resetGame for a
       // non-'waiting' host). Tell the server to reset the shared party back to
       // the lobby; do NOT navigate here — the host-gated effect dismisses this
@@ -704,7 +905,8 @@ export default function GameResultsScreen() {
       // Mirror web's backBtnPressed(true, type): leave the finished game, then
       // re-queue into the SAME public queue. Only public games (ranked duels +
       // unranked public multiplayer) have a queue to rejoin; private/party games
-      // have none, so for those we just go home.
+      // have none, so for those we just go home. (2v2 returned above — its
+      // `duel:true` wire flag must never route it into the 1v1 ranked queue.)
       const isDuel = !!multiplayerInfo?.isDuel;
       const isPublic = publicParam === 'true' || isDuel; // duels are always public
 
@@ -751,18 +953,62 @@ export default function GameResultsScreen() {
   // (one level — never dismissAllSafe, which would go home) so the 300ms 'fade'
   // crossfades results→lobby on the shared backdrop. Ref-guarded against double
   // dismiss; host-gated so non-hosts keep their current behavior.
+  //
+  // The SAME mechanic serves the 2v2 "Back" (teamDuelBack): the server restages
+  // us in a fresh 'waiting' staging lobby, [id].tsx beneath re-renders as the
+  // lobby, and this pops results off it. NOT gated on the queueBoundDuo burst —
+  // that path wipes gameData instead of flipping it to 'waiting', and home's
+  // nav owner handles its navigation (dismissAll + push /queue).
   const partyLobbyDismissed = useRef(false);
   useEffect(() => {
-    if (!isPartyHost) return;
+    if (!isPartyHost && !is2v2Game) return;
     if (mpState === 'waiting' && !partyLobbyDismissed.current) {
       partyLobbyDismissed.current = true;
       router.canGoBack() ? router.back() : dismissAllSafe();
     }
-  }, [isPartyHost, mpState, router]);
+  }, [isPartyHost, is2v2Game, mpState, router]);
+
+  // 2v2 Back → fresh staging lobby. Send-only: the lobby snapshot drives the
+  // dismissal above (dead-game senders get restaged too — never a dead click).
+  const handle2v2Back = useCallback(() => {
+    sound.click();
+    haptics.medium();
+    useMultiplayerStore.getState().sendTeamDuelBack();
+  }, []);
 
   const handleGoHome = useCallback(() => {
     // No haptic here: the back button taps fire it via the shared BackButton, and
     // the standalone Home CTA fires it inline — keeping it out avoids a double buzz.
+    //
+    // Private parties confirm the exit (ruling: member confirm in ALL states
+    // INCLUDING results; the host's exit from here disbands the party for
+    // everyone, so it gets the disband confirm). Matchmade games (1v1/2v2)
+    // are over — leaving costs nothing, no confirm.
+    if (isLiveMultiplayer && isPrivateParty) {
+      const stillInParty = !!useMultiplayerStore.getState().gameData;
+      if (stillInParty) {
+        Alert.alert(
+          t('areYouSure'),
+          isPartyHost
+            ? t('disbandPartyWarning', undefined, 'Disband the party? Everyone will be removed from the party.')
+            : t('leavePartyWarning', undefined, "Leave the party? You'll need the code to rejoin."),
+          [
+            { text: t('cancel'), style: 'cancel' },
+            {
+              text: isPartyHost
+                ? t('disbandParty', undefined, 'Disband party')
+                : t('leaveParty', undefined, 'Leave party'),
+              style: 'destructive',
+              onPress: () => {
+                useMultiplayerStore.getState().leaveGame();
+                dismissAllSafe();
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
     if (isLiveMultiplayer) {
       // Tell the SERVER we're leaving — not just reset() local state. Web parity:
       // backBtnPressed (home.js) sends `{type:'leaveGame'}` here. When a game ends
@@ -780,7 +1026,7 @@ export default function GameResultsScreen() {
       useMultiplayerStore.getState().leaveGame();
     }
     dismissAllSafe();
-  }, [isLiveMultiplayer]);
+  }, [isLiveMultiplayer, isPrivateParty, isPartyHost]);
   const handleBackPress = useCallback(() => {
     if (isHistoryView) {
       router.back();
@@ -861,9 +1107,23 @@ export default function GameResultsScreen() {
   }, [multiplayerInfo]);
 
 
+  // Everyone-except-self, derived ONCE for the report button preselect, the
+  // picker rows, and the submit loop — the `anon:${idx}` synthetic row ids
+  // (account-less guests/bots have playerId null in history data) are only
+  // meaningful while all three read the same array in the same order.
+  const reportableOthers = useMemo(
+    () => multiplayerInfo?.players.filter((p) => p.playerId !== multiplayerInfo.myId) ?? [],
+    [multiplayerInfo],
+  );
+  const reportRowId = (p: PlayerInfo, idx: number) => p.playerId ?? `anon:${idx}`;
+
   // ── Report submit handler ─────────────────────────────
+  // One POST per selected target (web reportModal.js pattern), with per-target
+  // partial-failure handling. Account-less selections (bots/guests) are
+  // silently skipped and counted as success — reporting a bot is deliberately
+  // a client-side no-op with a real-looking outcome.
   const handleSubmitReport = async () => {
-    if (!reportReason || !reportTarget) return;
+    if (!reportReason || reportTargets.length === 0) return;
     const words = reportDescription.trim().split(/\s+/).filter(Boolean);
     if (words.length < 5) { Alert.alert(t('error'), t('reportDescriptionMinWords', undefined, 'Description must be at least 5 words.')); return; }
     if (words.length > 100) { Alert.alert(t('error'), t('reportDescriptionMaxWords', undefined, 'Description must be 100 words or less.')); return; }
@@ -871,15 +1131,42 @@ export default function GameResultsScreen() {
     if (!secret) return;
     setReportSubmitting(true);
     try {
-      await api.submitReport(secret, reportReason as any, reportDescription.trim(), gameId!, multiplayerInfo!.gameType, reportTarget);
-      Alert.alert(t('reportSubmittedTitle', undefined, 'Report Submitted'), t('reportSubmittedMessage', undefined, 'Thank you for your report. Our team will review it.'));
+      const failures: string[] = [];
+      for (const targetId of reportTargets) {
+        // `anon:` rows are account-less players (bots/guests) — fake success.
+        if (targetId.startsWith('anon:')) continue;
+        const target = reportableOthers.find((p) => p.playerId === targetId);
+        const accountId = target?.accountId ?? (isHistoryView ? targetId : null);
+        if (!accountId) continue; // bot/guest — fake success
+        try {
+          await api.submitReport(
+            secret,
+            reportReason as any,
+            reportDescription.trim(),
+            gameId!,
+            multiplayerInfo!.gameType,
+            accountId,
+          );
+        } catch (err) {
+          console.log('Error submitting report for', target?.username, err);
+          failures.push(target?.username ?? targetId);
+        }
+      }
+      if (failures.length === reportTargets.length && failures.length > 0) {
+        // Every POST failed — keep the modal open so the user can retry.
+        Alert.alert(t('error'), t('reportSubmitFailed', undefined, 'Failed to submit report. Please try again.'));
+        return;
+      }
+      Alert.alert(
+        t('reportSubmittedTitle', undefined, 'Report Submitted'),
+        failures.length > 0
+          ? t('reportPartialFailure', { names: failures.join(', ') }, 'Some reports failed to send ({{names}}). The rest were submitted.')
+          : t('reportSubmittedMessage', undefined, 'Thank you for your report. Our team will review it.'),
+      );
       setReportModalVisible(false);
       setReportReason('');
       setReportDescription('');
-      setReportTarget(null);
-    } catch (err: any) {
-      console.log('Error submitting report:', err);
-      Alert.alert(t('error'), err?.message || t('reportSubmitFailed', undefined, 'Failed to submit report. Please try again.'));
+      setReportTargets([]);
     } finally {
       setReportSubmitting(false);
     }
@@ -910,8 +1197,10 @@ export default function GameResultsScreen() {
   // ── Sidebar header (stars + score + buttons) ───────────────
   const renderHeader = (compact: boolean) => (
     <View style={[styles.header, compact && styles.headerCompact]}>
-      {/* Duel: Victory/Defeat/Draw title + ELO */}
-      {multiplayerInfo?.isDuel ? (
+      {/* Duel/team: Victory/Defeat/Draw title (+ ELO for 1v1 ranked only —
+          2v2 is unranked; team parties have no elo either). A null myTeam
+          renders the neutral draw color, never a fabricated win/loss. */}
+      {multiplayerInfo?.isDuel || multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame ? (
         <>
           <Text style={[
             styles.duelTitle,
@@ -920,7 +1209,16 @@ export default function GameResultsScreen() {
           ]}>
             {t(multiplayerInfo.isDraw ? 'draw' : multiplayerInfo.isWinner ? 'victory' : 'defeat')}
           </Text>
-          {myEloData && typeof myEloData.before === 'number' && typeof myEloData.after === 'number' && (
+          {/* teamGame: cumulative scoreline (Team 1 pts — pts Team 2, crown on
+              the winner). 2v2 deliberately has NO scoreline (HP already hit 0). */}
+          {multiplayerInfo.teamGame && multiplayerInfo.teamScores && (
+            <TeamScoreline
+              scores={multiplayerInfo.teamScores}
+              crownTeam={multiplayerInfo.winningTeam ?? null}
+              myTeam={multiplayerInfo.myTeam ?? null}
+            />
+          )}
+          {multiplayerInfo.isDuel && myEloData && typeof myEloData.before === 'number' && typeof myEloData.after === 'number' && (
             <EloChangeDisplay
               oldElo={myEloData.before}
               newElo={myEloData.after}
@@ -985,10 +1283,10 @@ export default function GameResultsScreen() {
         </>
       )}
 
-      {/* Score — singleplayer + non-duel multiplayer only. Web's duel header
-          shows just title + ELO + time (no "out of N points"), so hide it for
-          duels to match. */}
-      {!multiplayerInfo?.isDuel && (
+      {/* Score — singleplayer + FFA multiplayer only. Web's duel header shows
+          just title + ELO + time; team ends show verdict (+ teamGame
+          scoreline) — no personal "out of N points" in any of them. */}
+      {!multiplayerInfo?.isDuel && !multiplayerInfo?.team2v2 && !multiplayerInfo?.teamGame && (
         <>
           <Text style={[styles.scoreValue, compact && { fontSize: 30 }]}>
             {displayScore.toLocaleString()}
@@ -1039,22 +1337,49 @@ export default function GameResultsScreen() {
           </Pressable>
         ) : (
           <>
+            {/* Primary action hidden for private-party NON-hosts (web parity:
+                only the host restarts a party — a member "Play Again" would
+                leaveGame and eject them). They still exit via the back
+                button, which carries the leave confirm. */}
+            {(is2v2Game || isPartyHost || !isPrivateParty) && (
             <Pressable
               onPress={handlePlayAgain}
+              disabled={is2v2Game && selfAcked2v2}
               style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
             >
               <LinearGradient
                 colors={['#4CAF50', '#45a049']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.actionBtnPrimary}
+                style={[styles.actionBtnPrimary, is2v2Game && selfAcked2v2 && { opacity: 0.6 }]}
               >
                 <Ionicons name="refresh" size={16} color={colors.white} />
                 <Text style={styles.actionBtnPrimaryText}>
-                  {isPartyHost ? t('backToLobby') : t('playAgain')}
+                  {/* 2v2 duo consensus shows "(1/2)"; a solo survivor's requeue
+                      is instant, so the counter would be noise. */}
+                  {is2v2Game && !soloRequeue2v2
+                    ? `${t('playAgain')} (${pa2v2Acked}/${pa2v2Needed})`
+                    : isPartyHost
+                      ? t('backToLobby')
+                      : t('playAgain')}
                 </Text>
               </LinearGradient>
             </Pressable>
+            )}
+            {/* 2v2 Back-to-lobby — mirrors web's end card: Play Again +
+                conditional Back ONLY (header back arrow = straight home; no
+                third Home button — the commented-out one below stays dead). */}
+            {show2v2Back && (
+              <Pressable
+                onPress={handle2v2Back}
+                style={({ pressed }) => [
+                  styles.actionBtnSecondary,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <Text style={styles.actionBtnSecondaryText}>{t('backToLobby')}</Text>
+              </Pressable>
+            )}
             {/* <Pressable
               onPress={handleGoHome}
               style={({ pressed }) => [
@@ -1083,18 +1408,17 @@ export default function GameResultsScreen() {
               color={gameIdCopied ? '#4CAF50' : 'rgba(255,255,255,0.5)'}
             />
           </Pressable>
-          {multiplayerInfo && (
+          {/* Matchmade games only (web parity): cumulative team parties stay
+              report-free by ruling — the UI omission IS the enforcement. */}
+          {multiplayerInfo && (multiplayerInfo.isDuel || multiplayerInfo.team2v2)
+            && reportableOthers.length > 0 && (
             <Pressable
               onPress={() => {
-                // Determine report target
-                const opponents = multiplayerInfo.players.filter(p => p.playerId !== multiplayerInfo.myId);
-                if (opponents.length === 1) {
-                  setReportTarget(opponents[0].playerId);
-                  setReportModalVisible(true);
-                } else if (opponents.length > 1) {
-                  setReportTarget(null);
-                  setReportModalVisible(true);
-                }
+                // Single other player → preselect; several → open unselected.
+                setReportTargets(
+                  reportableOthers.length === 1 ? [reportRowId(reportableOthers[0], 0)] : [],
+                );
+                setReportModalVisible(true);
               }}
               style={styles.reportBtn}
             >
@@ -1108,8 +1432,11 @@ export default function GameResultsScreen() {
   );
 
   // ── Leaderboard for multiplayer non-duel ──────────────────
+  // 2v2 has NO leaderboard (each player's "score" is team HP — a points list
+  // would be nonsense); teamGame parties KEEP it with GLOBAL rank numbers
+  // (binding ruling: never per-team ranks).
   const renderLeaderboard = () => {
-    if (!multiplayerInfo || multiplayerInfo.isDuel) return null;
+    if (!multiplayerInfo || multiplayerInfo.isDuel || multiplayerInfo.team2v2) return null;
     const sorted = [...multiplayerInfo.players].sort((a, b) => b.totalPoints - a.totalPoints);
     const trophyColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
     return (
@@ -1179,7 +1506,6 @@ export default function GameResultsScreen() {
 
   // ── Report modal ──────────────────────────────────────────
   const renderReportModal = () => {
-    const opponents = multiplayerInfo?.players.filter(p => p.playerId !== multiplayerInfo?.myId) ?? [];
     const wordCount = reportDescription.trim().split(/\s+/).filter(Boolean).length;
     return (
       <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)} supportedOrientations={['portrait', 'landscape']}>
@@ -1190,19 +1516,37 @@ export default function GameResultsScreen() {
               {t('reportFalseWarning', undefined, 'False reports may result in action against your account.')}
             </Text>
 
-            {/* Player selection (multiplayer with >1 opponent) */}
-            {!reportTarget && opponents.length > 1 && (
+            {/* Player selection — multi-select checkboxes over everyone except
+                self (teammates INCLUDED: the co-cheating duo is the core 2v2
+                case). Stays visible so selections can be toggled. Row ids are
+                SYNTHESIZED for account-less players (guests/bots have
+                playerId null in history data — raw null keys would entangle
+                their rows into one shared selection). */}
+            {reportableOthers.length > 1 && (
               <View style={{ marginBottom: 12 }}>
                 <Text style={styles.modalLabel}>{t('selectPlayer', undefined, 'Select Player')}</Text>
-                {opponents.map(opp => (
-                  <Pressable
-                    key={opp.playerId}
-                    onPress={() => setReportTarget(opp.playerId)}
-                    style={[styles.reasonOption, reportTarget === opp.playerId && styles.reasonOptionActive]}
-                  >
-                    <Text style={styles.reasonOptionText}>{opp.username}</Text>
-                  </Pressable>
-                ))}
+                {reportableOthers.map((opp, idx) => {
+                  const rowId = reportRowId(opp, idx);
+                  const selected = reportTargets.includes(rowId);
+                  return (
+                    <Pressable
+                      key={rowId}
+                      onPress={() =>
+                        setReportTargets((prev) =>
+                          prev.includes(rowId)
+                            ? prev.filter((id) => id !== rowId)
+                            : [...prev, rowId],
+                        )
+                      }
+                      style={[styles.reasonOption, selected && styles.reasonOptionActive]}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={[styles.reasonOptionText, selected && { color: '#fff' }]}>{opp.username}</Text>
+                        {selected && <Ionicons name="checkmark" size={16} color="#fff" />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
 
@@ -1241,15 +1585,15 @@ export default function GameResultsScreen() {
             {/* Buttons */}
             <View style={styles.modalButtons}>
               <Pressable
-                onPress={() => { setReportModalVisible(false); setReportReason(''); setReportDescription(''); setReportTarget(null); }}
+                onPress={() => { setReportModalVisible(false); setReportReason(''); setReportDescription(''); setReportTargets([]); }}
                 style={styles.modalCancelBtn}
               >
                 <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={handleSubmitReport}
-                disabled={reportSubmitting || !reportReason || !reportTarget || wordCount < 5}
-                style={[styles.modalSubmitBtn, (reportSubmitting || !reportReason || !reportTarget || wordCount < 5) && { opacity: 0.5 }]}
+                disabled={reportSubmitting || !reportReason || reportTargets.length === 0 || wordCount < 5}
+                style={[styles.modalSubmitBtn, (reportSubmitting || !reportReason || reportTargets.length === 0 || wordCount < 5) && { opacity: 0.5 }]}
               >
                 <Text style={styles.modalSubmitText}>{t(reportSubmitting ? 'submitting' : 'submit', undefined, reportSubmitting ? 'Submitting...' : 'Submit')}</Text>
               </Pressable>
@@ -1262,6 +1606,59 @@ export default function GameResultsScreen() {
   const renderBackButton = () => <BackButton onPress={handleBackPress} />;
 
   // ── Rounds list ────────────────────────────────────────────
+  // Per-round team columns (My Team vs Enemy Team). Stamped server data wins;
+  // an unstamped 2v2 round (pre-stamp server) computes closest-scoring team
+  // points from the guesses and falls back to the raw gap for damage. Null
+  // myTeam → no columns (render neutrally, never guess sides).
+  const isTeamResults = !!(multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame);
+  const roundTeamInfo = (round: RoundResult) => {
+    const myTeam = multiplayerInfo?.myTeam;
+    if (!isTeamResults || !myTeam) return null;
+    let scores = round.teamRoundScores ?? null;
+    // The fallback formula IS closest scoring (best guess per team) — under
+    // 'average' it would crown the wrong team (4000+1000 beats 3000+3000).
+    // Average rounds are always server-stamped; if the stamp is missing,
+    // render no columns rather than wrong ones. (2v2 is always closest.)
+    const closestScoring = !!multiplayerInfo?.team2v2 || multiplayerInfo?.teamScoring !== 'average';
+    if (!scores && closestScoring && resultsTeams && round.allPlayerGuesses?.length) {
+      const best = { a: 0, b: 0 };
+      for (const g of round.allPlayerGuesses) {
+        const team = resultsTeams[g.playerId];
+        if (team === 'a' || team === 'b') best[team] = Math.max(best[team], g.points ?? 0);
+      }
+      scores = best;
+    }
+    if (!scores) return null;
+    // Best guesser per team (web renderTeamColumn): whose guess carried the
+    // column. Suppressed under average scoring — no single guess counted.
+    const bestNames: { a: string | null; b: string | null } = { a: null, b: null };
+    if (closestScoring && resultsTeams && round.allPlayerGuesses?.length) {
+      const bestPts = { a: 0, b: 0 };
+      for (const g of round.allPlayerGuesses) {
+        const team = resultsTeams[g.playerId];
+        if ((team === 'a' || team === 'b') && (g.points ?? 0) > bestPts[team]) {
+          bestPts[team] = g.points ?? 0;
+          bestNames[team] =
+            g.playerId === multiplayerInfo?.myId ? t('you') : (g.username ?? null);
+        }
+      }
+    }
+    const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+    const damage = multiplayerInfo?.team2v2
+      ? (round.teamDamage ?? Math.abs(scores.a - scores.b))
+      : null;
+    return {
+      mine: scores[myTeam] ?? 0,
+      enemy: scores[enemyTeam] ?? 0,
+      mineBest: bestNames[myTeam],
+      enemyBest: bestNames[enemyTeam],
+      damage,
+      multiplier: round.teamDamageMultiplier ?? null,
+      wonRound: (scores[myTeam] ?? 0) > (scores[enemyTeam] ?? 0),
+      tied: (scores[myTeam] ?? 0) === (scores[enemyTeam] ?? 0),
+    };
+  };
+
   const renderRoundsList = () => (
     <>
       {/* Multiplayer leaderboard */}
@@ -1273,6 +1670,7 @@ export default function GameResultsScreen() {
       {parsedRounds.map((round, index) => {
         const isActive = activeRound === index;
         const duelOpp = round.duelOpponent;
+        const teamInfo = roundTeamInfo(round);
 
         return (
           <Animated.View
@@ -1329,6 +1727,54 @@ export default function GameResultsScreen() {
                   </Text>
                 )}
               </View>
+
+              {/* Team modes: My Team vs Enemy Team round columns (reuses the
+                  duel column styles — same layout, team totals instead of two
+                  players). Damage chip on the loser (2v2 only), ×mult tag when
+                  a multiplied round (never on team parties). */}
+              {teamInfo ? (
+                <View style={styles.duelRoundRow}>
+                  <View style={styles.duelPlayerCol}>
+                    <Text style={styles.duelPlayerName}>{t('yourTeam')}</Text>
+                    {/* Whose guess carried the column (web renderTeamColumn);
+                        absent under average scoring. */}
+                    {teamInfo.mineBest ? (
+                      <Text style={styles.teamBestName} numberOfLines={1}>{teamInfo.mineBest}</Text>
+                    ) : null}
+                    <Text style={[styles.duelPlayerScore, { color: getPointsColor(teamInfo.mine) }]}>
+                      {t('ptsCount', { points: teamInfo.mine.toLocaleString() })}
+                    </Text>
+                    {teamInfo.damage != null && teamInfo.damage > 0 && !teamInfo.wonRound && !teamInfo.tied && (
+                      <Text style={styles.healthDamage}>
+                        {t('duelHealthDamage', { damage: teamInfo.damage }, '-{{damage}} ❤️')}
+                        {teamInfo.multiplier != null && teamInfo.multiplier !== 1
+                          ? `  ×${teamInfo.multiplier}`
+                          : ''}
+                      </Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.vsDivider}>{t('versus', undefined, 'VS')}</Text>
+
+                  <View style={styles.duelPlayerCol}>
+                    <Text style={styles.duelPlayerName}>{t('enemyTeam')}</Text>
+                    {teamInfo.enemyBest ? (
+                      <Text style={styles.teamBestName} numberOfLines={1}>{teamInfo.enemyBest}</Text>
+                    ) : null}
+                    <Text style={[styles.duelPlayerScore, { color: getPointsColor(teamInfo.enemy) }]}>
+                      {t('ptsCount', { points: teamInfo.enemy.toLocaleString() })}
+                    </Text>
+                    {teamInfo.damage != null && teamInfo.damage > 0 && teamInfo.wonRound && (
+                      <Text style={styles.healthDamage}>
+                        {t('duelHealthDamage', { damage: teamInfo.damage }, '-{{damage}} ❤️')}
+                        {teamInfo.multiplier != null && teamInfo.multiplier !== 1
+                          ? `  ×${teamInfo.multiplier}`
+                          : ''}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ) : null}
 
               {/* Duel: side-by-side comparison */}
               {multiplayerInfo?.isDuel && duelOpp ? (
@@ -1444,6 +1890,7 @@ export default function GameResultsScreen() {
               rounds={resultsRounds}
               activeRound={activeRound}
               isDuel={!!multiplayerInfo?.isDuel}
+              teams={resultsTeams}
               selectedPlayer={selectedPlayer}
             />
           </View>
@@ -1474,7 +1921,7 @@ export default function GameResultsScreen() {
           {renderBackButton()}
         </View>
         {/* Emote sender — bottom-left of the map area; the sidebar owns the right edge. */}
-        {showEmotes && <EmoteReactions hideName={isDuelGame} />}
+        {showEmotes && <EmoteReactions hideName={isDuelGame && !is2v2Game} />}
         {renderReportModal()}
       </View>
     );
@@ -1507,6 +1954,7 @@ export default function GameResultsScreen() {
         rounds={resultsRounds}
         activeRound={activeRound}
         isDuel={!!multiplayerInfo?.isDuel}
+        teams={resultsTeams}
         selectedPlayer={selectedPlayer}
       />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
@@ -1520,7 +1968,7 @@ export default function GameResultsScreen() {
         <EmoteReactions
           bottomOffset={collapsedHeight}
           hidden={detailsExpanded}
-          hideName={isDuelGame}
+          hideName={isDuelGame && !is2v2Game}
         />
       )}
 
@@ -1935,6 +2383,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Lexend',
     color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 2,
+  },
+  // Best guesser under a team column header ("whose guess carried").
+  teamBestName: {
+    fontSize: 11,
+    fontFamily: 'Lexend-Medium',
+    color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 2,
   },
   duelPlayerScore: {

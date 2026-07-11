@@ -17,11 +17,23 @@ const SHIMS = {
   'next/dynamic': path.join(root, 'embed/shims/nextDynamic.js'),
   'next/router': path.join(root, 'embed/shims/nextRouter.js'),
   '@/lib/markerIcons': path.join(root, 'embed/shims/markerIcons.js'),
+  // Alias form of the relative './utils/audio' shim below — keep both paths
+  // covered so a future import-style change can't silently re-bundle the
+  // Web Audio engine.
+  '@/components/utils/audio': path.join(root, 'embed/shims/audio.js'),
 };
 
 const resolvePlugin = {
   name: 'embed-resolve',
   setup(b) {
+    // components/Map.js pulls the Web Audio SFX engine via a RELATIVE import
+    // ('./utils/audio'). Inside the WebView it must no-op — otherwise the
+    // bundle ships a second audio stack governed by the WebView's own private
+    // localStorage volumes, unreachable by the app's sound settings. The pin
+    // sound is played natively instead (RN pin-placement callback).
+    b.onResolve({ filter: /^\.\.?\/.*utils\/audio$/ }, () => ({
+      path: path.join(root, 'embed/shims/audio.js'),
+    }));
     b.onResolve({ filter: /^(@\/|next\/dynamic$|next\/router$)/ }, (args) => {
       if (SHIMS[args.path]) return { path: SHIMS[args.path] };
       if (!args.path.startsWith('@/')) return undefined;

@@ -215,7 +215,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     </div>
                     {typeof setMultiplayerEmotesEnabled === 'function' && (
                         <div className="settingsModalInner">
-                            <label htmlFor="mpEmotes">Multiplayer emote reactions</label>
+                            <label htmlFor="mpEmotes">{text("multiplayerEmoteReactions")}</label>
                             <input className="g2_input" type="checkbox" id="mpEmotes" checked={!!multiplayerEmotesEnabled} onChange={() => setMultiplayerEmotesEnabled(!multiplayerEmotesEnabled)} />
                         </div>
                     )}

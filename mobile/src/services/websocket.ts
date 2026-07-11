@@ -24,6 +24,7 @@ import {
   WS_LIVENESS_PING_INTERVAL_MS,
   WS_LIVENESS_MAX_SILENCE_MS,
   WS_VERIFY_TIMEOUT_MS,
+  TEAM_SUPPORT,
 } from './websocketConfig';
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
@@ -669,9 +670,11 @@ class WebSocketService {
       // Web sends getPlatform() here (home.js verifyPayload); without this the
       // server's /platformdist lumps app users into the "empty" bucket.
       platform: Platform.OS === 'ios' ? 'mobile_ios' : 'mobile_android',
-      // Deliberately NO `teamSupport: true` — the server uses that verify flag
-      // to gate team parties / 2v2 duels, and this app can't render them yet.
-      // Add it only when the mobile team UI ships.
+      // The team rollout switch (see websocketConfig.ts TEAM_SUPPORT): the
+      // server gates team parties / 2v2 duels on this verify flag. While
+      // false, the field is omitted entirely and the app stays on the classic
+      // pipeline — the server treats it exactly like today's shipped builds.
+      ...(TEAM_SUPPORT ? { teamSupport: true } : {}),
     });
 
     // Verify-ack watchdog. A socket can OPEN cleanly (onopen fired, readyState OPEN) yet

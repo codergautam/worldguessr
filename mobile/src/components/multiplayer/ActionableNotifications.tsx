@@ -14,6 +14,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  Alert,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
@@ -82,7 +83,30 @@ export default function ActionableNotifications() {
           // navigating into /game/multiplayer (it fires when the server's `game`
           // message flips inGame). Pushing here too stacked a duplicate game
           // screen on the stack.
-          onAccept={() => acceptGameInvite(inv.code, inv.invitedById)}
+          //
+          // Mid-match forfeit confirm (web home.js invite-accept parity):
+          // accepting yanks you out of the current game server-side — mid-
+          // round that can cost ELO or insta-lose, so confirm first. State is
+          // read at CLICK time via getState() (this card can outlive several
+          // state changes while it sits on screen). Waiting lobbies and
+          // finished games (results) accept freely.
+          onAccept={() => {
+            const s = useMultiplayerStore.getState();
+            const liveGame =
+              s.inGame && s.gameData && !['waiting', 'end'].includes(s.gameData.state);
+            if (liveGame) {
+              Alert.alert(t('areYouSure'), t('acceptInviteWarning', { from: inv.invitedByName }), [
+                { text: t('cancel'), style: 'cancel' },
+                {
+                  text: t('join'),
+                  style: 'destructive',
+                  onPress: () => acceptGameInvite(inv.code, inv.invitedById),
+                },
+              ]);
+              return;
+            }
+            acceptGameInvite(inv.code, inv.invitedById);
+          }}
           onDecline={() => clearGameInvite(inv.code)}
         />
       ))}

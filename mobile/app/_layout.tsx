@@ -18,6 +18,7 @@ import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useSettingsStore } from '../src/store/settingsStore';
+import { initSoundSystem } from '../src/services/sound';
 import { useReviewPromptStore } from '../src/store/reviewPromptStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
@@ -82,6 +83,14 @@ export default function RootLayout() {
     initAnalytics();
     initAds().then(() => preloadInterstitial());
   }, []);
+
+  // Boot the sound system once persisted volumes are known (a pre-load start
+  // would misread the defaults for a muted user and stream a track they never
+  // asked for). Music is allowed on ALL app routes (user sign-off), so the
+  // root layout owns the one-time start + lifecycle wiring.
+  useEffect(() => {
+    if (settingsLoaded) initSoundSystem();
+  }, [settingsLoaded]);
 
   useEffect(() => {
     if (fontsLoaded && assetsLoaded && settingsLoaded) {
