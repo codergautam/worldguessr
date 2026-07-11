@@ -65,6 +65,16 @@ function ensureContext() {
   if (ctx) return ctx;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
+  // Declare the page's audio session "ambient" before any sound flows.
+  // WebKit-only (Safari/iOS 16.4+ — and every iOS browser is WebKit);
+  // navigator.audioSession is undefined elsewhere so this is a silent no-op.
+  // Ambient is the AVAudioSession category native games use: our audio MIXES
+  // with whatever the user is already playing (Spotify keeps going), the page
+  // never registers as Now Playing (no Control Center / lock-screen entry),
+  // and the ring/silent switch is respected — all standard game-audio
+  // etiquette. Without it, iOS escalates any audible page to a full media
+  // session that pauses the user's own music.
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { }
   ctx = new AC();
   masterGain = ctx.createGain();
   masterGain.connect(ctx.destination);
@@ -289,10 +299,21 @@ export function attachUiClickSounds() {
 }
 
 // ---------------------------------------------------------------------------
-// Background music. Streamed through an <audio> element into the same graph —
-// never decoded into AudioBuffers, so a track costs memory only while it
-// plays. Shuffled playlist that never repeats a track back-to-back; every
-// track start fades in, every stop fades out. Deliberately quiet by default.
+// Background music. Played through the SAME Web Audio graph as the sfx —
+// deliberately NOT an <audio> element. The moment an HTMLMediaElement plays,
+// the OS treats the page as a media app: iOS/Android pause the user's own
+// audio (Spotify et al), list us as Now Playing in Control Center / the media
+// notification, and hand out media keys that fight the game for the audio
+// session. Buffer-source playback triggers none of that (and the 'ambient'
+// session hint in ensureContext keeps WebKit from escalating us anyway), so
+// game music coexists with the user's own music like every native game.
+// The trade: a track must be fully fetched + decoded before it can start —
+// ~50-75MB of PCM for a 3-minute stereo track — so unlike the forever-cached
+// sfx buffers, AT MOST ONE decoded track is ever held, and it's released the
+// moment it ends or music stops. Fetch+decode latency between tracks hides
+// under the fade-in; the first track hides behind the extra-slow first fade.
+// Shuffled playlist that never repeats a track back-to-back; every track
+// start fades in, every stop fades out. Deliberately quiet by default.
 // Tracks live in public/music/<name>.mp3 and are loudness-matched to
 // ~-14.5 LUFS — check new tracks with
 //   ffmpeg -i track.mp3 -af loudnorm=print_format=summary -f null -
@@ -328,25 +349,31 @@ const MUSIC_FADE_OUT_S = 1;
 // mood handoff should breathe, not clip.
 const MUSIC_SWITCH_FADE_OUT_S = 1.5;
 // Hidden-tab behavior: no hard cut. Fading starts the moment the tab hides
-// (grace 0 — user ruling) and drifts to silence, then pauses so a
-// backgrounded tab streams nothing; a track that ends while hidden doesn't
-// queue a new one.
+// (grace 0 — user ruling) and drifts to silence, then the source is stopped
+// (position saved) so a backgrounded tab renders nothing; a track that ends
+// while hidden doesn't queue a new one.
 const MUSIC_HIDDEN_GRACE_S = 0;
 const MUSIC_HIDDEN_FADE_S = 5;
 const DEFAULT_MUSIC_VOLUME = 0.45; // slider-space; toGain squares it to a ~0.2 gain
 
-let musicEl = null;
 let musicGain = null;
-let musicOn = false;
-let musicAllowed = false;
+let musicOn = false;          // user-level: music should be sounding
+let musicAllowed = false;     // page-level claim (game surface only)
 let activePlaylist = 'chill';
 let playingPlaylist = null;   // which list the CURRENT track came from
 let playlistSwitchTimer = null;
 let lastTrackIdx = -1;
 let cachedMusicVolume = null;
-let musicPlayPending = false; // a playNextTrack() play() awaiting its verdict
-let musicStallPos = -1;       // wedge probe: last nudge's currentTime...
-let musicStallAt = 0;         // ...and when it was stamped (see startMusic)
+let musicStartedOnce = false; // the one slow first-impression fade is spent
+// The one live track, or null. `source` is non-null only while audio is
+// actually rendering; a hidden-tab pause keeps the decoded buffer plus the
+// resume offset so return-to-tab continues mid-track instead of refetching.
+let musicTrack = null;        // { buffer, source, offset, startedAt }
+// Track loads cancel by generation: bumping musicLoadId strands any resolve
+// still in flight (a fetch midway through decode can't be aborted, only
+// ignored). musicLoadPending distinguishes "loading" from "nothing coming".
+let musicLoadId = 0;
+let musicLoadPending = false;
 
 // Music belongs to the game surface only: the Home component claims it on
 // mount and releases it on unmount (see components/home.js), so standalone
@@ -362,59 +389,97 @@ export function setMusicAllowed(allowed) {
 function ensureMusicNodes() {
   const c = ensureContext();
   if (!c) return null;
-  if (!musicEl) {
-    musicEl = new Audio();
-    musicEl.preload = 'auto';
-    const source = c.createMediaElementSource(musicEl);
-    musicGain = c.createGain();
-    musicGain.gain.value = 0;
-    source.connect(musicGain);
-    musicGain.connect(masterGain);
-    // No next track while hidden — the visibility handler starts one on
-    // return if the current track ended while away. A pending playlist
-    // switch owns the next start (else the two would double-start).
-    musicEl.addEventListener('ended', () => {
-      if (musicOn && !document.hidden && !playlistSwitchTimer) playNextTrack();
-    });
-    // A track that dies mid-play (network drop, server blip) fires 'error',
-    // never 'ended' — nothing advances, musicOn stays true, and every restart
-    // path no-ops on it: permanent silence. Disarm like an autoplay refusal;
-    // the next nudge (any click, or connectivity returning) restarts cleanly
-    // via startMusic().
-    musicEl.addEventListener('error', () => { musicOn = false; });
-    let hiddenPauseTimer = null;
-    document.addEventListener('visibilitychange', () => {
-      if (!musicOn || !musicEl || !ctx) return;
-      const g = musicGain.gain;
-      const now = ctx.currentTime;
-      if (document.hidden) {
-        // Gain ramps run on the audio clock, which background tabs don't
-        // throttle — only the final pause rides a (throttle-tolerant) timer.
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        g.setValueAtTime(g.value, now + MUSIC_HIDDEN_GRACE_S);
-        g.linearRampToValueAtTime(0, now + MUSIC_HIDDEN_GRACE_S + MUSIC_HIDDEN_FADE_S);
-        hiddenPauseTimer = setTimeout(() => {
-          hiddenPauseTimer = null;
-          if (document.hidden && musicOn && musicEl) musicEl.pause();
-        }, (MUSIC_HIDDEN_GRACE_S + MUSIC_HIDDEN_FADE_S) * 1000 + 100);
-      } else {
-        if (hiddenPauseTimer) { clearTimeout(hiddenPauseTimer); hiddenPauseTimer = null; }
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        g.linearRampToValueAtTime(toGain(getMusicVolume()), now + MUSIC_FADE_IN_S);
-        // A playlist switch that landed while hidden never started its track
-        // (the switch timer skips hidden tabs) — don't resume the stale-mood
-        // one, start fresh from the active list.
-        if (musicEl.ended || playingPlaylist !== activePlaylist) {
-          playNextTrack();
-        } else if (musicEl.paused) {
-          musicEl.play().catch(() => { });
-        }
-      }
-    });
-  }
+  if (musicGain) return c;
+  musicGain = c.createGain();
+  musicGain.gain.value = 0;
+  musicGain.connect(masterGain);
+  let hiddenPauseTimer = null;
+  document.addEventListener('visibilitychange', () => {
+    if (!musicOn || !ctx || !musicGain) return;
+    const g = musicGain.gain;
+    const now = ctx.currentTime;
+    if (document.hidden) {
+      // Gain ramps run on the audio clock, which background tabs don't
+      // throttle — only the final source-stop rides a (throttle-tolerant)
+      // timer. The timer firing late is harmless: the resume offset is
+      // computed from the audio clock, not from when the timer ran.
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.setValueAtTime(g.value, now + MUSIC_HIDDEN_GRACE_S);
+      g.linearRampToValueAtTime(0, now + MUSIC_HIDDEN_GRACE_S + MUSIC_HIDDEN_FADE_S);
+      hiddenPauseTimer = setTimeout(() => {
+        hiddenPauseTimer = null;
+        if (document.hidden && musicOn) pauseMusicPlayback();
+      }, (MUSIC_HIDDEN_GRACE_S + MUSIC_HIDDEN_FADE_S) * 1000 + 100);
+    } else {
+      if (hiddenPauseTimer) { clearTimeout(hiddenPauseTimer); hiddenPauseTimer = null; }
+      // An OS interruption while away (call, screen lock) can leave the
+      // context frozen; revive it so the ramps below actually sound.
+      if (ctx.state !== 'running') ctx.resume().catch(() => { });
+      // A pending playlist switch owns the next start — visible again, its
+      // timer now fires normally.
+      if (playlistSwitchTimer) return;
+      // Track ended while hidden → start fresh. A load still in flight
+      // parks its buffer for this handler instead (musicLoadPending), so
+      // don't stampede a second fetch on top of it.
+      if (!musicTrack) { if (!musicLoadPending) playNextTrack(); return; }
+      // A playlist switch that landed while hidden never started its track
+      // (the switch timer skips hidden tabs) — don't resume the stale-mood
+      // one, start fresh from the active list.
+      if (playingPlaylist !== activePlaylist) { playNextTrack(); return; }
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(toGain(getMusicVolume()), now + MUSIC_FADE_IN_S);
+      // Stopped by the hidden timer → fresh source resumes mid-track. If the
+      // timer never got to fire the old source is still live and the ramp
+      // alone brings it back.
+      if (!musicTrack.source) spawnMusicSource(ctx);
+    }
+  });
   return c;
+}
+
+// Create + start a source for the current musicTrack at its saved offset.
+// Gain is the caller's job: a fresh track ramps up from 0, a resume ramps
+// from wherever the hide-fade left it. Any real start spends the one slow
+// first-impression fade (musicStartedOnce).
+function spawnMusicSource(c) {
+  const src = c.createBufferSource();
+  src.buffer = musicTrack.buffer;
+  src.connect(musicGain);
+  // Natural track end only — deliberate stops (pause, teardown, next track)
+  // clear onended first, so "a track finished playing" is unambiguous here.
+  src.onended = () => {
+    musicTrack = null; // release the decoded PCM immediately
+    if (musicOn && !document.hidden && !playlistSwitchTimer) playNextTrack();
+  };
+  musicTrack.startedAt = c.currentTime;
+  musicTrack.source = src;
+  src.start(0, Math.min(musicTrack.offset, musicTrack.buffer.duration));
+  musicStartedOnce = true;
+}
+
+// Stop rendering but keep the decoded buffer and position — the hidden-tab
+// pause. Return-to-tab respawns a source from the offset saved here.
+function pauseMusicPlayback() {
+  if (!musicTrack || !musicTrack.source || !ctx) return;
+  const src = musicTrack.source;
+  src.onended = null;
+  musicTrack.offset = Math.min(
+    musicTrack.offset + (ctx.currentTime - musicTrack.startedAt),
+    musicTrack.buffer.duration
+  );
+  musicTrack.source = null;
+  try { src.stop(); } catch (e) { }
+}
+
+// Hard teardown: stop the source AND release the decoded track.
+function killMusicPlayback() {
+  if (musicTrack && musicTrack.source) {
+    musicTrack.source.onended = null;
+    try { musicTrack.source.stop(); } catch (e) { }
+  }
+  musicTrack = null;
 }
 
 function pickNextTrack() {
@@ -425,69 +490,72 @@ function pickNextTrack() {
   return i;
 }
 
-let musicStartedOnce = false;
-
 function playNextTrack() {
   const c = ensureMusicNodes();
   if (!c) return;
+  // This call IS the continuation of any pending switch (or supersedes it) —
+  // a timer left armed here would double-start.
+  if (playlistSwitchTimer) { clearTimeout(playlistSwitchTimer); playlistSwitchTimer = null; }
+  killMusicPlayback();
   lastTrackIdx = pickNextTrack();
   playingPlaylist = activePlaylist;
-  musicEl.src = asset(`/music/${PLAYLISTS[activePlaylist][lastTrackIdx]}.mp3`);
-  musicPlayPending = true;
-  musicEl.play().then(() => {
-    musicPlayPending = false;
-    // Stamped only on a successful start: an autoplay refusal must not
-    // spend the one slow first-impression fade.
-    const fadeInS = musicStartedOnce ? MUSIC_FADE_IN_S : MUSIC_FIRST_FADE_IN_S;
-    musicStartedOnce = true;
-    const g = musicGain.gain;
-    const now = c.currentTime;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(0, now);
-    g.linearRampToValueAtTime(toGain(getMusicVolume()), now + fadeInS);
-  }).catch(() => {
-    musicPlayPending = false;
-    // Autoplay refused (call site wasn't a real user gesture) or the source
-    // failed to load (offline). Disarm so the next nudge — a click or the
-    // 'online' event — retries cleanly via startMusic().
-    musicOn = false;
-  });
+  const name = PLAYLISTS[activePlaylist][lastTrackIdx];
+  const loadId = ++musicLoadId;
+  musicLoadPending = true;
+  fetch(asset(`/music/${name}.mp3`))
+    .then((res) => {
+      if (!res.ok) throw new Error(`music ${name}: HTTP ${res.status}`);
+      return res.arrayBuffer();
+    })
+    .then((data) => decode(c, data))
+    .then((buffer) => {
+      if (loadId !== musicLoadId) return; // superseded by a newer start/stop
+      musicLoadPending = false;
+      if (!musicOn) return; // stopped while loading; the buffer just drops
+      musicTrack = { buffer, source: null, offset: 0, startedAt: 0 };
+      // Hidden tabs render nothing — park the decoded track; the
+      // visibilitychange handler starts it on return.
+      if (document.hidden) return;
+      const fadeInS = musicStartedOnce ? MUSIC_FADE_IN_S : MUSIC_FIRST_FADE_IN_S;
+      spawnMusicSource(c);
+      const g = musicGain.gain;
+      const now = c.currentTime;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(0, now);
+      g.linearRampToValueAtTime(toGain(getMusicVolume()), now + fadeInS);
+    })
+    .catch((e) => {
+      if (loadId !== musicLoadId) return;
+      musicLoadPending = false;
+      // Offline or a server blip. Disarm so the next nudge — any click, or
+      // connectivity returning — retries cleanly via startMusic().
+      console.warn('music load failed', name, e);
+      musicOn = false;
+    });
 }
 
 // Idempotent; must be called from (or after) a user gesture. Muted users
-// (musicVolume 0) stream nothing at all; non-game pages never start.
-// Also the single recovery nudge: when music is nominally on but the element
-// is silently dead (paused by media keys / an OS interruption, errored, or
-// ended while its handler was gated), revive it in place instead of no-oping.
-// Every resume trigger — any click, connectivity returning — funnels here.
+// (musicVolume 0) download nothing at all; non-game pages never start.
+// Every recovery nudge — any click, connectivity returning — funnels here.
+// The HTMLMediaElement failure zoo the old player policed (media-key pauses,
+// mid-stream errors, starved-connection wedges) is structurally gone: a
+// decoded buffer can't stall and no OS control can pause it. The two silent
+// states left are a suspended/interrupted context (revived below, gesture-
+// blessed so it can't be refused) and a failed track load (which disarmed
+// musicOn, so the next nudge lands in playNextTrack).
 export function startMusic() {
   try {
-    // Hidden tabs must stream nothing (user ruling) — a gesture caller can't
+    // Hidden tabs must render nothing (user ruling) — a gesture caller can't
     // be hidden, but the 'online' listener can; return-to-tab owns resume.
     if (typeof window === 'undefined' || !musicAllowed || document.hidden) return;
     if (getMusicVolume() <= 0) return;
-    if (musicOn) {
-      // A pending playlist switch owns the next start.
-      if (!musicEl || playlistSwitchTimer) return;
-      if (musicEl.error || musicEl.ended) playNextTrack();
-      else if (musicEl.paused) musicEl.play().catch(() => { });
-      else {
-        // Starved corpse: a connection that dies without a clean reset
-        // starves the element mid-track — no 'error' ever fires, 'ended'
-        // never comes, paused stays false; currentTime just freezes.
-        // Element state can't tell that from a brief rebuffer, but time
-        // can: two nudges >5s apart stuck at the same position (with no
-        // fresh play() still settling) means wedged — start a new track.
-        const pos = musicEl.currentTime;
-        if (!musicPlayPending && pos === musicStallPos) {
-          if (Date.now() - musicStallAt > 5000) playNextTrack();
-        } else {
-          musicStallPos = pos;
-          musicStallAt = Date.now();
-        }
-      }
-      return;
-    }
+    const c = ensureMusicNodes();
+    if (!c) return;
+    // A phone call / Siri / audio-route change freezes the whole graph
+    // mid-sample ('interrupted' on iOS, 'suspended' elsewhere); resuming
+    // revives music and sfx alike from exactly where they stopped.
+    if (c.state !== 'running') c.resume().catch(() => { });
+    if (musicOn) return; // playing, loading, or a pending switch owns the next start
     musicOn = true;
     playNextTrack();
   } catch (e) { }
@@ -503,7 +571,7 @@ export function setMusicPlaylist(name) {
     activePlaylist = name;
     lastTrackIdx = -1; // no-repeat memory is per-list
     if (playlistSwitchTimer) { clearTimeout(playlistSwitchTimer); playlistSwitchTimer = null; }
-    if (!musicOn || !musicEl || !ctx) return;
+    if (!musicOn || !ctx || !musicGain) return;
     const g = musicGain.gain;
     const now = ctx.currentTime;
     g.cancelScheduledValues(now);
@@ -520,16 +588,22 @@ export function setMusicPlaylist(name) {
 
 export function stopMusic() {
   try {
-    if (!musicOn || !musicEl || !ctx) return;
+    if (!musicOn) return;
     musicOn = false;
+    musicLoadId++; // strand any in-flight track load
+    musicLoadPending = false;
     if (playlistSwitchTimer) { clearTimeout(playlistSwitchTimer); playlistSwitchTimer = null; }
+    if (!ctx || !musicGain) { musicTrack = null; return; }
     const g = musicGain.gain;
     const now = ctx.currentTime;
     g.cancelScheduledValues(now);
     g.setValueAtTime(g.value, now);
     g.linearRampToValueAtTime(0, now + MUSIC_FADE_OUT_S);
-    const el = musicEl;
-    setTimeout(() => { if (!musicOn) el.pause(); }, MUSIC_FADE_OUT_S * 1000 + 50);
+    // Full teardown after the fade — unlike the hidden-tab pause, a stop
+    // releases the decoded track (tens of MB): music memory belongs to the
+    // game surface only. A later restart opens a fresh track, which suits a
+    // shuffled ambient bed better than resuming a stale one anyway.
+    setTimeout(() => { if (!musicOn) killMusicPlayback(); }, MUSIC_FADE_OUT_S * 1000 + 50);
   } catch (e) { }
 }
 
