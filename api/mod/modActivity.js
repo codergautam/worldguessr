@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../../models/User.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import Report from '../../models/Report.js';
@@ -65,9 +66,13 @@ export default async function handler(req, res) {
       { $sort: { totalActions: -1 } }
     ]);
 
-    // Filter to only staff members
+    // Filter to only staff members.
+    // Non-user actors (e.g. 'system' from self-service deletions) can't be cast to ObjectId.
+    const candidateModeratorIds = moderatorActivity
+      .map(m => m._id)
+      .filter(id => mongoose.Types.ObjectId.isValid(id) && String(id).length === 24);
     const staffUserIds = await User.find(
-      { _id: { $in: moderatorActivity.map(m => m._id) }, staff: true },
+      { _id: { $in: candidateModeratorIds }, staff: true },
       { _id: 1 }
     ).lean();
     const staffIdSet = new Set(staffUserIds.map(u => u._id.toString()));

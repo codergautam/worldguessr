@@ -34,6 +34,7 @@ export default function OnboardingComplete({
   const { t: text } = useTranslation("common");
   const isClassic = mode === "classic";
   const isCoolMath = process.env.NEXT_PUBLIC_COOLMATH === "true";
+  const isPoki = process.env.NEXT_PUBLIC_POKI === "true";
 
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const confettiFiredRef = useRef(false);
@@ -134,12 +135,12 @@ export default function OnboardingComplete({
               />
               <ActionCard
                 icon={<FaBolt />}
-                title={text("findDuel")}
+                title={(isCoolMath || isPoki) ? text("findMatch") : text("findDuel")}
                 desc={text("obDescCompete")}
                 onClick={handleDuel}
                 accent="duel"
               />
-              {!isCoolMath && (
+              {!isCoolMath && !isPoki && (
                 <ActionCard
                   icon={<FaGlobeAmericas />}
                   title={text("communityMaps")}
@@ -165,7 +166,7 @@ export default function OnboardingComplete({
                 onClick={handleClassic}
                 accent="classic"
               />
-              {!isCoolMath && (
+              {!isCoolMath && !isPoki && (
                 <ActionCard
                   icon={<FaGlobeAmericas />}
                   title={text("communityMaps")}

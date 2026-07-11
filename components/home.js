@@ -19,6 +19,7 @@ import Script from "next/script";
 import sendEvent from "@/components/utils/sendEvent";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
+import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx } from "@/components/utils/audio";
 import deriveTeamEndFallback from "@/components/utils/teamDuelEndFallback";
 import getMyTeam from "@/components/utils/getMyTeam";
 import 'react-toastify/dist/ReactToastify.css';
@@ -155,6 +156,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [pendingCountryGuessrLoad, setPendingCountryGuessrLoad] = useState(0);
     const countryGuessrLoadRecoveryRef = useRef(0);
     const MAP_MODAL_CLOSE_ANIMATION_MS = 400;
+
+    // Background music plays only while the game surface is mounted — every
+    // route that renders Home (/, lang roots, /daily) gets it, standalone
+    // pages (/leaderboard, /map, /user, ...) never do. Unmount fades it out.
+    useEffect(() => {
+        setMusicAllowed(true);
+        return () => setMusicAllowed(false);
+    }, []);
 
     useEffect(() => {
         if (!mapSwitchMaskShown) return;
@@ -593,6 +602,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
+    // Poki mirrors the CoolMath treatment for account features: no login surface,
+    // so ranked/2v2 (which require an account) and social links are hidden too.
+    const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
     const [navSlideOut, setNavSlideOut] = useState(false);
 
     // Play the nav slide-out animation, then run the action once it finishes.
@@ -686,7 +698,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => {
         if (screen !== "home") return;
         if (session?.token?.secret) return;
-        if (inCrazyGames || inCoolMathGames || inGameDistribution) return;
+        if (inCrazyGames || inCoolMathGames || inGameDistribution || inPoki) return;
         if (typeof window === 'undefined') return;
         // Skip re-running while the modal is currently open — otherwise opening it
         // would immediately trigger another evaluation and double-increment the count.
@@ -1211,7 +1223,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return;
                 }
 
-                if (inIframe() && window.adBreak && !inCrazyGames) {
+                if (inIframe() && window.adBreak && !inCrazyGames && !inPoki) {
                     window.onboardPrerollEnd = false;
                     setLoading(true)
                     window.adBreak({
@@ -1416,6 +1428,78 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
+
+    // Competitive music for the whole matchmade pipeline: any live PUBLIC
+    // game (ranked duels and 2v2 are {public, duel}; unranked "duels" are
+    // actually public non-duel FFA joins server-side — all matchmade, all
+    // competitive; private parties are never public), any queue wait (every
+    // gameQueued value — publicDuel/unrankedDuel/2v2 — is matchmade), and
+    // the play-again bridge (nextGameQueued: state already reset but the
+    // re-queue hasn't fired yet — without it Play Again blips chill between
+    // matches). Leaving for the menu crossfades back to chill.
+    const inMatchmadePipeline = !!(
+        (multiplayerState?.inGame && multiplayerState?.gameData?.public)
+        || multiplayerState?.gameQueued
+        || multiplayerState?.nextGameQueued
+    );
+    useEffect(() => {
+        setMusicPlaylist(inMatchmadePipeline ? 'competitive' : 'chill');
+    }, [inMatchmadePipeline]);
+
+    // The opponent-locked ping must land instantly — decode it as soon as a
+    // live game could produce one.
+    const multinotiPossible = !!multiplayerState?.inGame;
+    useEffect(() => {
+        if (multinotiPossible) preloadSfx('multinoti');
+    }, [multinotiPossible]);
+
+    // ---- GA4 engagement instrumentation ----
+    // The whole site is one Next page, so GA4 never saw a second page_view and
+    // engagement rested entirely on the 10s timer — which only starts counting
+    // once the deferred gtag lib boots on window load (_document.js). Players
+    // who demonstrably played were logged as bounces.
+
+    // Virtual page_view per screen change. The initial screen's real page_view
+    // already fires from the gtag config snippet. The automatic home→onboarding
+    // flip under the welcome overlay is the landing experience, not a
+    // navigation, so it stays silent until the user picks a mode (overlay
+    // drops → effect re-runs → fires then).
+    const prevScreenForGaRef = useRef(screen);
+    useEffect(() => {
+        if (screen === prevScreenForGaRef.current) return;
+        if (screen === "onboarding" && welcomeOverlayShown) return;
+        prevScreenForGaRef.current = screen;
+        sendEvent("page_view", {
+            page_location: window.location.origin + (screen === "home" ? "/" : `/${screen.toLowerCase()}`),
+            page_title: `WorldGuessr - ${screen}`,
+        });
+    }, [screen, welcomeOverlayShown]);
+
+    // game_start = a round is actually in front of the player. Every mode
+    // funnels its round location through latLong (SP/CG fetch or rotate,
+    // onboarding stamps tutorial spots, MP stamps incoming round locations,
+    // daily drives it from singlePlayerRound), so one effect covers them all.
+    // Mark game_start as a key event in GA4 admin: any session that reaches
+    // gameplay then counts as engaged regardless of the 10s timer.
+    const lastGameStartRef = useRef(null);
+    useEffect(() => {
+        // {0,0} is the cleared-location sentinel (clearLocation/initial state)
+        if (!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
+        // home menu keeps a live background pano — not a round
+        if (screen === "home") return;
+        // round-1 street view preloading behind the welcome modal isn't play
+        if (screen === "onboarding" && welcomeOverlayShown) return;
+        // daily landing/results keep the last pano mounted for the crossfade
+        if (screen === "daily" && dailyPhase !== "game") return;
+        // MP stamps latLong on the getready→guess flip; anything else holding
+        // a location (lobby leftovers, rejoin answer-view restore) isn't a
+        // fresh round
+        if (screen === "multiplayer" && multiplayerState?.gameData?.state !== "guess") return;
+        const key = `${screen}:${latLong.lat},${latLong.long}`;
+        if (lastGameStartRef.current === key) return;
+        lastGameStartRef.current = key;
+        sendEvent("game_start", { mode: screen });
+    }, [latLong, screen, welcomeOverlayShown, dailyPhase, multiplayerState?.gameData?.state]);
 
     const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
         if (typeof window === 'undefined') return true;
@@ -2330,6 +2414,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
             } else if (data.type === 'toast') {
+                // Round-pressure nudges (opponent / other team locked in,
+                // you're the last guesser) get an audible ping — the toast
+                // alone is easy to miss while panning a street view. Mix
+                // ratio ~-6dB: at full tilt the ping barked over everything.
+                if (['opponentLocked', 'otherTeamLocked', 'lastGuesser'].includes(data.key)) playSfx('multinoti', { volume: 0.5 });
                 toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
             } else if (data.type === 'invite') {
                 // code, invitedByName, invitedById
@@ -2371,11 +2460,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             } else if (data.type === 'streak') {
                 const streak = data.streak;
 
-                if (streak === 0) {
-                    toast(text("streakLost"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
-                } else if (streak === 1) {
-                    toast(text("streakStarted"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
-                } else {
+                // Only streak CONTINUATIONS (2+) toast. Resets are silent by
+                // ruling, and the "streak started" toast was removed (server
+                // no longer sends streak:1; the guard also keeps a stale
+                // server from rendering a bogus started/0-day toast).
+                if (streak > 1) {
                     toast(text("streakGained", { streak }), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
                 }
             }
@@ -2488,7 +2577,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
 
-    function crazyMidgame(adFinished = () => { }) {
+    function crazyMidgame(adFinishedRaw = () => { }) {
+        // Silence music/SFX for the whole ad break (Poki QA requires it; CG
+        // wants it too). Every exit path below funnels through adFinished, so
+        // the unduck can't be missed. The no-ad fallthrough ducks and unducks
+        // back-to-back, which is inaudible.
+        duckAudio(true);
+        const adFinished = () => { duckAudio(false); adFinishedRaw(); };
         if (window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
             try {
                 const callbacks = {
@@ -2537,6 +2632,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }, 15000);
             } catch (e) {
                 console.warn("error requesting midgame ad", e)
+                adFinished()
+            }
+        } else if (process.env.NEXT_PUBLIC_POKI === "true") {
+            try {
+                // window.poki is only set after PokiSDK.init() resolves; the SDK
+                // self-throttles ad frequency and resolves immediately on no-fill.
+                if (window.poki && window.PokiSDK) {
+                    window.PokiSDK.commercialBreak().then(() => adFinished()).catch(() => adFinished());
+                } else {
+                    adFinished();
+                }
+            } catch (e) {
+                console.warn("error requesting poki commercial break", e)
                 adFinished()
             }
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
@@ -3044,7 +3152,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [latLong, screen, countryGuessrMode.subMode]);
 
     function onNavbarLogoPress() {
-        if (screen === "onboarding") return;
+        // Daily locations are fixed for everyone — the logo's "roll a new
+        // location" shortcut would swap in a random pano mid-challenge.
+        if (screen === "onboarding" || screen === "daily") return;
 
         if (screen !== "home" && !loading) {
             if (screen === "multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
@@ -3273,18 +3383,27 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
             {/* Background street2 image is rendered via body::before in _document.js */}
 
-            <main className={`home`} id="main">
+            {/* data-nosnippet: everything in here is game chrome, not prose —
+                Google was assembling search snippets out of it ("© Google
+                Google Adivinar", the guess button, SV attribution) instead of
+                using the meta description. Snippet-only; indexing unaffected. */}
+            <main className={`home`} id="main" data-nosnippet="">
 
+                {/* Daily challenge rules are fixed for everyone (no NMPZ, road
+                    labels on). gameOptions still holds whatever the last
+                    singleplayer toggle or multiplayer game stamped into it
+                    (nm/npz/showRoadName), so the shared pano must not read
+                    those while the daily owns it. */}
                 <StreetView
-                    nm={gameOptions?.nm}
-                    npz={gameOptions?.npz}
+                    nm={screen === "daily" ? false : gameOptions?.nm}
+                    npz={screen === "daily" ? false : gameOptions?.npz}
                     showAnswer={showAnswer}
                     lat={latLong?.lat}
                     long={latLong?.long}
                     panoId={latLong?.panoId}
                     heading={latLong?.heading}
                     pitch={latLong?.pitch}
-                    showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
+                    showRoadLabels={screen === "onboarding" ? false : screen === "daily" ? true : gameOptions?.showRoadName}
                     hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
                         screen === "home" || !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
                     )}
@@ -3492,7 +3611,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     </div>
                 )}
 
-                {screen === 'home' && !inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                {screen === 'home' && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
                         <Ad
                             unit={"worldguessr_home_ad"}
@@ -3534,7 +3653,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 </div>
 
                 {/* Community Maps icon (moved out of left menu) */}
-                {screen === "home" && onboardingCompleted && !mapModal &&
+                {screen === "home" && onboardingCompleted && !mapModal && !inPoki &&
                     !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
                     <DailyCommunityMapsButton
                         onClick={() => setMapModal(true)}
@@ -3618,8 +3737,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 </button>
                                                 {/* Ranked shows for guests too — clicking opens the link-Google
                                                     conversion modal instead of the queue (server publicDuel
-                                                    requires accountId anyway). Hidden on CoolMathGames. */}
-                                                {!inCoolMathGames && (
+                                                    requires accountId anyway). Hidden on CoolMathGames and
+                                                    Poki, where there is no login surface at all. */}
+                                                {!inCoolMathGames && !inPoki && (
                                                     <button className="g2_nav_text" aria-label="Duels" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
@@ -3641,9 +3761,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     }
                                                     navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"));
                                                 }}>{
+                                                    // Ranked is hidden on CoolMath/Poki, so "Unranked" would be
+                                                    // meaningless jargon there — it's just "Find Match".
+                                                    (inCoolMathGames || inPoki) ? text("findMatch") :
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
-                                                {!inCoolMathGames && (
+                                                {!inCoolMathGames && !inPoki && (
                                                     <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
@@ -3703,7 +3826,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         {/* Footer moved outside of sliding navigation */}
                         <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
                             <div className="footer_btns">
-                                {!isApp && !inCoolMathGames && !inGameDistribution && (
+                                {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                                     <>
                                         {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
                                             <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
@@ -3804,8 +3927,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         closeMapChooser();
                     } : null}
                     showAllCountriesOption={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser"))}
-                    showOptions={screen === "singleplayer"}
-                    showTimerOption={screen === "singleplayer"}
+                    showOptions={screen === "singleplayer" || screen === "countryGuesser"}
+                    showTimerOption={screen === "singleplayer" || screen === "countryGuesser"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
                 {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
@@ -4001,7 +4124,11 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         data={multiplayerState?.gameData?.duelEnd ?? deriveTeamEndFallback(multiplayerState?.gameData)}
                         multiplayerState={multiplayerState}
                         session={session}
-                        gameId={multiplayerState?.gameData?.code}
+                        // Saved history doc id from the finisher (matchmade
+                        // games have code=null). Reporting is history-view
+                        // only, so on this live screen the id just names the
+                        // game (copy-ID surface).
+                        gameId={multiplayerState?.gameData?.duelEnd?.historyGameId || multiplayerState?.gameData?.code}
                         button1Text={text("playAgain")}
                         options={options}
                         button1Press={() => {

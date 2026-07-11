@@ -7,6 +7,21 @@ import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
 import ConfirmModal from './ui/Modal';
 import { signOut } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
+import VolumeSliders from './ui/volumeSliders';
+
+// Section header built ONLY from the modal's existing vocabulary:
+// .settingsModalInner gives the same indent as the option rows, the <label>
+// inherits the exact row-label typography, and the g2_nav_hr underline
+// mirrors the modal title's own treatment. Sections are what keep the
+// one-column option list scannable — every new setting goes under one.
+function SectionHeader({ label, color, first }) {
+    return (
+        <div className="settingsModalInner" style={{ marginTop: first ? 0 : '25px', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+            <label style={color ? { color } : undefined}>{label}</label>
+            <div className="g2_nav_hr" style={{ width: '100%', margin: 0 }}></div>
+        </div>
+    );
+}
 
 export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, session, setSession, ws }) {
     const { t: text } = useTranslation("common");
@@ -163,6 +178,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <div style={{ height: "50px" }}></div>
 
 
+                <SectionHeader label={text("audioSettings")} first />
+
+                <VolumeSliders />
+
+                <SectionHeader label={text("generalSettings")} />
+
                 <div className="settingsModalInner">
                     <label htmlFor="units">{text("units")}: </label>
                     <select className="g2_input" id="units" value={options.units} onChange={handleUnitsChange}>
@@ -204,14 +225,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 {/* Account settings — server-backed, logged-in only */}
                 {loggedIn && (
                     <>
-                        {/* Section header built ONLY from the modal's existing vocabulary:
-                            .settingsModalInner gives the same indent as the option rows,
-                            the <label> inherits the exact row-label typography, and the
-                            g2_nav_hr underline mirrors the modal title's own treatment. */}
-                        <div className="settingsModalInner" style={{ marginTop: '25px', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                            <label>{text("accountSettings")}</label>
-                            <div className="g2_nav_hr" style={{ width: '100%', margin: 0 }}></div>
-                        </div>
+                        <SectionHeader label={text("accountSettings")} />
                         <div className="settingsModalInner">
                             <label htmlFor="allowFriendReq">{text("allowFriendRequests")}</label>
                             <input
@@ -239,10 +253,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                             If a deletion is already scheduled, this becomes a Restore prompt instead. */}
                         {!inCrazyGames && (
                             <>
-                                <div className="settingsModalInner" style={{ marginTop: '25px', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                                    <label style={{ color: pendingDeletion ? '#ff9800' : '#ff6b6b' }}>{text("dangerZone")}</label>
-                                    <div className="g2_nav_hr" style={{ width: '100%', margin: 0 }}></div>
-                                </div>
+                                <SectionHeader label={text("dangerZone")} color={pendingDeletion ? '#ff9800' : '#ff6b6b'} />
                                 {/* width:auto + stretch — the class's desktop width:max-content would
                                     let the single-line deletion-date sentence overflow the modal */}
                                 <div className="settingsModalInner" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '12px', width: 'auto', alignSelf: 'stretch' }}>
@@ -303,11 +314,15 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     <a href={navigate("/privacy-crazygames")} target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
                 )}
 
-                <div style={{height: "40vh"} }></div>
-
             </div>
-            {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && (
-                <div className="g2_slide_in" style={{ position: 'absolute', bottom: '25px', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
+            {/* Footer links. Positioning lives in .settingsFooterLinks because it
+                differs by layout: desktop (row) pins them fixed over the nav
+                column while .g2_content scrolls internally; small screens
+                (column) scroll the outer react-responsive-modal container, where
+                fixed would float over the option rows — there they go static, as
+                the last in-flow flex child at the true bottom of the scroll. */}
+            {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && (
+                <div className="g2_slide_in settingsFooterLinks">
                     <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
                     </a>

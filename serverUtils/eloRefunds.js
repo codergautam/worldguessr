@@ -23,9 +23,18 @@ import { leagues } from '../components/utils/leagues.js';
  * and the one-off backfill (scripts/backfillRefundedDuelWinLoss.js) each touch a
  * game's win/loss exactly once.
  *
- *  - refundEloToOpponents:      perm-ban remedy — refunds ALL ranked_duel games.
+ * 2v2 games get the same win/loss remedy (team2v2_wins/losses/tied counters),
+ * ahead of the mode going ranked. 2v2 records no ELO (players[].elo.change is
+ * null) so the ELO block naturally no-ops — only the counters are reversed,
+ * and ONLY for the opposing team (a cheater's teammate keeps their result,
+ * which also prevents a co-cheating teammate from being buffed by the first
+ * ban). The eloRefunded claim doubles as the "voided" stamp for these games.
+ *
+ *  - refundEloToOpponents:      perm-ban remedy — refunds ALL ranked_duel and
+ *                               2v2 games.
  *  - refundEloForReportedGames: temp-ban remedy — refunds only the specific
- *                               reported ranked_duel games.
+ *                               reported games (2v2 included for when team-mode
+ *                               reporting lands; reports can't target 2v2 yet).
  */
 
 /**
@@ -46,6 +55,8 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
   const opponentRefunds = {};    // { accountId: totalRefundAmount }  — ELO to credit back
   const opponentLossAdjust = {}; // { accountId: duels_losses to reverse }
   const opponentTieAdjust = {};  // { accountId: duels_tied to reverse } — draws only
+  const opponent2v2LossAdjust = {}; // { accountId: team2v2_losses to reverse }
+  const opponent2v2TieAdjust = {};  // { accountId: team2v2_tied to reverse } — draws only
 
   // Process each game atomically - use findOneAndUpdate to claim the game.
   // Only succeeds if eloRefunded is still not true (prevents double refund /
@@ -64,6 +75,17 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
     gamesMarkedRefunded++;
 
     const isDraw = !!(game.result && game.result.isDraw);
+
+    // 2v2: the remedy flows ONLY to the opposing team — like 1v1, a game the
+    // cheater LOST produces no reversal (the winners keep their win), and the
+    // banned player's teammate keeps their recorded result. That teammate rule
+    // is load-bearing: if BOTH teammates were cheating, it (plus the
+    // eloRefunded claim above) guarantees neither ban ever buffs the other
+    // cheater's counters, in either ban order. 2v2 saves always stamp
+    // players[].team ('a'/'b').
+    const bannedTeam = game.gameType === '2v2'
+      ? (game.players.find(p => p.accountId === bannedAccountId)?.team ?? null)
+      : null;
 
     for (const player of game.players) {
       // Skip the banned user (offender) and guests (no accountId)
@@ -87,7 +109,21 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
       // ~0 ELO. So reverse the loss by finalRank, NOT by change<0, or the exact
       // high-rated-cheater-vs-low-rated-victim case this feature targets is missed.
       // A draw recorded loss+1 AND tie+1 for BOTH players (winner flag false).
-      if (isDraw) {
+      //
+      // 2v2 counter semantics differ from 1v1: a draw recorded ONLY
+      // team2v2_tied+1 (no loss), and finalRank is the TEAM result. Only the
+      // OPPOSING team is compensated (see bannedTeam above) — so a decisive
+      // reversal can only occur when the banned side won: the opposing losers
+      // (finalRank 2) are the victims.
+      if (game.gameType === '2v2') {
+        if (player.team !== bannedTeam) {
+          if (isDraw) {
+            opponent2v2TieAdjust[player.accountId] = (opponent2v2TieAdjust[player.accountId] || 0) + 1;
+          } else if (player.finalRank === 2) {
+            opponent2v2LossAdjust[player.accountId] = (opponent2v2LossAdjust[player.accountId] || 0) + 1;
+          }
+        }
+      } else if (isDraw) {
         opponentLossAdjust[player.accountId] = (opponentLossAdjust[player.accountId] || 0) + 1;
         opponentTieAdjust[player.accountId] = (opponentTieAdjust[player.accountId] || 0) + 1;
       } else if (player.finalRank === 2) {
@@ -106,6 +142,8 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
     ...Object.keys(opponentRefunds),
     ...Object.keys(opponentLossAdjust),
     ...Object.keys(opponentTieAdjust),
+    ...Object.keys(opponent2v2LossAdjust),
+    ...Object.keys(opponent2v2TieAdjust),
   ]);
 
   const applyPromises = [];
@@ -177,10 +215,14 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
       //     could defer the winLossAdjusted stamp until the reversal confirms. ---
       const lossDec = opponentLossAdjust[opponentAccountId] || 0;
       const tieDec = opponentTieAdjust[opponentAccountId] || 0;
-      if (lossDec > 0 || tieDec > 0) {
+      const loss2v2Dec = opponent2v2LossAdjust[opponentAccountId] || 0;
+      const tie2v2Dec = opponent2v2TieAdjust[opponentAccountId] || 0;
+      if (lossDec > 0 || tieDec > 0 || loss2v2Dec > 0 || tie2v2Dec > 0) {
         const setOps = {};
         if (lossDec > 0) setOps.duels_losses = { $max: [0, { $subtract: ['$duels_losses', lossDec] }] };
         if (tieDec > 0) setOps.duels_tied = { $max: [0, { $subtract: ['$duels_tied', tieDec] }] };
+        if (loss2v2Dec > 0) setOps.team2v2_losses = { $max: [0, { $subtract: ['$team2v2_losses', loss2v2Dec] }] };
+        if (tie2v2Dec > 0) setOps.team2v2_tied = { $max: [0, { $subtract: ['$team2v2_tied', tie2v2Dec] }] };
         try {
           await User.updateOne({ _id: opponentAccountId }, [{ $set: setOps }]);
         } catch (e) {
@@ -199,13 +241,16 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
     gamesMarkedRefunded,
     lossesReversed: Object.values(opponentLossAdjust).reduce((a, b) => a + b, 0),
     tiesReversed: Object.values(opponentTieAdjust).reduce((a, b) => a + b, 0),
+    team2v2LossesReversed: Object.values(opponent2v2LossAdjust).reduce((a, b) => a + b, 0),
+    team2v2TiesReversed: Object.values(opponent2v2TieAdjust).reduce((a, b) => a + b, 0),
     refundDetails: opponentRefunds, // { accountId: refundAmount }
   };
 }
 
 /**
  * Refund ELO to opponents who lost ELO playing against a banned user (perm ban).
- * Refunds ALL ranked_duel games the banned user participated in.
+ * Refunds ALL ranked_duel and 2v2 games the banned user participated in
+ * (2v2 = win/loss counter reversal only; no ELO is recorded there).
  *
  * @param {string} bannedUserId - The MongoDB _id of the banned user
  * @param {string} bannedUsername - The username of the banned user
@@ -215,10 +260,10 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
 export async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogId = null) {
   const bannedAccountId = bannedUserId.toString();
 
-  // Find all ranked_duel games where the banned user participated and that
-  // haven't been refunded yet.
+  // Find all ranked_duel and 2v2 games where the banned user participated and
+  // that haven't been refunded yet.
   const gameMongoIds = await Game.find({
-    gameType: 'ranked_duel',
+    gameType: { $in: ['ranked_duel', '2v2'] },
     'players.accountId': bannedAccountId,
     eloRefunded: { $ne: true },
   }).distinct('_id');
@@ -228,7 +273,7 @@ export async function refundEloToOpponents(bannedUserId, bannedUsername, moderat
 
 /**
  * Refund ELO to opponents only for specific games linked to reports (temp ban /
- * self-deletion). Refunds only the reported ranked_duel games.
+ * self-deletion). Refunds only the reported games (ranked duels + 2v2).
  *
  * @param {string} bannedUserId - The MongoDB _id of the banned user
  * @param {string} bannedUsername - The username of the banned user
@@ -243,11 +288,13 @@ export async function refundEloForReportedGames(bannedUserId, bannedUsername, re
 
   const bannedAccountId = bannedUserId.toString();
 
-  // Find only the specific reported ranked_duel games that haven't been refunded.
+  // Find only the specific reported games that haven't been refunded.
   // Reports store gameId as the string game code, which maps to Game.gameId.
+  // 2v2 is included ahead of team-mode reporting existing — today no report
+  // can carry a 2v2 game code, so this only matters once that lands.
   const gameMongoIds = await Game.find({
     gameId: { $in: reportedGameIds },
-    gameType: 'ranked_duel',
+    gameType: { $in: ['ranked_duel', '2v2'] },
     'players.accountId': bannedAccountId,
     eloRefunded: { $ne: true },
   }).distinct('_id');

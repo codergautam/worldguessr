@@ -407,7 +407,7 @@ export const api = {
           finalRank?: number;
           elo?: { change: number };
         };
-        opponent?: { username: string; countryCode?: string };
+        opponent?: { username: string; countryCode?: string; accountId?: string | null };
         roundsPlayed: number;
         totalDuration: number;
         result: { maxPossiblePoints: number };

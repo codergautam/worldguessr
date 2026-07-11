@@ -1214,6 +1214,24 @@ export default function GameScreen() {
       }
     : null;
 
+  // Multiplayer reveal feedback, once per reveal: the score-graded haptic the
+  // submit handler defers to ("the result reveal haptic comes later"), plus
+  // confetti on a near-perfect guess (web parity: endBanner.js fires at >= 4850
+  // in EVERY mode — gameUI mounts it for multiplayer too). Keyed code:curRound —
+  // stable across the final reveal's ghost getready→end handoff (curRound holds
+  // at rounds+1) and distinct per round, so focus flaps or the getready→end
+  // transition can't double-fire.
+  const mpRevealFeltRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMultiplayer || !showMapResult || !gameData) return;
+    if (!mpReveal?.didGuess) return;
+    const revealKey = `${gameData.code}:${gameData.curRound}`;
+    if (mpRevealFeltRef.current === revealKey) return;
+    mpRevealFeltRef.current = revealKey;
+    hapticForScore(mpReveal.points);
+    if (mpReveal.points >= 4850) setConfettiKey((k) => k + 1);
+  }, [isMultiplayer, showMapResult, mpReveal?.didGuess, mpReveal?.points, gameData?.code, gameData?.curRound]);
+
   const handleMapPress = useCallback((lat: number, lng: number) => {
     if (gameState.isShowingResult) return;
     // Guess locked once submitted (multiplayer) — can't move the pin while
@@ -2504,6 +2522,8 @@ export default function GameScreen() {
         onBack={mpInitialGetReady ? handleLeave : undefined}
         backDuringCountdown={mpInitialGetReady}
       />
+
+      {confettiKey > 0 && <ConfettiBurst trigger={confettiKey} />}
       </View>
       )}
       <TransitionCurtain sceneKey={isLobby ? 'lobby' : 'game'} />

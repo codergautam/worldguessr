@@ -15,6 +15,7 @@ import countryCoordinates from "../public/countryCoordinates.json";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
+import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
@@ -126,6 +127,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       if (!keepAnswer) setShowAnswer(false)
 
         setSinglePlayerRound((prev) => {
+          // Completion must be idempotent: racing advance triggers (double
+          // click, space + click, queued midgame-ad callbacks on CG/Poki)
+          // can all land here, and the save below must run exactly once.
+          if (prev.done) return prev;
           const completedGame = {
             ...prev,
             done: true
@@ -214,7 +219,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       const loadTime = window.gameOpen;
       const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
       if(lastDiscordShown) return console.log("Discord modal already shown");
-      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
+      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_POKI) {
         setShowDiscordModal(true)
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
@@ -229,7 +234,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
       }
     // Show midgame ad between singleplayer rounds
-    if((inGameDistribution || inCrazyGames) && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+    if((inGameDistribution || inCrazyGames || process.env.NEXT_PUBLIC_POKI === "true") && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
       window.crazyMidgame(() => {
         afterAd()
         loadLocationFuncRaw(keepAnswer, advanceSource)
@@ -243,40 +248,76 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }
 
   // Single canonical "advance to next round" path used by every trigger
-  // (EndBanner button, space key, auto-advance). Without this, each caller
-  // had its own copy of the fade timing and only the one that was edited
-  // would have the fade — pressing the other path showed the raw size
-  // revert / slide-down.
+  // (EndBanner button, space key, auto-advance, summary Play Again). Without
+  // this, each caller had its own copy of the transition timing and only the
+  // one that was edited would have the fade — pressing the other path showed
+  // the raw size revert / slide-down.
   //
-  // Country-guessr / onboarding (non-classic) want the keepAnswer flow so
-  // the answer overlay can fade out without resetting state. Singleplayer
-  // gets the three-phase fade → forceHidden window → slide-up choreography.
+  // The transition is chosen by what's on screen when the trigger fires:
+  //   1. Final-round "View Results" (endsGame): NO teardown — the answer
+  //      scene stays mounted as the results summary's crossfade base.
+  //   2. Play Again from the summary (done): the map is COVERED — yank it
+  //      forceHidden in the same commit the answer state clears. A visible
+  //      fade here would UNCOVER it first: the old answer map (often
+  //      street-level zoom) flashes fullscreen before fading.
+  //   3. Mid-game next round: the map is VISIBLE — fade it out in place
+  //      (countryGuessrMapFadeOut fades, countryGuessrMapReveal pins
+  //      transform so it can't slide), then clear the answer state once
+  //      it's invisible. Built for the country-guessr reveal, shared by
+  //      all modes.
+  // Paths 2 and 3 end in the mapResetting settle window so the
+  // fullscreen→corner reshuffle and camera reset happen hidden.
   function advanceRound(advanceSource) {
+    // A fade is already in flight (showAnswer stays true during the 300ms
+    // window) — a re-entrant trigger (space spam) would advance a second
+    // time and skip a round.
+    if (mapFadingOut) return;
     setMapCameraCancelKey((prev) => prev + 1);
-    const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
-    if (isCountryGuessrMode) {
-      setFadeOutMapLocation(latLong);
-      setMapFadingOut(true);
-      window._countryGuessrKeepAnswer = true;
+    // Game-ending advance ("View Results" / space on the final answer): the
+    // results summary is about to mount ON TOP of this scene, and it takes
+    // real time to paint (dynamic chunk fetch + Leaflet init + 500ms fade).
+    // Don't fade anything here — keep the scene fully mounted as the
+    // summary's crossfade base; tearing it down exposes the raw pano behind
+    // the fading summary. MP end screens already work exactly this way
+    // (their answer scene survives into state === 'end'). Teardown happens
+    // on the next advance: Play Again / space-replay land in the fade path
+    // below, and re-entering singleplayer remounts GameUI → loadLocation().
+    const endsGame = !onboarding && singlePlayerRound && !singlePlayerRound.done
+      && singlePlayerRound.round === singlePlayerRound.totalRounds;
+    if (endsGame) {
       loadLocationFunc(true, advanceSource);
-      setTimeout(() => {
-        setMapFadingOut(false);
-        setFadeOutMapLocation(null);
-        setShowAnswer(false);
-        setPinPoint(null);
-        window._countryGuessrKeepAnswer = false;
-      }, 300);
-    } else {
+      return;
+    }
+    // Case 2: replay from the results summary — yank under cover (see above).
+    if (singlePlayerRound?.done) {
       setShowAnswer(false);
       setPinPoint(null);
-      setMapFadingOut(false);
-      setFadeOutMapLocation(null);
       setMapResetting(true);
       loadLocationFunc(true, advanceSource);
       setTimeout(() => {
         setMapResetting(false);
       }, 350);
+      return;
     }
+    // Case 3: mid-game — fade the visible map out in place.
+    setFadeOutMapLocation(latLong);
+    setMapFadingOut(true);
+    window._countryGuessrKeepAnswer = true;
+    loadLocationFunc(true, advanceSource);
+    setTimeout(() => {
+      setMapFadingOut(false);
+      setFadeOutMapLocation(null);
+      setShowAnswer(false);
+      setPinPoint(null);
+      window._countryGuessrKeepAnswer = false;
+      // The fade is done (map at opacity 0) — now hold it forceHidden while
+      // it snaps back to the corner rect and the camera reset lands, then
+      // let the corner minimap fade in on its own.
+      setMapResetting(true);
+      setTimeout(() => {
+        setMapResetting(false);
+      }, 350);
+    }, 300);
   }
 
 
@@ -303,9 +344,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [fadeOutMapLocation, setFadeOutMapLocation] = useState(null);
   const [mapCameraCancelKey, setMapCameraCancelKey] = useState(0);
-  // Set true during the singleplayer round-end window where the map needs
-  // to be force-hidden offscreen (between fade-out finishing and the slide-
-  // up starting). Driven into forceHideMiniMap below.
+  // Post-fade settle window (advanceRound): when the answer-map fade ends,
+  // the map snaps from fullscreen answerShown back to the corner-minimap
+  // rect while the new round's camera reset lands. forceHidden covers that
+  // reshuffle, and the corner minimap re-shows (miniMapShown effect) only
+  // once this clears — without it the minimap fades in mid-snap and the two
+  // animations fight (visible rapid flashing).
   const [mapResetting, setMapResetting] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -496,7 +540,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       if (remaining <= 0) {
         clearInterval(singlePlayerTimerRef.current);
         singlePlayerTimerRef.current = null;
-        if (pinPointRef.current) {
+        if (countryGuesser) {
+          // Country/Continent Guesser: picking a country submits instantly,
+          // so a timeout means no answer — resolve as a wrong guess (streak
+          // reset + reveal) through the shared submit path. There is no
+          // .guessBtn to click here (the minimap only mounts at reveal).
+          submitCountryGuess(null);
+        } else if (pinPointRef.current) {
           // Player placed a pin — submit their guess normally
           document.querySelector('.guessBtn')?.click();
         } else {
@@ -571,7 +621,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       // Don't handle space during onboarding completion - let home button handle it
       if(onboarding?.completed) return;
       if(singlePlayerRound?.done && e.key === ' ') {
-        loadLocationFunc(undefined, "space-singleplayer-done")
+        // Space substitutes for a button press here — sound it like one
+        // (the delegated click listener only hears real clicks).
+        playSfx('click_2');
+        advanceRound("space-singleplayer-done")
         return;
       }
       if(pinPoint && e.key === ' ' && !showAnswer) {
@@ -588,6 +641,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           });
           if (elapsedMs < ONBOARDING_MIN_MANUAL_ADVANCE_MS) return;
         }
+        // Space = Next Round / View Results press; the delegated click
+        // listener can't hear keyboard advances, so sound it explicitly.
+        playSfx('click_2');
         advanceRound("space-answer")
       }
     }
@@ -599,12 +655,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound])
 
   useEffect(() => {
-    if (!loading && latLong && width > 600 && !isTouchScreen) {
+    // !mapResetting: hold the corner minimap until the post-fade settle
+    // window ends, so it fades in once, cleanly, after the map has already
+    // snapped back to the corner rect (see mapResetting).
+    if (!loading && latLong && width > 600 && !isTouchScreen && !mapResetting) {
       setMiniMapShown(true)
     } else {
       setMiniMapShown(false)
     }
-  }, [loading, latLong, width])
+  }, [loading, latLong, width, mapResetting])
 
   useEffect(() => {
     if (!multiplayerState?.inGame) {
@@ -721,7 +780,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     return (
       <>
-        <button className={`miniMap__btn ${!pinPoint || iAmFinal ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint || iAmFinal} onClick={guess}>
+        {/* Outside multiplayer the press reveals instantly, so the guess
+            whoosh IS the press sound — mute the generic click_2 (also covers
+            the spacebar path, which .click()s this button). In multiplayer
+            the reveal lags the press, so the click stays. */}
+        <button className={`miniMap__btn ${!pinPoint || iAmFinal ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint || iAmFinal} onClick={guess} data-no-click-sfx={!multiplayerState?.inGame || undefined}>
           {iAmFinal ? waitingLabel : text("guess")}
         </button>
         {!multiplayerState?.inGame && (
@@ -742,6 +805,84 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       })
     }
   }, [gameOptions?.location])
+
+  // The guess whoosh is the ANSWER-REVEAL sound, not a button-press sound —
+  // in multiplayer the reveal can lag the press (waiting on the opponent /
+  // the round timer), and the whoosh must land with the reveal.
+  // Singleplayer/daily/onboarding reveal = showAnswer flipping true (covers
+  // the guess button, spacebar, and the timeout-without-pin path alike).
+  // The reveal sound's pitch tracks guess quality: 0.85 (no guess / total
+  // miss) up to 1.2 (perfect). Country/continent modes are binary by
+  // nature — correct gets the top pitch, wrong (including timeout) the
+  // bottom. Classic modes scale on the round's score fraction, recomputed
+  // from the pin (same formula the end banner shows), so MP and SP share
+  // one path; no pin at reveal = never guessed = bottom pitch.
+  function guessRevealRate() {
+    const binaryMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
+    let q = 0;
+    if (binaryMode) {
+      q = countryGuesserCorrect ? 1 : 0;
+    } else if (pinPoint && latLong?.lat != null) {
+      const maxDist = multiplayerState?.inGame
+        ? (multiplayerState?.gameData?.maxDist ?? 20000)
+        : (gameOptions?.maxDist ?? 20000);
+      q = calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist }) / 5000;
+    }
+    return 0.85 + 0.35 * Math.min(1, Math.max(0, q));
+  }
+
+  useEffect(() => {
+    if (showAnswer) playSfx('guess', { rate: guessRevealRate() });
+  }, [showAnswer]);
+  // Multiplayer reveal = leaving the guess state: 'getready' shows the
+  // between-rounds answer, 'end' shows the final-round answer. (Round-1
+  // getready is unreachable here — prev state is never 'guess' before it.)
+  const mpStateForSfx = multiplayerState?.inGame ? multiplayerState?.gameData?.state : null;
+  const prevMpStateForSfxRef = useRef(null);
+  useEffect(() => {
+    const prev = prevMpStateForSfxRef.current;
+    prevMpStateForSfxRef.current = mpStateForSfx;
+    if (prev === 'guess' && (mpStateForSfx === 'getready' || mpStateForSfx === 'end')) {
+      // latLong/pinPoint still hold the ENDED round here — the next round's
+      // location only lands after getready.
+      playSfx('guess', { rate: guessRevealRate() });
+    }
+  }, [mpStateForSfx]);
+
+  // Last-5-seconds ticking, both round clocks: the multiplayer clock and the
+  // singleplayer/daily optional timer (timePerRound game option — its
+  // interval zeroes singlePlayerTimeLeft whenever the round isn't live:
+  // modals, loading, reveal — so >0 alone means "clock running").
+  // Deliberately NOT gated on pinPoint/final like the red 'critical' timer
+  // style — a locked-in player still wants to hear the reveal closing in
+  // (user ruling: plays whether you've guessed or not). One shot per round:
+  // the window flag drops when the clock resets (reveal / next round /
+  // modal pause), re-arming the edge — a modal pause restarts the round
+  // clock in full, so its fresh final 5s legitimately tick again.
+  // The 5.0s asset is cut to the window, so no stop handling is needed.
+  const tickingWindow = !!(
+    (multiplayerState?.inGame
+      && multiplayerState?.gameData?.state === 'guess'
+      && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt <= 5)
+    || (!multiplayerState?.inGame
+      && singlePlayerTimeLeft > 0 && singlePlayerTimeLeft <= 5)
+  );
+  useEffect(() => {
+    if (!tickingWindow) return;
+    playSfx('ticking', { pitchJitter: 0, volume: 0.6 });
+    // Rounds can end before the clock does (guess submitted during the
+    // window; MP advances early once everyone is final) — fade the bed out
+    // instead of letting it tick over the reveal. Cleanup also covers
+    // unmount (leaving the game mid-window).
+    return () => stopSfx('ticking');
+  }, [tickingWindow]);
+  // Fetch+decode before the first crunch moment — a fetch at T-5s would eat
+  // into the window on a cold cache.
+  const tickingPossible = !!(multiplayerState?.inGame || (singlePlayerRound && gameOptions?.timePerRound));
+  useEffect(() => {
+    if (tickingPossible) preloadSfx('ticking');
+  }, [tickingPossible]);
+
   function guess(correctOverride) {
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
@@ -816,6 +957,54 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }
 
+  // One submit path for Country/Continent Guesser — the CountryBtns press and
+  // the round-timer timeout share it. selected === null means the clock ran
+  // out with no answer: scored as a wrong guess, generic wrong quip, and no
+  // guessed-country pin on the reveal map (guessedCountryCode stays null).
+  // Called from the timer interval's closure too: safe, because streaks only
+  // change at a reveal and the reveal recreates the interval (showAnswer is
+  // in that effect's deps), so mid-round the captured values are current.
+  function submitCountryGuess(selected) {
+    const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
+    const timedOut = selected == null;
+    const isCorrect = !timedOut && (isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country);
+    setCountryGuesserCorrect(isCorrect);
+    setGuessedCountryCode(timedOut ? null : selected);
+    // Determine quip tier
+    if (isCorrect) {
+      setGuessTier("correct");
+    } else if (isContinentMode || timedOut) {
+      setGuessTier("wrongDiffContinent");
+    } else {
+      const guessedContinent = continentFromCode(selected);
+      const correctContinent = continentFromCode(latLong.country);
+      setGuessTier(guessedContinent === correctContinent ? "wrongSameContinent" : "wrongDiffContinent");
+    }
+    if (isContinentMode) {
+      setLostContStreak(0);
+      if (isCorrect) {
+        setContStreak(prev => prev + 1);
+      } else {
+        setLostContStreak(continentGuessrStreak);
+        setContStreak(0);
+      }
+    } else {
+      setLostCgStreak(0);
+      if (isCorrect) {
+        setCgStreak(prev => prev + 1);
+      } else {
+        setLostCgStreak(countryGuessrStreak);
+        setCgStreak(0);
+      }
+    }
+    logOnboardingAdvance("country-button-guess", {
+      selected: timedOut ? "(timeout)" : selected,
+      isCorrect,
+      mode: isContinentMode ? "continent" : "country",
+    });
+    guess(isCorrect);
+  }
+
 
 
 
@@ -842,9 +1031,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       multiplayerRoundOverShowingAnswer
     )
   );
+  // NO !singlePlayerRound?.done term here: the game-ending advance keeps the
+  // fullscreen answer map as the summary's crossfade base, and dropping
+  // `.shown` at done made classic's answerShown map (no transform pin, unlike
+  // the CG reveal class) slide down behind the fading summary — the "sliver
+  // of streetview" bug. showAnswer staying true at done is what keeps the
+  // no-summary arm (!showAnswerOnMap && !loading) from firing there.
   const shouldShowMiniMap = !welcomeOverlayShown &&
     (miniMapShown || showAnswerOnMap) &&
-    (!singlePlayerRound?.done && !onboarding?.completed &&
+    (!onboarding?.completed &&
       ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && !loading) || mapFadingOutForRender)) &&
     !(onboarding && !showAnswer && !mapFadingOutForRender && onboarding.mode !== 'classic');
   const forceHideMiniMap = !!(
@@ -863,7 +1058,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
@@ -998,22 +1193,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 */}
 
 
-{ singlePlayerRound?.done && !dailyMode && (
-<RoundOverScreen points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)
-
-} maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}
-history={singlePlayerRound.locations}
-button1Text={"🎮 "+text("playAgain")}
-button1Press={() =>{
-  window.crazyMidgame(() =>
-
-  loadLocationFunc()
-  )
-              }}
-session={session}/>
-)}
-
-
       {(!countryGuesser || (countryGuesser && showAnswer)) && multiplayerMapStateAllowsRender && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? (multiplayerState?.gameData?.state === "guess" || multiplayerRoundOverShowingAnswer) : true ) && (
         <>
 
@@ -1077,45 +1256,7 @@ session={session}/>
       { countryGuesser && otherOptions?.length > 0 && (
         <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && !!latLong?.country} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
-         onCountryPress={(selected) => {
-          const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
-          const isCorrect = isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country;
-          setCountryGuesserCorrect(isCorrect);
-          setGuessedCountryCode(selected);
-          // Determine quip tier
-          if (isCorrect) {
-            setGuessTier("correct");
-          } else if (isContinentMode) {
-            setGuessTier("wrongDiffContinent");
-          } else {
-            const guessedContinent = continentFromCode(selected);
-            const correctContinent = continentFromCode(latLong.country);
-            setGuessTier(guessedContinent === correctContinent ? "wrongSameContinent" : "wrongDiffContinent");
-          }
-          if (isContinentMode) {
-            setLostContStreak(0);
-            if (isCorrect) {
-              setContStreak(prev => prev + 1);
-            } else {
-              setLostContStreak(continentGuessrStreak);
-              setContStreak(0);
-            }
-          } else {
-            setLostCgStreak(0);
-            if (isCorrect) {
-              setCgStreak(prev => prev + 1);
-            } else {
-              setLostCgStreak(countryGuessrStreak);
-              setCgStreak(0);
-            }
-          }
-          logOnboardingAdvance("country-button-guess", {
-            selected,
-            isCorrect,
-            mode: isContinentMode ? "continent" : "country",
-          });
-          guess(isCorrect);
-         }}/>
+         onCountryPress={submitCountryGuess}/>
       )}
 
       {/* Duel timer — single line, old style */}
@@ -1186,6 +1327,24 @@ session={session}/>
         )}
 
 
+        {/* Singleplayer game over screen. Must render AFTER #miniMapArea:
+            both sit at z-index 1000, so DOM order decides the winner — the
+            final answer scene deliberately stays mounted beneath as the
+            summary's crossfade base (see advanceRound), and the summary has
+            to paint over it, same as the MP mounts below. */}
+        {singlePlayerRound?.done && !dailyMode && (
+          <RoundOverScreen
+            points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)}
+            maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}
+            history={singlePlayerRound.locations}
+            button1Text={"🎮 " + text("playAgain")}
+            button1Press={() => {
+              window.crazyMidgame(() => advanceRound("summary-play-again"))
+            }}
+            session={session}
+          />
+        )}
+
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.teamGame && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
@@ -1237,7 +1396,9 @@ session={session}/>
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
 
 <div className="endCards">
-  { showAnswer && showClueBanner && (
+  {/* !done: .endCards is z-index 1001 — once the results summary (1000) is
+      up over the kept answer scene, the clue banner must not float on it */}
+  { showAnswer && showClueBanner && !singlePlayerRound?.done && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
   )}
 <EndBanner

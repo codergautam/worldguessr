@@ -12,6 +12,7 @@ import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
 import getPlatform from '@/components/utils/getPlatform';
+import { attachUiClickSounds } from '@/components/utils/audio';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
@@ -90,6 +91,14 @@ function App({ Component, pageProps }) {
       onLCP(send);
     }).catch(() => { /* metrics are best-effort */ });
     return () => { cancelled = true; };
+  }, []);
+
+  // Main-menu click sound: one delegated listener scoped to the home
+  // .g2_nav_ui menu (only — not app-wide). Attaching a listener is free; the
+  // sound itself loads on the first interaction, so the pre-interaction
+  // window stays empty.
+  useEffect(() => {
+    attachUiClickSounds();
   }, []);
 
   // Tag the GA session with the platform (worldguessr / coolmath / crazygames /

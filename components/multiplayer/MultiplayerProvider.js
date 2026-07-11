@@ -108,6 +108,20 @@ export function MultiplayerProvider({ children }) {
   }, [ws]);
 
   const ensureConnected = useCallback(() => {
+    // Self-embed guard: if this page is running inside an iframe of ITSELF
+    // (same-origin parent — e.g. a pano iframe whose src was once assigned
+    // "" and resolved to the site's own URL), opening a WS here would
+    // present the same account secret twice and get the REAL tab
+    // 'uac'-kicked ("logged in from another device"). Legitimate
+    // third-party embeds (CrazyGames, Poki, CMG) are cross-origin: reading
+    // top.location.origin throws for them, and they connect normally via
+    // the catch.
+    try {
+      if (typeof window !== "undefined" && window.self !== window.top
+        && window.top.location.origin === window.location.origin) {
+        return;
+      }
+    } catch (e) { /* cross-origin parent — a real embed, connect normally */ }
     setConnectionEnabled((prev) => (prev ? prev : true));
   }, []);
 

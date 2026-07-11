@@ -30,7 +30,11 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
   const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
 
   return (
-    <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`}>
+    // data-nosnippet: Googlebot lands with no localStorage, so this overlay is
+    // what it sees first — it was scraping the welcome copy into mangled search
+    // snippets ("...jado en algún lugar de la Tierra") instead of the meta
+    // description. Keeps the text indexed, just out of snippets.
+    <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`} data-nosnippet="">
       <div className={`welcome-modal ${visible ? 'visible' : ''}`}>
         <div className="welcome-modal__hero">🌍</div>
         <h1 className="welcome-modal__title">

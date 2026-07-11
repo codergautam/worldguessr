@@ -1,10 +1,15 @@
 import { Html, Head, Main, NextScript } from "next/document";
 
-export default function Document() {
+// The language homepages export localized HTML, but a hardcoded lang="en"
+// told Google the Spanish/French/... pages were English — one more reason it
+// mixed the language variants up in search results.
+const PATH_LANGS = { "/es": "es", "/fr": "fr", "/de": "de", "/ru": "ru" };
+
+export default function Document({ pathname }) {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   return (
-    <Html lang="en" translate="no" className="notranslate" style={{ backgroundColor: '#000000' }}>
+    <Html lang={PATH_LANGS[pathname] || "en"} translate="no" className="notranslate" style={{ backgroundColor: '#000000' }}>
       <Head>
         <meta name="google" content="notranslate" />
         <link rel="preload" href={`${basePath}/street2.webp`} as="image" type="image/webp" fetchpriority="high" />
@@ -86,3 +91,11 @@ export default function Document() {
     </Html>
   );
 }
+
+Document.getInitialProps = async (ctx) => {
+  // ctx.defaultGetInitialProps is what the base Document class calls — going
+  // through it (instead of importing the class) dodges the CJS/ESM default-
+  // import interop that broke NextDocument.getInitialProps under pnpm.
+  const initialProps = await ctx.defaultGetInitialProps(ctx);
+  return { ...initialProps, pathname: ctx.pathname };
+};

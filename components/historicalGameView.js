@@ -295,6 +295,9 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         players: fullGameData.players.map(player => ({
           id: player.playerId,
           username: player.username,
+          // Real account id (null for bots/guests) — the report flow resolves
+          // reportability through the roster, matching the live gameData shape.
+          accountId: player.accountId ?? null,
           countryCode: player.countryCode ?? null,
           points: player.totalPoints,
           rank: player.finalRank,
@@ -356,7 +359,10 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
           ...options,
           onUsernameLookup: onUsernameLookup,
           isModView: options?.isModView,
-          reportedUserId: options?.reportedUserId
+          reportedUserId: options?.reportedUserId,
+          // Reporting is gated to this saved-game view (cooling-off ruling:
+          // no report button on live end screens).
+          isHistoryView: true
         }}
       />
     </div>

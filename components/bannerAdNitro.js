@@ -3,6 +3,12 @@ import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
 
 const AD_REFRESH_SEC = 30; // refresh ad every 30 seconds (NitroPay uses seconds)
+// Creatives leak inside NitroPay's iframes on every refresh (detached
+// documents/video/canvas the vendor code never releases), so a long-lived slot
+// grows without bound — a tab left on the home menu for hours climbs into the
+// GBs. Recycling the slot (destroy + recreate) makes that garbage collectable;
+// refreshes continue uninterrupted and memory sawtooths instead of climbing.
+const SLOT_RECYCLE_MS = 10 * 60 * 1000;
 
 function findAdType(screenW, screenH, types, vertThresh) {
   let type = 0;
@@ -32,10 +38,18 @@ export default function Ad({
   );
   const [isClient, setIsClient] = useState(false);
   const adDivRef = useRef(null);
+  // Bumped on a timer to force the createAd effect through its cleanup
+  // (destroyAll + container clear) and back — see SLOT_RECYCLE_MS.
+  const [slotEpoch, setSlotEpoch] = useState(0);
 
   useEffect(() => {
     if (window.location.hostname === "localhost") setIsClient("debug");
     else setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setSlotEpoch((e) => e + 1), SLOT_RECYCLE_MS);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -108,7 +122,7 @@ export default function Ad({
         try { adDivRef.current.innerHTML = ""; } catch (e) {}
       }
     };
-  }, [chosenW, chosenH, isClient, unit]);
+  }, [chosenW, chosenH, isClient, unit, slotEpoch]);
 
   if (type === -1 || !types[type]) return null;
   if (!isClient) return null;

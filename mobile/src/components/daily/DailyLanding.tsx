@@ -80,6 +80,10 @@ export default function DailyLanding({
   const graceStyle = useAnimatedStyle(() => ({ transform: [{ scale: gracePulse.value }] }));
 
   const playedToday = userData?.playedToday;
+  // A DQ'd run counts as played (date locked, streak advanced) but tapping
+  // the CTA opens the "done for today" modal instead of results — swap the
+  // subtitle so it doesn't promise results. Mirrors components/daily/DailyLanding.js.
+  const disqualifiedToday = !!userData?.disqualifiedToday;
   const graceDay = !!userData?.graceDay && !playedToday && (userData?.streak || 0) > 0;
   const heroSize = Math.max(38, Math.min(46, Math.round(width * 0.115)));
 
@@ -112,7 +116,7 @@ export default function DailyLanding({
             </View>
             <Text style={[styles.ctaSubtitle, playedToday && styles.ctaSubtitlePlayed]}>
               {playedToday
-                ? t('alreadyPlayedViewResults')
+                ? t(disqualifiedToday ? 'dailyAlreadyDisqualifiedTitle' : 'alreadyPlayedViewResults')
                 : t('nextChallengeIn', { time: formatCountdown(countdown) })}
             </Text>
           </Pressable>
@@ -169,7 +173,7 @@ export default function DailyLanding({
           {/* "How you compare" only makes sense once there's a score to compare —
               pre-play it's just today's scores. */}
           <DailySection
-            title={t(playedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
+            title={t(playedToday && !disqualifiedToday ? 'dailyScoreDistribution' : 'dailyTodaysScores')}
             headerRight={(distribution?.totalPlays || 0) > 0 ? (
               <Pressable onPress={() => setShowLeaderboard(true)} hitSlop={6} style={styles.leaderboardBtn}>
                 <Ionicons name="trophy" size={13} color="#ffd700" />

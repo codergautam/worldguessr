@@ -18,6 +18,10 @@ import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
+import {
+  BOTS_ENABLED, BOTS_INSTANT,
+  createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
+} from './botUtils.js';
 config();
 
 console.log("[INFO] Starting ws.js")
@@ -700,7 +704,11 @@ app.ws('/wg', {
       }
 
 
-      if ((json.type === 'publicDuel') && player.accountId &&  !player.gameId) {
+      // Instant testing mode admits guests to ranked: no accountId → the
+      // finishers persist nothing (two-account save gate + setElo account
+      // guards), so the match is pure feel — stamp a display elo for the
+      // matchup math.
+      if ((json.type === 'publicDuel') && (player.accountId || BOTS_INSTANT) && !player.gameId) {
         if(player.banned) {
           player.send({
             type: 'toast',
@@ -710,8 +718,13 @@ app.ws('/wg', {
           return;
 
         }
+        if (BOTS_INSTANT && !player.elo) player.elo = 1000;
         // get range of league
         player.inQueue = true;
+        // Bot backfill: stamp fresh W/L eligibility on the Player (async,
+        // fire-and-forget — backfill only trusts an explicit true, so it
+        // kicks in on the first tick after this read resolves).
+        refreshBotEligibility(player);
 
         if(!player.league) {
 
@@ -1205,8 +1218,9 @@ app.ws('/wg', {
         // Guests can't start NEW 2v2 games — the client shows a link-Google
         // modal instead of ever sending this, so the sentence-as-key toast
         // only covers stale or hand-rolled clients. In-flight 2v2 games are
-        // untouched: this guards staging-lobby creation only.
-        if (json.mode === '2v2' && !player.accountId) {
+        // untouched: this guards staging-lobby creation only. Instant testing
+        // mode admits guests (nothing persists for them anyway).
+        if (json.mode === '2v2' && !player.accountId && !BOTS_INSTANT) {
           player.send({ type: 'toast', key: 'Link your account to play 2v2', toastType: 'error' });
           return;
         }
@@ -1799,6 +1813,13 @@ try {
 
     for (const player of gamestate.players) {
       const newPlayer = Player.fromJSON(player);
+      if (newPlayer.isBot) {
+        // Bots have no socket to reconnect: restore them live so tickBots
+        // resumes driving their guesses, and keep them out of the rejoin map
+        // (the 30s purge would remove them mid-game as unreturned zombies).
+        players.set(player.id, newPlayer);
+        continue;
+      }
       newPlayer.disconnectTime = Date.now(); // important
       newPlayer.disconnected = true;
       if(newPlayer.inQueue) {
@@ -1982,8 +2003,9 @@ try {
     // can't queue NEW games. The creation/join gates make this near
     // unreachable, but raw messages and pre-gate lobbies restored from a
     // snapshot must not slip a guest into the matchmaker. In-flight games
-    // are untouched — this only guards queue entry.
-    if (members.some((sock) => !sock.accountId)) {
+    // are untouched — this only guards queue entry. Bots are account-less by
+    // construction and exempt; instant testing mode exempts guests too.
+    if (members.some((sock) => !sock.accountId && !sock.isBot && !BOTS_INSTANT)) {
       for (const sock of members) {
         sock.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
       }
@@ -1993,6 +2015,9 @@ try {
     const now = Date.now();
     for (const sock of members) {
       sock.inQueue = true;
+      // Bot backfill: refresh each member's 2v2 W/L eligibility (async,
+      // fire-and-forget — resolves long before the backfill window).
+      refreshBotEligibility(sock);
       playersInQueue.set(sock.id, { mode: '2v2', teamId, queueTime: now });
       // stage tells the client WHERE to render the search: 'teammate'
       // (stage 1) stays inside the lobby card, 'opponents' (stage 2) shows
@@ -2059,6 +2084,9 @@ try {
       a.lobby.addPlayer(B); // sends B the lobby state — snaps them onto the lobby screen
       A.send(a.lobby.getInitialSendState(A)); // snap A back too — they see their new teammate
     }
+    // No bot backfill here — USER RULING (July 8): bots are OPPONENTS only,
+    // never a human's 2v2 teammate. A leftover solo waits for a human, even
+    // in instant testing mode; only the stage-2 opposing team gets bots.
   }
 
   // Stage 2 of 2v2 matchmaking: only INTACT duos (both members queued under a
@@ -2116,6 +2144,9 @@ try {
   // queue handler
   setInterval(() => {
 
+    // Duel bots: drive scheduled guesses, tear down bot-only ended games,
+    // reap bots whose game is gone.
+    tickBots();
 
     // Dynamically adjust join threshold based on online player count
     // When fewer players online, allow joining later rounds to speed up matchmaking
@@ -2393,6 +2424,70 @@ try {
 
         game.start();
       }
+
+      // Bot backfill (2v2): a duo where BOTH members are 2v2 newbies (0 wins
+      // or <10% winrate) that the pairing pass above couldn't serve gets a
+      // full bot opposing team immediately. Humans still get first refusal —
+      // this runs after real pairing each tick, on the leftovers.
+      if (BOTS_ENABLED) {
+        const duosByTeam = new Map();
+        for (const [id, q] of playersInQueue) {
+          if (q?.mode !== '2v2' || !q.teamId) continue;
+          if (!duosByTeam.has(q.teamId)) duosByTeam.set(q.teamId, []);
+          duosByTeam.get(q.teamId).push({ id, q });
+        }
+        for (const duo of duosByTeam.values()) {
+          if (duo.length !== 2) continue;
+          const socks = duo.map(({ id }) => players.get(id));
+          // Instant mode drops the account + newbie gates: any duo, guests included.
+          if (socks.some(s => !s || !s.inQueue || (!BOTS_INSTANT && !s.accountId))) continue;
+          if (!BOTS_INSTANT && socks.some(s => s.botEligibility?.team !== true)) continue;
+          // Same started/real-game staleness rule the pairing pass applies.
+          const inRealGame = (s) => {
+            if (!s.gameId) return false;
+            const g = games.get(s.gameId);
+            return !g || g.public || g.state !== 'waiting';
+          };
+          if (socks.some(inRealGame)) continue;
+
+          // Capture staging-lobby semantics BEFORE teardown (mirrors the real
+          // path): cancel behavior + results-screen host roles for the humans.
+          const lobby = socks[0].gameId ? games.get(socks[0].gameId) : null;
+          const autoPairedTeams = { a: !!lobby?.autoPaired, b: false };
+          const teamHostIds = {
+            a: (!lobby || lobby.autoPaired)
+              ? null
+              : (Object.values(lobby.players).find(p => p.host)?.id || null),
+            b: null
+          };
+
+          for (const lobbyId of new Set(socks.map(s => s.gameId).filter(Boolean))) {
+            const l = games.get(lobbyId);
+            if (l && !l.public && l.state === 'waiting') {
+              games.delete(lobbyId);
+              l.shutdown();
+            }
+          }
+
+          const bots = [createBotPlayer(), createBotPlayer()];
+          while (bots[1].username === bots[0].username) bots[1].username = makeBotUsername();
+          console.log('[BOTS] 2v2 backfill:', bots.map(b => b.username).join('+'), 'vs', socks.map(s => s.username || s.id).join('+'));
+
+          const gameId = uuidv4();
+          const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+          game.locations = pick5WorldArbMix(allLocations);
+          game.isBotGame = true;
+          game.autoPairedTeams = autoPairedTeams;
+          game.teamHostIds = teamHostIds;
+          games.set(gameId, game);
+
+          for (const s of socks) game.addPlayer(s, undefined, undefined, 'a');
+          for (const b of bots) game.addPlayer(b, undefined, undefined, 'b');
+          for (const { id } of duo) playersInQueue.delete(id);
+
+          game.start();
+        }
+      }
     }
 
     if (playersInQueue.size >= 1) {
@@ -2492,6 +2587,64 @@ try {
             type: 'publicDuelRange',
             range: [0, 20000]
           });
+        }
+      }
+
+      // Bot backfill (ranked 1v1): a player with 0 ranked wins or an
+      // under-10% winrate whom findDuelPairs couldn't serve gets a bot
+      // opponent pinned to 800-1000 ELO, immediately. Runs after the
+      // pairing pass each tick — humans still get first refusal.
+      if (BOTS_ENABLED) {
+        for (const [playerId, queueData] of playersInQueue) {
+          if (!queueData.duel) continue;
+          const player = players.get(playerId);
+          if (!player || !player.inQueue || player.gameId || !player.elo) continue;
+          if (!BOTS_INSTANT && !player.accountId) continue;
+          if (!BOTS_INSTANT && player.botEligibility?.ranked !== true) continue;
+
+          const bot = createBotPlayer();
+          console.log('[BOTS] ranked backfill:', bot.username, 'vs', player.username || player.id);
+
+          const gameId = uuidv4();
+          const game = new Game(gameId, { public: true, allLocations, duel: true });
+          game.isBotGame = true;
+          games.set(gameId, game);
+
+          game.addPlayer(player, undefined, "p1");
+          game.addPlayer(bot, undefined, "p2");
+          playersInQueue.delete(playerId);
+
+          // p2 stays null: finishSoloDuel resolves the human's ELO/W-L via
+          // setElo, and the game SAVES to match history with the bot side
+          // synthesized from roster data (isBotGame carve-out in the save
+          // gate — every per-account write skips the null id). lastDuelOpponent
+          // is not stamped — bots are always a valid next opponent.
+          game.accountIds = {
+            p1: player.accountId,
+            p2: null
+          }
+
+          const eloP1Win = calculateOutcomes(player.elo, bot.elo, 1);
+          const eloDraw = calculateOutcomes(player.elo, bot.elo, 0.5);
+          const eloP2Win = calculateOutcomes(player.elo, bot.elo, 0);
+
+          game.eloChanges = {
+            [player.id]: { newRating1: eloP1Win.newRating1 - player.elo, newRating2: eloP1Win.newRating2 - bot.elo },
+            [bot.id]: { newRating1: eloP2Win.newRating1 - player.elo, newRating2: eloP2Win.newRating2 - bot.elo },
+            draw: { newRating1: eloDraw.newRating1 - player.elo, newRating2: eloDraw.newRating2 - bot.elo }
+          }
+
+          game.oldElos = {
+            p1: player.elo,
+            p2: bot.elo
+          }
+
+          game.pIds = {
+            p1: player.id,
+            p2: bot.id
+          }
+
+          game.start();
         }
       }
     }

@@ -231,14 +231,22 @@ export default async function handler(req, res) {
         const matchedGames = await Game.find({
           gameId: { $in: requestedGameIds },
           'players.accountId': targetUserId.toString()
-        }).select('gameId players.username players.accountId').lean();
+        }).select('gameId players.username players.accountId players.team').lean();
 
         suspiciousGames = matchedGames.map(g => {
-          const opponent = (g.players || []).find(p => p.accountId !== targetUserId.toString());
+          const players = g.players || [];
+          const target = players.find(p => p.accountId === targetUserId.toString());
+          // Team games: "the opponent" is the whole opposing team — a bare
+          // find() could snapshot the target's TEAMMATE. Join the names for
+          // display; accountId stays null when there's more than one (the
+          // gameId link opens the full game for anything deeper).
+          const opponents = target?.team
+            ? players.filter(p => p.team && p.team !== target.team)
+            : players.filter(p => p.accountId !== targetUserId.toString()).slice(0, 1);
           return {
             gameId: g.gameId,
-            opponentUsername: opponent?.username || null,
-            opponentAccountId: opponent?.accountId || null
+            opponentUsername: opponents.map(p => p.username).filter(Boolean).join(' & ') || null,
+            opponentAccountId: opponents.length === 1 ? (opponents[0].accountId || null) : null
           };
         });
       }

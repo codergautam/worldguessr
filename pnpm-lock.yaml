@@ -166,8 +166,8 @@ importers:
         specifier: ^2.4.5
         version: 2.4.5
       mapcheckr-cli:
-        specifier: ^1.1.1
-        version: 1.1.1
+        specifier: ^1.1.2
+        version: 1.1.2
       nodemon:
         specifier: ^3.1.3
         version: 3.1.14
@@ -4631,8 +4631,8 @@ packages:
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
 
-  mapcheckr-cli@1.1.1:
-    resolution: {integrity: sha512-Sa5RtGW85fiRopgAQNsFnO8+3KAdsng/I0i9NXLg3uag02ne2jAPAlDLvKDS+kyvH6RtrfG+LC0t5FnIumHu+g==}
+  mapcheckr-cli@1.1.2:
+    resolution: {integrity: sha512-xZBSY+pkckN8JzYRU+VOiI7wlX/Zs16LfyNAc2CIZmHqbl54sAME7YBX2i6cOapwJNrbWaM5e4IN662yE5Cpow==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -10035,7 +10035,7 @@ snapshots:
       eslint: 8.57.1
       eslint-import-resolver-node: 0.3.10
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1)
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-jsx-a11y: 6.10.2(eslint@8.57.1)
       eslint-plugin-react: 7.37.5(eslint@8.57.1)
       eslint-plugin-react-hooks: 5.0.0-canary-7118f5dd7-20230705(eslint@8.57.1)
@@ -10065,7 +10065,7 @@ snapshots:
       tinyglobby: 0.2.16
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1)
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -10080,7 +10080,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@8.57.1):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@7.2.0(eslint@8.57.1)(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@8.57.1))(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -11563,7 +11563,7 @@ snapshots:
     dependencies:
       tmpl: 1.0.5
 
-  mapcheckr-cli@1.1.1:
+  mapcheckr-cli@1.1.2:
     dependencies:
       chalk: 5.6.2
       commander: 12.1.0

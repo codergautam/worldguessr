@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../../models/User.js';
 import ModerationLog from '../../models/ModerationLog.js';
 
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
     secret,
     moderatorId,     // Optional: filter by specific moderator
     actionType,      // Optional: filter by action type
+    includeSystem = false, // Include 'system' actor entries (self-service deletions)
     page = 1,
     limit = 50
   } = req.body;
@@ -35,7 +37,14 @@ export default async function handler(req, res) {
       actionType: { $ne: 'name_change_manual' } // Exclude user-initiated name changes
     };
 
+    // Self-service deletions are stamped moderator 'system' — the log is mod
+    // actions by default; system entries only appear when explicitly opted in.
+    if (!includeSystem) {
+      query['moderator.accountId'] = { $ne: 'system' };
+    }
+
     if (moderatorId && moderatorId !== 'all') {
+      // Staff-only dropdown value; deliberately replaces the $ne above.
       query['moderator.accountId'] = moderatorId;
     }
 
@@ -67,19 +76,27 @@ export default async function handler(req, res) {
       { $sort: { actionCount: -1 } }
     ]);
 
-    // Filter to only include actual staff members (not users who just changed their own name)
+    // Filter to only include actual staff members (not users who just changed their own name).
+    // Non-user actors (e.g. 'system' from self-service deletions) can't be cast to ObjectId.
+    const candidateModeratorIds = allModeratorsFromLogs
+      .map(m => m._id)
+      .filter(id => mongoose.Types.ObjectId.isValid(id) && String(id).length === 24);
     const staffUserIds = await User.find(
-      { _id: { $in: allModeratorsFromLogs.map(m => m._id) }, staff: true },
+      { _id: { $in: candidateModeratorIds }, staff: true },
       { _id: 1 }
     ).lean();
     const staffIdSet = new Set(staffUserIds.map(u => u._id.toString()));
 
     const moderatorsList = allModeratorsFromLogs.filter(m => staffIdSet.has(m._id));
 
-    // Get action type counts for stats (exclude voluntary name changes)
+    // Get action type counts for stats (exclude voluntary name changes,
+    // mirror the system-actor filter so counts match the visible list)
     const actionTypeCounts = await ModerationLog.aggregate([
       {
-        $match: { actionType: { $ne: 'name_change_manual' } }
+        $match: {
+          actionType: { $ne: 'name_change_manual' },
+          ...(includeSystem ? {} : { 'moderator.accountId': { $ne: 'system' } })
+        }
       },
       {
         $group: {

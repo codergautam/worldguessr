@@ -1170,11 +1170,17 @@ export default class Game {
             this.nextEvtTime = Date.now() + 20000;
             this.sendStateUpdate();
 
-            // send last player a toast
+            // send last player a toast. Ranked 1v1 gets its own copy: there
+            // is exactly one other player, so name the moment for what it is
+            // — the opponent locked in ("last guesser" reads like a crowd).
+            // Unranked matches are public NON-duel FFA games (duel:false), so
+            // they keep lastGuesser along with parties — the crowd wording is
+            // literally correct there. Team duels never reach this branch
+            // (the team arm above returns).
             const pObj = players.get(finalPlayer.id);
             pObj.send({
               type: 'toast',
-              key: 'lastGuesser',
+              key: this.public && this.duel ? 'opponentLocked' : 'lastGuesser',
               s: 20,
               closeOnClick: true,
               autoClose: 3000,
@@ -1492,22 +1498,26 @@ export default class Game {
 
     // Stable roster snapshot for the end screen: the client's live players
     // array shrinks as others leave the finished game, which flipped teammate
-    // pins/groupings to "enemy" on the round-over screen. accountId stripped —
-    // the client never needs it.
+    // pins/groupings to "enemy" on the round-over screen. accountId rides
+    // along (null for bots/guests): the end-screen report picker needs it to
+    // tell reportable players from fake-success targets.
     const rosterSnapshot = this.getFinalRoster().map(p => ({
-      id: p.id, username: p.username, countryCode: p.countryCode || null, team: p.team || null
+      id: p.id, username: p.username, countryCode: p.countryCode || null, team: p.team || null,
+      accountId: p.accountId ?? null
     }));
 
     // Frozen end payload (mirrors finishTeamParty's lastTeamEnd): replayed to
     // end-state rejoiners by rejoinGame so a connection blip in the final
-    // seconds can't eat the results screen.
+    // seconds can't eat the results screen. historyGameId = the saved doc's
+    // id, for report submission (matchmade games have code=null).
     this.lastTeamEnd = {
       team2v2: true,
       winningTeam,
       teamScores: this.teamScores,
       players: rosterSnapshot,
       draw,
-      timeElapsed: this.endTime - this.startTime
+      timeElapsed: this.endTime - this.startTime,
+      historyGameId: `2v2_${this.id}`
     };
     // Post-game Play Again consensus (see livingTeamPlayAgain).
     this.playAgainAcks = { a: {}, b: {} };
@@ -1731,6 +1741,12 @@ export default class Game {
 
     }
 
+      // Report plumbing on the end screen: the saved history doc's id (the
+      // roster only knows the live ws id / private code, and matchmade games
+      // have code=null) plus the opponent's account identity (null accountId
+      // = bot/guest → the client fakes the report instead of sending one).
+      const historyGameId = `duel_${this.id}`;
+
       if(p1obj && leftUser !== 'p1') {
         try {
       p1obj.send({
@@ -1739,7 +1755,9 @@ export default class Game {
         draw,
         newElo: p1NewElo,
         timeElapsed: this.endTime - this.startTime,
-        oldElo: p1OldElo
+        oldElo: p1OldElo,
+        historyGameId,
+        opponent: { accountId: this.accountIds.p2 ?? null, username: p2?.username ?? null }
       });
         } catch(e){}
     }
@@ -1752,14 +1770,19 @@ export default class Game {
         draw,
         newElo: p2NewElo,
         timeElapsed: this.endTime - this.startTime,
-        oldElo: p2OldElo
+        oldElo: p2OldElo,
+        historyGameId,
+        opponent: { accountId: this.accountIds.p1 ?? null, username: p1?.username ?? null }
       });
       } catch(e) {
       }
     }
 
-    // Save duel game to MongoDB for history tracking
-    if(this.duel && this.accountIds?.p1 && this.accountIds?.p2 && p1OldElo && p2OldElo) {
+    // Save duel game to MongoDB for history tracking. Bot games save too
+    // (accountIds.p2 is null by construction there): the human's history
+    // shows the match, saveDuelToMongoDB synthesizes the bot side from
+    // roster data, and every per-account write path skips the null id.
+    if(this.duel && this.accountIds?.p1 && (this.accountIds?.p2 || this.isBotGame) && p1OldElo && p2OldElo) {
       this.saveInProgress = true;
       // Ranked duels award double XP (2v2 and casual modes stay at 1x).
       const p1Xp = this.calculatePlayerXp(this.pIds?.p1) * 2;
@@ -1909,18 +1932,21 @@ export default class Game {
       const player2Data = this.getPlayerData(p2, 'p2');
 
       // Ranked duels intentionally use DB-fresh usernames (a mid-game rename
-      // shows the new name in history).
+      // shows the new name in history). Bot p2 has no account: its identity
+      // comes from the roster snapshot instead.
       const user1 = await User.findOne({ _id: this.accountIds.p1 });
-      const user2 = await User.findOne({ _id: this.accountIds.p2 });
+      const user2 = this.accountIds.p2 ? await User.findOne({ _id: this.accountIds.p2 }) : null;
 
-      if (!user1 || !user2 || !player1Data || !player2Data) {
+      if (!user1 || (!user2 && !this.isBotGame) || !player1Data || !player2Data) {
         console.error('Could not find users or player data for duel game save', this.accountIds, player1Data, player2Data);
         return;
       }
 
       const participants = [
         { id: player1Data.id, username: user1.username, countryCode: user1.countryCode, accountId: this.accountIds.p1 },
-        { id: player2Data.id, username: user2.username, countryCode: user2.countryCode, accountId: this.accountIds.p2 }
+        user2
+          ? { id: player2Data.id, username: user2.username, countryCode: user2.countryCode, accountId: this.accountIds.p2 }
+          : { id: player2Data.id, username: player2Data.username || 'Player', countryCode: player2Data.countryCode || null, accountId: null }
       ];
 
       const summary = (data, participant, tag, oldElo, newElo, xp) => ({
@@ -1945,7 +1971,12 @@ export default class Game {
           summary(player2Data, participants[1], 'p2', p2OldElo, p2NewElo, p2Xp)
         ],
         result: {
-          winner: winner ? (winner.tag === 'p1' ? this.accountIds.p1 : this.accountIds.p2) : null,
+          // Winner is the accountId, falling back to the per-game playerId
+          // for an account-less (bot) side — same guest convention as
+          // playerGuessSchema.playerId.
+          winner: winner ? (winner.tag === 'p1'
+            ? (this.accountIds.p1 ?? player1Data.id)
+            : (this.accountIds.p2 ?? player2Data.id)) : null,
           isDraw: draw,
           maxPossiblePoints: this.roundHistory.length * 5000
         },
@@ -1953,13 +1984,15 @@ export default class Game {
         multiplayer: { isPublic: false, gameCode: null, hostPlayerId: player1Data.id, maxPlayers: 2, playerCount: 2 },
         userIncs: [
           { accountId: this.accountIds.p1, inc: { totalGamesPlayed: 1, totalXp: p1Xp } },
-          { accountId: this.accountIds.p2, inc: { totalGamesPlayed: 1, totalXp: p2Xp } }
+          ...(this.accountIds.p2
+            ? [{ accountId: this.accountIds.p2, inc: { totalGamesPlayed: 1, totalXp: p2Xp } }]
+            : [])
         ]
         // Duel stats snapshots run separately via createDuelUserStats, chained
         // after this save in finishSoloDuel.
       });
 
-      console.log(`Saved duel game duel_${this.id} between ${user1.username} and ${user2.username} (XP: ${p1Xp}, ${p2Xp})`);
+      console.log(`Saved duel game duel_${this.id} between ${user1.username} and ${user2?.username ?? `${player2Data.username} [bot]`} (XP: ${p1Xp}, ${p2Xp})`);
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);

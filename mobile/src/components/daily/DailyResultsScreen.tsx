@@ -134,12 +134,13 @@ export default function DailyResultsScreen({
     return !!submitResponse?.newPersonalBest || (rounds?.length && rounds.some((r) => r.score >= 4850));
   }, [submitResponse, rounds]);
 
-  // Flame burst on streak start/extend.
+  // Flame burst on streak start/extend. Disqualified runs are NOT excluded:
+  // a DQ still advances the streak (July 9 ruling), and the server's DQ
+  // response carries the new value. Mirrors components/daily/DailyResultsScreen.js.
   const [showFlame, setShowFlame] = useState(false);
   const flameShownRef = useRef(false);
   useEffect(() => {
     if (flameShownRef.current) return;
-    if (disqualified) return;
     if (!submitResponse || !(submitResponse.streak > 0)) return;
     flameShownRef.current = true;
     const timer = setTimeout(() => {
@@ -147,7 +148,7 @@ export default function DailyResultsScreen({
       haptics.success(); // celebratory streak buzz as the flame bursts in
     }, 500);
     return () => clearTimeout(timer);
-  }, [submitResponse, disqualified]);
+  }, [submitResponse]);
 
   // Score-graded buzz the moment the headline counter finishes counting up.
   // Normalize the daily total onto the per-guess 0–5000 scale so it maps onto

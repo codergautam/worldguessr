@@ -97,6 +97,9 @@ const moderationLogSchema = new mongoose.Schema({
     gamesMarkedRefunded: { type: Number, default: 0 },
     lossesReversed: { type: Number, default: 0 },
     tiesReversed: { type: Number, default: 0 },
+    // 2v2 voiding (no ELO recorded there — counter reversals only)
+    team2v2LossesReversed: { type: Number, default: 0 },
+    team2v2TiesReversed: { type: Number, default: 0 },
     refundDetails: { type: Map, of: Number, default: {} } // { accountId: refundAmount }
   },
 

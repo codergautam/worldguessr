@@ -35,7 +35,17 @@ const reportSchema = new mongoose.Schema({
   gameType: {
     type: String,
     required: true,
-    enum: ['ranked_duel', 'unranked_multiplayer', 'private_multiplayer']
+    enum: ['ranked_duel', 'unranked_multiplayer', 'private_multiplayer', '2v2']
+  },
+
+  // Team games only: was the reporter the reported player's teammate or
+  // opponent? Stamped at submit time from the game doc (durable even if the
+  // game is later purged) — triage signal for mods (teammate report reads as
+  // griefing context, opponent report as cheating). null for 1v1/legacy.
+  relationship: {
+    type: String,
+    default: null,
+    enum: [null, 'teammate', 'opponent']
   },
 
   // Status tracking

@@ -228,7 +228,7 @@ function StreakFlameBurst({ streak, onDone }) {
           <span className="daily-flame-number">{streak}</span>
         </div>
         <span className="daily-flame-label">
-          {streak === 1 ? text('streakStarted') : text('streakExtended')}
+          {streak === 1 ? text('streakStartedLabel') : text('streakExtended')}
         </span>
       </div>
       {particles.map(p => (
@@ -320,21 +320,21 @@ export default function DailyResultsScreen({
 
   // Celebratory flame burst on streak start/extend. Guards:
   //  - only when we have a fresh submitResponse (not on re-open of old results)
-  //  - not for disqualified runs
   //  - only if the streak is alive (>=1)
   //  - played at most once per mount via `flameShownRef`
+  // Disqualified runs are NOT excluded: a DQ still advances the streak
+  // (July 9 ruling), and the server's DQ response carries the new value.
   const [showFlame, setShowFlame] = useState(false);
   const flameShownRef = useRef(false);
   useEffect(() => {
     if (flameShownRef.current) return;
-    if (disqualified) return;
     if (!submitResponse || !(submitResponse.streak > 0)) return;
     flameShownRef.current = true;
     // Small delay so it lands after the score count-up starts, then
     // overlaps dramatically with the star reveal.
     const t = setTimeout(() => setShowFlame(true), 500);
     return () => clearTimeout(t);
-  }, [submitResponse, disqualified]);
+  }, [submitResponse]);
 
   const chNum = useMemo(() => computeChallengeNumber(date), [date]);
   const dateLabel = useMemo(() => {
@@ -457,7 +457,7 @@ export default function DailyResultsScreen({
           rounds={rounds}
           roundAverages={distribution?.roundAverages || []}
           locations={locations}
-          allowMapLinks={!inCoolMathGames}
+          allowMapLinks={!inCoolMathGames && !process.env.NEXT_PUBLIC_POKI}
         />
 
         <div className="daily-stats-grid">

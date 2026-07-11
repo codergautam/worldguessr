@@ -33,7 +33,12 @@ export default function MapPage({ }) {
        slug = fullPath.split('/map/')[1];
     }
 
-    if (!slug) return;
+    if (!slug) {
+      // Deep-link page only — a slugless /map has nothing to show, so land
+      // on the community maps browser instead of an empty husk.
+      router.replace('/maps');
+      return;
+    }
 
     console.log('fetching map data for', slug, getHeaders());
     fetch(apiUrl+`/api/map/publicData?slug=${slug}`,{

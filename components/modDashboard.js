@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import GameHistory from './gameHistory';
 import HistoricalGameView from './historicalGameView';
@@ -138,6 +138,7 @@ export default function ModDashboard({ session }) {
   const [reportsStats, setReportsStats] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('pending');
   const [selectedReason, setSelectedReason] = useState('all'); // 'all', 'cheating', 'inappropriate_username', 'other'
+  const [selectedGameType, setSelectedGameType] = useState('all'); // 'all', 'ranked_duel', '2v2', 'unranked_multiplayer', 'private_multiplayer'
   const [gameLoading, setGameLoading] = useState(false);
   const [reportedUserId, setReportedUserId] = useState(null);
   const [reportsPagination, setReportsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0, hasMore: false });
@@ -149,6 +150,20 @@ export default function ModDashboard({ session }) {
   // Game history pagination (lifted from GameHistory to preserve state when viewing a game)
   const [gameHistoryPage, setGameHistoryPage] = useState(1);
   const [savedScrollPosition, setSavedScrollPosition] = useState(0);
+
+  // Restore the pre-game-view scroll once the game view closes. Layout
+  // effect, NOT a timer: the dashboard is display:none while a game is open
+  // (document collapsed, scroll clamped to 0), and a setTimeout(0) races the
+  // commit that un-hides it — that task ordering flipped on newer
+  // React/Chrome and mods started landing at the top of the page on exit.
+  // No zeroing after restore: the save lands while selectedGame is still
+  // null (fetch in flight), so this fires once pre-open as a no-op and
+  // zeroing would wipe the save; the next save overwrites it instead.
+  useLayoutEffect(() => {
+    if (!selectedGame && savedScrollPosition > 0) {
+      window.scrollTo(0, savedScrollPosition);
+    }
+  }, [selectedGame, savedScrollPosition]);
 
   // Action modal state
   const [actionModal, setActionModal] = useState(null);
@@ -186,7 +201,7 @@ export default function ModDashboard({ session }) {
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [auditLogsModerators, setAuditLogsModerators] = useState([]);
   const [auditLogsStats, setAuditLogsStats] = useState(null);
-  const [auditLogsFilter, setAuditLogsFilter] = useState({ moderatorId: 'all', actionType: 'all' });
+  const [auditLogsFilter, setAuditLogsFilter] = useState({ moderatorId: 'all', actionType: 'all', includeSystem: false });
   const [auditLogsPagination, setAuditLogsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
 
   // Mod activity state
@@ -286,6 +301,7 @@ export default function ModDashboard({ session }) {
     // Switch to Users tab when searching
     setActiveTab('users');
     setSelectedGame(null);
+    setSavedScrollPosition(0); // navigation, not back — a fresh lookup starts at the top
     setLoading(true);
     setError(null);
     setTargetUser(null);
@@ -385,6 +401,7 @@ export default function ModDashboard({ session }) {
 
   const handleUsernameLookup = async (username) => {
     setSelectedGame(null);
+    setSavedScrollPosition(0); // navigation, not back — a fresh lookup starts at the top
     setUsernameInput(username);
     setActiveTab('users');
     setLoading(true);
@@ -437,6 +454,7 @@ export default function ModDashboard({ session }) {
   // Lookup user by accountId - more reliable, won't break after name changes
   const handleUserLookupById = async (accountId, displayName = null) => {
     setSelectedGame(null);
+    setSavedScrollPosition(0); // navigation, not back — a fresh lookup starts at the top
     if (displayName) setUsernameInput(displayName);
     setActiveTab('users');
     setLoading(true);
@@ -474,12 +492,15 @@ export default function ModDashboard({ session }) {
   };
 
   // Fetch reports
-  const fetchReports = async (status = 'pending', reason = 'all', page = 1) => {
+  const fetchReports = async (status = 'pending', reason = 'all', page = 1, gameTypeArg = null) => {
     setReportsLoading(true);
     setReportsError(null);
 
     const limit = 20;
     const skip = (page - 1) * limit;
+    // Explicit arg wins (filter-change handlers pass the fresh value to dodge
+    // stale-closure state); otherwise the current dropdown selection applies.
+    const gameTypeFilter = gameTypeArg ?? selectedGameType;
 
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/getReports', {
@@ -489,6 +510,7 @@ export default function ModDashboard({ session }) {
           secret: session?.token?.secret,
           status: status === 'all' ? undefined : status,
           reason: reason === 'all' ? undefined : reason,
+          gameType: gameTypeFilter === 'all' ? undefined : gameTypeFilter,
           showAll: status === 'all',
           limit,
           skip
@@ -574,6 +596,7 @@ export default function ModDashboard({ session }) {
           secret: session.token.secret,
           moderatorId: filterOverrides.moderatorId ?? auditLogsFilter.moderatorId,
           actionType: filterOverrides.actionType ?? auditLogsFilter.actionType,
+          includeSystem: filterOverrides.includeSystem ?? auditLogsFilter.includeSystem,
           page,
           limit: 50
         })
@@ -670,16 +693,22 @@ export default function ModDashboard({ session }) {
 
   const handleStatusFilterChange = (status) => {
     setSelectedStatus(status);
-    // Reset reason filter when changing status (reason filter only applies to pending)
+    // Reset reason/mode filters when changing status (they only apply to pending)
     if (status !== 'pending') {
       setSelectedReason('all');
+      setSelectedGameType('all');
     }
-    fetchReports(status, status === 'pending' ? selectedReason : 'all', 1);
+    fetchReports(status, status === 'pending' ? selectedReason : 'all', 1, status === 'pending' ? selectedGameType : 'all');
   };
 
   const handleReasonFilterChange = (reason) => {
     setSelectedReason(reason);
     fetchReports(selectedStatus, reason, 1);
+  };
+
+  const handleGameTypeFilterChange = (gameType) => {
+    setSelectedGameType(gameType);
+    fetchReports(selectedStatus, selectedReason, 1, gameType);
   };
 
   const handleReportsPageChange = (newPage) => {
@@ -912,6 +941,45 @@ export default function ModDashboard({ session }) {
       setActionLoading(false);
     }
   };
+
+  // Team-game report context: teammate/opponent badge (stamped at submit
+  // time) + co-reported linkage (other players the SAME reporter reported
+  // from the SAME game — the co-cheating 2v2 duo case). Display-only:
+  // banning one or both stays at mod discretion.
+  const renderTeamReportContext = (report) => (
+    <>
+      {report.relationship && (
+        <span
+          title={report.relationship === 'teammate'
+            ? 'The reporter was the reported player\'s TEAMMATE'
+            : 'The reporter played AGAINST the reported player'}
+          style={{
+            background: report.relationship === 'teammate' ? 'rgba(210, 153, 34, 0.15)' : 'rgba(88, 166, 255, 0.15)',
+            color: report.relationship === 'teammate' ? '#d29922' : '#58a6ff',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontSize: '0.78rem'
+          }}
+        >
+          {report.relationship === 'teammate' ? '🤝 by teammate' : '⚔️ by opponent'}
+        </span>
+      )}
+      {report.coReported?.length > 0 && (
+        <span
+          title="The same reporter also reported these players from this game"
+          style={{
+            background: 'rgba(219, 109, 40, 0.15)',
+            color: '#db6d28',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontSize: '0.78rem'
+          }}
+        >
+          ⚠ also reported: {report.coReported.map(u => u.username).join(', ')}
+        </span>
+      )}
+    </>
+  );
 
   // Render reporter stats badge
   const renderReporterStats = (stats) => {
@@ -1415,8 +1483,9 @@ export default function ModDashboard({ session }) {
           onBack={() => {
             setSelectedGame(null);
             setReportedUserId(null);
-            // Restore scroll position after component re-renders
-            setTimeout(() => window.scrollTo(0, savedScrollPosition), 0);
+            // Scroll restore happens in the useLayoutEffect keyed on
+            // selectedGame — a timer here races the commit that un-hides
+            // the dashboard and loses on modern React/Chrome.
           }}
           onUsernameLookup={handleUsernameLookup}
           options={{ 
@@ -1495,6 +1564,7 @@ export default function ModDashboard({ session }) {
                   </span>
                 </span>
                 <span><strong>Type:</strong> {focusedReport.gameType?.replace(/_/g, ' ')}</span>
+                {renderTeamReportContext(focusedReport)}
               </div>
 
               {focusedReport.moderatorNotes && (
@@ -2041,6 +2111,18 @@ export default function ModDashboard({ session }) {
                       <option value="inappropriate_username">📛 Inap. Name ({reportsStats?.pendingByReason?.inappropriate_username || 0})</option>
                       <option value="other">❓ Other ({reportsStats?.pendingByReason?.other || 0})</option>
                     </select>
+                    <label>Mode:</label>
+                    <select
+                      value={selectedGameType}
+                      onChange={(e) => handleGameTypeFilterChange(e.target.value)}
+                      className={styles.statusFilter}
+                    >
+                      <option value="all">All Modes</option>
+                      <option value="ranked_duel">⚔️ 1v1 Ranked ({reportsStats?.pendingByGameType?.ranked_duel || 0})</option>
+                      <option value="2v2">🛡️ 2v2 ({reportsStats?.pendingByGameType?.['2v2'] || 0})</option>
+                      <option value="unranked_multiplayer">🎲 Unranked ({reportsStats?.pendingByGameType?.unranked_multiplayer || 0})</option>
+                      <option value="private_multiplayer">🔒 Private ({reportsStats?.pendingByGameType?.private_multiplayer || 0})</option>
+                    </select>
                   </>
                 )}
 
@@ -2171,6 +2253,7 @@ export default function ModDashboard({ session }) {
                                 🎮 View Game
                               </span>
                               <span>{report.gameType.replace(/_/g, ' ')}</span>
+                              {renderTeamReportContext(report)}
                             </div>
                           </div>
                         </div>
@@ -2224,6 +2307,7 @@ export default function ModDashboard({ session }) {
 
                         <div className={styles.reportReason}>
                           <span className={styles.reasonBadge}>{report.reason.replace(/_/g, ' ')}</span>
+                          {renderTeamReportContext(report)}
                         </div>
 
                         <div className={styles.reportDescription}>
@@ -2428,6 +2512,20 @@ export default function ModDashboard({ session }) {
                   <option value="report_resolved">✔️ Report Resolved</option>
                   <option value="warning">⚠️ Warning</option>
                 </select>
+
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#8b949e', fontSize: '0.9rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={auditLogsFilter.includeSystem}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setAuditLogsFilter(prev => ({ ...prev, includeSystem: newValue }));
+                      fetchAuditLogs(1, { includeSystem: newValue });
+                    }}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  Include system actions (self-deletions)
+                </label>
 
                 <button onClick={() => fetchAuditLogs(1)} className={styles.refreshBtn}>
                   🔄 Refresh

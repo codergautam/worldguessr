@@ -10,6 +10,7 @@ import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
+import { playSfx, preloadSfx } from './utils/audio';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -354,12 +355,20 @@ const ClickHandler = memo(function ClickHandler({
     ref.current = { answerShown, multiplayerState, ws };
   }, [answerShown, multiplayerState, ws]);
 
+  // Decode ahead of the first click so pin placement and guess submission
+  // have zero audio latency.
+  useEffect(() => {
+    preloadSfx('pin', 'guess');
+  }, []);
+
   useMapEvents({
     click(e) {
       const { answerShown: shown, multiplayerState: mp, ws: socket } = ref.current;
       if (shown) return;
       const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
       if (mp?.inGame && me?.final) return;
+
+      playSfx('pin');
 
       // Tiles repeat horizontally, so a click can land on a wrap copy at
       // e.g. +540°. The pin must be canonical so it's comparable with

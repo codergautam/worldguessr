@@ -1,6 +1,40 @@
 import Head from "next/head";
 import { useEffect } from "react";
-import { asset } from '@/lib/basePath';
+import { useRouter } from "next/router";
+import { asset, stripBase } from '@/lib/basePath';
+import { getLangFromPath } from '@/components/useTranslations';
+
+// www is the canonical WorldGuessr host — every absolute social/search URL
+// must stay on it so previews and canonicals agree.
+const SITE_URL = "https://www.worldguessr.com";
+const SCHOOL_URL = "https://schoolguessr.com";
+
+// Social/search preview art, keyed by brand. og:image needs ABSOLUTE URLs
+// (crawlers ignore relative ones), so never run these through asset().
+// width/height are the files' true pixel sizes — keep in sync if art changes.
+const BRANDS = {
+  worldguessr: {
+    siteName: "WorldGuessr",
+    siteUrl: SITE_URL,
+    twitterCard: "summary_large_image",
+    ogImage: { url: `${SITE_URL}/worldguessr-1200x630.png`, width: 1200, height: 630, type: "image/png" },
+    // Both ratios so Google can pick the square for square search thumbnails.
+    searchImages: [
+      `${SITE_URL}/worldguessr-1200x630.png`,
+      `${SITE_URL}/worldguessr_square_1200.png`,
+    ],
+  },
+  schoolguessr: {
+    // Still the 500x500 logo — needs dedicated 1200x630 + 1200x1200 art.
+    // Once made, swap these entries and flip twitterCard to
+    // "summary_large_image" ("summary" renders a square logo better).
+    siteName: "SchoolGuessr",
+    siteUrl: SCHOOL_URL,
+    twitterCard: "summary",
+    ogImage: { url: `${SCHOOL_URL}/schoolguessrlogo.png`, width: 500, height: 500, type: "image/png" },
+    searchImages: [`${SCHOOL_URL}/schoolguessrlogo.png`],
+  },
+};
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
   useEffect(() => {
@@ -175,7 +209,18 @@ ads.js"></script>*/
     }
   }, []);
 
+  const router = useRouter();
   const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
+  // Language homepages (/, /es, /fr, /de, /ru) are near-duplicate exports.
+  // Without hreflang + self-canonicals Google clusters them and can pick a
+  // non-English one to show every searcher (it served /es with a Spanish
+  // title to English users). Main worldguessr.com only — platform builds
+  // (Poki/CoolMath/CrazyGames/GD/SchoolGuessr) live on other origins.
+  const isMainSite = !isSchoolGuessr && !inCoolMathGames && !inCrazyGames && !inGameDistribution &&
+    process.env.NEXT_PUBLIC_POKI !== "true" && process.env.NEXT_PUBLIC_COOLMATH !== "true";
+  const brand = isSchoolGuessr ? BRANDS.schoolguessr : BRANDS.worldguessr;
+  const pathLang = getLangFromPath(stripBase(router.asPath));
+  const homeCanonical = pathLang ? `${SITE_URL}/${pathLang}` : `${SITE_URL}/`;
   const schoolGuessrTitle = "SchoolGuessr - A kid-friendly GeoGuessr game!";
   const schoolGuessrDesc = "Play SchoolGuessr, a free, kid-friendly geography guessing game made for classrooms. Safe for schools, no chat, no user content.";
   const resolvedTitle = titleOverride || (isSchoolGuessr
@@ -199,6 +244,17 @@ ads.js"></script>*/
     content={resolvedOgDesc}
     />
     {canonicalOverride && <link rel="canonical" href={canonicalOverride} />}
+    {isMainSite && !canonicalOverride && (
+      <>
+        <link rel="canonical" href={homeCanonical} />
+        <link rel="alternate" hrefLang="x-default" href={`${SITE_URL}/`} />
+        <link rel="alternate" hrefLang="en" href={`${SITE_URL}/`} />
+        <link rel="alternate" hrefLang="es" href={`${SITE_URL}/es`} />
+        <link rel="alternate" hrefLang="fr" href={`${SITE_URL}/fr`} />
+        <link rel="alternate" hrefLang="de" href={`${SITE_URL}/de`} />
+        <link rel="alternate" hrefLang="ru" href={`${SITE_URL}/ru`} />
+      </>
+    )}
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
     <link rel="icon" type={isSchoolGuessr ? "image/png" : "image/x-icon"} href={asset(isSchoolGuessr ? "/schoolguessrlogo.png" : "/icon.ico")} />
@@ -218,9 +274,31 @@ ads.js"></script>*/
 {/*  */}
 
 
-    <meta property="og:image" content={asset(isSchoolGuessr ? "/schoolguessrlogo.png" : "/icon_144x144.png")} />
-    <meta property="og:url" content={isSchoolGuessr ? "https://schoolguessr.com" : "https://worldguessr.com"} />
+    <meta property="og:site_name" content={brand.siteName} />
+    <meta property="og:image" content={brand.ogImage.url} />
+    <meta property="og:image:width" content={String(brand.ogImage.width)} />
+    <meta property="og:image:height" content={String(brand.ogImage.height)} />
+    <meta property="og:image:type" content={brand.ogImage.type} />
+    <meta property="og:url" content={isSchoolGuessr ? brand.siteUrl : canonicalOverride || (isMainSite ? homeCanonical : SITE_URL)} />
     <meta property="og:type" content="website" />
+    <meta name="twitter:card" content={brand.twitterCard} />
+    <meta name="twitter:title" content={resolvedOgTitle} />
+    <meta name="twitter:description" content={resolvedOgDesc} />
+    <meta name="twitter:image" content={brand.ogImage.url} />
+    {(isMainSite || isSchoolGuessr) && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: brand.siteName,
+            url: brand.siteUrl,
+            image: brand.searchImages,
+          }),
+        }}
+      />
+    )}
 </Head>
   )
 }
