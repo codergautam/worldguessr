@@ -110,6 +110,28 @@ DISCORD_WEBHOOK_WS=https://discord.com/api/webhooks/your_ws_webhook_url
 MAINTENANCE_SECRET=your_secure_maintenance_secret
 ```
 
+### Duel Bots (WebSocket Server)
+
+Bot backfill for ranked 1v1 and 2v2 matchmaking (`ws/botUtils.js`). ⚠️ **Both flags are ON by default** — leaving them unset means bots are live in production; set them to `off` to disable. Read once at ws server boot.
+
+```bash
+# Bot backfill for struggling/new players:
+#   (unset)           - bots ENABLED (default): newbies (0 wins or <10%
+#                       winrate, per mode) whom the pairing pass couldn't
+#                       serve get a bot opponent (1v1) or a full bot opposing
+#                       team (2v2). Humans always get first refusal.
+#   DUEL_BOTS=off     - no bot backfill at all
+#   DUEL_BOTS=instant - TESTING ONLY, never set in prod: skips every
+#                       eligibility gate (guests included) — anyone left
+#                       unmatched after a pairing pass gets a bot immediately
+DUEL_BOTS=off
+
+# Bot country flags. ON by default (weighted toward the game's real player
+# countries); set to off to spawn bots flagless (renders exactly like a user
+# who never set a flag).
+DUEL_BOT_FLAGS=off
+```
+
 ## 📱 Platform-Specific Configuration
 
 ### CoolMath Games
@@ -233,6 +255,8 @@ NEXT_PUBLIC_COOLMATH=true
 - `NODE_ENV` - Environment mode
 - `DISCORD_WEBHOOK_WS` - WebSocket notifications
 - `MAINTENANCE_SECRET` - Maintenance mode control
+- `DUEL_BOTS` / `DUEL_BOT_FLAGS` - Duel bot backfill toggles (ON unless `off`)
+- `DEBUG_ELO_CHANGES` - set to `true` to log ELO wiring at match creation
 
 ### Client Configuration (`clientConfig.js`)
 - `NEXT_PUBLIC_API_URL` - API endpoint

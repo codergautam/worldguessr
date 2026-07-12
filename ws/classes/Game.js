@@ -132,6 +132,10 @@ export default class Game {
       pIds: this.pIds,
       accountIds: this.accountIds,
       oldElos: this.oldElos,
+      // finishSoloDuel's save gate keys on this for bot duels (accountIds.p2
+      // is null by construction there) — Player.isBot's game-side twin; a
+      // restored bot game without it finishes but never saves to history.
+      isBotGame: this.isBotGame,
       gameCount: this.gameCount,
       saveInProgress: this.saveInProgress,
       // 2v2 staging-lobby matchmaking state: without these, a restart mid
@@ -911,6 +915,11 @@ export default class Game {
         const sock = players.get(member.id);
         if (!sock) continue;
         sock.gameId = null;
+        // Bots are game-scoped: this game dying is the end of their life.
+        // Regrouping one would hand build2v2Teams a phantom auto-queued "duo"
+        // that real human teams then silently match against. gameId is nulled
+        // above, so the next tickBots pass reaps them from the players map.
+        if (sock.isBot) continue;
         // Grace-window zombies (disconnected, awaiting the 30s purge) are not
         // regrouped: their close handler already cleaned their queue state,
         // and a fresh queue entry would outlive players.delete as a stale

@@ -292,6 +292,10 @@ async function buildUserResponse(targetUser) {
   const response = {
     targetUser: {
       username: targetUser.username,
+      // Feeds the flag next to the username in the user card AND the
+      // "Game History for X" header (gameHistory.js reads it off this
+      // same object via targetUserData).
+      countryCode: targetUser.countryCode || null,
       _id: targetUser._id,
       totalXp: targetUser.totalXp,
       totalGamesPlayed: targetUser.totalGamesPlayed,
