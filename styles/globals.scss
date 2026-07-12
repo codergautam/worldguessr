@@ -572,6 +572,10 @@ html {
         opacity: 0;
     }
 }
+@keyframes nav_bg_fade_in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 .g2_nav_ui {
     padding-top: 50px;
     left: 0px;
@@ -584,6 +588,15 @@ html {
     background: linear-gradient(65deg, var(--gradTopBase)),
                 linear-gradient(90deg, var(--gradBottomBase));
     transition: opacity 0.3s ease-in-out;
+}
+
+/* The hide gate below flips display, which repaints the gradient column at
+   full opacity in one frame while its children slide in — fade the column
+   itself over the same 0.3s. An animation, not the transition above:
+   transitions can't run from display:none, animations replay on it.
+   :not() keeps it off during g2_slide_out (both set `animation`). */
+.g2_nav_ui:not(.g2_slide_out) {
+    animation: nav_bg_fade_in 0.3s ease-in-out;
 }
 
 /* Pre-onboarding gate: the exported HTML ships this class (onboardingCompleted

@@ -65,7 +65,7 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
   for (const gameMongoId of gameMongoIds) {
     const game = await Game.findOneAndUpdate(
       { _id: gameMongoId, eloRefunded: { $ne: true } },
-      { eloRefunded: true, eloRefundedAt: new Date(), winLossAdjusted: true },
+      { eloRefunded: true, eloRefundedAt: new Date(), winLossAdjusted: true, winLossAdjustedBy: 'live' },
       { new: false }, // Return the original document before update
     );
 

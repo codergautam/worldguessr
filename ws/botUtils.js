@@ -29,7 +29,7 @@ import Player from './classes/Player.js';
 import User from '../models/User.js';
 import { VALID_COUNTRY_CODES } from '../serverUtils/timezoneToCountry.js';
 import { getRandomPointInCountry } from '../components/randomLoc.server.js';
-import { players, games } from '../serverUtils/states.js';
+import { players, games, playersInQueue } from '../serverUtils/states.js';
 import borders from '../public/genBorders.json' with { type: "json" };
 
 // Toggles (env, read once at boot like every other ws.js switch):
@@ -233,6 +233,20 @@ export function tickBots() {
     if (!bot.isBot) continue;
     const game = bot.gameId ? games.get(bot.gameId) : null;
     if (!game || !game.players[id]) {
+      players.delete(id);
+      continue;
+    }
+
+    // Invariant backstop: a bot's game is always a public, matchmade, started
+    // game (true by construction at both backfill sites). A bot holding a
+    // seat in anything else — e.g. a staging lobby minted by a regroup path —
+    // is an escaped orphan: evict it (removePlayer self-destructs a lobby on
+    // its last member, so a bot-only ghost lobby dies with its bots) and
+    // reap. This runs before the autoQueue2v2At scan each tick, so an orphan
+    // can never be queued into human matchmaking.
+    if (!game.public) {
+      game.removePlayer(bot, true);
+      playersInQueue.delete(id);
       players.delete(id);
       continue;
     }

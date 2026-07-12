@@ -5,7 +5,7 @@ import { FaLink, FaUserPlus, FaBolt, FaPlay, FaCrown, FaPen, FaEye, FaEyeSlash, 
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import { getLeague } from './utils/leagues';
-import { copyPartyLink } from './utils/partyLink';
+import { copyPartyLink, SHARES_CODE_ONLY } from './utils/partyLink';
 import { asset } from '@/lib/basePath';
 import Modal from './ui/Modal';
 
@@ -173,7 +173,7 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
 
   const copyLink = async () => {
     const ok = await copyPartyLink(gameData.code, inCrazyGames);
-    if (ok) toast.success(text("inviteLinkCopied"));
+    if (ok) toast.success(text(SHARES_CODE_ONLY ? "inviteCodeCopied" : "inviteLinkCopied"));
     else toast.error(text("shareFailed"));
   };
 
@@ -236,8 +236,8 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
             <span className="party-lobby__code">{pending || codeHidden ? "••••••" : gameData.code}</span>
             <button
               className="party-lobby__icon-btn"
-              aria-label={text("copyLink")}
-              title={text("copyLink")}
+              aria-label={text(SHARES_CODE_ONLY ? "copyCode" : "copyLink")}
+              title={text(SHARES_CODE_ONLY ? "copyCode" : "copyLink")}
               disabled={pending}
               onClick={copyLink}
             ><FaLink /></button>

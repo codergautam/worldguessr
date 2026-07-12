@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import GameHistory from './gameHistory';
 import HistoricalGameView from './historicalGameView';
+import CountryFlag from './utils/countryFlag';
 import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
 import { navigate } from '@/lib/basePath';
@@ -1879,7 +1880,10 @@ export default function ModDashboard({ session }) {
                   {/* User Info Card */}
                   <div className={styles.userCard}>
                     <div className={styles.userCardHeader}>
-                      <h3>{targetUser.username}</h3>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {targetUser.username}
+                        {targetUser.countryCode && <CountryFlag countryCode={targetUser.countryCode} style={{ fontSize: '0.9em' }} />}
+                      </h3>
                       <div className={styles.userBadges}>
                         {targetUser.staff && <span className={styles.staffBadge}>STAFF</span>}
                         {targetUser.supporter && <span className={styles.supporterBadge}>SUPPORTER</span>}

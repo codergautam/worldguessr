@@ -1998,14 +1998,29 @@ try {
       .map((m) => players.get(m.id))
       .filter((sock) => sock && !sock.disconnected);
     if (members.length > 2) return; // 2v2 takes at most a duo (find2v2Match enforces the same)
+    // Bots never queue: the backfill seats them directly into started games,
+    // and every teardown path drops them for tickBots to reap. One reaching
+    // this point is an escaped orphan — refuse the whole queue entry rather
+    // than feed build2v2Teams a phantom team (tickBots' non-public-game
+    // backstop then clears the lobby within a tick).
+    if (members.some((sock) => sock.isBot)) {
+      console.error('[BOTS] queue2v2Members refused: bot in staging lobby', lobby.id);
+      // Re-arm the poll fallback instead of consuming the queue attempt
+      // (autoQueue2v2At was already nulled above): tickBots' backstop evicts
+      // the bot within a tick, and the next autoQueue2v2At scan then queues
+      // the remaining humans — a Find Match click during the contaminated
+      // window is delayed by ~a tick, not silently swallowed.
+      lobby.autoQueue2v2At = Date.now() + 1000;
+      return;
+    }
     // Guest backstop for EVERY path into the 2v2 queue (Find Match, the
     // post-pairing auto-queue, Play Again regroups, cancel requeues): guests
     // can't queue NEW games. The creation/join gates make this near
     // unreachable, but raw messages and pre-gate lobbies restored from a
     // snapshot must not slip a guest into the matchmaker. In-flight games
-    // are untouched — this only guards queue entry. Bots are account-less by
-    // construction and exempt; instant testing mode exempts guests too.
-    if (members.some((sock) => !sock.accountId && !sock.isBot && !BOTS_INSTANT)) {
+    // are untouched — this only guards queue entry. Instant testing mode
+    // exempts guests.
+    if (members.some((sock) => !sock.accountId && !BOTS_INSTANT)) {
       for (const sock of members) {
         sock.send({ type: 'toast', key: 'Link your Google account to play 2v2', toastType: 'error' });
       }
@@ -2139,7 +2154,153 @@ try {
     return teams;
   }
 
+  // ── Matchmade game construction ────────────────────────────────────────
+  // ONE construction path per mode, shared by the human pairing passes and
+  // the bot backfills below: ELO wiring or lobby handling drifting between
+  // those callers is exactly the bug class this prevents. Deliberate
+  // bot-path differences are explicit parameters; everything else is
+  // identical by construction. Kept scope-local (like findDuelPairs /
+  // build2v2Teams) so they read the live module-level allLocations, which
+  // is reassigned every 10s.
 
+  // A queued player may legitimately still sit in a private waiting lobby
+  // (kept alive so cancel can restore it) — only a started/real game
+  // disqualifies them from being matched.
+  const inStartedRealGame = (s) => {
+    if (!s.gameId) return false;
+    const g = games.get(s.gameId);
+    return !g || g.public || g.state !== 'waiting';
+  };
+
+  // Ranked 1v1: seats p1/p2 under their duel tags, wires the ELO deltas for
+  // every outcome, and unqueues both ids (a bot id is never queued — no-op).
+  //   - isBotGame stamps the finishSoloDuel save-gate carve-out: accountIds.p2
+  //     stays null by construction (bots persist nothing — every per-account
+  //     write path skips the null id; the saved game's bot side is
+  //     synthesized from roster data).
+  //   - lastDuelOpponent is never stamped for bot games: a bot is always a
+  //     valid next opponent.
+  function createRankedDuelGame(p1, p2, { isBotGame = false } = {}) {
+    const gameId = uuidv4();
+    const game = new Game(gameId, { public: true, allLocations, duel: true });
+    if (isBotGame) game.isBotGame = true;
+    games.set(gameId, game);
+
+    game.addPlayer(p1, undefined, "p1");
+    game.addPlayer(p2, undefined, "p2");
+    playersInQueue.delete(p1.id);
+    playersInQueue.delete(p2.id);
+
+    if (isBotGame) {
+      game.accountIds = {
+        p1: p1.accountId,
+        p2: null
+      }
+    } else if (p1.accountId && p2.accountId) {
+      // Set account IDs for all registered players (needed for saving to MongoDB)
+      game.accountIds = {
+        p1: p1.accountId,
+        p2: p2.accountId
+      }
+
+      // Track last opponent to prevent same matchup twice in a row
+      // only for users below 5000 elo
+      if (p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
+        lastDuelOpponent.set(p1.accountId, p2.accountId);
+        lastDuelOpponent.set(p2.accountId, p1.accountId);
+      }
+    }
+
+    // check if both have elo. For bot games this gate is a DELIBERATE
+    // tightening vs the old inline bot path (which wired ELO
+    // unconditionally): the backfill only serves elo-bearing players and
+    // bots always have one, so it's equivalent today — and if an elo-less
+    // player ever reaches a bot game, skipping the wiring (guest-duel
+    // semantics) beats computing NaN deltas.
+    if (p1.elo && p2.elo) {
+      // calculate elo change if p1 wins,loses,draws
+      // calculate elo change if p2 wins,loses,draws
+      const eloP1Win = calculateOutcomes(p1.elo, p2.elo, 1);
+      const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
+      const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
+
+      const deltaP1Win = {newRating1: eloP1Win.newRating1 - p1.elo, newRating2: eloP1Win.newRating2 - p2.elo};
+      const deltaP2Win = {newRating1: eloP2Win.newRating1 - p1.elo, newRating2: eloP2Win.newRating2 - p2.elo};
+      const deltaDraw = {newRating1: eloDraw.newRating1 - p1.elo, newRating2: eloDraw.newRating2 - p2.elo};
+
+      game.eloChanges = {
+        [p1.id]: deltaP1Win,
+        [p2.id]: deltaP2Win,
+        draw: deltaDraw
+      }
+
+      game.oldElos = {
+        p1: p1.elo,
+        p2: p2.elo
+      }
+
+      // Fires for bot games too (the old inline bot path predated this flag
+      // and simply lacked it — unified deliberately).
+      if (process.env.DEBUG_ELO_CHANGES === 'true') {
+        console.log('game.eloChanges', game.eloChanges, game.oldElos);
+      }
+
+      // Both high-elo → the harder arbitrary world map (structurally never
+      // true for bot games: bots sit at 800-1000).
+      if(p1.elo > 2000 && p2.elo > 2000) {
+        game.locations = pick5RandomArb();
+      }
+    }
+
+    game.pIds = {
+      p1: p1.id,
+      p2: p2.id
+    }
+
+    game.start();
+    return game;
+  }
+
+  // Matchmade 2v2: rosterA seats as team 'a', rosterB as 'b' (team duels
+  // have no p1..p4 tags — nothing reads them; the client keys off
+  // players[].team). Tears down the staging lobbies the members came from,
+  // so autoPairedTeams / teamHostIds MUST be captured by the caller BEFORE
+  // this call — they read lobby state this destroys. Rematch memory
+  // (last2v2Opponents) also stays caller-side: it is deliberately never
+  // stamped for bot games (bot ids are fresh uuids per match; a stamp could
+  // never match a future opponent key).
+  function createTeamDuelGame(rosterA, rosterB, { autoPairedTeams, teamHostIds, queueIds, isBotGame = false }) {
+    // Tear down the staging lobbies the matched players came from. Queued
+    // members ignore the resulting gameShutdown client-side (not inGame),
+    // while any non-queued straggler (e.g. a friend who joined the lobby
+    // mid-search) gets properly reset home. Bots hold no lobby.
+    for (const lobbyId of new Set([...rosterA, ...rosterB].map(s => s.gameId).filter(Boolean))) {
+      const lobby = games.get(lobbyId);
+      if (lobby && !lobby.public && lobby.state === 'waiting') {
+        games.delete(lobbyId);
+        lobby.shutdown();
+      }
+    }
+
+    const gameId = uuidv4();
+    // public=true (loop manages lifecycle like a public duel), teamDuel=true.
+    const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+    // Matchmade 2v2s play a world + arbitrary-map mix (same override
+    // pattern as the high-elo 1v1 path — constructor generation of the
+    // "all" pool is synchronous, so replacing here is safe).
+    game.locations = pick5WorldArbMix(allLocations);
+    if (isBotGame) game.isBotGame = true;
+    game.autoPairedTeams = autoPairedTeams;
+    game.teamHostIds = teamHostIds;
+    games.set(gameId, game);
+
+    for (const p of rosterA) game.addPlayer(p, undefined, undefined, 'a');
+    for (const p of rosterB) game.addPlayer(p, undefined, undefined, 'b');
+    for (const id of queueIds) playersInQueue.delete(id);
+
+    game.start();
+    return game;
+  }
 
   // queue handler
   setInterval(() => {
@@ -2347,15 +2508,7 @@ try {
         const socks = ids.map(id => players.get(id));
 
         // Bail if anyone vanished / left the queue between build and create.
-        // A queued player may legitimately still sit in a private waiting
-        // lobby (kept alive so cancel can restore it) — only a started/real
-        // game disqualifies them.
-        const inRealGame = (s) => {
-          if (!s.gameId) return false;
-          const g = games.get(s.gameId);
-          return !g || g.public || g.state !== 'waiting';
-        };
-        if (socks.some(s => !s || !s.inQueue || inRealGame(s))) {
+        if (socks.some(s => !s || !s.inQueue || inStartedRealGame(s))) {
           for (const id of ids) {
             const s = players.get(id);
             if (!s || !s.inQueue) playersInQueue.delete(id);
@@ -2383,46 +2536,15 @@ try {
         };
         const teamHostIds = { a: teamHostId(teamA), b: teamHostId(teamB) };
 
-        // Tear down the staging lobbies the matched players came from. Queued
-        // members ignore the resulting gameShutdown client-side (not inGame),
-        // while any non-queued straggler (e.g. a friend who joined the lobby
-        // mid-search) gets properly reset home.
-        for (const lobbyId of new Set(socks.map(s => s.gameId).filter(Boolean))) {
-          const lobby = games.get(lobbyId);
-          if (lobby && !lobby.public && lobby.state === 'waiting') {
-            games.delete(lobbyId);
-            lobby.shutdown();
-          }
-        }
-
-        const gameId = uuidv4();
-        // public=true (loop manages lifecycle like a public duel), teamDuel=true.
-        const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
-        // Matchmade 2v2s play a world + arbitrary-map mix (same override
-        // pattern as the high-elo 1v1 path below — constructor generation of
-        // the "all" pool is synchronous, so replacing here is safe).
-        game.locations = pick5WorldArbMix(allLocations);
-        game.autoPairedTeams = autoPairedTeams;
-        game.teamHostIds = teamHostIds;
-        games.set(gameId, game);
-
         // Rematch-avoidance memory: each player remembers the exact opponent
         // duo, so the pairing loop above skips an immediate re-encounter.
         const keyA = duoKey(teamA), keyB = duoKey(teamB);
         for (const id of teamA) { const s = players.get(id); if (s) s.last2v2Opponents = keyB; }
         for (const id of teamB) { const s = players.get(id); if (s) s.last2v2Opponents = keyA; }
 
-        // First team's members → 'a', second team's → 'b'. Team duels have no
-        // p1..p4 tags — nothing reads them; the client keys off players[].team.
-        [teamA, teamB].forEach((team, idx) => {
-          const teamKey = idx === 0 ? 'a' : 'b';
-          for (const id of team) {
-            game.addPlayer(players.get(id), undefined, undefined, teamKey);
-          }
+        createTeamDuelGame(socks.slice(0, teamA.length), socks.slice(teamA.length), {
+          autoPairedTeams, teamHostIds, queueIds: ids,
         });
-        for (const id of ids) playersInQueue.delete(id);
-
-        game.start();
       }
 
       // Bot backfill (2v2): a duo where BOTH members are 2v2 newbies (0 wins
@@ -2443,12 +2565,7 @@ try {
           if (socks.some(s => !s || !s.inQueue || (!BOTS_INSTANT && !s.accountId))) continue;
           if (!BOTS_INSTANT && socks.some(s => s.botEligibility?.team !== true)) continue;
           // Same started/real-game staleness rule the pairing pass applies.
-          const inRealGame = (s) => {
-            if (!s.gameId) return false;
-            const g = games.get(s.gameId);
-            return !g || g.public || g.state !== 'waiting';
-          };
-          if (socks.some(inRealGame)) continue;
+          if (socks.some(inStartedRealGame)) continue;
 
           // Capture staging-lobby semantics BEFORE teardown (mirrors the real
           // path): cancel behavior + results-screen host roles for the humans.
@@ -2461,31 +2578,15 @@ try {
             b: null
           };
 
-          for (const lobbyId of new Set(socks.map(s => s.gameId).filter(Boolean))) {
-            const l = games.get(lobbyId);
-            if (l && !l.public && l.state === 'waiting') {
-              games.delete(lobbyId);
-              l.shutdown();
-            }
-          }
-
           const bots = [createBotPlayer(), createBotPlayer()];
           while (bots[1].username === bots[0].username) bots[1].username = makeBotUsername();
           console.log('[BOTS] 2v2 backfill:', bots.map(b => b.username).join('+'), 'vs', socks.map(s => s.username || s.id).join('+'));
 
-          const gameId = uuidv4();
-          const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
-          game.locations = pick5WorldArbMix(allLocations);
-          game.isBotGame = true;
-          game.autoPairedTeams = autoPairedTeams;
-          game.teamHostIds = teamHostIds;
-          games.set(gameId, game);
-
-          for (const s of socks) game.addPlayer(s, undefined, undefined, 'a');
-          for (const b of bots) game.addPlayer(b, undefined, undefined, 'b');
-          for (const { id } of duo) playersInQueue.delete(id);
-
-          game.start();
+          createTeamDuelGame(socks, bots, {
+            autoPairedTeams, teamHostIds,
+            queueIds: duo.map(({ id }) => id),
+            isBotGame: true,
+          });
         }
       }
     }
@@ -2506,74 +2607,7 @@ try {
           continue; // Skip this pair, don't start a game
         }
 
-        const gameId = uuidv4();
-        const game = new Game(gameId, { public: true, allLocations, duel: true });
-        games.set(gameId, game);
-
-        game.addPlayer(p1, undefined, "p1");
-        game.addPlayer(p2, undefined, "p2");
-        playersInQueue.delete(id1);
-        playersInQueue.delete(id2);
-
-        // Set account IDs for all registered players (needed for saving to MongoDB)
-        if(p1.accountId && p2.accountId) {
-          game.accountIds = {
-            p1: p1.accountId,
-            p2: p2.accountId
-          }
-
-          // Track last opponent to prevent same matchup twice in a row
-          // only for users below 5000 elo
-          if(p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
-            lastDuelOpponent.set(p1.accountId, p2.accountId);
-            lastDuelOpponent.set(p2.accountId, p1.accountId);
-          }
-        }
-
-        // check if both have elo
-        if(p1.elo && p2.elo) {
-          // calculate elo change if p1 wins,loses,draws
-          // calculate elo change if p2 wins,loses,draws
-
-          const eloP1Win = calculateOutcomes(p1.elo, p2.elo, 1);
-          const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
-          const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
-
-          const deltaP1Win = {newRating1: eloP1Win.newRating1 - p1.elo, newRating2: eloP1Win.newRating2 - p2.elo};
-          const deltaP2Win = {newRating1: eloP2Win.newRating1 - p1.elo, newRating2: eloP2Win.newRating2 - p2.elo};
-          const deltaDraw = {newRating1: eloDraw.newRating1 - p1.elo, newRating2: eloDraw.newRating2 - p2.elo};
-
-          game.eloChanges = {
-            [p1.id]: deltaP1Win,
-            [p2.id]: deltaP2Win,
-            draw: deltaDraw
-          }
-
-          game.oldElos = {
-            p1: p1.elo,
-            p2: p2.elo
-          }
-
-          if (process.env.DEBUG_ELO_CHANGES === 'true') {
-            console.log('game.eloChanges', game.eloChanges, game.oldElos);
-          }
-
-          if(p1.elo > 2000 && p2.elo > 2000) {
-            // use arbitrary world map to make it harder
-            game.locations = pick5RandomArb();
-          }
-
-
-        }
-
-        game.pIds = {
-          p1: p1.id,
-          p2: p2.id
-        }
-
-        // start the game
-        game.start();
-
+        createRankedDuelGame(p1, p2);
       }
 
       // remaining players in queue check if wait was longer than 10 seconds, in that case set their elo range to infinity
@@ -2605,46 +2639,7 @@ try {
           const bot = createBotPlayer();
           console.log('[BOTS] ranked backfill:', bot.username, 'vs', player.username || player.id);
 
-          const gameId = uuidv4();
-          const game = new Game(gameId, { public: true, allLocations, duel: true });
-          game.isBotGame = true;
-          games.set(gameId, game);
-
-          game.addPlayer(player, undefined, "p1");
-          game.addPlayer(bot, undefined, "p2");
-          playersInQueue.delete(playerId);
-
-          // p2 stays null: finishSoloDuel resolves the human's ELO/W-L via
-          // setElo, and the game SAVES to match history with the bot side
-          // synthesized from roster data (isBotGame carve-out in the save
-          // gate — every per-account write skips the null id). lastDuelOpponent
-          // is not stamped — bots are always a valid next opponent.
-          game.accountIds = {
-            p1: player.accountId,
-            p2: null
-          }
-
-          const eloP1Win = calculateOutcomes(player.elo, bot.elo, 1);
-          const eloDraw = calculateOutcomes(player.elo, bot.elo, 0.5);
-          const eloP2Win = calculateOutcomes(player.elo, bot.elo, 0);
-
-          game.eloChanges = {
-            [player.id]: { newRating1: eloP1Win.newRating1 - player.elo, newRating2: eloP1Win.newRating2 - bot.elo },
-            [bot.id]: { newRating1: eloP2Win.newRating1 - player.elo, newRating2: eloP2Win.newRating2 - bot.elo },
-            draw: { newRating1: eloDraw.newRating1 - player.elo, newRating2: eloDraw.newRating2 - bot.elo }
-          }
-
-          game.oldElos = {
-            p1: player.elo,
-            p2: bot.elo
-          }
-
-          game.pIds = {
-            p1: player.id,
-            p2: bot.id
-          }
-
-          game.start();
+          createRankedDuelGame(player, bot, { isBotGame: true });
         }
       }
     }

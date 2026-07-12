@@ -77,3 +77,6 @@ ios-crashes/
 # strips ANY path matching .gitignore from the upload (even committed files), so
 # ignoring this directory breaks the iOS/Android bundle step.
 embed/node_modules/
+
+# Platform submission builds (Poki/CMG zips + exports) — generated, never commit
+builds-submission/
