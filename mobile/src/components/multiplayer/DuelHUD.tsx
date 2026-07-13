@@ -13,7 +13,8 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -162,7 +163,9 @@ function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
             style={styles.teamNamePill}
           >
             {!isSelf && p.accountId ? (
-              <Pressable onPress={() => setProfileFor(p.username)} hitSlop={4}>
+              // Web parity: the opponent name is a clickable <span>, not a
+              // <button>, so the delegated click sound never fires there.
+              <Pressable sfx="none" onPress={() => setProfileFor(p.username)} hitSlop={4}>
                 {row}
               </Pressable>
             ) : (
@@ -372,6 +375,8 @@ function HealthBar({
         nameSlot
       ) : !isMe ? (
         <Pressable
+          // Web parity: opponent-name <span>, not a <button> — silent.
+          sfx="none"
           onPress={() => setProfileOpen(true)}
           hitSlop={6}
           style={styles.namePressable}

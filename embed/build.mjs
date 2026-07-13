@@ -27,10 +27,11 @@ const resolvePlugin = {
   name: 'embed-resolve',
   setup(b) {
     // components/Map.js pulls the Web Audio SFX engine via a RELATIVE import
-    // ('./utils/audio'). Inside the WebView it must no-op — otherwise the
+    // ('./utils/audio'). Inside the WebView it must be shimmed — otherwise the
     // bundle ships a second audio stack governed by the WebView's own private
-    // localStorage volumes, unreachable by the app's sound settings. The pin
-    // sound is played natively instead (RN pin-placement callback).
+    // localStorage volumes, unreachable by the app's sound settings. The shim
+    // no-ops everything EXCEPT the pin click, which plays in-page for latency
+    // with the host pushing the native volume in (embed/shims/audio.js).
     b.onResolve({ filter: /^\.\.?\/.*utils\/audio$/ }, () => ({
       path: path.join(root, 'embed/shims/audio.js'),
     }));
@@ -88,6 +89,9 @@ const result = await esbuild.build({
     '.jpeg': 'dataurl',
     '.gif': 'dataurl',
     '.svg': 'dataurl',
+    // pin.mp3 (~3KB) inlined for the shim's Web Audio pin click — the one
+    // sound that plays INSIDE the WebView (latency; see embed/shims/audio.js).
+    '.mp3': 'dataurl',
     '.css': 'text',
   },
   plugins: [resolvePlugin, jsonModulePlugin],

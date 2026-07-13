@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';

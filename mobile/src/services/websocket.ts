@@ -129,9 +129,15 @@ class WebSocketService {
    * already open ("Already connected with same secret, skipping"), so no fresh
    * verify arrives to restore those flags after a reset. Callers use this as the
    * source of truth to re-sync the store against the real connection.
+   *
+   * Latch-aware: after a terminal error (uac / failedToLogin) the server kicks
+   * the session but closes the socket LAZILY, so readyState can read OPEN for a
+   * while. Reporting verified during that window let the store re-sync resurrect
+   * `connected: true` on a dead session — and since the latched close never
+   * reconnects, the store stayed "connected" forever while every send() dropped.
    */
   get isVerified(): boolean {
-    return this.isConnected && this._everConnected;
+    return this.isConnected && this._everConnected && !this._dontReconnect;
   }
 
   get timeOffset(): number {
@@ -169,7 +175,11 @@ class WebSocketService {
 
     // Bump generation so any in-flight retry chain from a previous connect() is abandoned
     const gen = ++this._generation;
-    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'}, reconnect=${isReconnect})`);
+    // Log the resolved URL: EXPO_PUBLIC_WS_URL is INLINED into the bundle at
+    // Metro transform time, so a stale Metro cache can silently keep an old
+    // (e.g. LAN) endpoint alive long after .env.local changed. This line makes
+    // that visible instead of manifesting as mystery timeouts.
+    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'}, reconnect=${isReconnect}, url=${WS_URL})`);
 
     this._secret = secret;
     this._dontReconnect = false;
@@ -214,11 +224,15 @@ class WebSocketService {
       // the connection state otherwise).
       if (gen === this._generation) {
         console.error('[WS] All connection attempts failed:', err);
-        // A failed reconnect is a real disconnect: drop from "connecting"
-        // (yellow) to disconnected (red) and tear the game down — mirroring
-        // handleDisconnect's give-up path. Without this a failed foreground
-        // reconnect would leave the indicator stuck green forever.
-        if (isReconnect && !this._dontReconnect) {
+        // Exhausting the budget is a hard failure whether this was a reconnect
+        // OR the session's very first connect: drop from "connecting" (yellow)
+        // to disconnected (red) and tear the game down — mirroring
+        // handleDisconnect's give-up path. Gating this on isReconnect left a
+        // cold start against an unreachable server stuck on `connecting: true`
+        // FOREVER — nothing else ever flips that flag back, so the UI could
+        // never reach the red state (web flips connecting:false after its
+        // retry loop gives up, MultiplayerProvider.js).
+        if (!this._dontReconnect) {
           this.notifyReconnectFailed();
         }
       }
@@ -743,6 +757,19 @@ class WebSocketService {
   private handleDisconnect(): void {
     this.ws = null;
     this.clearIntervals();
+
+    // A close under the terminal latch (uac / failedToLogin set dontReconnect,
+    // then the server closes the socket): we must NOT auto-reconnect, but the
+    // UI still has to learn the connection is gone. Route through the
+    // reconnect-failed handlers — the hard-disconnected end state (red WsIcon,
+    // multiplayer teardown, action gates closed). Swallowing this close left
+    // the store `connected` on a dead socket: no indicator, buttons live, and
+    // every send() silently dropped.
+    if (!this._intentionalClose && this._dontReconnect) {
+      console.warn('[WS] Closed while reconnect is latched off — surfacing hard disconnect');
+      this.notifyReconnectFailed();
+      return;
+    }
 
     // Only notify disconnect handlers for UNEXPECTED disconnects
     // (not intentional close from connect()/disconnect())

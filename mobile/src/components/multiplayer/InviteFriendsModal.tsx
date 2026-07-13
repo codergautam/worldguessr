@@ -10,12 +10,12 @@ import {
   Modal,
   View,
   Text,
-  Pressable,
   ScrollView,
   StyleSheet,
   Platform,
   Share,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
@@ -113,7 +113,7 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={onClose} />
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>

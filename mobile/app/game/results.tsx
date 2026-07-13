@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   Animated,
   Linking,
   Platform,
@@ -16,6 +15,7 @@ import {
   KeyboardAvoidingView,
   BackHandler,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -27,7 +27,6 @@ import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
 import { haptics, hapticForScore } from '../../src/services/haptics';
-import { sound } from '../../src/services/sound';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
@@ -691,10 +690,18 @@ export default function GameResultsScreen() {
   const showEmotes = isLiveMultiplayer && !isHistoryView && emotesEnabled;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
+    // Prefer real coordinates over panoId: a stale/invalid panoId opens the wrong
+    // pano, whereas cbll/viewpoint always lands on the true location. Fall back to
+    // panoId only when lat/lng are missing, and no-op if we have neither.
+    let url: string;
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+    } else if (panoId) {
+      url = `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}`;
+    } else {
+      return;
+    }
     haptics.light();
-    const url = panoId
-      ? `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}`
-      : `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
     Linking.openURL(url);
   }, []);
 
@@ -880,18 +887,19 @@ export default function GameResultsScreen() {
   }, [detailsExpanded, panelAnim]);
 
   const handlePlayAgain = () => {
-    sound.click();
+    // Click sound rides the SfxPressable this handler is wired to.
     haptics.medium();
     if (isLiveMultiplayer) {
       // Matchmade 2v2: an ACK, not a leave. The session must stay attached —
       // on consensus the server regroups the duo into a queue-bound staging
       // lobby (queueBoundDuo burst) and home.tsx's nav owner replaces this
-      // screen with the queue. The interstitial runs concurrently with the
-      // WIRE (send first, never gated behind the ad — web sends synchronously
-      // with zero ad code; the ad here is a deliberate mobile divergence).
+      // screen with the queue. NO interstitial here (ruling, July 12): the ack
+      // joins a consensus the TEAMMATE may already be waiting on, and the
+      // regroup → queue → possible instant match would all play out behind a
+      // covering ad. The 2v2 loop still monetizes via the pre-queue Find Match
+      // ad in MultiplayerLobby, which is awaited BEFORE the queue join is sent.
       if (is2v2Game) {
         useMultiplayerStore.getState().sendPlayAgain2v2();
-        runGameInterstitial('2v2');
         return;
       }
       // Party host (B14): web parity (home.js backBtnPressed → resetGame for a
@@ -971,7 +979,7 @@ export default function GameResultsScreen() {
   // 2v2 Back → fresh staging lobby. Send-only: the lobby snapshot drives the
   // dismissal above (dead-game senders get restaged too — never a dead click).
   const handle2v2Back = useCallback(() => {
-    sound.click();
+    // Click sound rides the SfxPressable this handler is wired to.
     haptics.medium();
     useMultiplayerStore.getState().sendTeamDuelBack();
   }, []);
@@ -1999,8 +2007,9 @@ export default function GameResultsScreen() {
               }
             }}
           >
-            {/* Drag handle — tap to toggle details */}
-            <Pressable onPress={toggleDetails} style={styles.handleBarTouchArea}>
+            {/* Drag handle — tap to toggle details (sheet handles are divs on
+                web, so no click sound) */}
+            <Pressable sfx="none" onPress={toggleDetails} style={styles.handleBarTouchArea}>
               <View style={styles.handleBar} />
             </Pressable>
 

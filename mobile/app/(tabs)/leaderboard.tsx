@@ -4,11 +4,11 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
   RefreshControl,
   ImageBackground,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

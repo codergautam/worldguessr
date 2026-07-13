@@ -3,9 +3,9 @@ import {
   Text,
   Image,
   StyleSheet,
-  Pressable,
   Alert,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { MapItem } from '../../services/api';

@@ -35,12 +35,15 @@
  *
  * Assets: the 6 SFX are BUNDLED (small, latency-critical); music STREAMS
  * from prod (12 tracks would bloat the binary; offline = silent music,
- * bundled SFX still work). New-track rule extends to BOTH manifests: web
- * audio.js PLAYLISTS and the copy below, plus the loudnorm check.
+ * bundled SFX still work), with a download-once device cache on top: each
+ * track's first play streams AND saves it to the OS-purgeable cache dir, so
+ * later plays cost zero network. New-track rule extends to BOTH manifests:
+ * web audio.js PLAYLISTS and the copy below, plus the loudnorm check.
  */
 
 import { AppState, type AppStateStatus } from 'react-native';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { Directory, File, Paths } from 'expo-file-system';
 import { useSettingsStore } from '../store/settingsStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { SITE_URL } from '../constants/config';
@@ -55,8 +58,9 @@ const MUSIC_FADE_OUT_S = 1;
 const MUSIC_SWITCH_FADE_OUT_S = 1.5;
 const MUSIC_HIDDEN_FADE_S = 5; // background fade (0s grace — user ruling)
 
-/** Perceptual volume mapping — ONLY at the player boundary. */
-const toGain = (v: number) => v * v;
+/** Perceptual volume mapping — ONLY at a player boundary (exported for the
+ * embed WebView's in-page pin click, whose gain the host computes). */
+export const toGain = (v: number) => v * v;
 
 // ── SFX ─────────────────────────────────────────────────────────────────────
 
@@ -107,8 +111,26 @@ function getSfxPlayer(name: SfxName): AudioPlayer | null {
   try {
     let p = sfxPlayers.get(name);
     if (!p) {
-      p = createAudioPlayer(SFX_SOURCES[name]);
-      sfxPlayers.set(name, p);
+      const created = createAudioPlayer(SFX_SOURCES[name]);
+      // Re-arm at position 0 the moment playback ENDS — off the hot path. A
+      // media player left at its end position needs a seek before it can
+      // replay, and expo-audio's seekTo is an async native dispatch: the old
+      // seek-before-every-play design spent that dispatch (tens of ms on
+      // ExoPlayer/AVPlayer) before every single sound, which is why mobile
+      // SFX felt laggier than web's sample-accurate buffer sources. Android's
+      // didJustFinish is level-based (repeats per status update at
+      // STATE_ENDED) — pause+seek exits that state, so the re-arm is
+      // naturally idempotent.
+      created.addListener('playbackStatusUpdate', (status: any) => {
+        try {
+          if (status?.didJustFinish) {
+            created.pause();
+            created.seekTo(0);
+          }
+        } catch {}
+      });
+      sfxPlayers.set(name, created);
+      p = created;
     }
     return p;
   } catch {
@@ -163,7 +185,12 @@ export function playSfx(
     // Linear mix × perceptual master × ad-duck — same chain as web's
     // per-play gain → sfxGain → masterGain.
     player.volume = Math.max(0, Math.min(1, volume * toGain(slider) * duckFactor));
-    player.seekTo(0);
+    // HOT PATH HAS NO SEEK: the finish listener (getSfxPlayer) already
+    // re-armed the player at 0, so play() fires immediately. Seek only when
+    // it's actually needed — a retrigger mid-play (restart-from-top keeps the
+    // percussive feel) or a player parked mid-track (stopSfx'd ticking bed,
+    // or a re-arm the listener missed).
+    if (player.playing || player.currentTime > 0.05) player.seekTo(0);
     player.play();
   } catch {}
 }
@@ -221,14 +248,20 @@ function fadePlayer(player: AudioPlayer, target: number, seconds: number, onDone
     }
     const stepMs = 50;
     const start = player.volume;
-    const steps = Math.max(1, Math.round((seconds * 1000) / stepMs));
-    let i = 0;
+    const startedAt = Date.now();
+    const durationMs = seconds * 1000;
     const timer = setInterval(() => {
-      i += 1;
+      // Progress is ELAPSED TIME, never tick count: RN timers starve and then
+      // burst whenever the JS thread is busy — and playlist switches fire at
+      // exactly the busiest moments (match entry, WebViews mounting). A
+      // tick-counted fade renders a starved window as 2-3 audible volume
+      // cliffs stretched past the intended duration; time-based progress
+      // degrades to fewer-but-correct steps and always lands on schedule.
+      const frac = Math.min(1, (Date.now() - startedAt) / durationMs);
       try {
-        player.volume = start + (target - start) * (i / steps);
+        player.volume = start + (target - start) * frac;
       } catch {}
-      if (i >= steps) {
+      if (frac >= 1) {
         cancelFade(player);
         onDone?.();
       }
@@ -264,6 +297,118 @@ const PLAYLISTS = {
 
 type PlaylistName = keyof typeof PLAYLISTS;
 
+// ── Music cache (download-once) ─────────────────────────────────────────────
+// Tracks live in the OS-purgeable cache directory (never Paths.document:
+// it's iCloud-backed, and Apple rejects re-downloadable content in backups).
+// Eviction is expected and harmless — a missing file just streams again.
+// The version suffix is the invalidation lever: bump it whenever tracks are
+// re-encoded IN PLACE on prod (new tracks get new names and need nothing).
+const MUSIC_CACHE_DIR = 'music-v1';
+
+let musicCacheDir: Directory | null = null;
+const musicDownloadsInFlight = new Set<string>();
+// The cached File backing the CURRENT track, when playing from cache — so a
+// player death can evict a corrupt/truncated file instead of re-poisoning
+// every future play of that track.
+let currentCachedFile: File | null = null;
+
+// 'competitive/glass-circuit' → 'competitive_glass-circuit.mp3' (flat dir).
+const trackFileName = (trackPath: string) => `${trackPath.replace(/\//g, '_')}.mp3`;
+
+function ensureMusicCacheDir(): Directory | null {
+  if (musicCacheDir) return musicCacheDir;
+  try {
+    // Reap superseded versions first, or stale dirs linger until the OS
+    // gets around to purging the cache.
+    for (const entry of new Directory(Paths.cache).list()) {
+      if (entry.name.startsWith('music-v') && entry.name !== MUSIC_CACHE_DIR) {
+        try {
+          entry.delete();
+        } catch {}
+      }
+    }
+  } catch {}
+  try {
+    const dir = new Directory(Paths.cache, MUSIC_CACHE_DIR);
+    dir.create({ intermediates: true, idempotent: true });
+    musicCacheDir = dir;
+  } catch {
+    musicCacheDir = null; // cache unavailable → pure streaming, as before
+  }
+  return musicCacheDir;
+}
+
+/**
+ * Cached file's URI when the track is already on disk; otherwise the remote
+ * URL — and in that case a background download starts so every LATER play of
+ * this track is free. First-ever play of a track therefore costs ~2× its
+ * size (stream + cache fill), a one-time cost per install that buys zero
+ * network forever after. Downloads only ever start from an actual play, so
+ * muted users still transfer nothing.
+ */
+function resolveTrackSource(trackPath: string): string {
+  const remote = `${SITE_URL}/music/${trackPath}.mp3`;
+  currentCachedFile = null;
+  const dir = ensureMusicCacheDir();
+  if (!dir) return remote;
+  try {
+    const cached = new File(dir, trackFileName(trackPath));
+    // size > 0 guards zero-byte husks (interrupted writes, exotic failures).
+    if (cached.exists && cached.size > 0) {
+      currentCachedFile = cached;
+      return cached.uri;
+    }
+  } catch {}
+  downloadTrack(remote, trackPath);
+  return remote;
+}
+
+function downloadTrack(url: string, trackPath: string): void {
+  const dir = musicCacheDir;
+  if (!dir || musicDownloadsInFlight.has(trackPath)) return;
+  musicDownloadsInFlight.add(trackPath);
+  const dest = new File(dir, trackFileName(trackPath));
+  File.downloadFileAsync(url, dest, { idempotent: true })
+    .catch(() => {
+      // Android streams straight into the destination and leaves a partial
+      // file when the transfer dies mid-way — delete it or the next resolve
+      // would "hit" a truncated track. (iOS downloads to a temp location
+      // and moves on success, so there's nothing to clean.)
+      try {
+        if (dest.exists) dest.delete();
+      } catch {}
+    })
+    .finally(() => {
+      musicDownloadsInFlight.delete(trackPath);
+    });
+}
+
+/** Player-death hook: a corrupt cached track must not survive to poison the
+ * next play. Streaming sources have nothing to evict. */
+function evictCurrentCachedTrack(): void {
+  try {
+    currentCachedFile?.delete();
+  } catch {}
+  currentCachedFile = null;
+}
+
+// ── Dev-reload ghost guard ──────────────────────────────────────────────────
+// Fast Refresh re-evaluates this module with FRESH state (musicPlayer = null)
+// while the previous instance's native expo-audio player keeps playing,
+// unreachable — every code edit stacked another simultaneous track, and the
+// ghosts ignored duckAudio/stopMusic (no live reference reaches them). Native
+// players outlive JS module state, so the live handle is parked on globalThis
+// and any previously parked player is executed here, at re-evaluation time.
+// Prod builds never re-evaluate modules; this is dev-lifecycle hygiene.
+const ghostRegistry = globalThis as { __wgMusicPlayer?: AudioPlayer };
+try {
+  ghostRegistry.__wgMusicPlayer?.pause();
+} catch {}
+try {
+  ghostRegistry.__wgMusicPlayer?.release();
+} catch {}
+ghostRegistry.__wgMusicPlayer = undefined;
+
 let musicPlayer: AudioPlayer | null = null;
 let musicOn = false;
 let activePlaylist: PlaylistName = 'chill';
@@ -298,6 +443,7 @@ function ensureMusicPlayer(): AudioPlayer | null {
   try {
     if (musicPlayer) return musicPlayer;
     musicPlayer = createAudioPlayer();
+    ghostRegistry.__wgMusicPlayer = musicPlayer; // park for the reload guard
     musicPlayer.volume = 0;
     // Status events are the RN death/end signal (web's element goes silent —
     // here we get real callbacks):
@@ -330,6 +476,9 @@ function ensureMusicPlayer(): AudioPlayer | null {
         }
         if (state === 'ready') trackHadReady = true;
         if (state === 'failed' || (state === 'idle' && trackHadReady && !trackAdvancing)) {
+          // If the corpse was a cached file it's likely corrupt/evicted
+          // mid-read — remove it so the next attempt streams fresh.
+          evictCurrentCachedTrack();
           musicOn = false;
         }
       } catch {}
@@ -359,7 +508,7 @@ function playNextTrack(): void {
     trackAdvancing = true; // cleared by the new track's first non-ended status
     trackHadReady = false;
     musicEnded = false;
-    const src = `${SITE_URL}/music/${PLAYLISTS[activePlaylist][lastTrackIdx]}.mp3`;
+    const src = resolveTrackSource(PLAYLISTS[activePlaylist][lastTrackIdx]);
     player.replace({ uri: src });
     player.volume = 0;
     player.play();
@@ -514,6 +663,11 @@ export function initSoundSystem(): void {
       interruptionModeAndroid: 'duckOthers',
       shouldPlayInBackground: false,
     }).catch(() => {});
+
+    // Warm the delegated-click sounds so the session's very first button
+    // press is audible with zero decode latency (web attachUiClickSounds'
+    // first-pointerdown warm-up). Muted users skip inside preloadSfx.
+    preloadSfx('click_2', 'ui_click');
 
     AppState.addEventListener('change', (next: AppStateStatus) => {
       try {

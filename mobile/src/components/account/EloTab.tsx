@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { getLeague, leagues } from '../../shared/user/leagues';
 import { t } from '../../shared';
 import {

@@ -12,24 +12,24 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   ScrollView,
   ImageBackground,
   ActivityIndicator,
   Alert,
   Animated,
+  InteractionManager,
   Modal,
   Share,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { colors, t } from '../../shared';
 import { haptics } from '../../services/haptics';
-import { sound } from '../../services/sound';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { wsService } from '../../services/websocket';
 import { TEAM_SUPPORT } from '../../services/websocketConfig';
@@ -281,8 +281,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
       Alert.alert(t('teams'), t('teamNeedsPlayers'));
       return;
     }
-    sound.click();
-    haptics.medium(); // match start — let the host feel the kickoff
+    haptics.medium(); // match start — let the host feel the kickoff (click rides SfxPressable)
     wsService.send({ type: 'startGameHost' });
   };
 
@@ -291,15 +290,15 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   // server matches on its own clock, so queueing behind a covering ad could
   // start the round unseen. (Web has no ad here; deliberate mobile pattern.)
   const handleFindMatch = async () => {
-    sound.click();
-    haptics.medium();
+    haptics.medium(); // click rides SfxPressable
+
     await runGameInterstitial('2v2');
     useMultiplayerStore.getState().find2v2Match();
   };
 
   const handleCancelSearch = () => {
-    sound.click();
-    haptics.light();
+    haptics.light(); // click rides SfxPressable
+
     useMultiplayerStore.getState().cancelTeammateSearch();
   };
 
@@ -369,8 +368,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               (private waiting lobbies only, guests included). */}
           <Pressable
             onPress={() => {
-              sound.click();
-              haptics.light();
+              haptics.light(); // click rides SfxPressable
               setSoundModalVisible(true);
             }}
             style={styles.backBtn}
@@ -393,8 +391,16 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           <Pressable
             onPress={() => {
               haptics.light();
-              useMultiplayerStore.getState().leaveGame();
+              // Navigate FIRST, tear down AFTER the transition. leaveGame
+              // flips inGame false, and the game screen's ownerless-teardown
+              // guard ([id].tsx: dismissAllSafe on !inGame while focused)
+              // fires on that flip BEFORE the replace settles — stomping the
+              // join screen with home. Deferring the leave until the game
+              // screen is unmounted makes the flip invisible to the guard.
               router.replace('/party/join');
+              InteractionManager.runAfterInteractions(() => {
+                useMultiplayerStore.getState().leaveGame();
+              });
             }}
             style={({ pressed }) => [styles.joinLink, pressed && { opacity: 0.7 }]}
           >
@@ -607,13 +613,17 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               style={({ pressed }) => [
                 styles.optionsBtn,
                 pressed && { opacity: 0.85 },
-                partyFull && styles.optionsBtnDisabled,
+                (partyFull || teammateSearch) && styles.optionsBtnDisabled,
               ]}
               onPress={() => {
                 haptics.light();
                 setInviteModalVisible(true);
               }}
-              disabled={partyFull}
+              // Disabled while full, and during stage-1 teammate matchmaking:
+              // the matcher can claim the one empty seat at any moment, so an
+              // invite accepted mid-search would race the random pairing for
+              // it. Cancel the search first to invite a friend instead.
+              disabled={partyFull || teammateSearch}
             >
               <Ionicons name="people" size={18} color={colors.white} />
               <Text style={styles.optionsBtnText}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
@@ -696,9 +706,9 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
         onRequestClose={() => setSoundModalVisible(false)}
         supportedOrientations={['portrait', 'landscape']}
       >
-        <Pressable style={styles.soundModalOverlay} onPress={() => setSoundModalVisible(false)}>
+        <Pressable sfx="none" style={styles.soundModalOverlay} onPress={() => setSoundModalVisible(false)}>
           {/* Inner pressable swallows taps so touching a slider can't close. */}
-          <Pressable style={styles.soundModalCard} onPress={() => {}}>
+          <Pressable sfx="none" style={styles.soundModalCard} onPress={() => {}}>
             <View style={styles.soundModalHeader}>
               <Text style={styles.soundModalTitle}>{t('audioSettings')}</Text>
               <Pressable

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   ImageBackground,
   Animated,
   Easing,
@@ -12,9 +11,11 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
@@ -39,7 +40,6 @@ import { useDailyMenuStatus } from '../../src/components/daily/useDailyMenuStatu
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import { TEAM_SUPPORT } from '../../src/services/websocketConfig';
-import { sound } from '../../src/services/sound';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | '2v2' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -102,6 +102,9 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
   return (
     <Animated.View style={entranceStyle}>
       <Pressable
+        // Home main-menu scope plays ui_click, not click_2 (web .g2_nav_ui
+        // parity via the delegated listener) — every MenuButton inherits it.
+        sfx="ui"
         style={({ pressed }) => [
           styles.menuButton,
           pressed && styles.menuButtonPressed,
@@ -248,9 +251,15 @@ export default function HomeScreen() {
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
   const [animatedElo, setAnimatedElo] = useState(0);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
+  // When a guest taps an account-gated mode (Ranked / 2v2), the sheet opens
+  // with that mode's pitch instead of the generic sign-in copy.
+  const [loginUpsell, setLoginUpsell] = useState<'2v2' | 'ranked' | null>(null);
   // Android signs in with Google directly (single provider — no chooser
   // sheet); iOS opens the sheet. The platform fork lives in useLoginPrompt.
-  const handleLogin = useLoginPrompt(() => setAccountSheetVisible(true));
+  const handleLogin = useLoginPrompt(() => {
+    setLoginUpsell(null);
+    setAccountSheetVisible(true);
+  });
   const [whatsNewDemo, setWhatsNewDemo] = useState(false);
   const [restoringAccount, setRestoringAccount] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
@@ -531,31 +540,27 @@ export default function HomeScreen() {
     }
   }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
 
-  // Guest tapped an account-gated mode: link-Google conversion prompt (web
-  // SuggestAccountModal locked variants — same locale keys, native Alert shape).
-  // Shared by the 2v2 entry and, later, the guest-visible Ranked entry.
-  const promptLinkGoogle = (variant: '2v2' | 'ranked') => {
-    Alert.alert(
-      t(variant === '2v2' ? 'linkGoogle2v2Title' : 'linkGoogleRankedTitle'),
-      t(variant === '2v2' ? 'linkGoogle2v2Desc' : 'linkGoogleRankedDesc'),
-      [
-        { text: t('maybeLater'), style: 'cancel' },
-        { text: t('loginWithGoogle1'), onPress: handleLogin },
-      ],
-    );
+  // Guest tapped an account-gated mode: open the real login sheet with that
+  // mode's pitch (web SuggestAccountModal locked variants) instead of a native
+  // Alert — actual provider buttons convert better than a text-only prompt.
+  // Deliberately NOT useLoginPrompt: the sheet opens on BOTH platforms here
+  // (Android's sheet is Google-only; iOS shows Apple + Google).
+  const promptLoginUpsell = (variant: '2v2' | 'ranked') => {
+    setLoginUpsell(variant);
+    setAccountSheetVisible(true);
   };
 
   const handleModePress = async (mode: GameMode) => {
-    sound.uiClick(); // home main-menu scope = ui_click (web .g2_nav_ui parity)
+    // ui_click rides MenuButton's SfxPressable (sfx="ui").
     haptics.light(); // tap on any main menu mode button
     // Account-gated modes mirror web's button order: guest upsell BEFORE the
     // connection check (a guest doesn't need a live socket to see the prompt).
     if (mode === '2v2' && !isAuthenticated) {
-      promptLinkGoogle('2v2');
+      promptLoginUpsell('2v2');
       return;
     }
     if (mode === 'rankedDuel' && !isAuthenticated) {
-      promptLinkGoogle('ranked');
+      promptLoginUpsell('ranked');
       return;
     }
     const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === '2v2' || mode === 'createGame' || mode === 'joinGame';
@@ -1307,7 +1312,22 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      <AccountSelectSheet visible={accountSheetVisible} onClose={() => setAccountSheetVisible(false)} />
+      <AccountSelectSheet
+        visible={accountSheetVisible}
+        onClose={() => setAccountSheetVisible(false)}
+        // Android's sheet is Google-only, so the web "Link Google…" headline
+        // stays accurate (and translated) there; iOS offers Apple too, so it
+        // gets a provider-neutral title. The pitch line is provider-neutral in
+        // every language, shared verbatim with web.
+        title={loginUpsell
+          ? (Platform.OS === 'ios'
+            ? t(loginUpsell === '2v2' ? 'signInToPlay2v2' : 'signInToPlayRanked')
+            : t(loginUpsell === '2v2' ? 'linkGoogle2v2Title' : 'linkGoogleRankedTitle'))
+          : undefined}
+        subtitle={loginUpsell
+          ? t(loginUpsell === '2v2' ? 'linkGoogle2v2Desc' : 'linkGoogleRankedDesc')
+          : undefined}
+      />
 
       {/* What's New — auto-shows for logged-in users on version bump.
           Long-press the settings gear to preview it on demand (demo). */}

@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ActivityIndicator,
   Alert,
   Modal,
   TextInput,
   StyleSheet,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useRouter } from 'expo-router';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';

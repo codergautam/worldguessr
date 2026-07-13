@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   TextInput,
   Switch,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   useWindowDimensions,
   BackHandler,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -382,7 +382,7 @@ export default function MapSelectorModal({
       <Animated.View
         style={[styles.backdrop, { opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]}
       >
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => animateClose()} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={() => animateClose()} />
       </Animated.View>
 
       {/* Sheet */}

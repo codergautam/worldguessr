@@ -126,6 +126,12 @@ export function useWebSocket() {
         connected: false,
         verified: false,
         connecting: true,
+        // A GENUINE mid-session drop (server died / network cut) — not a
+        // housekeeping reconnect (those go through onReconnecting and never
+        // fire this handler). WsIndicator surfaces this on every screen; it
+        // stays set until the next verify so the whole drop→retry→red arc
+        // remains visible even after the teardown below pops the user home.
+        connectionDropped: true,
       });
 
       // Pre-match queue isn't recoverable — pop home (see tearDownPhantomQueue).
@@ -166,6 +172,10 @@ export function useWebSocket() {
     const unsub = wsService.onReconnectFailed(() => {
       useMultiplayerStore.setState({
         connected: false,
+        // Also reached DIRECTLY on a close under the terminal latch (uac /
+        // failedToLogin) — without passing through onDisconnect/onReconnecting,
+        // which are what used to clear `verified` on every other path here.
+        verified: false,
         connecting: false,
         inGame: false,
         gameData: null,

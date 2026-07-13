@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   useWindowDimensions,
   Animated,
   AppState,
@@ -13,6 +12,9 @@ import {
   Alert,
   InteractionManager,
 } from 'react-native';
+// MP buttons deliberately keep the default click — web opts the Guess button
+// out of click_2 only OUTSIDE multiplayer (the MP reveal lags the press).
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import Reanimated, {
   FadeInDown,
   FadeOut,
@@ -326,10 +328,19 @@ function DuelWarningBanner({
   liftAboveEmote: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const anim = useRef(new Animated.Value(0)).current; // 0 = hidden (below), 1 = shown
   const [mounted, setMounted] = useState(false);
-  // Clear the emote toggle (FAB size + its bottom inset + a gap) when it's present.
-  const emoteClearance = liftAboveEmote ? EMOTE_TOGGLE_SIZE + spacing.lg + spacing.md : 0;
+  // Clear the emote toggle (FAB size + its bottom inset + a gap) when it's present —
+  // PORTRAIT ONLY. The vertical lift exists because a narrow portrait screen can't
+  // fit the banner beside the FAB without truncating the warning. In landscape the
+  // short screen makes that same lift park the banner mid-screen over the pano/HUD,
+  // while the wide screen gives the centered ≤460px pill plenty of clearance from
+  // the corner FAB — so it stays at the true bottom there.
+  const isLandscape = width > height;
+  const emoteClearance = liftAboveEmote && !isLandscape
+    ? EMOTE_TOGGLE_SIZE + spacing.lg + spacing.md
+    : 0;
 
   useEffect(() => {
     if (!visible) return;
@@ -476,11 +487,20 @@ export default function GameScreen() {
   // game down (useWebSocket.onDisconnect) → !inGame → this pops us home, where we
   // keep reconnecting (yellow WsIndicator).
   //
-  // Guard on isFocused() (same as the beforeRemove listener below): when /game/results
+  // Guard on focus (same as the beforeRemove listener below): when /game/results
   // is pushed on top, THIS screen stays mounted but unfocused. A server gameShutdown
   // for a party/private game (the public&&end sticky guard in the store doesn't apply)
   // flips inGame false and would otherwise fire dismissAllSafe from underneath results,
   // yanking the user off the summary mid-read. Unfocused → results owns the exit.
+  //
+  // Focus must be a DEPENDENCY (isScreenFocused state), not a mere read of
+  // navigation.isFocused(): the teardown usually lands while a screen sits on
+  // top (unfocused → correctly no-op), and if anything later pops back to this
+  // now-ownerless screen with a ONE-LEVEL pop, none of the other deps change —
+  // a read-only guard never re-fires and the user is stranded, FOCUSED, on the
+  // bare `!gameData` GameLoadingOverlay (no back button): the "infinite
+  // Loading after exiting a ranked match" bug. Keying on the focus event makes
+  // every such reveal self-heal: ownerless + focused → home, whatever exposed it.
   //
   // Guard on !gameQueued: the 2v2 stage-2 queue wipe sets inGame false WHILE
   // gameQueued stays '2v2' — that transition belongs to the nav owner in
@@ -488,10 +508,10 @@ export default function GameScreen() {
   // user home instead.
   const gameQueuedNow = useMultiplayerStore((s) => s.gameQueued);
   useEffect(() => {
-    if (isMultiplayer && !inGame && !gameQueuedNow && navigation.isFocused()) {
+    if (isMultiplayer && !inGame && !gameQueuedNow && isScreenFocused) {
       dismissAllSafe();
     }
-  }, [isMultiplayer, inGame, gameQueuedNow, navigation]);
+  }, [isMultiplayer, inGame, gameQueuedNow, isScreenFocused]);
 
   useEffect(() => {
     if (
@@ -662,6 +682,18 @@ export default function GameScreen() {
   // Street view loading state — true = panorama not yet ready
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
 
+  // MP reveal "Show Street View" toggle (web endBanner.js topGameInfoButton,
+  // rendered unconditionally there). Mobile CANNOT just expose the live
+  // StreetViewWebView: during the between-rounds reveal it is already
+  // preloading/crossfading to the NEXT round's pano (currentLocation bumps at
+  // getready — the dual-slot comment on the WebView below), so unhiding it
+  // would leak the upcoming location mid-reveal. Instead the toggle mounts a
+  // SECOND, on-demand pano of the ANSWERED round (mapActualLocation) above the
+  // frozen answer map — the reveal latch, fade-out, and preload machinery are
+  // never touched. Reset whenever the reveal ends (effect below showMapResult)
+  // so a new round can never start with the map hidden.
+  const [mpPanoShown, setMpPanoShown] = useState(false);
+
   // Defer the StreetView WebView mount until the screen-transition settles, so
   // the preloaded street2 loading overlay paints instantly instead of leaving a
   // black/blank gap during the slide into the game. (Mirrors GameSurface.)
@@ -724,6 +756,13 @@ export default function GameScreen() {
   // unaffected (its branch returns above; the else keeps the old behavior).
   const showMapResult = (isMultiplayer ? (isScreenFocused && gameState.isShowingResult) : gameState.isShowingResult)
     || showBetweenRoundMap || mpFinalReveal;
+  // The reveal ended (next round starting, results pushing, or screen blurred):
+  // drop the MP pano toggle immediately. Unmounting the answered-round pano the
+  // same frame the reveal closes is what makes a leak impossible — the toggle
+  // can never outlive the reveal it belongs to.
+  useEffect(() => {
+    if (!showMapResult && mpPanoShown) setMpPanoShown(false);
+  }, [showMapResult, mpPanoShown]);
   // Once I've submitted this round (server `me.final`, set optimistically on
   // submit, reset each round by clearGuesses), the pin must lock — web doesn't
   // let you move your guess while waiting for the other players. Drives the
@@ -760,7 +799,17 @@ export default function GameScreen() {
   const mapResultLatchRef = useRef(false);
   const revealSnapshotRef = useRef<{
     location: { lat: number; long: number } | null;
-    players: Array<{ id: string; username: string; guess: [number, number]; final: boolean }>;
+    // guess null = roster member who didn't guess this round — the embed keeps
+    // the row for team identity (teamRevealCtx myTeam lookup) but paints no pin.
+    // team rides along because Map.js freezes it with the pins (a mid-reveal
+    // disconnect must not flip a teammate pin to enemy coloring).
+    players: Array<{
+      id: string;
+      username: string;
+      guess: [number, number] | null;
+      final: boolean;
+      team?: 'a' | 'b';
+    }>;
   } | null>(null);
   const [revealExitTick, setRevealExitTick] = useState(0);
   const mapBtnsAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
@@ -799,7 +848,7 @@ export default function GameScreen() {
   // while muted (mute = zero cost).
   useEffect(() => {
     if (!mapMounted) return;
-    preloadSfx('pin', 'guess', 'ticking');
+    preloadSfx('guess', 'ticking'); // pin decodes inside the embed WebView
     if (isMultiplayer) preloadSfx('multinoti');
   }, [mapMounted, isMultiplayer]);
 
@@ -1229,14 +1278,37 @@ export default function GameScreen() {
     () => new Map((gameData?.players ?? []).map((p) => [p.id, p])),
     [gameData?.players],
   );
-  const liveRevealPlayers = (showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses)
+  const revealGuessRows = (showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses)
     .map((p) => ({
       id: p.id,
       username: p.username,
-      guess: [p.lat, p.lng] as [number, number],
+      guess: [p.lat, p.lng] as [number, number] | null,
       final: rosterById.get(p.id)?.final ?? true,
       team: rosterById.get(p.id)?.team,
     }));
+  // Append roster players with NO guess this round (guess: null) — web shape:
+  // Map.js copyMultiplayerAnswerPlayers keeps null-guess rows and its
+  // MultiplayerLayer skips them, but teamRevealCtx resolves MY TEAM from this
+  // very list (roster lookup, then a live-roster fallback that on mobile is
+  // this same list again — see the EmbeddedMap multiplayerState below). The
+  // guess-row builders filter non-guessers, so when I didn't guess my row
+  // vanished, myTeam resolved undefined, and the embed's whole team context
+  // collapsed: my teammate's pin painted as a SMALL GREEN ENEMY instead of
+  // teammate-blue/enlarged. Feeding the full roster (null guesses included)
+  // keeps team identity independent of who guessed.
+  const revealGuessedIds = new Set(revealGuessRows.map((r) => r.id));
+  const liveRevealPlayers = [
+    ...revealGuessRows,
+    ...(gameData?.players ?? [])
+      .filter((p) => !revealGuessedIds.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        username: p.username,
+        guess: null as [number, number] | null,
+        final: true, // reveal = round locked; only pin-bearing rows ever fade
+        team: p.team,
+      })),
+  ];
   if (isMultiplayer && showMapResult) {
     mapResultLatchRef.current = true;
     revealSnapshotRef.current = {
@@ -1439,10 +1511,10 @@ export default function GameScreen() {
     // waiting for other players (web parity). Belt-and-suspenders alongside the
     // map's `interactive={false}`.
     if (mpGuessSentRef.current) return;
-    // Pin-placement click, played NATIVELY (the embed WebView's audio module
-    // is shimmed to a no-op — §11.5 — so the app's SFX slider governs it).
-    // The guards above mirror web Map.js: never after the answer or a final.
-    playSfx('pin');
+    // No pin sound here: it plays INSIDE the embed WebView (shim Web Audio at
+    // the tap, host-pushed volume) — the bridge hop to native audio read as
+    // lag. The embed's own Map.js guards (answerShown / already-final via the
+    // pushed multiplayerState) cover the sound; these guards cover the state.
     setGuessPosition({ lat, lng });
 
     // Multiplayer: send an interim (final:false) placement on every pin move
@@ -1542,11 +1614,10 @@ export default function GameScreen() {
     setMiniMapShown(false);
     setShowPano(false);
     if (points >= 4850) setConfettiKey((k) => k + 1);
-    // Score-graded reveal — sound + touch encode the same quality signal
-    // (the whoosh COMPLEMENTS hapticForScore, never replaces it). Pitch
-    // carries MEANING here, so `rate` is deterministic — never jittered
-    // (web gameUI.js: 0.85 + 0.35·min(1, score/5000)).
-    playSfx('guess', { rate: 0.85 + 0.35 * Math.min(1, points / 5000) });
+    // The score-graded reveal whoosh plays centrally in GameSurface (its
+    // isShowingResult flip — this setState right above), covering classic,
+    // country-guesser, daily and onboarding from one place. Only the haptic
+    // stays here (GameSurface deliberately owns no game state).
     hapticForScore(points);
 
     // Country streak — world map only (web gameUI.js: `gameOptions.location ===
@@ -2448,6 +2519,10 @@ export default function GameScreen() {
             style={[
               styles.mpReload,
               styles.mpReloadDuel,
+              // 2v2 bars stack TWO name pills under each side (TeamNames) —
+              // ~26px taller than the 1v1 single pill, so drop further or the
+              // button overlaps the second teammate's name.
+              gameData.team2v2 && styles.mpReloadDuel2v2,
               { paddingLeft: Math.max(insets.left, spacing.sm) },
             ]}
             edges={['top']}
@@ -2562,6 +2637,28 @@ export default function GameScreen() {
             )}
           </View>
         </Animated.View>
+
+        {/* ═══ MP REVEAL PANO — "Show Street View" on the answer banner ═══
+            An on-demand SECOND pano of the ANSWERED round (mapActualLocation),
+            layered above the frozen answer map (zIndex 10) and below the banner
+            (1001) / leaderboard (1200) / emotes (1300). Deliberately NOT the
+            live StreetViewWebView underneath everything: that one is already
+            preloading/crossfading to the NEXT round's pano during the reveal,
+            so exposing it would leak the upcoming location. Mounted only while
+            toggled; the reset effect above unmounts it the frame the reveal
+            ends. No onLoad — the live pano's loading state machine must not
+            hear about this instance. */}
+        {mpPanoShown && showMapResult && mapActualLocation && (
+          <View style={[StyleSheet.absoluteFillObject, { zIndex: 500 }]}>
+            <StreetViewWebView
+              lat={mapActualLocation.lat}
+              long={mapActualLocation.long}
+              heading={mapActualLocation.heading ?? mapActualLocation.head}
+              pitch={mapActualLocation.pitch}
+              nmpz={gameData?.nm ?? false}
+            />
+          </View>
+        )}
 
         {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
         {/* Matches web: .mobile_minimap__btns.miniMapShown */}
@@ -2751,7 +2848,11 @@ export default function GameScreen() {
           translateY={300}
           durationIn={420}
           durationOut={220}
-          pointerEvents="none"
+          // box-none (was none): the banner's Show Street View toggle needs its
+          // taps; only the banner card itself blocks touches (web parity — the
+          // endBanner div overlays the map the same way), the rest of the strip
+          // passes through to the answer map.
+          pointerEvents="box-none"
         >
           {mpReveal && (
             <ClassicEndBanner
@@ -2764,6 +2865,11 @@ export default function GameScreen() {
               totalRounds={gameData?.rounds}
               isFinal={mpReveal.isFinal}
               verdict={mpVerdict}
+              // Show Street View ↔ Show Map (web endBanner.js topGameInfoButton,
+              // shown in multiplayer there too). Toggles the answered-round pano
+              // layer over the answer map — see the MP REVEAL PANO block.
+              panoShown={mpPanoShown}
+              onTogglePano={() => setMpPanoShown((v) => !v)}
             />
           )}
         </RevealView>
@@ -3027,6 +3133,11 @@ const styles = StyleSheet.create({
   // Duel: drop below the health bars, left-aligned (web parity: home.js top:90 / left:10).
   mpReloadDuel: {
     paddingTop: spacing.sm + 72,
+  },
+  // 2v2: each side's bar stacks TWO name pills (TeamNames, ~23px each + 3 gap)
+  // where 1v1 has one — push the reload button below the second name.
+  mpReloadDuel2v2: {
+    paddingTop: spacing.sm + 100,
   },
   // Anti-cheat banner — web parity (.duel-warning-container / .duel-warning-content).
   // Sits BELOW the emote FAB layer (EmoteReactions container is zIndex 1300) so the

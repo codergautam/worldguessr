@@ -348,6 +348,14 @@ interface MultiplayerState {
   // Connection (from home.js:59-83)
   connected: boolean;
   connecting: boolean;
+  // An ESTABLISHED socket genuinely dropped (server died / network cut) and the
+  // service is auto-reconnecting. Distinct from plain `connecting`: housekeeping
+  // reconnects (foreground-after-idle, login/logout secret swap) flip `connecting`
+  // but never set this. WsIndicator uses it to surface the drop on every screen —
+  // gating purely on the multiplayer context hid real outages entirely, because
+  // every disconnect path tears the multiplayer state down in the same update.
+  // Set by useWebSocket's onDisconnect handler; cleared by the next verify.
+  connectionDropped: boolean;
   verified: boolean;
   playerCount: number;
   guestName: string | null;
@@ -602,6 +610,7 @@ function clearSettingsAckWatchdogs() {
 const initialState = {
   connected: false,
   connecting: false,
+  connectionDropped: false,
   verified: false,
   playerCount: 0,
   guestName: null as string | null,
@@ -924,6 +933,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       set({
         connected: true,
         connecting: false,
+        // The session is re-established — whatever drop we were surfacing is over.
+        connectionDropped: false,
         verified: true,
         guestName: data.guestName ?? state.guestName,
       });
@@ -951,6 +962,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         connecting: false,
         connected: false,
         error: data.message,
+        // Terminal = the session is gone server-side. `verified` must drop with
+        // it, or verified-gated flows (party create's createPrivateGame effect,
+        // the screen-presence sender) keep firing into a kicked session while
+        // its socket lingers OPEN. Non-terminal errors keep `verified` so the
+        // useWebSocket re-sync can restore `connected` from the live socket.
+        ...(terminal ? { verified: false } : {}),
         ...(terminal && wasInMultiplayer
           ? { inGame: false, gameData: null, emotes: [], ...queueTeardownState }
           : {}),

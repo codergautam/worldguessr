@@ -6,12 +6,12 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
   ImageBackground,
   Share,
   Platform,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { EMBED_HTML } from '../../generated/embedHtml';
+import { playSfx, toGain } from '../../services/sound';
+import { useSettingsStore } from '../../store/settingsStore';
 import LeafletMap from './LeafletMap';
 
 /**
@@ -124,6 +126,12 @@ export default function EmbeddedMap({
   const readyRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
 
+  // The pin click plays INSIDE the WebView (embed shim, Web Audio at the tap —
+  // the postMessage bridge made the native pin audibly laggy). The shim holds
+  // no volume of its own: the app's effective gain rides every updateProps, so
+  // slider changes apply live and muted stays zero-cost in-page too.
+  const sfxVolume = useSettingsStore((s) => s.sfxVolume);
+
   // On the results screen this WebView cold-starts on every fresh route mount —
   // a dark spinner then an abrupt map pop ("loading for a bit"). Fade the map in
   // once it signals ready so it emerges smoothly instead. Scoped to results so
@@ -161,6 +169,9 @@ export default function EmbeddedMap({
       mode: 'map',
       lang,
       shown: true,
+      // Perceptual gain (toGain) applied HOST-side so the shim needs no
+      // volume model of its own.
+      sfxGain: toGain(sfxVolume),
       options: { mapType },
       pinPoint: guessPosition ? { lat: guessPosition.lat, lng: guessPosition.lng } : null,
       answerShown: !!isShowingResult,
@@ -182,6 +193,7 @@ export default function EmbeddedMap({
   }, [
     route,
     lang,
+    sfxVolume,
     mapType,
     guessPosition,
     isShowingResult,
@@ -267,7 +279,12 @@ export default function EmbeddedMap({
     return (
       <LeafletMap
         guessPosition={guessPosition ?? null}
-        onGuessPositionChange={onGuessPositionChange}
+        onGuessPositionChange={(p) => {
+          // The embed shim normally owns the pin click; this fallback map has
+          // no shim, so sound it natively (bridge latency beats silence).
+          playSfx('pin');
+          onGuessPositionChange?.(p);
+        }}
         actualPosition={isShowingResult && location ? { lat: location.lat, lng: location.long } : null}
         isShowingResult={isShowingResult}
         guessPoints={guessPoints}
@@ -293,6 +310,10 @@ export default function EmbeddedMap({
           domStorageEnabled
           setSupportMultipleWindows={false}
           androidLayerType="hardware"
+          // Lets the shim's AudioContext unlock at load instead of on the
+          // first tap, so even the FIRST pin click is on the zero-latency
+          // path. The page has no other media; nothing else can autoplay.
+          mediaPlaybackRequiresUserAction={false}
           {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true } : {})}
         />
       </Animated.View>

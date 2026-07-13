@@ -4,12 +4,12 @@ import {
   Animated,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,9 +21,13 @@ import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 interface AccountSelectSheetProps {
   visible: boolean;
   onClose: () => void;
+  /** Contextual copy for gated-mode upsells (e.g. "Sign in to play Ranked");
+   * defaults to the generic sign-in headline. */
+  title?: string;
+  subtitle?: string;
 }
 
-export default function AccountSelectSheet({ visible, onClose }: AccountSelectSheetProps) {
+export default function AccountSelectSheet({ visible, onClose, title, subtitle }: AccountSelectSheetProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { signIn: googleSignIn, isReady: googleReady } = useGoogleSignIn();
@@ -143,7 +147,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
       onRequestClose={onClose}
     >
       <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={busy ? undefined : onClose} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={busy ? undefined : onClose} />
       </Animated.View>
       <Animated.View style={[
         styles.sheet,
@@ -156,6 +160,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
         },
       ]}>
         <Pressable
+          sfx="none"
           style={styles.handleHitArea}
           onPress={busy ? undefined : onClose}
           disabled={busy}
@@ -164,9 +169,9 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
         >
           <View style={styles.handle} />
         </Pressable>
-        <Text style={styles.title}>{t('signIn')}</Text>
-        <Text style={styles.subtitle} numberOfLines={1} adjustsFontSizeToFit>
-          {t('signInSubtitle', undefined, 'Track your progress and compete with friends!')}
+        <Text style={styles.title}>{title ?? t('signIn')}</Text>
+        <Text style={styles.subtitle} numberOfLines={2} adjustsFontSizeToFit>
+          {subtitle ?? t('signInSubtitle', undefined, 'Track your progress and compete with friends!')}
         </Text>
 
         {Platform.OS === 'ios' && appleAvailable && (

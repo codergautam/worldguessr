@@ -103,4 +103,4 @@ export const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
 // store review. Flip only when the team-parity phases pass e2e
 // (mobile-team-parity-plan.md §9), and never compile an interim flag-on build
 // against the production WS (override EXPO_PUBLIC_WS_URL for QA builds).
-export const TEAM_SUPPORT = false;
+export const TEAM_SUPPORT = true;

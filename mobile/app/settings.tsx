@@ -2,13 +2,13 @@ import { useCallback, useEffect } from 'react';
 import {
   ImageBackground,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { Pressable } from '../src/components/ui/SfxPressable';
 import Animated, { FadeInDown, FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -167,8 +167,15 @@ export default function SettingsScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Audio — two sliders shared with the party-lobby sound modal
+              (one VolumeSliders component, two surfaces — web parity). First
+              section on the page per user demand. */}
+          <Section title={t('audioSettings')} icon="volume-high-outline" index={0}>
+            <VolumeSliders />
+          </Section>
+
           {/* Units */}
-          <Section title={t('units')} icon="speedometer-outline" index={0}>
+          <Section title={t('units')} icon="speedometer-outline" index={1}>
             <SegmentedControl
               value={units}
               onChange={setUnits}
@@ -180,7 +187,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Map type */}
-          <Section title={t('mapType')} icon="map-outline" index={1}>
+          <Section title={t('mapType')} icon="map-outline" index={2}>
             <View style={styles.tileGrid}>
               {mapTypes.map((m) => {
                 const active = m.value === mapType;
@@ -219,7 +226,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Language */}
-          <Section title={t('language')} icon="language-outline" index={2}>
+          <Section title={t('language')} icon="language-outline" index={3}>
             <View style={styles.list}>
               {SUPPORTED_LANGUAGES.map((lang, i) => {
                 const active = lang === language;
@@ -248,7 +255,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Multiplayer */}
-          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={3}>
+          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={4}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
@@ -273,12 +280,6 @@ export default function SettingsScreen() {
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
             </View>
-          </Section>
-
-          {/* Audio — two sliders shared with the party-lobby sound modal
-              (one VolumeSliders component, two surfaces — web parity). */}
-          <Section title={t('audioSettings')} icon="volume-high-outline" index={4}>
-            <VolumeSliders />
           </Section>
 
           {/* Haptics */}

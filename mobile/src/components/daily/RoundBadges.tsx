@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Linking, Pressable, Animated } from 'react-native';
+import { View, Text, StyleSheet, Linking, Animated } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
 
@@ -82,7 +83,7 @@ function Badge({
   if (mapUrl) {
     return (
       <Animated.View style={[styles.badge, { borderColor: color }, animatedStyle]}>
-        <Pressable onPress={() => Linking.openURL(mapUrl)} style={styles.badgeInner}>
+        <Pressable onPress={() => Linking.openURL(mapUrl)} style={styles.badgeInner} sfx="none">
           {content}
         </Pressable>
       </Animated.View>

@@ -11,7 +11,6 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   StyleSheet,
   ImageBackground,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

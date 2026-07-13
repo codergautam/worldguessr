@@ -1,4 +1,5 @@
-import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../shared';

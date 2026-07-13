@@ -12,12 +12,12 @@ import {
   Easing,
   InteractionManager,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -29,6 +29,7 @@ import StreetViewWebView, { StreetViewHandle } from './StreetViewWebView';
 import EmbeddedMap from './EmbeddedMap';
 import ReloadButton from '../ui/ReloadButton';
 import { haptics } from '../../services/haptics';
+import { playSfx, preloadSfx, stopSfx } from '../../services/sound';
 import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
@@ -134,8 +135,6 @@ interface GameSurfaceProps {
   /** Back/leave handler shown on the loading cover (see GameLoadingOverlay.onBack).
    *  Pass only for modes where bailing mid-load is safe (singleplayer). */
   onLoadingBack?: () => void;
-  /** Mirrors web CountryBtns compact mode. Regular play uses compact; onboarding does not. */
-  compactCountryButtons?: boolean;
   /**
    * Suppresses the FAB / map / country buttons. Useful when a parent overlay
    * (e.g. onboarding's WelcomeOverlay) is up and we don't want input UI
@@ -202,7 +201,6 @@ function GameSurface(
     onLoadingRetry,
     loadingRetryLabel,
     onLoadingBack,
-    compactCountryButtons = true,
     hideInputs = false,
     showPanoOnResult = false,
     onHint,
@@ -295,6 +293,40 @@ function GameSurface(
       return () => clearTimeout(t);
     }
   }, [streetViewLoaded, mapMounted]);
+
+  // Decode the reveal whoosh before the first submit (web Map.js
+  // ClickHandler-mount parity). The pin is NOT preloaded natively — it plays
+  // inside the embed WebView (shim decodes it there on the host gain push).
+  useEffect(() => {
+    preloadSfx('guess');
+  }, []);
+
+  // Answer-reveal whoosh, centralized for every GameSurface mode (web
+  // gameUI.js keys this on showAnswer for singleplayer/daily/onboarding
+  // alike; multiplayer never mounts GameSurface — its server-timed reveal
+  // lives in [id].tsx). Pitch carries MEANING so `rate` is deterministic,
+  // never jittered: pin rounds grade points/5000, country/continent rounds
+  // are binary (web parity). Two guards: only a false→true flip plays (a
+  // results-view mount starts true and must stay silent), and the roundKey
+  // latch stops replays from result-time re-renders (pano toggle, rotation).
+  const prevShowingResultRef = useRef(isShowingResult);
+  const revealSfxKeyRef = useRef<string | number | null>(null);
+  useEffect(() => {
+    const was = prevShowingResultRef.current;
+    prevShowingResultRef.current = isShowingResult;
+    if (!isShowingResult || was) return;
+    const key = roundKey ?? round ?? 0;
+    if (revealSfxKeyRef.current === key) return;
+    revealSfxKeyRef.current = key;
+    const quality =
+      variant === 'pin'
+        ? Math.min(1, (guessPoints ?? 0) / 5000)
+        : countryPicked && correctAnswer && countryPicked === correctAnswer
+          ? 1
+          : 0;
+    stopSfx('ticking'); // the round-clock bed must never survive into the reveal
+    playSfx('guess', { rate: 0.85 + 0.35 * quality });
+  }, [isShowingResult, roundKey, round, variant, guessPoints, countryPicked, correctAnswer]);
 
   // ── Animations ─────────────────────────────────────────────────────────
   const loadingOpacity = useRef(new Animated.Value(1)).current;
@@ -391,7 +423,16 @@ function GameSurface(
   }, [isShowingResult, isCountryVariant]);
 
   const mapOpacity = useRef(new Animated.Value(0)).current;
+  // Result → next-round map exits happen entirely under the loading cover
+  // (beginRoundTransition) and are never meant to be seen — but the cover's
+  // fade-out is native-driven while these exits animate height/opacity on the
+  // JS thread, which the round advance keeps busy. Under that load a 200ms
+  // exit can still be mid-flight when the cover lifts, flashing a sliver of
+  // the result map sliding out. Snap exits instead of animating them.
+  const wasShowingResult = useRef(false);
   useEffect(() => {
+    const exitingResult = wasShowingResult.current && !isShowingResult;
+    wasShowingResult.current = isShowingResult;
     if (isCountryVariant) {
       // Pure opacity fade-in, mirroring web's `mapFadeReveal` (opacity 0 -> 1)
       // for #miniMapArea.countryGuessrMapReveal. The map is SNAPPED to full size
@@ -399,6 +440,11 @@ function GameSurface(
       // slow & smooth, no dim, no slide. The Leaflet camera glides to the answer
       // underneath the fade.
       mapSlideAnim.setValue(isShowingResult ? 1 : 0);
+      if (exitingResult) {
+        mapOpacity.stopAnimation();
+        mapOpacity.setValue(0);
+        return;
+      }
       Animated.timing(mapOpacity, {
         toValue: isShowingResult ? 1 : 0,
         // Snappy fade-in (still smooth), quick fade-out.
@@ -416,8 +462,9 @@ function GameSurface(
     // result reveal is a pure clip change with NO WebView resize. That's what
     // lets us snap straight to a full-screen map in ONE frame: instant, with no
     // reflow glitch and no flash. Leaflet then flies to the answer underneath.
-    // The result→next-round exit is hidden behind the loading cover (see
-    // beginRoundTransition), so the height collapse here is never visible.
+    // The result→next-round exit happens under the loading cover (see
+    // beginRoundTransition) and is snapped, not animated (exitingResult below),
+    // so the height collapse can never outlive the cover.
     mapOpacity.setValue(1);
     if (isShowingResult && !showPanoOnResult) {
       // Slide the clip up to full ONLY once the embed says its in-page resize is
@@ -448,6 +495,10 @@ function GameSurface(
         tension: 80,
         useNativeDriver: false,
       }).start();
+    } else if (exitingResult) {
+      // Hidden behind the loading cover — snap (see note above the effect).
+      mapSlideAnim.stopAnimation();
+      mapSlideAnim.setValue(0);
     } else {
       Animated.timing(mapSlideAnim, {
         toValue: 0,
@@ -494,12 +545,11 @@ function GameSurface(
         useNativeDriver: false,
       }).start();
     } else {
-      Animated.timing(bannerSlideAnim, {
-        toValue: 300,
-        duration: 200,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: false,
-      }).start();
+      // Result → next-round exit is under the loading cover (every GameSurface
+      // flow advances via beginRoundTransition) — snap for the same reason as
+      // the map exits above: a JS-driven slide-out can outlive the cover.
+      bannerSlideAnim.stopAnimation();
+      bannerSlideAnim.setValue(300);
     }
   }, [isShowingResult]);
 
@@ -744,6 +794,10 @@ function GameSurface(
                   isCountryVariant
                     ? undefined
                     : (p) => {
+                        // No pin sound here: it plays INSIDE the embed WebView
+                        // (shim Web Audio at the tap — the bridge hop to native
+                        // audio read as lag). EmbeddedMap's fallback map is the
+                        // only native-pin path left.
                         if (!isShowingResult) onGuessPositionChange?.(p);
                       }
                 }
@@ -809,6 +863,12 @@ function GameSurface(
               </Pressable>
             )}
             <Pressable
+              // Web parity: gameUI.js opts the Guess button out of click_2
+              // outside multiplayer (data-no-click-sfx) — on this SP-only
+              // surface the reveal whoosh fires instantly on the same press,
+              // so it IS the press sound. MP's Guess button ([id].tsx) keeps
+              // the click because its reveal lags the press.
+              sfx="none"
               onPress={handleSubmitPin}
               disabled={!guessPosition}
               style={({ pressed }) => [
@@ -904,7 +964,7 @@ function GameSurface(
               styles.countryDock,
               {
                 opacity: inputsFade,
-                paddingBottom: compactCountryButtons ? Math.max(insets.bottom, spacing.md) + 4 : 0,
+                paddingBottom: Math.max(insets.bottom, spacing.md) + 4,
               },
             ]}
             pointerEvents="box-none"
@@ -915,8 +975,6 @@ function GameSurface(
               shown
               selected={countryPicked}
               correct={correctAnswer}
-              compact={compactCountryButtons}
-              bottomInset={compactCountryButtons ? 0 : Math.max(insets.bottom, spacing.md)}
               onPress={(answer) => onAnswerCountry?.(answer)}
             />
           </Animated.View>

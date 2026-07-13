@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -172,10 +172,10 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable style={styles.overlay} onPress={handleBackdrop}>
+        <Pressable sfx="none" style={styles.overlay} onPress={handleBackdrop}>
           <Animated.View style={[styles.card, cardStyle]}>
             {/* Inner Pressable swallows taps so pressing the card doesn't close it. */}
-            <Pressable onPress={() => {}} style={styles.inner}>
+            <Pressable sfx="none" onPress={() => {}} style={styles.inner}>
               {step === 'stars' ? (
                 <>
                   <Animated.View style={[styles.iconWrap, iconStyle]}>

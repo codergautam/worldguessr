@@ -4,11 +4,11 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
   Image,
   Animated,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';

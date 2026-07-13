@@ -18,11 +18,11 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
-  Pressable,
   Animated,
   Easing,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';

@@ -4,12 +4,12 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
   Animated,
   Easing,
 } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, t, USERNAME_MAX_LENGTH } from '../shared';
 import { useAuthStore } from '../store/authStore';
@@ -138,7 +138,7 @@ export default function SetUsernameModal() {
   return (
     <View style={styles.root} pointerEvents="auto">
       {/* Absolute-fill catcher so no touch leaks to the (frozen) UI beneath. */}
-      <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} />
+      <Pressable sfx="none" style={StyleSheet.absoluteFill} onPress={() => {}} />
       <Animated.View
         style={[styles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents="none"

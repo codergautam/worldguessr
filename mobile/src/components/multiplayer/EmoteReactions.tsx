@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   Easing,
   Extrapolation,
@@ -25,7 +26,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../shared';
 import { haptics } from '../../services/haptics';
-import { sound } from '../../services/sound';
 import { spacing, fontSizes } from '../../styles/theme';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
 import getMyTeam from '../../shared/game/getMyTeam';
@@ -160,7 +160,8 @@ export default function EmoteReactions({
 
   const handleSend = (index: number) => {
     if (inCooldown) return;
-    sound.click();
+    // Click sound rides SfxPressable (the buttons are disabled in cooldown,
+    // so a dead press stays silent — web disabled-button parity).
     haptics.light();
     sendEmote(index);
     setCooldownUntil(Date.now() + EMOTE_COOLDOWN_MS);

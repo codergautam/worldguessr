@@ -84,7 +84,17 @@ export default function GameTimer({
   hasGuess = false,
   variant = 'default',
 }: GameTimerProps) {
-  const [timeRemaining, setTimeRemaining] = useState(initialTime);
+  // Seed from serverEndTime when server-driven so the very first render already
+  // has a number. On duel reconnect the partial `game` snapshot carries
+  // nextEvtTime (serverEndTime) but NOT timePerRound, so `initialTime` arrives
+  // undefined — the update effect below only runs post-render, so without this
+  // the duel variant would `undefined.toFixed(1)` and crash the whole tree.
+  const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+    if (serverEndTime !== undefined && serverEndTime > 0) {
+      return Math.max(0, Math.floor((serverEndTime - Date.now() - timeOffset) / 100) / 10);
+    }
+    return initialTime ?? 0;
+  });
   // Tablet scale: this HUD pill uses fixed theme px (md/xs) that read small on an
   // iPad. Bump the text + pill padding up. Phones: sc is 1.0× (no-op).
   const { sc, isTablet } = useGameUiScale();
@@ -98,7 +108,7 @@ export default function GameTimer({
   // Reset timer when initialTime changes (new round) — local mode only
   useEffect(() => {
     if (!isServerDriven) {
-      setTimeRemaining(initialTime);
+      setTimeRemaining(initialTime ?? 0);
     }
   }, [initialTime, roundKey, isServerDriven]);
 

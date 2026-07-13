@@ -13,9 +13,9 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   Alert,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   Easing,

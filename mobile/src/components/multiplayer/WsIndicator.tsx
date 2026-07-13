@@ -7,16 +7,32 @@
  * - Red when disconnected
  * - Green briefly when reconnected after showing yellow/red
  *
- * Only ever shown in a MULTIPLAYER context (active game, party lobby, or
- * matchmaking queue). On home / singleplayer / daily the connection is just
- * background presence — a foreground-after-idle reconnect there is housekeeping,
- * not something to surface — so the indicator stays fully hidden (no yellow pulse,
- * no green "reconnected" flash), mirroring the silenced reconnect toast.
+ * Visibility rules (a deliberate deviation from web, whose navbar shows the icon
+ * on every screen except onboarding):
+ *
+ *  - In a MULTIPLAYER context (active game, party lobby, matchmaking queue):
+ *    the full behavior above.
+ *  - Everywhere else, HOUSEKEEPING transitions stay hidden: a
+ *    foreground-after-idle reconnect or a login/logout secret swap is background
+ *    presence maintenance, not something to surface (no yellow pulse, no green
+ *    "reconnected" flash — mirroring the silenced reconnect toast).
+ *  - BUT a genuine connection problem surfaces on EVERY screen except
+ *    onboarding, matching web: an established socket dropping
+ *    (`connectionDropped` — instant yellow while auto-reconnect retries), a
+ *    cold-start connect that can't establish (yellow after the 3s reveal —
+ *    healthy app-open connects finish first and never show), and the
+ *    hard-disconnected end state (red — retry budget exhausted, or a terminal
+ *    uac/auth error). Gating these on the multiplayer context made red
+ *    UNREACHABLE: every path that reaches connected:false/connecting:false also
+ *    tears down inGame/gameData/queue in the same store update (onDisconnect
+ *    pops the user home; onReconnectFailed clears both together), so the gate
+ *    always hid the icon before red could ever render.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 
@@ -28,12 +44,17 @@ export default function WsIndicator() {
   const insets = useSafeAreaInsets();
   const connected = useMultiplayerStore((s) => s.connected);
   const connecting = useMultiplayerStore((s) => s.connecting);
-  // Connection status only surfaces in a multiplayer context (active game, party
-  // lobby, or matchmaking queue). Anywhere else the radar stays hidden — see the
-  // file header and the guard at the top of the status effect below.
+  const connectionDropped = useMultiplayerStore((s) => s.connectionDropped);
+  // Transient connection states only surface in a multiplayer context (active
+  // game, party lobby, or matchmaking queue); genuine failures surface anywhere.
+  // See the file header and the guard at the top of the status effect below.
   const inMultiplayer = useMultiplayerStore(
     (s) => s.inGame || !!s.gameData || !!s.gameQueued,
   );
+  // Web hides the icon during onboarding (navbar: shown={screen !== 'onboarding'});
+  // a connection radar over the first-run tutorial is noise. Same here.
+  const pathname = usePathname();
+  const inOnboarding = pathname.startsWith('/onboarding');
 
   const [showIcon, setShowIcon] = useState(false);
   const slideAnim = useRef(new Animated.Value(80)).current; // off-screen right
@@ -57,6 +78,12 @@ export default function WsIndicator() {
   // limbo before useWebSocket sets connecting:true — NOT a real disconnect,
   // so we mustn't flash the red indicator on every cold start.
   const hasEverConnected = useRef(false);
+  // Track whether a connect attempt has ever STARTED. Distinguishes the
+  // pre-bootstrap (false,false) limbo above from the (false,false) that follows
+  // a cold-start connect exhausting its whole retry budget against an
+  // unreachable server — that one IS a real disconnect and must go red, even
+  // though we never managed to connect.
+  const hasEverStartedConnecting = useRef(false);
 
   // Pulse animation loop
   useEffect(() => {
@@ -85,12 +112,37 @@ export default function WsIndicator() {
   }, [showIcon, connected]);
 
   useEffect(() => {
-    // Outside multiplayer the radar never shows — kill any in-flight reveal/hold
-    // and stay hidden. This is what silences the yellow→green flash a home-screen
-    // foreground-after-idle reconnect would otherwise produce. We still keep the
-    // prev-refs in sync and record hasEverConnected so that when the user DOES
-    // enter multiplayer, the first genuine drop can flash yellow instantly.
-    if (!inMultiplayer) {
+    if (connecting) hasEverStartedConnecting.current = true;
+
+    // A genuine connection problem overrides the multiplayer-only gate (except
+    // during onboarding — web hides the icon there too):
+    //  - hardDisconnected: not connected and not even retrying. The red state.
+    //    It can only be reached AFTER the multiplayer teardown (onReconnectFailed
+    //    / terminal error clear inGame/gameData in the same update that clears
+    //    `connecting`), so it MUST bypass the gate or it never renders.
+    //  - connectionDropped: an established socket dropped for real and the
+    //    service is retrying — pulse yellow immediately wherever the user is.
+    //    Housekeeping reconnects never set this flag, so those stay silent.
+    //  - Still trying to establish the session's FIRST connection (cold start
+    //    against a slow/unreachable server): surface it like web does — the
+    //    3s reveal timer below filters every healthy app-open connect, so only
+    //    genuinely struggling connects show. Housekeeping stays exempt because
+    //    it requires hasEverConnected.
+    const hardDisconnected =
+      !connected &&
+      !connecting &&
+      (hasEverConnected.current || hasEverStartedConnecting.current);
+    const surfaceAnywhere =
+      hardDisconnected ||
+      connectionDropped ||
+      (connecting && !hasEverConnected.current);
+
+    // Otherwise, outside multiplayer the radar never shows — kill any in-flight
+    // reveal/hold and stay hidden. This is what silences the yellow→green flash a
+    // home-screen foreground-after-idle reconnect would otherwise produce. We still
+    // keep the prev-refs in sync and record hasEverConnected so that when the user
+    // DOES enter multiplayer, the first genuine drop can flash yellow instantly.
+    if (inOnboarding || (!inMultiplayer && !surfaceAnywhere)) {
       if (connected) hasEverConnected.current = true;
       if (hideTimer.current) {
         clearTimeout(hideTimer.current);
@@ -144,11 +196,13 @@ export default function WsIndicator() {
         }
       }
     } else if (!connected) {
-      // Real disconnect — show red immediately, but ONLY if we've previously
-      // been connected. On the very first render we're in (false,false) limbo
-      // before useWebSocket flips connecting:true; flashing red there is just
-      // noise.
-      if (hasEverConnected.current) {
+      // Real disconnect — show red immediately. hardDisconnected (computed
+      // above; connecting is false in this branch) excludes only the mount-time
+      // (false,false) limbo before useWebSocket flips connecting:true — flashing
+      // red on every cold start would be noise. A cold-start connect that
+      // exhausted its retry budget without EVER connecting passes via
+      // hasEverStartedConnecting: that's a real outage, not limbo.
+      if (hardDisconnected) {
         setShowIcon(true);
       }
     } else if (connected && !wasConnected) {
@@ -175,7 +229,7 @@ export default function WsIndicator() {
 
     prevConnected.current = connected;
     prevConnecting.current = connecting;
-  }, [connected, connecting, inMultiplayer]);
+  }, [connected, connecting, connectionDropped, inMultiplayer, inOnboarding]);
 
   // Drive slide animation after React commits the new showIcon state.
   // Starting animations inline above could fire before the View is mounted,

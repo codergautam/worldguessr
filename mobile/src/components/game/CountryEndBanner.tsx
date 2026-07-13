@@ -3,12 +3,12 @@ import {
   Animated,
   Easing,
   Image,
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../shared';
 import {
@@ -17,6 +17,7 @@ import {
   nameFromCode,
 } from '../../shared/data/countryHelpers';
 import { localeString, t } from '../../shared';
+import { sound } from '../../services/sound';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import { useGameUiScale } from '../../styles/responsive';
 
@@ -136,7 +137,12 @@ export default function CountryEndBanner({
       easing: Easing.linear,
       useNativeDriver: false,
     }).start();
-    const t = setTimeout(onNext, autoAdvanceMs);
+    const t = setTimeout(() => {
+      // A programmatic advance sounds like a manual Next press (web
+      // endBanner.js:112 — the delegated click listener can't hear it).
+      sound.click();
+      onNext();
+    }, autoAdvanceMs);
     return () => clearTimeout(t);
   }, [autoAdvanceMs, round]);
 

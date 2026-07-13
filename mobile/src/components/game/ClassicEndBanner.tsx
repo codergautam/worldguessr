@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { t } from '../../shared/locale';
 import CountryFlag from '../CountryFlag';

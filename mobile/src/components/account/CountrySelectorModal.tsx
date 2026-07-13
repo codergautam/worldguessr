@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   FlatList,
   Modal,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { api } from '../../services/api';
 import { wsService } from '../../services/websocket';
 import * as countryCodes from 'countries-code';

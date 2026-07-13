@@ -137,21 +137,9 @@ export function preloadInterstitial(): void {
   }
 }
 
-export function showInterstitial(): boolean {
-  const ad = ensureInterstitial();
-  if (!ad) return false;
-  if (!ad.loaded) {
-    preloadInterstitial();
-    return false;
-  }
-  try {
-    ad.show();
-    return true;
-  } catch (err) {
-    console.warn('[ads] interstitial show failed', err);
-    return false;
-  }
-}
+// NOTE: every show path lives in runGameInterstitial below — it wraps the
+// show in duckAudio(true/false) (web crazyMidgame parity). Never add a bare
+// show helper without the duck: an undocked ad plays over full-volume music.
 
 // ── Frequency-capped game interstitials ──────────────────────────────────────
 // Policy (intentionally minimal & non-intrusive):

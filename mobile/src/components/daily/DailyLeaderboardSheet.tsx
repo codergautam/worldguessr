@@ -10,7 +10,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Modal, View, Text, ScrollView, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../shared/locale';
@@ -92,7 +93,7 @@ export default function DailyLeaderboardSheet({ visible, date, userData, isLogge
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} sfx="none" />
         <View style={styles.sheetShadow}>
           <View style={styles.sheet}>
             <View style={styles.handle} />

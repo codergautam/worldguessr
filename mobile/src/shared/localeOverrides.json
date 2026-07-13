@@ -26,6 +26,8 @@
   "duelHealthDamage": "-{{damage}} ❤️",
   "usernameFlaggedMobileExplanation": "Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.",
   "usernameFlaggedGoToProfileTab": "Your username has been flagged. Please change it from the Profile tab.",
+  "signInToPlayRanked": "Sign in to play Ranked",
+  "signInToPlay2v2": "Sign in to play 2v2",
   "appleNoSignInToken": "Apple did not return a sign in token.",
   "googleNoSignInToken": "Google did not return a sign in token.",
   "googleSignInNoPlayServices": "Google Play Services is unavailable or out of date. Update it and try again.",
