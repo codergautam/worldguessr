@@ -10,7 +10,7 @@
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true pnpm dev",
     "dev:poki": "cross-env NEXT_PUBLIC_POKI=true pnpm dev",
     "build": "cross-env next build",
-    "build:poki": "cross-env NEXT_PUBLIC_POKI=true NEXT_DIST_DIR=.next-poki next build",
+    "build:poki": "cross-env NEXT_PUBLIC_POKI=true NEXT_PUBLIC_API_URL=api.worldguessr.com NEXT_PUBLIC_AUTH_URL=gauth.worldguessr.com NEXT_PUBLIC_WS_HOST=server.worldguessr.com NEXT_DIST_DIR=.next-poki next build && node scripts/packagePoki.mjs",
     "start-api": "cross-env  NODE_ENV=production node server.js",
     "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",

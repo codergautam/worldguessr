@@ -17,6 +17,11 @@ function medal(rank) {
 
 function ProfileNameLink({ username, className }) {
   if (!username) return null;
+  // Poki hosts the build at a nested per-deploy CDN path with no /user route —
+  // the target="_blank" link would open a 404 tab. Plain text instead.
+  if (process.env.NEXT_PUBLIC_POKI === 'true') {
+    return <span className={className}>{username}</span>;
+  }
   return (
     <Link
       href={`/user?u=${encodeURIComponent(username)}`}

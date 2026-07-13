@@ -5,6 +5,11 @@ import CountryFlag from './utils/countryFlag';
 import { MdWifiOff } from 'react-icons/md';
 import { useTranslation } from '@/components/useTranslations';
 
+// Poki hosts the build at a nested per-deploy CDN path with no /user route —
+// a root-absolute profile link would open a 404 tab. Fall back to the same
+// plain-text rendering guests (hasProfile=false) already get.
+const inPoki = process.env.NEXT_PUBLIC_POKI === 'true';
+
 const easeOutElastic = (t) => {
   const c4 = (2 * Math.PI) / 3;
   return t === 0
@@ -60,7 +65,7 @@ const TeamNames = ({ names, dcLabel }) => {
         // name+flag so the elo suffix stays un-underlined, like the 1v1 bar.
         return (
           <span key={i} style={rowStyle}>
-            {entry.username && !entry.isMe && entry.hasProfile ? (
+            {entry.username && !entry.isMe && entry.hasProfile && !inPoki ? (
               <Link href={`/user?u=${encodeURIComponent(entry.username)}`} target="_blank"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', maxWidth: '100%', minWidth: 0, color: 'inherit', textDecoration: 'underline', pointerEvents: 'auto' }}>
                 {inner}
@@ -167,7 +172,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
         <div className="player-name-wrapper">
           {Array.isArray(names) && names.length > 0 ? (
             <TeamNames names={names} dcLabel={text("disconnectedTag")} />
-          ) : isOpponent && name && hasProfile ? (
+          ) : isOpponent && name && hasProfile && !inPoki ? (
             <Link
               href={`/user?u=${encodeURIComponent(name)}`}
               target="_blank"
