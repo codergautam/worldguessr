@@ -79,6 +79,14 @@ const result = await esbuild.build({
     'process.env.NODE_ENV': '"production"',
     'process.env.NEXT_PUBLIC_BASE_PATH': '""',
     'process.env.NEXT_PUBLIC_COOLMATH': '""',
+    // Catch-all AFTER the specific keys (longest match wins): any OTHER
+    // process.env.X in the web graph becomes ({}).X → undefined, instead of a
+    // bare `process` reference that throws ReferenceError at eval inside the
+    // WebView (no Node globals there) and kills the whole bundle before it
+    // can signal ready — the host then waits out READY_TIMEOUT_MS and falls
+    // back to the native LeafletMap (July 13: process.env.NEXT_PUBLIC_POKI in
+    // lib/basePath.js did exactly this on the next rebuild).
+    'process.env': '{}',
   },
   loader: {
     // The web codebase (Map.js, ResultsMap.js, countryFlag.js, …) writes JSX in

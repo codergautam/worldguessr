@@ -41,13 +41,19 @@ import PlayerList from './PlayerList';
 import InviteFriendsModal from './InviteFriendsModal';
 import MapSelectorModal from '../game/MapSelectorModal';
 import VolumeSliders from '../VolumeSliders';
+import EmoteReactions from './EmoteReactions';
 
 interface MultiplayerLobbyProps {
   /** Leave/back handler owned by the unified screen (web backBtnPressed parity). */
   onLeave: () => void;
+  /**
+   * Emote FAB gate, fused by the parent screen (settings toggle && screen focus —
+   * see [id].tsx). Web renders emotes in every waiting lobby, not just mid-match.
+   */
+  emotesShown?: boolean;
 }
 
-export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
+export default function MultiplayerLobby({ onLeave, emotesShown = false }: MultiplayerLobbyProps) {
   // Read insets via the hook (synchronous from context) rather than the native
   // <SafeAreaView> component, whose padding lands a frame late — under the
   // 'fade' screen transition that one-frame jump is visible as the header
@@ -91,6 +97,12 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   const teamScoring = useMultiplayerStore((s) => s.gameData?.teamScoring ?? 'closest');
   const allowTeamPick = useMultiplayerStore((s) => !!s.gameData?.allowTeamPick);
   const teamGame = TEAM_SUPPORT && !is2v2 && serverTeamGame;
+
+  // Measured portrait footer height so the emote FAB clears the action buttons
+  // (footer content varies by role/mode/status lines — a constant would drift).
+  // Landscape needs no lift: the footer is a right-hand sidebar there and the
+  // bottom-left corner belongs to the scroll column.
+  const [footerHeight, setFooterHeight] = useState(0);
 
   // "Queueing in 3…" — the server stamps the lobby state with the remaining
   // ms before it auto-queues (post-pairing preview / pregame-cancel regroup).
@@ -565,6 +577,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
             isLandscape && styles.footerLandscape,
             isLandscape && { width: Math.min(320, Math.max(260, width * 0.4)) },
           ]}
+          onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
         >
           {/* Settings preview + editing — hidden entirely for 2v2: matchmade
               games use fixed standard settings, so options here would be
@@ -691,6 +704,11 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
         </View>
         </View>
       </View>
+
+      {/* Emote FAB — web parity: lobbies are chatty (server broadcasts emotes in
+          the 'waiting' state; stage-1 teammate search included). Names always show
+          here: lobby gameData is never a duel, matching web's hideName derivation. */}
+      {emotesShown && <EmoteReactions bottomOffset={isLandscape ? 0 : footerHeight} />}
 
       <InviteFriendsModal
         visible={inviteModalVisible}

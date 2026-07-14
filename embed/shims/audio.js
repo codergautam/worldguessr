@@ -13,9 +13,16 @@
 // VOLUME STAYS NATIVE-GOVERNED: the host pushes the app's effective SFX gain
 // (perceptual toGain(slider), 0..1) into `window.__nativeSfxGain` on every
 // updateProps (EmbeddedMap `sfxGain` prop → entry.jsx). No localStorage, no
-// second source of truth; gain 0 = no fetch, no decode, no sound. On iOS the
-// WebView shares the app's AVAudioSession, so the native silent-switch policy
-// (playsInSilentMode: false) applies here too.
+// second source of truth; gain 0 = no fetch, no decode, no sound.
+//
+// AUDIO SESSION: the WebView does NOT share the app's AVAudioSession. The
+// moment this page activates an AudioContext — even a silent one — WebKit
+// raises its own DEFAULT ('auto' → non-mixable playback) audio session,
+// which OS-interrupts the app's ambient expo-audio music: a pause+resume
+// blip on every map mount/unmount (every game entry/exit). ensureCtx
+// declares the page's session 'ambient' BEFORE constructing the context so
+// it mixes and never grabs focus; ambient also respects the ring/silent
+// switch, matching the app's playsInSilentMode: false policy.
 //
 // Every other export keeps the no-op surface so no other web sound can sneak
 // into the bundle.
@@ -39,6 +46,10 @@ function ensureCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
+    // Ambient BEFORE construction — see the AUDIO SESSION note in the header.
+    // WebKit-only API (iOS 16.4+); guarded no-op on Android, where Chromium
+    // doesn't focus-grab for a silent context in the first place.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { }
     ctx = new AC();
   }
   // Warm the context off the tap path — the host sets

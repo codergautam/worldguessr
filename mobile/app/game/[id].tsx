@@ -2419,7 +2419,12 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       {isLobby ? (
-        <MultiplayerLobby onLeave={handleLeave} />
+        // Web parity: emotes are live in EVERY waiting lobby (party, 2v2 staging,
+        // stage-1 teammate search) — home.js renders them whenever inGame, and the
+        // server's emote handler only checks gameId, not state. The focus gate
+        // mirrors the in-game mount below: a non-host parked on /game/results while
+        // the host restarts the party would otherwise double-mount reactions.
+        <MultiplayerLobby onLeave={handleLeave} emotesShown={emotesEnabled && isScreenFocused} />
       ) : (
       <View style={styles.container}>
       <Animated.View

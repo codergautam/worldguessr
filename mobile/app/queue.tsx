@@ -28,6 +28,7 @@ import { colors, t } from '../src/shared';
 import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplayerStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
 import EmoteReactions from '../src/components/multiplayer/EmoteReactions';
@@ -90,6 +91,7 @@ export default function QueueScreen() {
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
+  const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
   const exitedRef = useRef(false);
   const is2v2 = gameQueued === '2v2';
   // 2v2 Cancel is a REQUEST, not a local teardown (see handleCancel) — this
@@ -352,8 +354,9 @@ export default function QueueScreen() {
           emotes keep flowing while opponent-searching (web keeps its emote bar
           on the queue banner). Store self-styling works off queueMyId. Team
           coloring is inherently inactive here (gameData null → myTeam
-          unresolvable) — web behaves the same. */}
-      {is2v2 && <EmoteReactions />}
+          unresolvable) — web behaves the same. Gated on the settings toggle
+          like every other mount (web returns null when it's off). */}
+      {is2v2 && emotesEnabled && <EmoteReactions />}
     </View>
   );
 }

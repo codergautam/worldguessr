@@ -293,12 +293,17 @@ function HealthBar({
   const league = player.elo !== undefined ? getLeague(player.elo) : null;
   const eloColor = league?.light ?? league?.color ?? '#60a5fa';
 
+  // Web parity (duelHealthbar.js hasProfile = !!accountId): bots and guests
+  // have no /user page, so their names render as plain text — no underline,
+  // no press, no profile sheet. Same gate TeamNames already applies.
+  const hasProfile = !isMe && !!player.accountId;
+
   const nameInner = (
     <PlayerName
       name={player.username}
       countryCode={player.countryCode}
       flagSize={14}
-      textStyle={[styles.username, !isMe && styles.usernameOpponent]}
+      textStyle={[styles.username, hasProfile && styles.usernameOpponent]}
       gap={5}
     >
       {player.elo !== undefined && (
@@ -373,7 +378,7 @@ function HealthBar({
 
       {nameSlot != null ? (
         nameSlot
-      ) : !isMe ? (
+      ) : hasProfile ? (
         <Pressable
           // Web parity: opponent-name <span>, not a <button> — silent.
           sfx="none"
@@ -402,7 +407,7 @@ function HealthBar({
       )}
       </Animated.View>
 
-      {nameSlot == null && !isMe && (
+      {nameSlot == null && hasProfile && (
         <ProfileSheet
           visible={profileOpen}
           username={player.username}
