@@ -275,7 +275,9 @@ function fadePlayer(player: AudioPlayer, target: number, seconds: number, onDone
 // ── Music ───────────────────────────────────────────────────────────────────
 
 // Keep in LOCKSTEP with web audio.js PLAYLISTS (the new-track rule updates
-// both manifests + runs the loudnorm check). Path fragments under /music/.
+// both manifests + runs the loudnorm check). Path fragments under
+// /music-96k/ — mobile streams the 96kbps CBR mirror (data cost); web keeps
+// the full-quality masters in /music/. New tracks need both copies.
 const PLAYLISTS = {
   chill: [
     'drift-across-moss',
@@ -347,7 +349,9 @@ function ensureMusicCacheDir(): Directory | null {
  * muted users still transfer nothing.
  */
 function resolveTrackSource(trackPath: string): string {
-  const remote = `${SITE_URL}/music/${trackPath}.mp3`;
+  // music-96k = the mobile mirror; byte-identical to what /music/ served
+  // before the HQ/96k split, so music-v1 cache entries stay valid (no bump).
+  const remote = `${SITE_URL}/music-96k/${trackPath}.mp3`;
   currentCachedFile = null;
   const dir = ensureMusicCacheDir();
   if (!dir) return remote;

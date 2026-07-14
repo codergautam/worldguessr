@@ -53,6 +53,11 @@ function toDosTimestamp(date) {
     return { dosDate, dosTime };
 }
 
+// public/music-96k/ is the mobile app's low-bitrate music mirror — web builds
+// (Poki included) stream the full-quality masters from music/, so shipping the
+// mirror would add ~24MB of dead audio to the zip.
+const excludedArchiveDirs = new Set(['music-96k']);
+
 async function collectFiles(directory, prefix = '') {
     const files = [];
     const entries = await readdir(directory, { withFileTypes: true });
@@ -61,6 +66,7 @@ async function collectFiles(directory, prefix = '') {
     for (const entry of entries) {
         const absolutePath = path.join(directory, entry.name);
         const archiveName = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (excludedArchiveDirs.has(archiveName)) continue;
 
         if (entry.isDirectory()) {
             files.push(...(await collectFiles(absolutePath, archiveName)));
