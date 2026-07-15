@@ -152,6 +152,12 @@ class WebSocketService {
     return this._currentRetry;
   }
 
+  /** The current attempt budget (see reconnectBudget). Read with currentRetry
+   * by WsIndicator's tap-for-details alert ("attempt x/y", web's connectingMessage). */
+  get maxRetries(): number {
+    return this.reconnectBudget;
+  }
+
   // ── Connection ────────────────────────────────────────────
 
   /**
@@ -900,18 +906,6 @@ class WebSocketService {
     }
   }
 
-  /**
-   * Forget the stored rejoinCode so the next verify reconnects as a fresh home
-   * session instead of rejoining the game. Used when a mid-game drop sends the
-   * user home: we don't want the server to replay them back into the game.
-   */
-  async clearRejoinCode(): Promise<void> {
-    try {
-      await SecureStore.deleteItemAsync(REJOIN_CODE_KEY);
-    } catch (err) {
-      console.error('[WS] Failed to clear rejoinCode:', err);
-    }
-  }
 }
 
 // Singleton export.

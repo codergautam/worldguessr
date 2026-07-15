@@ -498,7 +498,7 @@ setInterval(() => {
   ipDuelRequestsLast10.clear();
 }, 10000);
 
-function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World") {
+function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes) {
           // maxDist no longer required-> can be pulled from community map
           if (!location) return;
           if (!rounds || !timePerRound) {
@@ -526,6 +526,11 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           game.nm = !!nm;
           game.npz = !!npz;
           game.showRoadName = !!showRoadName;
+          // Absent = the sender predates this option (stale bundle), so keep
+          // the current value — a false default here let any old client's
+          // settings save silently un-mute the game. Fresh games are covered
+          // by the Game constructor (disableEmotes = false).
+          if (disableEmotes !== undefined) game.disableEmotes = !!disableEmotes;
           game.location = location;
           // clear current locations
           game.locations = [];
@@ -902,6 +907,9 @@ app.ws('/wg', {
         const lastEmote = player.lastEmote || 0;
         if (Date.now() - lastEmote < 1500) return;
         const game = games.get(player.gameId);
+        // Host muted emotes for this game — drop server-side too (clients hide
+        // the FAB, but raw messages and stale clients must not bypass it).
+        if (game.disableEmotes) return;
         player.lastEmote = Date.now();
         game.sendAllPlayers({
           type: 'emote',
@@ -913,6 +921,21 @@ app.ws('/wg', {
           team: game.players[player.id]?.team ?? null,
           emote
         });
+      }
+
+      // Host force-ends a stalled round (private games only). The use case is
+      // timer-disabled parties where idle players hold the round open forever;
+      // the collapse reuses the "everyone placed" path — pull nextEvtTime to
+      // ~1s so in-flight guesses still land instead of cutting hard to zero.
+      if (json.type === 'forceEndRound' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (game.public || !game.players[player.id]?.host) return;
+        if (game.state !== 'guess') return;
+        if (game.nextEvtTime - Date.now() <= 1000) return; // already collapsing
+        // No toast — the collapsing countdown is the announcement (a "host
+        // ended the round" toast was deemed too distracting; USER RULING).
+        game.nextEvtTime = Date.now() + 1000;
+        game.sendStateUpdate();
       }
 
       if (json.type === 'leaveGame' && player.gameId && games.has(player.gameId)) {
@@ -1276,8 +1299,8 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         // make sure player is host
         if(game.players[player.id].host) {
-          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation } = json;
-          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation);
+          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes } = json;
+          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes);
 
         }
       }
@@ -2548,7 +2571,7 @@ try {
       }
 
       // Bot backfill (2v2): a duo where BOTH members are 2v2 newbies (0 wins
-      // or <10% winrate) that the pairing pass above couldn't serve gets a
+      // or ≤20% winrate) that the pairing pass above couldn't serve gets a
       // full bot opposing team immediately. Humans still get first refusal —
       // this runs after real pairing each tick, on the leftovers.
       if (BOTS_ENABLED) {
@@ -2624,8 +2647,8 @@ try {
         }
       }
 
-      // Bot backfill (ranked 1v1): a player with 0 ranked wins or an
-      // under-10% winrate whom findDuelPairs couldn't serve gets a bot
+      // Bot backfill (ranked 1v1): a player with 0 ranked wins or a
+      // ≤10% winrate whom findDuelPairs couldn't serve gets a bot
       // opponent pinned to 800-1000 ELO, immediately. Runs after the
       // pairing pass each tick — humans still get first refusal.
       if (BOTS_ENABLED) {

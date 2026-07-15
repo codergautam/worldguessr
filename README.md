@@ -23,6 +23,7 @@ A free and open-source version of the popular geography game inspired by GeoGues
 ## Acknowledgements
 
 - [Leaflet](https://leafletjs.com/) for the minimap display.
+- [Leaflet.SmoothWheelZoom](https://github.com/mutsuyuki/Leaflet.SmoothWheelZoom) by mutsuyuki, which our fluid scroll-wheel zoom (`lib/leafletFluidZoom.js`) is adapted from.
 - [Google Maps API](https://developers.google.com/maps) for the generous free-tier on street view imagery.
 - [Vali](https://github.com/slashP/Vali) by @SlashP for generating balanced locations distributions for all countries.
 - [Next.js](https://nextjs.org/) for the web application.

@@ -96,6 +96,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const serverTeamGame = useMultiplayerStore((s) => !!s.gameData?.teamGame);
   const teamScoring = useMultiplayerStore((s) => s.gameData?.teamScoring ?? 'closest');
   const allowTeamPick = useMultiplayerStore((s) => !!s.gameData?.allowTeamPick);
+  const serverDisableEmotes = useMultiplayerStore((s) => !!s.gameData?.disableEmotes);
   const teamGame = TEAM_SUPPORT && !is2v2 && serverTeamGame;
 
   // Measured portrait footer height so the emote FAB clears the action buttons
@@ -136,10 +137,19 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   // Host-controlled settings. Initialise from server values so a reconnect or a
   // post-game reset doesn't clobber the host's prior options with defaults.
   const [rounds, setRounds] = useState(serverRounds ?? 5);
-  const [timePerRound, setTimePerRound] = useState(
-    serverTimePerRound != null ? Math.round(serverTimePerRound / 1000) : 30,
-  );
+  // Local "timer off" is 0 (drives the toggle/stepper UI); the WIRE value is
+  // web partyModal's 86400s sentinel — updateGameOptions REJECTS a falsy
+  // timePerRound outright (sending 0 silently dropped the whole options save,
+  // which is why Disable Timer used to do nothing on mobile). Map sentinel→0
+  // on init so a reconnect shows the toggle correctly.
+  const [timePerRound, setTimePerRound] = useState(() => {
+    if (serverTimePerRound == null) return 30;
+    const secs = Math.round(serverTimePerRound / 1000);
+    return secs >= 60 * 60 * 24 ? 0 : secs;
+  });
   const [nmpz, setNmpz] = useState(serverNm ?? false);
+  // Emote mute — default off (emotes on); server truth on gameData (web parity).
+  const [disableEmotes, setDisableEmotes] = useState(serverDisableEmotes);
   const [mapSlug, setMapSlug] = useState('all');
   const [mapName, setMapName] = useState(serverDisplayLocation ?? t('world'));
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -160,14 +170,16 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
     wsService.send({
       type: 'setPrivateGameOptions',
       rounds,
-      timePerRound,
+      // 0 (local "off") → the 86400s wire sentinel (see the state init above).
+      timePerRound: timePerRound === 0 ? 60 * 60 * 24 : timePerRound,
       location: mapSlug,
       displayLocation: mapName,
       nm: nmpz,
       npz: nmpz,
       showRoadName: !nmpz,
+      disableEmotes,
     });
-  }, [rounds, timePerRound, nmpz, mapSlug, mapName]);
+  }, [rounds, timePerRound, nmpz, mapSlug, mapName, disableEmotes]);
 
   // Skip the redundant mount-time send: local options are initialised FROM the
   // server's values, so re-broadcasting them when the lobby first renders is a
@@ -181,7 +193,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
       return;
     }
     sendOptions();
-  }, [rounds, timePerRound, nmpz, mapSlug, mapName, isHost]);
+  }, [rounds, timePerRound, nmpz, mapSlug, mapName, disableEmotes, isHost]);
 
   const playerCount = players?.length ?? 0;
   // 2v2 staging caps at 2 seats; open parties effectively never fill. Full →
@@ -199,6 +211,15 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const unassigned = teamGame ? roster.filter((p) => p.team !== 'a' && p.team !== 'b') : [];
   const teamBlocked = teamGame && (teamA.length === 0 || teamB.length === 0);
   const canMove = (p: { id: string }) => !!(isHost || (allowTeamPick && p.id === myId));
+
+  // Web parity (globals.scss ≤560px): one team UNDER the other instead of two
+  // squished columns. Gate on the width the columns actually share — phones
+  // stack (portrait always; landscape too once the footer sidebar eats its
+  // ~320), tablets keep the side-by-side grid. 500 ≈ the space web's teams
+  // grid has at its 560px viewport breakpoint.
+  const footerSidebarWidth = isLandscape ? Math.min(320, Math.max(260, width * 0.4)) : 0;
+  const stackTeams =
+    width - insets.left - insets.right - footerSidebarWidth - spacing.lg * 2 < 500;
 
   // Pulse the row that just switched columns (optimistic move or broadcast) —
   // web partyLobby.js movedIds. The clear-timer lives in a REF, decoupled
@@ -258,7 +279,17 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
             style={styles.moveBtn}
             onPress={() => useMultiplayerStore.getState().setPlayerTeam(p.id, p.team === 'a' ? 'b' : 'a')}
           >
-            <Ionicons name={p.team === 'a' ? 'chevron-forward' : 'chevron-back'} size={16} color="rgba(255,255,255,0.8)" />
+            {/* Arrow points at the OTHER team's card: beside it in the grid,
+                above/below it when the narrow layout stacks the teams. */}
+            <Ionicons
+              name={
+                stackTeams
+                  ? p.team === 'a' ? 'chevron-down' : 'chevron-up'
+                  : p.team === 'a' ? 'chevron-forward' : 'chevron-back'
+              }
+              size={16}
+              color="rgba(255,255,255,0.8)"
+            />
           </Pressable>
         )}
         {showKick && (
@@ -495,7 +526,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
 
             {teamGame ? (
               <>
-                <View style={styles.teamColumns}>
+                <View style={[styles.teamColumns, stackTeams && styles.teamColumnsStacked]}>
                   {([['a', teamA], ['b', teamB]] as const).map(([teamKey, teamPlayers]) => (
                     <View
                       key={teamKey}
@@ -575,7 +606,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
           style={[
             styles.footer,
             isLandscape && styles.footerLandscape,
-            isLandscape && { width: Math.min(320, Math.max(260, width * 0.4)) },
+            isLandscape && { width: footerSidebarWidth },
           ]}
           onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
         >
@@ -587,7 +618,10 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
               {(() => {
                 const dispMap = isHost ? mapName : (serverDisplayLocation ?? t('world'));
                 const dispRounds = isHost ? rounds : (serverRounds ?? 5);
-                const tSecs = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
+                // Sentinel-aware for NON-hosts too: members read the raw server
+                // value, and a "86400s" badge is nonsense (web timerLabel parity).
+                const rawSecs = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
+                const tSecs = rawSecs >= 60 * 60 * 24 ? 0 : rawSecs;
                 const dispTimer = tSecs > 0
                   ? t('secondsShort', { secs: tSecs }, '{{secs}}s')
                   : t('timerOff', undefined, 'Timer Off');
@@ -707,8 +741,13 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
 
       {/* Emote FAB — web parity: lobbies are chatty (server broadcasts emotes in
           the 'waiting' state; stage-1 teammate search included). Names always show
-          here: lobby gameData is never a duel, matching web's hideName derivation. */}
-      {emotesShown && <EmoteReactions bottomOffset={isLandscape ? 0 : footerHeight} />}
+          here: lobby gameData is never a duel, matching web's hideName derivation.
+          hidden while the options sheet is up: MapSelectorModal is an INLINE
+          sheet (zIndex 100), not a native Modal, so the FAB (zIndex 1300) would
+          float on top of it — the native invite/sound Modals cover it for free. */}
+      {emotesShown && !serverDisableEmotes && (
+        <EmoteReactions hidden={mapModalVisible} bottomOffset={isLandscape ? 0 : footerHeight} />
+      )}
 
       <InviteFriendsModal
         visible={inviteModalVisible}
@@ -758,6 +797,8 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
         onTimerDurationChange={setTimePerRound}
         rounds={rounds}
         onRoundsChange={setRounds}
+        disableEmotes={disableEmotes}
+        onDisableEmotesToggle={setDisableEmotes}
         // Team surface — MUST ride the rollout switch (see the teamGame gate
         // above): undefined props hide the whole Game Mode section.
         teamConfig={TEAM_SUPPORT ? { enabled: serverTeamGame, scoring: teamScoring, allowTeamPick } : undefined}
@@ -814,7 +855,8 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-SemiBold',
     letterSpacing: 2,
-    marginBottom: spacing.sm,
+    // No marginBottom: codeLabelRow owns the spacing — a leftover margin here
+    // shoved the label up inside the centered row, sinking the eye toggle.
   },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   codeText: { color: colors.white, fontSize: 36, fontFamily: 'Lexend-Bold', letterSpacing: 8 },
@@ -852,6 +894,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
   },
   teamColumns: { flexDirection: 'row', gap: spacing.sm },
+  // Narrow layouts: one full-width team card under the other (web ≤560px).
+  teamColumnsStacked: { flexDirection: 'column' },
   teamColumn: {
     flex: 1,
     gap: spacing.xs,

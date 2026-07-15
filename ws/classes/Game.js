@@ -47,6 +47,7 @@ export default class Game {
     this.teamGame = false;
     this.teamScoring = 'closest';     // 'closest' (best guess, default) | 'average'
     this.allowTeamPick = false;       // non-hosts may switch their own team
+    this.disableEmotes = false;       // host option: mute emote reactions for this game
     this.lastRoundTeamScores = null;  // { round, scores: {a,b} } stash between givePoints and saveRoundToHistory
     this.lastTeamEnd = null;          // frozen duelEnd payload for end-state rejoins
     this.gameCount = 1; // Track how many times this game has been played
@@ -106,6 +107,7 @@ export default class Game {
       teamGame: this.teamGame,
       teamScoring: this.teamScoring,
       allowTeamPick: this.allowTeamPick,
+      disableEmotes: this.disableEmotes,
       lastRoundTeamScores: this.lastRoundTeamScores,
       lastTeamEnd: this.lastTeamEnd,
       roundStartTimes: this.roundStartTimes,
@@ -246,6 +248,7 @@ export default class Game {
       teamGame: !!this.teamGame,
       teamScoring: this.teamScoring,
       allowTeamPick: !!this.allowTeamPick,
+      disableEmotes: !!this.disableEmotes,
       teamRoundScores: this.lastRoundTeamScores ?? null,
       players: Object.values(this.players),
       host: this.players[player.id].host,
@@ -611,15 +614,25 @@ export default class Game {
         players: {}
       };
 
-      // Team-party rounds carry the server-computed team scores: the client
-      // cannot reconstruct 'average' retroactively (denominator = roster at
-      // scoring time, which leavers/joiners change).
-      if (this.teamGame && this.lastRoundTeamScores?.round === this.curRound) {
+      // Both team modes carry the server-computed per-team round score (each
+      // team's counting points THIS round). givePoints() already computes these
+      // for 2v2 too (it needs them for the damage calc) but 2v2 historically
+      // dropped them here — leaving the round-breakdown columns to a fragile
+      // client-side recompute that rendered 0/0 when ids failed to line up.
+      // Stamp them for both modes so every client reads one server truth.
+      // ('average' especially is not reconstructable client-side: its
+      // denominator is the roster at scoring time, which leavers/joiners change.)
+      if ((this.teamGame || this.teamDuel) && this.lastRoundTeamScores?.round === this.curRound) {
         roundData.teamRoundScores = this.lastRoundTeamScores.scores;
+      }
+
+      // Team-party cumulative running totals (points). A 2v2's "totals" are
+      // shared HP, surfaced via teamDamage below instead — never as points.
+      if (this.teamGame && this.lastRoundTeamScores?.round === this.curRound) {
         roundData.teamTotals = { ...this.teamScores };
       }
 
-      // 2v2 rounds: stamp the HP actually applied plus the multiplier it was
+      // 2v2 rounds also stamp the HP actually applied plus the multiplier it was
       // computed with (see teamDamageMultiplier) — round-over hearts and DB
       // replays read these instead of re-deriving the formula.
       if (this.teamDuel && this.lastRoundTeamScores?.round === this.curRound) {
@@ -711,6 +724,7 @@ export default class Game {
       teamGame: !!this.teamGame,
       teamScoring: this.teamScoring,
       allowTeamPick: !!this.allowTeamPick,
+      disableEmotes: !!this.disableEmotes,
       teamRoundScores: this.lastRoundTeamScores ?? null,
       players: Object.values(this.players),
       generated: this.locations?.length || 0,

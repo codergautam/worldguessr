@@ -55,7 +55,6 @@ import ClassicEndBanner, { type MpRoundVerdict } from '../../src/components/game
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD, { BAR_WIDTH as DUEL_BAR_WIDTH, BAR_MAX_FRACTION as DUEL_BAR_MAX_FRACTION } from '../../src/components/multiplayer/DuelHUD';
 import TeamScorebar from '../../src/components/multiplayer/TeamScorebar';
-import TeamScoreline from '../../src/components/multiplayer/TeamScoreline';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import EmoteReactions, { EMOTE_TOGGLE_SIZE } from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
@@ -278,30 +277,29 @@ function BetweenRoundsLeaderboard({
         pointerEvents="none"
       >
         <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-          <Text style={[styles.betweenRoundsTitle, isTablet && { fontSize: sc(30) }]}>{t('leaderboard')}</Text>
-          {/* Team-party hero: the cumulative team totals, big, above the
-              individual rows (web's between-rounds team hero). Crown on the
-              leader, never on ties. The individual PlayerList below keeps its
-              GLOBAL ranks (ruling). */}
-          {gameData.teamGame && !gameData.team2v2 && gameData.teamScores && (
-            <TeamScoreline
-              scores={gameData.teamScores}
-              crownTeam={
-                gameData.teamScores.a === gameData.teamScores.b
-                  ? null
-                  : gameData.teamScores.a > gameData.teamScores.b
-                    ? 'a'
-                    : 'b'
-              }
-              myTeam={getMyTeam(gameData.players, gameData.myId)}
-              size="lg"
-            />
+          {/* Web parity: the team layout is self-explanatory (two big team
+              totals) — the LEADERBOARD header is only worth its space on the
+              FFA row list. */}
+          {!(gameData.teamGame && !gameData.team2v2) && (
+            <Text style={[styles.betweenRoundsTitle, isTablet && { fontSize: sc(30) }]}>{t('leaderboard')}</Text>
           )}
           <View style={styles.betweenRoundsListWrap}>
+            {/* Team parties get web playerList.js's team-first layout (big team
+                hero + per-team member columns) via teamData; everyone else keeps
+                the flat global-rank rows. */}
             <PlayerList
               players={gameData.players}
               myId={gameData.myId}
               mode="betweenRounds"
+              teamData={
+                gameData.teamGame && !gameData.team2v2
+                  ? {
+                      scores: gameData.teamScores ?? { a: 0, b: 0 },
+                      roundScores: gameData.teamRoundScores?.scores ?? null,
+                      myTeam: getMyTeam(gameData.players, gameData.myId),
+                    }
+                  : null
+              }
             />
           </View>
         </SafeAreaView>
@@ -1490,19 +1488,23 @@ export default function GameScreen() {
   // transition can't double-fire.
   const mpRevealFeltRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isMultiplayer || !showMapResult || !gameData) return;
-    if (!mpReveal?.didGuess) return;
+    if (!isMultiplayer || !showMapResult || !gameData || !mpReveal) return;
     const revealKey = `${gameData.code}:${gameData.curRound}`;
     if (mpRevealFeltRef.current === revealKey) return;
     mpRevealFeltRef.current = revealKey;
     // MP guess whoosh fires at the ANSWER-REVEAL edge, not the button press —
     // the reveal lags the press in multiplayer (web gameUI.js parity). Same
     // deterministic score→pitch mapping as singleplayer; the round-clock
-    // ticking bed must never survive into the reveal.
+    // ticking bed must never survive into the reveal. The whoosh plays on
+    // EVERY reveal — a no-guess round gets the floor pitch, not silence (web
+    // gameUI.js:842-850 has no pin guard); only the score haptic and confetti
+    // stay gated on an actual guess.
     stopSfx('ticking');
     playSfx('guess', { rate: 0.85 + 0.35 * Math.min(1, mpReveal.points / 5000) });
-    hapticForScore(mpReveal.points);
-    if (mpReveal.points >= 4850) setConfettiKey((k) => k + 1);
+    if (mpReveal.didGuess) {
+      hapticForScore(mpReveal.points);
+      if (mpReveal.points >= 4850) setConfettiKey((k) => k + 1);
+    }
   }, [isMultiplayer, showMapResult, mpReveal?.didGuess, mpReveal?.points, gameData?.code, gameData?.curRound]);
 
   const handleMapPress = useCallback((lat: number, lng: number) => {
@@ -1793,6 +1795,31 @@ export default function GameScreen() {
       teamVerdictRef.current = { key: '', verdict: undefined };
       duelDamageRef.current = { key: '', verdict: undefined };
       mpRevealFeltRef.current = null;
+      // Re-arm the ENTIRE map-reveal machine. The freeze latch is normally
+      // cleared only by the between-rounds fade-out completing; a game that
+      // ends ABRUPTLY mid-reveal (host reset during the answer map, final
+      // reveal cut short) skips that path, and since lobby↔game are pure
+      // re-renders of this never-unmounted screen, the latch survived into the
+      // party's NEXT game — which then came out of its get-ready straight into
+      // the OLD full-screen answer map (renderMapAsResult forces answerShown +
+      // interactive:false, so there was no way out). Back in the lobby there
+      // is no reveal by definition: drop the latch, the frozen snapshot, the
+      // in-flight fade state, and snap the clip/opacity anims to their
+      // round-start values.
+      mapResultLatchRef.current = false;
+      revealSnapshotRef.current = null;
+      mapFadingOutRef.current = false;
+      prevShowMapResultRef.current = false;
+      prevBetweenRoundRevealRef.current = false;
+      mapOverlayOpacity.stopAnimation();
+      mapOverlayOpacity.setValue(1);
+      mapSlideAnim.stopAnimation();
+      mapSlideAnim.setValue(0);
+      setMiniMapShown(false);
+      setGuessPosition(null);
+      // The tick bump forces the re-render that recomputes renderMapAsResult
+      // from the cleared latch (same mechanism as the fade-out completion).
+      setRevealExitTick((n) => n + 1);
     }
   }, [isMultiplayer, gameData?.state]);
 
@@ -2478,6 +2505,14 @@ export default function GameScreen() {
                 timeOffset={isMultiplayer ? timeOffset : undefined}
                 criticalEnabled={gameData?.state === 'guess'}
                 hasGuess={!!guessPosition}
+                // Host stall-relief (timer-disabled parties): GameTimer only
+                // shows the button while the round is open-ended; this gate
+                // adds the host/private/guess half (server re-checks all of it).
+                onForceEndRound={
+                  isMultiplayer && !gameData?.public && !!gameData?.host && gameData?.state === 'guess'
+                    ? () => wsService.send({ type: 'forceEndRound' })
+                    : undefined
+                }
               />
             </RevealView>
           </SafeAreaView>
@@ -2901,7 +2936,23 @@ export default function GameScreen() {
         {isMultiplayer && gameData?.teamGame && !gameData.team2v2
           && gameData.state !== 'end'
           && !(gameData.state === 'getready' && gameData.curRound === 1) && (
-          <SafeAreaView style={styles.teamScorebarContainer} edges={['top']} pointerEvents="none">
+          /* The scorebar is CENTERED, so inline on the top row it must clear the
+             left cluster ([X] [👤 n] [reload], ends ≈ insets + 184px) AND the
+             top-right round/score/timer pill (≈ 214px incl. padding) on the other
+             side. With the bar's half-width ≈ 120px that needs
+             width > 2·max(192, 214+120·… ) ≈ 690px — true in landscape/tablets,
+             never on portrait phones. Below the threshold, drop it under the
+             taller of the two (the ~64px timer pill) instead of overlapping —
+             web parity in spirit: .team-scorebar never shares the navbar row
+             (globals.scss pins it top:100px/40px BELOW it). */
+          <SafeAreaView
+            style={[
+              styles.teamScorebarContainer,
+              width < 690 && styles.teamScorebarContainerDropped,
+            ]}
+            edges={['top']}
+            pointerEvents="none"
+          >
             <TeamScorebar gameData={gameData} />
           </SafeAreaView>
         )}
@@ -2948,7 +2999,7 @@ export default function GameScreen() {
           mount and double-render incoming reactions. */}
       {/* 1v1 duels hide the sender name (2 players — attribution is obvious);
           team modes SHOW name+flag, or a 4-player emote is unreadable. */}
-      {emotesEnabled && isMultiplayer && isScreenFocused && gameData
+      {emotesEnabled && isMultiplayer && isScreenFocused && gameData && !gameData.disableEmotes
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
         <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel && !gameData.team2v2} />
       )}
@@ -3091,6 +3142,11 @@ const styles = StyleSheet.create({
     zIndex: 101,
     alignItems: 'center',
     paddingTop: spacing.sm,
+  },
+  // Narrow (portrait) position: one row down, clearing the 44px back/badge
+  // cluster AND the ~64px round/score/timer pill it would otherwise sit under.
+  teamScorebarContainerDropped: {
+    paddingTop: spacing.sm + 64 + spacing.xs,
   },
   duelHudContainer: {
     position: 'absolute',

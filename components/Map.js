@@ -382,8 +382,15 @@ const ClickHandler = memo(function ClickHandler({
       const lngShift = e.latlng.lng - canonicalLng;
       if (lngShift !== 0) {
         const map = e.target;
-        const center = map.getCenter();
-        map.setView([center.lat, center.lng - lngShift], map.getZoom(), { animate: false });
+        // Shift by whole world-widths as a RAW PIXEL PAN. setView here would
+        // (a) round a fractional resting zoom back to an integer via zoomSnap
+        // (fluid wheel zoom parks the map at fractional zooms) and (b) fall
+        // through to Leaflet's hard _resetView path because the offset exceeds
+        // the viewport (viewprereset drops every tile) — together a visible
+        // zoom snap plus a grey flash on pin placement. panBy touches neither.
+        const z = map.getZoom();
+        const dx = map.project([0, -lngShift], z).x - map.project([0, 0], z).x;
+        map.panBy([dx, 0], { animate: false });
       }
 
       const canonical = L.latLng(e.latlng.lat, canonicalLng);
@@ -1255,6 +1262,11 @@ const MapComponent = ({
       // The bounds themselves (vertical-only) are applied in <BoundsApplier>
       // so they can stay disabled while the answer is shown.
       maxBoundsViscosity={1.0}
+      // Stock wheel zoom steps a whole level per notch; the fluid handler
+      // (lib/leafletFluidZoom.js) glides fractional zoom toward the cursor
+      // instead. The stock handler must be off or both would fire per event.
+      scrollWheelZoom={false}
+      fluidWheelZoom={true}
       style={{ height: "100%", width: "100%" }}
     >
       <div className="mapAttr">

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { t } from '../../shared/locale';
+import { getCurrentLanguage, t } from '../../shared/locale';
 import CountryFlag from '../CountryFlag';
 import { KM_TO_MILES } from '../../shared/units';
 import { nameFromCode } from '../../shared/data/countryHelpers';
@@ -158,7 +158,7 @@ export default function ClassicEndBanner({
         if (cancelled) return;
         setWrongCountryName(
           guessCountry && guessCountry !== 'Unknown' && guessCountry !== answerCountry
-            ? nameFromCode(answerCountry)
+            ? nameFromCode(answerCountry, getCurrentLanguage())
             : null,
         );
       })
@@ -191,7 +191,7 @@ export default function ClassicEndBanner({
   // `(!pinPoint || pinInRoundCountry === false)`.
   const hpCountryRevealName =
     isHpMode && answerCountry && (!didGuess || wrongCountryName)
-      ? nameFromCode(answerCountry)
+      ? nameFromCode(answerCountry, getCurrentLanguage())
       : null;
   const damageHeadlineText = isHpMode
     ? verdict?.damage && verdict.damage.dmg > 0

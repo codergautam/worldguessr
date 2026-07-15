@@ -30,6 +30,7 @@ import EmbeddedMap from './EmbeddedMap';
 import ReloadButton from '../ui/ReloadButton';
 import { haptics } from '../../services/haptics';
 import { playSfx, preloadSfx, stopSfx } from '../../services/sound';
+import { calcPoints } from '../../shared/game/calcPoints';
 import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
@@ -305,10 +306,13 @@ function GameSurface(
   // gameUI.js keys this on showAnswer for singleplayer/daily/onboarding
   // alike; multiplayer never mounts GameSurface — its server-timed reveal
   // lives in [id].tsx). Pitch carries MEANING so `rate` is deterministic,
-  // never jittered: pin rounds grade points/5000, country/continent rounds
-  // are binary (web parity). Two guards: only a false→true flip plays (a
-  // results-view mount starts true and must stay silent), and the roundKey
-  // latch stops replays from result-time re-renders (pano toggle, rotation).
+  // never jittered: pin rounds recompute the score fraction FROM THE PIN with
+  // usedHint:false (web gameUI.js guessRevealRate — pitch cues raw geographic
+  // accuracy, so a hint-halved score must not drop the pitch; no pin = never
+  // guessed = floor), country/continent rounds are binary (web parity). Two
+  // guards: only a false→true flip plays (a results-view mount starts true
+  // and must stay silent), and the roundKey latch stops replays from
+  // result-time re-renders (pano toggle, rotation).
   const prevShowingResultRef = useRef(isShowingResult);
   const revealSfxKeyRef = useRef<string | number | null>(null);
   useEffect(() => {
@@ -320,13 +324,25 @@ function GameSurface(
     revealSfxKeyRef.current = key;
     const quality =
       variant === 'pin'
-        ? Math.min(1, (guessPoints ?? 0) / 5000)
+        ? location && guessPosition
+          ? Math.min(
+              1,
+              calcPoints({
+                lat: location.lat,
+                lon: location.long,
+                guessLat: guessPosition.lat,
+                guessLon: guessPosition.lng,
+                usedHint: false,
+                maxDist: maxDist ?? 20000,
+              }) / 5000,
+            )
+          : 0
         : countryPicked && correctAnswer && countryPicked === correctAnswer
           ? 1
           : 0;
     stopSfx('ticking'); // the round-clock bed must never survive into the reveal
     playSfx('guess', { rate: 0.85 + 0.35 * quality });
-  }, [isShowingResult, roundKey, round, variant, guessPoints, countryPicked, correctAnswer]);
+  }, [isShowingResult, roundKey, round, variant, location, guessPosition, maxDist, countryPicked, correctAnswer]);
 
   // ── Animations ─────────────────────────────────────────────────────────
   const loadingOpacity = useRef(new Animated.Value(1)).current;

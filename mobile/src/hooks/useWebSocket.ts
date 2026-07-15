@@ -117,8 +117,15 @@ export function useWebSocket() {
   // was confusing. We leave the game — tear down inGame/gameData (the game screen's
   // `!inGame` effect pops home) — and reconnect like a home session: setInGame(false)
   // gives the in-flight retry the full budget so it keeps pulsing yellow instead of
-  // giving up to red, and clearRejoinCode() stops the server replaying us straight
-  // back into the game on reconnect. A drop on home / results just flags connecting.
+  // giving up to red. The rejoinCode is deliberately KEPT (it used to be cleared
+  // here): it's a guest session's ONLY rejoin identity, and the server rejoins
+  // accounts via their secret regardless — so clearing it never stopped the replay
+  // for logged-in users, it only stranded guests at home after a recoverable drop
+  // (e.g. a server restart, whose gamestate snapshot keeps them rejoinable). If the
+  // server still holds the session, its `game` replay flips inGame back on and
+  // home's auto-nav re-enters — exactly like web, and exactly like the
+  // onReconnecting housekeeping path below. A drop on home / results just flags
+  // connecting.
   useEffect(() => {
     const unsub = wsService.onDisconnect(() => {
       const state = useMultiplayerStore.getState();
@@ -152,7 +159,6 @@ export function useWebSocket() {
       // still inside the staging lobby, so tearDownPhantomQueue's early-return
       // (inGame true) never handled it.
       wsService.setInGame(false);
-      wsService.clearRejoinCode();
       useMultiplayerStore.setState({
         inGame: false,
         gameData: null,

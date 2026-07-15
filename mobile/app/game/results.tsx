@@ -371,6 +371,7 @@ export default function GameResultsScreen() {
   // never mark self acked when myId is unresolved.
   const playAgain2v2 = useMultiplayerStore((s) => s.gameData?.playAgain2v2);
   const mpMyId = useMultiplayerStore((s) => s.gameData?.myId);
+  const mpDisableEmotes = useMultiplayerStore((s) => !!s.gameData?.disableEmotes);
   const pa2v2Needed = playAgain2v2?.needed ?? 2;
   const pa2v2Acked = playAgain2v2?.ackedIds?.length ?? 0;
   const selfAcked2v2 = !!(mpMyId && playAgain2v2?.ackedIds?.includes(mpMyId));
@@ -513,8 +514,13 @@ export default function GameResultsScreen() {
               : null;
           setMultiplayerInfo({
             gameType: game.gameType,
+            // playerId MUST be the API's remapped id (accountId for logged-in,
+            // raw connection id for bots/guests) — the SAME id-space keying
+            // allGuesses/roundData/resultsTeams. Using p.accountId here made
+            // account-less players collide on null and mismatch their own
+            // guesses, zeroing their team column and mis-coloring their pins.
             players: game.players.map((p: any) => ({
-              playerId: p.accountId,
+              playerId: p.playerId,
               username: p.username,
               countryCode: p.countryCode,
               totalPoints: p.totalPoints,
@@ -687,7 +693,7 @@ export default function GameResultsScreen() {
   // separate route, so we re-mount it here for LIVE multiplayer only — never for
   // singleplayer or history replays (no live game / WS room to send into). `sendEmote`
   // is WS-only (no in-game guard) and useWebSocket keeps the socket alive on /game/results.
-  const showEmotes = isLiveMultiplayer && !isHistoryView && emotesEnabled;
+  const showEmotes = isLiveMultiplayer && !isHistoryView && emotesEnabled && !mpDisableEmotes;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
     // Prefer real coordinates over panoId: a stale/invalid panoId opens the wrong
@@ -768,7 +774,7 @@ export default function GameResultsScreen() {
   const [gameIdCopied, setGameIdCopied] = useState(false);
   const gameIdCopiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Report modal state
+  // Report modal state (web reportModal.js parity)
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState<'inappropriate_username' | 'cheating' | 'other' | ''>('');
   const [reportDescription, setReportDescription] = useState('');
@@ -777,6 +783,16 @@ export default function GameResultsScreen() {
   // once — the co-cheating 2v2 duo is the core case — so the picker is
   // checkbox rows over everyone-except-self, teammate included.
   const [reportTargets, setReportTargets] = useState<string[]>([]);
+  // Two-step flow (web): 2v2 opens on a who-are-you-reporting picker, then a
+  // shared reason/description form; 1v1 (single candidate) skips the picker.
+  const [reportStep, setReportStep] = useState<'pick' | 'form'>('pick');
+  // Stays-open feedback (validation errors, partial failures) renders INLINE
+  // in the card: RN <Modal> is its own native window, so root-level toasts
+  // paint invisibly BEHIND its scrim while it's open. Toasts are only used on
+  // paths that close the modal (web parity holds — same copy, same moments).
+  const [reportFeedback, setReportFeedback] = useState<
+    { type: 'success' | 'error'; text: string }[]
+  >([]);
 
   // Animated panel height for smooth expand/collapse
   const panelAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
@@ -1124,28 +1140,86 @@ export default function GameResultsScreen() {
     [multiplayerInfo],
   );
   const reportRowId = (p: PlayerInfo, idx: number) => p.playerId ?? `anon:${idx}`;
+  // Resolve a picker rowId back to its player (anon rows carry their index).
+  const reportTargetOf = (rowId: string): PlayerInfo | undefined =>
+    rowId.startsWith('anon:')
+      ? reportableOthers[Number(rowId.slice(5))]
+      : reportableOthers.find((p) => p.playerId === rowId);
+  // Web picker rows tag each candidate's allegiance (Your Team / Enemy Team) —
+  // matchmade 2v2 only, where the picker exists.
+  const reportRelationshipOf = (p: PlayerInfo): string | null =>
+    multiplayerInfo?.team2v2 && p.team && multiplayerInfo.myTeam
+      ? p.team === multiplayerInfo.myTeam
+        ? t('yourTeam')
+        : t('enemyTeam')
+      : null;
+
+  // Report feedback rides the toast stack (web react-toastify parity), not
+  // native alerts — fallbacks carry web's exact copy.
+  const reportToast = (
+    toastType: 'success' | 'error',
+    key: string,
+    message: string,
+    vars?: Record<string, string | number>,
+  ) => useMultiplayerStore.getState().pushToast({ key, toastType, message, vars });
+
+  const closeReportModal = () => {
+    setReportModalVisible(false);
+    setReportReason('');
+    setReportDescription('');
+    setReportTargets([]);
+    setReportStep('pick');
+    setReportFeedback([]);
+  };
+  const openReportModal = () => {
+    const multi = reportableOthers.length > 1;
+    // Single candidate (1v1) → web's reportedUser path: skip the picker,
+    // preselect. Multi (2v2) → picker step, nothing preselected.
+    setReportTargets(multi || reportableOthers.length === 0 ? [] : [reportRowId(reportableOthers[0], 0)]);
+    setReportStep(multi ? 'pick' : 'form');
+    setReportModalVisible(true);
+  };
+  // Web caps the description at 100 words at INPUT time (typing past the cap
+  // is refused), so submit only ever validates the 5-word floor.
+  const handleReportDescriptionChange = (value: string) => {
+    const words = value.trim().split(/\s+/).filter(Boolean);
+    if (words.length <= 100) setReportDescription(value);
+  };
 
   // ── Report submit handler ─────────────────────────────
-  // One POST per selected target (web reportModal.js pattern), with per-target
-  // partial-failure handling. Account-less selections (bots/guests) are
-  // silently skipped and counted as success — reporting a bot is deliberately
-  // a client-side no-op with a real-looking outcome.
+  // One POST per selected target (web reportModal.js), attempted independently.
+  // Account-less selections (bots/guests) are never sent — the submit fakes
+  // success for them so bots stay indistinguishable from real opponents.
   const handleSubmitReport = async () => {
     if (!reportReason || reportTargets.length === 0) return;
+    setReportFeedback([]);
     const words = reportDescription.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 5) { Alert.alert(t('error'), t('reportDescriptionMinWords', undefined, 'Description must be at least 5 words.')); return; }
-    if (words.length > 100) { Alert.alert(t('error'), t('reportDescriptionMaxWords', undefined, 'Description must be 100 words or less.')); return; }
+    if (words.length < 5) {
+      // Inline, not a toast — the modal stays open and would occlude one.
+      setReportFeedback([{
+        type: 'error',
+        text: t('reportNeedMoreDetail', undefined, 'Please provide a more detailed description (at least 5 words)'),
+      }]);
+      return;
+    }
     const secret = useAuthStore.getState().secret;
     if (!secret) return;
+    const realTargets = reportTargets
+      .map(reportTargetOf)
+      .filter((p): p is PlayerInfo => !!p?.accountId);
+    if (realTargets.length === 0) {
+      reportToast('success', 'reportSubmittedToast', 'Report submitted successfully. Our moderators will review it.');
+      closeReportModal();
+      return;
+    }
     setReportSubmitting(true);
     try {
-      const failures: string[] = [];
-      for (const targetId of reportTargets) {
-        // `anon:` rows are account-less players (bots/guests) — fake success.
-        if (targetId.startsWith('anon:')) continue;
-        const target = reportableOthers.find((p) => p.playerId === targetId);
-        const accountId = target?.accountId ?? (isHistoryView ? targetId : null);
-        if (!accountId) continue; // bot/guest — fake success
+      // Outcomes tracked per target: the success toast must never fire for a
+      // report that was never filed. Server error messages ride through to
+      // the feedback line (web surfaces errorData.message the same way).
+      const failures: { name: string; message: string }[] = [];
+      const succeeded = new Set<string>();
+      for (const target of realTargets) {
         try {
           await api.submitReport(
             secret,
@@ -1153,28 +1227,48 @@ export default function GameResultsScreen() {
             reportDescription.trim(),
             gameId!,
             multiplayerInfo!.gameType,
-            accountId,
+            target.accountId!,
           );
+          succeeded.add(target.playerId);
         } catch (err) {
-          console.log('Error submitting report for', target?.username, err);
-          failures.push(target?.username ?? targetId);
+          console.log('Error submitting report for', target.username, err);
+          failures.push({
+            name: target.username || 'Player',
+            message:
+              err instanceof Error && err.message
+                ? err.message
+                : t('reportSubmitFailed', undefined, 'Failed to submit report'),
+          });
         }
       }
-      if (failures.length === reportTargets.length && failures.length > 0) {
-        // Every POST failed — keep the modal open so the user can retry.
-        Alert.alert(t('error'), t('reportSubmitFailed', undefined, 'Failed to submit report. Please try again.'));
+      if (failures.length === 0) {
+        reportToast('success', 'reportSubmittedToast', 'Report submitted successfully. Our moderators will review it.');
+        closeReportModal();
         return;
       }
-      Alert.alert(
-        t('reportSubmittedTitle', undefined, 'Report Submitted'),
-        failures.length > 0
-          ? t('reportPartialFailure', { names: failures.join(', ') }, 'Some reports failed to send ({{names}}). The rest were submitted.')
-          : t('reportSubmittedMessage', undefined, 'Thank you for your report. Our team will review it.'),
-      );
-      setReportModalVisible(false);
-      setReportReason('');
-      setReportDescription('');
-      setReportTargets([]);
+      // At least one report did NOT land: keep the modal open with
+      // reason/description intact for a retry — feedback rendered INLINE
+      // (root toasts are invisible under the open modal). Landed targets are
+      // deselected so the retry only resends the failures (re-send 409s).
+      const feedback: { type: 'success' | 'error'; text: string }[] = [];
+      if (succeeded.size > 0) {
+        const names = realTargets
+          .filter((p) => succeeded.has(p.playerId))
+          .map((p) => p.username || 'Player')
+          .join(', ');
+        feedback.push({
+          type: 'success',
+          text: t('reportSubmittedFor', { names }, 'Report submitted for {{names}}'),
+        });
+        setReportTargets((prev) => prev.filter((id) => !succeeded.has(id)));
+      }
+      for (const f of failures) {
+        feedback.push({
+          type: 'error',
+          text: realTargets.length > 1 ? `${f.name}: ${f.message}` : f.message,
+        });
+      }
+      setReportFeedback(feedback);
     } finally {
       setReportSubmitting(false);
     }
@@ -1197,6 +1291,22 @@ export default function GameResultsScreen() {
         <Text style={{ color: '#F44336', fontSize: 16, fontFamily: 'Lexend' }}>{historyError}</Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
           <Text style={{ color: '#4CAF50', fontFamily: 'Lexend-SemiBold' }}>{t('back')}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  // Forfeit-before-round-1 games legitimately save with zero rounds (ELO/W-L
+  // must persist, the in-flight round is dropped by design). Rendering the
+  // normal screen shows "0 out of 0" over an empty round list — show the same
+  // message web's history view does instead.
+  if (historyData && historyData.rounds.length === 0) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16, fontFamily: 'Lexend', textAlign: 'center', paddingHorizontal: 32 }}>
+          {t('noRoundsPlayed')}
+        </Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
+          <Text style={{ color: '#4CAF50', fontFamily: 'Lexend-SemiBold' }}>{t('backToHistory')}</Text>
         </Pressable>
       </View>
     );
@@ -1420,16 +1530,7 @@ export default function GameResultsScreen() {
               report-free by ruling — the UI omission IS the enforcement. */}
           {multiplayerInfo && (multiplayerInfo.isDuel || multiplayerInfo.team2v2)
             && reportableOthers.length > 0 && (
-            <Pressable
-              onPress={() => {
-                // Single other player → preselect; several → open unselected.
-                setReportTargets(
-                  reportableOthers.length === 1 ? [reportRowId(reportableOthers[0], 0)] : [],
-                );
-                setReportModalVisible(true);
-              }}
-              style={styles.reportBtn}
-            >
+            <Pressable onPress={openReportModal} style={styles.reportBtn}>
               <Ionicons name="flag-outline" size={14} color="#F44336" />
               <Text style={styles.reportBtnText}>{t('report', undefined, 'Report')}</Text>
             </Pressable>
@@ -1439,172 +1540,347 @@ export default function GameResultsScreen() {
     </View>
   );
 
-  // ── Leaderboard for multiplayer non-duel ──────────────────
-  // 2v2 has NO leaderboard (each player's "score" is team HP — a points list
-  // would be nonsense); teamGame parties KEEP it with GLOBAL rank numbers
-  // (binding ruling: never per-team ranks).
+  // ── Final Scores leaderboard (multiplayer non-1v1) ─────────
+  // Mirrors web renderLeaderboard: every player, click to expand a per-round
+  // drill-down. Team modes GROUP the rows by team (Your Team / Enemy Team for
+  // 2v2, Team 1 / Team 2 for cumulative parties) while keeping GLOBAL rank
+  // numbers + trophies (binding ruling: never per-team ranks). Null myTeam (a
+  // viewer whose side couldn't be resolved) falls back to a flat global list
+  // rather than guessing sides.
   const renderLeaderboard = () => {
-    if (!multiplayerInfo || multiplayerInfo.isDuel || multiplayerInfo.team2v2) return null;
-    const sorted = [...multiplayerInfo.players].sort((a, b) => b.totalPoints - a.totalPoints);
+    // Web parity: no rounds → no leaderboard (an all-zero list helps no one).
+    if (!multiplayerInfo || multiplayerInfo.isDuel || parsedRounds.length === 0) return null;
+    const info = multiplayerInfo;
+    const isTeam = !!(info.team2v2 || info.teamGame);
+    const myTeam = info.myTeam;
     const trophyColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+
+    // 2v2's roster "score" is shared team HP, not points — a leaderboard of HP
+    // is nonsense, so (like web) sum each player's OWN round points instead.
+    // teamGame/FFA rosters already carry real accumulated points.
+    const totalOf = (p: PlayerInfo) =>
+      info.team2v2
+        ? (info.roundData[p.playerId]?.reduce((s, r) => s + (r.points ?? 0), 0) ?? 0)
+        : p.totalPoints;
+
+    // One global sort → global rank + trophies, shared by flat and grouped layouts.
+    const ranked = info.players
+      .map((p) => ({ player: p, total: totalOf(p) }))
+      .sort((a, b) => b.total - a.total);
+    const rankOf = new Map(ranked.map((r, i) => [r.player.playerId, i]));
+
+    const renderRow = ({ player, total }: { player: PlayerInfo; total: number }) => {
+      const rank = rankOf.get(player.playerId) ?? 0;
+      const isMe = player.playerId === info.myId;
+      const isSelected = selectedPlayer === player.playerId;
+      const playerRounds = info.roundData[player.playerId];
+      return (
+        <React.Fragment key={player.playerId}>
+          <Pressable
+            onPress={() => setSelectedPlayer(isSelected ? null : player.playerId)}
+            style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
+          >
+            <View style={styles.roundItemHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 }}>
+                {rank < 3 && <Ionicons name="trophy" size={16} color={trophyColors[rank]} />}
+                <PlayerName
+                  name={t('leaderboardPlayerRank', { rank: rank + 1, username: player.username })}
+                  countryCode={player.countryCode}
+                  flagSize={14}
+                  gap={8}
+                  textStyle={[styles.roundNumber, isMe && { color: '#4CAF50' }]}
+                >
+                  {isMe && <Text style={styles.teamBestYou}>({t('you')})</Text>}
+                </PlayerName>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.roundPts, { color: getPointsColor(total) }]}>
+                  {t('ptsCount', { points: total.toLocaleString() })}
+                </Text>
+                <Ionicons
+                  name={isSelected ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color="rgba(255,255,255,0.4)"
+                />
+              </View>
+            </View>
+          </Pressable>
+          {/* Per-player round drill-down */}
+          {isSelected && playerRounds && (
+            <View style={styles.playerDrillDown}>
+              {playerRounds.map((pr) => (
+                <View key={pr.roundNumber} style={styles.playerDrillDownRow}>
+                  <Text style={styles.playerDrillDownLabel}>{t('roundNumber', { round: pr.roundNumber })}</Text>
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                    {pr.distance != null && (
+                      <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance, units)}</Text>
+                    )}
+                    <Text style={[styles.playerDrillDownPts, { color: getPointsColor(pr.points) }]}>
+                      {t('ptsCount', { points: pr.points.toLocaleString() })}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </React.Fragment>
+      );
+    };
+
+    // Grouped-by-team only when we actually know the sides: cumulative parties
+    // have stable Team 1 / Team 2 identities regardless of viewer; 2v2 needs a
+    // resolved myTeam for the Your / Enemy framing, else it falls back to flat.
+    const grouped = isTeam && (info.teamGame || myTeam === 'a' || myTeam === 'b');
+
+    let body: React.ReactNode;
+    if (grouped) {
+      const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+      const sections: Array<['a' | 'b', string]> = info.teamGame
+        ? [
+            ['a', `${t('team1')}${myTeam === 'a' ? ` · ${t('yourTeamTag')}` : ''}`],
+            ['b', `${t('team2')}${myTeam === 'b' ? ` · ${t('yourTeamTag')}` : ''}`],
+          ]
+        : [
+            [myTeam as 'a' | 'b', t('yourTeam')],
+            [enemyTeam, t('enemyTeam')],
+          ];
+      const rowsFor = (team: 'a' | 'b') => ranked.filter((r) => r.player.team === team).map(renderRow);
+      // Never drop anyone: a player with no known team still gets a row.
+      const unknownRows = ranked.filter((r) => r.player.team !== 'a' && r.player.team !== 'b').map(renderRow);
+      body = (
+        <>
+          {sections.map(([team, label]) => (
+            <React.Fragment key={team}>
+              <View style={styles.leaderboardTeamHeader}>
+                {!info.isDraw && info.winningTeam === team && <Text style={styles.leaderboardCrown}>👑</Text>}
+                <Text style={styles.leaderboardTeamLabel}>{label}</Text>
+              </View>
+              {rowsFor(team)}
+            </React.Fragment>
+          ))}
+          {unknownRows}
+        </>
+      );
+    } else {
+      body = ranked.map(renderRow);
+    }
+
     return (
       <View style={{ marginBottom: 8 }}>
         <View style={styles.roundsHeader}>
           <Text style={styles.roundsHeaderText}>{t('finalScores')}</Text>
         </View>
-        {sorted.map((player, idx) => {
-          const isMe = player.playerId === multiplayerInfo.myId;
-          const isSelected = selectedPlayer === player.playerId;
-          const playerRounds = multiplayerInfo.roundData[player.playerId];
-          return (
-            <React.Fragment key={player.playerId}>
-              <Pressable
-                onPress={() => setSelectedPlayer(isSelected ? null : player.playerId)}
-                style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
-              >
-                <View style={styles.roundItemHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 }}>
-                    {idx < 3 && (
-                      <Ionicons name="trophy" size={16} color={trophyColors[idx]} />
-                    )}
-                    <PlayerName
-                      name={`${t('leaderboardPlayerRank', { rank: idx + 1, username: player.username })}${isMe ? ` (${t('you')})` : ''}`}
-                      countryCode={player.countryCode}
-                      flagSize={14}
-                      gap={8}
-                      textStyle={[styles.roundNumber, isMe && { color: '#4CAF50' }]}
-                    />
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
-                      {t('ptsCount', { points: player.totalPoints.toLocaleString() })}
-                    </Text>
-                    <Ionicons
-                      name={isSelected ? 'chevron-up' : 'chevron-down'}
-                      size={14}
-                      color="rgba(255,255,255,0.4)"
-                    />
-                  </View>
-                </View>
-              </Pressable>
-              {/* Per-player round drill-down */}
-              {isSelected && playerRounds && (
-                <View style={styles.playerDrillDown}>
-                  {playerRounds.map((pr) => (
-                    <View key={pr.roundNumber} style={styles.playerDrillDownRow}>
-                      <Text style={styles.playerDrillDownLabel}>{t('roundNumber', { round: pr.roundNumber })}</Text>
-                      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                        {pr.distance != null && (
-                          <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance, units)}</Text>
-                        )}
-                        <Text style={[styles.playerDrillDownPts, { color: getPointsColor(pr.points) }]}>
-                          {t('ptsCount', { points: pr.points.toLocaleString() })}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </React.Fragment>
-          );
-        })}
+        {body}
       </View>
     );
   };
 
-  // ── Report modal ──────────────────────────────────────────
+  // ── Report modal — two-step, web reportModal.js parity ─────
+  // Step 'pick' (2v2 only): who-are-you-reporting multi-select with allegiance
+  // labels, Cancel/Next. Step 'form': shared reason + description for every
+  // selected target, Back(-to-picker)/Submit. 1v1 opens straight on the form.
   const renderReportModal = () => {
     const wordCount = reportDescription.trim().split(/\s+/).filter(Boolean).length;
+    const usePicker = reportableOthers.length > 1;
+    const inPickerStep = usePicker && reportStep === 'pick';
+    const selectedNames = reportTargets
+      .map((id) => reportTargetOf(id)?.username)
+      .filter(Boolean)
+      .join(', ');
+    const submitDisabled = reportSubmitting || !reportReason || !reportDescription.trim();
     return (
-      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)} supportedOrientations={['portrait', 'landscape']}>
+      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={closeReportModal} supportedOrientations={['portrait', 'landscape']}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('reportPlayer', undefined, 'Report Player')}</Text>
-            <Text style={styles.modalWarning}>
-              {t('reportFalseWarning', undefined, 'False reports may result in action against your account.')}
-            </Text>
+            {/* Title row + X (web Modal header): one-tap exit from ANY step —
+                without it iOS users on the form step need Back→Cancel. */}
+            <View style={styles.reportTitleRow}>
+              <Text style={[styles.modalTitle, { flex: 1, marginBottom: 0 }]} numberOfLines={2}>
+                {inPickerStep
+                  ? t('reportAPlayer', undefined, 'Report a player')
+                  : `${t('report', undefined, 'Report')} ${selectedNames || 'Player'}`}
+              </Text>
+              <Pressable onPress={closeReportModal} hitSlop={8} accessibilityLabel={t('cancel')}>
+                <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            </View>
 
-            {/* Player selection — multi-select checkboxes over everyone except
-                self (teammates INCLUDED: the co-cheating duo is the core 2v2
-                case). Stays visible so selections can be toggled. Row ids are
-                SYNTHESIZED for account-less players (guests/bots have
-                playerId null in history data — raw null keys would entangle
-                their rows into one shared selection). */}
-            {reportableOthers.length > 1 && (
-              <View style={{ marginBottom: 12 }}>
-                <Text style={styles.modalLabel}>{t('selectPlayer', undefined, 'Select Player')}</Text>
-                {reportableOthers.map((opp, idx) => {
-                  const rowId = reportRowId(opp, idx);
-                  const selected = reportTargets.includes(rowId);
-                  return (
+            {/* Middle scrolls (web .modal-content overflow-y:auto); the title
+                and action buttons stay pinned so Submit is always reachable —
+                short landscape viewports and the open keyboard both squeeze
+                this card. */}
+            <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+            {inPickerStep ? (
+              <>
+                {/* Everyone except self, teammate INCLUDED (the co-cheating
+                    duo is the core 2v2 case). Row ids are SYNTHESIZED for
+                    account-less players (bots/guests have playerId null in
+                    old history data — raw null keys would entangle rows). */}
+                <Text style={styles.modalWarning}>
+                  {t('reportWhoPrompt', undefined, 'Who are you reporting? Select one or more players.')}
+                </Text>
+                <View style={{ gap: 6, marginBottom: 12 }}>
+                  {reportableOthers.map((opp, idx) => {
+                    const rowId = reportRowId(opp, idx);
+                    const selected = reportTargets.includes(rowId);
+                    const relationship = reportRelationshipOf(opp);
+                    return (
+                      <Pressable
+                        key={rowId}
+                        onPress={() =>
+                          setReportTargets((prev) =>
+                            prev.includes(rowId)
+                              ? prev.filter((id) => id !== rowId)
+                              : [...prev, rowId],
+                          )
+                        }
+                        style={[styles.reasonOption, selected && styles.reasonOptionActive]}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Ionicons
+                            name={selected ? 'checkbox' : 'square-outline'}
+                            size={18}
+                            color={selected ? '#4CAF50' : 'rgba(255,255,255,0.5)'}
+                          />
+                          <PlayerName
+                            name={opp.username}
+                            countryCode={opp.countryCode}
+                            flagSize={12}
+                            gap={6}
+                            textStyle={[styles.reasonOptionText, selected && { color: '#fff' }]}
+                          />
+                          <View style={{ flex: 1 }} />
+                          {relationship && <Text style={styles.reportRelationship}>{relationship}</Text>}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalWarning}>
+                  {t(
+                    reportTargets.length > 1 ? 'reportDetailsPromptPlural' : 'reportDetailsPrompt',
+                    undefined,
+                    reportTargets.length > 1
+                      ? 'Please provide details about why you are reporting these players. False reports may result in restrictions.'
+                      : 'Please provide details about why you are reporting this player. False reports may result in restrictions.',
+                  )}
+                </Text>
+
+                {/* Reason (radio rows = mobile idiom for web's dropdown) */}
+                <Text style={styles.modalLabel}>{t('reportReasonLabel', undefined, 'Reason for Report *')}</Text>
+                <View style={{ gap: 6, marginBottom: 12 }}>
+                  {([
+                    ['inappropriate_username', t('reportReasonInappropriateUsername')],
+                    ['cheating', t('reportReasonCheating')],
+                    ['other', t('reportReasonOther')],
+                  ] as const).map(([value, label]) => (
                     <Pressable
-                      key={rowId}
-                      onPress={() =>
-                        setReportTargets((prev) =>
-                          prev.includes(rowId)
-                            ? prev.filter((id) => id !== rowId)
-                            : [...prev, rowId],
-                        )
-                      }
-                      style={[styles.reasonOption, selected && styles.reasonOptionActive]}
+                      key={value}
+                      onPress={() => setReportReason(value)}
+                      style={[styles.reasonOption, reportReason === value && styles.reasonOptionActive]}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={[styles.reasonOptionText, selected && { color: '#fff' }]}>{opp.username}</Text>
-                        {selected && <Ionicons name="checkmark" size={16} color="#fff" />}
-                      </View>
+                      <Text style={[styles.reasonOptionText, reportReason === value && { color: '#fff' }]}>{label}</Text>
                     </Pressable>
-                  );
-                })}
+                  ))}
+                </View>
+
+                {/* Description — label + live word counter (web: "Need N more
+                    words" under the floor, then "N/100 words"). */}
+                <View style={styles.reportLabelRow}>
+                  <Text style={styles.modalLabel}>{t('reportDescriptionShort', undefined, 'Description *')}</Text>
+                  <Text style={styles.wordCount}>
+                    {wordCount > 4
+                      ? t('wordCountOfMax', { count: wordCount }, '{{count}}/100 words')
+                      : 5 - wordCount === 1
+                        ? t('wordCountNeedOne', undefined, 'Need 1 more word')
+                        : t('wordCountNeedMore', { count: 5 - wordCount }, 'Need {{count}} more words')}
+                  </Text>
+                </View>
+                <TextInput
+                  style={styles.reportInput}
+                  multiline
+                  numberOfLines={4}
+                  placeholder={t('reportDescriptionPlaceholder', undefined, 'Please describe the issue in detail...')}
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={reportDescription}
+                  onChangeText={handleReportDescriptionChange}
+                  textAlignVertical="top"
+                  editable={!reportSubmitting}
+                />
+                <Text style={styles.reportHint}>
+                  {t('reportDetailHint', undefined, 'Provide as much detail as possible. Minimum 5 words required.')}
+                </Text>
+
+                {/* Moderation note (web's orange callout) */}
+                <View style={styles.reportNoteBox}>
+                  <Text style={styles.reportNoteText}>
+                    {t('reportModNote', undefined, 'Note: This report will be reviewed by moderators. Abuse of the reporting system may result in action against your account.')}
+                  </Text>
+                </View>
+
+              </>
+            )}
+            </ScrollView>
+
+            {/* Inline outcome feedback — validation errors and per-target
+                partial-failure results (root toasts are hidden behind the open
+                modal's native window; success-and-close paths still toast
+                normally). PINNED with the buttons, not inside the scroll —
+                feedback below the fold is as invisible as an occluded toast. */}
+            {!inPickerStep && reportFeedback.length > 0 && (
+              <View style={styles.reportFeedbackBox}>
+                {reportFeedback.map((f, i) => (
+                  <Text
+                    key={i}
+                    style={[styles.reportFeedbackText, f.type === 'success' && styles.reportFeedbackSuccess]}
+                  >
+                    {f.text}
+                  </Text>
+                ))}
               </View>
             )}
 
-            {/* Reason selection */}
-            <Text style={styles.modalLabel}>{t('reason')}</Text>
-            <View style={{ gap: 6, marginBottom: 12 }}>
-              {([
-                ['inappropriate_username', t('reportReasonInappropriateUsername')],
-                ['cheating', t('reportReasonCheating')],
-                ['other', t('reportReasonOther')],
-              ] as const).map(([value, label]) => (
-                <Pressable
-                  key={value}
-                  onPress={() => setReportReason(value)}
-                  style={[styles.reasonOption, reportReason === value && styles.reasonOptionActive]}
-                >
-                  <Text style={[styles.reasonOptionText, reportReason === value && { color: '#fff' }]}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Description */}
-            <Text style={styles.modalLabel}>{t('reportDescriptionLabel', undefined, 'Description (5-100 words)')}</Text>
-            <TextInput
-              style={styles.reportInput}
-              multiline
-              numberOfLines={4}
-              placeholder={t('reportDescriptionPlaceholder', undefined, 'Describe the issue...')}
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={reportDescription}
-              onChangeText={setReportDescription}
-              textAlignVertical="top"
-            />
-            <Text style={styles.wordCount}>{t('wordCountOfMax', { count: wordCount })}</Text>
-
-            {/* Buttons */}
+            {/* Actions pinned below the scroll (web keeps its buttons outside
+                the scrolling body too). */}
             <View style={styles.modalButtons}>
-              <Pressable
-                onPress={() => { setReportModalVisible(false); setReportReason(''); setReportDescription(''); setReportTargets([]); }}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSubmitReport}
-                disabled={reportSubmitting || !reportReason || reportTargets.length === 0 || wordCount < 5}
-                style={[styles.modalSubmitBtn, (reportSubmitting || !reportReason || reportTargets.length === 0 || wordCount < 5) && { opacity: 0.5 }]}
-              >
-                <Text style={styles.modalSubmitText}>{t(reportSubmitting ? 'submitting' : 'submit', undefined, reportSubmitting ? 'Submitting...' : 'Submit')}</Text>
-              </Pressable>
+              {inPickerStep ? (
+                <>
+                  <Pressable onPress={closeReportModal} style={styles.modalCancelBtn}>
+                    <Text style={styles.modalCancelText}>{t('cancel')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setReportStep('form')}
+                    disabled={reportTargets.length === 0}
+                    style={[styles.modalSubmitBtn, reportTargets.length === 0 && { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.modalSubmitText}>{t('next', undefined, 'Next')}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Pressable
+                    onPress={usePicker ? () => setReportStep('pick') : closeReportModal}
+                    disabled={reportSubmitting}
+                    style={styles.modalCancelBtn}
+                  >
+                    <Text style={styles.modalCancelText}>
+                      {usePicker ? t('back', undefined, 'Back') : t('cancel')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleSubmitReport}
+                    disabled={submitDisabled}
+                    style={[styles.modalSubmitBtn, submitDisabled && { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.modalSubmitText}>
+                      {t(reportSubmitting ? 'submitting' : 'submitReport', undefined, reportSubmitting ? 'Submitting...' : 'Submit Report')}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1622,7 +1898,15 @@ export default function GameResultsScreen() {
   const roundTeamInfo = (round: RoundResult) => {
     const myTeam = multiplayerInfo?.myTeam;
     if (!isTeamResults || !myTeam) return null;
-    let scores = round.teamRoundScores ?? null;
+    // Server stamp only counts when BOTH sides are real numbers (web's typeof
+    // guard): old saves materialize the schema default {a:null,b:null}, a
+    // truthy object that must NOT block the recompute — `!scores` did exactly
+    // that and painted every pre-stamp 2v2 history round as 0 vs 0.
+    const stamped = round.teamRoundScores;
+    let scores: { a: number; b: number } | null =
+      typeof stamped?.a === 'number' && typeof stamped?.b === 'number'
+        ? { a: stamped.a, b: stamped.b }
+        : null;
     // The fallback formula IS closest scoring (best guess per team) — under
     // 'average' it would crown the wrong team (4000+1000 beats 3000+3000).
     // Average rounds are always server-stamped; if the stamp is missing,
@@ -1638,16 +1922,22 @@ export default function GameResultsScreen() {
     }
     if (!scores) return null;
     // Best guesser per team (web renderTeamColumn): whose guess carried the
-    // column. Suppressed under average scoring — no single guess counted.
-    const bestNames: { a: string | null; b: string | null } = { a: null, b: null };
+    // column — real username + flag, with an "(You)" suffix for self (web
+    // parity; never swap the name out for "You"). Suppressed under average
+    // scoring — no single guess counted there.
+    type BestGuesser = { name: string; countryCode?: string; isMe: boolean };
+    const bestNames: { a: BestGuesser | null; b: BestGuesser | null } = { a: null, b: null };
     if (closestScoring && resultsTeams && round.allPlayerGuesses?.length) {
       const bestPts = { a: 0, b: 0 };
       for (const g of round.allPlayerGuesses) {
         const team = resultsTeams[g.playerId];
-        if ((team === 'a' || team === 'b') && (g.points ?? 0) > bestPts[team]) {
+        if ((team === 'a' || team === 'b') && (g.points ?? 0) > bestPts[team] && g.username) {
           bestPts[team] = g.points ?? 0;
-          bestNames[team] =
-            g.playerId === multiplayerInfo?.myId ? t('you') : (g.username ?? null);
+          bestNames[team] = {
+            name: g.username,
+            countryCode: g.countryCode,
+            isMe: g.playerId === multiplayerInfo?.myId,
+          };
         }
       }
     }
@@ -1669,9 +1959,6 @@ export default function GameResultsScreen() {
 
   const renderRoundsList = () => (
     <>
-      {/* Multiplayer leaderboard */}
-      {renderLeaderboard()}
-
       <View style={styles.roundsHeader}>
         <Text style={styles.roundsHeaderText}>{t('roundDetails')}</Text>
       </View>
@@ -1708,9 +1995,12 @@ export default function GameResultsScreen() {
               {/* Round header row */}
               <View style={styles.roundItemHeader}>
                 <Text style={styles.roundNumber}>{t('roundNumber', { round: index + 1 })}</Text>
-                {/* Duel: time + Street View button on the right (web parity:
-                    roundOverScreen.js duel round-header). Non-duel keeps points. */}
-                {multiplayerInfo?.isDuel ? (
+                {/* Duel AND team rounds: time + Street View button on the right
+                    (web parity: roundOverScreen.js round-header). A lone solo
+                    pts number up here reads as "the round score" and contradicts
+                    the team columns below — web never shows it. FFA/SP rounds
+                    (about YOUR guess) keep the points. */}
+                {multiplayerInfo?.isDuel || teamInfo ? (
                   <View style={styles.roundHeaderRight}>
                     {round.timeTaken != null && round.timeTaken > 0 && (
                       <Text style={styles.roundTimeText}>⏱️ {formatTime(round.timeTaken)}</Text>
@@ -1744,10 +2034,20 @@ export default function GameResultsScreen() {
                 <View style={styles.duelRoundRow}>
                   <View style={styles.duelPlayerCol}>
                     <Text style={styles.duelPlayerName}>{t('yourTeam')}</Text>
-                    {/* Whose guess carried the column (web renderTeamColumn);
-                        absent under average scoring. */}
+                    {/* Whose guess carried the column (web renderTeamColumn):
+                        username + flag + "(You)"; absent under average scoring. */}
                     {teamInfo.mineBest ? (
-                      <Text style={styles.teamBestName} numberOfLines={1}>{teamInfo.mineBest}</Text>
+                      <PlayerName
+                        name={teamInfo.mineBest.name}
+                        countryCode={teamInfo.mineBest.countryCode}
+                        flagSize={11}
+                        gap={4}
+                        textStyle={styles.teamBestName}
+                      >
+                        {teamInfo.mineBest.isMe && (
+                          <Text style={styles.teamBestYou}>({t('you')})</Text>
+                        )}
+                      </PlayerName>
                     ) : null}
                     <Text style={[styles.duelPlayerScore, { color: getPointsColor(teamInfo.mine) }]}>
                       {t('ptsCount', { points: teamInfo.mine.toLocaleString() })}
@@ -1767,7 +2067,17 @@ export default function GameResultsScreen() {
                   <View style={styles.duelPlayerCol}>
                     <Text style={styles.duelPlayerName}>{t('enemyTeam')}</Text>
                     {teamInfo.enemyBest ? (
-                      <Text style={styles.teamBestName} numberOfLines={1}>{teamInfo.enemyBest}</Text>
+                      <PlayerName
+                        name={teamInfo.enemyBest.name}
+                        countryCode={teamInfo.enemyBest.countryCode}
+                        flagSize={11}
+                        gap={4}
+                        textStyle={styles.teamBestName}
+                      >
+                        {teamInfo.enemyBest.isMe && (
+                          <Text style={styles.teamBestYou}>({t('you')})</Text>
+                        )}
+                      </PlayerName>
                     ) : null}
                     <Text style={[styles.duelPlayerScore, { color: getPointsColor(teamInfo.enemy) }]}>
                       {t('ptsCount', { points: teamInfo.enemy.toLocaleString() })}
@@ -1841,8 +2151,9 @@ export default function GameResultsScreen() {
                 null
               )}
 
-              {/* Detail rows — shown for non-duel types only */}
-              {!multiplayerInfo?.isDuel && (
+              {/* Detail rows — FFA/SP only. Team rounds are columns-only (web):
+                  time lives in the header, per-player detail behind Final Scores. */}
+              {!multiplayerInfo?.isDuel && !teamInfo && (
                 <View style={styles.roundDetails}>
                   {round.distance != null && round.distance > 0 && (
                     <View style={styles.detailRow}>
@@ -1877,6 +2188,9 @@ export default function GameResultsScreen() {
           </Animated.View>
         );
       })}
+
+      {/* Final Scores — BELOW the round breakdown (web sidebar order). */}
+      {renderLeaderboard()}
     </>
   );
 
@@ -1899,6 +2213,7 @@ export default function GameResultsScreen() {
               activeRound={activeRound}
               isDuel={!!multiplayerInfo?.isDuel}
               teams={resultsTeams}
+              myId={multiplayerInfo?.myId}
               selectedPlayer={selectedPlayer}
             />
           </View>
@@ -1963,6 +2278,7 @@ export default function GameResultsScreen() {
         activeRound={activeRound}
         isDuel={!!multiplayerInfo?.isDuel}
         teams={resultsTeams}
+        myId={multiplayerInfo?.myId}
         selectedPlayer={selectedPlayer}
       />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
@@ -2222,6 +2538,25 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: 'Lexend-Bold',
   },
+  // Team section header inside the Final Scores list (web sectionHeader).
+  leaderboardTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  leaderboardTeamLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: fontSizes.xs,
+    fontFamily: 'Lexend-SemiBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  leaderboardCrown: {
+    fontSize: 13,
+  },
   totalXpBadgeText: {
     color: '#FFC107',
     fontSize: fontSizes.xs,
@@ -2401,6 +2736,13 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 2,
   },
+  // "(You)" suffix after the carrier name (web's italic dim tag).
+  teamBestYou: {
+    fontSize: 10,
+    fontFamily: 'Lexend',
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.45)',
+  },
   duelPlayerScore: {
     fontSize: 15,
     fontFamily: 'Lexend-Bold',
@@ -2501,6 +2843,11 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
     maxWidth: 400,
+    // Cap the card so the pinned action row never leaves the screen — the
+    // middle ScrollView absorbs the overflow (web: max-height min(80vh,100%),
+    // scrolling .modal-content). Short landscape viewports + the open
+    // keyboard both squeeze this hard.
+    maxHeight: '85%',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
@@ -2510,11 +2857,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 8,
   },
-  modalWarning: {
+  // Title + X close (web Modal header) — one-tap exit from any step.
+  reportTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  // Inline outcome feedback (validation / partial-failure) — lives in the
+  // card because root toasts paint behind the open native Modal.
+  reportFeedbackBox: {
+    gap: 4,
+    marginBottom: 12,
+  },
+  reportFeedbackText: {
     fontSize: 12,
     fontFamily: 'Lexend',
-    color: '#FFC107',
+    color: '#ff6b6b',
+  },
+  reportFeedbackSuccess: {
+    color: '#4CAF50',
+  },
+  // Intro prompt under the title (web: neutral body copy; the amber warning
+  // moved into the note box below the form, matching web's layout).
+  modalWarning: {
+    fontSize: 13,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.8)',
     marginBottom: 16,
+  },
+  // Right-aligned allegiance tag on picker rows (web relationshipLabel).
+  reportRelationship: {
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  // Description label + live word counter share one row (web).
+  reportLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reportHint: {
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  // Moderation note callout (web's orange box).
+  reportNoteBox: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 152, 0, 0.3)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  reportNoteText: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.9)',
   },
   modalLabel: {
     fontSize: 13,
@@ -2555,9 +2958,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Lexend',
     color: 'rgba(255,255,255,0.4)',
-    textAlign: 'right',
-    marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 6,
   },
   modalButtons: {
     flexDirection: 'row',

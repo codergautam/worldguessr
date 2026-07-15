@@ -1340,7 +1340,13 @@ const GameSummary = ({
                   const bestPlayer = namesBest && best > 0
                     ? membersOf(team).find(p => (round.players?.[p.id]?.points || 0) === best)
                     : null;
-                  const displayScore = isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best;
+                  // Prefer the server-stamped per-team round score (now stamped
+                  // for 2v2 too, not just cumulative parties); fall back to the
+                  // cumulative helper / computed best for pre-stamp rounds.
+                  const stampedScore = round.teamRoundScores?.[team];
+                  const displayScore = typeof stampedScore === 'number'
+                    ? stampedScore
+                    : (isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best);
                   // Unstamped rounds (pre-stamp server/saves) were 1x, so the
                   // fallback is 1 — and ×1 means "no multiplier": the tag and
                   // tooltip only render when a real multiplier shaped the

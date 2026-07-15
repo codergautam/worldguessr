@@ -18,6 +18,8 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     const [localTeamGame, setLocalTeamGame] = useState(false);
     const [localScoring, setLocalScoring] = useState('closest');
     const [localAllowPick, setLocalAllowPick] = useState(false);
+    // Emote mute — default off (emotes on); server truth lives on gameData.
+    const [localDisableEmotes, setLocalDisableEmotes] = useState(false);
 
     // Sync local state when modal opens or multiplayer state changes
     useEffect(() => {
@@ -30,6 +32,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             setLocalTeamGame(!!multiplayerState?.gameData?.teamGame);
             setLocalScoring(multiplayerState?.gameData?.teamScoring ?? 'closest');
             setLocalAllowPick(!!multiplayerState?.gameData?.allowTeamPick);
+            setLocalDisableEmotes(!!multiplayerState?.gameData?.disableEmotes);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shown, multiplayerState?.createOptions?.rounds, multiplayerState?.createOptions?.timePerRound]);
@@ -91,6 +94,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             nm: gameOptions.nm,
             npz: gameOptions.npz,
             showRoadName: gameOptions.showRoadName,
+            disableEmotes: localDisableEmotes,
         };
 
         setMultiplayerState(prev => ({
@@ -334,8 +338,23 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                         </button>
                     </div>
                     
+                    {/* Emote mute — default off. The FAB hides on every client
+                        and the server drops raw emote messages too. */}
+                    <div className="party-modal__setting party-modal__setting--toggle">
+                        <label className="party-modal__label">{text('disableEmotes')}</label>
+                        <button
+                            className={`party-modal__toggle ${localDisableEmotes ? 'party-modal__toggle--active' : ''}`}
+                            onClick={() => setLocalDisableEmotes((v) => !v)}
+                            aria-pressed={localDisableEmotes}
+                        >
+                            <span className="party-modal__toggle-track">
+                                <span className="party-modal__toggle-thumb" />
+                            </span>
+                        </button>
+                    </div>
+
                     <div className="party-modal__divider" />
-                    
+
                     {/* Map Selection */}
                     <div className="party-modal__setting party-modal__setting--map">
                         <div className="party-modal__map-info">

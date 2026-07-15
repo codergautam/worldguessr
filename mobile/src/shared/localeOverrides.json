@@ -19,6 +19,7 @@
   "watchAd": "Watch Ad",
   "watchAnAdToRestore": "Watch a short ad to restore your streak.",
   "notConnectedReopenApp": "You are not connected to the server. Closing and re-opening the app can help.",
+  "multiplayerConnectionErrorMessage": "This can happen for a variety of reasons. Please check your internet connection and try closing and re-opening the app.",
   "duelDrawNoHpChange": "Draw — no HP change",
   "opponentLostHp": "Opponent lost {{diff}} HP",
   "youLostHp": "You lost {{diff}} HP",

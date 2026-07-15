@@ -4,7 +4,46 @@ import { useTranslation } from '@/components/useTranslations';
 import { preloadPinImages } from '@/lib/markerIcons';
 import styles from '../styles/gameHistory.module.css';
 
-const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
+// loading with an error fallback: a failed chunk fetch (stale tab across a
+// deploy, flaky network) otherwise renders null forever inside the opaque
+// overlay below — a black screen with no exit and nothing in the console.
+// Hardcoded English like SafeMapContainer's fallback: when chunks are
+// unreachable, translations may be too.
+const GameSummary = dynamic(() => import('./roundOverScreen'), {
+  ssr: false,
+  loading: ({ error }) => {
+    if (!error) return null;
+    return (
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        color: 'white'
+      }}>
+        <div>Failed to load the game viewer.</div>
+        <button
+          type="button"
+          onClick={() => { try { window.location.reload(); } catch (_) {} }}
+          style={{
+            padding: '8px 18px',
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#1b2838',
+            background: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer'
+          }}
+        >
+          Reload
+        </button>
+      </div>
+    );
+  },
+});
 
 export default function HistoricalGameView({ game, session, onBack, options, onUsernameLookup }) {
   const { t: text } = useTranslation("common");
@@ -336,6 +375,33 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
     if (isExiting) className += ` ${styles.exiting}`;
     return className;
   };
+
+  // Forfeit-before-round-1 games save with zero rounds (ws Game.js end()
+  // deliberately drops the in-flight round), so gameDetails returns
+  // rounds: []. GameSummary's empty-history state is a live-game placeholder
+  // with no message and no buttons, which here reads as a black overlay with
+  // no way out. Show a real message with an exit instead of mounting it.
+  if (transformedHistory.length === 0) {
+    return (
+      <div className={getClassName()}>
+        <div
+          className={styles.errorContainer}
+          style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <h3>{text('noRoundsPlayed')}</h3>
+          <button className={styles.backButton} onClick={handleBack}>
+            ← {text('backToHistory')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={getClassName()}>

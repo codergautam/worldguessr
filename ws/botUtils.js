@@ -1,13 +1,13 @@
 // Duel bots: socket-less Player objects that backfill matches for struggling
 // players so they aren't stuck losing (or never matching) forever.
 //
-//   - Ranked 1v1: a player with 0 ranked wins or an under-10% winrate whom
+//   - Ranked 1v1: a player with 0 ranked wins or a ≤10% winrate whom
 //     the pairing pass couldn't serve gets a bot opponent pinned to
 //     800-1000 ELO. The human's ELO/W-L update normally against that rating;
 //     the bot persists nothing (no accountId → every DB path skips it, and
 //     finishSoloDuel's two-account save gate keeps bot games out of match
 //     history / stats records by construction).
-//   - 2v2: a duo where BOTH members are 2v2 newbies (0 wins or <10% winrate)
+//   - 2v2: a duo where BOTH members are 2v2 newbies (0 wins or ≤20% winrate)
 //     gets a full bot team in the opponent stage.
 //     saveTeamDuelToMongoDB already treats account-less players as guests, so
 //     the humans' team2v2_* counters update normally.
@@ -118,7 +118,7 @@ export function createBotPlayer() {
   return bot;
 }
 
-// Eligibility = 0 wins yet, or under 10% winrate, per mode. Stamped on the
+// Eligibility = 0 wins yet, or a low winrate (≤10% ranked, ≤20% 2v2). Stamped on the
 // Player — NOT the queue entry, which the ranked widen loop replaces — by a
 // fire-and-forget read at queue join; backfill only trusts an explicit true,
 // so an unresolved read just means no bot this queue session.
@@ -130,13 +130,13 @@ export async function refreshBotEligibility(player) {
       .lean();
     if (!u) return;
     // .lean() skips schema defaults — dormant docs report undefined, not 0.
-    const newbie = (wins, losses, tied) => {
+    const newbie = (wins, losses, tied, maxWinrate) => {
       const total = wins + losses + tied;
-      return wins === 0 || wins / total < 0.1;
+      return wins === 0 || wins / total <= maxWinrate;
     };
     player.botEligibility = {
-      ranked: newbie(u.duels_wins || 0, u.duels_losses || 0, u.duels_tied || 0),
-      team: newbie(u.team2v2_wins || 0, u.team2v2_losses || 0, u.team2v2_tied || 0),
+      ranked: newbie(u.duels_wins || 0, u.duels_losses || 0, u.duels_tied || 0, 0.1),
+      team: newbie(u.team2v2_wins || 0, u.team2v2_losses || 0, u.team2v2_tied || 0, 0.2),
     };
   } catch (e) {
     console.error('refreshBotEligibility failed for', player?.accountId, e?.message);

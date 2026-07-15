@@ -8,6 +8,7 @@ import {
   Switch,
   ActivityIndicator,
   Animated,
+  Keyboard,
   PanResponder,
   useWindowDimensions,
   BackHandler,
@@ -48,6 +49,13 @@ interface MapSelectorModalProps {
    */
   teamConfig?: TeamConfig;
   onTeamConfigChange?: (config: TeamConfig) => void;
+  /**
+   * Party mode: mute emote reactions for this game (default off — emotes on).
+   * The row renders only when the handler is provided (web partyModal.js
+   * parity; singleplayer callers omit it).
+   */
+  disableEmotes?: boolean;
+  onDisableEmotesToggle?: (v: boolean) => void;
 }
 
 export interface TeamConfig {
@@ -80,6 +88,8 @@ export default function MapSelectorModal({
   onRoundsChange,
   teamConfig,
   onTeamConfigChange,
+  disableEmotes,
+  onDisableEmotesToggle,
 }: MapSelectorModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -95,6 +105,9 @@ export default function MapSelectorModal({
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
+  // Search bar's y inside the scroll content (it's a direct child, so
+  // onLayout.y IS the scroll target). Used to pin it to the top on focus.
+  const searchBarYRef = useRef(0);
 
   // When a map is tapped, show its detail view inline
   const [selectedMap, setSelectedMap] = useState<SelectedMapInfo | null>(null);
@@ -129,6 +142,9 @@ export default function MapSelectorModal({
   const animateClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+    // The search keyboard must never outlive the sheet: this covers every exit
+    // (checkmark, backdrop tap, swipe-down, Android back, map selected).
+    Keyboard.dismiss();
     Animated.parallel([
       Animated.timing(sheetAnim, {
         toValue: SHEET_HEIGHT,
@@ -284,8 +300,11 @@ export default function MapSelectorModal({
     }, 400);
   }, [mapHome]);
 
-  // Navigate to inline detail view with slide animation
+  // Navigate to inline detail view with slide animation. Drop the search
+  // keyboard first — the sheet stays open, so nothing else would dismiss it
+  // and it sat over the detail view.
   const handleMapPress = useCallback((map: MapItem) => {
+    Keyboard.dismiss();
     const slug = map.slug || map.countryMap;
     showDetail({
       slug: slug!,
@@ -427,6 +446,7 @@ export default function MapSelectorModal({
               scrollEventThrottle={16}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {/* ── Game Options ── */}
               {showOptions && (
@@ -488,7 +508,7 @@ export default function MapSelectorModal({
                         <View style={styles.optionRow}>
                           <View style={styles.optionLabel}>
                             <Ionicons name="swap-horizontal-outline" size={20} color="#fff" />
-                            <Text style={styles.optionText}>{t('allowTeamPick')}</Text>
+                            <Text style={styles.optionText}>{t('allowTeamPickShort')}</Text>
                           </View>
                           <Switch
                             value={teamConfig.allowTeamPick}
@@ -583,6 +603,25 @@ export default function MapSelectorModal({
                     </Pressable>
                   </View>
                 )}
+
+                {/* Emote mute — party mode only (web partyModal.js parity). */}
+                {onDisableEmotesToggle && (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.optionRow}>
+                      <View style={styles.optionLabel}>
+                        <Ionicons name="happy-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>{t('disableEmotes')}</Text>
+                      </View>
+                      <Switch
+                        value={!!disableEmotes}
+                        onValueChange={onDisableEmotesToggle}
+                        trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
               )}
 
@@ -595,7 +634,10 @@ export default function MapSelectorModal({
               {/* Search — ABOVE the mode tiles. Mode tiles (World / Country
                   Guesser / Continent Guesser) are not part of search; they
                   disappear entirely the moment any text is typed. */}
-              <View style={styles.searchContainer}>
+              <View
+                style={styles.searchContainer}
+                onLayout={(e) => { searchBarYRef.current = e.nativeEvent.layout.y; }}
+              >
                 <Ionicons name="search" size={18} color="#666" />
                 <TextInput
                   style={styles.searchInput}
@@ -603,6 +645,18 @@ export default function MapSelectorModal({
                   placeholderTextColor="#999"
                   value={searchQuery}
                   onChangeText={handleSearch}
+                  // Pin the bar to the top of the sheet when focused: under
+                  // edgeToEdge the window never resizes for the keyboard, so
+                  // Android's native scroll-into-view is dead (and iOS never
+                  // had one) — a low-sitting bar stayed buried under the IME.
+                  // Top position = guaranteed clearance at any keyboard height,
+                  // with results painting right below it.
+                  onFocus={() => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, searchBarYRef.current - 8),
+                      animated: true,
+                    });
+                  }}
                   returnKeyType="search"
                   autoCorrect={false}
                 />
@@ -650,12 +704,25 @@ export default function MapSelectorModal({
 
               {/* Map Sections */}
               {loading ? (
-                <View style={styles.centered}>
-                  <ActivityIndicator size="large" color="#4CAF50" />
-                  <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
+                // Same height floor as the search branch: keeps the focus
+                // pin-to-top scroll reachable if the user taps search mid-load.
+                <View style={{ minHeight: SHEET_HEIGHT }}>
+                  <View style={styles.centered}>
+                    <ActivityIndicator size="large" color="#4CAF50" />
+                    <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
+                  </View>
                 </View>
               ) : isSearching ? (
-                <>
+                /* Height floor while searching: each keystroke swaps this region
+                   between results / spinner / empty state, and in party mode the
+                   options card puts the search bar a full screen down — so when
+                   the big map sections collapse to a lone spinner, the content
+                   shrinks below the current scroll offset and the ScrollView
+                   CLAMPS it (the glitchy snap while typing). Reserving a sheet's
+                   worth of height keeps the offset valid through every swap, so
+                   the view never jumps; results simply paint in place below the
+                   bar. */
+                <View style={{ minHeight: SHEET_HEIGHT }}>
                   {(() => {
                     const countryResults = searchResults.filter((m) => m.countryMap);
                     const communityResults = searchResults.filter((m) => !m.countryMap);
@@ -694,7 +761,7 @@ export default function MapSelectorModal({
                   {searchLoading && (
                     <ActivityIndicator size="small" color="white" style={{ marginTop: 12 }} />
                   )}
-                </>
+                </View>
               ) : (
                 <>
                   {SECTION_ORDER.map((key) => {

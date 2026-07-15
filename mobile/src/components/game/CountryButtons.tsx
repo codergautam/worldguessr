@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import { BlurView } from 'expo-blur';
-import { colors, t } from '../../shared';
+import { colors, getCurrentLanguage, t } from '../../shared';
 import {
   ALL_CONTINENTS,
+  continentKey,
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
@@ -63,6 +64,10 @@ export default function CountryButtons({
   const sc = (v: number) => Math.round(v * scale * 2) / 2;
   const isContinent = mode === 'continent';
   const items = isContinent ? [...ALL_CONTINENTS] : countries;
+  // Labels localize; the underlying answer values passed to onPress stay the
+  // raw English continent names / ISO codes the game logic compares against
+  // (web countryButtons.js:8,31 — nameFromCode(country, lang) + continentKey).
+  const lang = getCurrentLanguage();
   const isShort = height <= 500;
   // Tablets are excluded from the phone tier and get their own (below). Phones
   // keep the existing width<=600 behaviour untouched.
@@ -247,7 +252,7 @@ export default function CountryButtons({
         pointerEvents={tapDisabled ? 'none' : 'auto'}
       >
         {items.map((item, i) => {
-          const fullName = isContinent ? item : nameFromCode(item);
+          const fullName = isContinent ? t(continentKey(item)) : nameFromCode(item, lang);
           const isSelected = selected === item;
           const isCorrect = correct && item === correct;
           const isWrongPick = selected && correct && isSelected && item !== correct;

@@ -13,10 +13,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../shared';
 import {
   continentFromCode,
+  continentKey,
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
-import { localeString, t } from '../../shared';
+import { getCurrentLanguage, localeString, t } from '../../shared';
 import { sound } from '../../services/sound';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import { useGameUiScale } from '../../styles/responsive';
@@ -92,9 +93,13 @@ export default function CountryEndBanner({
   const contentMaxWidth = Math.min(width, isTablet ? 840 : 720);
   const centered = { alignSelf: 'center' as const, width: '100%' as const, maxWidth: contentMaxWidth };
 
+  // Localized display name (web endBanner.js:424-425 — continents go through
+  // the continentKey locale map, countries through nameFromCode with the
+  // active language). Raw continent names stay English in the game LOGIC
+  // (picked/correct comparisons); only the label is translated.
   const correctName = isContinent
-    ? continentFromCode(correctCountry)
-    : nameFromCode(correctCountry);
+    ? t(continentKey(continentFromCode(correctCountry)))
+    : nameFromCode(correctCountry, getCurrentLanguage());
 
   const message = useMemo(() => {
     if (isCorrect) return localeString(pickQuipKey('correct'));
@@ -104,6 +109,13 @@ export default function CountryEndBanner({
     // re-pick only when the round actually changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round, isCorrect]);
+
+  // The subtext line: a funny quip after a real pick, or a plain "you didn't
+  // guess" note when the round timed out with no pick (parity with classic SP).
+  // Onboarding hides it wholesale via hideQuip (shows a landmark fact instead).
+  const forgotToGuess = picked == null;
+  const noteText = forgotToGuess ? t('didntGuess', undefined, "You didn't guess") : message;
+  const showNote = !hideQuip;
 
   // Slide-up entrance
   const slide = useRef(new Animated.Value(60)).current;
@@ -180,9 +192,9 @@ export default function CountryEndBanner({
           <Text style={[styles.title, { fontSize: sc(fontSizes.lg) }]} numberOfLines={1}>
             {correctName}
           </Text>
-          {!hideQuip && (
+          {showNote && (
             <Text style={[styles.message, { fontSize: sc(fontSizes.sm) }]} numberOfLines={2}>
-              {message}
+              {noteText}
             </Text>
           )}
         </View>

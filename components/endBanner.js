@@ -31,7 +31,7 @@ const ONBOARDING_FACTS = [
 ];
 const ONBOARDING_AUTO_ADVANCE_SECONDS = 7;
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown, mapFadingOut }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessedCountryCode, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown, mapFadingOut }) {
     const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -155,6 +155,11 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         }
     }
     if (!guessed) quipRef.current = null;
+
+    // Timed out with no pick in SP country/continent guesser: no quip (nothing
+    // to riff on), but tell the player they didn't guess — parity with classic
+    // singleplayer's "You didn't guess" line.
+    const forgotToGuess = guessed && countryGuesser && !onboarding && singlePlayerRound && !guessedCountryCode;
 
     const locationFact = onboarding && guessed && onboarding.round
         ? text(ONBOARDING_FACTS[onboarding.round - 1] || "")
@@ -450,10 +455,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     </p>
                 )}
 
-                {/* Funny quip (singleplayer country/continent guesser only) */}
-                {quipRef.current && (
+                {/* Funny quip (SP country/continent guesser), or a plain "you
+                    didn't guess" note when the round timed out with no pick. */}
+                {quipRef.current ? (
                     <p className="motivation quip">{text(quipRef.current)}</p>
-                )}
+                ) : forgotToGuess ? (
+                    <p className="motivation quip">{text("didntGuess")}</p>
+                ) : null}
 
                 {/* Location fact (onboarding only) */}
                 {locationFact && (

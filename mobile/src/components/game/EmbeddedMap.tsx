@@ -50,6 +50,13 @@ interface Props {
    * green, each team's closest guesser enlarged (mirrors web ResultsMap).
    */
   teams?: Record<string, string> | null;
+  /**
+   * The viewer's own player id. Load-bearing for team pin color: the embed
+   * resolves "my team" as teams[myId], so an empty/wrong id paints EVERY other
+   * pin (teammates included) enemy-green. Must match the id-space of `teams`
+   * keys (live session id / history accountId).
+   */
+  myId?: string | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
 
@@ -101,6 +108,7 @@ export default function EmbeddedMap({
   activeRound,
   isDuel,
   teams,
+  myId,
   selectedPlayer,
   location,
   guessPosition,
@@ -151,15 +159,18 @@ export default function EmbeddedMap({
   // Mobile game state → the serializable prop subset the bundled embed expects.
   const buildProps = useCallback(() => {
     if (route === 'results') {
-      // opponents already exclude me, so myId='' renders them all; my guess
-      // comes from each round's guessLat/guessLong.
+      // myId is load-bearing for TEAM pin color (embed reads teams[myId] to
+      // find "my team", then paints teammates blue / enemies green). The plain
+      // pin set doesn't need it (opponents already exclude me; my own guess
+      // comes from each round's guessLat/guessLong), so '' is a safe fallback
+      // for non-team results.
       return {
         mode: 'results',
         lang,
         mapType,
         rounds: rounds ?? [],
         activeRound: activeRound ?? null,
-        myId: '',
+        myId: myId ?? '',
         isDuel: !!isDuel,
         teams: teams ?? null,
         selectedPlayer: selectedPlayer ?? null,
@@ -210,6 +221,7 @@ export default function EmbeddedMap({
     activeRound,
     isDuel,
     teams,
+    myId,
     selectedPlayer,
   ]);
 

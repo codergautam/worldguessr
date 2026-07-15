@@ -208,6 +208,8 @@ export interface GameData {
   teamScoring?: 'closest' | 'average';
   /** Host setting: may non-hosts move themselves between teams? */
   allowTeamPick?: boolean;
+  /** Host setting: emote reactions muted for this game (server-enforced too). */
+  disableEmotes?: boolean;
   teamScores?: TeamScores | null;
   teamRoundScores?: TeamRoundScores | null;
   /**
@@ -225,11 +227,13 @@ export interface GameData {
   queueBoundDuo?: boolean;
   playAgain2v2?: PlayAgain2v2State | null;
   /**
-   * Sticky: did we join this game while it was already underway (vs. starting it
-   * fresh)? Computed once from the FIRST `game` message of the session — a
-   * genuine starter always sees state:'waiting' first; a late join / cold
-   * reconnect mid-game sees getready/guess/end first. Used to skip the 5s
-   * get-ready and drop straight into normal loading.
+   * Did we join the CURRENT match while it was already underway (vs. being
+   * present from the start)? The first `game` message of the session decides —
+   * a genuine starter sees state:'waiting' first; a late join / cold reconnect
+   * mid-game sees getready/guess/end first. Any 'waiting' snapshot re-arms it
+   * to false (in the lobby = present before the next match), so a party's
+   * surviving gameData can't carry a stale true into later matches. Used to
+   * skip the 5s get-ready and drop straight into normal loading.
    */
   joinedInProgress?: boolean;
 }
@@ -1093,16 +1097,21 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
             ? { locations: [], roundHistory: [], duelEnd: undefined, playAgain2v2: null }
             : {}),
           players: mergedPlayers,
-          // Decide once, on the first `game` message (prevGameData == null): a
+          // First `game` message of a session (prevGameData == null) decides: a
           // real starter's first state is 'waiting'; a late join / mid-game
-          // reconnect sees getready/guess/end first → joinedInProgress. Carried
-          // verbatim across every later merge (set LAST so the server payload —
-          // which never sends this field — can't clobber it). gameData reverts to
-          // null between matches (reset/shutdown/cancel), so it re-evaluates each
-          // session.
-          joinedInProgress: prevGameData
-            ? prevGameData.joinedInProgress
-            : data.state !== 'waiting',
+          // reconnect sees getready/guess/end first → joinedInProgress. Any
+          // LATER 'waiting' snapshot re-arms it to false — back in the lobby
+          // means present before the next match starts. Without that re-arm, a
+          // mid-game reconnect latched true forever (a party's gameData
+          // survives the game→lobby→game cycle), so every following match
+          // skipped its "Get Ready 5…" countdown. Set LAST so the server
+          // payload — which never sends this field — can't clobber it.
+          joinedInProgress:
+            data.state === 'waiting'
+              ? false
+              : prevGameData
+                ? prevGameData.joinedInProgress
+                : true,
         } as GameData,
       });
       return;

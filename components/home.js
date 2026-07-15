@@ -1775,6 +1775,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             // Use the passed options directly to avoid stale state issues
             const options = args[0] || multiplayerState.createOptions;
+            // Every option the party modal commits MUST be enumerated here.
+            // The server treats a missing field as "this client predates the
+            // option" and keeps the current value, so forgetting one makes
+            // its toggle silently dead on web.
             ws.send(JSON.stringify({
                 type: "setPrivateGameOptions",
                 rounds: options.rounds,
@@ -1783,7 +1787,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 npz: options.npz,
                 showRoadName: options.showRoadName,
                 location: options.location,
-                displayLocation: options.displayLocation
+                displayLocation: options.displayLocation,
+                disableEmotes: options.disableEmotes
             }));
         }
 
@@ -3193,7 +3198,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
         subscribeMessages={subscribeMessages}
-        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
+        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && !multiplayerState?.gameData?.disableEmotes}
         inGame={emotesLive}
         myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
         myTeam={myEmoteTeam}
@@ -3202,7 +3207,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // players an anonymous emote is unreadable.
         hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state])
+    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableEmotes])
 
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 

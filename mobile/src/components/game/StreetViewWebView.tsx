@@ -76,6 +76,15 @@ interface WebViewSourceState {
 // Google Maps API key - same as web version
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
 
+// The wrapper document is loaded with a google.com base URL so the street view
+// iframe below is SAME-origin with its parent. WebKit halves rendering updates /
+// requestAnimationFrame for CROSS-origin iframes until they receive a real click
+// (ThrottlingReason::NonInteractedCrossOriginFrame) — with the default about:blank
+// wrapper origin, every fresh round panned at ~30fps on iOS until tapped.
+// Loading the embed URL top-level instead is not an option: the Embed API refuses
+// to run outside an iframe ("must be used in an iframe" error page).
+const WRAPPER_BASE_URL = 'https://www.google.com/';
+
 function buildStreetViewHtml(
   lat: number,
   long: number,
@@ -110,10 +119,14 @@ function buildStreetViewHtml(
       </style>
     </head>
     <body>
+      <!-- Sensor features are EXPLICITLY denied ('none'), not just omitted: their
+           default allowlist is 'self', and the WRAPPER_BASE_URL origin spoof makes
+           this iframe same-origin, so omission alone would still grant them and
+           the embed would gyro-pan the pano when the phone moves. -->
       <iframe
         src="${streetViewUrl}"
         referrerpolicy="no-referrer-when-downgrade"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+        allow="accelerometer 'none'; gyroscope 'none'; magnetometer 'none'; autoplay; clipboard-write; encrypted-media; picture-in-picture"
         loading="eager"
       ></iframe>
     </body>
@@ -402,7 +415,7 @@ function StreetViewWebView({
               style={[styles.webviewLayer, { opacity: primaryOpacity }]}
             >
               <WebView
-                source={{ html: sources.primary.html }}
+                source={{ html: sources.primary.html, baseUrl: WRAPPER_BASE_URL }}
                 style={styles.webview}
                 onLoadEnd={() => handleLoadEnd('primary')}
                 javaScriptEnabled
@@ -422,7 +435,7 @@ function StreetViewWebView({
               style={[styles.webviewLayer, { opacity: secondaryOpacity }]}
             >
               <WebView
-                source={{ html: sources.secondary.html }}
+                source={{ html: sources.secondary.html, baseUrl: WRAPPER_BASE_URL }}
                 style={styles.webview}
                 onLoadEnd={() => handleLoadEnd('secondary')}
                 javaScriptEnabled

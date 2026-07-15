@@ -189,11 +189,13 @@ function OnlineCountBadge({
   count,
   fontSize,
   style,
+  onWidth,
 }: {
   visible: boolean;
   count: number;
   fontSize: number;
   style: StyleProp<ViewStyle>;
+  onWidth?: (width: number) => void;
 }) {
   const SLIDE = 80; // px off-screen to the right when hidden
   const translateX = useRef(new Animated.Value(SLIDE)).current;
@@ -226,6 +228,9 @@ function OnlineCountBadge({
     <Animated.View
       style={[style, { opacity, transform: [{ translateX }] }]}
       pointerEvents="none"
+      // Transforms don't affect layout, so this reports the true text width
+      // even mid-slide; the parent uses it for footer collision detection.
+      onLayout={onWidth ? (e) => onWidth(e.nativeEvent.layout.width) : undefined}
     >
       <Text style={[styles.onlineCount, { fontSize }]}>
         {t('onlineCnt', { cnt: formatCompact(shownCount) })}
@@ -233,6 +238,10 @@ function OnlineCountBadge({
     </Animated.View>
   );
 }
+
+// Footer icon button height — shared by styles.iconButton and the online
+// badge's raised position so the two can't drift apart.
+const FOOTER_ICON_HEIGHT = 44;
 
 // Module-level flags so moderation popup only shows once per app session
 let modPopupDismissedBan = false;
@@ -627,6 +636,21 @@ export default function HomeScreen() {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const shortestSide = Math.min(width, height);
+
+  // The online badge (bottom-right, fixed) sits on the same line as the footer
+  // icon row (bottom-left, scrolls). On narrow screens they can collide
+  // horizontally, so measure both instead of guessing by breakpoint — the
+  // badge width varies with count, locale, and font size. When there isn't
+  // room on the footer's line, the badge hops just above the icon row.
+  const [onlineBadgeWidth, setOnlineBadgeWidth] = useState(0);
+  const [footerIconsRightEdge, setFooterIconsRightEdge] = useState(0);
+  const onlineBadgeRight = Math.max(insets.right, spacing.xl);
+  const safeAreaWidth = width - insets.left - insets.right;
+  const onlineBadgeCollidesFooter =
+    onlineBadgeWidth > 0 &&
+    footerIconsRightEdge > 0 &&
+    safeAreaWidth - onlineBadgeRight - onlineBadgeWidth <
+      footerIconsRightEdge + spacing.md;
 
   const headerActionMetrics =
     shortestSide >= 768
@@ -1159,7 +1183,12 @@ export default function HomeScreen() {
           </View>
 
           {/* Bottom Icons */}
-          <View style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}>
+          <View
+            style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}
+            // Right edge in safe-area coords (the ScrollView spans the full
+            // safe width), consumed by the online-badge collision check.
+            onLayout={(e) => setFooterIconsRightEdge(e.nativeEvent.layout.x + e.nativeEvent.layout.width)}
+          >
             <Pressable
               style={({ pressed }) => [styles.iconButton, styles.iconButtonDiscord, pressed && styles.iconButtonDiscordPressed]}
               onPress={() => Linking.openURL('https://discord.gg/ADw47GAyS5')}
@@ -1195,11 +1224,21 @@ export default function HomeScreen() {
           visible={connected && playerCount > 0}
           count={playerCount}
           fontSize={shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15}
+          onWidth={setOnlineBadgeWidth}
           style={[
             styles.onlineCountContainer,
-            // Raise to align vertically with the bottom footer icon row
-            // (footer: paddingBottom spacing.xl + ~half of the 44px icons).
-            { bottom: Math.max(insets.bottom, spacing.lg) + spacing.xl + 10, right: Math.max(insets.right, spacing.xl) },
+            {
+              // Default: align vertically with the footer icon row (footer:
+              // paddingBottom spacing.xl + ~half of the icons). On screens too
+              // narrow to share that line, sit just above the icons instead.
+              bottom: onlineBadgeCollidesFooter
+                ? Math.max(insets.bottom, spacing.lg) +
+                  (isLandscape ? spacing.md : spacing.xl) +
+                  FOOTER_ICON_HEIGHT +
+                  spacing.sm
+                : Math.max(insets.bottom, spacing.lg) + spacing.xl + 10,
+              right: onlineBadgeRight,
+            },
           ]}
         />
       </SafeAreaView>
@@ -1524,13 +1563,16 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: spacing.xl,
     paddingTop: spacing.lg,
+    // Shrink-wrap (don't stretch) so onLayout reports the icons' true right
+    // edge for the online-badge collision check. Visually identical.
+    alignSelf: 'flex-start',
   },
   bottomIconsLandscape: {
     paddingBottom: spacing.md,
   },
   iconButton: {
     width: 50,
-    height: 44,
+    height: FOOTER_ICON_HEIGHT,
     borderRadius: borderRadius.md,
     backgroundColor: 'rgba(20, 65, 25, 0.55)',
     justifyContent: 'center',

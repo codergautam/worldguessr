@@ -30,11 +30,13 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { StyleSheet, Animated, Easing, Pressable, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
+import { wsService } from '../../services/websocket';
+import { t } from '../../shared';
 
 const COLOR_CONNECTED = '#22c55e';
 const COLOR_CONNECTING = '#f59e0b';
@@ -261,6 +263,35 @@ export default function WsIndicator() {
       ? COLOR_CONNECTING
       : COLOR_DISCONNECTED;
 
+  // Tap-for-details, ported from web (navbar wires WsIcon's onClick only while
+  // NOT connected → home.js connectionErrorModal): yellow explains the retry
+  // loop with the live attempt count, red explains the likely causes.
+  const handlePress = () => {
+    if (connected) return;
+    if (connecting) {
+      Alert.alert(
+        t('multiplayerConnecting'),
+        t('connectingMessage', {
+          currentRetry: wsService.currentRetry,
+          maxRetries: wsService.maxRetries,
+        }),
+        [{ text: t('ok') }],
+      );
+    } else {
+      Alert.alert(
+        t('multiplayerNotConnected'),
+        t('multiplayerConnectionErrorMessage'),
+        [{ text: t('ok') }],
+      );
+    }
+  };
+
+  // box-none keeps the container itself transparent to touches; only the icon
+  // is tappable, and only while a problem is actually showing. When hidden (or
+  // during the green "reconnected" flash — web doesn't wire onClick while
+  // connected either) taps pass straight through to the screen below.
+  const tappable = showIcon && !connected;
+
   return (
     <Animated.View
       style={[
@@ -270,11 +301,11 @@ export default function WsIndicator() {
           transform: [{ translateX: slideAnim }, { scale: pulseAnim }],
         },
       ]}
-      pointerEvents="none"
+      pointerEvents={tappable ? 'box-none' : 'none'}
     >
-      <View style={[styles.icon, { borderColor: color }]}>
+      <Pressable onPress={handlePress} style={[styles.icon, { borderColor: color }]}>
         <Ionicons name="radio" size={24} color={color} />
-      </View>
+      </Pressable>
     </Animated.View>
   );
 }

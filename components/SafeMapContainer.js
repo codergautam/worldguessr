@@ -22,7 +22,12 @@ import ErrorBoundary from './ErrorBoundary';
  * that name to this component protects all of them with no JSX changes.
  */
 const RLMapContainer = dynamic(
-  () => import('react-leaflet').then((m) => m.MapContainer),
+  () => Promise.all([
+    import('react-leaflet'),
+    // Registers the fluidWheelZoom handler on L.Map before any map mounts.
+    // Maps opt in per-container via the fluidWheelZoom prop.
+    import('@/lib/leafletFluidZoom'),
+  ]).then(([m]) => m.MapContainer),
   { ssr: false },
 );
 

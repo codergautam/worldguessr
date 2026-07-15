@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   cancelAnimation,
   interpolate,
@@ -45,6 +46,14 @@ interface GameTimerProps {
    * round + animated-score pill used by singleplayer / casual multiplayer.
    */
   variant?: 'default' | 'duel';
+  /**
+   * Host stall-relief (web gameUI.js timer__force-end parity): with the round
+   * timer disabled, idle players hold the round open forever — this renders an
+   * "End Round" button under the pill while the round is open-ended (the same
+   * infinite-round condition that hides the countdown). Pass it only when the
+   * viewer is the private-game host and state is 'guess'.
+   */
+  onForceEndRound?: () => void;
 }
 
 // ── Motion policy ───────────────────────────────────────────────────────────
@@ -83,6 +92,7 @@ export default function GameTimer({
   criticalEnabled = true,
   hasGuess = false,
   variant = 'default',
+  onForceEndRound,
 }: GameTimerProps) {
   // Seed from serverEndTime when server-driven so the very first render already
   // has a number. On duel reconnect the partial `game` snapshot carries
@@ -317,6 +327,14 @@ export default function GameTimer({
         </Text>
         <Text style={styles.pointsLabel}> {t('pts')}</Text>
       </Text>
+      {isInfiniteRound && onForceEndRound && (
+        <Pressable
+          onPress={onForceEndRound}
+          style={({ pressed }) => [styles.forceEndBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={[styles.forceEndText, { fontSize: sc(fontSizes.xs) }]}>{t('endRound')}</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }
@@ -392,5 +410,20 @@ const styles = StyleSheet.create({
   pointsLabel: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'Lexend-SemiBold',
+  },
+  // Host "End Round" stall-relief button (web .timer__force-end).
+  forceEndBtn: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  forceEndText: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.xs,
   },
 });
