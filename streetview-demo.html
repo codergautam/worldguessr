@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Street View Recon</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d10; overscroll-behavior: none; }
+  #c {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none;
+  }
+  #c.dragging { cursor: grabbing; }
+  #chev { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+  .chev {
+    position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+    will-change: transform; -webkit-tap-highlight-color: transparent;
+  }
+  .chev svg circle { transition: fill 0.12s; }
+  .chev:hover svg circle { fill: rgba(130, 170, 255, 0.45); }
+  .hud {
+    position: absolute; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #cfd6e4; pointer-events: none; z-index: 2;
+  }
+  #panel {
+    top: 12px; left: 12px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(12, 14, 18, 0.72); border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    max-width: min(420px, calc(100vw - 24px));
+  }
+  #panel h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #e8edf6; margin-bottom: 8px; }
+  #panel h1 span { color: #6b7688; font-weight: 400; }
+  .row { display: flex; gap: 6px; pointer-events: auto; }
+  #pid {
+    flex: 1; min-width: 0; font: inherit; font-size: 12px; color: #e8edf6;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px; padding: 5px 8px; outline: none;
+  }
+  #pid:focus { border-color: rgba(130, 170, 255, 0.5); }
+  #pid.bad { border-color: rgba(255, 100, 100, 0.7); }
+  #go {
+    font: inherit; font-size: 12px; color: #dfe7f4; cursor: pointer;
+    background: rgba(130, 170, 255, 0.16); border: 1px solid rgba(130, 170, 255, 0.35);
+    border-radius: 6px; padding: 5px 12px;
+  }
+  #go:hover { background: rgba(130, 170, 255, 0.28); }
+  #stats { margin-top: 8px; font-size: 11px; color: #8b95a7; white-space: nowrap; }
+  #place { margin-top: 4px; font-size: 11px; color: #a9b6cb; }
+  #place:empty { display: none; }
+  #status { margin-top: 4px; font-size: 11px; color: #ffd28a; min-height: 0; }
+  #status:empty { display: none; }
+  #hint {
+    bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: rgba(207, 214, 228, 0.55); text-align: center;
+    background: rgba(12, 14, 18, 0.5); padding: 5px 12px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  #credit { bottom: 12px; right: 12px; font-size: 10px; color: rgba(207, 214, 228, 0.4); }
+  @media (max-width: 640px) { #hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="chev"></div>
+<div class="hud" id="panel">
+  <h1>STREET VIEW RECON <span>raw tile client</span></h1>
+  <div class="row">
+    <input id="pid" spellcheck="false" placeholder="panoid or tile url" value="bZKMVNJv6m_I_gHgX9bclQ">
+    <button id="go">load</button>
+  </div>
+  <div id="stats">booting</div>
+  <div id="place"></div>
+  <div id="status"></div>
+</div>
+<div class="hud" id="hint">drag to look &middot; scroll or pinch to zoom &middot; click the road arrows &middot; W forward, S back</div>
+<div class="hud" id="credit">tiles: streetviewpixels-pa.googleapis.com &middot; imagery &copy; Google</div>
+<script>
+'use strict';
+(() => {
+
+const TILE = 512;
+const MAX_INFLIGHT = 12;      // concurrent tile downloads
+const UPLOADS_PER_FRAME = 3;  // GPU texture uploads per frame, keeps frame pacing flat
+const CACHE_MAX = 150, CACHE_TRIM = 120;  // detail tiles on the current pano
+const PANO_MAX = 5;           // panos kept warm in the registry
+const BIAS = 0.75;            // resolution bias for zoom level selection
+const D2R = Math.PI / 180;
+const FOV_MIN = 8 * D2R, FOV_MAX = 100 * D2R;
+const PI = Math.PI, TAU = 2 * Math.PI;
+const ZERO3 = [0, 0, 0];
+
+const $ = id => document.getElementById(id);
+const canvas = $('c'), statsEl = $('stats'), statusEl = $('status'), chevBox = $('chev'), placeEl = $('place');
+const status = t => { statusEl.textContent = t; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const tileUrl = (p, z, x, y) =>
+  `https://streetviewpixels-pa.googleapis.com/v1/tile?cb_client=maps_sv.tactile&panoid=${encodeURIComponent(p)}&x=${x}&y=${y}&zoom=${z}&nbt=1&fover=2`;
+const metaUrl = p =>
+  'https://www.google.com/maps/photometa/v1?authuser=0&hl=en&gl=us&pb=!1m4!1smaps_sv.tactile!11m2!2m1!1b1!2m2!1sen!2sus!3m3!1m2!1e2!2s'
+  + encodeURIComponent(p)
+  + '!4m57!1e1!1e2!1e3!1e4!1e5!1e6!1e8!1e12!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2!9m36!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e3!2b1!3e2!1m3!1e3!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e1!2b0!3e3!1m3!1e4!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e3';
+
+// ---------------------------------------------------------------- gl setup
+const gl = canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+if (!gl) { status('WebGL unavailable in this browser'); return; }
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); status('graphics context lost, reload the page'); });
+const vtfOK = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) > 0;
+const depthCapable = vtfOK && typeof DecompressionStream !== 'undefined';
+
+// Tiles render as spherical patches. During a move the vertex shader pushes each
+// vertex out to its metric depth (from the pano's depth map) and offsets the
+// camera, which is what produces the parallax warp.
+const VS = `
+attribute vec2 a;
+uniform vec4 uAng;      // theta0, theta1, phiTop, phiBottom (pano image frame)
+uniform vec2 uUV;       // content fraction of the 512px tile
+uniform mat4 uVP;
+uniform float uYawOff;  // pano heading: image frame -> world frame
+uniform vec3 uCamOff;   // camera offset from pano center, meters, world frame
+uniform float uDepthOn; // 0 = rigid unit sphere, 1 = metric depth warp
+uniform float uFlat;    // 1 = collapse metric mesh onto the unit sphere
+uniform sampler2D uDepth;
+varying vec2 vUV;
+void main() {
+  float th = mix(uAng.x, uAng.y, a.x);
+  float ph = mix(uAng.z, uAng.w, a.y);
+  float tw = th + uYawOff;
+  vec3 dir = vec3(cos(ph) * sin(tw), sin(ph), -cos(ph) * cos(tw));
+  vec3 pos = dir;
+  if (uDepthOn > 0.5) {
+    vec2 duv = vec2(th / 6.28318530718 + 0.5, 0.5 - ph / 3.14159265359);
+    // 16-bit 1/depth split across L and A; the decode is linear so bilinear
+    // filtering of the two channels reconstructs exactly
+    vec2 la = texture2D(uDepth, duv).ra;
+    float v = dot(la, vec2(65280.0, 255.0)) / 65535.0;
+    float t = 1.0 / max(v, 0.0004);
+    // uFlat morphs between metric and rigid so mode changes never snap:
+    // perspective-correct interpolation differs between the two inside
+    // depth-stretched triangles, and an instant switch shifts the texture
+    pos = dir * mix(t, 1.0, uFlat) - uCamOff * (1.0 - uFlat);
+  }
+  vUV = a * uUV;
+  gl_Position = uVP * vec4(pos, 1.0);
+}`;
+const FS = `
+precision mediump float;
+uniform sampler2D uTex;
+uniform float uAlpha;
+varying vec2 vUV;
+void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, uAlpha); }`;
+
+function shader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+const loc = {};
+for (const n of ['uAng', 'uUV', 'uVP', 'uYawOff', 'uCamOff', 'uDepthOn', 'uFlat', 'uDepth', 'uTex', 'uAlpha'])
+  loc[n] = gl.getUniformLocation(prog, n);
+const locA = gl.getAttribLocation(prog, 'a');
+gl.enableVertexAttribArray(locA);
+gl.uniform1i(loc.uTex, 0);
+gl.uniform1i(loc.uDepth, 1);
+gl.disable(gl.DEPTH_TEST);
+gl.disable(gl.CULL_FACE);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+gl.clearColor(0.043, 0.051, 0.063, 1);
+gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+const aniso = gl.getExtension('EXT_texture_filter_anisotropic')
+  || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+const anisoMax = aniso ? Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
+const uint32Idx = !!gl.getExtension('OES_element_index_uint');
+
+const dummyDepth = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, dummyDepth);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, 1, 1, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, new Uint8Array([0, 33]));
+
+// One shared grid mesh per subdivision count; patch corners arrive via uniforms.
+// Warp meshes use ~0.7 degree segments, matching the 512px depth map texel
+// pitch (finer adds nothing). A rigid sphere needs far less, so idle rendering
+// keeps the coarse grids and the dense set only pays during a move.
+const meshes = new Map();
+function meshFor(z, dense) {
+  let n = dense ? Math.max(16, 512 >> z) : Math.max(8, 64 >> z);
+  if (!uint32Idx && n > 255) n = 255;
+  let m = meshes.get(n);
+  if (m) return m;
+  const verts = new Float32Array((n + 1) * (n + 1) * 2);
+  let vi = 0;
+  for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) { verts[vi++] = i / n; verts[vi++] = j / n; }
+  const IndexArr = (n + 1) * (n + 1) > 65536 ? Uint32Array : Uint16Array;
+  const idx = new IndexArr(n * n * 6);
+  let ii = 0;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const p = j * (n + 1) + i;
+    idx[ii++] = p; idx[ii++] = p + 1; idx[ii++] = p + n + 1;
+    idx[ii++] = p + 1; idx[ii++] = p + n + 2; idx[ii++] = p + n + 1;
+  }
+  const vb = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  const ib = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  m = { vb, ib, count: idx.length, type: IndexArr === Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+  meshes.set(n, m);
+  return m;
+}
+
+// ---------------------------------------------------------------- view state
+let cssW = 1, cssH = 1, aspect = 1;
+let yaw = 0, pitch = 0;                      // yaw is a WORLD compass bearing
+let fov = FOV_MAX * 0.98, fovT = 72 * D2R;
+let vYaw = 0, vPitch = 0;
+let anchor = { x: 0, y: 0 };
+const keys = new Set();
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cssW = window.innerWidth; cssH = window.innerHeight;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  aspect = canvas.width / canvas.height;
+  anchor = { x: cssW / 2, y: cssH / 2 };
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const clampPitch = p => Math.min(1.535, Math.max(-1.535, p));
+const wrapPi = d => ((d + PI) % TAU + TAU) % TAU - PI;
+const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const easeInOutCubic = s => s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2;
+
+function camBasis() {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return {
+    R: [cy, 0, sy],
+    U: [-sp * sy, cp, sp * cy],
+    F: [cp * sy, sp, -cp * cy],
+  };
+}
+
+function screenToAngles(px, py) {
+  const ndcX = (px / cssW) * 2 - 1, ndcY = 1 - (py / cssH) * 2;
+  const ty = Math.tan(fov / 2), tx = ty * aspect;
+  const { R, U, F } = camBasis();
+  const dx = R[0] * ndcX * tx + U[0] * ndcY * ty + F[0];
+  const dy = R[1] * ndcX * tx + U[1] * ndcY * ty + F[1];
+  const dz = R[2] * ndcX * tx + U[2] * ndcY * ty + F[2];
+  return { theta: Math.atan2(dx, -dz), phi: Math.asin(dy / Math.hypot(dx, dy, dz)) };
+}
+
+const vpMat = new Float32Array(16);
+let camF = [0, 0, -1], halfViewAngle = PI;
+function buildMatrices() {
+  const { R, U, F } = camBasis();
+  camF = F;
+  const f = 1 / Math.tan(fov / 2), near = 0.05, far = 4000;
+  const p00 = f / aspect, p11 = f;
+  const p22 = (far + near) / (near - far), p32 = 2 * far * near / (near - far);
+  vpMat[0] = p00 * R[0]; vpMat[4] = p00 * R[1]; vpMat[8] = p00 * R[2]; vpMat[12] = 0;
+  vpMat[1] = p11 * U[0]; vpMat[5] = p11 * U[1]; vpMat[9] = p11 * U[2]; vpMat[13] = 0;
+  vpMat[2] = -p22 * F[0]; vpMat[6] = -p22 * F[1]; vpMat[10] = -p22 * F[2]; vpMat[14] = p32;
+  vpMat[3] = F[0]; vpMat[7] = F[1]; vpMat[11] = F[2]; vpMat[15] = 0;
+  const ty = Math.tan(fov / 2);
+  halfViewAngle = Math.atan(Math.hypot(ty * aspect, ty));
+}
+
+function project(v) { // world point -> css px, or null if behind camera
+  const w = vpMat[3] * v[0] + vpMat[7] * v[1] + vpMat[11] * v[2] + vpMat[15];
+  if (w <= 0.001) return null;
+  const x = (vpMat[0] * v[0] + vpMat[4] * v[1] + vpMat[8] * v[2] + vpMat[12]) / w;
+  const y = (vpMat[1] * v[0] + vpMat[5] * v[1] + vpMat[9] * v[2] + vpMat[13]) / w;
+  return { x: (x * 0.5 + 0.5) * cssW, y: (0.5 - y * 0.5) * cssH };
+}
+const dirW = (bearing, ph, r) =>
+  [Math.cos(ph) * Math.sin(bearing) * r, Math.sin(ph) * r, -Math.cos(ph) * Math.cos(bearing) * r];
+
+// ---------------------------------------------------------------- pano layout
+function makeLayout(baseW, baseH, maxZ) {
+  const levels = [], meta = [];
+  for (let z = 0; z <= maxZ; z++) {
+    const w = baseW << z, h = baseH << z;
+    const cols = Math.ceil(w / TILE), rows = Math.ceil(h / TILE);
+    levels.push({ w, h, cols, rows });
+    const arr = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const px1 = Math.min((x + 1) * TILE, w), py1 = Math.min((y + 1) * TILE, h);
+      const th0 = (x * TILE / w - 0.5) * TAU, th1 = (px1 / w - 0.5) * TAU;
+      const ph0 = (0.5 - y * TILE / h) * PI, ph1 = (0.5 - py1 / h) * PI;
+      const thC = (th0 + th1) / 2, phC = (ph0 + ph1) / 2;
+      arr.push({
+        key: z + '/' + x + '/' + y, z, x, y,
+        ang: [th0, th1, ph0, ph1],
+        uv: [(px1 - x * TILE) / TILE, (py1 - y * TILE) / TILE],
+        dir: [Math.cos(phC) * Math.sin(thC), Math.sin(phC), -Math.cos(phC) * Math.cos(thC)],
+        rad: Math.hypot((th1 - th0) / 2 * Math.cos(phC), (ph0 - ph1) / 2) * 1.15 + 0.02,
+      });
+    }
+    meta.push(arr);
+  }
+  return { maxZ, levels, meta };
+}
+
+function probeLayout(pano) { // fallback when metadata lacks image sizes
+  const tries = [
+    { baseW: 512, baseH: 256, maxZ: 5, x: 27, y: 13, z: 5 },
+    { baseW: 416, baseH: 208, maxZ: 5, x: 25, y: 12, z: 5 },
+    { baseW: 512, baseH: 256, maxZ: 4, x: 15, y: 7, z: 4 },
+    { baseW: 512, baseH: 256, maxZ: 3, x: 7, y: 3, z: 3 },
+  ];
+  return Promise.all(tries.map(t => new Promise(res => {
+    const im = new Image();
+    im.onload = () => res(true);
+    im.onerror = () => res(false);
+    im.src = tileUrl(pano, t.z, t.x, t.y);
+  }))).then(oks => {
+    const i = oks.indexOf(true);
+    return i < 0 ? null : makeLayout(tries[i].baseW, tries[i].baseH, tries[i].maxZ);
+  });
+}
+
+// ---------------------------------------------------------------- metadata + depth
+// photometa/v1 is the undocumented endpoint the Maps client itself uses; it
+// serves Access-Control-Allow-Origin: * so a plain fetch works. Response is
+// protobuf dumped as positional JSON arrays; paths below verified empirically.
+async function fetchMeta(p) {
+  const txt = await (await fetch(metaUrl(p.id))).text();
+  const root = JSON.parse(txt.replace(/^\)\]\}'/, ''));
+  const md = root[1] && root[1][0];
+  if (!md || !md[1] || md[1][1] !== p.id) throw new Error('bad metadata');
+
+  const sizes = md[2] && md[2][3] && md[2][3][0]; // [[[h,w]], ...] ascending per zoom
+  if (Array.isArray(sizes) && sizes.length && sizes[0][0]) {
+    const bH = sizes[0][0][0], bW = sizes[0][0][1], mz = sizes.length - 1;
+    const last = sizes[mz] && sizes[mz][0];
+    // layout math assumes exact doubling per zoom; probe if this pano is odd
+    if (bW > 0 && last && last[1] === (bW << mz) && last[0] === (bH << mz))
+      p.layout = makeLayout(bW, bH, mz);
+  }
+  if (!p.layout) {
+    p.layout = await probeLayout(p.id);
+    if (!p.layout) throw new Error('no tiles');
+  }
+
+  const pos = md[5][0][1];
+  p.lat = pos[0][2]; p.lng = pos[0][3];
+  p.heading = (pos[2] && pos[2][0] || 0) * D2R;
+
+  const nb = (md[5][0][3] && md[5][0][3][0]) || [];
+  const rawLinks = md[5][0][6] || [];
+  p.links = [];
+  for (const l of rawLinks) {
+    const n = nb[l[0]];
+    if (!n || !n[0] || !n[2]) continue;
+    const id = n[0][1], nlat = n[2][0][2], nlng = n[2][0][3];
+    if (typeof id !== 'string' || typeof nlat !== 'number') continue;
+    const dN = (nlat - p.lat) * 111320, dE = (nlng - p.lng) * 111320 * Math.cos(p.lat * D2R);
+    let bearing = l[1] && typeof l[1][3] === 'number' ? l[1][3] * D2R : null;
+    if (bearing === null) bearing = Math.atan2(dE, dN);
+    p.links.push({ id, lat: nlat, lng: nlng, bearing, dist: Math.hypot(dN, dE) });
+  }
+
+  const addr = md[3] && md[3][2];
+  p.place = Array.isArray(addr) ? addr.map(a => a && a[0]).filter(Boolean).join(', ') : '';
+  const dt = md[6] && md[6][7];
+  p.date = Array.isArray(dt) && dt[0]
+    ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][((dt[1] || 1) - 1) % 12] + ' ' + dt[0]
+    : '';
+
+  p.tiles = Array.from({ length: p.layout.maxZ + 1 }, () => new Map());
+  p.status = 'ready';
+
+  const depthB64 = md[5][0][5] && md[5][0][5][1] && md[5][0][5][1][2];
+  if (depthCapable && typeof depthB64 === 'string' && depthB64.length > 100) {
+    buildDepth(p, depthB64).catch(() => {}); // parallax is optional, never fatal
+  }
+}
+
+async function buildDepth(p, b64) {
+  const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+  let bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (bytes[0] === 0x78) { // zlib-wrapped variant
+    const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+    bytes = new Uint8Array(await new Response(ds).arrayBuffer());
+  }
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const numPlanes = dv.getUint16(1, true), w = dv.getUint16(3, true), h = dv.getUint16(5, true), off = bytes[7];
+  if (!w || !h || bytes.length < off + w * h + numPlanes * 16) return;
+  const indices = bytes.subarray(off, off + w * h);
+  const planes = [];
+  for (let i = 0; i < numPlanes; i++) {
+    const o = off + w * h + i * 16;
+    planes.push([dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true), dv.getFloat32(o + 12, true)]);
+  }
+  // Raster is pixel-aligned with the equirect image (verified against imagery).
+  // 1/depth packed into 16 bits (L = high byte, A = low byte): 8 bits quantizes
+  // parallax into ~2 degree bands that shear visibly near the horizon.
+  // Sky and the far clamp share ONE value so the horizon line cannot shear.
+  const FAR = 2000;
+  const SKY = Math.round(65535 / FAR);
+  const v = new Uint16Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const phi = (h - y - 0.5) / h * PI, sp = Math.sin(phi), cp = Math.cos(phi);
+    for (let x = 0; x < w; x++) {
+      const idx = indices[y * w + x];
+      let t = FAR;
+      if (idx && planes[idx]) {
+        const theta = (w - x - 0.5) / w * TAU + PI / 2;
+        const vx = sp * Math.cos(theta), vy = sp * Math.sin(theta);
+        const pl = planes[idx];
+        const dot = pl[0] * vx + pl[1] * vy + pl[2] * cp;
+        if (Math.abs(dot) > 1e-6) t = Math.min(FAR, Math.max(1, Math.abs(pl[3] / dot)));
+      }
+      v[y * w + x] = Math.round(65535 / t);
+    }
+  }
+  // The plane model truncates the ground a degree or two below the true
+  // horizon, leaving a one-texel cliff (~80m straight to FAR) that shears as a
+  // single thin line during moves. Continue each column's ground plane upward
+  // through the sky texels so 1/depth ramps smoothly out to the far value.
+  for (let x = 0; x < w; x++) {
+    let gp = null, prevT = 0;
+    for (let y = h - 1; y >= 0; y--) {
+      const i = y * w + x;
+      const idx = indices[i];
+      if (idx && planes[idx]) {
+        gp = Math.abs(planes[idx][2]) > 0.85 ? planes[idx] : null; // ground only
+        prevT = gp ? 65535 / Math.max(1, v[i]) : 0;
+      } else if (gp && v[i] <= SKY) {
+        const phi = (h - y - 0.5) / h * PI, sp = Math.sin(phi);
+        const theta = (w - x - 0.5) / w * TAU + PI / 2;
+        const dot = gp[0] * sp * Math.cos(theta) + gp[1] * sp * Math.sin(theta) + gp[2] * Math.cos(phi);
+        const t = Math.abs(dot) < 1e-6 ? FAR : Math.abs(gp[3] / dot);
+        // abs() mirrors depths past the plane's horizon; depth must keep
+        // GROWING while we climb, anything else means we crossed it
+        if (t >= FAR || t <= prevT) gp = null;
+        else { v[i] = Math.round(65535 / t); prevT = t; }
+      }
+    }
+  }
+  // Pull silhouette depth one texel into the sky so bilinear filtering smears
+  // sky along with the building edge instead of melting the edge toward FAR.
+  const out = new Uint8Array(w * h * 2);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      let val = v[i];
+      if (val <= SKY) {
+        const l = v[y * w + (x + w - 1) % w], r = v[y * w + (x + 1) % w];
+        const u = y > 0 ? v[i - w] : val, d = y < h - 1 ? v[i + w] : val;
+        val = Math.max(val, l, r, u, d);
+      }
+      out[i * 2] = val >> 8; out[i * 2 + 1] = val & 255;
+    }
+  }
+  if (p.destroyed) return;
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, w, h, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, out);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  // REPEAT horizontally so the +-180 degree seam samples wrap instead of clamping
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  p.depthTex = tex;
+}
+
+// ---------------------------------------------------------------- pano registry
+const panos = new Map();
+let cur = null, trans = null, pendingMove = null, queuedMove = null;
+let worldGen = 0, frameNo = 0, curZoom = 0;
+const inflight = new Set();
+const uploadQ = [];
+
+async function ensurePano(id) {
+  let p = panos.get(id);
+  if (!p) {
+    p = {
+      id, status: 'loading', destroyed: false,
+      layout: null, tiles: [], dead: new Set(),
+      lat: 0, lng: 0, heading: 0, links: [], depthTex: null,
+      lastActive: frameNo, metaPromise: null,
+    };
+    panos.set(id, p);
+    p.metaPromise = fetchMeta(p).catch(() => { p.status = 'error'; });
+  }
+  await p.metaPromise;
+  return p.status === 'ready' && !p.destroyed ? p : null;
+}
+
+function destroyPano(p) {
+  p.destroyed = true;
+  for (const m of p.tiles) for (const rec of m.values()) gl.deleteTexture(rec.tex);
+  p.tiles = [];
+  if (p.depthTex) { gl.deleteTexture(p.depthTex); p.depthTex = null; }
+  panos.delete(p.id);
+}
+
+function evictPanos() {
+  while (panos.size > PANO_MAX) {
+    let victim = null;
+    for (const p of panos.values()) {
+      if (p === cur || (trans && (p === trans.from || p === trans.to)) || (pendingMove && p === pendingMove.pano)) continue;
+      if (!victim || p.lastActive < victim.lastActive) victim = p;
+    }
+    if (!victim) break;
+    destroyPano(victim);
+  }
+}
+
+// ---------------------------------------------------------------- tile streaming
+function startLoad(p, meta) {
+  const gkey = p.id + '|' + meta.key;
+  inflight.add(gkey);
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = tileUrl(p.id, meta.z, meta.x, meta.y);
+  const done = img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+  done.then(() => {
+    if (p.destroyed) { inflight.delete(gkey); return; }
+    uploadQ.push({ p, img, meta });
+  }).catch(() => {
+    p.dead.add(meta.key);
+    inflight.delete(gkey);
+  });
+}
+
+function pumpUploads() {
+  for (let i = 0; i < UPLOADS_PER_FRAME && uploadQ.length; i++) {
+    const { p, img, meta } = uploadQ.shift();
+    inflight.delete(p.id + '|' + meta.key);
+    if (p.destroyed) continue;
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, anisoMax);
+    p.tiles[meta.z].set(meta.key, { tex, meta, lastUse: frameNo });
+  }
+}
+
+// camera forward rotated into a pano's image frame, for tile visibility tests
+function camFImage(p) {
+  const c = Math.cos(p.heading), s = Math.sin(p.heading);
+  return [c * camF[0] + s * camF[2], camF[1], -s * camF[0] + c * camF[2]];
+}
+const tileVisible = (m, cf) =>
+  Math.acos(Math.max(-1, Math.min(1, m.dir[0] * cf[0] + m.dir[1] * cf[1] + m.dir[2] * cf[2])))
+    < halfViewAngle + m.rad;
+
+function desiredZoom(layout) {
+  const need = BIAS * canvas.height * PI / fov;
+  let z = 0;
+  while (z < layout.maxZ && layout.levels[z].h < need) z++;
+  return z;
+}
+
+function addBaseJobs(p, jobs, priBase) {
+  if (!p || p.status !== 'ready') return;
+  const zMax = Math.min(2, p.layout.maxZ);
+  for (let z = 0; z <= zMax; z++)
+    for (const m of p.layout.meta[z])
+      if (!p.tiles[z].has(m.key) && !p.dead.has(m.key) && !inflight.has(p.id + '|' + m.key))
+        jobs.push({ p, m, pri: priBase + z });
+}
+
+function addDetailJobs(p, jobs) {
+  const cf = camFImage(p);
+  const zTop = Math.min(curZoom, p.layout.maxZ);
+  for (let z = 3; z <= zTop; z++)
+    for (const m of p.layout.meta[z]) {
+      if (p.tiles[z].has(m.key) || p.dead.has(m.key) || inflight.has(p.id + '|' + m.key)) continue;
+      if (!tileVisible(m, cf)) continue;
+      const ang = Math.acos(Math.max(-1, Math.min(1, m.dir[0] * cf[0] + m.dir[1] * cf[1] + m.dir[2] * cf[2])));
+      jobs.push({ p, m, pri: 10 + z * 10 + ang });
+    }
+}
+
+function prefetchLinks(jobs) {
+  if (!cur) return;
+  for (const l of cur.links.slice(0, 3)) {
+    const lp = panos.get(l.id);
+    if (!lp) { ensurePano(l.id); return; }  // meta first, tiles next idle pass
+    if (lp.status !== 'ready') continue;
+    const zMax = Math.min(1, lp.layout.maxZ);
+    for (let z = 0; z <= zMax; z++)
+      for (const m of lp.layout.meta[z])
+        if (!lp.tiles[z].has(m.key) && !lp.dead.has(m.key) && !inflight.has(lp.id + '|' + m.key))
+          jobs.push({ p: lp, m, pri: 100 + z });
+  }
+}
+
+function schedule() {
+  if (!cur || cur.status !== 'ready') return;
+  const stream = trans ? trans.to : cur;
+  curZoom = desiredZoom(stream.layout);
+  const jobs = [];
+  const tgt = trans ? trans.to : (pendingMove && pendingMove.pano);
+  if (tgt && tgt !== cur) addBaseJobs(tgt, jobs, -10);
+  addBaseJobs(cur, jobs, 0);
+  addDetailJobs(stream, jobs);
+  if (!trans && !pendingMove && jobs.length === 0 && inflight.size === 0) prefetchLinks(jobs);
+  jobs.sort((a, b) => a.pri - b.pri);
+  for (const j of jobs) {
+    if (inflight.size >= MAX_INFLIGHT) break;
+    startLoad(j.p, j.m);
+  }
+}
+
+function evictTiles() {
+  if (!cur || cur.status !== 'ready') return;
+  let total = 0;
+  for (const m of cur.tiles) total += m.size;
+  if (total <= CACHE_MAX) return;
+  const victims = [];
+  for (let z = 3; z < cur.tiles.length; z++)
+    for (const rec of cur.tiles[z].values())
+      if (rec.lastUse < frameNo) victims.push(rec);
+  victims.sort((a, b) => a.lastUse - b.lastUse);
+  for (const v of victims) {
+    if (total <= CACHE_TRIM) break;
+    gl.deleteTexture(v.tex);
+    cur.tiles[v.meta.z].delete(v.meta.key);
+    total--;
+  }
+}
+
+// ---------------------------------------------------------------- movement
+function vecBetween(a, b) { // meters, world frame (x east, -z north)
+  const dN = (b.lat - a.lat) * 111320;
+  const dE = (b.lng - a.lng) * 111320 * Math.cos(a.lat * D2R);
+  return [dE, 0, -dN];
+}
+
+async function moveTo(id) {
+  if (!cur || id === cur.id) return;
+  if (trans || pendingMove) { queuedMove = id; return; }
+  const gen = worldGen;
+  pendingMove = { id, pano: null };
+  try {
+    const p = await ensurePano(id);
+    if (gen !== worldGen || !p || trans) return;
+    pendingMove.pano = p;
+    const t0 = performance.now();
+    while (p.tiles[0].size === 0 && performance.now() - t0 < 1500) {
+      if (gen !== worldGen) return;
+      await sleep(50);
+    }
+    if (gen !== worldGen || trans) return;
+    const T = vecBetween(cur, p);
+    const dist = Math.hypot(T[0], T[2]);
+    trans = {
+      from: cur, to: p, T,
+      t0: performance.now(),
+      dur: Math.min(950, Math.max(500, 250 + dist * 30)),
+      s: 0,
+      // latch now: a depth map arriving mid-transition must not switch modes
+      warpFrom: !!cur.depthTex, warpTo: !!p.depthTex,
+    };
+  } finally {
+    if (gen === worldGen) pendingMove = null;
+  }
+}
+
+function finishMove() {
+  const from = trans.from;
+  cur = trans.to;
+  trans = null;
+  // keep the old pano's base imagery for instant back-moves, drop its detail
+  for (let z = 3; z < from.tiles.length; z++) {
+    for (const rec of from.tiles[z].values()) gl.deleteTexture(rec.tex);
+    from.tiles[z].clear();
+  }
+  rebuildChevrons();
+  evictPanos();
+  $('pid').value = cur.id;
+  for (const l of cur.links.slice(0, 4)) ensurePano(l.id); // warm neighbor metadata
+  if (queuedMove) {
+    const q = queuedMove;
+    queuedMove = null;
+    if (q !== cur.id) moveTo(q);
+  }
+}
+
+function moveAlong(offset) { // 0 = toward the view direction, PI = behind it
+  if (!cur || trans || pendingMove) return;
+  let best = null, bestD = 1.05;
+  for (const l of cur.links) {
+    const d = Math.abs(wrapPi(l.bearing - yaw - offset));
+    if (d < bestD) { bestD = d; best = l; }
+  }
+  if (best) moveTo(best.id);
+}
+
+// ---------------------------------------------------------------- chevrons
+const chevrons = [];
+function rebuildChevrons() {
+  chevBox.innerHTML = '';
+  chevrons.length = 0;
+  if (!cur) return;
+  for (const l of cur.links) {
+    const el = document.createElement('div');
+    el.className = 'chev';
+    el.innerHTML = '<svg viewBox="0 0 48 48" width="46" height="46">'
+      + '<circle cx="24" cy="24" r="21" fill="rgba(10,14,20,0.35)" stroke="rgba(255,255,255,0.85)" stroke-width="2.5"/>'
+      + '<path d="M24 11 L35 27 L27.5 27 L27.5 37 L20.5 37 L20.5 27 L13 27 Z" fill="#fff"/></svg>';
+    el.style.display = 'none';
+    el.addEventListener('click', () => moveTo(l.id));
+    chevBox.appendChild(el);
+    chevrons.push({ el, link: l });
+  }
+}
+
+function updateChevrons() {
+  const busy = !cur || trans || pendingMove || fov < 26 * D2R;
+  for (const c of chevrons) {
+    if (busy) { c.el.style.display = 'none'; continue; }
+    // sit the arrow on the road partway toward the target pano
+    const aim = Math.min(9, Math.max(3.5, (c.link.dist || 8) * 0.55));
+    const ph = -Math.atan2(2.5, aim);
+    const p1 = project(dirW(c.link.bearing, ph, 5));
+    const p2 = project(dirW(c.link.bearing, ph + 0.12, 5));
+    if (!p1 || !p2 || p1.x < -80 || p1.x > cssW + 80 || p1.y < -80 || p1.y > cssH + 80) {
+      c.el.style.display = 'none'; continue;
+    }
+    const rot = Math.atan2(p2.y - p1.y, p2.x - p1.x) + PI / 2;
+    const sc = Math.min(1.6, Math.max(0.55, 1.1 * (55 * D2R) / fov));
+    c.el.style.display = 'block';
+    c.el.style.transform =
+      `translate(${p1.x.toFixed(1)}px,${p1.y.toFixed(1)}px) translate(-50%,-50%) rotate(${rot.toFixed(3)}rad) scale(${sc.toFixed(3)})`;
+  }
+}
+
+// ---------------------------------------------------------------- draw
+function drawPano(p, camOff, alpha, allowWarp, flat) {
+  if (!p || p.status !== 'ready') return;
+  const warp = allowWarp && p.depthTex ? 1 : 0;
+  gl.uniform1f(loc.uYawOff, p.heading);
+  gl.uniform3f(loc.uCamOff, camOff[0], camOff[1], camOff[2]);
+  gl.uniform1f(loc.uDepthOn, warp);
+  gl.uniform1f(loc.uFlat, flat || 0);
+  gl.uniform1f(loc.uAlpha, alpha);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, p.depthTex || dummyDepth);
+  gl.activeTexture(gl.TEXTURE0);
+  const cf = camFImage(p);
+  const zTop = Math.min(curZoom, p.layout.maxZ);
+  for (let z = 0; z <= zTop; z++) {
+    if (!p.tiles[z] || !p.tiles[z].size) continue;
+    const mesh = meshFor(z, warp === 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb);
+    gl.vertexAttribPointer(locA, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+    for (const rec of p.tiles[z].values()) {
+      if (z >= 3 && !tileVisible(rec.meta, cf)) continue;
+      rec.lastUse = frameNo;
+      gl.bindTexture(gl.TEXTURE_2D, rec.tex);
+      gl.uniform4fv(loc.uAng, rec.meta.ang);
+      gl.uniform2fv(loc.uUV, rec.meta.uv);
+      gl.drawElements(gl.TRIANGLES, mesh.count, mesh.type, 0);
+    }
+  }
+}
+
+function draw() {
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniformMatrix4fv(loc.uVP, false, vpMat);
+  if (trans) {
+    const s = trans.s, T = trans.T;
+    if (trans.settling !== undefined) {
+      // motion is over: morph the arrived pano from metric to rigid in place
+      drawPano(trans.to, ZERO3, 1, true, trans.settling);
+    } else {
+      const flatIn = trans.warpFrom ? Math.max(0, 1 - s / 0.08) : 0;
+      drawPano(trans.from, [T[0] * s, T[1] * s, T[2] * s], 1, trans.warpFrom, flatIn);
+      drawPano(trans.to, [T[0] * (s - 1), T[1] * (s - 1), T[2] * (s - 1)], smoothstep(0.15, 0.85, s), trans.warpTo, 0);
+    }
+  } else {
+    drawPano(cur, ZERO3, 1, false, 1);
+  }
+}
+
+// ---------------------------------------------------------------- input
+const pointers = new Map();
+let dragging = false, pinch = null, lastMoveT = 0;
+
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  vYaw = 0; vPitch = 0;
+  dragging = true;
+  canvas.classList.add('dragging');
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), fov0: fovT };
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (pointers.size === 2 && pinch) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (d > 20) fovT = Math.min(FOV_MAX, Math.max(FOV_MIN, pinch.fov0 * pinch.dist / d));
+    anchor = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const k = fov / cssH / 2;
+    yaw -= dx * k; pitch = clampPitch(pitch + dy * k);
+    return;
+  }
+  if (pointers.size !== 1) return;
+  const k = fov / cssH;
+  yaw -= dx * k;
+  pitch = clampPitch(pitch + dy * k);
+  const now = e.timeStamp;
+  const dt = Math.max(1, now - lastMoveT) / 1000;
+  lastMoveT = now;
+  if (dt < 0.1) {
+    vYaw = vYaw * 0.4 + (-dx * k / dt) * 0.6;
+    vPitch = vPitch * 0.4 + (dy * k / dt) * 0.6;
+  }
+});
+
+function endPointer(e) {
+  if (!pointers.delete(e.pointerId)) return;
+  if (pointers.size < 2) pinch = null;
+  if (pointers.size === 0) {
+    dragging = false;
+    canvas.classList.remove('dragging');
+    if (e.timeStamp - lastMoveT > 120) { vYaw = 0; vPitch = 0; }
+  }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  let dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+  if (e.ctrlKey) dy *= 3;
+  fovT = Math.min(FOV_MAX, Math.max(FOV_MIN, fovT * Math.exp(dy * 0.0011)));
+  anchor = { x: e.clientX, y: e.clientY };
+}, { passive: false });
+
+canvas.addEventListener('dblclick', e => {
+  fovT = Math.max(FOV_MIN, fovT / 1.8);
+  anchor = { x: e.clientX, y: e.clientY };
+});
+
+window.addEventListener('keydown', e => {
+  if (e.target === $('pid')) return;
+  keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+});
+window.addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
+window.addEventListener('blur', () => keys.clear());
+
+// ---------------------------------------------------------------- pano input
+function parsePano(s) {
+  s = s.trim();
+  const m = s.match(/panoid=([\w-]+)/) || s.match(/[?&]pano=([\w-]+)/) || s.match(/!1s([\w-]+)/);
+  if (m) return m[1];
+  if (/^[\w-]{8,}$/.test(s)) return s;
+  return null;
+}
+
+async function loadFresh(id) {
+  worldGen++;
+  trans = null; pendingMove = null; queuedMove = null;
+  for (const p of [...panos.values()]) destroyPano(p);
+  panos.clear();
+  cur = null;
+  uploadQ.length = 0; inflight.clear();
+  rebuildChevrons();
+  status('loading pano metadata');
+  const gen = worldGen;
+  const p = await ensurePano(id);
+  if (gen !== worldGen) return;
+  if (!p) { status('could not load this panoid, check it and try again'); return; }
+  cur = p;
+  yaw = p.heading; pitch = 0; vYaw = 0; vPitch = 0;
+  fov = FOV_MAX * 0.98; fovT = 72 * D2R;
+  anchor = { x: cssW / 2, y: cssH / 2 };
+  rebuildChevrons();
+  status('');
+  for (const l of p.links.slice(0, 4)) ensurePano(l.id); // warm neighbor metadata
+  // pre-bake the dense warp meshes off the first-move critical path
+  setTimeout(() => {
+    if (cur === p && p.layout) for (let z = 0; z <= p.layout.maxZ; z++) meshFor(z, true);
+  }, 400);
+}
+
+function submit() {
+  const id = parsePano($('pid').value);
+  if (!id) {
+    $('pid').classList.add('bad');
+    setTimeout(() => $('pid').classList.remove('bad'), 900);
+    return;
+  }
+  $('pid').blur();
+  loadFresh(id);
+}
+$('go').addEventListener('click', submit);
+$('pid').addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+// shareable view state in the url hash
+let lastHash = '';
+function writeHash() {
+  if (!cur || cur.status !== 'ready') return;
+  const h = `p=${cur.id}&y=${(yaw / D2R).toFixed(1)}&pi=${(pitch / D2R).toFixed(1)}&f=${Math.round(fovT / D2R)}`;
+  if (h !== lastHash) {
+    lastHash = h;
+    try { history.replaceState(null, '', '#' + h); } catch (e) {}
+  }
+}
+function readHash() {
+  const m = {};
+  location.hash.slice(1).split('&').forEach(kv => {
+    const [k, val] = kv.split('=');
+    if (k && val !== undefined) m[k] = val;
+  });
+  return m;
+}
+
+// ---------------------------------------------------------------- main loop
+let tPrev = 0, emaDt = 1 / 60, hudT = 0;
+
+function frame(tNow) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (tNow - tPrev) / 1000 || 0.016);
+  tPrev = tNow;
+  frameNo++;
+  emaDt = emaDt * 0.92 + dt * 0.08;
+
+  if (!dragging && (vYaw || vPitch)) {
+    yaw += vYaw * dt;
+    pitch = clampPitch(pitch + vPitch * dt);
+    const d = Math.exp(-dt / 0.4);
+    vYaw *= d; vPitch *= d;
+    if (Math.hypot(vYaw, vPitch) < 0.002) { vYaw = 0; vPitch = 0; }
+  }
+  if (keys.size) {
+    const r = fov * 0.9 * dt;
+    if (keys.has('ArrowLeft')) yaw -= r;
+    if (keys.has('ArrowRight')) yaw += r;
+    if (keys.has('ArrowUp')) pitch = clampPitch(pitch + r);
+    if (keys.has('ArrowDown')) pitch = clampPitch(pitch - r);
+    if (keys.has('+') || keys.has('=')) fovT = Math.max(FOV_MIN, fovT * Math.exp(-1.4 * dt));
+    if (keys.has('-') || keys.has('_')) fovT = Math.min(FOV_MAX, fovT * Math.exp(1.4 * dt));
+    if (keys.has('w')) { keys.delete('w'); moveAlong(0); }
+    if (keys.has('s')) { keys.delete('s'); moveAlong(PI); }
+  }
+  if (Math.abs(fovT - fov) > 1e-5) {
+    const before = screenToAngles(anchor.x, anchor.y);
+    fov += (fovT - fov) * (1 - Math.exp(-dt / 0.09));
+    const after = screenToAngles(anchor.x, anchor.y);
+    yaw += wrapPi(before.theta - after.theta);
+    pitch = clampPitch(pitch + (before.phi - after.phi));
+  }
+
+  if (trans) {
+    const raw = (tNow - trans.t0) / trans.dur;
+    if (raw < 1) {
+      trans.s = easeInOutCubic(raw);
+    } else if (!trans.warpTo) {
+      trans.s = 1;
+      finishMove();
+    } else {
+      trans.s = 1;
+      if (trans.settleT0 === undefined) trans.settleT0 = tNow;
+      trans.settling = Math.min(1, (tNow - trans.settleT0) / 160);
+      if (trans.settling >= 1) finishMove();
+    }
+  }
+  if (cur) cur.lastActive = frameNo;
+  if (trans) trans.to.lastActive = frameNo;
+
+  buildMatrices();
+  if (cur && cur.status === 'ready') {
+    schedule();
+    pumpUploads();
+    draw();
+    evictTiles();
+  } else {
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  updateChevrons();
+
+  hudT += dt;
+  if (hudT > 0.25) {
+    hudT = 0;
+    let cached = 0;
+    if (cur && cur.status === 'ready') for (const m of cur.tiles) cached += m.size;
+    statsEl.textContent =
+      `fps ${Math.round(1 / emaDt)} · z${curZoom}/${cur && cur.layout ? cur.layout.maxZ : '?'}` +
+      ` · fov ${Math.round(fov / D2R)}° · tiles ${cached} · net ${inflight.size}` +
+      ` · panos ${panos.size} · depth ${cur && cur.depthTex ? 'on' : 'off'}`;
+    placeEl.textContent = cur && cur.status === 'ready'
+      ? [cur.place, cur.date].filter(Boolean).join(' · ') : '';
+    if (!dragging && !trans && !pendingMove) writeHash();
+  }
+}
+
+const hp = readHash();
+const bootId = hp.p && /^[\w-]{8,}$/.test(hp.p) ? hp.p : 'bZKMVNJv6m_I_gHgX9bclQ';
+$('pid').value = bootId;
+loadFresh(bootId).then(() => {
+  if (!cur || cur.id !== bootId) return;
+  if (hp.y !== undefined) { const v = parseFloat(hp.y); if (isFinite(v)) yaw = v * D2R; }
+  if (hp.pi !== undefined) { const v = parseFloat(hp.pi); if (isFinite(v)) pitch = clampPitch(v * D2R); }
+  if (hp.f !== undefined) {
+    const v = parseFloat(hp.f) * D2R;
+    if (isFinite(v) && v > 0) fov = fovT = Math.min(FOV_MAX, Math.max(FOV_MIN, v));
+  }
+});
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
