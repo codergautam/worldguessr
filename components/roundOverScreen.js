@@ -518,10 +518,12 @@ const GameSummary = ({
 
   const openInGoogleMaps = (lat, lng, panoId = null) => {
     let url;
-    if (panoId) {
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
+    } else if (panoId) {
       url = `http://maps.google.com/maps?q=&layer=c&panoid=${panoId}&cbp=11,0,0,0,0`;
     } else {
-      url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
+      return;
     }
 
     // Check if we're on an embedded portal that can't open external links
