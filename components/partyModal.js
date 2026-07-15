@@ -21,7 +21,11 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     // Emote mute — default off (emotes on); server truth lives on gameData.
     const [localDisableEmotes, setLocalDisableEmotes] = useState(false);
 
-    // Sync local state when modal opens or multiplayer state changes
+    // Sync local state ONLY when the modal opens. The steppers/timer toggle
+    // commit straight into createOptions while the modal is open — if those
+    // values were deps here, every commit would re-run this and stomp the
+    // still-buffered team/emote selections back to server truth (Team Duel
+    // snapped back to Classic on any other edit).
     useEffect(() => {
         if (shown) {
             setLocalRounds(multiplayerState?.createOptions?.rounds?.toString() || "5");
@@ -35,7 +39,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             setLocalDisableEmotes(!!multiplayerState?.gameData?.disableEmotes);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shown, multiplayerState?.createOptions?.rounds, multiplayerState?.createOptions?.timePerRound]);
+    }, [shown]);
     
     const isTimerDisabled = multiplayerState?.createOptions?.timePerRound === 60 * 60 * 24;
     
@@ -262,12 +266,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                         createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
                                     }));
                                 } else {
-                                    const time = parseInt(localTime) || 30;
-                                    const clamped = Math.max(10, Math.min(300, time));
-                                    setMultiplayerState(prev => ({
-                                        ...prev,
-                                        createOptions: { ...prev.createOptions, timePerRound: clamped }
-                                    }));
+                                    // commitTime also re-syncs localTime — the open-only
+                                    // sync effect no longer does that for us.
+                                    commitTime(localTime);
                                 }
                             }}
                             aria-pressed={isTimerDisabled}
