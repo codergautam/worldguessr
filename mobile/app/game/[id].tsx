@@ -595,11 +595,24 @@ export default function GameScreen() {
     // signal, cleared every round server-side) so the local send-guard can never
     // disagree with what the server thinks we've submitted.
     if (gameData.state === 'getready' || gameData.state === 'guess') {
-      const myFinal = !!gameData.players.find((p) => p.id === gameData.myId)?.final;
+      const me = gameData.players.find((p) => p.id === gameData.myId);
+      const myFinal = !!me?.final;
       const roundChanged = mpRoundRef.current !== gameData.curRound;
       if (roundChanged || (!myFinal && mpGuessSentRef.current)) {
         mpGuessSentRef.current = myFinal;
-        setGuessPosition(null);
+        // Mid-round rejoin (app reopen / reconnect blip): restore the pin the
+        // server still holds for me instead of wiping it (web home.js rejoin
+        // parity — it setPinPoint's from me.guess). Safe ONLY in 'guess': the
+        // server runs clearGuesses() at the getready→guess edge right before
+        // that broadcast, so in 'guess' my latLong is always THIS round's pin —
+        // null at a normal round start, where this degrades to the old wipe.
+        // In 'getready' the roster still carries the PREVIOUS round's guesses;
+        // restoring those would paint a stale pin, so getready always clears.
+        setGuessPosition(
+          gameData.state === 'guess' && me?.latLong
+            ? { lat: me.latLong[0], lng: me.latLong[1] }
+            : null,
+        );
         setMiniMapShown(false);
       }
       mpRoundRef.current = gameData.curRound;
