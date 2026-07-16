@@ -41,3 +41,9 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./out
         publish_branch: ${{ github.ref_name == 'master' && 'gh-pages' || 'gh-pages-dev' }}
+        # Old hashed /_next/static chunks must outlive the deploy: stale HTML
+        # (Cloudflare/Pages edge caches, open tabs) still references them, and
+        # deleting them turns every push into a few minutes of text/html 404s
+        # that browsers refuse to execute as JS. Branch grows over time; safe
+        # to periodically reset it clean.
+        keep_files: true

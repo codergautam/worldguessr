@@ -93,8 +93,10 @@ const HTML = `<!DOCTYPE html>
   // and also the first pan stroke / tap. Fix: finish the in-flight zoom the instant
   // ANY new gesture starts (capture phase, before Leaflet's own handlers) so
   // nothing — zoom, pan, or tap — is swallowed.
+  // zoomSnap 0 matches the web maps (SafeMapContainer): the default snap of 1
+  // made TouchZoom._onTouchEnd lurch every pinch to the nearest whole level.
   var map = L.map('map', { preferCanvas: true, zoomControl: false, attributionControl: false,
-    worldCopyJump: true, tap: true }).setView([20, 0], 2);
+    worldCopyJump: true, tap: true, zoomSnap: 0 }).setView([20, 0], 2);
   function finishZoom(){ if (map._animatingZoom) { try { map._onZoomTransitionEnd(); } catch (e) {} } }
   var mc = map.getContainer();
   mc.addEventListener('touchstart', finishZoom, true);

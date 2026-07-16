@@ -82,8 +82,15 @@ export default function SafeMapContainer(props) {
     <ErrorBoundary name="leaflet-map" fallback={<MapFallback />}>
       {/* Fluid wheel zoom (lib/leafletFluidZoom.js) is the app-wide default;
           the stock stepped scrollWheelZoom must stay off or both handlers
-          would fire per wheel event. Call sites can override either prop. */}
-      <RLMapContainer scrollWheelZoom={false} fluidWheelZoom={true} {...props} />
+          would fire per wheel event. Call sites can override any prop.
+
+          zoomSnap 0 frees mobile PINCH: with the default snap of 1, Leaflet's
+          TouchZoom._onTouchEnd runs the final zoom through _limitZoom, which
+          rounds it to the nearest whole level — every pinch ended with the
+          map lurching off the zoom the fingers chose. Desktop wheel zoom
+          still RESTS on whole levels (crisp raster labels): the fluid handler
+          hard-snaps its landing target to 1 regardless of zoomSnap. */}
+      <RLMapContainer scrollWheelZoom={false} fluidWheelZoom={true} zoomSnap={0} {...props} />
     </ErrorBoundary>
   );
 }
