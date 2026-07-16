@@ -116,10 +116,11 @@ Bot backfill for ranked 1v1 and 2v2 matchmaking (`ws/botUtils.js`). ⚠️ **Bot
 
 ```bash
 # Bot backfill for struggling/new players:
-#   (unset)           - bots ENABLED (default): newbies (0 wins or <10%
-#                       winrate, per mode) whom the pairing pass couldn't
-#                       serve get a bot opponent (1v1) or a full bot opposing
-#                       team (2v2). Humans always get first refusal.
+#   (unset)           - bots ENABLED (default): newbies (0 wins, or a winrate
+#                       of ≤10% in ranked / ≤20% in 2v2) whom the pairing
+#                       pass couldn't serve get a bot opponent (1v1) or a
+#                       full bot opposing team (2v2). Humans always get
+#                       first refusal.
 #   DUEL_BOTS=off     - no bot backfill at all
 #   DUEL_BOTS=instant - TESTING ONLY, never set in prod: skips every
 #                       eligibility gate (guests included) — anyone left
