@@ -4126,7 +4126,11 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
-                            location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
+                            // extent: server-stamped ONLY. gameOptions.extent is
+                            // singleplayer state — preferring it here leaked a stale
+                            // community-map bbox (e.g. Taiwan) into multiplayer games
+                            // joined via invite, zooming the guess map to the old map.
+                            location: "all", maxDist: 20000, extent: multiplayerState?.gameData?.extent ?? null,
                             nm: multiplayerState?.gameData?.nm,
                             npz: multiplayerState?.gameData?.npz,
                             showRoadName: multiplayerState?.gameData?.showRoadName
