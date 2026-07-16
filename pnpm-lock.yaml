@@ -84,7 +84,7 @@ importers:
         specifier: ^9.0.2
         version: 9.0.3
       leaflet:
-        specifier: ^1.9.4
+        specifier: 1.9.4
         version: 1.9.4
       moment:
         specifier: ^2.30.1

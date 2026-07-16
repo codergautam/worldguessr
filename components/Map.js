@@ -223,15 +223,10 @@ function stopMapAnimations(map) {
 
   try { map._stop?.(); } catch {}
   try { map._panAnim?.stop?.(); } catch {}
-  try {
-    if (map._animatingZoom) {
-      map._animatingZoom = false;
-      delete map._animateToCenter;
-      delete map._animateToZoom;
-      delete map._tempFireZoomEvent;
-      L?.DomUtil?.removeClass?.(map._mapPane, "leaflet-zoom-anim");
-    }
-  } catch {}
+  // In-flight CSS zoom animations are settled (finished, with proper
+  // zoomend/moveend) by the patched map._stop() above — see
+  // lib/leafletSettleZoomAnim.js. The manual _animatingZoom flag-clearing
+  // that used to live here is unreachable now and was removed.
   try { map.stop(); } catch {}
 }
 
@@ -764,58 +759,11 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
   return null;
 });
 
-/**
- * Finishes an in-flight PINCH zoom the instant the next touch gesture starts.
- * While a zoom animation runs, Leaflet's `_animatingZoom` flag makes
- * `TouchZoom._onTouchStart` bail, so a fast second pinch (and the first pan/tap
- * after a pinch) is swallowed — the "every other zoom rejected" mobile bug.
- * Finishing the in-flight zoom on `touchstart` (capture phase, before Leaflet's
- * own handlers) unblocks it.
- *
- * We FINISH the zoom via Leaflet's own `_onZoomTransitionEnd` — we do NOT abort it
- * with `stopMapAnimations`. Aborting only clears `_animatingZoom` and strips the
- * `leaflet-zoom-anim` class; it never fires `zoomend`, so the canvas renderer's
- * `_onZoomEnd → path._project()` never runs and every vector (guess/answer lines,
- * opponent lines, hint circle) keeps the pixel geometry (`_rings`) it had at the
- * PREVIOUS committed zoom. Markers re-derive their position from lat/lng on every
- * `zoom` event (Marker.getEvents), so they stay glued to the map while the vectors
- * sit at a stale offset — the "lines detach from the pins during fast pan/zoom,
- * then snap back on a clean zoom" glitch (mobile-only because this handler is
- * touch-only). `_onZoomTransitionEnd` commits the in-flight zoom to its target AND
- * fires the normal zoom/move(end) events, so the renderer reprojects the vectors in
- * lock-step with the markers. It only runs while a pinch settle is in flight
- * (`_animatingZoom`); a camera-controller fly uses `_flyToFrame` and never sets that
- * flag, so this can't disturb RevealController / ExtentFitter. (Mirrors the
- * standalone LeafletMap fallback.)
- *
- * TOUCH-ONLY by design. On desktop, zoom is the mouse wheel, and Leaflet's
- * ScrollWheelZoom already accumulates wheel deltas and drives its own animation
- * correctly. Intercepting `wheel`/`mousedown` here aborted that animation
- * mid-flight on every tick (clearing `_animatingZoom`, stripping the
- * `leaflet-zoom-anim` class), desyncing the pane transform from the zoom level
- * and making desktop zoom jump wildly. Leaving those paths to Leaflet restores
- * the original (master) desktop behaviour while keeping the mobile pinch fix.
- */
-const ZoomFix = memo(function ZoomFix() {
-  const map = useMap();
-  useEffect(() => {
-    if (!map) return;
-    const container = map.getContainer?.();
-    if (!container) return;
-    const finishZoom = () => {
-      if (map._animatingZoom) {
-        // Finish (don't abort) the settle so the canvas renderer reprojects its
-        // vectors to the committed zoom — keeping them locked to the markers.
-        try { map._onZoomTransitionEnd(); } catch {}
-      }
-    };
-    container.addEventListener("touchstart", finishZoom, true);
-    return () => {
-      container.removeEventListener("touchstart", finishZoom, true);
-    };
-  }, [map]);
-  return null;
-});
+// The old ZoomFix component (finish an in-flight pinch zoom on the next
+// touchstart so TouchZoom._onTouchStart isn't swallowed and vectors reproject
+// in lock-step with markers) now lives as an app-wide mechanism in
+// lib/leafletSettleZoomAnim.js — every map gets the identical capture-phase
+// touchstart settler via a Map init hook, plus settling at Map._stop().
 
 /**
  * Leaflet 1.9.4 canvas-teardown guard (installed once, on the prototype so it
@@ -1262,11 +1210,6 @@ const MapComponent = ({
       // The bounds themselves (vertical-only) are applied in <BoundsApplier>
       // so they can stay disabled while the answer is shown.
       maxBoundsViscosity={1.0}
-      // Stock wheel zoom steps a whole level per notch; the fluid handler
-      // (lib/leafletFluidZoom.js) glides fractional zoom toward the cursor
-      // instead. The stock handler must be off or both would fire per event.
-      scrollWheelZoom={false}
-      fluidWheelZoom={true}
       style={{ height: "100%", width: "100%" }}
     >
       <div className="mapAttr">
@@ -1298,7 +1241,6 @@ const MapComponent = ({
         bandFraction={bandFraction}
       />
       <ContainerResizeBridge resizingRef={resizingRef} />
-      <ZoomFix />
 
       {answerShown && (
         <DestMarker location={answerLocation} icon={icons.dest} />

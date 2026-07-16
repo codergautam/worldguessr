@@ -5322,6 +5322,14 @@ img.countryGuessrBtn__emoji {
 .hintCircle {
     cursor: crosshair !important;
 }
+// While actually dragging, show the hand instead of the crosshair. Leaflet
+// tags <body> with .leaflet-dragging for the duration of a drag; the extra
+// specificity here outranks the !important crosshair rules above.
+body.leaflet-dragging .leaflet-container,
+body.leaflet-dragging .leaflet-interactive,
+body.leaflet-dragging .hintCircle {
+    cursor: grabbing !important;
+}
 .game-summary-map .leaflet-container {
     height: 100vh !important;
 }

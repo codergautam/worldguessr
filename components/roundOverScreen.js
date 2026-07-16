@@ -658,10 +658,16 @@ const GameSummary = ({
 
   useEffect(() => {
     if (mapReady && finalHistory.length > 0 && leafletReady && !userHasInteracted) {
-      setTimeout(() => {
+      // The timer MUST be cleaned up: armed once with no cancel, it kept
+      // firing an animated fitBounds AFTER the user clicked a round in the
+      // 200ms window, yanking the camera off their round-focus flight.
+      // (userHasInteracted flips on movestart, which re-runs this effect and
+      // cancels via the cleanup below.)
+      const id = setTimeout(() => {
         // Set initial extent only once, then allow free user interaction
         fitMapToBounds();
       }, 200);
+      return () => clearTimeout(id);
     }
   }, [mapReady, leafletReady, userHasInteracted]); // Only fit bounds if user hasn't interacted
 
