@@ -104,9 +104,12 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
   const iconVisible = shown && showIcon;
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    if (iconVisible) document.body.classList.add('ws-icon-shown');
-    else document.body.classList.remove('ws-icon-shown');
-    return () => { document.body.classList.remove('ws-icon-shown'); };
+    // body?. — document.body is briefly null while a rogue script's post-load
+    // document.write() rebuilds the doc; the unguarded read here (cleanup arm)
+    // was the top client-side fatal in July 2026.
+    if (iconVisible) document.body?.classList.add('ws-icon-shown');
+    else document.body?.classList.remove('ws-icon-shown');
+    return () => { document.body?.classList.remove('ws-icon-shown'); };
   }, [iconVisible]);
 
   if (!iconVisible) return null;

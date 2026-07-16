@@ -53,6 +53,9 @@ export function useReviewPrompt(trigger: boolean) {
       logEvent('app_review_rate', { stars, store_prompt: stars === 5 });
 
       if (stars === 5) {
+        // 5★ also lands in Discord — silent (no toast, errors swallowed) since
+        // the user is already headed to the native store sheet.
+        submitAppFeedback(5, '').catch(() => {});
         requestStoreReview();
         return;
       }

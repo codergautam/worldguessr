@@ -16,20 +16,20 @@ export default function Modal({
     if (isOpen) {
       setIsVisible(true);
       setIsClosing(false);
-      document.body.style.overflow = 'hidden';
+      if (document.body) document.body.style.overflow = 'hidden';
     } else if (isVisible) {
       setIsClosing(true);
       const timer = setTimeout(() => {
         setIsVisible(false);
         setIsClosing(false);
-        document.body.style.overflow = '';
+        if (document.body) document.body.style.overflow = '';
       }, 200);
-      
+
       return () => clearTimeout(timer);
     }
 
     return () => {
-      document.body.style.overflow = '';
+      if (document.body) document.body.style.overflow = '';
     };
   }, [isOpen]);
 

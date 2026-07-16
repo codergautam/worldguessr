@@ -45,7 +45,7 @@ function App({ Component, pageProps }) {
 
     let cancelled = false;
     const markAppReady = () => {
-      if (!cancelled) document.body.classList.add('app-ready');
+      if (!cancelled) document.body?.classList.add('app-ready');
     };
 
     const backgroundImage = new window.Image();

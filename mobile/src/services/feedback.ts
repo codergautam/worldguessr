@@ -50,7 +50,7 @@ function deviceMeta() {
   };
 }
 
-/** Submit a 1–4★ rating with optional comment. Returns the network promise. */
+/** Submit a 1–5★ rating with optional comment. Returns the network promise. */
 export function submitAppFeedback(stars: number, comment: string) {
   const { secret, user } = useAuthStore.getState();
   const { language } = useSettingsStore.getState();

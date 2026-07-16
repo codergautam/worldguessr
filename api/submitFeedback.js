@@ -2,8 +2,9 @@ import User from '../models/User.js';
 import { Webhook, MessageBuilder } from 'discord-webhook-node';
 
 /**
- * In-app "rate us" feedback (1–4★). The mobile app posts the rating + optional
- * comment plus device/locale context here; we forward a rich embed to the
+ * In-app "rate us" feedback (1–5★). The mobile app posts the rating + optional
+ * comment plus device/locale context here (5★ arrives comment-less, fired right
+ * before the native store sheet); we forward a rich embed to the
  * DISCORD_FEEDBACK_WEBHOOK so the team can follow up and help the user.
  *
  * Auth is optional: the prompt shows to guests too, so a missing/unknown secret

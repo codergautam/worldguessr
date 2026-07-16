@@ -1099,9 +1099,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (isForbiddenIframe() && !window.blocked) {
             // display a message
             window.blocked = true;
-            document.write(`
-        <!DOCTYPE html>
-<html lang="en">
+            // documentElement.innerHTML swap, NOT document.write(): a post-load
+            // write() implicitly open()s the document, leaving document.body
+            // null mid-parse — React's next effect/cleanup then fatals — and
+            // errorTracking's post-load write-guard blocks write() anyway.
+            document.documentElement.innerHTML = `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1168,8 +1170,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     </a>
   </div>
 </body>
-</html>
-`)
+`;
             sendEvent("blocked_iframe")
         }
         // check if learn mode
