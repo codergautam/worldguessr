@@ -56,6 +56,8 @@ export default function Document({ pathname }) {
       <body className="mainBody notranslate" translate="no" style={{ backgroundColor: '#000000' }}>
         {process.env.NEXT_PUBLIC_COOLMATH === "true" && (
           <>
+            {/* Hidden by default so no-JS clients (crawlers, blocked scripts) never
+                get a permanent full-screen logo — the inline script below reveals it. */}
             <div id="cmg-splash" style={{
               position: 'fixed',
               top: 0,
@@ -64,7 +66,7 @@ export default function Document({ pathname }) {
               height: '100%',
               backgroundColor: 'rgb(36,36,36)',
               zIndex: 999999,
-              display: 'flex',
+              display: 'none',
               justifyContent: 'center',
               alignItems: 'center',
             }}>
@@ -81,6 +83,7 @@ export default function Document({ pathname }) {
               />
             </div>
             <script dangerouslySetInnerHTML={{ __html: `
+              document.getElementById('cmg-splash').style.display = 'flex';
               window.__cmgSplashStart = Date.now();
             `}} />
           </>

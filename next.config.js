@@ -24,6 +24,10 @@ const getBuildTime = () => {
 const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Allow dev-server assets (/_next/*) to be fetched through Cloudflare
+    // quick-tunnel hostnames — Next 15.3+ warns and will eventually block
+    // cross-origin dev requests without this. Dev-only option, no-op in builds.
+    allowedDevOrigins: ['*.trycloudflare.com'],
     basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
     // Poki serves every build from a per-deploy nested path, e.g.
     // https://<sub>.gdn.poki.com/<uuid>/index.html — and that <uuid> changes on
