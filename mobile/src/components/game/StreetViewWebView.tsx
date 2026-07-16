@@ -109,11 +109,20 @@ function buildStreetViewHtml(
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+        /* position:fixed (NOT in-flow + translateY): the WRAPPER_BASE_URL origin
+           spoof makes the iframe same-origin, so WebKit's scroll-focused-element-
+           into-view now propagates from the embed to THIS document. The embed
+           focuses its movement arrows on tap; in-flow, the oversized iframe left
+           ~300px of scrollable overflow and each arrow press scrolled the wrapper
+           down into it (pano snapped up, dark-blue band below). Fixed boxes add
+           zero scrollable overflow, so that scroll clamps to 0. */
         iframe {
+          position: fixed;
+          top: -285px;
+          left: 0;
           width: calc(100vw + ${cropRightPx}px);
           height: calc(100vh + 300px);
           border: none;
-          transform: translateY(-285px);
           pointer-events: ${nmpz ? 'none' : 'auto'};
         }
       </style>
@@ -129,6 +138,12 @@ function buildStreetViewHtml(
         allow="accelerometer 'none'; gyroscope 'none'; magnetometer 'none'; autoplay; clipboard-write; encrypted-media; picture-in-picture"
         loading="eager"
       ></iframe>
+      <script>
+        // Backstop for the focus-scroll described above the iframe rule: if any
+        // future geometry change reintroduces scrollable overflow, snap back
+        // instead of leaving the pano shifted.
+        addEventListener('scroll', function () { scrollTo(0, 0); }, { passive: true });
+      </script>
     </body>
     </html>
   `;
