@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import calcPoints, { findDistance, pickBestTeamGuessIds } from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 import triggerConfetti from "./utils/triggerConfetti";
@@ -7,7 +7,6 @@ import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
-import { loadBorders } from "./utils/loadBorders";
 import getMyTeam from "./utils/getMyTeam";
 import CountryFlag from "./utils/countryFlag";
 const QUIP_KEYS = {
@@ -179,37 +178,41 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     //     to the headline — that's the interesting signal there;
     //   - HP modes (1v1 + 2v2 duels): a right-country pin SUPPRESSES the
     //     "It was X" line above the damage verdict (singleplayer parity).
-    // Borders data is fetched lazily; on a cold first guess we may render once
-    // with the match unresolved and settle when the data arrives.
     const gd = multiplayerState?.gameData;
     const wantsPinCountry = ((isClassicRound && (isWorldMap || dailyMode)) || (multiplayerState?.inGame && gd?.duel))
         && pinPoint && latLong?.country && latLong.country !== 'unknown';
     // true/false once resolved; null = no pin / still resolving / lookup failed.
-    const [pinInRoundCountry, setPinInRoundCountry] = useState(null);
+    // Resolved sync AT RENDER TIME: with the borders cached (gameUI preloads
+    // them for every mode that lands here) the verdict is ready on the banner's
+    // very first frame — a post-paint effect made the "It was X" headline pop
+    // in after the banner was already visible. The async effect only covers a
+    // cold cache, and its result is keyed to the pin so a late resolve can
+    // never bleed into the next round's reveal.
+    const toInCountry = (guessCountry) =>
+        guessCountry && guessCountry !== "Unknown" ? guessCountry === latLong.country : null;
+    const pinKey = wantsPinCountry ? `${pinPoint.lat},${pinPoint.lng}` : null;
+    const syncPinCountry = useMemo(() => (
+        wantsPinCountry ? findCountryLocalSync({ lat: pinPoint.lat, lon: pinPoint.lng }) : null
+    ), [wantsPinCountry, pinPoint?.lat, pinPoint?.lng]);
+    const [asyncPinResult, setAsyncPinResult] = useState(null); // { key, inCountry }
+    const pinInRoundCountry = !wantsPinCountry
+        ? null
+        : syncPinCountry !== null
+            ? toInCountry(syncPinCountry)
+            : (asyncPinResult && asyncPinResult.key === pinKey ? asyncPinResult.inCountry : null);
     useEffect(() => {
-        if (!wantsPinCountry) {
-            setPinInRoundCountry(null);
-            return;
-        }
-        const resolve = (guessCountry) => setPinInRoundCountry(
-            guessCountry && guessCountry !== "Unknown" ? guessCountry === latLong.country : null
-        );
-        // Try sync (cached) first to avoid an extra render.
-        const sync = findCountryLocalSync({ lat: pinPoint.lat, lon: pinPoint.lng });
-        if (sync !== null) {
-            resolve(sync);
-            return;
-        }
+        if (!wantsPinCountry || syncPinCountry !== null) return;
         let cancelled = false;
+        const key = `${pinPoint.lat},${pinPoint.lng}`;
         findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng })
             .then((guessCountry) => {
-                if (!cancelled) resolve(guessCountry);
+                if (!cancelled) setAsyncPinResult({ key, inCountry: toInCountry(guessCountry) });
             })
             .catch(() => {
-                if (!cancelled) setPinInRoundCountry(null);
+                if (!cancelled) setAsyncPinResult({ key, inCountry: null });
             });
         return () => { cancelled = true; };
-    }, [wantsPinCountry, pinPoint?.lat, pinPoint?.lng, latLong?.country]);
+    }, [wantsPinCountry, syncPinCountry, pinPoint?.lat, pinPoint?.lng, latLong?.country]);
     // Classic wrong-country headline: only once the pin is CONFIRMED outside
     // the round's country (same visibility as before the tri-state refactor).
     const wrongCountryName = isClassicRound && (isWorldMap || dailyMode) && pinInRoundCountry === false && latLong?.country

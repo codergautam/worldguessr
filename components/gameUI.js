@@ -4,7 +4,8 @@ import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
 import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
-import findCountry from "./findCountry";
+import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
+import { loadBorders } from "./utils/loadBorders";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
@@ -552,7 +553,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         } else {
           // No pin placed — score 0 points and show answer
           setShowAnswer(true);
-          setCountryStreak(0);
+          // World-map streaks only (same gate as guess()); a community-map
+          // timeout must not touch them. Mirror a pin-based miss: stamp the
+          // "lost your N streak" line, which also CLEARS a stale loss line
+          // from the previous round (lostCountryStreak would otherwise leak
+          // onto this reveal's banner).
+          if (gameOptions.location === 'all') {
+            setLostCountryStreak(countryStreak);
+            setCountryStreak(0);
+          }
           setSinglePlayerRound((prev) => {
             if (!prev) return prev;
             if (!latLong || latLong.lat == null || latLong.long == null) return prev;
@@ -883,6 +892,20 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if (tickingPossible) preloadSfx('ticking');
   }, [tickingPossible]);
 
+  // Borders preload for the pin→country lookups at reveal time (world-map
+  // streak verdict in guess(), wrong-country headline in EndBanner). With the
+  // polygons cached, guess() resolves the pin's country SYNCHRONOUSLY, so the
+  // streak update commits in the same render as setShowAnswer — resolving it
+  // after the reveal made the banner swap its streak message while already on
+  // screen. Held off while the welcome overlay is up: onboarding's GameUI
+  // mounts under it and that pre-interaction window must stay fetch-free.
+  const needsBorders = !!(
+    (gameOptions?.location === 'all' && !countryGuesser && !welcomeOverlayShown) || dailyMode
+  );
+  useEffect(() => {
+    if (needsBorders) loadBorders().catch(() => {});
+  }, [needsBorders]);
+
   function guess(correctOverride) {
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
@@ -947,13 +970,23 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           }
         }
       }
-    findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
-      afterGuess(country)
-
-    }).catch((e) => {
-      console.error(e);
-      afterGuess("Unknown")
-    });
+    // Resolve the pin's country with the local borders lookup (mobile parity),
+    // sync-first: when the polygons are cached (preloaded above) the streak
+    // verdict lands in the same commit as setShowAnswer, so the end banner
+    // shows its final streak message from the first frame instead of swapping
+    // lines once an async lookup settles. The async path only covers a cold
+    // cache (guessing within ~1s of the preload kicking off).
+    const syncCountry = findCountryLocalSync({ lat: pinPoint.lat, lon: pinPoint.lng });
+    if (syncCountry !== null) {
+      afterGuess(syncCountry);
+    } else {
+      findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
+        afterGuess(country)
+      }).catch((e) => {
+        console.error(e);
+        afterGuess("Unknown")
+      });
+    }
     }
   }
 
