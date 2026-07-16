@@ -57,6 +57,10 @@ const MUSIC_FIRST_FADE_IN_S = 10;
 const MUSIC_FADE_OUT_S = 1;
 const MUSIC_SWITCH_FADE_OUT_S = 1.5;
 const MUSIC_HIDDEN_FADE_S = 5; // background fade (0s grace — user ruling)
+// Post-start verification delay (armStartVerify): long enough that any track
+// that's going to play is audibly playing, short enough that a killed start
+// heals before the first round is over.
+const MUSIC_START_VERIFY_MS = 8000;
 
 /** Perceptual volume mapping — ONLY at a player boundary (exported for the
  * embed WebView's in-page pin click, whose gain the host computes). */
@@ -475,10 +479,16 @@ function ensureMusicPlayer(): AudioPlayer | null {
         }
         // First non-ended status of the freshly replaced track → the advance
         // landed; re-arm the latch for the next natural end.
-        if (trackAdvancing && (state === 'ready' || status?.playing)) {
+        // 'ready' is Android (Media3) vocabulary; iOS (AVPlayer) reports
+        // 'readyToPlay' and NEVER emits 'ready'/'idle'/'ended' — without the
+        // iOS spelling, trackHadReady never armed there and startMusic's
+        // revive branch couldn't tell a healthy paused track from a load that
+        // died mid-buffer (the insta-queue silent-match bug).
+        const reachedReady = state === 'ready' || state === 'readyToPlay';
+        if (trackAdvancing && (reachedReady || status?.playing)) {
           trackAdvancing = false;
         }
-        if (state === 'ready') trackHadReady = true;
+        if (reachedReady) trackHadReady = true;
         if (state === 'failed' || (state === 'idle' && trackHadReady && !trackAdvancing)) {
           // If the corpse was a cached file it's likely corrupt/evicted
           // mid-read — remove it so the next attempt streams fresh.
@@ -503,6 +513,50 @@ function pickNextTrack(): number {
   return i;
 }
 
+// ── Start verification ──────────────────────────────────────────────────────
+// "Status events are the death signal" (§11.1) has a hole either platform can
+// hit when a track start races heavy native work — exactly what an instant
+// queue→match produces: the playlist-switch timer's playNextTrack lands inside
+// the game screen's WebView mount storm.
+//  • iOS: an audio-session interruption (WebKit session churn is the known
+//    culprit) that begins while the new track is still BUFFERING pauses it,
+//    but expo-audio only registers isPlaying players for interruption resume —
+//    a buffering track is skipped, so it never plays and never emits ANY
+//    status. Silent for the whole match.
+//  • Android: a failed load bounces Media3 to 'idle' with trackHadReady still
+//    false, which the death detector deliberately ignores (that shape is also
+//    a normal replace() transient) — no disarm, no retry.
+// So every start is VERIFIED: one re-check after MUSIC_START_VERIFY_MS that
+// funnels into startMusic (the single recovery entry point). A start that the
+// verify pass itself issued does NOT re-arm — one bounded re-attempt per
+// trigger, never a hot retry loop (§11.1).
+let startVerifyTimer: ReturnType<typeof setTimeout> | null = null;
+let inStartVerify = false;
+
+function armStartVerify(): void {
+  if (startVerifyTimer) {
+    clearTimeout(startVerifyTimer);
+    startVerifyTimer = null;
+  }
+  if (inStartVerify) return; // the bounded single re-attempt — never loop
+  startVerifyTimer = setTimeout(() => {
+    startVerifyTimer = null;
+    try {
+      // Healthy start → no-op. Wedged start → startMusic's revive branch
+      // resumes a ready-but-paused track in place, or replaces one that
+      // never reached ready (see trackHadReady). All its own gates (muted,
+      // backgrounded, disarmed, mid-switch) apply unchanged.
+      if (!musicOn || !musicPlayer || musicPlayer.playing) return;
+      inStartVerify = true;
+      try {
+        startMusic();
+      } finally {
+        inStartVerify = false;
+      }
+    } catch {}
+  }, MUSIC_START_VERIFY_MS);
+}
+
 function playNextTrack(): void {
   try {
     const player = ensureMusicPlayer();
@@ -521,6 +575,7 @@ function playNextTrack(): void {
     const fadeInS = musicStartedOnce ? MUSIC_FADE_IN_S : MUSIC_FIRST_FADE_IN_S;
     musicStartedOnce = true;
     fadePlayer(player, musicTargetVolume(), fadeInS);
+    armStartVerify();
   } catch {
     // Load failed (offline) → disarm; the next trigger retries cleanly.
     musicOn = false;
@@ -545,8 +600,17 @@ export function startMusic(): void {
       if (playingPlaylist !== activePlaylist || musicEnded) {
         playNextTrack();
       } else if (!musicPlayer.playing) {
-        musicPlayer.play();
-        fadePlayer(musicPlayer, musicTargetVolume(), MUSIC_FADE_IN_S);
+        if (!trackHadReady) {
+          // The current track NEVER reached ready — its load was killed
+          // without a death status (interruption mid-buffer, silent fetch
+          // failure). play() on that corpse is silence; only a fresh
+          // replace recovers. playingPlaylist can't discriminate here:
+          // playNextTrack stamps it optimistically before the load lands.
+          playNextTrack();
+        } else {
+          musicPlayer.play();
+          fadePlayer(musicPlayer, musicTargetVolume(), MUSIC_FADE_IN_S);
+        }
       } else {
         // Natively auto-resumed (expo-audio replays paused players on
         // foreground BEFORE this JS runs) — the player reads `playing` but
@@ -596,6 +660,10 @@ export function stopMusic(): void {
     if (playlistSwitchTimer) {
       clearTimeout(playlistSwitchTimer);
       playlistSwitchTimer = null;
+    }
+    if (startVerifyTimer) {
+      clearTimeout(startVerifyTimer);
+      startVerifyTimer = null;
     }
     const player = musicPlayer;
     fadePlayer(player, 0, MUSIC_FADE_OUT_S, () => {
@@ -728,6 +796,13 @@ export function initSoundSystem(): void {
         if (inPipeline !== lastPipeline) {
           lastPipeline = inPipeline;
           setMusicPlaylist(inPipeline ? 'competitive' : 'chill');
+          // The mood flip is ALSO a recovery trigger: if music was disarmed
+          // earlier (a stream death anywhere in the session), setMusicPlaylist
+          // no-ops and nothing else would start the competitive list until
+          // foreground/reconnect/unmute — i.e. a whole match of silence. When
+          // music is healthy this is a no-op (the pending switch timer makes
+          // startMusic early-return), so the normal crossfade is untouched.
+          startMusic();
         }
         // Connectivity-restore nudge (§11.1 — web's 'online' listener): the
         // WS reconnecting is the app's own connectivity signal, so no NetInfo
