@@ -1039,7 +1039,10 @@ function GameSurface(
         interactive={showLoadingBanner}
         message={loadingMessage}
         error={loadingError}
-        onRetry={onLoadingRetry}
+        // The overlay renders onRetry whenever provided (spinner OR error mode);
+        // this surface only wants it on the error screen — plain loads keep the
+        // bare spinner (the corner back button is the mid-load escape here).
+        onRetry={loadingError ? onLoadingRetry : undefined}
         retryLabel={loadingRetryLabel}
         onBack={onLoadingBack}
       />

@@ -859,11 +859,8 @@ export default function GameScreen() {
     }).start();
   }, [mapModalVisible, singleplayerTopRightAnim]);
 
-  // Ref to prevent the useEffect from snapping opacity when handleNextRound
-  // is already running a manual fade-in animation
-  const isManualFadeIn = useRef(false);
-
-  // Fade loading banner in/out
+  // Fade loading banner in/out. (The old isManualFadeIn guard left with the
+  // singleplayer flow — GameSurface owns its own round-transition cover now.)
   const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (fadeOutTimer.current) {
@@ -872,16 +869,12 @@ export default function GameScreen() {
     }
 
     if (showLoadingBanner) {
-      // If handleNextRound is running a manual fade-in, don't snap
-      if (!isManualFadeIn.current) {
-        Animated.timing(loadingOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      }
+      Animated.timing(loadingOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     } else {
-      isManualFadeIn.current = false;
       // Delay before fading out so the StreetView has time to paint its first frame
       fadeOutTimer.current = setTimeout(() => {
         Animated.timing(loadingOpacity, {
@@ -928,6 +921,24 @@ export default function GameScreen() {
   const handleStreetViewLoad = useCallback(() => {
     setStreetViewLoaded(true);
   }, []);
+
+  // A wedged pano load must never trap the player. Web can't get stuck like
+  // this — its reload button stays reachable for the whole round — but
+  // mobile's reload sits BEHIND this very cover, so a load that never fires
+  // onLoadEnd (hung Google request, anything the process-death remount in
+  // StreetViewWebView can't see) left force-closing the app as the only way
+  // out. If the cover has sat over an ACTIVE multiplayer round for 6s,
+  // surface a Retry on it: reload() re-issues the current pano as a fresh
+  // source, restarting the load. Resets whenever the cover hides.
+  const [mpLoadStuck, setMpLoadStuck] = useState(false);
+  useEffect(() => {
+    if (!(isMultiplayer && showLoadingBanner && gameData?.state === 'guess')) {
+      setMpLoadStuck(false);
+      return;
+    }
+    const timer = setTimeout(() => setMpLoadStuck(true), 6000);
+    return () => clearTimeout(timer);
+  }, [isMultiplayer, showLoadingBanner, gameData?.state]);
 
   // The result map keeps its WebView full-screen and only resizes an in-page band
   // on reveal. Hold the clip where it is until the embed signals — PRECISELY, not
@@ -1817,6 +1828,25 @@ export default function GameScreen() {
       mapSlideAnim.setValue(0);
       setMiniMapShown(false);
       setGuessPosition(null);
+      // Re-arm the FIRST-REVEAL cover machine too, so the party's next match
+      // enters exactly like match 1: scene hidden (sceneOpacity 0) until the
+      // round-1 pano is ready, with a fully opaque loading cover on top.
+      // Neither value can be trusted across the lobby: the whole game tree —
+      // including the cover — is UNMOUNTED while the lobby renders, and the
+      // cover's fade effect only writes on showLoadingBanner EDGES, which
+      // never fire across waiting→getready (true on both sides). Left
+      // un-armed, the remounted cover rendered whatever the Animated.Value
+      // last held (its fade-in ran native-driven while detached) and
+      // sceneOpacity stayed 1 from the previous match — the reported
+      // semi-transparent "Get Ready" countdown with the next round's panorama
+      // visible through it: a location leak, since mobile (unlike web) warms
+      // the round-1 pano during the countdown.
+      hasCompletedInitialReveal.current = false;
+      sceneOpacity.stopAnimation();
+      sceneOpacity.setValue(0);
+      loadingOpacity.stopAnimation();
+      loadingOpacity.setValue(1);
+      setStreetViewLoaded(false);
       // The tick bump forces the re-render that recomputes renderMapAsResult
       // from the cleared latch (same mechanism as the fade-out completion).
       setRevealExitTick((n) => n + 1);
@@ -2929,10 +2959,11 @@ export default function GameScreen() {
         {/* ═══ TEAM SCOREBAR — cumulative party team totals (web gameUI.js) ═══ */}
         {/* NOT the 2v2 HP bars (team2v2 stays on DuelHUD). Hidden during the
             round-1 countdown; it STAYS MOUNTED through getready — the round's
-            score update lands at reveal time, so unmounting there would eat
-            the +Δ animation — and the between-rounds leaderboard (zIndex 1200
-            dark overlay) covers it for its last-5s window, which is exactly
-            web's "hidden while leaderboardVisible" behavior via z-order. */}
+            score update lands at reveal time, so unmounting there would snap
+            the totals instead of counting them up — and the between-rounds
+            leaderboard (zIndex 1200 dark overlay) covers it for its last-5s
+            window, which is exactly web's "hidden while leaderboardVisible"
+            behavior via z-order. */}
         {isMultiplayer && gameData?.teamGame && !gameData.team2v2
           && gameData.state !== 'end'
           && !(gameData.state === 'getready' && gameData.curRound === 1) && (
@@ -3019,10 +3050,16 @@ export default function GameScreen() {
             ? Math.max(0, gameStartingCountdown)
             : undefined
         }
-        // Unranked "Get Ready!" is bailable, so surface a top-left back button
-        // during its countdown (web parity). Ranked uses GetReadyOverlay instead
-        // and never reaches here — so ranked get-ready stays back-button-free.
-        onBack={mpInitialGetReady ? handleLeave : undefined}
+        // Stuck-load escape hatch: after the 6s watchdog, a Retry under the
+        // spinner re-loads the current pano (see mpLoadStuck above).
+        onRetry={mpLoadStuck ? () => mpStreetViewRef.current?.reload() : undefined}
+        retryLabel={t('retry')}
+        // The cover is an escape hatch, not a wall: any non-ranked multiplayer
+        // load (round-1 countdown AND a mid-round spinner) keeps a top-left
+        // back button that routes through handleLeave's confirm matrix — a
+        // hung load must never leave force-closing the app as the only exit.
+        // Ranked stays committed (no back), matching its hidden in-game back.
+        onBack={!isRankedInProgress && showLoadingBanner ? handleLeave : undefined}
         backDuringCountdown={mpInitialGetReady}
       />
 

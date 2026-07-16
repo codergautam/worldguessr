@@ -172,6 +172,20 @@ function StreetViewWebView({
   // eats touches. Previously secondary was hardcoded 'none', so after an odd
   // number of crossfades the visible slot was secondary → StreetView went dead.
   const [interactiveSlot, setInteractiveSlot] = useState<SlotKey>('primary');
+  // WebView process-death recovery (iOS onContentProcessDidTerminate / Android
+  // onRenderProcessGone — the OS reclaims WebView processes under memory
+  // pressure, and this screen keeps several alive). A dead WebView never fires
+  // another load event, so a slot that dies mid-load wedges the crossfade
+  // machine — and because rounds alternate slots off activeSlotRef (which only
+  // advances on a COMPLETED crossfade), every later round re-targets the same
+  // dead slot: Street View stays behind an eternal loading cover for the rest
+  // of the game. Bumping the slot's generation remounts the native WebView
+  // with its current source, so the load re-runs, onLoadEnd re-fires, and the
+  // machine self-heals.
+  const [slotGen, setSlotGen] = useState<Record<SlotKey, number>>({ primary: 0, secondary: 0 });
+  const reviveSlot = useCallback((slot: SlotKey) => {
+    setSlotGen((g) => ({ ...g, [slot]: g[slot] + 1 }));
+  }, []);
   const pendingSlotRef = useRef<SlotKey | null>(null);
   // Warm-preload bookkeeping. `preloadSlotRef` holds whichever slot is loading
   // the NEXT pano at opacity 0; `preloadReadyRef` flips once its WebView fires
@@ -407,50 +421,39 @@ function StreetViewWebView({
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
-      {(sources.primary || sources.secondary) && (
-        <>
-          {sources.primary && (
-            <Animated.View
-              pointerEvents={interactiveSlot === 'primary' ? 'auto' : 'none'}
-              style={[styles.webviewLayer, { opacity: primaryOpacity }]}
-            >
-              <WebView
-                source={{ html: sources.primary.html, baseUrl: WRAPPER_BASE_URL }}
-                style={styles.webview}
-                onLoadEnd={() => handleLoadEnd('primary')}
-                javaScriptEnabled
-                domStorageEnabled
-                allowsInlineMediaPlayback
-                scrollEnabled={false}
-                bounces={false}
-                mediaPlaybackRequiresUserAction={false}
-                allowsFullscreenVideo={false}
-                originWhitelist={['*']}
-              />
-            </Animated.View>
-          )}
-          {sources.secondary && (
-            <Animated.View
-              pointerEvents={interactiveSlot === 'secondary' ? 'auto' : 'none'}
-              style={[styles.webviewLayer, { opacity: secondaryOpacity }]}
-            >
-              <WebView
-                source={{ html: sources.secondary.html, baseUrl: WRAPPER_BASE_URL }}
-                style={styles.webview}
-                onLoadEnd={() => handleLoadEnd('secondary')}
-                javaScriptEnabled
-                domStorageEnabled
-                allowsInlineMediaPlayback
-                scrollEnabled={false}
-                bounces={false}
-                mediaPlaybackRequiresUserAction={false}
-                allowsFullscreenVideo={false}
-                originWhitelist={['*']}
-              />
-            </Animated.View>
-          )}
-        </>
-      )}
+      {(['primary', 'secondary'] as const).map((slot) => {
+        const source = sources[slot];
+        if (!source) return null;
+        return (
+          <Animated.View
+            key={slot}
+            pointerEvents={interactiveSlot === slot ? 'auto' : 'none'}
+            style={[
+              styles.webviewLayer,
+              { opacity: slot === 'primary' ? primaryOpacity : secondaryOpacity },
+            ]}
+          >
+            <WebView
+              // Generation bump = remount: the only way to revive a WebView
+              // whose content/render process died (see reviveSlot above).
+              key={`${slot}:${slotGen[slot]}`}
+              source={{ html: source.html, baseUrl: WRAPPER_BASE_URL }}
+              style={styles.webview}
+              onLoadEnd={() => handleLoadEnd(slot)}
+              onContentProcessDidTerminate={() => reviveSlot(slot)}
+              onRenderProcessGone={() => reviveSlot(slot)}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsInlineMediaPlayback
+              scrollEnabled={false}
+              bounces={false}
+              mediaPlaybackRequiresUserAction={false}
+              allowsFullscreenVideo={false}
+              originWhitelist={['*']}
+            />
+          </Animated.View>
+        );
+      })}
     </View>
   );
 }

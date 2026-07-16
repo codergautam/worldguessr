@@ -117,8 +117,13 @@ export default function GetReadyOverlay({
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+      {/* FULLY opaque backdrop — a fairness boundary, not just chrome. Unlike
+          web (which only loads the round's pano once the guess phase begins),
+          mobile warms the round-1 panorama BEHIND this overlay during the
+          countdown, so any translucency here leaks the upcoming location
+          before the round starts. Same hues as the old 0.92/0.96 rgba pair. */}
       <LinearGradient
-        colors={['rgba(6, 16, 10, 0.92)', 'rgba(3, 8, 5, 0.96)']}
+        colors={['#06100a', '#030805']}
         style={StyleSheet.absoluteFillObject}
       />
 

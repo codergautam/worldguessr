@@ -118,10 +118,23 @@ export default function GameLoadingOverlay({
             )}
           </>
         ) : (
-          <View style={styles.loadingRow}>
-            <Image source={LOADER} style={styles.spinner} />
-            <Text style={styles.loadingText}>{message}</Text>
-          </View>
+          <>
+            <View style={styles.loadingRow}>
+              <Image source={LOADER} style={styles.spinner} />
+              <Text style={styles.loadingText}>{message}</Text>
+            </View>
+            {/* Escape hatch while still loading (no error yet): callers pass
+                onRetry once a load has been stuck long enough that waiting it
+                out stops being a plan (game/[id]'s multiplayer watchdog). */}
+            {onRetry && (
+              <Pressable
+                onPress={onRetry}
+                style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.retryText}>{retryLabel}</Text>
+              </Pressable>
+            )}
+          </>
         )}
       </View>
     </Animated.View>

@@ -1,9 +1,12 @@
 /**
- * One-line team scoreline: "🏆 Team 1 3,200 — 2,800 Team 2" with the viewer's
- * team at full brightness. Single consumer: the results header in
- * game/results.tsx (crown on the match winner, never on draws — caller passes
- * null). The between-rounds screen uses PlayerList's team-first layout instead
- * (web playerList.js parity), so the old 'lg' variant is gone.
+ * Final team scoreline under the Victory/Defeat verdict — a direct port of
+ * web's `.team-final-scoreline` (roundOverScreen.js + globals.scss): each side
+ * stacks a small uppercase TEAM label (trophy on the winner) over big bold
+ * points, the winning side's points in green, the viewer's side at full
+ * brightness, a dimmed em-dash between. Single consumer: the results header in
+ * game/results.tsx (caller passes crownTeam null on draws — nobody wears the
+ * trophy or the green on a tie). The between-rounds screen uses PlayerList's
+ * team-first layout instead (web playerList.js parity).
  */
 
 import { StyleSheet, Text, View } from 'react-native';
@@ -12,24 +15,38 @@ import { colors, t } from '../../shared';
 
 interface TeamScorelineProps {
   scores: { a: number; b: number };
-  /** Team wearing the trophy (winner) — null on ties. */
+  /** Team wearing the trophy + green points (winner) — null on ties. */
   crownTeam: 'a' | 'b' | null;
   /** The viewer's team (full-brightness side) — null renders both dimmed. */
   myTeam: 'a' | 'b' | null;
 }
 
 export default function TeamScoreline({ scores, crownTeam, myTeam }: TeamScorelineProps) {
-  return (
-    <View style={styles.row}>
-      {(['a', 'b'] as const).map((teamKey, i) => (
-        <View key={teamKey} style={styles.side}>
-          {i === 1 && <Text style={styles.dash}>—</Text>}
-          {crownTeam === teamKey && <Ionicons name="trophy" size={13} color="#ffd700" />}
-          <Text style={[styles.text, myTeam === teamKey && styles.textMine]}>
-            {t(teamKey === 'a' ? 'team1' : 'team2')} {(scores[teamKey] ?? 0).toLocaleString()}
+  const side = (teamKey: 'a' | 'b') => {
+    const sideColor = myTeam === teamKey ? colors.white : 'rgba(255,255,255,0.75)';
+    const won = crownTeam === teamKey;
+    return (
+      <View style={styles.side}>
+        {/* Label row carries web's 0.7 label opacity — the trophy rides inside
+            it, exactly like web's crown inside the label span. */}
+        <View style={styles.labelRow}>
+          {won && <Ionicons name="trophy" size={11} color="#ffd700" />}
+          <Text style={[styles.label, { color: sideColor }]}>
+            {t(teamKey === 'a' ? 'team1' : 'team2')}
           </Text>
         </View>
-      ))}
+        <Text style={[styles.pts, won ? styles.ptsWon : { color: sideColor }]}>
+          {(scores[teamKey] ?? 0).toLocaleString()}
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.row}>
+      {side('a')}
+      <Text style={styles.dash}>—</Text>
+      {side('b')}
     </View>
   );
 }
@@ -39,16 +56,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 14,
+    marginTop: 6,
     marginBottom: 4,
   },
-  side: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dash: { color: 'rgba(255,255,255,0.4)', fontFamily: 'Lexend', fontSize: 15 },
-  text: {
-    color: 'rgba(255,255,255,0.75)',
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: 15,
+  side: {
+    alignItems: 'center',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    opacity: 0.7,
+  },
+  label: {
+    fontFamily: 'Lexend-Bold',
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  pts: {
+    fontFamily: 'Lexend-Bold',
+    fontSize: 21,
     fontVariant: ['tabular-nums'],
   },
-  textMine: { color: colors.white },
+  ptsWon: {
+    color: '#4CAF50',
+  },
+  dash: {
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: 'Lexend-Bold',
+    fontSize: 16,
+  },
 });

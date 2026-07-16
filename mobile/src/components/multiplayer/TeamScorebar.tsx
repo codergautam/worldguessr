@@ -4,10 +4,12 @@
  * Port of web components/teamScorebar.js: fixed top-center, stable identity
  * labels (Team 1 left / Team 2 right, matching the lobby columns — never the
  * duel Your/Enemy framing), crown on the leader (nobody on ties, incl. 0-0),
- * animated totals with a slide-up "+Δ" tag (no background chip — ruling).
+ * animated totals. DELIBERATE web deviation (ruling): web's slide-up "+Δ"
+ * round-gain tag is NOT ported — popping in/out read as noise on the small
+ * screen; the reveal banner already carries the round verdict. Don't re-add
+ * it in a parity sweep.
  */
 
-import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../shared';
@@ -15,9 +17,6 @@ import { fontSizes, spacing } from '../../styles/theme';
 import type { GameData } from '../../store/multiplayerStore';
 import getMyTeam from '../../shared/game/getMyTeam';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
-
-/** How long the +Δ tag stays readable (web AnimatedCounter incrementMs). */
-const DELTA_HOLD_MS = 2600;
 
 function TeamSide({
   score,
@@ -32,18 +31,6 @@ function TeamSide({
 }) {
   const { displayed } = useAnimatedNumber(score, { resetWhenLower: false });
 
-  // Slide-up "+Δ" on every increase, held long enough to actually read.
-  const [delta, setDelta] = useState<number | null>(null);
-  const prevScore = useRef(score);
-  useEffect(() => {
-    const diff = score - prevScore.current;
-    prevScore.current = score;
-    if (diff <= 0) return;
-    setDelta(diff);
-    const timer = setTimeout(() => setDelta(null), DELTA_HOLD_MS);
-    return () => clearTimeout(timer);
-  }, [score]);
-
   return (
     <View style={[styles.side, isMine && styles.sideMine]}>
       <View style={styles.labelRow}>
@@ -53,10 +40,7 @@ function TeamSide({
           {isMine ? ` (${t('you')})` : ''}
         </Text>
       </View>
-      <View style={styles.scoreRow}>
-        <Text style={styles.score}>{displayed.toLocaleString()}</Text>
-        {delta != null && <Text style={styles.delta}>+{delta.toLocaleString()}</Text>}
-      </View>
+      <Text style={styles.score}>{displayed.toLocaleString()}</Text>
     </View>
   );
 }
@@ -118,22 +102,11 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-SemiBold',
   },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 5,
-  },
   score: {
     color: colors.white,
     fontSize: fontSizes.md,
     fontFamily: 'Lexend-Bold',
     fontVariant: ['tabular-nums'],
-  },
-  // "+Δ": bare text, deliberately NO background chip (ruling).
-  delta: {
-    color: colors.success,
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend-Bold',
   },
   divider: {
     width: StyleSheet.hairlineWidth,

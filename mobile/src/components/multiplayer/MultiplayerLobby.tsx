@@ -70,6 +70,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const players = useMultiplayerStore((s) => s.gameData?.players);
   const myId = useMultiplayerStore((s) => s.gameData?.myId);
   const serverRounds = useMultiplayerStore((s) => s.gameData?.rounds);
+  const generated = useMultiplayerStore((s) => s.gameData?.generated);
   const serverTimePerRound = useMultiplayerStore((s) => s.gameData?.timePerRound);
   const serverDisplayLocation = useMultiplayerStore((s) => s.gameData?.displayLocation);
   const serverNm = useMultiplayerStore((s) => s.gameData?.nm);
@@ -210,6 +211,15 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const teamB = teamGame ? roster.filter((p) => p.team === 'b') : [];
   const unassigned = teamGame ? roster.filter((p) => p.team !== 'a' && p.team !== 'b') : [];
   const teamBlocked = teamGame && (teamA.length === 0 || teamB.length === 0);
+  // Web parity (partyLobby.js generatingBlocked): locations generate while the
+  // lobby sits open, and MID-GAME broadcasts never re-send them (only start()
+  // and end() include `locations`) — so a game started early leaves every
+  // client permanently missing the ungenerated rounds' panoramas: an
+  // unrecoverable "Loading…" the moment such a round begins. Block Start until
+  // the server holds all of them. Only blocks when both counts are known
+  // (matching web's `rounds > generated` undefined semantics).
+  const generatingBlocked =
+    typeof serverRounds === 'number' && typeof generated === 'number' && generated < serverRounds;
   const canMove = (p: { id: string }) => !!(isHost || (allowTeamPick && p.id === myId));
 
   // Web parity (globals.scss ≤560px): one team UNDER the other instead of two
@@ -324,6 +334,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
       Alert.alert(t('teams'), t('teamNeedsPlayers'));
       return;
     }
+    if (generatingBlocked) return; // button is disabled/labeled; belt-and-suspenders
     haptics.medium(); // match start — let the host feel the kickoff (click rides SfxPressable)
     wsService.send({ type: 'startGameHost' });
   };
@@ -720,18 +731,20 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
             <Pressable
               style={({ pressed }) => [
                 styles.startBtn,
-                (playerCount < 2 || teamBlocked) && styles.startBtnDisabled,
-                pressed && playerCount >= 2 && !teamBlocked && { opacity: 0.85 },
+                (playerCount < 2 || teamBlocked || generatingBlocked) && styles.startBtnDisabled,
+                pressed && playerCount >= 2 && !teamBlocked && !generatingBlocked && { opacity: 0.85 },
               ]}
               onPress={handleStart}
-              disabled={playerCount < 2 || teamBlocked}
+              disabled={playerCount < 2 || teamBlocked || generatingBlocked}
             >
               <Text style={styles.startBtnText}>
                 {playerCount < 2
                   ? t('waitingForPlayersShort', undefined, 'Waiting for players...')
                   : teamBlocked
                     ? t('teamNeedsPlayers')
-                    : t('startGame')}
+                    : generatingBlocked
+                      ? `${t('generating')}...`
+                      : t('startGame')}
               </Text>
             </Pressable>
           )}
