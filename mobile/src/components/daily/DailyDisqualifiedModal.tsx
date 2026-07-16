@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Text, StyleSheet, Modal } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
@@ -15,7 +16,7 @@ export default function DailyDisqualifiedModal({ visible, alreadyDone = false, o
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose} sfx="none">
         <View style={styles.card}>
           <View style={styles.iconWrap}>
             <Ionicons name="warning" size={28} color="#ffb060" />

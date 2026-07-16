@@ -318,6 +318,9 @@ export function attachUiClickSounds() {
 // ~-14.5 LUFS — check new tracks with
 //   ffmpeg -i track.mp3 -af loudnorm=print_format=summary -f null -
 // before adding them here.
+// Web streams these full-quality masters; mobile streams a 96kbps CBR
+// mirror from public/music-96k/ (data cost). Every new track needs BOTH
+// copies: ffmpeg -i track.mp3 -map 0:a -b:a 96k -ar 44100 mirror.mp3
 // Two moods, one player: 'chill' everywhere, 'competitive' only inside
 // matchmade duels/2v2 (home.js flips the playlist on match entry/exit).
 // Entries are path fragments under public/music/.

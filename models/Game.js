@@ -161,6 +161,12 @@ const gameSchema = new mongoose.Schema({
   // once (scripts/backfillRefundedDuelWinLoss.js); set alongside eloRefunded on
   // the live refund path (serverUtils/eloRefunds.js).
   winLossAdjusted: { type: Boolean, default: false },
+  // WHO stamped winLossAdjusted: 'live' (serverUtils/eloRefunds.js at refund
+  // time) or 'backfill_v2' (the one-off script). Nullable: games stamped
+  // before this field existed (the v1 backfill run) have no attribution —
+  // that ambiguity is exactly what made the v1 offender-repair forensic, so
+  // every new stamp records its author.
+  winLossAdjustedBy: { type: String, default: null },
 
   // Indexes for efficient querying
   createdAt: { type: Date, default: Date.now }
@@ -168,6 +174,10 @@ const gameSchema = new mongoose.Schema({
 
 // Indexes for efficient querying
 gameSchema.index({ gameType: 1, createdAt: -1 });
+// Reconciliation scans (backfill + audits): without this, every
+// "unreconciled refunded duel" lookup collection-scans ~millions of docs —
+// the reason backfill v1 crawled and died.
+gameSchema.index({ gameType: 1, eloRefunded: 1, winLossAdjusted: 1 });
 gameSchema.index({ 'players.accountId': 1, createdAt: -1 }); // User's game history
 gameSchema.index({ gameType: 1, 'players.accountId': 1, createdAt: -1 }); // User's games by type
 gameSchema.index({ gameId: 1 }); // Unique game lookup

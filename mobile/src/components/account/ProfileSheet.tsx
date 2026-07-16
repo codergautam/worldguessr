@@ -8,7 +8,8 @@
  * native Modal + slide animation + dimmed backdrop that closes on tap.
  */
 
-import { Modal, View, Pressable, StyleSheet, Platform } from 'react-native';
+import { Modal, View, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { colors } from '../../shared';
 import { spacing } from '../../styles/theme';
 import ProfileView from './ProfileView';
@@ -32,7 +33,7 @@ export default function ProfileSheet({ visible, username, onClose }: ProfileShee
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={onClose} />
         {/* Shadow and clip are split across two views: overflow:hidden (needed to
             round ProfileView's full-bleed background) would clip the iOS shadow
             if both lived on one view. */}

@@ -26,6 +26,36 @@ export function findDistance(lat1: number, lon1: number, lat2: number, lon2: num
   }
 }
 
+/** One candidate guess for the team best-guess pick. */
+export interface TeamGuessEntry {
+  id: string;
+  team?: string | null;
+  /** Rounded points for the guess (0 = no guess — never wins). */
+  pts: number;
+  /** Raw distance in km; missing/non-finite ranks last within a points tier. */
+  dist?: number;
+}
+
+/**
+ * Team best-guess reveals: pick ONE winner per team — highest points first,
+ * exact point ties (capped 5000s / same rounded score between close teammates)
+ * broken by raw distance, so only the physically closest guess gets the
+ * enlarged pin + carrier credit. Port of web components/calcPoints.js
+ * pickBestTeamGuessIds — keep in lockstep.
+ */
+export function pickBestTeamGuessIds(entries: TeamGuessEntry[]): Set<string> {
+  const best: Record<string, { id: string; pts: number; dist: number }> = {};
+  for (const e of entries) {
+    if (!e.team || !(e.pts > 0)) continue;
+    const dist = Number.isFinite(e.dist) ? (e.dist as number) : Infinity;
+    const cur = best[e.team];
+    if (!cur || e.pts > cur.pts || (e.pts === cur.pts && dist < cur.dist)) {
+      best[e.team] = { id: e.id, pts: e.pts, dist };
+    }
+  }
+  return new Set(Object.values(best).map((e) => e.id));
+}
+
 export interface CalcPointsParams {
   lat: number;
   lon: number;

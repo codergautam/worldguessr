@@ -13,7 +13,8 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -25,11 +26,13 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { withRepeat, withSequence, withTiming } from '../daily/anims';
 import { colors, getHealthColor, getLeague, t, HEALTH_GRADIENTS } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
-import { MPPlayer } from '../../store/multiplayerStore';
+import { MPPlayer, TeamScores } from '../../store/multiplayerStore';
+import getMyTeam from '../../shared/game/getMyTeam';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 import PlayerName from '../PlayerName';
 import ProfileSheet from '../account/ProfileSheet';
@@ -45,6 +48,14 @@ interface DuelHUDProps {
    * timer is rendered below them by the parent.
    */
   centerSlot?: ReactNode;
+  /**
+   * Matchmade 2v2: one shared HP bar per TEAM (web gameUI.js team bars).
+   * Without these the 1v1 layout would mis-render a team game — `duel` is
+   * true for 2v2 too (server sets duel = duel || teamDuel), so the parent
+   * must pass the team fields whenever `gameData.team2v2` is set.
+   */
+  team2v2?: boolean;
+  teamScores?: TeamScores | null;
 }
 
 const MAX_HP = 5000;
@@ -61,7 +72,36 @@ export const BAR_WIDTH = 164;
 /** Fraction of the row each bar may occupy before it shrinks (collision guard). */
 export const BAR_MAX_FRACTION = 0.47;
 
-export default function DuelHUD({ players, myId, centerSlot }: DuelHUDProps) {
+export default function DuelHUD({ players, myId, centerSlot, team2v2, teamScores }: DuelHUDProps) {
+  // ── Matchmade 2v2: one shared bar per team ────────────────────────────────
+  if (team2v2) {
+    // No silent 'a' default (it swapped Your/Enemy bars on a roster lookup
+    // miss) — skip the frame instead; the next snapshot re-orients us.
+    const myTeam = getMyTeam(players, myId);
+    if (!myTeam || !teamScores) return null;
+    const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+    // Synthetic "players" so HealthBar's HP tween + damage float run off the
+    // shared team totals unchanged (it only reads `.score`). Stable ids keep
+    // its per-bar prevScore ref tracking the same entity across rounds.
+    const myBar = { id: `team-${myTeam}`, username: '', score: teamScores[myTeam], final: false } as MPPlayer;
+    const enemyBar = { id: `team-${enemyTeam}`, username: '', score: teamScores[enemyTeam], final: false } as MPPlayer;
+    const mates = players
+      .filter((p) => p.team === myTeam)
+      .sort((a, b) => Number(b.id === myId) - Number(a.id === myId)); // self first (web parity)
+    const enemies = players.filter((p) => p.team === enemyTeam);
+    return (
+      <View style={styles.row}>
+        <HealthBar player={myBar} isMe side="left" nameSlot={<TeamNames players={mates} myId={myId} />} />
+        {centerSlot != null && (
+          <View style={styles.centerSlot} pointerEvents="none">
+            {centerSlot}
+          </View>
+        )}
+        <HealthBar player={enemyBar} isMe={false} side="right" nameSlot={<TeamNames players={enemies} myId={myId} />} />
+      </View>
+    );
+  }
+
   const me = players.find((p) => p.id === myId);
   const opponent = players.find((p) => p.id !== myId);
 
@@ -80,14 +120,82 @@ export default function DuelHUD({ players, myId, centerSlot }: DuelHUDProps) {
   );
 }
 
+/**
+ * The 1–2 member rows under a team bar: flag + name ("You" for self), league
+ * (elo), grace-window disconnect dim + icon, profile sheet on tap (gated on
+ * accountId — guests/bots render as plain text). Web parity: gameUI.js
+ * nameEntry rows in the team HealthBar.
+ */
+function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
+  const [profileFor, setProfileFor] = useState<string | null>(null);
+  return (
+    <View style={styles.teamNames}>
+      {players.map((p) => {
+        const league = typeof p.elo === 'number' ? getLeague(p.elo) : null;
+        const eloColor = league?.light ?? league?.color ?? '#60a5fa';
+        const isSelf = p.id === myId;
+        const row = (
+          <View style={[styles.teamNameRow, p.disconnected && styles.teamNameRowDisconnected]}>
+            {p.disconnected && (
+              <Ionicons name="cloud-offline-outline" size={12} color="rgba(255,255,255,0.8)" />
+            )}
+            <PlayerName
+              name={isSelf ? t('you') : p.username}
+              countryCode={p.countryCode}
+              flagSize={12}
+              gap={4}
+              textStyle={[styles.username, !isSelf && !!p.accountId && styles.usernameOpponent]}
+            >
+              {typeof p.elo === 'number' && (
+                <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>
+                  ({p.elo})
+                </Text>
+              )}
+            </PlayerName>
+          </View>
+        );
+        return (
+          <LinearGradient
+            key={p.id}
+            colors={['rgba(0,0,0,0.7)', 'rgba(20,20,20,0.82)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.teamNamePill}
+          >
+            {!isSelf && p.accountId ? (
+              // Web parity: the opponent name is a clickable <span>, not a
+              // <button>, so the delegated click sound never fires there.
+              <Pressable sfx="none" onPress={() => setProfileFor(p.username)} hitSlop={4}>
+                {row}
+              </Pressable>
+            ) : (
+              row
+            )}
+          </LinearGradient>
+        );
+      })}
+      {profileFor != null && (
+        <ProfileSheet
+          visible
+          username={profileFor}
+          onClose={() => setProfileFor(null)}
+        />
+      )}
+    </View>
+  );
+}
+
 function HealthBar({
   player,
   isMe,
   side,
+  nameSlot,
 }: {
   player: MPPlayer;
   isMe: boolean;
   side: 'left' | 'right';
+  /** Replaces the single-name pill (team bars render a TeamNames stack). */
+  nameSlot?: ReactNode;
 }) {
   const isRight = side === 'right';
   const hp = Math.max(0, player.score);
@@ -185,12 +293,17 @@ function HealthBar({
   const league = player.elo !== undefined ? getLeague(player.elo) : null;
   const eloColor = league?.light ?? league?.color ?? '#60a5fa';
 
+  // Web parity (duelHealthbar.js hasProfile = !!accountId): bots and guests
+  // have no /user page, so their names render as plain text — no underline,
+  // no press, no profile sheet. Same gate TeamNames already applies.
+  const hasProfile = !isMe && !!player.accountId;
+
   const nameInner = (
     <PlayerName
       name={player.username}
       countryCode={player.countryCode}
       flagSize={14}
-      textStyle={[styles.username, !isMe && styles.usernameOpponent]}
+      textStyle={[styles.username, hasProfile && styles.usernameOpponent]}
       gap={5}
     >
       {player.elo !== undefined && (
@@ -263,8 +376,12 @@ function HealthBar({
         </View>
       </View>
 
-      {!isMe ? (
+      {nameSlot != null ? (
+        nameSlot
+      ) : hasProfile ? (
         <Pressable
+          // Web parity: opponent-name <span>, not a <button> — silent.
+          sfx="none"
           onPress={() => setProfileOpen(true)}
           hitSlop={6}
           style={styles.namePressable}
@@ -290,7 +407,7 @@ function HealthBar({
       )}
       </Animated.View>
 
-      {!isMe && (
+      {nameSlot == null && hasProfile && (
         <ProfileSheet
           visible={profileOpen}
           username={player.username}
@@ -401,6 +518,31 @@ const styles = StyleSheet.create({
   },
   namePressable: {
     maxWidth: '100%',
+  },
+  // TeamNames stack under a team bar (one pill per member, self first).
+  teamNames: {
+    alignItems: 'center',
+    gap: 3,
+    maxWidth: '100%',
+  },
+  teamNamePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '100%',
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  // Rejoin grace window: dim the row (0.55, web parity) + offline icon.
+  teamNameRowDisconnected: {
+    opacity: 0.55,
   },
   namePill: {
     flexDirection: 'row',

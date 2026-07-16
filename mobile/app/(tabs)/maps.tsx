@@ -4,13 +4,13 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   TextInput,
   ActivityIndicator,
   RefreshControl,
   ImageBackground,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

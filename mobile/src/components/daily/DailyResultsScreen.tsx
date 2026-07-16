@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   ScrollView,
   Share,
@@ -10,6 +9,7 @@ import {
   useWindowDimensions,
   Animated as RNAnimated,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

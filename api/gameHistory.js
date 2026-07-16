@@ -92,7 +92,9 @@ export default async function handler(req, res) {
         // Game settings
         settings: {
           location: game.settings?.location || 'all',
-          rounds: game.settings?.rounds || 5,
+          // settings.rounds is stamped as completed-round count at save time,
+          // so 0 is a real value (forfeit before round 1) — ?? not ||.
+          rounds: game.settings?.rounds ?? 5,
           maxDist: game.settings?.maxDist || 20000,
           timePerRound: game.settings?.timePerRound,
           official: game.settings?.official ?? true,
@@ -104,7 +106,11 @@ export default async function handler(req, res) {
 
         // Game result
         result: {
-          maxPossiblePoints: game.result?.maxPossiblePoints || (game.settings?.rounds || 5) * (game.settings?.countryGuesser ? 1000 : 5000),
+          // maxPossiblePoints is required in the model and stamped from
+          // roundHistory.length at every save site, so 0 is a real value
+          // (zero-round forfeit). || fabricated "0 / 25,000" rows in the
+          // history list; the computed fallback is legacy-doc insurance only.
+          maxPossiblePoints: game.result?.maxPossiblePoints ?? (game.settings?.rounds ?? 5) * (game.settings?.countryGuesser ? 1000 : 5000),
           winner: game.result?.winner,
           winningTeam: game.result?.winningTeam || null,
           isDraw: game.result?.isDraw || false

@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, t } from '../../shared';
 import { onboardingAnalytics } from '../../services/onboardingAnalytics';

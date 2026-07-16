@@ -24,6 +24,7 @@ import {
   WS_LIVENESS_PING_INTERVAL_MS,
   WS_LIVENESS_MAX_SILENCE_MS,
   WS_VERIFY_TIMEOUT_MS,
+  TEAM_SUPPORT,
 } from './websocketConfig';
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
@@ -128,9 +129,15 @@ class WebSocketService {
    * already open ("Already connected with same secret, skipping"), so no fresh
    * verify arrives to restore those flags after a reset. Callers use this as the
    * source of truth to re-sync the store against the real connection.
+   *
+   * Latch-aware: after a terminal error (uac / failedToLogin) the server kicks
+   * the session but closes the socket LAZILY, so readyState can read OPEN for a
+   * while. Reporting verified during that window let the store re-sync resurrect
+   * `connected: true` on a dead session — and since the latched close never
+   * reconnects, the store stayed "connected" forever while every send() dropped.
    */
   get isVerified(): boolean {
-    return this.isConnected && this._everConnected;
+    return this.isConnected && this._everConnected && !this._dontReconnect;
   }
 
   get timeOffset(): number {
@@ -143,6 +150,12 @@ class WebSocketService {
 
   get currentRetry(): number {
     return this._currentRetry;
+  }
+
+  /** The current attempt budget (see reconnectBudget). Read with currentRetry
+   * by WsIndicator's tap-for-details alert ("attempt x/y", web's connectingMessage). */
+  get maxRetries(): number {
+    return this.reconnectBudget;
   }
 
   // ── Connection ────────────────────────────────────────────
@@ -168,7 +181,11 @@ class WebSocketService {
 
     // Bump generation so any in-flight retry chain from a previous connect() is abandoned
     const gen = ++this._generation;
-    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'}, reconnect=${isReconnect})`);
+    // Log the resolved URL: EXPO_PUBLIC_WS_URL is INLINED into the bundle at
+    // Metro transform time, so a stale Metro cache can silently keep an old
+    // (e.g. LAN) endpoint alive long after .env.local changed. This line makes
+    // that visible instead of manifesting as mystery timeouts.
+    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'}, reconnect=${isReconnect}, url=${WS_URL})`);
 
     this._secret = secret;
     this._dontReconnect = false;
@@ -213,11 +230,15 @@ class WebSocketService {
       // the connection state otherwise).
       if (gen === this._generation) {
         console.error('[WS] All connection attempts failed:', err);
-        // A failed reconnect is a real disconnect: drop from "connecting"
-        // (yellow) to disconnected (red) and tear the game down — mirroring
-        // handleDisconnect's give-up path. Without this a failed foreground
-        // reconnect would leave the indicator stuck green forever.
-        if (isReconnect && !this._dontReconnect) {
+        // Exhausting the budget is a hard failure whether this was a reconnect
+        // OR the session's very first connect: drop from "connecting" (yellow)
+        // to disconnected (red) and tear the game down — mirroring
+        // handleDisconnect's give-up path. Gating this on isReconnect left a
+        // cold start against an unreachable server stuck on `connecting: true`
+        // FOREVER — nothing else ever flips that flag back, so the UI could
+        // never reach the red state (web flips connecting:false after its
+        // retry loop gives up, MultiplayerProvider.js).
+        if (!this._dontReconnect) {
           this.notifyReconnectFailed();
         }
       }
@@ -669,9 +690,11 @@ class WebSocketService {
       // Web sends getPlatform() here (home.js verifyPayload); without this the
       // server's /platformdist lumps app users into the "empty" bucket.
       platform: Platform.OS === 'ios' ? 'mobile_ios' : 'mobile_android',
-      // Deliberately NO `teamSupport: true` — the server uses that verify flag
-      // to gate team parties / 2v2 duels, and this app can't render them yet.
-      // Add it only when the mobile team UI ships.
+      // The team rollout switch (see websocketConfig.ts TEAM_SUPPORT): the
+      // server gates team parties / 2v2 duels on this verify flag. While
+      // false, the field is omitted entirely and the app stays on the classic
+      // pipeline — the server treats it exactly like today's shipped builds.
+      ...(TEAM_SUPPORT ? { teamSupport: true } : {}),
     });
 
     // Verify-ack watchdog. A socket can OPEN cleanly (onopen fired, readyState OPEN) yet
@@ -740,6 +763,19 @@ class WebSocketService {
   private handleDisconnect(): void {
     this.ws = null;
     this.clearIntervals();
+
+    // A close under the terminal latch (uac / failedToLogin set dontReconnect,
+    // then the server closes the socket): we must NOT auto-reconnect, but the
+    // UI still has to learn the connection is gone. Route through the
+    // reconnect-failed handlers — the hard-disconnected end state (red WsIcon,
+    // multiplayer teardown, action gates closed). Swallowing this close left
+    // the store `connected` on a dead socket: no indicator, buttons live, and
+    // every send() silently dropped.
+    if (!this._intentionalClose && this._dontReconnect) {
+      console.warn('[WS] Closed while reconnect is latched off — surfacing hard disconnect');
+      this.notifyReconnectFailed();
+      return;
+    }
 
     // Only notify disconnect handlers for UNEXPECTED disconnects
     // (not intentional close from connect()/disconnect())
@@ -870,18 +906,6 @@ class WebSocketService {
     }
   }
 
-  /**
-   * Forget the stored rejoinCode so the next verify reconnects as a fresh home
-   * session instead of rejoining the game. Used when a mid-game drop sends the
-   * user home: we don't want the server to replay them back into the game.
-   */
-  async clearRejoinCode(): Promise<void> {
-    try {
-      await SecureStore.deleteItemAsync(REJOIN_CODE_KEY);
-    } catch (err) {
-      console.error('[WS] Failed to clear rejoinCode:', err);
-    }
-  }
 }
 
 // Singleton export.

@@ -2,13 +2,13 @@ import { useCallback, useEffect } from 'react';
 import {
   ImageBackground,
   Linking,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { Pressable } from '../src/components/ui/SfxPressable';
 import Animated, { FadeInDown, FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
+import VolumeSliders from '../src/components/VolumeSliders';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -166,8 +167,15 @@ export default function SettingsScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Audio — two sliders shared with the party-lobby sound modal
+              (one VolumeSliders component, two surfaces — web parity). First
+              section on the page per user demand. */}
+          <Section title={t('audioSettings')} icon="volume-high-outline" index={0}>
+            <VolumeSliders />
+          </Section>
+
           {/* Units */}
-          <Section title={t('units')} icon="speedometer-outline" index={0}>
+          <Section title={t('units')} icon="speedometer-outline" index={1}>
             <SegmentedControl
               value={units}
               onChange={setUnits}
@@ -179,7 +187,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Map type */}
-          <Section title={t('mapType')} icon="map-outline" index={1}>
+          <Section title={t('mapType')} icon="map-outline" index={2}>
             <View style={styles.tileGrid}>
               {mapTypes.map((m) => {
                 const active = m.value === mapType;
@@ -218,7 +226,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Language */}
-          <Section title={t('language')} icon="language-outline" index={2}>
+          <Section title={t('language')} icon="language-outline" index={3}>
             <View style={styles.list}>
               {SUPPORTED_LANGUAGES.map((lang, i) => {
                 const active = lang === language;
@@ -247,7 +255,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Multiplayer */}
-          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={3}>
+          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={4}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
@@ -275,7 +283,7 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Haptics */}
-          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={4}>
+          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={5}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
@@ -306,7 +314,7 @@ export default function SettingsScreen() {
 
           {/* Account — server-backed, logged-in only */}
           {user?.accountId && (
-            <Section title={t('accountSettings')} icon="person-circle-outline" index={5}>
+            <Section title={t('accountSettings')} icon="person-circle-outline" index={6}>
               <View style={[styles.row, accountSettingsLocked && styles.rowLocked]}>
                 <View style={styles.rowTextWrap}>
                   <Text style={styles.rowLabel}>{t('allowFriendRequests')}</Text>
@@ -345,13 +353,13 @@ export default function SettingsScreen() {
           {/* Danger Zone — account deletion (moved here from the account
               moderation tab; web parity: sits right under Account settings) */}
           {user?.accountId && (
-            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={6}>
+            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={7}>
               <DangerZoneSection />
             </Section>
           )}
 
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={7}>
+          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={8}>
             <Pressable
               onPress={openPrivacy}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

@@ -970,10 +970,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     const isCorrect = !timedOut && (isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country);
     setCountryGuesserCorrect(isCorrect);
     setGuessedCountryCode(timedOut ? null : selected);
-    // Determine quip tier
-    if (isCorrect) {
+    // Determine quip tier. Timeout (no guess) → null: there's nothing to riff
+    // on if the player never picked, so EndBanner shows no quip.
+    if (timedOut) {
+      setGuessTier(null);
+    } else if (isCorrect) {
       setGuessTier("correct");
-    } else if (isContinentMode || timedOut) {
+    } else if (isContinentMode) {
       setGuessTier("wrongDiffContinent");
     } else {
       const guessedContinent = continentFromCode(selected);
@@ -1286,6 +1289,20 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             : null
           }
         </span>
+        {/* Host stall-relief: with the timer disabled, idle players hold the
+            round open forever — one tap collapses it to ~1s (server re-checks
+            host + private). Gated on the same >120s condition that hides the
+            countdown, so it vanishes once any collapse is already in flight. */}
+        {!multiplayerState?.gameData?.public
+          && multiplayerState?.gameData?.host
+          && multiplayerState?.gameData?.state === 'guess'
+          && multiplayerState?.gameData?.timePerRound === 86400000
+          && timeToNextMultiplayerEvt > 120 && (
+          <button
+            className="timer__force-end"
+            onClick={() => { try { ws.send(JSON.stringify({ type: 'forceEndRound' })); } catch (e) {} }}
+          >{text("endRound")}</button>
+        )}
       </span>
       )}
 
@@ -1405,7 +1422,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 countryStreaksEnabled={gameOptions?.location === "all"}
 isWorldMap={gameOptions?.location === "all"}
 dailyMode={dailyMode}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessedCountryCode={guessedCountryCode} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
   advanceRound(advanceRequest?.source || "endBanner");
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} mapFadingOut={mapFadingOut} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)

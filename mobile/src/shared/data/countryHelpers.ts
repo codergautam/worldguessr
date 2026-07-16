@@ -92,6 +92,23 @@ export function continentFromCode(code?: string | null): string {
   return CONTINENTS[code.toUpperCase()] || 'Unknown';
 }
 
+// Locale keys for continent display names. Ported verbatim from web
+// components/utils/continentLocale.js — keep in lockstep. Unmapped values
+// (e.g. continentFromCode's 'Unknown') pass through unchanged, so t() falls
+// back to rendering them as-is, matching web.
+const CONTINENT_KEYS: Record<string, string> = {
+  Africa: 'continentAfrica',
+  Asia: 'continentAsia',
+  Europe: 'continentEurope',
+  'North America': 'continentNorthAmerica',
+  'South America': 'continentSouthAmerica',
+  Oceania: 'continentOceania',
+};
+
+export function continentKey(continent: string): string {
+  return CONTINENT_KEYS[continent] || continent;
+}
+
 export function countryCenterFromCode(code?: string | null): { lat: number; lng: number } | null {
   if (!code) return null;
   return COUNTRY_COORDINATES[code.toUpperCase()] ?? null;

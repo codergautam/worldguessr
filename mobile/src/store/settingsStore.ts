@@ -28,6 +28,14 @@ interface PersistedSettings {
   language: SupportedLanguage;
   multiplayerEmotesEnabled: boolean;
   hapticsEnabled: boolean;
+  /**
+   * Audio volumes in SLIDER space 0–1 (perceptual toGain(v)=v² applies only at
+   * the player boundary in sound.ts). Defaults stay in lockstep with web
+   * audio.js (music 0.5, sfx 0.85). Setting either to 0 is a real mute:
+   * loads/streams are skipped entirely, not just silenced.
+   */
+  musicVolume: number;
+  sfxVolume: number;
 }
 
 interface SettingsState extends PersistedSettings {
@@ -39,6 +47,8 @@ interface SettingsState extends PersistedSettings {
   setLanguage: (language: SupportedLanguage) => void;
   setMultiplayerEmotesEnabled: (enabled: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
+  setMusicVolume: (v: number) => void;
+  setSfxVolume: (v: number) => void;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -47,6 +57,8 @@ const DEFAULTS: PersistedSettings = {
   language: 'en',
   multiplayerEmotesEnabled: true,
   hapticsEnabled: true,
+  musicVolume: 0.5,
+  sfxVolume: 0.85,
 };
 
 function persist(s: PersistedSettings): void {
@@ -56,8 +68,26 @@ function persist(s: PersistedSettings): void {
     language: s.language,
     multiplayerEmotesEnabled: s.multiplayerEmotesEnabled,
     hapticsEnabled: s.hapticsEnabled,
+    musicVolume: s.musicVolume,
+    sfxVolume: s.sfxVolume,
   };
   AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(data)).catch(() => {});
+}
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+// The volume sliders call their setters on EVERY drag frame (~100 events per
+// full-range drag) for live preview; persisting each one would hammer
+// AsyncStorage with serialized writes. Trailing debounce: the last position
+// lands ~300ms after the drag rests (a killed app mid-drag loses at most the
+// final slider position — acceptable).
+let persistDebounce: ReturnType<typeof setTimeout> | null = null;
+function persistDebounced(s: PersistedSettings): void {
+  if (persistDebounce) clearTimeout(persistDebounce);
+  persistDebounce = setTimeout(() => {
+    persistDebounce = null;
+    persist(s);
+  }, 300);
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -85,6 +115,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         typeof stored.hapticsEnabled === 'boolean'
           ? stored.hapticsEnabled
           : DEFAULTS.hapticsEnabled,
+      musicVolume:
+        typeof stored.musicVolume === 'number' ? clamp01(stored.musicVolume) : DEFAULTS.musicVolume,
+      sfxVolume:
+        typeof stored.sfxVolume === 'number' ? clamp01(stored.sfxVolume) : DEFAULTS.sfxVolume,
     };
 
     // Prime the i18n table before anything renders so t() is correct from frame 1.
@@ -117,5 +151,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setHapticsEnabled: (hapticsEnabled) => {
     set({ hapticsEnabled });
     persist(get());
+  },
+
+  setMusicVolume: (v) => {
+    set({ musicVolume: clamp01(v) });
+    persistDebounced(get());
+  },
+
+  setSfxVolume: (v) => {
+    set({ sfxVolume: clamp01(v) });
+    persistDebounced(get());
   },
 }));

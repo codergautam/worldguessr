@@ -25,6 +25,14 @@ const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+    // Poki serves every build from a per-deploy nested path, e.g.
+    // https://<sub>.gdn.poki.com/<uuid>/index.html — and that <uuid> changes on
+    // every version, so a hardcoded basePath cannot work. Assets must resolve
+    // RELATIVE to the document instead. A relative assetPrefix makes Next emit
+    // ./_next/... (and sets webpack publicPath to ./_next/), which is exactly
+    // what the historically-working Poki build shipped (__NEXT_DATA__ recorded
+    // assetPrefix "."). Scoped to Poki only so root/basePath hosting is untouched.
+    assetPrefix: process.env.NEXT_PUBLIC_POKI === 'true' ? '.' : undefined,
     // NEXT_DIST_DIR (e.g. '.next-poki') controls where the static EXPORT lands.
     // WARNING: it does NOT isolate the build itself. With output:'export',
     // Next repurposes a custom distDir as the export outDir and forces build

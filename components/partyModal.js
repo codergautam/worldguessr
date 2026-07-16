@@ -18,8 +18,14 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     const [localTeamGame, setLocalTeamGame] = useState(false);
     const [localScoring, setLocalScoring] = useState('closest');
     const [localAllowPick, setLocalAllowPick] = useState(false);
+    // Emote mute — default off (emotes on); server truth lives on gameData.
+    const [localDisableEmotes, setLocalDisableEmotes] = useState(false);
 
-    // Sync local state when modal opens or multiplayer state changes
+    // Sync local state ONLY when the modal opens. The steppers/timer toggle
+    // commit straight into createOptions while the modal is open — if those
+    // values were deps here, every commit would re-run this and stomp the
+    // still-buffered team/emote selections back to server truth (Team Duel
+    // snapped back to Classic on any other edit).
     useEffect(() => {
         if (shown) {
             setLocalRounds(multiplayerState?.createOptions?.rounds?.toString() || "5");
@@ -30,9 +36,10 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             setLocalTeamGame(!!multiplayerState?.gameData?.teamGame);
             setLocalScoring(multiplayerState?.gameData?.teamScoring ?? 'closest');
             setLocalAllowPick(!!multiplayerState?.gameData?.allowTeamPick);
+            setLocalDisableEmotes(!!multiplayerState?.gameData?.disableEmotes);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [shown, multiplayerState?.createOptions?.rounds, multiplayerState?.createOptions?.timePerRound]);
+    }, [shown]);
     
     const isTimerDisabled = multiplayerState?.createOptions?.timePerRound === 60 * 60 * 24;
     
@@ -91,6 +98,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             nm: gameOptions.nm,
             npz: gameOptions.npz,
             showRoadName: gameOptions.showRoadName,
+            disableEmotes: localDisableEmotes,
         };
 
         setMultiplayerState(prev => ({
@@ -258,12 +266,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                         createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
                                     }));
                                 } else {
-                                    const time = parseInt(localTime) || 30;
-                                    const clamped = Math.max(10, Math.min(300, time));
-                                    setMultiplayerState(prev => ({
-                                        ...prev,
-                                        createOptions: { ...prev.createOptions, timePerRound: clamped }
-                                    }));
+                                    // commitTime also re-syncs localTime — the open-only
+                                    // sync effect no longer does that for us.
+                                    commitTime(localTime);
                                 }
                             }}
                             aria-pressed={isTimerDisabled}
@@ -334,8 +339,23 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                         </button>
                     </div>
                     
+                    {/* Emote mute — default off. The FAB hides on every client
+                        and the server drops raw emote messages too. */}
+                    <div className="party-modal__setting party-modal__setting--toggle">
+                        <label className="party-modal__label">{text('disableEmotes')}</label>
+                        <button
+                            className={`party-modal__toggle ${localDisableEmotes ? 'party-modal__toggle--active' : ''}`}
+                            onClick={() => setLocalDisableEmotes((v) => !v)}
+                            aria-pressed={localDisableEmotes}
+                        >
+                            <span className="party-modal__toggle-track">
+                                <span className="party-modal__toggle-thumb" />
+                            </span>
+                        </button>
+                    </div>
+
                     <div className="party-modal__divider" />
-                    
+
                     {/* Map Selection */}
                     <div className="party-modal__setting party-modal__setting--map">
                         <div className="party-modal__map-info">

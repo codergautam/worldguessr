@@ -5,6 +5,8 @@ import leafletCss from 'leaflet/dist/leaflet.css';
 import Map from '@/components/Map';
 import ResultsMap from '@/components/ResultsMap';
 import { INBOUND, OUTBOUND, APPLY_FN } from '@/shared/embed/protocol';
+// Resolves to embed/shims/audio.js (SHIMS alias) — the in-page pin click.
+import { preloadSfx } from '@/components/utils/audio';
 
 // Leaflet's UMD build sets window.L on import; make sure it's there for Map.js.
 if (typeof window !== 'undefined' && !window.L) window.L = L;
@@ -180,6 +182,14 @@ function App() {
       try {
         window.localStorage.setItem('lang', props.lang);
         window.dispatchEvent(new CustomEvent('langChange', { detail: props.lang }));
+      } catch (e) {}
+    }
+    // Native SFX gain for the shim's in-page pin click (see shims/audio.js).
+    // Unmuting mid-game warms the decode so the next pin is already hot.
+    if (typeof props.sfxGain === 'number') {
+      try {
+        window.__nativeSfxGain = props.sfxGain;
+        if (props.sfxGain > 0) preloadSfx('pin');
       } catch (e) {}
     }
     setState((prev) => ({ ...prev, ...props }));

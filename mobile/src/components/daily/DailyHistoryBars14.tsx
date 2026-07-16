@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

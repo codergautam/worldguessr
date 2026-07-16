@@ -623,7 +623,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => { screenRef.current = screen; }, [screen]);
     const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
     const enterDailyMode = useCallback(() => {
-        if (typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
+        // Poki hosts each deploy at a nested per-version path with document-
+        // RELATIVE assets (assetPrefix '.'), so rewriting the URL to /daily
+        // makes every later lazy-chunk request (e.g. DailyChallengeScreen's
+        // next/dynamic chunk) resolve against the CDN root and 404 — React
+        // then tears down to a blank page. The iframe URL is invisible on
+        // Poki anyway; skip the URL sync entirely. exitDailyMode and the
+        // screen→URL sync effect self-guard via isDailyPath(), which can
+        // never match when nothing was pushed.
+        if (!inPoki && typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
             const lang = (typeof window !== 'undefined' && window.language) || 'en';
             const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
             window.history.pushState({ wgDaily: true }, '', dailyPath);
@@ -1296,7 +1304,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             window.language = options?.language;
             window.dispatchEvent(new CustomEvent('langChange', { detail: options?.language }));
 
-            if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
+            // Embedded platforms don't own their URL, so skip the locale
+            // redirect: GD for historical reasons, Poki because its deploys
+            // live at a nested per-version path with document-relative assets
+            // (assetPrefix '.') — router.push('/es') would strand the document
+            // at the CDN root and every later lazy-chunk request would 404.
+            // In-app language switching still works via window.language +
+            // the langChange event dispatched above.
+            if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" || process.env.NEXT_PUBLIC_POKI === "true") return;
 
             // On the very first paint, trust whatever URL the user landed on
             // and skip the auto-redirect entirely. Previously, e.g. visiting
@@ -1760,6 +1775,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             // Use the passed options directly to avoid stale state issues
             const options = args[0] || multiplayerState.createOptions;
+            // Every option the party modal commits MUST be enumerated here.
+            // The server treats a missing field as "this client predates the
+            // option" and keeps the current value, so forgetting one makes
+            // its toggle silently dead on web.
             ws.send(JSON.stringify({
                 type: "setPrivateGameOptions",
                 rounds: options.rounds,
@@ -1768,7 +1787,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 npz: options.npz,
                 showRoadName: options.showRoadName,
                 location: options.location,
-                displayLocation: options.displayLocation
+                displayLocation: options.displayLocation,
+                disableEmotes: options.disableEmotes
             }));
         }
 
@@ -3178,7 +3198,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
         subscribeMessages={subscribeMessages}
-        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
+        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && !multiplayerState?.gameData?.disableEmotes}
         inGame={emotesLive}
         myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
         myTeam={myEmoteTeam}
@@ -3187,7 +3207,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // players an anonymous emote is unreadable.
         hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state])
+    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableEmotes])
 
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 

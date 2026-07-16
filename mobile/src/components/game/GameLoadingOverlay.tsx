@@ -1,4 +1,5 @@
-import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../shared';
@@ -117,10 +118,23 @@ export default function GameLoadingOverlay({
             )}
           </>
         ) : (
-          <View style={styles.loadingRow}>
-            <Image source={LOADER} style={styles.spinner} />
-            <Text style={styles.loadingText}>{message}</Text>
-          </View>
+          <>
+            <View style={styles.loadingRow}>
+              <Image source={LOADER} style={styles.spinner} />
+              <Text style={styles.loadingText}>{message}</Text>
+            </View>
+            {/* Escape hatch while still loading (no error yet): callers pass
+                onRetry once a load has been stuck long enough that waiting it
+                out stops being a plan (game/[id]'s multiplayer watchdog). */}
+            {onRetry && (
+              <Pressable
+                onPress={onRetry}
+                style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.retryText}>{retryLabel}</Text>
+              </Pressable>
+            )}
+          </>
         )}
       </View>
     </Animated.View>

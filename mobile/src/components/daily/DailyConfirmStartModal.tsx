@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Text, StyleSheet, Modal } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -46,12 +47,12 @@ export default function DailyConfirmStartModal({ visible, onConfirm, onCancel }:
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.overlay} onPress={onCancel}>
+      <Pressable style={styles.overlay} onPress={onCancel} sfx="none">
         <Animated.View style={[styles.card, cardStyle]}>
           {/* Inner wrapper swallows taps so pressing the card doesn't close the
               modal. It must fill the card width so the content + buttons center
               (was shrink-wrapping → left-aligned buttons). */}
-          <Pressable onPress={() => {}} style={styles.inner}>
+          <Pressable onPress={() => {}} style={styles.inner} sfx="none">
             <Animated.View style={[styles.iconWrap, iconStyle]}>
               <Ionicons name="calendar" size={32} color="#ffe27a" />
             </Animated.View>

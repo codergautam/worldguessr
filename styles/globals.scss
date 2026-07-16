@@ -1789,6 +1789,28 @@ h1, h2, h3, span, label {
     padding: 8px 20px 12px;
 }
 
+// Host "End round" stall-relief button (timer-disabled private games only).
+.timer__force-end {
+    // The pill itself is pointer-events:none so the HUD never eats map
+    // clicks — the button must opt back in or it's decorative.
+    pointer-events: auto;
+    font-family: lexend;
+    font-size: 0.6em;
+    font-weight: 600;
+    margin-top: 4px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.45);
+    }
+}
+
 .timer__round-label {
     font-size: 0.7em;
     opacity: 0.75;
@@ -5299,6 +5321,14 @@ img.countryGuessrBtn__emoji {
 }
 .hintCircle {
     cursor: crosshair !important;
+}
+// While actually dragging, show the hand instead of the crosshair. Leaflet
+// tags <body> with .leaflet-dragging for the duration of a drag; the extra
+// specificity here outranks the !important crosshair rules above.
+body.leaflet-dragging .leaflet-container,
+body.leaflet-dragging .leaflet-interactive,
+body.leaflet-dragging .hintCircle {
+    cursor: grabbing !important;
 }
 .game-summary-map .leaflet-container {
     height: 100vh !important;

@@ -4,11 +4,10 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -48,9 +47,12 @@ export default function SetUsernameScreen() {
 
   return (
     <SafeAreaView style={commonStyles.container}>
+      {/* 'padding' on BOTH platforms: 'height' relies on the window resizing,
+          which never happens under edgeToEdgeEnabled — some Android devices got
+          the input buried under the keyboard. */}
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
       >
         <View style={styles.content}>
           <View style={styles.iconContainer}>

@@ -4,10 +4,10 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   Animated,
   Easing,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { MapItem } from '../../services/api';
 import { t } from '../../shared';

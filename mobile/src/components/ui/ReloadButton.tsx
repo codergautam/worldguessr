@@ -12,7 +12,8 @@
  * non-jarring behaviour when the OS "Reduce Motion" setting is on.
  */
 
-import { Pressable, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { Pressable } from './SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {

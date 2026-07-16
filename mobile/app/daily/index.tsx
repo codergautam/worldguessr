@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler, Alert } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { t } from '../../src/shared';
@@ -578,6 +579,8 @@ export default function DailyScreen() {
         hintCircleData={hintCircleData}
         maxDist={DAILY_MAX_DIST}
         round={currentRound}
+        // Grades the central reveal-whoosh pitch in GameSurface (points/5000).
+        guessPoints={currentRoundScore}
         guessPosition={pinPoint}
         onGuessPositionChange={isResultsLike ? undefined : setPinPoint}
         onSubmitPin={handleSubmitPin}

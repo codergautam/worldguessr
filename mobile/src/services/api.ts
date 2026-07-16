@@ -311,6 +311,11 @@ export const api = {
       duels_losses: number;
       duels_tied: number;
       win_rate: number;
+      // 2v2 team stats — in the same payload (api/eloRank.js), no extra fetch.
+      team2v2_wins?: number;
+      team2v2_losses?: number;
+      team2v2_tied?: number;
+      team2v2_win_rate?: number;
     }>(`/api/eloRank?username=${encodeURIComponent(username)}`);
   },
 
@@ -406,11 +411,17 @@ export const api = {
           totalXp: number;
           finalRank?: number;
           elo?: { change: number };
+          /** Team assignment in team modes ('a' | 'b'); null on solo modes. */
+          team?: 'a' | 'b' | null;
         };
         opponent?: { username: string; countryCode?: string; accountId?: string | null };
         roundsPlayed: number;
         totalDuration: number;
-        result: { maxPossiblePoints: number };
+        result: {
+          maxPossiblePoints: number;
+          winningTeam?: 'a' | 'b' | null;
+          teamScores?: { a: number | null; b: number | null };
+        };
         multiplayer?: { playerCount: number };
       }>;
       pagination: {
@@ -453,6 +464,10 @@ export const api = {
             timeTaken: number;
             xpEarned?: number;
           }>;
+          /** Team-mode round stamps — null on solo modes / pre-stamp docs. */
+          teamRoundScores?: { a: number; b: number } | null;
+          teamDamage?: number | null;
+          teamDamageMultiplier?: number | null;
         }>;
         players: Array<{
           playerId: string;
@@ -462,8 +477,15 @@ export const api = {
           totalPoints: number;
           finalRank?: number;
           elo?: { before?: number; after?: number; change?: number };
+          /** Team assignment in team modes ('a' | 'b'); null on solo modes. */
+          team?: 'a' | 'b' | null;
         }>;
-        result: { maxPossiblePoints: number; isDraw?: boolean };
+        result: {
+          maxPossiblePoints: number;
+          isDraw?: boolean;
+          winningTeam?: 'a' | 'b' | null;
+          teamScores?: { a: number | null; b: number | null };
+        };
         currentUserId: string;
       };
     }>('/api/gameDetails', {

@@ -137,21 +137,9 @@ export function preloadInterstitial(): void {
   }
 }
 
-export function showInterstitial(): boolean {
-  const ad = ensureInterstitial();
-  if (!ad) return false;
-  if (!ad.loaded) {
-    preloadInterstitial();
-    return false;
-  }
-  try {
-    ad.show();
-    return true;
-  } catch (err) {
-    console.warn('[ads] interstitial show failed', err);
-    return false;
-  }
-}
+// NOTE: every show path lives in runGameInterstitial below — it wraps the
+// show in duckAudio(true/false) (web crazyMidgame parity). Never add a bare
+// show helper without the duck: an undocked ad plays over full-volume music.
 
 // ── Frequency-capped game interstitials ──────────────────────────────────────
 // Policy (intentionally minimal & non-intrusive):
@@ -173,12 +161,13 @@ function isSupporter(): boolean {
 }
 
 /** Game modes that are eligible for interstitials. */
-export type AdGameContext = 'singleplayer' | 'rankedDuel' | 'unrankedDuel';
+export type AdGameContext = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | '2v2';
 
 const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
   'singleplayer',
   'rankedDuel',
   'unrankedDuel',
+  '2v2',
 ]);
 
 /**
@@ -187,21 +176,16 @@ const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
  * Returns true only if an ad was actually displayed.
  */
 export function maybeShowGameInterstitial(context: AdGameContext): boolean {
-  if (isSupporter()) return false; // supporters never see ads (or preload one)
+  // Delegate to the awaitable path fire-and-forget: it carries the identical
+  // supporter/eligibility/cap gating PLUS the audio duck around the show
+  // (web crazyMidgame parity) — a second show-path without the duck let
+  // singleplayer interstitials play over full-volume game audio. Callers of
+  // this variant ignore the return by design, so the fire-and-forget shape
+  // is safe; the boolean now only reports "an attempt was dispatched".
+  if (isSupporter()) return false;
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return false;
-
-  const now = Date.now();
-  if (now - lastInterstitialAt < AD_INTERVAL_MS) {
-    // Within cap window — keep one warm for the next eligible moment.
-    preloadInterstitial();
-    return false;
-  }
-
-  const shown = showInterstitial();
-  if (shown) {
-    lastInterstitialAt = now;
-  }
-  return shown;
+  void runGameInterstitial(context);
+  return true;
 }
 
 /**
@@ -245,12 +229,21 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
     const finish = () => {
       if (settled) return;
       settled = true;
+      unduck();
       unsubClosed();
       unsubError();
       resolve();
     };
     const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, finish);
     const unsubError = ad.addAdEventListener(AdEventType.ERROR, finish);
+    // Collapse game audio around the full-screen interstitial (web
+    // crazyMidgame parity; AdMob may already silence the app — this
+    // guarantees it either way). Lazy import: ads.ts must not become part of
+    // the sound module's import graph at startup.
+    const unduck = () => {
+      import('./sound').then(({ duckAudio }) => duckAudio(false)).catch(() => {});
+    };
+    import('./sound').then(({ duckAudio }) => duckAudio(true)).catch(() => {});
     try {
       ad.show();
       lastInterstitialAt = now;

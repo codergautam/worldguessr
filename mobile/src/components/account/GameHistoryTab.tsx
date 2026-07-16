@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';
@@ -24,6 +24,8 @@ interface Game {
     location: string;
     countryGuesser?: boolean;
     countryGuessrSubMode?: 'country' | 'continent' | null;
+    /** Intra-party team mode (never set for matchmade 2v2 — gameType '2v2'). */
+    teamGame?: boolean;
   };
   endedAt: string;
   userStats: {
@@ -31,11 +33,17 @@ interface Game {
     totalXp: number;
     finalRank?: number;
     elo?: { change: number };
+    /** Team assignment in team modes ('a' | 'b'); null on solo modes. */
+    team?: 'a' | 'b' | null;
   };
   opponent?: { username: string; countryCode?: string; accountId?: string | null };
   roundsPlayed: number;
   totalDuration: number;
-  result: { maxPossiblePoints: number };
+  result: {
+    maxPossiblePoints: number;
+    /** Team modes: 'a' | 'b', null on draws/solo games. */
+    winningTeam?: 'a' | 'b' | null;
+  };
   multiplayer?: { playerCount: number };
 }
 
@@ -52,6 +60,7 @@ interface Pagination {
 const GAME_TYPES: Record<string, { labelKey: string; icon: string; color: string }> = {
   singleplayer: { labelKey: 'singleplayer', icon: '👤', color: '#4CAF50' },
   ranked_duel: { labelKey: 'rankedDuel', icon: '⚔️', color: '#FF5722' },
+  '2v2': { labelKey: 'twovtwo', icon: '🛡️', color: '#e91e63' },
   unranked_multiplayer: { labelKey: 'multiplayer', icon: '👥', color: '#2196F3' },
   private_multiplayer: { labelKey: 'privateGame', icon: '🔒', color: '#9C27B0' },
   daily_challenge: { labelKey: 'dailyChallenge', icon: '📅', color: '#FFC107' },
@@ -168,6 +177,35 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
 
             {/* Stats */}
             <View style={styles.gameStatsRow}>
+              {/* Team games — BOTH kinds: party team mode (settings.teamGame)
+                  and matchmade 2v2 (gameType '2v2', which never sets the
+                  party-only flag). W/L/D from winningTeam vs MY team, ahead
+                  of points; NEVER an opponent name (the backend computes
+                  opponent only for ranked_duel — web gameHistory.js parity). */}
+              {(game.settings?.teamGame || game.gameType === '2v2') && game.userStats?.team && (
+                <View style={styles.gameStat}>
+                  <Text style={styles.gameStatLabel}>{t('result')}</Text>
+                  <Text
+                    style={[
+                      styles.gameStatValue,
+                      {
+                        color:
+                          game.result?.winningTeam == null
+                            ? '#9E9E9E'
+                            : game.result.winningTeam === game.userStats.team
+                              ? '#4CAF50'
+                              : '#F44336',
+                      },
+                    ]}
+                  >
+                    {game.result?.winningTeam == null
+                      ? t('draw')
+                      : game.result.winningTeam === game.userStats.team
+                        ? t('victory')
+                        : t('defeat')}
+                  </Text>
+                </View>
+              )}
               {isRankedDuel ? (
                 <>
                   <View style={styles.gameStat}>

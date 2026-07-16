@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
   Linking,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { api } from '../../services/api';
 import { t } from '../../shared';
 import { GlassCard, sharedStyles } from './shared';

@@ -110,6 +110,29 @@ DISCORD_WEBHOOK_WS=https://discord.com/api/webhooks/your_ws_webhook_url
 MAINTENANCE_SECRET=your_secure_maintenance_secret
 ```
 
+### Duel Bots (WebSocket Server)
+
+Bot backfill for ranked 1v1 and 2v2 matchmaking (`ws/botUtils.js`). ⚠️ **Both flags are ON by default** — leaving them unset means bots are live in production; set them to `off` to disable. Read once at ws server boot.
+
+```bash
+# Bot backfill for struggling/new players:
+#   (unset)           - bots ENABLED (default): newbies (0 wins, or a winrate
+#                       of ≤10% in ranked / ≤20% in 2v2) whom the pairing
+#                       pass couldn't serve get a bot opponent (1v1) or a
+#                       full bot opposing team (2v2). Humans always get
+#                       first refusal.
+#   DUEL_BOTS=off     - no bot backfill at all
+#   DUEL_BOTS=instant - TESTING ONLY, never set in prod: skips every
+#                       eligibility gate (guests included) — anyone left
+#                       unmatched after a pairing pass gets a bot immediately
+DUEL_BOTS=off
+
+# Bot country flags. ON by default (weighted toward the game's real player
+# countries); set to off to spawn bots flagless (renders exactly like a user
+# who never set a flag).
+DUEL_BOT_FLAGS=off
+```
+
 ## 📱 Platform-Specific Configuration
 
 ### CoolMath Games
@@ -140,7 +163,17 @@ This enables:
 - Account features hidden (same treatment as CoolMathGames): no login button, no ranked/2v2, no suggest-login modals, no social/external links
 - GA events tagged with `platform: "poki"` via `getPlatform()`
 
-Build with `pnpm build:poki` (static export lands in `.next-poki/`). Warning: with `output: 'export'`, Next still writes build internals to `.next` regardless of `NEXT_DIST_DIR`, so never run any build while `pnpm dev` is running — it corrupts the dev server (stop dev, delete `.next`, restart to recover).
+Build with `pnpm build:poki`. The static export lands in `.next-poki/`, and the Poki-ready archive is written to `builds-submission/worldguessr-poki.zip`.
+
+Poki hosting constraints the build/packaging pipeline handles (all were 404-everything bugs at some point):
+
+1. **Nested per-deploy path**: Poki serves each upload from `https://<sub>.gdn.poki.com/<uuid>/index.html` where the `<uuid>` changes per version, so nothing can be root-absolute and no basePath can be hardcoded. `next.config.js` sets `assetPrefix: '.'` for Poki builds (relative `./_next/...` script/css refs, webpack publicPath `./_next/`), and `lib/basePath.js` derives the deploy folder at runtime from the entry document's directory so `asset()`/`navigate()` resolve correctly.
+2. **CSS `url()` resolves relative to the CSS file**, not the page — `scripts/packagePoki.mjs` rewrites `url(_next/static/media/...)` in exported CSS to `url(../media/...)` (fonts, Leaflet icons) and fails the build if any such ref survives.
+3. **Prerendered HTML** bakes root-absolute public asset refs (`/street2.webp`, `/loader.webp`, `/icon.ico`) — the packager rewrites them document-relative, depth-aware, only when the target is a real exported file (route links are left alone).
+4. **Prod endpoints must be baked at build time**: `build:poki` pins `NEXT_PUBLIC_API_URL=api.worldguessr.com`, `NEXT_PUBLIC_AUTH_URL=gauth.worldguessr.com`, `NEXT_PUBLIC_WS_HOST=server.worldguessr.com` so a dev `.env` (LAN IPs) can never leak into a platform submission.
+5. **ZIP entry paths must use forward slashes**: the packager writes them itself and rejects backslashes. Do not re-zip with PowerShell's `Compress-Archive` — on Windows it records `_next\static\...` entries and every nested asset 404s on Poki.
+
+Warning: with `output: 'export'`, Next still writes build internals to `.next` regardless of `NEXT_DIST_DIR`, so never run any build while `pnpm dev` is running — it corrupts the dev server (stop dev, delete `.next`, restart to recover).
 
 ### CrazyGames
 
@@ -233,6 +266,8 @@ NEXT_PUBLIC_COOLMATH=true
 - `NODE_ENV` - Environment mode
 - `DISCORD_WEBHOOK_WS` - WebSocket notifications
 - `MAINTENANCE_SECRET` - Maintenance mode control
+- `DUEL_BOTS` / `DUEL_BOT_FLAGS` - Duel bot backfill toggles (ON unless `off`)
+- `DEBUG_ELO_CHANGES` - set to `true` to log ELO wiring at match creation
 
 ### Client Configuration (`clientConfig.js`)
 - `NEXT_PUBLIC_API_URL` - API endpoint

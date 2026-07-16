@@ -18,6 +18,7 @@ import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useSettingsStore } from '../src/store/settingsStore';
+import { initSoundSystem } from '../src/services/sound';
 import { useReviewPromptStore } from '../src/store/reviewPromptStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
@@ -30,6 +31,19 @@ import ForceUpdateModal from '../src/components/ForceUpdateModal';
 import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
+
+// Anchor the root stack on the tab navigator: any cold start on a deep URL —
+// dev-client reload while on a game route, a party invite link, OS state
+// restoration — mounts (tabs) UNDER the deep route, preserving the canonical
+// stack shapes ([tabs, game], [tabs, queue], [tabs, game, results]) that every
+// dismiss/back exit in the app assumes. Without this, reloading on
+// /game/multiplayer made the game route the stack ROOT: router.dismissAll()
+// had nothing to pop, every X button silently no-opped, and after leaving a
+// finished match the user was stranded on game/[id]'s bare `!gameData`
+// GameLoadingOverlay (the "infinite Loading instead of home" bug).
+export const unstable_settings = {
+  anchor: '(tabs)',
+};
 
 // Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
@@ -82,6 +96,14 @@ export default function RootLayout() {
     initAnalytics();
     initAds().then(() => preloadInterstitial());
   }, []);
+
+  // Boot the sound system once persisted volumes are known (a pre-load start
+  // would misread the defaults for a muted user and stream a track they never
+  // asked for). Music is allowed on ALL app routes (user sign-off), so the
+  // root layout owns the one-time start + lifecycle wiring.
+  useEffect(() => {
+    if (settingsLoaded) initSoundSystem();
+  }, [settingsLoaded]);
 
   useEffect(() => {
     if (fontsLoaded && assetsLoaded && settingsLoaded) {

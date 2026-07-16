@@ -2,11 +2,11 @@ import { useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
   type LayoutChangeEvent,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { BlurView } from 'expo-blur';
 import { LineChart } from 'react-native-gifted-charts';
 import { t } from '../../shared';

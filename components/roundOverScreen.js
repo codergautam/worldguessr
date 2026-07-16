@@ -658,10 +658,16 @@ const GameSummary = ({
 
   useEffect(() => {
     if (mapReady && finalHistory.length > 0 && leafletReady && !userHasInteracted) {
-      setTimeout(() => {
+      // The timer MUST be cleaned up: armed once with no cancel, it kept
+      // firing an animated fitBounds AFTER the user clicked a round in the
+      // 200ms window, yanking the camera off their round-focus flight.
+      // (userHasInteracted flips on movestart, which re-runs this effect and
+      // cancels via the cleanup below.)
+      const id = setTimeout(() => {
         // Set initial extent only once, then allow free user interaction
         fitMapToBounds();
       }, 200);
+      return () => clearTimeout(id);
     }
   }, [mapReady, leafletReady, userHasInteracted]); // Only fit bounds if user hasn't interacted
 
@@ -1298,10 +1304,10 @@ const GameSummary = ({
                       gap: '6px',
                       fontSize: '0.9rem'
                     }}
-                    title="Report player"
+                    title={text("reportPlayer")}
                   >
                     <FaFlag size={14} />
-                    Report
+                    {text("report")}
                   </button>
                 )}
               </div>
@@ -1342,7 +1348,13 @@ const GameSummary = ({
                   const bestPlayer = namesBest && best > 0
                     ? membersOf(team).find(p => (round.players?.[p.id]?.points || 0) === best)
                     : null;
-                  const displayScore = isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best;
+                  // Prefer the server-stamped per-team round score (now stamped
+                  // for 2v2 too, not just cumulative parties); fall back to the
+                  // cumulative helper / computed best for pre-stamp rounds.
+                  const stampedScore = round.teamRoundScores?.[team];
+                  const displayScore = typeof stampedScore === 'number'
+                    ? stampedScore
+                    : (isCumulativeTeam ? cumulativeRoundScore(round, team, best) : best);
                   // Unstamped rounds (pre-stamp server/saves) were 1x, so the
                   // fallback is 1 — and ×1 means "no multiplier": the tag and
                   // tooltip only render when a real multiplier shaped the
@@ -1572,7 +1584,7 @@ const GameSummary = ({
                                 fontWeight: 'bold',
                                 color: 'rgba(255, 255, 255, 0.6)',
                                 fontSize: '0.9em'
-                              }}>VS</div>
+                              }}>{text("versus")}</div>
                             )}
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>

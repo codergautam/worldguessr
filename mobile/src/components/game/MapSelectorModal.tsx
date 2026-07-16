@@ -4,15 +4,16 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
   TextInput,
   Switch,
   ActivityIndicator,
   Animated,
+  Keyboard,
   PanResponder,
   useWindowDimensions,
   BackHandler,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,6 +42,26 @@ interface MapSelectorModalProps {
   /** Optional rounds stepper (for party mode) */
   rounds?: number;
   onRoundsChange?: (r: number) => void;
+  /**
+   * Optional intra-party team-mode config (party mode only — web
+   * partyModal.js Game Mode section). Purely presentational: the parent owns
+   * the state, the send, and the team-duel timer-default rule.
+   */
+  teamConfig?: TeamConfig;
+  onTeamConfigChange?: (config: TeamConfig) => void;
+  /**
+   * Party mode: mute emote reactions for this game (default off — emotes on).
+   * The row renders only when the handler is provided (web partyModal.js
+   * parity; singleplayer callers omit it).
+   */
+  disableEmotes?: boolean;
+  onDisableEmotesToggle?: (v: boolean) => void;
+}
+
+export interface TeamConfig {
+  enabled: boolean;
+  scoring: 'closest' | 'average';
+  allowTeamPick: boolean;
 }
 
 interface SelectedMapInfo {
@@ -65,6 +86,10 @@ export default function MapSelectorModal({
   currentSingleplayerMode = null,
   rounds,
   onRoundsChange,
+  teamConfig,
+  onTeamConfigChange,
+  disableEmotes,
+  onDisableEmotesToggle,
 }: MapSelectorModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -80,6 +105,9 @@ export default function MapSelectorModal({
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
+  // Search bar's y inside the scroll content (it's a direct child, so
+  // onLayout.y IS the scroll target). Used to pin it to the top on focus.
+  const searchBarYRef = useRef(0);
 
   // When a map is tapped, show its detail view inline
   const [selectedMap, setSelectedMap] = useState<SelectedMapInfo | null>(null);
@@ -114,6 +142,9 @@ export default function MapSelectorModal({
   const animateClose = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+    // The search keyboard must never outlive the sheet: this covers every exit
+    // (checkmark, backdrop tap, swipe-down, Android back, map selected).
+    Keyboard.dismiss();
     Animated.parallel([
       Animated.timing(sheetAnim, {
         toValue: SHEET_HEIGHT,
@@ -269,8 +300,11 @@ export default function MapSelectorModal({
     }, 400);
   }, [mapHome]);
 
-  // Navigate to inline detail view with slide animation
+  // Navigate to inline detail view with slide animation. Drop the search
+  // keyboard first — the sheet stays open, so nothing else would dismiss it
+  // and it sat over the detail view.
   const handleMapPress = useCallback((map: MapItem) => {
+    Keyboard.dismiss();
     const slug = map.slug || map.countryMap;
     showDetail({
       slug: slug!,
@@ -367,7 +401,7 @@ export default function MapSelectorModal({
       <Animated.View
         style={[styles.backdrop, { opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]}
       >
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => animateClose()} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={() => animateClose()} />
       </Animated.View>
 
       {/* Sheet */}
@@ -412,10 +446,82 @@ export default function MapSelectorModal({
               scrollEventThrottle={16}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {/* ── Game Options ── */}
               {showOptions && (
               <View style={styles.optionsCard}>
+                {/* Game Mode: Classic (FFA) vs Team Duel + the team
+                    sub-options (party mode only — web partyModal.js). */}
+                {teamConfig && onTeamConfigChange && (
+                  <>
+                    <View style={styles.optionRow}>
+                      <View style={styles.optionLabel}>
+                        <Ionicons name="people-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>{t('gameMode')}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.segRow}>
+                      {([false, true] as const).map((team) => (
+                        <Pressable
+                          key={String(team)}
+                          style={[styles.segBtn, teamConfig.enabled === team && styles.segBtnActive]}
+                          onPress={() => onTeamConfigChange({ ...teamConfig, enabled: team })}
+                        >
+                          <Text
+                            style={[
+                              styles.segBtnText,
+                              teamConfig.enabled === team && styles.segBtnTextActive,
+                            ]}
+                          >
+                            {t(team ? 'teamDuel' : 'classicMode')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={styles.optionHint}>
+                      {t(teamConfig.enabled ? 'teamDuelModeHint' : 'classicModeHint')}
+                    </Text>
+                    {teamConfig.enabled && (
+                      <>
+                        <View style={styles.segRow}>
+                          {(['closest', 'average'] as const).map((mode) => (
+                            <Pressable
+                              key={mode}
+                              style={[styles.segBtn, teamConfig.scoring === mode && styles.segBtnActive]}
+                              onPress={() => onTeamConfigChange({ ...teamConfig, scoring: mode })}
+                            >
+                              <Text
+                                style={[
+                                  styles.segBtnText,
+                                  teamConfig.scoring === mode && styles.segBtnTextActive,
+                                ]}
+                              >
+                                {t(mode === 'average' ? 'scoringAverage' : 'scoringClosest')}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Text style={styles.optionHint}>
+                          {t(teamConfig.scoring === 'average' ? 'scoringAverageHint' : 'scoringClosestHint')}
+                        </Text>
+                        <View style={styles.optionRow}>
+                          <View style={styles.optionLabel}>
+                            <Ionicons name="swap-horizontal-outline" size={20} color="#fff" />
+                            <Text style={styles.optionText}>{t('allowTeamPickShort')}</Text>
+                          </View>
+                          <Switch
+                            value={teamConfig.allowTeamPick}
+                            onValueChange={(v) => onTeamConfigChange({ ...teamConfig, allowTeamPick: v })}
+                            trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
+                            thumbColor="#fff"
+                          />
+                        </View>
+                      </>
+                    )}
+                    <View style={styles.divider} />
+                  </>
+                )}
                 {/* Rounds (party mode only) */}
                 {onRoundsChange && rounds !== undefined && (
                   <>
@@ -497,6 +603,25 @@ export default function MapSelectorModal({
                     </Pressable>
                   </View>
                 )}
+
+                {/* Emote mute — party mode only (web partyModal.js parity). */}
+                {onDisableEmotesToggle && (
+                  <>
+                    <View style={styles.divider} />
+                    <View style={styles.optionRow}>
+                      <View style={styles.optionLabel}>
+                        <Ionicons name="happy-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>{t('disableEmotes')}</Text>
+                      </View>
+                      <Switch
+                        value={!!disableEmotes}
+                        onValueChange={onDisableEmotesToggle}
+                        trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
+                        thumbColor="#fff"
+                      />
+                    </View>
+                  </>
+                )}
               </View>
               )}
 
@@ -509,7 +634,10 @@ export default function MapSelectorModal({
               {/* Search — ABOVE the mode tiles. Mode tiles (World / Country
                   Guesser / Continent Guesser) are not part of search; they
                   disappear entirely the moment any text is typed. */}
-              <View style={styles.searchContainer}>
+              <View
+                style={styles.searchContainer}
+                onLayout={(e) => { searchBarYRef.current = e.nativeEvent.layout.y; }}
+              >
                 <Ionicons name="search" size={18} color="#666" />
                 <TextInput
                   style={styles.searchInput}
@@ -517,6 +645,18 @@ export default function MapSelectorModal({
                   placeholderTextColor="#999"
                   value={searchQuery}
                   onChangeText={handleSearch}
+                  // Pin the bar to the top of the sheet when focused: under
+                  // edgeToEdge the window never resizes for the keyboard, so
+                  // Android's native scroll-into-view is dead (and iOS never
+                  // had one) — a low-sitting bar stayed buried under the IME.
+                  // Top position = guaranteed clearance at any keyboard height,
+                  // with results painting right below it.
+                  onFocus={() => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, searchBarYRef.current - 8),
+                      animated: true,
+                    });
+                  }}
                   returnKeyType="search"
                   autoCorrect={false}
                 />
@@ -564,12 +704,25 @@ export default function MapSelectorModal({
 
               {/* Map Sections */}
               {loading ? (
-                <View style={styles.centered}>
-                  <ActivityIndicator size="large" color="#4CAF50" />
-                  <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
+                // Same height floor as the search branch: keeps the focus
+                // pin-to-top scroll reachable if the user taps search mid-load.
+                <View style={{ minHeight: SHEET_HEIGHT }}>
+                  <View style={styles.centered}>
+                    <ActivityIndicator size="large" color="#4CAF50" />
+                    <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
+                  </View>
                 </View>
               ) : isSearching ? (
-                <>
+                /* Height floor while searching: each keystroke swaps this region
+                   between results / spinner / empty state, and in party mode the
+                   options card puts the search bar a full screen down — so when
+                   the big map sections collapse to a lone spinner, the content
+                   shrinks below the current scroll offset and the ScrollView
+                   CLAMPS it (the glitchy snap while typing). Reserving a sheet's
+                   worth of height keeps the offset valid through every swap, so
+                   the view never jumps; results simply paint in place below the
+                   bar. */
+                <View style={{ minHeight: SHEET_HEIGHT }}>
                   {(() => {
                     const countryResults = searchResults.filter((m) => m.countryMap);
                     const communityResults = searchResults.filter((m) => !m.countryMap);
@@ -608,7 +761,7 @@ export default function MapSelectorModal({
                   {searchLoading && (
                     <ActivityIndicator size="small" color="white" style={{ marginTop: 12 }} />
                   )}
-                </>
+                </View>
               ) : (
                 <>
                   {SECTION_ORDER.map((key) => {
@@ -776,6 +929,40 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginVertical: 12,
+  },
+  // Segmented control (Game Mode / Scoring — web party-lobby__seg parity).
+  segRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 3,
+    marginTop: 8,
+  },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  segBtnActive: {
+    backgroundColor: '#4CAF50',
+  },
+  segBtnText: {
+    fontSize: 14,
+    fontFamily: 'Lexend-SemiBold',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  segBtnTextActive: {
+    color: '#fff',
+  },
+  optionHint: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 6,
+    marginBottom: 4,
   },
   stepperRow: {
     flexDirection: 'row',

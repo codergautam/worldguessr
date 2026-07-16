@@ -55,6 +55,37 @@ const HTML = `<!DOCTYPE html>
     return L.divIcon({ className: '', iconSize: [18,18], iconAnchor: [9,18],
       html: '<div class="lm-pin" style="background:'+color+'"></div>' });
   }
+  // Live vector reprojection during frame-driven zooms (same fix as the web's
+  // lib/leafletLiveVectors.js): stock Leaflet CSS-scales the canvas from its
+  // last redraw baseline during flyTo and only reprojects at zoomend, so the
+  // result line renders huge/blurry/off its pins for the whole reveal flight.
+  // Reproject + redraw every frame instead. CSS-animated zooms
+  // (_animatingZoom: pinch / double-tap) keep the stock transform path.
+  (function(){
+    var orig = L.Renderer.prototype._onZoom;
+    L.Renderer.prototype._onZoom = function(){
+      if (!this._map || !this._container) return;
+      if (this._map._animatingZoom) { orig.call(this); return; }
+      for (var id in this._layers) this._layers[id]._project();
+      if (this._ctx && this._bounds) {
+        // canvas fast path: skip Canvas._update's per-frame width/height
+        // reassignment (a full backing-store realloc) when size is unchanged
+        var oldSize = this._bounds.getSize();
+        L.Renderer.prototype._update.call(this);
+        var b = this._bounds, size = b.getSize();
+        if (size.x === oldSize.x && size.y === oldSize.y) {
+          var m = L.Browser.retina ? 2 : 1;
+          L.DomUtil.setPosition(this._container, b.min);
+          this._ctx.setTransform(m, 0, 0, m, 0, 0);
+          this._ctx.clearRect(0, 0, size.x, size.y);
+          this._ctx.translate(-b.min.x, -b.min.y);
+          this.fire('update');
+          return;
+        }
+      }
+      this._update();
+    };
+  })();
   // Keep smooth animated zoom (default) — disabling it caused WKWebView repaint
   // flashes + anchor jumps. The real bug: while a zoom animation is in flight
   // (map._animatingZoom), Leaflet blocks the NEXT interaction — a fast second zoom

@@ -17,11 +17,24 @@ const SHIMS = {
   'next/dynamic': path.join(root, 'embed/shims/nextDynamic.js'),
   'next/router': path.join(root, 'embed/shims/nextRouter.js'),
   '@/lib/markerIcons': path.join(root, 'embed/shims/markerIcons.js'),
+  // Alias form of the relative './utils/audio' shim below — keep both paths
+  // covered so a future import-style change can't silently re-bundle the
+  // Web Audio engine.
+  '@/components/utils/audio': path.join(root, 'embed/shims/audio.js'),
 };
 
 const resolvePlugin = {
   name: 'embed-resolve',
   setup(b) {
+    // components/Map.js pulls the Web Audio SFX engine via a RELATIVE import
+    // ('./utils/audio'). Inside the WebView it must be shimmed — otherwise the
+    // bundle ships a second audio stack governed by the WebView's own private
+    // localStorage volumes, unreachable by the app's sound settings. The shim
+    // no-ops everything EXCEPT the pin click, which plays in-page for latency
+    // with the host pushing the native volume in (embed/shims/audio.js).
+    b.onResolve({ filter: /^\.\.?\/.*utils\/audio$/ }, () => ({
+      path: path.join(root, 'embed/shims/audio.js'),
+    }));
     b.onResolve({ filter: /^(@\/|next\/dynamic$|next\/router$)/ }, (args) => {
       if (SHIMS[args.path]) return { path: SHIMS[args.path] };
       if (!args.path.startsWith('@/')) return undefined;
@@ -66,6 +79,14 @@ const result = await esbuild.build({
     'process.env.NODE_ENV': '"production"',
     'process.env.NEXT_PUBLIC_BASE_PATH': '""',
     'process.env.NEXT_PUBLIC_COOLMATH': '""',
+    // Catch-all AFTER the specific keys (longest match wins): any OTHER
+    // process.env.X in the web graph becomes ({}).X → undefined, instead of a
+    // bare `process` reference that throws ReferenceError at eval inside the
+    // WebView (no Node globals there) and kills the whole bundle before it
+    // can signal ready — the host then waits out READY_TIMEOUT_MS and falls
+    // back to the native LeafletMap (July 13: process.env.NEXT_PUBLIC_POKI in
+    // lib/basePath.js did exactly this on the next rebuild).
+    'process.env': '{}',
   },
   loader: {
     // The web codebase (Map.js, ResultsMap.js, countryFlag.js, …) writes JSX in
@@ -76,6 +97,9 @@ const result = await esbuild.build({
     '.jpeg': 'dataurl',
     '.gif': 'dataurl',
     '.svg': 'dataurl',
+    // pin.mp3 (~3KB) inlined for the shim's Web Audio pin click — the one
+    // sound that plays INSIDE the WebView (latency; see embed/shims/audio.js).
+    '.mp3': 'dataurl',
     '.css': 'text',
   },
   plugins: [resolvePlugin, jsonModulePlugin],

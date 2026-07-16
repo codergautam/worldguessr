@@ -4,7 +4,8 @@
  * "back" affordance so every screen looks identical.
  */
 
-import { Pressable, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { Pressable } from './SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../shared';
@@ -29,6 +30,7 @@ export default function BackButton({ onPress, icon = 'close', style }: BackButto
   return (
     <Pressable
       onPress={() => {
+        // Click sound rides SfxPressable; only the haptic pairs with it here.
         haptics.light();
         onPress();
       }}

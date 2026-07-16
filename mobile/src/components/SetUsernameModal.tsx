@@ -4,12 +4,11 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Pressable,
   KeyboardAvoidingView,
-  Platform,
   Animated,
   Easing,
 } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, t, USERNAME_MAX_LENGTH } from '../shared';
 import { useAuthStore } from '../store/authStore';
@@ -138,14 +137,20 @@ export default function SetUsernameModal() {
   return (
     <View style={styles.root} pointerEvents="auto">
       {/* Absolute-fill catcher so no touch leaks to the (frozen) UI beneath. */}
-      <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} />
+      <Pressable sfx="none" style={StyleSheet.absoluteFill} onPress={() => {}} />
       <Animated.View
         style={[styles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents="none"
       />
+      {/* behavior="padding" on BOTH platforms: with edgeToEdgeEnabled the
+          Android window never resizes for the keyboard (adjustResize is dead
+          under edge-to-edge), so the old `undefined` meant NO avoidance at all
+          — on shorter devices / taller keyboards the IME covered this centered
+          card's input. 'padding' works from keyboard events, not window
+          resize, so it holds everywhere. */}
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         pointerEvents="box-none"
       >
         <Animated.View

@@ -16,12 +16,12 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
   ScrollView,
   Alert,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { GlassCard, sharedStyles, formatTimeAgo } from './shared';
 import { useMultiplayerStore } from '../../store/multiplayerStore';

@@ -18,18 +18,17 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
-  Pressable,
   Animated,
   Easing,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../../src/components/ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { colors, t } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
-import { wsService } from '../../src/services/websocket';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 
 /** A single shimmering placeholder block. */
@@ -83,6 +82,9 @@ export default function PartyCreateScreen() {
   const isLandscape = width > height;
   const verified = useMultiplayerStore((s) => s.verified);
   const inGame = useMultiplayerStore((s) => s.inGame);
+  // `mode=2v2` → create a 2v2 staging lobby instead of a party (home's 2v2
+  // entry reuses this route for its instant skeleton shell).
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const sentRef = useRef(false);
 
   // Looping shimmer sweep shared by every skeleton block.
@@ -108,9 +110,13 @@ export default function PartyCreateScreen() {
   useEffect(() => {
     if (verified && !sentRef.current && !inGame) {
       sentRef.current = true;
-      wsService.send({ type: 'createPrivateGame' });
+      // Store action (one create path for party AND 2v2 staging lobbies) —
+      // it stamps lobbyIntent alongside the send. `mode=2v2` rides the route
+      // params from home's 2v2 entry; everything else on this screen (the
+      // skeleton shell) is shared as-is.
+      useMultiplayerStore.getState().createPrivateGame(mode === '2v2' ? '2v2' : 'party');
     }
-  }, [verified, inGame]);
+  }, [verified, inGame, mode]);
 
   return (
     <View style={styles.container}>

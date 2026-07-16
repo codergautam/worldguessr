@@ -3,11 +3,11 @@ import {
   Modal,
   View,
   Text,
-  Pressable,
   StyleSheet,
   ScrollView,
   Linking,
 } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -213,9 +213,9 @@ export default function WhatsNewModal({ forceOpen, onForceClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={styles.overlay} onPress={handleClose}>
+      <Pressable sfx="none" style={styles.overlay} onPress={handleClose}>
         <Animated.View style={[styles.card, cardStyle]}>
-          <Pressable onPress={() => {}} style={styles.inner}>
+          <Pressable sfx="none" onPress={() => {}} style={styles.inner}>
             <Text style={styles.title}>{t('whatsNew', undefined, "What's New!")}</Text>
             {!!latestEntry.date && (
               <Text style={styles.releaseLine}>

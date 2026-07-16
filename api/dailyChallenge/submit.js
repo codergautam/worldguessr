@@ -102,9 +102,53 @@ async function computeRankAndPercentile(date, score) {
   return { rank, totalPlays, percentile };
 }
 
-async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, dailyLocs, secret, finalScore, finalXp }) {
-  const user = await User.findOne({ secret });
+// DQ percentile: DELIBERATELY different math from computeRankAndPercentile.
+// A disqualified run never enters the distribution, so there is no self to
+// exclude from the denominator and no rank to compute — it answers "how many
+// counted plays did this voided score beat", null-gated on totalPlays === 0
+// (not <= 1). Read-only: no ensureStatsDoc.
+async function computeDqPercentile(date, score) {
+  const stats = await DailyChallengeStats.findOne({ date }).lean();
+  const bucket = bucketIndexForScore(score);
+  const beaten = stats ? (stats.buckets || []).slice(0, bucket).reduce((a, b) => a + b, 0) : 0;
+  return {
+    totalPlays: stats?.totalPlays || 0,
+    percentile: stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null,
+  };
+}
+
+// The DQ marker-row fields, shared by the logged-in and guest score writes:
+// score 0 + empty rounds keep the row out of personal bests / profile
+// calendars, and `disqualified` drives the read side (results.js nulls
+// ranking surfaces off it). A function so each row gets its own rounds array.
+function dqMarkerFields() {
+  return { score: 0, rounds: [], disqualified: true };
+}
+
+// The one DQ response shape, all identities: the run's REAL score is echoed
+// (the persisted marker row stores 0 — results.js nulls ranking surfaces off
+// the disqualified flag), plus whatever streak info the identity earned.
+function sendDqResponse(res, finalScore, dq, streakInfo = {}) {
+  return res.status(200).json({
+    score: finalScore,
+    totalPlays: dq.totalPlays,
+    percentile: dq.percentile,
+    disqualified: true,
+    ...streakInfo,
+  });
+}
+
+async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, dailyLocs, secret, finalScore, finalXp, dq = null }) {
+  // Lean projection covering both modes' reads (writeLoggedInDailyGame only
+  // touches _id/username) — the DQ path fires on tab-switch spam, and
+  // hydrating full User docs there bought nothing.
+  const user = await User.findOne({ secret })
+    .select('_id username banned dailyStreak dailyStreakBest lastDailyDate dailyGraceUsedDates dailyHistory')
+    .lean();
   if (!user) {
+    // DQ: a bad secret degrades to the anon response shape (no identity to
+    // lock) rather than a 404 — pre-unification behavior, kept as-is.
+    if (dq) return sendDqResponse(res, finalScore, dq);
     return res.status(404).json({ error: 'User not found' });
   }
   // Banned users still play: the run is stored (game history, streak,
@@ -115,28 +159,38 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   // rank/percentile is computed against that honest distribution.
   const shadowed = !!user.banned;
 
-  const existing = await DailyChallengeScore.findOne({ date, userId: user._id }).lean();
-  if (existing) {
-    if (existing.disqualified) {
+  // DQ mode has NO pre-check by design: its dup gate is the unique
+  // (date, userId) index at create time, and its dup response stays
+  // DQ-shaped — never alreadySubmitted. (It also never reads `shadowed`:
+  // a DQ marker is invisible everywhere public already, so banned users
+  // lock the date like anyone else; user ruling.)
+  if (!dq) {
+    const existing = await DailyChallengeScore.findOne({ date, userId: user._id }).lean();
+    if (existing) {
+      if (existing.disqualified) {
+        return res.status(200).json({
+          alreadySubmitted: true,
+          disqualified: true,
+          streak: user.dailyStreak || 0,
+          streakBest: user.dailyStreakBest || 0,
+        });
+      }
+      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
       return res.status(200).json({
         alreadySubmitted: true,
-        disqualified: true,
+        score: existing.score,
+        rank,
+        totalPlays,
+        percentile,
         streak: user.dailyStreak || 0,
         streakBest: user.dailyStreakBest || 0,
       });
     }
-    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
-    return res.status(200).json({
-      alreadySubmitted: true,
-      score: existing.score,
-      rank,
-      totalPlays,
-      percentile,
-      streak: user.dailyStreak || 0,
-      streakBest: user.dailyStreakBest || 0,
-    });
   }
 
+  // Shared streak semantics for BOTH modes — the single implementation the
+  // DQ path advances through too. Pure computation: it only persists inside
+  // the branch that actually locks the date, so hoisting it is unobservable.
   const { streak, best, graceAfter, graceUsedNow } = applyStreak({
     prevDate: user.lastDailyDate,
     currentStreak: user.dailyStreak,
@@ -144,6 +198,67 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     currentBest: user.dailyStreakBest,
     today: date,
   });
+
+  // The score row and streak fields, shared by both modes. DQ writes a
+  // MARKER row: score 0 + empty rounds (a real score here would pollute
+  // personal bests and the profile calendar via other readers), the
+  // disqualified flag for the read side, and no hidden flag even when
+  // banned (ruling above). The response still echoes the real finalScore.
+  const scoreRow = {
+    date,
+    userId: user._id,
+    username: user.username || 'Player',
+    totalTime: Number.isFinite(totalTime) ? totalTime : 0,
+    ...(dq
+      ? dqMarkerFields()
+      : { score: finalScore, rounds: normalizedRounds, hidden: shadowed }),
+  };
+  const userStreakSet = {
+    dailyStreak: streak,
+    dailyStreakBest: best,
+    lastDailyDate: date,
+    dailyGraceUsedDates: graceAfter,
+  };
+
+  if (dq) {
+    // Disqualified: lock the date with the marker row; on the row that
+    // actually locked it, advance the streak exactly like a played day and
+    // write the game-history entry — real rounds/score, ZERO XP: the run is
+    // voided for progression/ranking, not erased (user rulings, July 9-10).
+    // Leaderboard / XP / distribution / dailyHistory are structurally
+    // untouched in this branch.
+    let created = false;
+    try {
+      await DailyChallengeScore.create(scoreRow);
+      created = true;
+    } catch (err) {
+      // 11000 = already submitted today; the lock is already in place.
+      if (err?.code !== 11000) throw err;
+    }
+    if (!created) {
+      // A dup means today was already counted (real score or earlier DQ) —
+      // report the current streak untouched (no graceUsed on this shape).
+      return sendDqResponse(res, finalScore, dq, {
+        streak: user.dailyStreak || 0,
+        streakBest: user.dailyStreakBest || 0,
+      });
+    }
+    await Promise.all([
+      // dailyHistory deliberately absent from the $set: a 0-score DQ entry
+      // would pollute personal bests and the profile calendar.
+      User.updateOne({ _id: user._id }, { $set: userStreakSet }),
+      writeLoggedInDailyGame({
+        user,
+        date,
+        normalizedRounds: normalizedRounds.map(r => ({ ...r, xp: 0 })),
+        dailyLocs,
+        finalScore,
+        finalXp: 0,
+        totalTime,
+      }),
+    ]);
+    return sendDqResponse(res, finalScore, dq, { streak, streakBest: best, graceUsed: graceUsedNow });
+  }
 
   // Most of the writes below are independent — they touch different
   // collections (or different fields of the same User doc). Run them in
@@ -167,27 +282,13 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     return User.updateOne(
       { _id: user._id },
       {
-        $set: {
-          dailyStreak: streak,
-          dailyStreakBest: best,
-          lastDailyDate: date,
-          dailyGraceUsedDates: graceAfter,
-          dailyHistory: nextHistory,
-        },
+        $set: { ...userStreakSet, dailyHistory: nextHistory },
       }
     );
   })();
 
   const [, , rankResult] = await Promise.all([
-    DailyChallengeScore.create({
-      date,
-      userId: user._id,
-      username: user.username || 'Player',
-      score: finalScore,
-      totalTime: Number.isFinite(totalTime) ? totalTime : 0,
-      rounds: normalizedRounds,
-      hidden: shadowed,
-    }),
+    DailyChallengeScore.create(scoreRow),
     writeLoggedInDailyGame({
       user,
       date,
@@ -215,32 +316,37 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   });
 }
 
-async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime, guestId, finalScore }) {
-  // Replay check — unique (guestId, date) index on GuestScore also enforces
-  // this at the DB level, but the explicit check gives a clean 409.
-  const existing = await GuestScore.findOne({ guestId, date }).lean();
-  if (existing) {
-    const profile = await GuestProfile.findOne({ guestId }).lean();
-    if (existing.disqualified) {
+async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime, guestId, finalScore, dq = null }) {
+  // DQ mode has NO pre-check by design: its dup gate is the unique
+  // (guestId, date) index at create time, its dup response stays DQ-shaped,
+  // and a dup still refreshes the profile TTL below.
+  if (!dq) {
+    // Replay check — unique (guestId, date) index on GuestScore also enforces
+    // this at the DB level, but the explicit check gives a clean 409.
+    const existing = await GuestScore.findOne({ guestId, date }).lean();
+    if (existing) {
+      const profile = await GuestProfile.findOne({ guestId }).lean();
+      if (existing.disqualified) {
+        return res.status(200).json({
+          alreadySubmitted: true,
+          disqualified: true,
+          streak: profile?.daily?.streak || 0,
+          streakBest: profile?.daily?.streakBest || 0,
+          guest: true,
+        });
+      }
+      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
       return res.status(200).json({
         alreadySubmitted: true,
-        disqualified: true,
+        score: existing.score,
+        rank,
+        totalPlays,
+        percentile,
         streak: profile?.daily?.streak || 0,
         streakBest: profile?.daily?.streakBest || 0,
         guest: true,
       });
     }
-    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
-    return res.status(200).json({
-      alreadySubmitted: true,
-      score: existing.score,
-      rank,
-      totalPlays,
-      percentile,
-      streak: profile?.daily?.streak || 0,
-      streakBest: profile?.daily?.streakBest || 0,
-      guest: true,
-    });
   }
 
   const priorProfile = await GuestProfile.findOne({ guestId }).lean();
@@ -258,7 +364,25 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
   // return the same rank/percentile so the player sees their result, just
   // skip the writes so the cap actually does its job. `notTracked: true`
   // lets the client surface a "sign in to save progress" hint if it wants.
+  //
+  // DQ mode is capped too: a DQ writes the very GuestScore/GuestProfile
+  // rows the cap protects, and `disqualified` is client-controlled — an
+  // exemption would be an uncapped write path for sybils. The "locking a
+  // DQ date must never be blockable" guarantee survives where it means
+  // anything: every established identity bypasses the cap via priorProfile,
+  // while a fresh-guestId lock was never a lock (clearing localStorage
+  // re-rolls the identity). A capped fresh guest who replays the day can't
+  // poison the distribution either — the counted resubmit hits this same
+  // cap.
   if (!priorProfile && !anonWriteAllowed(req, date)) {
+    if (dq) {
+      return sendDqResponse(res, finalScore, dq, {
+        streak: 0,
+        streakBest: 0,
+        guest: true,
+        notTracked: true,
+      });
+    }
     const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
     return res.status(200).json({
       score: finalScore,
@@ -282,40 +406,58 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
   }, { allowGrace: false });
 
   // Write GuestScore first — if this throws (including the dup-key race with
-  // a concurrent submit), we abort before updating the profile.
+  // a concurrent submit), we abort before updating the profile. DQ writes a
+  // marker row (score 0, empty rounds — same rationale as the logged-in
+  // marker). Dup semantics deliberately differ per mode: normal = hard 409
+  // (profile untouched), DQ = soft "lock already in place" — fall through so
+  // the profile keep-alive below still runs, WITHOUT advancing the streak.
+  let created = false;
   try {
     await GuestScore.create({
       guestId,
       date,
-      score: finalScore,
       totalTime: Number.isFinite(totalTime) ? totalTime : 0,
-      rounds: normalizedRounds,
+      ...(dq
+        ? dqMarkerFields()
+        : { score: finalScore, rounds: normalizedRounds }),
     });
+    created = true;
   } catch (err) {
-    if (err?.code === 11000) {
+    if (err?.code !== 11000) throw err;
+    if (!dq) {
       return res.status(409).json({ error: 'Already submitted today as this guest.' });
     }
-    throw err;
   }
 
-  const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
+  // Rank + history are ranking surfaces — counted runs only.
+  let rank = null, totalPlays = null, percentile = null, nextHistory = null, priorHistory = [];
+  if (!dq) {
+    ({ rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore));
+    const historyEntry = { date, score: finalScore, rank };
+    priorHistory = Array.isArray(priorProfile?.daily?.history) ? priorProfile.daily.history : [];
+    nextHistory = [historyEntry, ...priorHistory.filter(h => h.date !== date)].slice(0, 30);
+  }
 
-  const historyEntry = { date, score: finalScore, rank };
-  const priorHistory = Array.isArray(priorProfile?.daily?.history) ? priorProfile.daily.history : [];
-  const nextHistory = [historyEntry, ...priorHistory.filter(h => h.date !== date)].slice(0, 30);
+  // ONE profile write for both modes: always keep the profile alive
+  // (fetchGuestBlock keys on it existing — a DQ dup still refreshes the
+  // TTL); streak fields only on the row that actually locked the date;
+  // history only for counted runs (a 0-score DQ entry would pollute
+  // personal bests and the profile calendar). In normal mode `created` is
+  // always true here — the dup path 409'd above.
   const now = new Date();
-
+  const guestSet = { updatedAt: now, expiresAt: new Date(now.getTime() + GUEST_PROFILE_TTL_MS) };
+  if (created) {
+    guestSet['daily.streak'] = streak;
+    guestSet['daily.streakBest'] = best;
+    guestSet['daily.lastDate'] = date;
+  }
+  if (!dq) {
+    guestSet['daily.history'] = nextHistory;
+  }
   await GuestProfile.updateOne(
     { guestId },
     {
-      $set: {
-        'daily.streak': streak,
-        'daily.streakBest': best,
-        'daily.lastDate': date,
-        'daily.history': nextHistory,
-        updatedAt: now,
-        expiresAt: new Date(now.getTime() + GUEST_PROFILE_TTL_MS),
-      },
+      $set: guestSet,
       $setOnInsert: {
         guestId,
         createdAt: now,
@@ -325,6 +467,16 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
     },
     { upsert: true }
   );
+
+  if (dq) {
+    return sendDqResponse(res, finalScore, dq, created
+      ? { streak, streakBest: best, guest: true }
+      : {
+        streak: priorProfile?.daily?.streak || 0,
+        streakBest: priorProfile?.daily?.streakBest || 0,
+        guest: true,
+      });
+  }
 
   return res.status(200).json({
     score: finalScore,
@@ -371,139 +523,31 @@ async function handler(req, res) {
     // persist a marker against the identity (logged-in user or guest) so a
     // DQ locks the date and a second attempt is blocked. Anon callers have
     // no persistent identity, so there's nothing to lock (and no streak).
+    // DQ is a MODE of the identity handlers below — one streak/persistence
+    // implementation per identity, with every DQ skip an explicit branch
+    // inside handleLoggedIn/handleGuest. Identity dispatch conditions are
+    // identical to the normal dispatch underneath.
     if (disqualified) {
-      const stats = await DailyChallengeStats.findOne({ date }).lean();
-      const bucket = bucketIndexForScore(finalScore);
-      const beaten = stats ? (stats.buckets || []).slice(0, bucket).reduce((a, b) => a + b, 0) : 0;
-      const percentile = stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null;
-
-      // Streak fields for the response; stays empty for anon callers.
-      let streakInfo = {};
+      const dq = await computeDqPercentile(date, finalScore);
 
       if (secret && typeof secret === 'string') {
-        // No banned gate here: a DQ marker is invisible everywhere public
-        // already, so banned users can lock the date like anyone else.
-        const user = await User.findOne({ secret })
-          .select('_id username dailyStreak dailyStreakBest lastDailyDate dailyGraceUsedDates')
-          .lean();
-        if (user) {
-          let created = false;
-          try {
-            await DailyChallengeScore.create({
-              date,
-              userId: user._id,
-              username: user.username || 'Player',
-              score: 0,
-              totalTime: Number.isFinite(totalTime) ? totalTime : 0,
-              rounds: [],
-              disqualified: true,
-            });
-            created = true;
-          } catch (err) {
-            // 11000 = already submitted today; the lock is already in place.
-            if (err?.code !== 11000) throw err;
-          }
-          if (created) {
-            // Advance the streak on the row that actually locked the date —
-            // a dup means today was already counted (real score or earlier
-            // DQ). dailyHistory is deliberately untouched: a 0-score DQ
-            // entry would pollute personal bests and the profile calendar.
-            const { streak, best, graceAfter, graceUsedNow } = applyStreak({
-              prevDate: user.lastDailyDate,
-              currentStreak: user.dailyStreak,
-              graceDates: user.dailyGraceUsedDates,
-              currentBest: user.dailyStreakBest,
-              today: date,
-            });
-            await Promise.all([
-              User.updateOne(
-                { _id: user._id },
-                {
-                  $set: {
-                    dailyStreak: streak,
-                    dailyStreakBest: best,
-                    lastDailyDate: date,
-                    dailyGraceUsedDates: graceAfter,
-                  },
-                }
-              ),
-              // DQ runs still show in game history (user ruling, July 10):
-              // real rounds and score, but XP zeroed everywhere — the run is
-              // voided for progression/ranking, not erased. Gated on
-              // `created` alongside the streak so the dup path can't write a
-              // second history entry for a day that already has one.
-              writeLoggedInDailyGame({
-                user,
-                date,
-                normalizedRounds: normalizedRounds.map(r => ({ ...r, xp: 0 })),
-                dailyLocs,
-                finalScore,
-                finalXp: 0,
-                totalTime,
-              }),
-            ]);
-            streakInfo = { streak, streakBest: best, graceUsed: graceUsedNow };
-          } else {
-            streakInfo = { streak: user.dailyStreak || 0, streakBest: user.dailyStreakBest || 0 };
-          }
-        }
-      } else if (guestId && typeof guestId === 'string' && guestId.length > 0) {
-        const priorProfile = await GuestProfile.findOne({ guestId }).lean();
-        let created = false;
-        try {
-          await GuestScore.create({
-            guestId,
-            date,
-            score: 0,
-            totalTime: Number.isFinite(totalTime) ? totalTime : 0,
-            rounds: [],
-            disqualified: true,
-          });
-          created = true;
-        } catch (err) {
-          if (err?.code !== 11000) throw err;
-        }
-        // Keep the GuestProfile alive either way (fetchGuestBlock keys on
-        // it); on a fresh DQ lock, advance the guest streak too (no grace
-        // for guests, same as normal guest submits). History untouched.
-        const now = new Date();
-        const guestSet = { updatedAt: now, expiresAt: new Date(now.getTime() + GUEST_PROFILE_TTL_MS) };
-        if (created) {
-          const { streak, best } = applyStreak({
-            prevDate: priorProfile?.daily?.lastDate || null,
-            currentStreak: priorProfile?.daily?.streak || 0,
-            graceDates: [],
-            currentBest: priorProfile?.daily?.streakBest || 0,
-            today: date,
-          }, { allowGrace: false });
-          guestSet['daily.streak'] = streak;
-          guestSet['daily.streakBest'] = best;
-          guestSet['daily.lastDate'] = date;
-          streakInfo = { streak, streakBest: best, guest: true };
-        } else {
-          streakInfo = {
-            streak: priorProfile?.daily?.streak || 0,
-            streakBest: priorProfile?.daily?.streakBest || 0,
-            guest: true,
-          };
-        }
-        await GuestProfile.updateOne(
-          { guestId },
-          {
-            $set: guestSet,
-            $setOnInsert: { guestId, createdAt: now, claimedBy: null, claimedAt: null },
-          },
-          { upsert: true }
-        );
+        return await handleLoggedIn({
+          res, date,
+          rounds: normalizedRounds,
+          totalTime, dailyLocs, secret, finalScore, finalXp, dq,
+        });
       }
 
-      return res.status(200).json({
-        score: finalScore,
-        totalPlays: stats?.totalPlays || 0,
-        percentile,
-        disqualified: true,
-        ...streakInfo,
-      });
+      if (guestId && typeof guestId === 'string' && guestId.length > 0) {
+        return await handleGuest({
+          req, res, date,
+          rounds: normalizedRounds,
+          totalTime, guestId, finalScore, dq,
+        });
+      }
+
+      // Anon DQ: no identity to lock — percentile info only, nothing persists.
+      return sendDqResponse(res, finalScore, dq);
     }
 
     if (secret && typeof secret === 'string') {

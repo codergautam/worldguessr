@@ -16,7 +16,7 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import { wsService } from '../services/websocket';
-import { useMultiplayerStore } from '../store/multiplayerStore';
+import { useMultiplayerStore, queueTeardownState } from '../store/multiplayerStore';
 import { useAuthStore } from '../store/authStore';
 
 /**
@@ -75,7 +75,10 @@ function tearDownPhantomQueue(): boolean {
   // restart that takes longer than the ~30s in-game budget would tolerate. The
   // inMultiplayer effect would also do this, but only on a later async render.
   wsService.setInGame(false);
-  useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
+  // The full queue slice, not just gameQueued — a 2v2 stage-2 drop must also
+  // clear queueStage/queueMyId/lobbyIntent or the nav machine reads a stale
+  // stage after reconnect.
+  useMultiplayerStore.setState({ ...queueTeardownState });
   state.pushToast({ key: 'queueLeftDisconnect', toastType: 'error' });
   return true;
 }
@@ -114,8 +117,15 @@ export function useWebSocket() {
   // was confusing. We leave the game — tear down inGame/gameData (the game screen's
   // `!inGame` effect pops home) — and reconnect like a home session: setInGame(false)
   // gives the in-flight retry the full budget so it keeps pulsing yellow instead of
-  // giving up to red, and clearRejoinCode() stops the server replaying us straight
-  // back into the game on reconnect. A drop on home / results just flags connecting.
+  // giving up to red. The rejoinCode is deliberately KEPT (it used to be cleared
+  // here): it's a guest session's ONLY rejoin identity, and the server rejoins
+  // accounts via their secret regardless — so clearing it never stopped the replay
+  // for logged-in users, it only stranded guests at home after a recoverable drop
+  // (e.g. a server restart, whose gamestate snapshot keeps them rejoinable). If the
+  // server still holds the session, its `game` replay flips inGame back on and
+  // home's auto-nav re-enters — exactly like web, and exactly like the
+  // onReconnecting housekeeping path below. A drop on home / results just flags
+  // connecting.
   useEffect(() => {
     const unsub = wsService.onDisconnect(() => {
       const state = useMultiplayerStore.getState();
@@ -123,6 +133,12 @@ export function useWebSocket() {
         connected: false,
         verified: false,
         connecting: true,
+        // A GENUINE mid-session drop (server died / network cut) — not a
+        // housekeeping reconnect (those go through onReconnecting and never
+        // fire this handler). WsIndicator surfaces this on every screen; it
+        // stays set until the next verify so the whole drop→retry→red arc
+        // remains visible even after the teardown below pops the user home.
+        connectionDropped: true,
       });
 
       // Pre-match queue isn't recoverable — pop home (see tearDownPhantomQueue).
@@ -139,9 +155,16 @@ export function useWebSocket() {
       // Active game/party drop → leave and go home. setInGame(false) must run
       // BEFORE the service reads its reconnect budget (synchronous here, like
       // tearDownPhantomQueue) so the retry uses the full home budget.
+      // queueTeardownState covers 2v2 stage-1: queued (gameQueued '2v2') while
+      // still inside the staging lobby, so tearDownPhantomQueue's early-return
+      // (inGame true) never handled it.
       wsService.setInGame(false);
-      wsService.clearRejoinCode();
-      useMultiplayerStore.setState({ inGame: false, gameData: null, emotes: [] });
+      useMultiplayerStore.setState({
+        inGame: false,
+        gameData: null,
+        emotes: [],
+        ...queueTeardownState,
+      });
       state.pushToast({ key: 'connectionLostRecov', toastType: 'error' });
     });
     return unsub;
@@ -155,11 +178,15 @@ export function useWebSocket() {
     const unsub = wsService.onReconnectFailed(() => {
       useMultiplayerStore.setState({
         connected: false,
+        // Also reached DIRECTLY on a close under the terminal latch (uac /
+        // failedToLogin) — without passing through onDisconnect/onReconnecting,
+        // which are what used to clear `verified` on every other path here.
+        verified: false,
         connecting: false,
         inGame: false,
         gameData: null,
-        gameQueued: false,
         emotes: [],
+        ...queueTeardownState,
       });
     });
     return unsub;
@@ -195,9 +222,13 @@ export function useWebSocket() {
         connecting: true,
         // A reconnect starts from "not in a game"; only a server replay puts us
         // back. Matches web's onclose reset and the onDisconnect teardown above.
+        // The queue slice must go too (stage-1 slips past tearDownPhantomQueue's
+        // inGame early-return; a stage-2 rejoin gets re-synced by the server's
+        // enter2v2Queue replay if the teammate kept searching).
         inGame: false,
         gameData: null,
         emotes: [],
+        ...queueTeardownState,
       });
     });
     return unsub;

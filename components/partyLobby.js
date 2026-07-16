@@ -246,7 +246,11 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
                 className="party-lobby__icon-btn"
                 aria-label={text("inviteFriends")}
                 title={text("inviteFriends")}
-                disabled={pending || partyFull}
+                // Also disabled during stage-1 teammate matchmaking: the matcher
+                // can claim the one empty seat at any moment, so an invite
+                // accepted mid-search would race the random pairing for it.
+                // Cancel the search first to invite a friend instead.
+                disabled={pending || partyFull || teammateSearch}
                 onClick={openFriends}
               ><FaUserPlus /></button>
             )}

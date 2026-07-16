@@ -27,9 +27,11 @@ import { useRouter, useNavigation } from 'expo-router';
 import { colors, t } from '../src/shared';
 import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
-import { useMultiplayerStore } from '../src/store/multiplayerStore';
+import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplayerStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
+import EmoteReactions from '../src/components/multiplayer/EmoteReactions';
 
 const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
 
@@ -89,7 +91,12 @@ export default function QueueScreen() {
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
+  const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
   const exitedRef = useRef(false);
+  const is2v2 = gameQueued === '2v2';
+  // 2v2 Cancel is a REQUEST, not a local teardown (see handleCancel) — this
+  // just dims the button while the server round-trips the lobby restore.
+  const [cancelling, setCancelling] = useState(false);
 
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -129,6 +136,16 @@ export default function QueueScreen() {
     }
   }, [inGame, gameState]);
 
+  // A 2v2 cancel the server never answered (dead socket, dropped message):
+  // un-dim after a grace window so the X is visibly pressable again — an
+  // idempotent re-send recovers. The normal path unmounts this screen (lobby
+  // restore → nav owner replace) long before the timer fires.
+  useEffect(() => {
+    if (!cancelling) return;
+    const timer = setTimeout(() => setCancelling(false), 5000);
+    return () => clearTimeout(timer);
+  }, [cancelling]);
+
   // Server-side cancellation (gameCancelled etc.) → pop
   useEffect(() => {
     if (!gameQueued && !inGame) {
@@ -136,22 +153,63 @@ export default function QueueScreen() {
     }
   }, [gameQueued, inGame]);
 
-  // Swipe / hardware back → tell server, then let nav unwind naturally
+  // Swipe / hardware back → tell server, then let nav unwind naturally.
+  // Leaving-the-queue is expressed as STATE ("no match started"), not just the
+  // exitedRef: when a match lands, this screen's exit can be driven by the nav
+  // owner (home.tsx replace) in the same commit that another effect marks
+  // exitedRef — cross-component effect order isn't guaranteed, so a ref-only
+  // guard could fire leaveQueue at the freshly-started match and forfeit it.
+  //
+  // 2v2: the gesture must behave exactly like the X — a cancel REQUEST that
+  // stays put (binding ruling: backing out restores the staging-lobby card,
+  // never home). Letting the pop proceed here produced a home flash followed
+  // by the restored lobby snapshot yanking the user straight back in.
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (!exitedRef.current) {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (exitedRef.current) return;
+      const s = useMultiplayerStore.getState();
+      // A game/lobby snapshot already landed → this removal is nav-owner
+      // driven (match found / lobby restore / auto-demotion), not a user
+      // cancel. Let it pass FIRST: the demotion burst can flush both its
+      // messages in one commit, leaving gameQueued '2v2' AND inGame true —
+      // intercepting that replace would leaveQueue the auto stage-1 requeue
+      // the user never asked to leave.
+      if (s.inGame || s.gameData) {
         exitedRef.current = true;
-        wsService.send({ type: 'leaveQueue' });
-        useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
+        return;
       }
+      // 2v2: the gesture must behave exactly like the X — a cancel REQUEST
+      // that stays put (ruling: backing out restores the lobby, never home).
+      if (s.gameQueued === '2v2') {
+        e.preventDefault();
+        setCancelling(true);
+        wsService.send({ type: 'leaveQueue' });
+        return;
+      }
+      exitedRef.current = true;
+      wsService.send({ type: 'leaveQueue' });
+      useMultiplayerStore.setState({ ...queueTeardownState });
     });
     return unsubscribe;
   }, [navigation]);
 
   const handleCancel = () => {
     if (exitedRef.current) return;
+    // 2v2 stage-2 cancel: ask the server and WAIT. It restores/dissolves the
+    // staging lobby and answers with a `game` snapshot; the nav owner
+    // (home.tsx) then replaces this screen with the lobby — never a home
+    // flash. Local state stays queued so the pop-home effect above can't race
+    // the round-trip. If the server never answers, the X un-dims for an
+    // idempotent re-send, and a genuinely dead session self-heals via the
+    // liveness watchdog: the forced reconnect's teardown clears gameQueued
+    // and the pop-home effect above exits (~30-40s worst case).
+    if (is2v2) {
+      setCancelling(true);
+      wsService.send({ type: 'leaveQueue' });
+      return;
+    }
     wsService.send({ type: 'leaveQueue' });
-    useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
+    useMultiplayerStore.setState({ ...queueTeardownState });
     exitBack();
   };
 
@@ -164,13 +222,23 @@ export default function QueueScreen() {
         icon: 'trophy' as const,
         label: t('rankedDuel'),
       }
-    : {
-        accent: '#4ade80',
-        glow: '#22c55e',
-        gradient: ['#4ade80', '#16a34a'] as const,
-        icon: 'flash' as const,
-        label: t('unrankedDuel'),
-      };
+    : is2v2
+      ? {
+          // The 2v2 identity color/glyph everywhere else (web gameHistory.js
+          // badge: shield, #e91e63) — don't invent a second one.
+          accent: '#f06292',
+          glow: '#e91e63',
+          gradient: ['#f06292', '#c2185b'] as const,
+          icon: 'shield' as const,
+          label: t('twovtwo'),
+        }
+      : {
+          accent: '#4ade80',
+          glow: '#22c55e',
+          gradient: ['#4ade80', '#16a34a'] as const,
+          icon: 'flash' as const,
+          label: t('unrankedDuel'),
+        };
 
   // Shared building blocks — composed differently per orientation below.
   const radarEl = (
@@ -250,7 +318,7 @@ export default function QueueScreen() {
       />
 
       <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
-        <BackButton onPress={handleCancel} />
+        <BackButton onPress={handleCancel} style={cancelling ? styles.cancelPending : undefined} />
         <WgWordmark size="sm" style={styles.wordmark} />
       </SafeAreaView>
 
@@ -281,6 +349,14 @@ export default function QueueScreen() {
           </View>
         </View>
       )}
+
+      {/* 2v2 stage-2: the duo still shares its staging lobby server-side, so
+          emotes keep flowing while opponent-searching (web keeps its emote bar
+          on the queue banner). Store self-styling works off queueMyId. Team
+          coloring is inherently inactive here (gameData null → myTeam
+          unresolvable) — web behaves the same. Gated on the settings toggle
+          like every other mount (web returns null when it's off). */}
+      {is2v2 && emotesEnabled && <EmoteReactions />}
     </View>
   );
 }
@@ -304,6 +380,10 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     marginTop: 2,
+  },
+  // Cancel request in flight (2v2) — the X stays live, just reads "processing".
+  cancelPending: {
+    opacity: 0.45,
   },
   center: {
     flex: 1,

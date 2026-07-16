@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, Linking } from 'react-native';
+import { Modal, View, Text, StyleSheet, Linking } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

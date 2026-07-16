@@ -22,7 +22,18 @@ import ErrorBoundary from './ErrorBoundary';
  * that name to this component protects all of them with no JSX changes.
  */
 const RLMapContainer = dynamic(
-  () => import('react-leaflet').then((m) => m.MapContainer),
+  () => Promise.all([
+    import('react-leaflet'),
+    // Registers the fluidWheelZoom handler on L.Map before any map mounts.
+    // Maps opt in per-container via the fluidWheelZoom prop.
+    import('@/lib/leafletFluidZoom'),
+    // Settles interrupted CSS zoom animations before any new motion starts.
+    import('@/lib/leafletSettleZoomAnim'),
+    // Reprojects vectors every frame during flyTo / wheel-glide zooms instead
+    // of CSS-scaling stale geometry — keeps lines crisp and glued to their
+    // points during (and despite interruptions of) camera flights.
+    import('@/lib/leafletLiveVectors'),
+  ]).then(([m]) => m.MapContainer),
   { ssr: false },
 );
 
@@ -69,7 +80,10 @@ function MapFallback() {
 export default function SafeMapContainer(props) {
   return (
     <ErrorBoundary name="leaflet-map" fallback={<MapFallback />}>
-      <RLMapContainer {...props} />
+      {/* Fluid wheel zoom (lib/leafletFluidZoom.js) is the app-wide default;
+          the stock stepped scrollWheelZoom must stay off or both handlers
+          would fire per wheel event. Call sites can override either prop. */}
+      <RLMapContainer scrollWheelZoom={false} fluidWheelZoom={true} {...props} />
     </ErrorBoundary>
   );
 }

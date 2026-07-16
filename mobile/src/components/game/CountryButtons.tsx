@@ -3,16 +3,17 @@ import {
   Animated,
   Easing,
   Image,
-  Pressable,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { BlurView } from 'expo-blur';
-import { colors, t } from '../../shared';
+import { colors, getCurrentLanguage, t } from '../../shared';
 import {
   ALL_CONTINENTS,
+  continentKey,
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
@@ -38,11 +39,15 @@ interface CountryButtonsProps {
   disabled?: boolean;
   selected?: string | null;
   correct?: string | null;
-  compact?: boolean;
-  bottomInset?: number;
   onPress: (answer: string) => void;
 }
 
+// One sizing tier for every surface, matching the web where onboarding and
+// singleplayer buttons are the same coarse-pointer size (globals.scss). The
+// old "non-compact" onboarding fork (minHeight 78, 52×35 flags, full-bleed
+// dock) had no web counterpart. What web varies is COLUMNS, not size: 4
+// onboarding options wrap at 44% (2×2), 6 singleplayer options at 30% (3×2) —
+// so the column count is derived from the option count below.
 export default function CountryButtons({
   countries,
   mode,
@@ -50,8 +55,6 @@ export default function CountryButtons({
   disabled,
   selected,
   correct,
-  compact = true,
-  bottomInset = 0,
   onPress,
 }: CountryButtonsProps) {
   const { width, height } = useWindowDimensions();
@@ -61,6 +64,10 @@ export default function CountryButtons({
   const sc = (v: number) => Math.round(v * scale * 2) / 2;
   const isContinent = mode === 'continent';
   const items = isContinent ? [...ALL_CONTINENTS] : countries;
+  // Labels localize; the underlying answer values passed to onPress stay the
+  // raw English continent names / ISO codes the game logic compares against
+  // (web countryButtons.js:8,31 — nameFromCode(country, lang) + continentKey).
+  const lang = getCurrentLanguage();
   const isShort = height <= 500;
   // Tablets are excluded from the phone tier and get their own (below). Phones
   // keep the existing width<=600 behaviour untouched.
@@ -71,9 +78,7 @@ export default function CountryButtons({
   // fix for the iPad "buttons too small + skewed right with empty left space"
   // bug: the old code routed tablets down the `undefined`-width hug path.
   const useFlexLayout = isPhone || isTablet;
-  const containerWidth = !compact
-    ? width
-    : isContinent
+  const containerWidth = isContinent
     ? isPhone
       ? width - 12
       : Math.min(width * (isTablet ? 0.82 : 0.7), isTablet ? 920 : 750)
@@ -84,72 +89,64 @@ export default function CountryButtons({
   const buttonMetrics = useMemo(() => {
     if (isShort) {
       return {
-        containerPaddingH: compact ? 8 : 10,
-        containerPaddingV: compact ? 6 : 8,
-        containerGap: compact ? 3 : 5,
-        rowGap: compact ? 4 : 6,
-        buttonPaddingH: compact ? 3 : 6,
-        buttonPaddingV: compact ? 4 : 7,
-        buttonGap: compact ? 2 : 4,
-        buttonRadius: compact ? 8 : 10,
+        containerPaddingH: 8,
+        containerPaddingV: 6,
+        containerGap: 3,
+        rowGap: 4,
+        buttonPaddingH: 3,
+        buttonPaddingV: 4,
+        buttonGap: 2,
+        buttonRadius: 8,
         minWidth: 0,
-        flagWidth: compact ? 30 : 38,
-        flagHeight: compact ? 20 : 26,
-        iconSize: compact ? 24 : 30,
-        promptFont: compact ? 11.5 : 13,
-        labelFont: compact ? 10.4 : 12.2,
+        flagWidth: 30,
+        flagHeight: 20,
+        iconSize: 24,
+        promptFont: 11.5,
+        labelFont: 10.4,
       };
     }
 
     if (isTablet) {
       // Web parity: tablets use the coarse-pointer LAYOUT (handled above via
-      // useFlexLayout/flexBasis) but with sizes scaled up from the phone-compact
+      // useFlexLayout/flexBasis) but with sizes scaled up from the phone
       // baseline by the tablet factor — so flags and labels read at iPad
-      // proportions (intentionally a touch larger than web, which leaves them at
-      // phone px on iPad). `sc()` is 1.0× on phones, so this branch only ever
-      // runs on real tablets.
-      //
-      // The compact COUNTRY guesser (flag buttons) was overshooting on iPads, so
-      // its flag/label/vertical-padding are dialed back a notch — still clearly
-      // larger than the old phone-px baseline, just no longer giant. Continent
-      // buttons and the non-compact onboarding grid are deliberately untouched.
-      const countryCompact = compact && !isContinent;
+      // proportions (intentionally a touch larger than web, which leaves them
+      // at phone px on iPad). `sc()` is 1.0× on phones, so this branch only
+      // ever runs on real tablets.
       return {
-        containerPaddingH: sc(compact ? 10 : 14),
-        containerPaddingV: sc(compact ? 9 : 13),
-        containerGap: sc(compact ? 6 : 8),
-        rowGap: sc(compact ? 8 : 10),
-        buttonPaddingH: sc(countryCompact ? 9 : compact ? 12 : 16),
-        buttonPaddingV: sc(countryCompact ? 8 : compact ? 11 : 13),
+        containerPaddingH: sc(10),
+        containerPaddingV: sc(9),
+        containerGap: sc(6),
+        rowGap: sc(8),
+        buttonPaddingH: sc(isContinent ? 12 : 9),
+        buttonPaddingV: sc(isContinent ? 11 : 8),
         buttonGap: sc(5),
-        buttonRadius: sc(compact ? 12 : 14),
+        buttonRadius: sc(12),
         minWidth: 0,
-        // Non-compact (onboarding) flags trimmed so they don't overshoot ~2x web
-        // on a 12.9" iPad; compact singleplayer flags pulled in from 46→35.
-        flagWidth: sc(countryCompact ? 35 : 48),
-        flagHeight: sc(countryCompact ? 23 : 32),
-        iconSize: sc(compact ? 42 : 46),
-        promptFont: sc(compact ? 14 : 15.5),
-        labelFont: sc(countryCompact ? 11 : compact ? 13 : 14.5),
+        flagWidth: sc(35),
+        flagHeight: sc(23),
+        iconSize: sc(42),
+        promptFont: sc(14),
+        labelFont: sc(isContinent ? 13 : 11),
       };
     }
 
     if (isPhone) {
       return {
-        containerPaddingH: compact ? 8 : 14,
-        containerPaddingV: compact ? 8 : 14,
-        containerGap: compact ? 5 : 8,
-        rowGap: compact ? 5 : 8,
-        buttonPaddingH: compact ? 6 : 12,
-        buttonPaddingV: compact ? 8 : 12,
-        buttonGap: compact ? 4 : 6,
-        buttonRadius: compact ? 9 : 12,
+        containerPaddingH: 8,
+        containerPaddingV: 8,
+        containerGap: 5,
+        rowGap: 5,
+        buttonPaddingH: 6,
+        buttonPaddingV: 8,
+        buttonGap: 4,
+        buttonRadius: 9,
         minWidth: 0,
-        flagWidth: compact ? 40 : 52,
-        flagHeight: compact ? 27 : 35,
-        iconSize: compact ? 36 : 42,
-        promptFont: compact ? 13.1 : 15,
-        labelFont: compact ? 12.2 : 14,
+        flagWidth: 40,
+        flagHeight: 27,
+        iconSize: 36,
+        promptFont: 13.1,
+        labelFont: 12.2,
       };
     }
 
@@ -169,7 +166,7 @@ export default function CountryButtons({
       promptFont: 13.6,
       labelFont: 12,
     };
-  }, [compact, isContinent, isTablet, isPhone, isShort, scale]);
+  }, [isContinent, isTablet, isPhone, isShort, scale]);
 
   const rowWrap = isShort && !isContinent ? 'nowrap' : 'wrap';
 
@@ -191,15 +188,17 @@ export default function CountryButtons({
     const delay = isContinent ? 45 : 55;
     const animation = Animated.parallel(
       entranceAnims.map((a, i) =>
-        Animated.sequence([
-          Animated.delay(i * delay),
-          Animated.timing(a, {
-            toValue: 1,
-            duration: 260,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: false,
-          }),
-        ]),
+        // Native driver (delay included) = compositor thread, like the web's
+        // CSS cardSlideIn. The JS thread is busy mounting WebViews at exactly
+        // the moment this runs, and a JS-driven fade stutters under that
+        // load — most visibly on the first button, whose delay is 0.
+        Animated.timing(a, {
+          toValue: 1,
+          duration: 260,
+          delay: i * delay,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
       ),
       { stopTogether: false },
     );
@@ -216,15 +215,13 @@ export default function CountryButtons({
         isPhone && styles.wrapPhone,
         isShort && styles.wrapShort,
         isContinent && styles.wrapContinent,
-        !compact && styles.wrapFullBottom,
         {
           width: containerWidth,
           // Continent wrap is capped at 750 by styles.wrapContinent; lift it on
           // tablets so the 6-button grid can use the wider scaled container.
           ...(isContinent && isTablet ? { maxWidth: 920 } : null),
           paddingHorizontal: buttonMetrics.containerPaddingH,
-          paddingTop: buttonMetrics.containerPaddingV,
-          paddingBottom: buttonMetrics.containerPaddingV + bottomInset,
+          paddingVertical: buttonMetrics.containerPaddingV,
           gap: buttonMetrics.containerGap,
         },
       ]}
@@ -255,20 +252,20 @@ export default function CountryButtons({
         pointerEvents={tapDisabled ? 'none' : 'auto'}
       >
         {items.map((item, i) => {
-          const fullName = isContinent ? item : nameFromCode(item);
+          const fullName = isContinent ? t(continentKey(item)) : nameFromCode(item, lang);
           const isSelected = selected === item;
           const isCorrect = correct && item === correct;
           const isWrongPick = selected && correct && isSelected && item !== correct;
+          // Column count mirrors web: continents always 30% (3×2); country
+          // rounds wrap 4 options at 44% (2×2, onboarding) and 6 at 30% (3×2).
           const flexBasis = isShort
             ? isContinent
               ? '14%'
               : 0
             : useFlexLayout
-              ? isContinent
+              ? isContinent || items.length > 4
                 ? '30%'
-                : compact
-                  ? '30%'
-                  : '44%'
+                : '44%'
               : isContinent
                 ? width <= 900
                   ? '30%'
@@ -289,6 +286,10 @@ export default function CountryButtons({
               ]}
             >
               <Pressable
+                // Web data-no-click-sfx parity (countryButtons.js): the press
+                // IS the guess, so the reveal whoosh is its sound — click_2
+                // stacking on top was explicitly opted out on web.
+                sfx="none"
                 onPress={() => !tapDisabled && onPress(item)}
                 disabled={tapDisabled}
                 style={styles.pressable}
@@ -297,7 +298,6 @@ export default function CountryButtons({
                   <Animated.View
                     style={[
                       styles.btn,
-                      !compact && styles.btnOnboarding,
                       {
                         minWidth: buttonMetrics.minWidth,
                         paddingHorizontal: buttonMetrics.buttonPaddingH,
@@ -305,6 +305,10 @@ export default function CountryButtons({
                         gap: buttonMetrics.buttonGap,
                         borderRadius: buttonMetrics.buttonRadius,
                         opacity: entrance,
+                        // Press scale lives in the SAME transform array as the
+                        // animated translateY: a separate static style would
+                        // replace the whole transform (style arrays override
+                        // `transform` as a unit) and detach the animated node.
                         transform: [
                           {
                             translateY: entrance.interpolate({
@@ -312,6 +316,7 @@ export default function CountryButtons({
                               outputRange: [14, 0],
                             }),
                           },
+                          { scale: pressed && !tapDisabled ? 0.97 : 1 },
                         ],
                       },
                       isCorrect && styles.btnCorrect,
@@ -330,6 +335,7 @@ export default function CountryButtons({
                           },
                         ]}
                         resizeMode="contain"
+                        fadeDuration={0}
                       />
                     ) : (
                       <Image
@@ -342,6 +348,11 @@ export default function CountryButtons({
                           },
                         ]}
                         resizeMode="contain"
+                        // Android fades images in over 300ms by default, even
+                        // from cache. The first button is visible from frame
+                        // one (entrance delay 0), so that fade reads as the
+                        // flag flickering in after the button shell.
+                        fadeDuration={0}
                       />
                     )}
                     <Text
@@ -389,10 +400,6 @@ const styles = StyleSheet.create({
   wrapContinent: {
     maxWidth: 750,
   },
-  wrapFullBottom: {
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-  },
   prompt: {
     color: 'rgba(255, 255, 255, 0.85)',
     fontFamily: 'Lexend-Medium',
@@ -419,13 +426,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnOnboarding: {
-    minHeight: 78,
-  },
   btnPressed: {
     backgroundColor: 'rgba(63, 185, 80, 0.1)',
     borderColor: '#3fb950',
-    transform: [{ scale: 0.97 }],
   },
   btnCorrect: {
     backgroundColor: 'rgba(63, 185, 80, 0.16)',

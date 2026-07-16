@@ -10,12 +10,12 @@ import {
   Modal,
   View,
   Text,
-  Pressable,
   ScrollView,
   StyleSheet,
   Platform,
   Share,
 } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
@@ -54,6 +54,16 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
     [partyPlayers],
   );
 
+  // Full party = nobody left to invite (middle layer of the 3-layer guard:
+  // lobby button disables, this modal blocks, server backstops with a
+  // gameIsFull toast — web partyLobby.js/friendsModal parity). Only 2v2
+  // staging lobbies (and small-capped games) ever fill; open parties'
+  // maxPlayers is effectively unbounded.
+  const maxPlayers = useMultiplayerStore((s) => s.gameData?.maxPlayers);
+  const is2v2Lobby = useMultiplayerStore((s) => !!s.gameData?.is2v2Lobby);
+  const partyFull =
+    (partyPlayers?.length ?? 0) >= (maxPlayers ?? (is2v2Lobby ? 2 : Infinity));
+
   // The check shows if the friend is in the party (accepted) OR we invited them
   // within the last 5s. Derived from durable store state, so it survives the
   // modal closing/reopening.
@@ -62,7 +72,7 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
     (invitedFriends[friendId] != null && now - invitedFriends[friendId] < 5000);
 
   const handleInvite = (friend: { id: string; socketId?: string | null }) => {
-    if (!friend.socketId) return;
+    if (!friend.socketId || partyFull) return;
     inviteFriendToGame(friend.socketId, friend.id);
     setNow(Date.now());
   };
@@ -103,7 +113,7 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
       supportedOrientations={['portrait', 'landscape']}
     >
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+        <Pressable sfx="none" style={StyleSheet.absoluteFillObject} onPress={onClose} />
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>
@@ -143,10 +153,11 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
                   </Text>
                   <Pressable
                     onPress={() => handleInvite(friend)}
-                    disabled={isInvited(friend.id)}
+                    disabled={isInvited(friend.id) || partyFull}
                     style={({ pressed }) => [
                       styles.inviteBtn,
                       isInvited(friend.id) && styles.inviteBtnSent,
+                      partyFull && !isInvited(friend.id) && { opacity: 0.5 },
                       pressed && { opacity: 0.85 },
                     ]}
                   >

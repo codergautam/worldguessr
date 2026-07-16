@@ -109,11 +109,16 @@ export default function OnboardingPlay() {
     return shuffle([...currentLoc.otherOptions, currentLoc.country]);
   }, [round, currentLoc]);
 
-  // Preload flag images on mount so country buttons don't pop in.
+  // Preload flag images on mount so country buttons don't pop in. The URLs
+  // must match the rendered sizes EXACTLY or the cache never hits: buttons
+  // render w80 (CountryButtons), the end banner renders the w160 default.
   useEffect(() => {
     const codes = ONBOARDING_LOCATIONS.flatMap((l) => [l.country, ...l.otherOptions]);
     Array.from(new Set(codes)).forEach((cc) => {
-      Image.prefetch(flagUrl(cc)).catch(() => {});
+      Image.prefetch(flagUrl(cc, 'w80')).catch(() => {});
+    });
+    ONBOARDING_LOCATIONS.forEach((l) => {
+      Image.prefetch(flagUrl(l.country)).catch(() => {});
     });
   }, []);
 
@@ -392,9 +397,10 @@ export default function OnboardingPlay() {
         onGuessPositionChange={setGuessPosition}
         onSubmitPin={submitClassicGuess}
         countryOptions={otherOptions}
-        countryPicked={lastResult?.picked ?? null}
+        // Gated on showResult so the previous round's pick doesn't leak into
+        // the next round's `selected` (singleplayer clears picked on advance).
+        countryPicked={showResult ? lastResult?.picked ?? null : null}
         correctAnswer={showResult ? lastResult?.correct ?? null : null}
-        compactCountryButtons={false}
         onAnswerCountry={submitCountryAnswer}
         isShowingResult={!isUndecided && showResult}
         guessPoints={lastResult?.points}

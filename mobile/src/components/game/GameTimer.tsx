@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Animated, {
   cancelAnimation,
   interpolate,
@@ -16,6 +17,7 @@ import { t } from '../../shared/locale';
 import { fontSizes } from '../../styles/theme';
 import { useGameUiScale } from '../../styles/responsive';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
+import { playSfx, stopSfx } from '../../services/sound';
 
 interface GameTimerProps {
   timeRemaining: number;
@@ -44,6 +46,14 @@ interface GameTimerProps {
    * round + animated-score pill used by singleplayer / casual multiplayer.
    */
   variant?: 'default' | 'duel';
+  /**
+   * Host stall-relief (web gameUI.js timer__force-end parity): with the round
+   * timer disabled, idle players hold the round open forever — this renders an
+   * "End Round" button under the pill while the round is open-ended (the same
+   * infinite-round condition that hides the countdown). Pass it only when the
+   * viewer is the private-game host and state is 'guess'.
+   */
+  onForceEndRound?: () => void;
 }
 
 // ── Motion policy ───────────────────────────────────────────────────────────
@@ -82,8 +92,19 @@ export default function GameTimer({
   criticalEnabled = true,
   hasGuess = false,
   variant = 'default',
+  onForceEndRound,
 }: GameTimerProps) {
-  const [timeRemaining, setTimeRemaining] = useState(initialTime);
+  // Seed from serverEndTime when server-driven so the very first render already
+  // has a number. On duel reconnect the partial `game` snapshot carries
+  // nextEvtTime (serverEndTime) but NOT timePerRound, so `initialTime` arrives
+  // undefined — the update effect below only runs post-render, so without this
+  // the duel variant would `undefined.toFixed(1)` and crash the whole tree.
+  const [timeRemaining, setTimeRemaining] = useState<number>(() => {
+    if (serverEndTime !== undefined && serverEndTime > 0) {
+      return Math.max(0, Math.floor((serverEndTime - Date.now() - timeOffset) / 100) / 10);
+    }
+    return initialTime ?? 0;
+  });
   // Tablet scale: this HUD pill uses fixed theme px (md/xs) that read small on an
   // iPad. Bump the text + pill padding up. Phones: sc is 1.0× (no-op).
   const { sc, isTablet } = useGameUiScale();
@@ -97,7 +118,7 @@ export default function GameTimer({
   // Reset timer when initialTime changes (new round) — local mode only
   useEffect(() => {
     if (!isServerDriven) {
-      setTimeRemaining(initialTime);
+      setTimeRemaining(initialTime ?? 0);
     }
   }, [initialTime, roundKey, isServerDriven]);
 
@@ -159,6 +180,32 @@ export default function GameTimer({
     timeRemaining > 0 &&
     !isPaused &&
     !hasGuess;
+
+  // Round-clock ticking bed: the last-5s window, one shot per round, and —
+  // unlike the red critical skin — deliberately NOT gated on having guessed
+  // (user ruling: a locked-in player still hears the reveal closing in).
+  // Stopped the moment the window exits (early round advance, pause) and on
+  // unmount, so ticks can never play over the reveal.
+  const inTickingWindow =
+    criticalEnabled && shouldShowCountdown && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;
+  const tickingRoundRef = useRef<number | string | null>(null);
+  useEffect(() => {
+    if (inTickingWindow) {
+      if (tickingRoundRef.current !== (roundKey ?? 'round')) {
+        tickingRoundRef.current = roundKey ?? 'round';
+        // Web mix (gameUI.js): fixed pitch — a wobbling clock reads broken —
+        // at a bed level under the one-shots.
+        playSfx('ticking', { pitchJitter: 0, volume: 0.6 });
+      }
+      return;
+    }
+    // Re-arm on window exit: within a round time only moves forward, so the
+    // window can only re-enter via a pause (map modal) — clearing here lets
+    // the bed resume for the remaining seconds instead of staying silent.
+    tickingRoundRef.current = null;
+    stopSfx('ticking');
+  }, [inTickingWindow, roundKey]);
+  useEffect(() => () => stopSfx('ticking'), []);
 
   // Drive the two shared values off `isCritical`. The skin tweens smoothly both
   // ways; the breathe loop only runs while critical (and is cancelled + reset
@@ -280,6 +327,14 @@ export default function GameTimer({
         </Text>
         <Text style={styles.pointsLabel}> {t('pts')}</Text>
       </Text>
+      {isInfiniteRound && onForceEndRound && (
+        <Pressable
+          onPress={onForceEndRound}
+          style={({ pressed }) => [styles.forceEndBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={[styles.forceEndText, { fontSize: sc(fontSizes.xs) }]}>{t('endRound')}</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }
@@ -355,5 +410,20 @@ const styles = StyleSheet.create({
   pointsLabel: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'Lexend-SemiBold',
+  },
+  // Host "End Round" stall-relief button (web .timer__force-end).
+  forceEndBtn: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  forceEndText: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.xs,
   },
 });

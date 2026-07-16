@@ -13,7 +13,8 @@
  */
 
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from './ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';

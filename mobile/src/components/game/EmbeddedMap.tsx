@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { EMBED_HTML } from '../../generated/embedHtml';
+import { playSfx, toGain } from '../../services/sound';
+import { useSettingsStore } from '../../store/settingsStore';
 import LeafletMap from './LeafletMap';
 
 /**
@@ -48,6 +50,13 @@ interface Props {
    * green, each team's closest guesser enlarged (mirrors web ResultsMap).
    */
   teams?: Record<string, string> | null;
+  /**
+   * The viewer's own player id. Load-bearing for team pin color: the embed
+   * resolves "my team" as teams[myId], so an empty/wrong id paints EVERY other
+   * pin (teammates included) enemy-green. Must match the id-space of `teams`
+   * keys (live session id / history accountId).
+   */
+  myId?: string | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
 
@@ -99,6 +108,7 @@ export default function EmbeddedMap({
   activeRound,
   isDuel,
   teams,
+  myId,
   selectedPlayer,
   location,
   guessPosition,
@@ -124,6 +134,12 @@ export default function EmbeddedMap({
   const readyRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
 
+  // The pin click plays INSIDE the WebView (embed shim, Web Audio at the tap —
+  // the postMessage bridge made the native pin audibly laggy). The shim holds
+  // no volume of its own: the app's effective gain rides every updateProps, so
+  // slider changes apply live and muted stays zero-cost in-page too.
+  const sfxVolume = useSettingsStore((s) => s.sfxVolume);
+
   // On the results screen this WebView cold-starts on every fresh route mount —
   // a dark spinner then an abrupt map pop ("loading for a bit"). Fade the map in
   // once it signals ready so it emerges smoothly instead. Scoped to results so
@@ -143,15 +159,18 @@ export default function EmbeddedMap({
   // Mobile game state → the serializable prop subset the bundled embed expects.
   const buildProps = useCallback(() => {
     if (route === 'results') {
-      // opponents already exclude me, so myId='' renders them all; my guess
-      // comes from each round's guessLat/guessLong.
+      // myId is load-bearing for TEAM pin color (embed reads teams[myId] to
+      // find "my team", then paints teammates blue / enemies green). The plain
+      // pin set doesn't need it (opponents already exclude me; my own guess
+      // comes from each round's guessLat/guessLong), so '' is a safe fallback
+      // for non-team results.
       return {
         mode: 'results',
         lang,
         mapType,
         rounds: rounds ?? [],
         activeRound: activeRound ?? null,
-        myId: '',
+        myId: myId ?? '',
         isDuel: !!isDuel,
         teams: teams ?? null,
         selectedPlayer: selectedPlayer ?? null,
@@ -161,6 +180,9 @@ export default function EmbeddedMap({
       mode: 'map',
       lang,
       shown: true,
+      // Perceptual gain (toGain) applied HOST-side so the shim needs no
+      // volume model of its own.
+      sfxGain: toGain(sfxVolume),
       options: { mapType },
       pinPoint: guessPosition ? { lat: guessPosition.lat, lng: guessPosition.lng } : null,
       answerShown: !!isShowingResult,
@@ -182,6 +204,7 @@ export default function EmbeddedMap({
   }, [
     route,
     lang,
+    sfxVolume,
     mapType,
     guessPosition,
     isShowingResult,
@@ -198,6 +221,7 @@ export default function EmbeddedMap({
     activeRound,
     isDuel,
     teams,
+    myId,
     selectedPlayer,
   ]);
 
@@ -267,7 +291,12 @@ export default function EmbeddedMap({
     return (
       <LeafletMap
         guessPosition={guessPosition ?? null}
-        onGuessPositionChange={onGuessPositionChange}
+        onGuessPositionChange={(p) => {
+          // The embed shim normally owns the pin click; this fallback map has
+          // no shim, so sound it natively (bridge latency beats silence).
+          playSfx('pin');
+          onGuessPositionChange?.(p);
+        }}
         actualPosition={isShowingResult && location ? { lat: location.lat, lng: location.long } : null}
         isShowingResult={isShowingResult}
         guessPoints={guessPoints}
@@ -293,6 +322,10 @@ export default function EmbeddedMap({
           domStorageEnabled
           setSupportMultipleWindows={false}
           androidLayerType="hardware"
+          // Lets the shim's AudioContext unlock at load instead of on the
+          // first tap, so even the FIRST pin click is on the zero-latency
+          // path. The page has no other media; nothing else can autoplay.
+          mediaPlaybackRequiresUserAction={false}
           {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true } : {})}
         />
       </Animated.View>
