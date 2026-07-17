@@ -142,6 +142,35 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
   onInvalid();
 }
 
+// Mid-signup accounts (Google linked, username not chosen yet) must not enter
+// any game surface: rosters/queues assume a username, and the client's
+// first-run username modal reloads the page on save — any game they slipped
+// into would show a nameless player and then orphan the seat. Derived, not a
+// flag: guests always carry a generated "Guest #..." name and named accounts
+// their own, so only a mid-signup account matches. Guards every entry point
+// (both queues, 2v2 matchmaking, create/join/invite); in-lobby messages need
+// no guard since an unnamed player can never get into a lobby past these.
+// Sentence-as-key: the current web client parks the join until the name is
+// set, so only stale or hand-rolled clients ever see these (rendered verbatim).
+function blockUnnamed(player, viaGameJoinError = false) {
+  if (!player.accountId || player.username) return false;
+  // Self-heal for stale Players: setName is HTTP-only, so a socket that
+  // verified BEFORE the name was chosen never learns it. Web reloads after
+  // setName (reconnect re-stamps via handleReconnect), but mobile's socket
+  // can outlive signup indefinitely. Fire-and-forget refresh: this attempt
+  // still bounces, the user's next tap passes. (Handlers are sync — awaiting
+  // here would change message-ordering guarantees, so no inline await.)
+  User.findById(player.accountId).select('username').then((u) => {
+    if (u?.username && !player.username) player.username = u.username;
+  }).catch(() => {});
+  if (viaGameJoinError) {
+    player.send({ type: 'gameJoinError', error: 'Choose a username first' });
+  } else {
+    player.send({ type: 'toast', key: 'Choose a username first', toastType: 'error' });
+  }
+  return true;
+}
+
 // connect to db
 if (!process.env.MONGODB) {
   console.log("[MISSING-ENV WARN] MONGODB env variable not set");
@@ -660,6 +689,7 @@ app.ws('/wg', {
       }
 
       if((json.type === 'unrankedDuel') && !player.gameId) {
+        if (blockUnnamed(player)) return;
         if(player.banned) {
           player.send({
             type: 'toast',
@@ -714,6 +744,7 @@ app.ws('/wg', {
       // guards), so the match is pure feel — stamp a display elo for the
       // matchup math.
       if ((json.type === 'publicDuel') && (player.accountId || BOTS_INSTANT) && !player.gameId) {
+        if (blockUnnamed(player)) return;
         if(player.banned) {
           player.send({
             type: 'toast',
@@ -1076,6 +1107,7 @@ app.ws('/wg', {
 
 
       if (json.type === 'acceptInvite' && json.code && player.accountId) {
+        if (blockUnnamed(player)) return;
         // Block banned users and users with pending name changes from multiplayer
         if (player.banned) {
           player.send({
@@ -1208,6 +1240,7 @@ app.ws('/wg', {
       if (json.type === 'join2v2Lobby') { json.type = 'joinPrivateGame'; }
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
+        if (blockUnnamed(player)) return;
 
         // Block banned users and users with pending name changes from multiplayer
         if (player.banned) {
@@ -1371,6 +1404,9 @@ app.ws('/wg', {
       }
 
       if (json.type === 'joinPrivateGame') {
+        // gameJoinError (not a toast) so both join surfaces — the join screen
+        // and the ?party= deep link — resolve their pending/spinner state.
+        if (blockUnnamed(player, true)) return;
         // Block banned users and users with pending name changes from multiplayer
         if (player.banned) {
           player.send({
@@ -1423,7 +1459,12 @@ app.ws('/wg', {
           if (game.is2v2Lobby && !player.accountId) {
             player.send({
               type: 'gameJoinError',
-              error: 'Link your Google account to play 2v2'
+              error: 'Link your Google account to play 2v2',
+              // Additive + backwards compatible: old bundles ignore unknown
+              // fields and keep matching on the error string above (do NOT
+              // change it). New clients personalize the conversion prompt
+              // with the inviter's name.
+              hostName: Object.values(game.players).find((p) => p.host)?.username || undefined
             });
             return;
           }
@@ -1488,6 +1529,7 @@ app.ws('/wg', {
         if (game.public || game.state !== 'waiting' || !game.players[player.id]?.host) return;
         if (game.teamGame) return; // a team-mode party must never dissolve into the ranked queue
         if (Object.keys(game.players).length > 2) return; // 2v2 queues take at most a duo
+        if (blockUnnamed(player)) return;
         if (player.banned) {
           player.send({ type: 'toast', key: 'accountSuspended', toastType: 'error' });
           return;

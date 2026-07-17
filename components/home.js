@@ -581,6 +581,37 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // blank mid fade-out; the boolean drives open/close.
     const [linkGoogleModal, setLinkGoogleModal] = useState(null);
     const [linkGoogleModalOpen, setLinkGoogleModalOpen] = useState(false);
+    // Inviter's username when the link-Google prompt came from a party-invite
+    // gate (server's hostName on the gameJoinError). Personalizes the modal
+    // copy; MUST be cleared when the modal opens from any other surface.
+    const [linkGoogleInviter, setLinkGoogleInviter] = useState(null);
+    // Party code whose join bounced off the server's guest 2v2 gate
+    // ("Link your Google account to play 2v2"). Google sign-in is a popup
+    // (no reload), so after linking, the account verify ack on this same
+    // socket retries the join — invite link → sign in → friend's lobby.
+    const joinAfterLoginRef = useRef(null);
+    // Last code a joinPrivateGame was SENT with — stamped synchronously at the
+    // send site. The gate-error handlers must read this, NOT joinOptions
+    // .gameCode: on a deep link the state stamp races the server's rejection
+    // (boot-storm renders commit late), and the subscribe closure still sees
+    // null while the manual join screen path had it in state all along.
+    const lastJoinCodeRef = useRef(null);
+    // Fresh session at verify-ack time. The ws subscribe closure only refreshes
+    // on multiplayerState changes, so its `session` can predate the sign-in
+    // that triggered the ack — the retry must read through this ref to tell a
+    // fresh signup (no username yet) from an existing account.
+    const sessionRef = useRef(null);
+    useEffect(() => { sessionRef.current = session; }, [session]);
+    // Park a party code in the URL (no navigation) so it survives the
+    // first-run username modal's post-save reload: the boot lands on the
+    // existing ?party= deep-link auto-join, now as a named account.
+    const parkPartyJoin = (code) => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            params.set('party', String(code));
+            window.history.replaceState({}, '', window.location.pathname + '?' + params.toString());
+        } catch (e) { }
+    };
     const [showDiscordModal, setShowDiscordModal] = useState(false);
     const [singlePlayerRound, setSinglePlayerRound] = useState(null);
     const [partyModalShown, setPartyModalShown] = useState(false);
@@ -1711,10 +1742,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (args[0]) {
                 setScreen("multiplayer")
 
+                // Synchronous stamp BEFORE the send: the gate-error handlers
+                // read this ref — a state stamp races the server's reply on
+                // deep links (boot-storm renders commit after the rejection).
+                lastJoinCodeRef.current = args[0];
                 setMultiplayerState((prev) => ({
                     ...prev,
                     joinOptions: {
                         ...prev.joinOptions,
+                        // Mirror into state for the join screen's input only.
+                        gameCode: args[0],
                         error: false,
                         progress: true
                     }
@@ -2370,31 +2407,114 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     ...prev,
                     extent: null
                 }))
+            } else if (data.type === "verify") {
+                // Account verify ack (guest acks carry guestName; this one
+                // doesn't, so an account is now attached to this socket — the
+                // server stamps accountId BEFORE sending the ack). If a guest's
+                // 2v2 party join was gated and they signed in from the
+                // conversion modal, complete the join.
+                if (!data.guestName && joinAfterLoginRef.current) {
+                    const code = joinAfterLoginRef.current;
+                    joinAfterLoginRef.current = null;
+                    const sess = sessionRef.current;
+                    if (sess?.token?.secret && !sess.token.username && !inCrazyGames) {
+                        // FRESH SIGNUP: no username yet, so the mandatory
+                        // username modal is about to cover the screen and its
+                        // save reloads the page — joining now would seat a
+                        // nameless account and the reload would orphan it
+                        // (the server refuses unnamed joins anyway). Park the
+                        // code back in the URL: after the reload the existing
+                        // ?party= deep-link flow joins the now-named account.
+                        parkPartyJoin(code);
+                    } else {
+                        // Existing account: no modal, no reload — join now,
+                        // same socket, already upgraded.
+                        handleMultiplayerAction("joinPrivateGame", code);
+                    }
+                }
             } else if (data.type === "gameJoinError") {
-                if (multiplayerState.lobbyIntent) {
-                    // On the join screen (or a lobby shell) → inline error,
-                    // translated via the same keys the deep-link toast uses.
-                    const inlineKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
-                    setMultiplayerState((prev) => ({
-                        ...prev,
-                        joinOptions: {
-                            ...prev.joinOptions,
-                            error: text(inlineKey) || data.error,
-                            progress: false
-                        }
-                    }))
+                if (data.error === 'Link your Google account to play 2v2') {
+                    // ws joinPrivateGame's guest gate on 2v2 staging lobbies.
+                    // A guest opening a friend's 2v2 invite is a conversion
+                    // moment, not a bad code — don't let the generic mapping
+                    // below render it as "invalid party code". Reuse the same
+                    // link-Google modal the home 2v2 button shows, and stash
+                    // the code for the post-login retry (verify branch above).
+                    joinAfterLoginRef.current = lastJoinCodeRef.current || null;
+                    // Personalize with the inviter when the server sent it
+                    // (additive field; old ws builds simply don't include it).
+                    setLinkGoogleInviter(data.hostName || null);
+                    setLinkGoogleModal('2v2');
+                    setLinkGoogleModalOpen(true);
+                    if (multiplayerState.lobbyIntent) {
+                        // Manual code entry: stay on the join screen, just stop
+                        // the spinner — the modal carries the messaging.
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            joinOptions: { ...prev.joinOptions, progress: false, error: false }
+                        }));
+                    } else {
+                        // Deep link (?party=): land on home behind the modal —
+                        // same teardown as the generic branch, minus the toast.
+                        setScreen("home");
+                        setMultiplayerState((prev) => ({
+                            ...initialMultiplayerState,
+                            connected: prev.connected,
+                            verified: prev.verified,
+                            playerCount: prev.playerCount,
+                            guestName: prev.guestName
+                        }));
+                    }
+                } else if (data.error === 'Choose a username first' && lastJoinCodeRef.current) {
+                    // Server unnamed-guard: the account exists but hasn't
+                    // picked a name, so the username modal owns the screen and
+                    // its save reloads the page. Re-park the attempted code so
+                    // the reload's ?party= flow completes the join — this
+                    // self-heals any race where a join fired before the client
+                    // learned the account is unnamed. No toast: the modal is
+                    // the messaging.
+                    parkPartyJoin(lastJoinCodeRef.current);
+                    if (multiplayerState.lobbyIntent) {
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            joinOptions: { ...prev.joinOptions, progress: false, error: false }
+                        }));
+                    } else {
+                        setScreen("home");
+                    }
                 } else {
-                    // Joined via link — show toast and go home
-                    const errorKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
-                    toast(text(errorKey) || data.error, { type: 'error' });
-                    setScreen("home");
-                    setMultiplayerState((prev) => ({
-                        ...initialMultiplayerState,
-                        connected: prev.connected,
-                        verified: prev.verified,
-                        playerCount: prev.playerCount,
-                        guestName: prev.guestName
-                    }));
+                    // Map ONLY the known bad-code strings to locale keys;
+                    // any other server sentence (gate messages like 'Choose a
+                    // username first') passes through verbatim — collapsing
+                    // unknowns into invalidPartyCode told gated users the code
+                    // was bad instead of showing the real reason. Mirrors the
+                    // mobile store's gameJoinError mapping.
+                    const errorKey = data.error === 'Game is full' ? 'partyFull'
+                        : data.error === 'Invalid game code' ? 'invalidPartyCode'
+                            : null;
+                    const errorMsg = errorKey ? (text(errorKey) || data.error) : data.error;
+                    if (multiplayerState.lobbyIntent) {
+                        // On the join screen (or a lobby shell) → inline error.
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            joinOptions: {
+                                ...prev.joinOptions,
+                                error: errorMsg,
+                                progress: false
+                            }
+                        }))
+                    } else {
+                        // Joined via link — show toast and go home
+                        toast(errorMsg, { type: 'error' });
+                        setScreen("home");
+                        setMultiplayerState((prev) => ({
+                            ...initialMultiplayerState,
+                            connected: prev.connected,
+                            verified: prev.verified,
+                            playerCount: prev.playerCount,
+                            guestName: prev.guestName
+                        }));
+                    }
                 }
             } else if (data.type === 'generating') {
                 // location generation before round
@@ -3363,7 +3483,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 mounted after first open so closes animate (open-prop driven);
                 react-responsive-modal renders nothing while closed. */}
             {suggestModalMountedRef.current && <SuggestAccountModal shown={showSuggestLoginModal && !linkGoogleModalOpen} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
-            {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) setLinkGoogleModalOpen(false); }} variant={linkGoogleModal} inCrazyGames={inCrazyGames} />}
+            {/* Closing the modal by hand abandons any pending gated-join retry
+                (the post-login auto-close goes through the session effect above,
+                not this setOpen, so a successful sign-in keeps it). CrazyGames
+                is exempt: its auth prompt success closes the modal itself before
+                the SDK auth listener re-verifies, and clearing here would kill
+                the retry mid-conversion. */}
+            {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) { setLinkGoogleModalOpen(false); if (!inCrazyGames) joinAfterLoginRef.current = null; } }} variant={linkGoogleModal} inviterName={linkGoogleInviter} inCrazyGames={inCrazyGames} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
@@ -3764,6 +3890,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     <button className="g2_nav_text" aria-label="Duels" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
+                                                            setLinkGoogleInviter(null); // generic open: no inviter copy
                                                             setLinkGoogleModal('ranked');
                                                             setLinkGoogleModalOpen(true);
                                                             return;
@@ -3791,6 +3918,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
+                                                            setLinkGoogleInviter(null); // generic open: no inviter copy
                                                             setLinkGoogleModal('2v2');
                                                             setLinkGoogleModalOpen(true);
                                                             return;

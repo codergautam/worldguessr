@@ -11,11 +11,14 @@ import { FaGoogle, FaTrophy, FaChartLine, FaGamepad, FaUsers } from 'react-icons
 // On CrazyGames the linked account is the platform's, not Google, so titles
 // and the CTA swap to CrazyGames-branded keys.
 const VARIANTS = {
-  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', crazyTitleKey: 'linkCrazyGames2v2Title', descKey: 'linkGoogle2v2Desc' },
+  // invitedDescKey: personalized copy when the prompt was triggered by a
+  // party invite and the server told us who sent it (hostName on the
+  // gameJoinError) — a friend's name converts better than generic copy.
+  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', crazyTitleKey: 'linkCrazyGames2v2Title', descKey: 'linkGoogle2v2Desc', invitedDescKey: 'linkGoogle2v2InvitedDesc' },
   'ranked': { Icon: FaTrophy, titleKey: 'linkGoogleRankedTitle', crazyTitleKey: 'linkCrazyGamesRankedTitle', descKey: 'linkGoogleRankedDesc' },
 };
 
-export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inCrazyGames = false }) {
+export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inviterName = null, inCrazyGames = false }) {
   const { t: text } = useTranslation("common");
   const variantDef = variant ? VARIANTS[variant] : null;
   const Icon = variantDef?.Icon || FaTrophy;
@@ -143,7 +146,11 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         lineHeight: '1.6',
         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
       }}>
-        {text(variantDef ? variantDef.descKey : (inCrazyGames ? "trackYourProgressCrazy" : "trackYourProgress1"))}
+        {variantDef
+          ? (inviterName && variantDef.invitedDescKey
+            ? text(variantDef.invitedDescKey, { name: inviterName })
+            : text(variantDef.descKey))
+          : text(inCrazyGames ? "trackYourProgressCrazy" : "trackYourProgress1")}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

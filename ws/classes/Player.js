@@ -122,7 +122,7 @@ export default class Player {
       // This ensures users banned/forced to change name while disconnected are properly blocked
       if (accountId) {
         try {
-          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode');
+          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode username');
           if (freshUserData) {
             let isBanned = freshUserData.banned;
 
@@ -141,6 +141,15 @@ export default class Player {
             dcPlayer.banned = isBanned;
             dcPlayer.pendingNameChange = freshUserData.pendingNameChange;
             dcPlayer.countryCode = freshUserData.countryCode;
+            // Re-stamp the username: setName happens over HTTP mid-session
+            // (the first-run username modal reloads the page right after), so
+            // a Player that verified BEFORE the name was chosen reattaches
+            // here still unnamed — and blockUnnamed would keep it out of
+            // every game (breaking the parked ?party= auto-join). Guarded so
+            // a doc without a name never wipes an existing one.
+            if (freshUserData.username) {
+              dcPlayer.username = freshUserData.username;
+            }
             // Also set banned if pending name change
             if (dcPlayer.pendingNameChange) {
               dcPlayer.banned = true;

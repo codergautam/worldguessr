@@ -12,6 +12,7 @@ import { Pressable } from './ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, t, USERNAME_MAX_LENGTH } from '../shared';
 import { useAuthStore } from '../store/authStore';
+import { wsService } from '../services/websocket';
 
 /**
  * A small ring spinner that mirrors the web modal's CSS border spinner
@@ -114,7 +115,14 @@ export default function SetUsernameModal() {
     if (!result.success) {
       setError(result.error || t('error', undefined, 'An error occurred'));
       setIsLoading(false);
+      return;
     }
+    // setName is HTTP-only, but this socket verified BEFORE the name existed,
+    // so the server-side Player is still unnamed — and its unnamed-guard
+    // blocks every queue/join until a fresh verify. Web gets this for free
+    // (setName reloads the page); mobile must force the reconnect itself.
+    // handleReconnect re-reads the name from the DB on the way back in.
+    wsService.connect(useAuthStore.getState().secret, true, { isReconnect: false });
     // On success, the store updates user.username which hides this modal.
     // We intentionally keep isLoading true so the spinner stays until unmount.
   };

@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { wsService } from '../services/websocket';
 import { useAuthStore } from './authStore';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../shared/emotes';
+import { t } from '../shared/locale';
 import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../services/websocketConfig';
 
 // Module-level emote send throttle + id counter (mirrors web emoteReactions.js).
@@ -1295,9 +1296,17 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // ── gameJoinError (home.js:2184-2206) ──────────────────
     if (data.type === 'gameJoinError') {
       // Manual entry: the /party/join screen is mounted and renders `joinError`
-      // inline, so just hand it the message.
+      // inline, so just hand it the message. Guest 2v2 gate with an inviter
+      // name gets the personalized line here too — the typed code came from
+      // that friend, greet them by name (set-time translation is fine:
+      // joinError is transient display text, cleared on the next keystroke).
       if (state.enteringGameCode) {
-        set({ joinError: data.error });
+        set({
+          joinError:
+            data.error === 'Link your Google account to play 2v2' && data.hostName
+              ? t('linkGoogle2v2InvitedDesc', { name: data.hostName })
+              : data.error,
+        });
         return;
       }
       // Joined via a shared party link: no join screen is on screen, so an inline
@@ -1309,17 +1318,31 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // sentence-as-key — t() renders unresolved keys as-is. Collapsing
       // unknowns into invalidPartyCode showed flagless users "Invalid or
       // expired party code" instead of the upgrade message.
-      const errorKey =
-        data.error === 'Game is full'
-          ? 'partyFull'
-          : data.error === 'Invalid game code'
-            ? 'invalidPartyCode'
-            : data.error;
-      get().pushToast({
-        key: errorKey,
-        toastType: 'error',
-        message: data.error,
-      });
+      //
+      // Guest 2v2 gate with an inviter name (hostName is additive on the
+      // server payload — absent on old ws builds, which keeps this branch
+      // dormant there): personalize the conversion toast, a friend's name
+      // converts better than the generic upgrade line.
+      if (data.error === 'Link your Google account to play 2v2' && data.hostName) {
+        get().pushToast({
+          key: 'linkGoogle2v2InvitedDesc',
+          vars: { name: data.hostName },
+          toastType: 'error',
+          message: data.error,
+        });
+      } else {
+        const errorKey =
+          data.error === 'Game is full'
+            ? 'partyFull'
+            : data.error === 'Invalid game code'
+              ? 'invalidPartyCode'
+              : data.error;
+        get().pushToast({
+          key: errorKey,
+          toastType: 'error',
+          message: data.error,
+        });
+      }
       set({
         joinError: null,
         enteringGameCode: false,
