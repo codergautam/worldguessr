@@ -132,6 +132,7 @@
   "loginWithGoogle1": "Mit Google verknüpfen",
   "linkGoogle2v2Title": "Verknüpfe Google, um 2v2 zu spielen",
   "linkGoogle2v2Desc": "Bildet ein Team und tretet gegen ein anderes Duo an.",
+  "linkGoogle2v2InvitedDesc": "{{name}} hat dich zu einem 2v2-Teamkampf eingeladen! Verknüpfe ein Konto, um dem Team beizutreten.",
   "linkGoogleRankedTitle": "Verknüpfe Google, um Ranked zu spielen",
   "linkGoogleRankedDesc": "Sammle ELO, steige in den Ligen auf und spiele gegen Gegner auf deinem Niveau.",
   "linkWithCrazyGames": "Mit CrazyGames verknüpfen",
