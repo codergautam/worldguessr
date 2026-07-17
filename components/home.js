@@ -518,6 +518,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         // readable now — earlier renders seeded the audio
                         // volume caches with defaults, orphaning saved values.
                         refreshVolumesFromStorage();
+                        // Same disease, React-state edition: these mount-time
+                        // seeds also read the pre-init void. Re-pull each one.
+                        // loadOptions matters most: its write-through effect
+                        // would otherwise stomp the saved blob with defaults
+                        // on the first settings change of the session.
+                        // (rejoinCode needs no repair — sendVerify's CG branch
+                        // waits for window.verifyPayload, built post-init.)
+                        loadOptions();
+                        try {
+                            setMultiplayerEmotesEnabled(gameStorage.getItem('multiplayerEmotesEnabled') !== 'false');
+                            const savedStreak = parseInt(gameStorage.getItem('countryStreak'));
+                            if (!isNaN(savedStreak)) setCountryStreak(savedStreak);
+                            const savedCgStreak = parseInt(gameStorage.getItem('countryGuessrStreak'));
+                            if (!isNaN(savedCgStreak)) setCgStreak(savedCgStreak);
+                        } catch (e) { }
 
                         crazyAuthListener().then(() => {
                             // check if onboarding is done
