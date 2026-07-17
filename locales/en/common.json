@@ -113,7 +113,7 @@
   "loginWithGoogle1": "Link with Google",
   "linkGoogle2v2Title": "Link Google to play 2v2",
   "linkGoogle2v2Desc": "Team up and take on another duo in team battles.",
-  "linkGoogle2v2InvitedDesc": "{{name}} invited you to a 2v2 team battle! Link an account to join their team.",
+  "linkGoogle2v2InvitedDesc": "{{name}} invited you to a 2v2 team battle!\nLink an account to join their team.",
   "linkGoogleRankedTitle": "Link Google to play Ranked",
   "linkGoogleRankedDesc": "Earn ELO, climb the leagues, and face players at your skill level.",
   "linkWithCrazyGames": "Link with CrazyGames",
