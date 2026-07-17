@@ -144,7 +144,10 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         marginBottom: '28px',
         color: 'rgba(255, 255, 255, 0.9)',
         lineHeight: '1.6',
-        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
+        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)',
+        // Honor the \n in linkGoogle2v2InvitedDesc (invite line / CTA line).
+        // The other descs are single-line strings, so they're unaffected.
+        whiteSpace: 'pre-line'
       }}>
         {variantDef
           ? (inviterName && variantDef.invitedDescKey
