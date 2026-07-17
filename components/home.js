@@ -19,7 +19,7 @@ import Script from "next/script";
 import sendEvent from "@/components/utils/sendEvent";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
-import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx } from "@/components/utils/audio";
+import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx, refreshVolumesFromStorage } from "@/components/utils/audio";
 import deriveTeamEndFallback from "@/components/utils/teamDuelEndFallback";
 import getMyTeam from "@/components/utils/getMyTeam";
 import 'react-toastify/dist/ReactToastify.css';
@@ -513,6 +513,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         try {
                             window.CrazyGames.SDK.game.loadingStart();
                         } catch (e) { }
+
+                        // gameStorage's CrazyGames.SDK.data store only became
+                        // readable now — earlier renders seeded the audio
+                        // volume caches with defaults, orphaning saved values.
+                        refreshVolumesFromStorage();
 
                         crazyAuthListener().then(() => {
                             // check if onboarding is done

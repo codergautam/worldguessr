@@ -632,6 +632,27 @@ export function setMusicVolume(v) {
   } catch (e) { }
 }
 
+// On CrazyGames gameStorage routes through CrazyGames.SDK.data, which is
+// unreadable until the SDK has initialized — but the navbar's render-time
+// mute check calls the getters before that, so the caches seed with the
+// defaults and the player's saved volumes are orphaned for the session
+// (music turned back on at 45% for muted players). home.js calls this the
+// moment the SDK is ready: drop the caches, re-read through the live store,
+// and push the real values into anything already running. Not a gesture —
+// never starts music; the permanent click listener owns that.
+export function refreshVolumesFromStorage() {
+  try {
+    cachedVolume = null;
+    cachedMusicVolume = null;
+    const sfx = getSfxVolume();
+    const music = getMusicVolume();
+    notifyVolumes();
+    if (sfxGain && ctx) sfxGain.gain.setTargetAtTime(toGain(sfx), ctx.currentTime, 0.02);
+    if (music <= 0) { stopMusic(); return; }
+    if (musicGain && ctx) musicGain.gain.setTargetAtTime(toGain(music), ctx.currentTime, 0.05);
+  } catch (e) { }
+}
+
 // Ad-break hook: the crazyMidgame() dispatcher (and future music) should call
 // duckAudio(true) when an interstitial starts and duckAudio(false) when it
 // ends — Poki QA checks that game audio is silent during commercialBreak.
