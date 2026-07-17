@@ -132,6 +132,7 @@
   "loginWithGoogle1": "Войти через Google",
   "linkGoogle2v2Title": "Привяжите Google, чтобы играть 2v2",
   "linkGoogle2v2Desc": "Объединитесь с напарником и сразитесь с другой командой.",
+  "linkGoogle2v2InvitedDesc": "{{name}} приглашает вас в командный бой 2v2! Привяжите аккаунт, чтобы присоединиться к команде.",
   "linkGoogleRankedTitle": "Привяжите Google, чтобы играть в рейтинге",
   "linkGoogleRankedDesc": "Зарабатывайте ELO, поднимайтесь по лигам и играйте с соперниками вашего уровня.",
   "linkWithCrazyGames": "Связать с CrazyGames",
