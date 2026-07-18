@@ -387,7 +387,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 if (diff < 0) return Math.max(prev - step, eloData.elo);
                 return prev;
             });
-        }, 50);
+        }, 10);
 
         return () => clearInterval(interval);
     }, [eloData?.elo]);
