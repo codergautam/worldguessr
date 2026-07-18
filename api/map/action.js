@@ -6,6 +6,7 @@
 
 // import countries from '@/public/countries.json';
 // import officialCountryMaps from '@/public/officialCountryMaps.json';
+import mongoose from 'mongoose';
 import mapConst from '../../components/maps/mapConst.js';
 import parseMapData from '../../components/utils/parseMapData.js';
 import generateSlug from '../../components/utils/slugGenerator.js';
@@ -15,7 +16,7 @@ import { Filter} from 'bad-words';
 const filter = new Filter();
 import countries from '../../public/countries.json' with { type: "json" };
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
-import { syncedClearCache } from '../../serverUtils/cacheBus.js';
+import { clearMapCaches } from '../../serverUtils/mapCache.js';
 
 // Function to convert latitude and longitude to Cartesian coordinates
 function latLngToCartesian(lat, lng) {
@@ -99,8 +100,16 @@ async function validateMap(name, data, description_short, description_long, edit
     return 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')';
   }
   if(locationsData.length > mapConst.MAX_LOCATIONS) {
-    // return res.status(400).json({ message: `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at gautam@worldguessr.com` });
-    return `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at`
+    return `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at support@worldguessr.com`
+  }
+
+  // Mongo hard-caps documents at 16MB and all locations live in one map doc.
+  // Without this guard an oversized save dies inside the driver
+  // (BSONObjectTooLarge) and the creator gets a blank "Server error" 500.
+  // 15MB threshold leaves room for the rest of the doc + update envelope.
+  const bsonBytes = mongoose.mongo.BSON.serialize({ data: locationsData }).length;
+  if (bsonBytes > 15 * 1024 * 1024) {
+    return `This map is too large to store (${(bsonBytes / 1024 / 1024).toFixed(1)}MB of location data, limit 15MB). Reduce the number of locations, or contact us at support@worldguessr.com`;
   }
 
   // Convert all locations to Cartesian coordinates
@@ -188,6 +197,10 @@ export default async function handler(req, res) {
       lastUpdated: new Date()
     });
 
+    // A prior 404 lookup (or a deleted map with the same name) may have cached
+    // a stale/null doc under this slug — recreate-after-delete must be instant.
+    clearMapCaches(validation.slug);
+
     return res.status(200).json({ message: 'Map created', map });
   } else if(action === 'edit') {
     if(!mapId) {
@@ -222,9 +235,9 @@ export default async function handler(req, res) {
 
     await map.save();
 
-    // clear cache
-    syncedClearCache('mapLocations_'+map.slug);
-      
+    // clear cache: game locations, map page doc, and Cloudflare's edge copy
+    clearMapCaches(map.slug);
+
     return res.status(200).json({ message: 'Map edited', map });
   } else if(action === 'get') {
     if(!mapId) {
@@ -249,7 +262,7 @@ export default async function handler(req, res) {
 export const config = {
   api: {
       bodyParser: {
-          sizeLimit: '30mb'
+          sizeLimit: '50mb'
       }
   }
 }

@@ -5,6 +5,11 @@ import User from "../../models/User.js";
 import msToTime from "../../components/msToTime.js";
 
 export default async function handler(req, res) {
+  // Per-user response (hearted flag, creator/staff visibility of unaccepted
+  // maps) — must never be held by a shared cache (Cloudflare edge) or the
+  // browser. The secret rides outside the URL, so an edge cache would serve
+  // one user's personalized payload to everyone on the same URL.
+  res.set('Cache-Control', 'private, no-store');
   const slug = req.query.slug;
   const secret = await getServerSecret(req);
   const session = {};
@@ -18,6 +23,9 @@ export default async function handler(req, res) {
   // Check if map is an official country map
   const cntryMap = Object.values(officialCountryMaps).find(map => map.slug === slug);
   if (cntryMap) {
+    // Static repo JSON, identical for everyone, changes only on deploy —
+    // safe to cache publicly (overrides the per-user default set above).
+    res.set('Cache-Control', 'public, max-age=3600');
     return res.json({
       mapData: {
         ...cntryMap,
@@ -31,9 +39,13 @@ export default async function handler(req, res) {
   }
 
   // If map is not official, check user-created maps
+  // Named cache key so map create/edit/delete/review can clear it instantly
+  // (syncedClearCache). The old keyless .cache(10000) hashed the query into an
+  // unclearable key — the map page served stale locations/counts for ~2h47m
+  // after every edit, which creators read as "my new locations never save".
   const map = await Map.findOne({ slug })
     .select({ 'data': { $slice: 5 } }) // Slice the data to limit to 5 items - REDUCED FROM 5000 TO REDUCE SERVER OVERHEAD
-    .lean().cache(10000);
+    .lean().cache(10000, 'mapPublicData_'+slug);
 
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });

@@ -87,8 +87,12 @@ function currentDate() {
   return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
 }
 app.use(cors());
-app.use(bodyParser.json({limit: '30mb'}));
-app.use(bodyParser.urlencoded({limit: '30mb', extended: true, parameterLimit: 50000}));
+// 50mb: a raw pasted map upload can be far bigger than what parseMapData
+// keeps (per-line JSON overhead), and 30mb rejected legitimate large maps
+// before validation ever saw them. The stored ceiling is unchanged — Mongo's
+// 16MB/doc BSON cap keeps MAX_LOCATIONS at 100k regardless of body size.
+app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.urlencoded({limit: '50mb', extended: true, parameterLimit: 50000}));
 
 // Request timing middleware - log slow requests
 app.use((req, res, next) => {
@@ -350,7 +354,17 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
 
 app.get('/mapLocations/:slug', async (req, res) => {
   const slug = req.params.slug;
-  const map = await MapModel.findOne({ slug }).cache('mapLocations_'+slug, 10000)
+  // recachegoose signature is .cache(ttlSeconds, customKey) — the old
+  // swapped-arg call silently fell back to the 60s default TTL. The long TTL
+  // is safe now: every map create/edit/delete/review clears this key via
+  // syncedClearCache, so edits show up instantly.
+  const map = await MapModel.findOne({ slug }).cache(10000, 'mapLocations_'+slug)
+  // Cap shared/browser caching at 60s: syncedClearCache can purge OUR cache
+  // instantly on edit, but not Cloudflare's edge or a user's disk cache —
+  // day-long "my edit never shows up" reports came from those layers holding
+  // responses that carried no cache policy at all. max-age=0 makes the
+  // creator's own recheck revalidate immediately (ETag 304s keep it cheap).
+  res.set('Cache-Control', 'public, max-age=0, s-maxage=60');
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
   }

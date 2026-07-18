@@ -1,5 +1,6 @@
 import Map from "../../models/Map.js";
 import User from "../../models/User.js";
+import { clearMapCaches } from "../../serverUtils/mapCache.js";
 
 export default async function handler(req, res) {
   // only allow DELETE
@@ -42,6 +43,10 @@ export default async function handler(req, res) {
 
   // Delete the map
   await Map.deleteOne({ _id: mapId });
+
+  // Without this, the dead map keeps serving from cache (and a recreate under
+  // the same name inherits the stale entry until TTL).
+  clearMapCaches(map.slug);
 
   return res.status(200).json({ message: 'Map deleted successfully' });
 }

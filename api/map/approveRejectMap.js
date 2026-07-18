@@ -1,5 +1,6 @@
 import Map from "../../models/Map.js";
 import User from "../../models/User.js";
+import { clearMapCaches } from "../../serverUtils/mapCache.js";
 
 export default async function handler(req, res) {
   // only allow POST
@@ -40,6 +41,8 @@ export default async function handler(req, res) {
     map.in_review = false;
     map.lastUpdated = new Date();
     await map.save();
+    // Visibility flipped — the map page must reflect it now, not at TTL.
+    clearMapCaches(map.slug);
     return res.status(200).json({ message: 'Map approved successfully' });
   } else if (action === 'reject') {
     // Validate reject reason and resubmittable
@@ -54,6 +57,7 @@ export default async function handler(req, res) {
     map.resubmittable = resubmittable;
     map.lastUpdated = new Date();
     await map.save();
+    clearMapCaches(map.slug);
     return res.status(200).json({ message: 'Map rejected successfully with reason: ' + rejectReason });
   } else {
     return res.status(400).json({ message: 'Invalid action' });
