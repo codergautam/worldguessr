@@ -830,7 +830,14 @@ const GameSummary = ({
     );
   }
 
-  if(!gameHistory || gameHistory.length === 0) {
+  // Zero-rounds duel ends still get the full verdict card: a round-1 forfeit
+  // (opponent quits, 30s purge fires before any round resolves) ends the game
+  // with an EMPTY roundHistory, and this early return used to swallow the
+  // whole end screen — the 0.9-alpha .round-over-screen backdrop rendered
+  // with nothing inside, leaving a black click-eating veil over the pano
+  // (no Victory/ELO/buttons; live twin of the July 14 history-view bug).
+  // The duel branch below degrades fine without rounds (empty world map).
+  if((!gameHistory || gameHistory.length === 0) && !(duel && data)) {
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
         <div className="game-summary-container">

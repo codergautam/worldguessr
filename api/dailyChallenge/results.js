@@ -1,11 +1,12 @@
 import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
 import User from '../../models/User.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
-import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChallengeStats.js';
+import DailyChallengeStats from '../../models/DailyChallengeStats.js';
 import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
 import { effectiveStreak, isGraceDay } from '../../serverUtils/dailyStreak.js';
+import { exactDailyRank } from '../../serverUtils/dailyRank.js';
 import { invalidateDailyLeaderboardCache } from './leaderboard.js';
 
 // The distribution is identical for every caller on the same date — cache for
@@ -19,18 +20,27 @@ async function fetchPublic(date) {
   const cached = publicCache.get(date);
   if (cached && cached.expiresAt > Date.now()) return cached.payload;
 
-  const statsDoc = await DailyChallengeStats.findOne({ date }).lean();
+  // Board row count runs alongside the stats read: the headline totalPlays
+  // is floored at the rows actually on the board so it can never read below
+  // a row-derived ownRank ("#25 of 24"). Legacy claim-backfilled scores are
+  // rows without stats plays (counted forward since the claimGuestProgress
+  // fix, but old dates keep the gap). Averages/buckets stay divided by the
+  // stats count — those sums only ever included stats-counted plays.
+  const [statsDoc, boardRows] = await Promise.all([
+    DailyChallengeStats.findOne({ date }).lean(),
+    DailyChallengeScore.countDocuments({ date, disqualified: { $ne: true }, hidden: { $ne: true } }),
+  ]);
 
-  const totalPlays = statsDoc?.totalPlays || 0;
+  const statsPlays = statsDoc?.totalPlays || 0;
   const roundSums = statsDoc?.roundScoreSums || [];
-  const roundAverages = totalPlays > 0
-    ? roundSums.map(s => Math.round((s || 0) / totalPlays))
+  const roundAverages = statsPlays > 0
+    ? roundSums.map(s => Math.round((s || 0) / statsPlays))
     : roundSums.map(() => 0);
 
   const payload = {
     distribution: {
-      totalPlays,
-      avgScore: totalPlays > 0 ? Math.round((statsDoc.totalScore || 0) / totalPlays) : 0,
+      totalPlays: Math.max(statsPlays, boardRows),
+      avgScore: statsPlays > 0 ? Math.round((statsDoc.totalScore || 0) / statsPlays) : 0,
       buckets: statsDoc?.buckets || [],
       roundAverages,
     },
@@ -45,26 +55,19 @@ async function fetchPublic(date) {
   return payload;
 }
 
-async function rankForScore(date, score) {
-  const statsDoc = await DailyChallengeStats.findOne({ date }).select('buckets totalPlays').lean();
-  const totalPlays = statsDoc?.totalPlays || 0;
-  if (totalPlays <= 0) return null;
-  const bucket = bucketIndexForScore(score);
-  const above = (statsDoc.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
-  return Math.min(totalPlays, above + 1);
-}
-
 async function fetchGuestBlock(date, guestId) {
   const profile = await GuestProfile.findOne({ guestId }).lean();
   if (!profile) return null;
 
   const own = await GuestScore.findOne({ guestId, date })
-    .select('score rounds totalTime disqualified')
+    .select('score rounds totalTime disqualified submittedAt')
     .lean();
 
   const isDq = !!own?.disqualified;
   // Rank is meaningless for DQ markers — they're not in the distribution.
-  const rank = own && !isDq ? await rankForScore(date, own.score) : null;
+  // Guest rows live in GuestScore, never in the counted population, so this
+  // is the hypothetical "where would I sit" rank under the board's tiebreak.
+  const rank = own && !isDq ? await exactDailyRank(date, own.score, { submittedAt: own.submittedAt }) : null;
   const history = Array.isArray(profile?.daily?.history) ? profile.daily.history.slice(0, 30) : [];
 
   // Stale-streak guard: zero out a stored streak that's already lapsed so the
@@ -109,7 +112,7 @@ async function fetchUserBlock(date, secret) {
   if (!user) return null;
 
   const own = await DailyChallengeScore.findOne({ date, userId: user._id })
-    .select('score rounds totalTime username disqualified')
+    .select('score rounds totalTime username disqualified submittedAt')
     .lean();
 
   const isDq = !!own?.disqualified;
@@ -140,11 +143,9 @@ async function fetchUserBlock(date, secret) {
     }
   }
 
-  // Rank derived from DailyChallengeStats.buckets (includes anon) so it
-  // stays consistent with the percentile rendered in the results UI —
-  // see computeRankAndPercentile in submit.js for the same derivation.
-  // DQ markers carry score=0 but aren't in the distribution, so no rank.
-  const rank = own && !isDq ? await rankForScore(date, own.score) : null;
+  // Exact leaderboard-population rank (serverUtils/dailyRank.js). DQ markers
+  // carry score=0 but aren't in the distribution, so no rank.
+  const rank = own && !isDq ? await exactDailyRank(date, own.score, { submittedAt: own.submittedAt }) : null;
 
   const history = (user.dailyHistory || []).slice(0, 30);
 

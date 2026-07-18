@@ -28,7 +28,16 @@ const dailyChallengeScoreSchema = new mongoose.Schema({
 });
 
 dailyChallengeScoreSchema.index({ date: 1, userId: 1 }, { unique: true });
-dailyChallengeScoreSchema.index({ date: 1, score: -1 });
+// One compound index for every daily read path: the { date, score desc,
+// submittedAt asc } prefix fully orders the leaderboard sort, and every
+// field the exact-rank counts touch (serverUtils/dailyRank.js — score and
+// submittedAt bounds, disqualified/hidden, the fresh-submit userId $ne)
+// lives in the key, so countDocuments resolves from index keys without
+// fetching documents. Supersedes { date: 1, score: -1 } — drop the old
+// date_1_score_-1 index manually, but ONLY after this one exists in prod
+// (autoIndex builds it on boot, never removes the old one; dropping first
+// would leave the leaderboard and rank counts scanning the collection).
+dailyChallengeScoreSchema.index({ date: 1, score: -1, submittedAt: 1, disqualified: 1, hidden: 1, userId: 1 });
 // Deletion cascade: per-user purge. The {date,userId} prefix can't serve a
 // userId-only deleteMany, so this avoids a full collection scan.
 dailyChallengeScoreSchema.index({ userId: 1 });

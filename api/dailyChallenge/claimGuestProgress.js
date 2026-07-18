@@ -6,6 +6,7 @@ import DailyChallengeScore from '../../models/DailyChallengeScore.js';
 import { recomputeStreakFromHistory } from '../../serverUtils/dailyStreak.js';
 import { getDailyLocations } from '../../serverUtils/dailyChallenge.js';
 import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter.js';
+import { incrementStats } from './submit.js';
 import { MAX_XP_PER_ROUND } from '../../serverUtils/normalizeDailyRounds.js';
 import { getClientLocalDate } from '../../utils/dailyDate.js';
 import { invalidateDailyPublicCache } from './results.js';
@@ -137,6 +138,19 @@ async function handler(req, res) {
               rounds: gs.rounds || [],
               hidden: !!user.banned,
             });
+            // Count the backfilled play into DailyChallengeStats so the
+            // distribution population matches the rows the board and the
+            // exact rank read — a backfilled row without a stats play left
+            // dates showing "rank #3" beside "totalPlays 2". Same shadow
+            // rule as submit.js: hidden rows never enter stats. Non-fatal:
+            // the row (and the claim) stand even if the counter write dies.
+            if (!user.banned) {
+              try {
+                await incrementStats(gs.date, gs.score, gs.rounds || []);
+              } catch (statsErr) {
+                console.warn('[claimGuestProgress] stats backfill failed for', gs.date, statsErr?.message);
+              }
+            }
             invalidateDailyPublicCache(gs.date);
             mergedDays++;
 
@@ -200,20 +214,6 @@ async function handler(req, res) {
         },
       }
     );
-
-    // KNOWN ISSUE: claim backfills DailyChallengeScore rows, so claimed guest
-    // scores can appear on past-date leaderboards, but it does not bump
-    // DailyChallengeStats counters. That can leave a date showing, for
-    // example, "rank #3" on the leaderboard while totalPlays=2.
-    //
-    // Fix path: inside the per-day backfill try block, after
-    // DailyChallengeScore.create succeeds, call
-    // incrementStats(gs.date, gs.score, gs.rounds) and
-    // invalidateDailyPublicCache(gs.date). Punting for now because this change
-    // is scoped to excluding guest data from submit-time stats; claim abuse is
-    // already bounded by CLAIMS_PER_USER_PER_DAY, and after claim a legitimate
-    // signed account is attached to the score so the integrity argument does
-    // not apply.
 
     console.log('[claimGuestProgress]', JSON.stringify({
       guestId,

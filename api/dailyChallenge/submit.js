@@ -9,6 +9,7 @@ import { invalidateDailyPublicCache } from './results.js';
 import { normalizeDailyRounds } from '../../serverUtils/normalizeDailyRounds.js';
 import { applyStreak } from '../../serverUtils/dailyStreak.js';
 import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter.js';
+import { exactDailyRank } from '../../serverUtils/dailyRank.js';
 
 const MAX_TOTAL_XP = 500;
 
@@ -65,7 +66,7 @@ function buildRoundIncs(rounds) {
   return out;
 }
 
-async function incrementStats(date, score, rounds, { anon = false } = {}) {
+export async function incrementStats(date, score, rounds, { anon = false } = {}) {
   const bucket = bucketIndexForScore(score);
   const incPath = `buckets.${bucket}`;
   await ensureStatsDoc(date);
@@ -77,28 +78,37 @@ async function incrementStats(date, score, rounds, { anon = false } = {}) {
   );
 }
 
-async function computeRankAndPercentile(date, score) {
-  // Rank + percentile are both derived from the same source (stats.buckets +
-  // totalPlays) so they can't disagree — a prior version took rank from
-  // DailyChallengeScore (logged-in only) but percentile from the buckets
-  // (logged-in + anon), which produced incoherent readouts like
-  // "rank 1 of 11 · beat 64%".
-  //
-  // Rank is a best-case lower bound: ties within the user's own bucket all
-  // collapse to the same rank, since per-score ordering isn't in the stats.
-  const stats = await DailyChallengeStats.findOne({ date }).lean();
-  const totalPlays = stats?.totalPlays || 0;
-  if (totalPlays === 0) return { rank: null, totalPlays: 0, percentile: null };
-  const bucket = bucketIndexForScore(score);
-  const above = (stats.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
-  const rank = Math.min(totalPlays, above + 1);
+async function computeRankAndPercentile(date, score, { excludeUserId = null, submittedAt = null, selfCounted = true } = {}) {
+  // Rank is the shared exact derivation (serverUtils/dailyRank.js — see it
+  // for tie/exclusion semantics); percentile derives from that same rank so
+  // the two can't disagree (the original sin this function guards against:
+  // rank and percentile drawn from different populations, "rank 1 of 11 ·
+  // beat 64%").
+  const [rank, stats] = await Promise.all([
+    exactDailyRank(date, score, { excludeUserId, submittedAt }),
+    DailyChallengeStats.findOne({ date }).select('totalPlays').lean(),
+  ]);
+  const statsPlays = stats?.totalPlays || 0;
+  // totalPlays stays stats-sourced (it's the "of N" the distribution
+  // headline quotes) but floored at rank: legacy claim-backfilled scores sit
+  // on the leaderboard without ever being counted into stats (fixed forward
+  // in claimGuestProgress), and "rank #25 of 24" must never render.
+  const totalPlays = Math.max(statsPlays, rank);
   // "Beat X% of OTHER players" — rank #1 of N should show 100% (beat all N-1
-  // others), not (N-1)/N. Divide by totalPlays-1 so self isn't in the
-  // denominator. totalPlays===1 → null (sole player, no meaningful percentile;
-  // UI already gates on totalPlays>1).
-  const percentile = totalPlays > 1
-    ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
-    : null;
+  // others), not (N-1)/N. selfCounted callers (logged-in plays that
+  // incrementStats counted) divide by totalPlays-1 so self isn't in the
+  // denominator. Uncounted callers (guest/anon/shadow-banned — never in
+  // stats) are ranked against a population that doesn't contain them: they
+  // beat totalPlays-(rank-1) of totalPlays, nothing subtracted — without
+  // this a guest beating 1 of 2 counted players read "Beat 0%". Null when
+  // there's no population beyond the caller (UI gates on totalPlays > 1).
+  const percentile = selfCounted
+    ? (totalPlays > 1
+      ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
+      : null)
+    : (statsPlays > 0
+      ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank + 1) / totalPlays) * 100)))
+      : null);
   return { rank, totalPlays, percentile };
 }
 
@@ -175,7 +185,11 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
           streakBest: user.dailyStreakBest || 0,
         });
       }
-      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
+      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score, {
+        submittedAt: existing.submittedAt,
+        excludeUserId: user._id,
+        selfCounted: !existing.hidden,
+      });
       return res.status(200).json({
         alreadySubmitted: true,
         score: existing.score,
@@ -263,8 +277,9 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   // Most of the writes below are independent — they touch different
   // collections (or different fields of the same User doc). Run them in
   // parallel to roughly halve the wall-time the client waits on /submit.
-  // Only the rank query depends on incrementStats having committed first;
-  // chain those two inside one branch. The User streak/history update needs
+  // Only the rank/percentile query depends on incrementStats having
+  // committed first (its totalPlays comes from stats); chain those two
+  // inside one branch. The User streak/history update needs
   // the computed rank for its historyEntry, so it waits on the rank chain
   // — but the score-create + Game-history writes still run alongside it.
   const rankPromise = (async () => {
@@ -272,7 +287,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
       await incrementStats(date, finalScore, normalizedRounds);
       invalidateDailyPublicCache(date);
     }
-    return computeRankAndPercentile(date, finalScore);
+    return computeRankAndPercentile(date, finalScore, { excludeUserId: user._id, selfCounted: !shadowed });
   })();
 
   const userUpdatePromise = (async () => {
@@ -335,7 +350,10 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
           guest: true,
         });
       }
-      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
+      const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score, {
+        submittedAt: existing.submittedAt,
+        selfCounted: false,
+      });
       return res.status(200).json({
         alreadySubmitted: true,
         score: existing.score,
@@ -383,7 +401,7 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
         notTracked: true,
       });
     }
-    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
+    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore, { selfCounted: false });
     return res.status(200).json({
       score: finalScore,
       rank,
@@ -432,7 +450,7 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
   // Rank + history are ranking surfaces — counted runs only.
   let rank = null, totalPlays = null, percentile = null, nextHistory = null, priorHistory = [];
   if (!dq) {
-    ({ rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore));
+    ({ rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore, { selfCounted: false }));
     const historyEntry = { date, score: finalScore, rank };
     priorHistory = Array.isArray(priorProfile?.daily?.history) ? priorProfile.daily.history : [];
     nextHistory = [historyEntry, ...priorHistory.filter(h => h.date !== date)].slice(0, 30);
@@ -568,7 +586,7 @@ async function handler(req, res) {
 
     // Anon-anon — no persistent identity at all. Modern clients should have a
     // guestId, but keep the response shape for legacy/defensive callers.
-    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
+    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore, { selfCounted: false });
 
     return res.status(200).json({
       score: finalScore,

@@ -90,6 +90,9 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
 const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same matchup twice in a row)
+// ALLOW_REMATCH=true disables rematch avoidance (1v1 + 2v2) so the same two
+// players can be paired back-to-back — testing only, never set in prod.
+const ALLOW_REMATCH = process.env.ALLOW_REMATCH === 'true';
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -1984,6 +1987,7 @@ try {
     // Helper to check if two players were last opponents (and should skip matching)
     // Allow rematch if either player has been waiting > 15 seconds
     const shouldSkipLastOpponent = (p1, p2, queueTime1, queueTime2) => {
+      if (ALLOW_REMATCH) return false;
       const p1Account = players.get(p1)?.accountId;
       const p2Account = players.get(p2)?.accountId;
       if (!p1Account || !p2Account) return false;
@@ -2548,6 +2552,7 @@ try {
       // two-duo queue at low population can't deadlock forever.
       const duoKey = (team) => [...team].sort().join('|');
       const isRematch = (t1, t2) => {
+        if (ALLOW_REMATCH) return false;
         const k1 = duoKey(t1), k2 = duoKey(t2);
         return t1.some(id => players.get(id)?.last2v2Opponents === k2)
             || t2.some(id => players.get(id)?.last2v2Opponents === k1);

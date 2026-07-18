@@ -1189,7 +1189,12 @@ export default class Game {
             }
           }
 
-          if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
+          // Roster must hold someone BESIDES the last unlocked player — the
+          // count only tallies non-final seats, so after a leaver's seat is
+          // deleted (removePlayer runs checkRemaining before the forfeit
+          // resolution) a lone survivor passes vacuously and got rushed to
+          // 20s + an "opponent locked in" toast about a player who LEFT.
+          if(remainingCount === 1 && Object.keys(this.players).length > 1 && (this.nextEvtTime - Date.now()) > 20000) {
             this.nextEvtTime = Date.now() + 20000;
             this.sendStateUpdate();
 
