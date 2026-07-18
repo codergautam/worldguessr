@@ -16,6 +16,8 @@ import { syncedClearCache } from './cacheBus.js';
  *   CF_ZONE_ID         zone id from the CF dashboard overview page
  *   PUBLIC_API_ORIGIN  public base of this API, e.g. https://api.worldguessr.com
  */
+let announcedDisabled = false;
+
 export function clearMapCaches(slug) {
   syncedClearCache('mapLocations_' + slug);
   syncedClearCache('mapPublicData_' + slug);
@@ -23,7 +25,16 @@ export function clearMapCaches(slug) {
   const token = process.env.CF_API_TOKEN;
   const zone = process.env.CF_ZONE_ID;
   const origin = process.env.PUBLIC_API_ORIGIN;
-  if (!token || !zone || !origin) return;
+  if (!token || !zone || !origin) {
+    // Say so ONCE per process: a prod box missing these vars silently serves
+    // stale edge data for the full CF TTL, which is indistinguishable from
+    // the original bug without this line in the log.
+    if (!announcedDisabled) {
+      announcedDisabled = true;
+      console.log('[cfPurge] disabled - CF_API_TOKEN/CF_ZONE_ID/PUBLIC_API_ORIGIN not set; map edits will not purge the Cloudflare edge');
+    }
+    return;
+  }
 
   // Fire-and-forget: a failed purge must never fail the map save — worst case
   // the edge serves stale until its TTL, which is the pre-purge status quo.
