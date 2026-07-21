@@ -18,8 +18,12 @@ export function forumIdentityFor(user) {
   // without this Discourse freezes an auto-derived name at account creation
   const identity = { external_id: String(user._id), email, username, name: username };
   // Google profile picture becomes the forum avatar (Gravatar is the
-  // fallback for everyone else — most Gmail users have no Gravatar)
-  if (user.avatarUrl) identity.avatar_url = user.avatarUrl;
+  // fallback for everyone else — most Gmail users have no Gravatar).
+  // Google's picture claim is a 96px thumbnail (=s96-c) — request 512px so
+  // Discourse has real resolution to work with at every avatar size.
+  if (user.avatarUrl) {
+    identity.avatar_url = user.avatarUrl.replace(/=s\d+(-c)?$/, '=s512-c');
+  }
   return identity;
 }
 
