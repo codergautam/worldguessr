@@ -12,12 +12,12 @@ import { Linking, Platform } from 'react-native';
  * to opening the public store listing so the tap is never a dead end.
  */
 
-// Play Store deep link (we know the Android package). The iOS App Store fallback
-// URL needs the numeric App Store ID, which doesn't exist until the app is
-// published — until then iOS relies on the native in-app prompt only.
+// Store deep links. The iOS URL lands directly on the write-review sheet
+// (?action=write-review), since this fallback only fires when the native
+// in-app prompt was unavailable or rationed away.
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.codergautamyt.worldguessr';
-const IOS_STORE_URL: string | null = null; // TODO: set once the App Store ID is known
+const IOS_STORE_URL: string | null = 'https://apps.apple.com/app/id6778672486?action=write-review';
 
 export async function requestStoreReview(): Promise<void> {
   try {

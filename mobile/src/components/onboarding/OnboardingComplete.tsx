@@ -15,6 +15,7 @@ import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import ConfettiBurst from './ConfettiBurst';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
+import { useReviewPromptStore } from '../../store/reviewPromptStore';
 
 // Store i18n KEYS (not t() calls) at module scope: t() reads a language table
 // set after module load, so calling it here would capture English forever.
@@ -105,6 +106,17 @@ export default function OnboardingComplete({
   const [confettiKey, setConfettiKey] = useState(0);
   useEffect(() => {
     if (visible) setConfettiKey((k) => k + 1);
+  }, [visible]);
+
+  // A finished onboarding game counts toward rate-us eligibility — it's the
+  // first completed game a new player ever has. Deliberately NO prompt here:
+  // the native review sheet is rationed, and minute one is too early to spend
+  // an ask, however good the confetti looks.
+  const reviewCountedRef = useRef(false);
+  useEffect(() => {
+    if (!visible || reviewCountedRef.current) return;
+    reviewCountedRef.current = true;
+    useReviewPromptStore.getState().recordCompletedGame();
   }, [visible]);
 
   // Card slide-in

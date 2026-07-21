@@ -29,6 +29,8 @@ import { useMultiplayerStore } from '../src/store/multiplayerStore';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
 import VolumeSliders from '../src/components/VolumeSliders';
+import ReviewPromptModal from '../src/components/ReviewPromptModal';
+import { useManualReviewPrompt } from '../src/hooks/useReviewPrompt';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -128,6 +130,11 @@ export default function SettingsScreen() {
   const openPrivacy = useCallback(() => {
     Linking.openURL(PRIVACY_URL).catch(() => {});
   }, []);
+
+  // Voluntary rate-us entry — same star-gated modal as the post-game prompt
+  // (1-4★ diverts to private feedback), no eligibility gating, and closing it
+  // never counts as a decline.
+  const rate = useManualReviewPrompt();
 
   return (
     <View style={styles.root}>
@@ -361,8 +368,17 @@ export default function SettingsScreen() {
           {/* About */}
           <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={8}>
             <Pressable
-              onPress={openPrivacy}
+              onPress={rate.open}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.rowLabel}>
+                {t('rateUs', undefined, 'Rate WorldGuessr')}
+              </Text>
+              <Ionicons name="star-outline" size={20} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              onPress={openPrivacy}
+              style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowLabel}>
                 {t('termsAndPrivacy', undefined, 'Terms & Privacy')}
@@ -371,6 +387,8 @@ export default function SettingsScreen() {
             </Pressable>
           </Section>
         </ScrollView>
+
+        <ReviewPromptModal visible={rate.visible} onRate={rate.onRate} onDismiss={rate.onDismiss} />
       </SafeAreaView>
     </View>
   );

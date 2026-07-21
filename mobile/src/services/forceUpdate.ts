@@ -25,11 +25,7 @@ const MIN_VERSION_PATH = Platform.select({
 // Where the "Update Now" button sends the user.
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.codergautamyt.worldguessr';
-// The iOS App Store numeric ID doesn't exist until the app is first published
-// (same gap as services/storeReview.ts). Until it's known, deep-link the App
-// Store search for the app by name so the button is never a dead end. Replace
-// with the canonical listing URL (apps.apple.com/app/idXXXXXXXXX) once published.
-const IOS_STORE_URL = 'itms-apps://itunes.apple.com/search?term=worldguessr';
+const IOS_STORE_URL = 'https://apps.apple.com/app/id6778672486';
 
 export const STORE_URL = Platform.select({
   ios: IOS_STORE_URL,

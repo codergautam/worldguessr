@@ -110,8 +110,16 @@ export default function DailyScreen() {
   // Rate-us prompt: daily is a solo (non-party) game, so it counts. Trigger only
   // when the user actually finishes the rounds this session (set in advance()) —
   // NOT when handleStart jumps straight to results for an already-played daily.
+  // Only ASK on a high: a new personal best or a 3+ day streak. undefined while
+  // the submit is in flight keeps the hook waiting for the verdict (the submit
+  // catch fallback guarantees a response object eventually lands).
   const [finishedThisSession, setFinishedThisSession] = useState(false);
-  const review = useReviewPrompt(finishedThisSession);
+  const dailyHappy = submitResponse
+    ? !submitResponse.error &&
+      !submitResponse.disqualified &&
+      (!!submitResponse.newPersonalBest || (submitResponse.streak ?? 0) >= 3)
+    : undefined;
+  const review = useReviewPrompt(finishedThisSession, dailyHappy);
 
   // Optimistically bump the live profile totals once a fresh, tracked daily run
   // is submitted, so XP / games-played update instantly without an app reload.

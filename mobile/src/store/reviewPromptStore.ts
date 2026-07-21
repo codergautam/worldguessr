@@ -5,10 +5,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * Drives the in-app "rate us" star prompt (see ReviewPromptModal / useReviewPrompt).
  *
  * Goal: nudge happy players toward a 5-star store review without nagging. The
- * prompt first appears once the player has finished 3 non-party games, shows on
- * the post-game results screen (a natural happy pause), and is respectful of a
- * "no": decline once → re-ask after a week, decline twice → never ask again.
- * Picking any star marks the prompt `done` so we never ask again.
+ * prompt first appears once the player has finished 3 non-party games AND a
+ * happy moment lands (a win / personal best — the moment gate lives in
+ * useReviewPrompt), and is respectful of a "no": each decline backs off a
+ * week, three declines → never ask again. Picking any star marks the prompt
+ * `done` so we never ask again.
  *
  * Mirrors settingsStore.ts: a single JSON blob persisted under one AsyncStorage
  * key, loaded once at app start, written through on every mutation.
@@ -28,13 +29,15 @@ const TEST_ALWAYS_PROMPT: boolean = false;
 const PROMPT_AFTER_GAMES = 3;
 /** Decline once and we wait this long before asking again. */
 const RETRY_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
-/** Two declines and we stop asking forever. */
-const MAX_DECLINES = 2;
+/** Three declines and we stop asking forever. (Asks are happy-moment gated and
+ *  therefore rare — a third well-timed attempt is worth one more chance.) */
+const MAX_DECLINES = 3;
 
 type ReviewStatus = 'pending' | 'done' | 'never';
 
 interface PersistedReview {
-  /** Non-party games finished (singleplayer, daily, ranked/unranked duels). */
+  /** Non-party games finished (singleplayer, daily, ranked/unranked duels,
+   *  plus the onboarding game — a finished first game is a finished game). */
   completedGames: number;
   /** pending = may still ask; done = rated; never = opted out / declined twice. */
   status: ReviewStatus;

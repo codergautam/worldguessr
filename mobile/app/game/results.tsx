@@ -348,13 +348,13 @@ export default function GameResultsScreen() {
   const is2v2Game = !!liveDuelEnd?.team2v2;
   const isTeamPartyGame = !!liveDuelEnd?.teamGame;
 
-  // Rate-us prompt: this screen mounts once per finished game, so mounting is the
-  // completion signal. Count every game EXCEPT private parties (and never history
-  // replays). A team party sends a duelEnd too (the teamGame shape) — it is
-  // still a private party, so it must not count either.
+  // Rate-us eligibility: count every game EXCEPT private parties (and never
+  // history replays). A team party sends a duelEnd too (the teamGame shape) —
+  // it is still a private party, so it must not count either. The hook itself
+  // is wired below, after multiplayerInfo exists: the happy-moment gate needs
+  // the win/loss verdict.
   const isDuelGame = (!!duelEndParam && !isTeamPartyGame) || duelParam === 'true';
   const isPrivateParty = isLiveMultiplayer && !isDuelGame && publicParam !== 'true';
-  const review = useReviewPrompt(!isHistoryView && !isPrivateParty);
 
   // Party play-again (B14): a private-party HOST resets the shared lobby instead
   // of going home. Narrow primitive selectors avoid broad re-renders. gameData
@@ -761,6 +761,20 @@ export default function GameResultsScreen() {
   const maxScore = parsedRounds.length * (isCountryGuesserResult ? 1000 : 5000);
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const stars = useMemo(() => getStars(percentage), [percentage]);
+
+  // Rate-us prompt: this screen mounts once per finished game, so mounting is
+  // the completion signal. Only ASK at a high point — a live-multiplayer WIN,
+  // or a strong solo game (60%+ of max; `percentage` is CG-aware, so country/
+  // continent guesser qualify on their own 1000-point scale). multiplayerInfo
+  // arrives async; undefined keeps the hook latched open until the verdict is
+  // known. NOTE: `rounds` the route param is the serialized round LIST, never
+  // a count — derive counts from parsedRounds, not parseInt(rounds).
+  const happyMoment = isLiveMultiplayer
+    ? multiplayerInfo
+      ? multiplayerInfo.isWinner && !multiplayerInfo.isDraw
+      : undefined
+    : percentage >= 60;
+  const review = useReviewPrompt(!isHistoryView && !isPrivateParty, happyMoment);
   const totalXpEarned = useMemo(
     () => parsedRounds.reduce((sum, round) => sum + (round.xpEarned ?? 0), 0),
     [parsedRounds],
@@ -1690,7 +1704,9 @@ export default function GameResultsScreen() {
     const submitDisabled = reportSubmitting || !reportReason || !reportDescription.trim();
     return (
       <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={closeReportModal} supportedOrientations={['portrait', 'landscape']}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* "padding" on BOTH platforms: edgeToEdge kills adjustResize, so
+            Android "height" gives zero avoidance (July 14 ruling). */}
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior="padding">
           <View style={styles.modalContent}>
             {/* Title row + X (web Modal header): one-tap exit from ANY step —
                 without it iOS users on the form step need Back→Cancel. */}
