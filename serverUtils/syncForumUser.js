@@ -14,7 +14,9 @@ export function forumIdentityFor(user) {
   // Neutral placeholder until they set a name — never let Discourse derive a
   // public username from the email prefix (real-name leak for Google users)
   const username = user.username || 'player_' + String(user._id).slice(-6);
-  return { external_id: String(user._id), email, username };
+  // name mirrors username — WG has no separate "full name" concept, and
+  // without this Discourse freezes an auto-derived name at account creation
+  return { external_id: String(user._id), email, username, name: username };
 }
 
 // Instantly push the user's current identity to the forum (DiscourseConnect
