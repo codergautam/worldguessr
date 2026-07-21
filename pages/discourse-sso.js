@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import config from '@/clientConfig';
+import { asset } from '@/lib/basePath';
 
 // Landing page for forum logins (DiscourseConnect). The forum sends users
 // here with ?sso&sig; we forward the wg_secret from localStorage to
@@ -73,7 +74,8 @@ export default function DiscourseSSO() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: '100vh', padding: '32px 20px',
       fontFamily: "'Lexend', sans-serif", color: '#f2f5f3',
-      backgroundImage: 'linear-gradient(rgba(7,11,19,0.72), rgba(7,11,19,0.86)), url(/street1.jpg)',
+      backgroundColor: '#0b0f18',
+      backgroundImage: `linear-gradient(rgba(7,11,19,0.72), rgba(7,11,19,0.86)), url(${asset('/street2.webp')})`,
       backgroundSize: 'cover', backgroundPosition: 'center',
     }}>
       <style>{`
