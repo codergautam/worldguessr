@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
+import { forumIdentityFor } from '../serverUtils/syncForumUser.js';
 
 // DiscourseConnect (SSO) for worldguessr.forum.
 // The forum redirects users to /discourse-sso (Next.js page), which reads
@@ -56,22 +57,15 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Account is banned' });
     }
 
-    // CrazyGames accounts have no email — synthesize a stable dead-mail address
-    const email =
-      user.email ||
-      (user.crazyGamesId
-        ? `cg-${user.crazyGamesId}@sso.worldguessr.com`
-        : `u-${user._id}@sso.worldguessr.com`);
-
+    // Identity mapping shared with the push sync (serverUtils/syncForumUser.js):
+    // synthetic emails for CrazyGames accounts, neutral placeholder username
+    // until a name is set (never leak the email prefix as a public username)
     const outbound = new URLSearchParams({
       nonce,
-      external_id: String(user._id), // permanent — never keyed on username
-      email,
+      ...forumIdentityFor(user),
       require_activation: 'false',
       suppress_welcome_message: 'true',
     });
-    // Optional fields: forum generates a username if the account has none yet
-    if (user.username) outbound.set('username', user.username);
     if (user.staff) outbound.set('moderator', 'true');
 
     const b64 = Buffer.from(outbound.toString()).toString('base64');

@@ -4,6 +4,7 @@ import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
 import { syncedClearCache } from "../serverUtils/cacheBus.js";
+import { syncForumUser } from "../serverUtils/syncForumUser.js";
 import { Filter } from "bad-words";
 import UserStatsService from "../components/utils/userStatsService.js";
 import ModerationLog from "../models/ModerationLog.js";
@@ -141,6 +142,9 @@ export default async function handler(req, res) {
     const oldUsername = user.username; // Store old name before changing
     user.username = username;
     await user.save();
+
+    // Push the new name to the forum instantly (fire-and-forget)
+    syncForumUser(user);
 
     // Log name change to ModerationLog for audit trail (only for name changes, not first time)
     if (!isFirstTimeSettingUsername && oldUsername) {

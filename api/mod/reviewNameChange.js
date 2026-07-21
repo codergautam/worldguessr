@@ -1,4 +1,5 @@
 import User, { USERNAME_COLLATION } from '../../models/User.js';
+import { syncForumUser } from '../../serverUtils/syncForumUser.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import Report from '../../models/Report.js';
@@ -83,6 +84,9 @@ export default async function handler(req, res) {
         pendingNameChangePublicNote: null,
         lastNameChange: new Date()
       });
+
+      // Push the approved name to the forum instantly (fire-and-forget)
+      syncForumUser({ ...targetUser.toObject(), username: nameRequest.requestedUsername });
 
       // Update pending reports against this user to use the new username
       await Report.updateMany(
