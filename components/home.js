@@ -4008,7 +4008,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                        {process.env.NEXT_PUBLIC_FORUM_BUTTON && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
                                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Forum" onClick={async () => {
                                             // Forum SSO bridge: embedded contexts (CrazyGames) keep wg_secret in
                                             // partitioned storage, so mint a one-time code and hand the session
