@@ -4021,7 +4021,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     body: JSON.stringify({ action: "create", secret: forumSecret }),
                                                 });
                                                 const data = await resp.json();
-                                                if (data.code) return window.open("https://www.worldguessr.com/forum-bridge?code=" + data.code, "_blank");
+                                                if (data.code) return window.open(window.location.origin + "/forum-bridge?code=" + data.code, "_blank");
                                             } catch (e) { }
                                             window.open("https://worldguessr.forum", "_blank");
                                         }}><FaComments className="home__squarebtnicon" /></button>

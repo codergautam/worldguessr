@@ -101,7 +101,7 @@ export default function DiscourseSSO() {
             <div style={{ fontSize: '17px', fontWeight: 500, lineHeight: 1.4 }}>
               Log in to WorldGuessr,<br />then try again
             </div>
-            <a style={cta} href="https://www.worldguessr.com">Open WorldGuessr</a>
+            <a style={cta} href="/">Open WorldGuessr</a>
           </>
         )}
 
