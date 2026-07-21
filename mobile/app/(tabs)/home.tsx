@@ -1136,7 +1136,6 @@ export default function HomeScreen() {
                   onPress={() => handleModePress('2v2')}
                   delay={getDelay()}
                   ready={!authLoading}
-                  accessory={<NewSticker />}
                 />
               )}
             </View>
@@ -1525,25 +1524,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     fontWeight: '400',
     color: colors.white,
-  },
-  // Gold "NEW" chip (web .g2_nav_new_sticker palette: #ffd700→#ffb300 on #1a0a00).
-  newSticker: {
-    backgroundColor: '#ffc400',
-    borderRadius: borderRadius.full,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    transform: [{ rotate: '8deg' }],
-    shadowColor: '#ffd700',
-    shadowOpacity: 0.55,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
-  },
-  newStickerText: {
-    color: '#1a0a00',
-    fontSize: 10,
-    fontFamily: 'Lexend-Bold',
-    letterSpacing: 0.3,
   },
   // Bottom icons
   bottomIcons: {
