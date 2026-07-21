@@ -341,6 +341,7 @@ export default async function handler(req, res) {
       timings.tokenVerify = Date.now() - startTokenVerify;
 
       const email = ticket.getPayload()?.email;
+      const picture = ticket.getPayload()?.picture;
       if (!email) {
         timings.total = Date.now() - startTotal;
         console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
@@ -351,13 +352,18 @@ export default async function handler(req, res) {
       const existingUser = await User.findOne({ email });
       timings.emailLookup = Date.now() - startEmailLookup;
 
+      // Keep the Google profile picture fresh (used for forum avatar)
+      if (existingUser && picture && existingUser.avatarUrl !== picture) {
+        await User.updateOne({ _id: existingUser._id }, { avatarUrl: picture });
+      }
+
       if (!existingUser) {
         // Refuse re-registration of a blocklisted (perm-banned/deleted) identity.
         if (await blockIfBannedIdentity(res, { email }, timings, startTotal)) return;
         timings.isNewUser = true;
         const startNewUser = Date.now();
         const newSecret = createUUID();
-        const newUser = new User({ email, secret: newSecret });
+        const newUser = new User({ email, secret: newSecret, avatarUrl: picture || null });
         // Auto-assign country flag instantly from the client's real device tz.
         if (signupCountryCode) {
           newUser.countryCode = signupCountryCode;
@@ -599,6 +605,7 @@ export default async function handler(req, res) {
       }
 
       const email = ticket.getPayload()?.email;
+      const picture = ticket.getPayload()?.picture;
 
       if (!email) {
         timings.total = Date.now() - startTotal;
@@ -609,6 +616,12 @@ export default async function handler(req, res) {
       const startEmailLookup = Date.now();
       const existingUser = await User.findOne({ email });
       timings.emailLookup = Date.now() - startEmailLookup;
+
+      // Keep the Google profile picture fresh (used for forum avatar)
+      if (existingUser && picture && existingUser.avatarUrl !== picture) {
+        await User.updateOne({ _id: existingUser._id }, { avatarUrl: picture });
+      }
+
       let secret = null;
       if (!existingUser) {
         // Refuse re-registration of a blocklisted (perm-banned/deleted) identity.
@@ -621,7 +634,7 @@ export default async function handler(req, res) {
         // 'US'. When no tz is provided (e.g. web OAuth, which doesn't send one), it
         // stays null and the user can pick a flag later / get it via ws migration.
         secret = createUUID();
-        const newUser = new User({ email, secret });
+        const newUser = new User({ email, secret, avatarUrl: picture || null });
         if (signupCountryCode) {
           newUser.countryCode = signupCountryCode;
           if (tz) newUser.timeZone = tz;

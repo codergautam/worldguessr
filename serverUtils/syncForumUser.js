@@ -16,7 +16,11 @@ export function forumIdentityFor(user) {
   const username = user.username || 'player_' + String(user._id).slice(-6);
   // name mirrors username — WG has no separate "full name" concept, and
   // without this Discourse freezes an auto-derived name at account creation
-  return { external_id: String(user._id), email, username, name: username };
+  const identity = { external_id: String(user._id), email, username, name: username };
+  // Google profile picture becomes the forum avatar (Gravatar is the
+  // fallback for everyone else — most Gmail users have no Gravatar)
+  if (user.avatarUrl) identity.avatar_url = user.avatarUrl;
+  return identity;
 }
 
 // Instantly push the user's current identity to the forum (DiscourseConnect

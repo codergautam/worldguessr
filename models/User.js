@@ -14,6 +14,11 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  // Google profile picture (captured at Google login; used for forum avatar)
+  avatarUrl: {
+    type: String,
+    default: null,
+  },
   username: {
     type: String,
     required: false,
