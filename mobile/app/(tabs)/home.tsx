@@ -121,18 +121,6 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
 }
 
 /**
- * Gold "NEW" sticker on a fresh menu entry (web `.g2_nav_new_sticker`, minus
- * the star clip-path — a tilted gold chip reads the same at menu-row size).
- */
-function NewSticker() {
-  return (
-    <View style={styles.newSticker}>
-      <Text style={styles.newStickerText}>{t('newSticker')}</Text>
-    </View>
-  );
-}
-
-/**
  * The horizontal rule between menu groups. Shares the menu entrance so the lines
  * slide in alongside the buttons rather than painting at full opacity on the
  * first frame — that static early paint, at the pre-auth (compact) layout, was

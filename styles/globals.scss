@@ -853,46 +853,14 @@ html {
     color: #FFAAAA;
 }
 
-/* Gold "NEW" starburst sticker riding the right side of a nav entry
-   (currently the 2v2 Duels button). All em-based so it scales with the nav
-   text's responsive clamp(); gold matches the daily "new best" badge.
-   box-shadow doesn't follow clip-path — the glow is a drop-shadow filter. */
-.g2_nav_new_sticker {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.34em; /* relative to the nav button's (large, responsive) font */
-    /* Sized in the sticker's own em. The star widens to fit longer locales
-       (NOUVEAU/НОВОЕ) — the %-based clip-path stretches with the box. */
-    min-width: 3.4em;
-    height: 3.4em;
-    padding-inline: 1em;
-    margin-left: 0.5em;
-    position: relative;
-    top: -0.9em;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 1;
-    color: #1a0a00;
-    background: linear-gradient(135deg, #ffd700, #ffb300);
-    clip-path: polygon(50% 0%, 59% 12%, 73% 5%, 76% 20%, 91% 19%, 87% 33%, 100% 39%, 90% 50%, 100% 61%, 87% 67%, 91% 81%, 76% 80%, 73% 95%, 59% 88%, 50% 100%, 41% 88%, 27% 95%, 24% 80%, 9% 81%, 13% 67%, 0% 61%, 10% 50%, 0% 39%, 13% 33%, 9% 19%, 24% 20%, 27% 5%, 41% 12%);
-    /* Tilt lives on the base style (not just the keyframes) so the sticker
-       stays rotated after the pulse ends. */
-    transform: rotate(10deg);
-    filter: drop-shadow(0 0 0.45em rgba(255, 215, 0, 0.55));
-    /* Draw the eye briefly, then settle — a forever-pulse reads as noise. */
-    animation: g2NavStickerPulse 1.8s ease-in-out 4;
-    pointer-events: none;
-}
-@keyframes g2NavStickerPulse {
-    0%, 100% { transform: rotate(10deg) scale(1); }
-    50% { transform: rotate(10deg) scale(1.1); }
-}
-
 .g2_text:hover,
 .g2_nav_text:hover {
     color: aqua;
     margin-left: 10px;
+}
+
+.g2_nav_text.ranked:hover {
+    color: #ff474c;
 }
 
 .g2_center {

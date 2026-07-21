@@ -3907,7 +3907,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     requires accountId anyway). Hidden on CoolMathGames and
                                                     Poki, where there is no login surface at all. */}
                                                 {!inCoolMathGames && !inPoki && (
-                                                    <button className="g2_nav_text" aria-label="Duels" onClick={() => {
+                                                    <button className="g2_nav_text ranked" aria-label="Duels" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
                                                             setLinkGoogleInviter(null); // generic open: no inviter copy
@@ -3948,10 +3948,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                             return;
                                                         }
                                                         navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
-                                                    }}>
-                                                        {text("twovtwo")}
-                                                        <span className="g2_nav_new_sticker" aria-hidden="true">{text("newSticker")}</span>
-                                                    </button>
+                                                    }}>{text("twovtwo")}</button>
                                                 )}
 
 
