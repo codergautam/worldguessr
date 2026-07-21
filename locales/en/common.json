@@ -860,6 +860,7 @@
   "rateUsSkip": "Close",
   "rateUsFeedbackSent": "Feedback sent - thank you!",
   "rateUsFeedbackError": "Couldn't send feedback. Please try again.",
+  "rateUs": "Rate WorldGuessr",
   "rateUsFiveTitle": "Thank you!",
   "rateUsFiveSubtitle": "We're so glad you're enjoying WorldGuessr! Thanks for playing 💚",
   "updateRequiredTitle": "Update Required",
