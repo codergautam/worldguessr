@@ -66,8 +66,7 @@ export default async function handler(req, res) {
       require_activation: 'false',
       suppress_welcome_message: 'true',
     });
-    // Note: game staff get NO automatic forum powers — forum moderators are
-    // granted manually in the forum admin UI (owner decision, 2026-07-21)
+    if (user.staff) outbound.set('moderator', 'true');
 
     const b64 = Buffer.from(outbound.toString()).toString('base64');
     return res.json({

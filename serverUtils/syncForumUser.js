@@ -50,6 +50,7 @@ export function syncForumUser(user) {
     }
 
     const payload = new URLSearchParams(fields);
+    if (user.staff) payload.set('moderator', 'true');
     const b64 = Buffer.from(payload.toString()).toString('base64');
     const sig = crypto.createHmac('sha256', secret).update(b64).digest('hex');
 
