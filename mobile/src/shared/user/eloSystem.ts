@@ -6,6 +6,10 @@ export const Ra0 = INITIAL_ELO; // Alias for backwards compatibility
 
 const exponentBase = 1.7;
 
+// Hard floor for ratings — mirrors components/utils/eloSystem.js. 0 is falsy
+// in JS and voids the server's ranked elo/save gates, so it is unreachable.
+export const MIN_ELO = 1;
+
 /**
  * Calculate expected outcome based on player ratings
  */
@@ -33,7 +37,7 @@ function updateElo(Ra: number, Rb: number, Pa: number, Pb: number): number {
   }
 
   const newRa = Ra + gainedElo;
-  return Math.round(newRa);
+  return Math.max(MIN_ELO, Math.round(newRa));
 }
 
 export interface EloOutcome {

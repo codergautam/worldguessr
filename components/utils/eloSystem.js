@@ -8,6 +8,11 @@ const L = 5; // Additional scaling factor for score differences
 
 const exponentBase = 1.7;
 
+// Hard floor for ratings. 0 is falsy in JS and slips through the truthy elo
+// gates in matchmaking (ws.js) and the ranked save path (Game.js), silently
+// voiding every game the account plays — so a rating may never reach it.
+export const MIN_ELO = 1;
+
 // Function to calculate expected outcome
 function expectedOutcome(Ra, Rb) {
   const Qa = Math.pow(exponentBase, Ra / c);
@@ -30,7 +35,7 @@ function updateElo(Ra, Rb, Pa, Pb) {
   }
 
   const newRa = Ra + gainedElo;
-  return Math.round(newRa);
+  return Math.max(MIN_ELO, Math.round(newRa));
 }
 
 export default function calculateOutcomes(player1Rating, player2Rating, winner) {

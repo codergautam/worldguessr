@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { MIN_ELO } from '../components/utils/eloSystem.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
 // given a username return the elo and the rank of the user
@@ -87,6 +88,9 @@ export async function setElo(accountId, newElo, gameData) {
   // gamedata -> {draw:true|false, winner: true|false}
   try {
 
+    // Last line of defense: a stored elo of 0 (falsy) voids the ranked
+    // gates in ws.js/Game.js, so the floor is enforced at the write itself.
+    newElo = Math.max(MIN_ELO, Math.round(newElo));
 
     await User.updateOne({ _id: accountId }, { elo: newElo,
       $inc: { duels_played: 1, duels_wins: gameData.winner ? 1 : 0, duels_losses: gameData.winner ? 0 : 1, duels_tied: gameData.draw ? 1 : 0,

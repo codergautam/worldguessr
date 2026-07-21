@@ -183,6 +183,9 @@ const userSchema = new mongoose.Schema({
   elo: {
     type: Number,
     default: 1000,
+    // 0 is falsy and voids the ranked elo/save gates (ws.js, Game.js);
+    // every write path clamps to >= 1, this backstops document validation.
+    min: 1,
   },
   elo_today: {
     type: Number,

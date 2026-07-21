@@ -13,6 +13,7 @@ import calcPoints from "../../components/calcPoints.js";
 import { boundingExtent } from "ol/extent.js";
 import { fromLonLat } from "ol/proj.js";
 import { setElo } from "../../api/eloRank.js";
+import { MIN_ELO } from "../../components/utils/eloSystem.js";
 import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
@@ -1731,8 +1732,11 @@ export default class Game {
           const changes = this.eloChanges.draw;
           // { newRating1, newRating2 }
 
-          p1NewElo += changes.newRating1;
-          p2NewElo += changes.newRating2;
+          // Deltas were computed against match-start elo but apply to the
+          // fresh DB read above — re-clamp so the result can never hit the
+          // MIN_ELO floor's void (0 is falsy and breaks the gates below).
+          p1NewElo = Math.max(MIN_ELO, p1NewElo + changes.newRating1);
+          p2NewElo = Math.max(MIN_ELO, p2NewElo + changes.newRating2);
 
           if(p1obj) {
 
@@ -1750,8 +1754,8 @@ export default class Game {
 
           const changes = this.eloChanges[winner.id];
           // { newRating1, newRating2 }
-          p1NewElo += changes.newRating1;
-          p2NewElo += changes.newRating2;
+          p1NewElo = Math.max(MIN_ELO, p1NewElo + changes.newRating1);
+          p2NewElo = Math.max(MIN_ELO, p2NewElo + changes.newRating2);
 
           if(p1obj) {
           p1obj.setElo(p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });

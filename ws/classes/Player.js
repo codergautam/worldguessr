@@ -6,6 +6,7 @@ import { disconnectedPlayers, games, players } from "../../serverUtils/states.js
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
+import { MIN_ELO } from "../../components/utils/eloSystem.js";
 import { createUUID } from "../../components/createUUID.js";
 import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
@@ -90,6 +91,9 @@ export default class Player {
       console.error('Invalid ELO value passed to setElo:', newElo, 'for account:', this.accountId);
       return;
     }
+    // Keep the in-memory rating on the same floor the DB write enforces —
+    // 0 is falsy and would void this player's next ranked queue/matchup.
+    newElo = Math.max(MIN_ELO, Math.round(newElo));
     this.elo = newElo;
     this.league = getLeague(newElo).name;
     setElo(this.accountId, newElo, gameData);
