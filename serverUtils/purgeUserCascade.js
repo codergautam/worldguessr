@@ -11,6 +11,7 @@ import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import GuestProfile from '../models/GuestProfile.js';
 import { addBannedIdentity } from './bannedIdentities.js';
 import { refundEloForReportedGames } from './eloRefunds.js';
+import { anonymizeForumUser } from './syncForumUser.js';
 
 /**
  * Permanently delete a user and ALL associated data — the single shared cascade
@@ -48,6 +49,11 @@ export async function purgeUserCascade(
 ) {
   const accountObjectId = targetUser._id;        // ObjectId — matches existing queries
   const accountId = targetUser._id.toString();   // string — for String-typed refs
+
+  // Scrub their forum identity first (username/email/avatar -> anonNNN, posts
+  // kept). Runs before the Mongo cascade while the account context is intact;
+  // never throws, and is idempotent if this purge is re-run after a crash.
+  await anonymizeForumUser(accountId);
 
   const deletionStats = {
     userStatsDeleted: 0,

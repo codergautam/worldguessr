@@ -27,6 +27,52 @@ export function forumIdentityFor(user) {
   return identity;
 }
 
+// Anonymize the user's forum account when their WG account is permanently
+// deleted (after the 30-day grace period — never during it). Uses Discourse's
+// built-in anonymizer: username becomes anonNNN, email/name/avatar/profile
+// scrubbed, posts preserved so threads don't break. Covers BOTH deletion
+// paths automatically because purgeUserCascade is the shared choke point for
+// mod hard-deletes and self-service purges. Idempotent: anonymization removes
+// the SSO record, so a re-run finds nothing (404) and no-ops. Errors are
+// logged loudly but never fail the purge — needs DISCOURSE_API_KEY in the
+// env of whichever process runs the cascade (cron + api server).
+export async function anonymizeForumUser(externalId) {
+  const apiKey = process.env.DISCOURSE_API_KEY;
+  if (!apiKey || !externalId) return;
+  const headers = { 'Api-Key': apiKey, 'Api-Username': 'system' };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const check = await fetch(
+      `${FORUM_URL}/u/by-external/${encodeURIComponent(externalId)}.json`,
+      { headers, signal: controller.signal },
+    );
+    if (check.status === 404) return; // never had a forum account (or already anonymized)
+    if (!check.ok) {
+      console.error('[forum] anonymize lookup failed:', check.status, 'for', externalId);
+      return;
+    }
+    const forumId = (await check.json())?.user?.id;
+    if (!forumId) return;
+
+    const resp = await fetch(`${FORUM_URL}/admin/users/${forumId}/anonymize.json`, {
+      method: 'PUT',
+      headers,
+      signal: controller.signal,
+    });
+    if (resp.ok) {
+      console.log(`[forum] anonymized forum user ${forumId} (deleted WG account ${externalId})`);
+    } else {
+      console.error('[forum] anonymize failed:', resp.status, 'forum user', forumId);
+    }
+  } catch (e) {
+    console.error('[forum] anonymizeForumUser:', e.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Instantly push the user's current identity to the forum (DiscourseConnect
 // sync_sso) so renames apply without waiting for their next forum login.
 // UPDATE-ONLY: players who never visited the forum are skipped — sync_sso
