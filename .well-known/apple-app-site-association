@@ -6,6 +6,7 @@
         "appID": "9F5QLG25S4.com.codergautamyt.worldguessr",
         "paths": [
           "/",
+          "/discourse-sso",
           "/daily",
           "/map",
           "/map/*",
