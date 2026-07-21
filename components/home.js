@@ -1,6 +1,6 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
-import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaComments, FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
@@ -4008,6 +4008,25 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Forum" onClick={async () => {
+                                            // Forum SSO bridge: embedded contexts (CrazyGames) keep wg_secret in
+                                            // partitioned storage, so mint a one-time code and hand the session
+                                            // to top-level worldguessr.com before continuing to the forum.
+                                            const forumSecret = window.localStorage.getItem("wg_secret");
+                                            if (!forumSecret) return window.open("https://worldguessr.forum", "_blank");
+                                            try {
+                                                const resp = await fetch(clientConfig().apiUrl + "/api/forumBridge", {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({ action: "create", secret: forumSecret }),
+                                                });
+                                                const data = await resp.json();
+                                                if (data.code) return window.open(window.location.origin + "/forum-bridge?code=" + data.code, "_blank");
+                                            } catch (e) { }
+                                            window.open("https://worldguessr.forum", "_blank");
+                                        }}><FaComments className="home__squarebtnicon" /></button>
+                                        )}
                                     </>
                                 )}
                                 {!isApp && inGameDistribution && (
