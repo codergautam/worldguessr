@@ -24,6 +24,10 @@ export function forumIdentityFor(user) {
   if (user.avatarUrl) {
     identity.avatar_url = user.avatarUrl.replace(/=s\d+(-c)?$/, '=s512-c');
   }
+  // WG flag setting rides along as a forum custom field (rendered next to
+  // usernames by the forum theme). Always sent — '' when unset/opted-out —
+  // so removing the flag in-game also clears it on the forum.
+  identity['custom.wg_flag'] = user.countryCode || '';
   return identity;
 }
 
