@@ -1,5 +1,6 @@
 // pages/api/setName.js
 import User, { USERNAME_COLLATION } from "../models/User.js";
+import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from "../serverUtils/forumUsername.js";
 import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
@@ -40,6 +41,14 @@ export default async function handler(req, res) {
       .json({
         message: "Username must contain only letters, numbers, and underscores",
       });
+  }
+  // Forum-stable only: Discourse rewrites underscore prefixes/suffixes/runs,
+  // which lets two different WG names collide on the forum
+  if (!isForumStable(username)) {
+    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
+  }
+  if (isForumReserved(username)) {
+    return res.status(400).json({ message: FORUM_RESERVED_MESSAGE });
   }
   // make sure username is not profane
   if (filter.isProfane(username)) {

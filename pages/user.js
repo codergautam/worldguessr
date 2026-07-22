@@ -17,11 +17,15 @@ export default function UserProfilePage() {
   const [error, setError] = useState(null);
 
   // Extract fetch function to be reusable
-  const fetchPublicProfile = useCallback(async (extractedUsername) => {
+  const fetchPublicProfile = useCallback(async (lookup) => {
     setLoading(true);
     setError(null);
 
     const { apiUrl } = config();
+    // id is the stable key (usernames change); username kept for old links
+    const lookupQuery = lookup.id
+      ? `id=${encodeURIComponent(lookup.id)}`
+      : `username=${encodeURIComponent(lookup.username)}`;
 
     try {
       // Create fetch requests with timeout
@@ -38,8 +42,8 @@ export default function UserProfilePage() {
       let profileResponse, eloResponse;
       try {
         [profileResponse, eloResponse] = await Promise.all([
-          fetchWithTimeout(`${apiUrl}/api/publicProfile?username=${encodeURIComponent(extractedUsername)}`),
-          fetchWithTimeout(`${apiUrl}/api/eloRank?username=${encodeURIComponent(extractedUsername)}`)
+          fetchWithTimeout(`${apiUrl}/api/publicProfile?${lookupQuery}`),
+          fetchWithTimeout(`${apiUrl}/api/eloRank?${lookupQuery}`)
         ]);
       } catch (fetchError) {
         // Handle network errors, timeouts, or fetch failures
@@ -104,6 +108,11 @@ export default function UserProfilePage() {
         return;
       }
 
+      // id-based visits don't know the username until the profile arrives
+      if (lookup.id && profile.username) {
+        setUsername(profile.username);
+      }
+
       // Handle ELO response
       let eloDataToSet;
       if (!eloResponse.ok) {
@@ -152,28 +161,32 @@ export default function UserProfilePage() {
   }, []);
 
   useEffect(() => {
-    // Extract username from URL
-    // Supports /user?u=username format
+    // Extract the lookup key from the URL
+    // Supports /user?id=<account id> (stable) and /user?u=username (legacy)
     const { apiUrl } = config();
 
-    // Get username from query parameter
+    // Get lookup from query parameters
     let extractedUsername = router.query.u;
+    let extractedId = router.query.id;
 
     // Also check URL search params directly (for client-side navigation)
-    if (!extractedUsername && typeof window !== 'undefined') {
+    if (!extractedUsername && !extractedId && typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       extractedUsername = urlParams.get('u');
+      extractedId = urlParams.get('id');
     }
 
-    if (!extractedUsername) {
+    if (!extractedUsername && !extractedId) {
       setLoading(false);
       setError('No username provided. Use format: /user?u=username');
       return;
     }
 
-    setUsername(extractedUsername);
-    fetchPublicProfile(extractedUsername);
-  }, [router.query.u, fetchPublicProfile]);
+    if (extractedUsername) {
+      setUsername(extractedUsername);
+    }
+    fetchPublicProfile({ username: extractedUsername, id: extractedId });
+  }, [router.query.u, router.query.id, fetchPublicProfile]);
 
   return (
     <>

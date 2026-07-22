@@ -1,5 +1,6 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
+import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from '../serverUtils/forumUsername.js';
 import { Filter } from 'bad-words';
 
 const filter = new Filter();
@@ -41,6 +42,15 @@ export default async function handler(req, res) {
       .json({
         message: "Username must contain only letters, numbers, and underscores",
       });
+  }
+
+  // Forum-stable only — mirrors api/setName.js (Discourse rewrites underscore
+  // prefixes/suffixes/runs, letting different WG names collide on the forum)
+  if (!isForumStable(trimmedUsername)) {
+    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
+  }
+  if (isForumReserved(trimmedUsername)) {
+    return res.status(400).json({ message: FORUM_RESERVED_MESSAGE });
   }
 
   // Profanity check — mirrors api/setName.js so a forced-rename can't slip
