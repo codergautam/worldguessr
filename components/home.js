@@ -673,11 +673,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // Forum SSO. On top-level web, go straight into DiscourseConnect:
     // wg_secret is already in the localStorage /discourse-sso reads, so the
     // bridge would only copy it onto itself. Embedded contexts (CrazyGames)
-    // keep wg_secret in partitioned storage, so mint a one-time code and hand
-    // the session to top-level worldguessr.com before continuing to the forum.
+    // can't do that — crazyAuth keeps the secret in React state only (never
+    // localStorage), and the iframe origin is a crazygames domain anyway — so
+    // mint a one-time code and hand the session to top-level
+    // www.worldguessr.com (the origin /discourse-sso reads localStorage on)
+    // before continuing to the forum.
     // Used by the "Join our community" banner button.
     const openForum = async () => {
-        const forumSecret = window.localStorage.getItem("wg_secret");
+        let forumSecret = null;
+        try { forumSecret = window.localStorage.getItem("wg_secret"); } catch (e) { }
+        if (!forumSecret) forumSecret = session?.token?.secret || null;
         if (!forumSecret) return window.open("https://worldguessr.forum", "_blank");
         // Cross-origin parents throw on window.top access; that means iframe
         const embedded = (() => { try { return window.self !== window.top; } catch { return true; } })();
@@ -689,7 +694,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 body: JSON.stringify({ action: "create", secret: forumSecret }),
             });
             const data = await resp.json();
-            if (data.code) return window.open(window.location.origin + "/forum-bridge?code=" + data.code, "_blank");
+            if (data.code) return window.open("https://www.worldguessr.com/forum-bridge?code=" + data.code, "_blank");
         } catch (e) { }
         window.open("https://worldguessr.forum", "_blank");
     };
