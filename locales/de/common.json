@@ -939,5 +939,6 @@
   "kickConfirm": "{{name}} aus der Party entfernen?",
   "multiplayerEmoteReactions": "Multiplayer-Emote-Reaktionen",
   "forfeit2v2Warning": "Wenn du jetzt gehst, verliert dein Team das Match und das Spiel endet für alle 4 Spieler.",
-  "teamBackgroundWarning": "Achtung: Wenn du die App länger verlässt, lässt du deinen Teamkameraden im Stich."
+  "teamBackgroundWarning": "Achtung: Wenn du die App länger verlässt, lässt du deinen Teamkameraden im Stich.",
+  "communityBannerTitle": "Werde Teil unserer Community!"
 }

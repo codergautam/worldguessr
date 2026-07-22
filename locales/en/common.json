@@ -940,5 +940,6 @@
   "kickConfirm": "Kick {{name}} from the party?",
   "multiplayerEmoteReactions": "Multiplayer emote reactions",
   "forfeit2v2Warning": "Leaving now forfeits the match for your teammate and ends the game for all 4 players. Your team takes the loss.",
-  "teamBackgroundWarning": "Heads up: leaving the app for long abandons your teammate."
+  "teamBackgroundWarning": "Heads up: leaving the app for long abandons your teammate.",
+  "communityBannerTitle": "Join our community!"
 }
