@@ -1,5 +1,5 @@
 import User, { USERNAME_COLLATION } from '../../models/User.js';
-import { forumNormalize, isForumStable } from '../../serverUtils/forumUsername.js';
+import { forumNormalize, isForumStable, isForumReserved } from '../../serverUtils/forumUsername.js';
 import { syncForumUser } from '../../serverUtils/syncForumUser.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import ModerationLog from '../../models/ModerationLog.js';
@@ -68,6 +68,11 @@ export default async function handler(req, res) {
       if (!isForumStable(nameRequest.requestedUsername)) {
         return res.status(400).json({
           message: 'This username would be rewritten by the forum (underscore at start/end or doubled). Reject this request so the user can submit a different name.'
+        });
+      }
+      if (isForumReserved(nameRequest.requestedUsername)) {
+        return res.status(400).json({
+          message: 'This username is reserved. Reject this request so the user can submit a different name.'
         });
       }
 

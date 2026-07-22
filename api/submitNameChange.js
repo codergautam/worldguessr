@@ -1,6 +1,6 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
-import { forumNormalize, isForumStable, FORUM_STABLE_MESSAGE } from '../serverUtils/forumUsername.js';
+import { forumNormalize, isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from '../serverUtils/forumUsername.js';
 import { Filter } from 'bad-words';
 
 const filter = new Filter();
@@ -48,6 +48,9 @@ export default async function handler(req, res) {
   // prefixes/suffixes/runs, letting different WG names collide on the forum)
   if (!isForumStable(trimmedUsername)) {
     return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
+  }
+  if (isForumReserved(trimmedUsername)) {
+    return res.status(400).json({ message: FORUM_RESERVED_MESSAGE });
   }
 
   // Profanity check — mirrors api/setName.js so a forced-rename can't slip

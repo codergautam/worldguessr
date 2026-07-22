@@ -23,3 +23,19 @@ export function isForumStable(username) {
 
 export const FORUM_STABLE_MESSAGE =
   'Username cannot start or end with an underscore, or contain consecutive underscores';
+
+// Discourse also refuses its reserved usernames and silently suffixes them
+// (admin -> admin1), which is both a name divergence and impersonation-bait.
+// Mirrors the forum's reserved_usernames setting. 16 grandfathered WG
+// accounts already hold such names (2026-07-22); new claims are blocked.
+const FORUM_RESERVED = new Set([
+  'admin', 'moderator', 'administrator', 'mod', 'sys', 'system', 'you',
+  'name', 'username', 'user', 'nickname', 'discourse', 'discourseorg',
+  'discourseforum', 'all', 'here', 'community', 'info', 'support',
+]);
+
+export function isForumReserved(username) {
+  return FORUM_RESERVED.has(String(username).toLowerCase());
+}
+
+export const FORUM_RESERVED_MESSAGE = 'This username is reserved';
