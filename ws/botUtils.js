@@ -120,15 +120,22 @@ export function createBotPlayer() {
 
 // Eligibility = 0 wins yet, or a low winrate (≤10% ranked, ≤20% 2v2). Stamped on the
 // Player — NOT the queue entry, which the ranked widen loop replaces — by a
-// fire-and-forget read at queue join; backfill only trusts an explicit true,
-// so an unresolved read just means no bot this queue session.
+// fire-and-forget read at queue join; backfill only trusts an explicit true.
+// EVERY outcome stamps a resolved value (missing doc / DB error → all-false),
+// so `botEligibility === undefined` means strictly "read in flight": the 2v2
+// pairing pass holds a duo out of human pairing while undefined (newbie duos
+// must never pair with humans — USER RULING July 22), and that hold must be
+// transient by construction.
 export async function refreshBotEligibility(player) {
   if (!BOTS_ENABLED || !player?.accountId) return;
   try {
     const u = await User.findById(player.accountId)
       .select('duels_wins duels_losses duels_tied team2v2_wins team2v2_losses team2v2_tied')
       .lean();
-    if (!u) return;
+    if (!u) {
+      player.botEligibility = { ranked: false, team: false };
+      return;
+    }
     // .lean() skips schema defaults — dormant docs report undefined, not 0.
     const newbie = (wins, losses, tied, maxWinrate) => {
       const total = wins + losses + tied;
@@ -140,6 +147,9 @@ export async function refreshBotEligibility(player) {
     };
   } catch (e) {
     console.error('refreshBotEligibility failed for', player?.accountId, e?.message);
+    // Fail toward humans: an unassessable player is treated as a veteran so
+    // the pairing-pass hold can't strand them in queue.
+    player.botEligibility = { ranked: false, team: false };
   }
 }
 

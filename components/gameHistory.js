@@ -77,6 +77,27 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
 
   const formatDate = (dateString) => timeAgo(text, dateString);
 
+  // Roster names for team games: profile link for account-bearing players
+  // (bots/guests render as plain text — same convention as the ranked
+  // opponent cell), flag when set.
+  const renderRoster = (roster) => roster.map((p, i) => (
+    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      {p.accountId ? (
+        <Link
+          href={`/user?u=${encodeURIComponent(p.username)}`}
+          onClick={(e) => e.stopPropagation()}
+          target="_blank"
+          style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
+        >
+          {p.username}
+        </Link>
+      ) : (
+        <span>{p.username}</span>
+      )}
+      {p.countryCode && <CountryFlag countryCode={p.countryCode} style={{ fontSize: '0.9em' }} />}
+    </span>
+  ));
+
   const getLocationDisplay = (location, settings) => {
     if (settings?.countryGuesser) {
       if (settings.countryGuessrSubMode === 'continent') return text('continentGuesser') || 'Continent Guesser';
@@ -257,6 +278,24 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                         }}>
                           {game.result?.winningTeam == null ? text('draw')
                             : game.result.winningTeam === game.userStats.team ? text('victory') : text('defeat')}
+                        </span>
+                      </div>
+                    )}
+                    {game.teammates?.length > 0 && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>
+                          {game.teammates.length > 1 ? text('teammates') : text('teammate')}
+                        </span>
+                        <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.85rem' }}>
+                          {renderRoster(game.teammates)}
+                        </span>
+                      </div>
+                    )}
+                    {game.opponents?.length > 0 && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>{text('opponents')}</span>
+                        <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.85rem' }}>
+                          {renderRoster(game.opponents)}
                         </span>
                       </div>
                     )}

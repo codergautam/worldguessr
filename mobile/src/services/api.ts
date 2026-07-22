@@ -415,6 +415,9 @@ export const api = {
           team?: 'a' | 'b' | null;
         };
         opponent?: { username: string; countryCode?: string; accountId?: string | null };
+        /** Team games only (2v2 / party team mode): user's teammates + opposing team. */
+        teammates?: Array<{ username: string; accountId?: string | null; countryCode?: string | null }> | null;
+        opponents?: Array<{ username: string; accountId?: string | null; countryCode?: string | null }> | null;
         roundsPlayed: number;
         totalDuration: number;
         result: {

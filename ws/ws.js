@@ -1981,8 +1981,21 @@ try {
     const pairs = [];
     const matchedPlayers = new Set();
 
-    // Convert Map to an array for efficient iteration
-    const entries = Array.from(duelQueue.entries()).filter(r => r[1].duel);
+    // Convert Map to an array for efficient iteration.
+    // USER RULING (July 22, mirrors the 2v2 carve-out): newbie players ALWAYS
+    // get bots — carved out of human pairing entirely; the ranked backfill
+    // serves them the same tick. undefined eligibility = read in flight →
+    // held out of pairing (~a tick, refreshBotEligibility stamps every
+    // outcome). Guests (no accountId) keep pairing guest-vs-guest as before,
+    // and instant testing mode keeps the old pair-first flow.
+    const entries = Array.from(duelQueue.entries()).filter(([id, q]) => {
+      if (!q.duel) return false;
+      if (BOTS_ENABLED && !BOTS_INSTANT) {
+        const p = players.get(id);
+        if (p?.accountId && p.botEligibility?.ranked !== false) return false;
+      }
+      return true;
+    });
 
     // Helper to check if two players were last opponents (and should skip matching)
     // Allow rematch if either player has been waiting > 15 seconds
@@ -2545,6 +2558,23 @@ try {
       pair2v2Solos(playersInQueue);
       const teams = build2v2Teams(playersInQueue);
 
+      // USER RULING (July 22): newbie duos ALWAYS get bots — carved out of
+      // human pairing entirely (the backfill below serves them this same
+      // tick), no longer merely backfilled after humans got first refusal.
+      // A duo is carved out when every member is bot-eligible for 2v2, and
+      // HELD OUT of pairing while any member's eligibility read is still in
+      // flight (undefined) so a newbie can't slip into a human match on the
+      // join tick. refreshBotEligibility stamps every outcome (success,
+      // missing doc, DB error), so a hold lasts about a tick by construction.
+      // Instant testing mode keeps the old flow: pair first, bots for
+      // leftovers.
+      const pairableTeams = (BOTS_ENABLED && !BOTS_INSTANT)
+        ? teams.filter(team => !team.every(id => {
+            const s = players.get(id);
+            return s?.accountId && s.botEligibility?.team !== false;
+          }))
+        : teams;
+
       // Pair teams while avoiding immediate rematches: a duo is never matched
       // against the identical opponent duo it just fought (stamped on each
       // player as last2v2Opponents at match creation) — UNLESS no other
@@ -2562,7 +2592,7 @@ try {
         return q && Date.now() - q.queueTime > 20000;
       });
       const pairs = [];
-      const unpaired = [...teams];
+      const unpaired = [...pairableTeams];
       while (unpaired.length >= 2) {
         const tA = unpaired.shift();
         let idx = unpaired.findIndex(tB => !isRematch(tA, tB));
@@ -2695,9 +2725,10 @@ try {
       }
 
       // Bot backfill (ranked 1v1): a player with 0 ranked wins or a
-      // ≤10% winrate whom findDuelPairs couldn't serve gets a bot
-      // opponent pinned to 800-1000 ELO, immediately. Runs after the
-      // pairing pass each tick — humans still get first refusal.
+      // ≤10% winrate gets a bot opponent pinned to 800-1000 ELO,
+      // immediately. Newbies are carved out of findDuelPairs above (USER
+      // RULING July 22: always bots for them), so this serves every
+      // eligible player each tick, not just pairing leftovers.
       if (BOTS_ENABLED) {
         for (const [playerId, queueData] of playersInQueue) {
           if (!queueData.duel) continue;

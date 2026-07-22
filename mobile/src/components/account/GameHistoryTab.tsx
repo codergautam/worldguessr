@@ -37,6 +37,9 @@ interface Game {
     team?: 'a' | 'b' | null;
   };
   opponent?: { username: string; countryCode?: string; accountId?: string | null };
+  /** Team games only (2v2 / party team mode): user's teammates + opposing team. */
+  teammates?: Array<{ username: string; accountId?: string | null; countryCode?: string | null }> | null;
+  opponents?: Array<{ username: string; accountId?: string | null; countryCode?: string | null }> | null;
   roundsPlayed: number;
   totalDuration: number;
   result: {
@@ -99,6 +102,27 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
 
   const getGameType = (gameType: string) =>
     GAME_TYPES[gameType] || { labelKey: null, icon: '🎮', color: '#757575' };
+
+  // Roster names for team games: pressable profile link for account-bearing
+  // players, plain text for bots/guests (same convention as the ranked
+  // opponent cell).
+  const renderRoster = (roster: NonNullable<Game['teammates']>) => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
+      {roster.map((p, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {p.accountId ? (
+            <Pressable onPress={() => onNavigateToUser?.(p.username)}>
+              <Text style={[styles.gameStatValue, { color: '#4dabf7', fontSize: 12 }]}>
+                {p.username}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.gameStatValue, { fontSize: 12 }]}>{p.username}</Text>
+          )}
+        </View>
+      ))}
+    </View>
+  );
 
   const getLocationDisplay = (settings: Game['settings']) => {
     if (settings.countryGuesser) {
@@ -180,8 +204,9 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               {/* Team games — BOTH kinds: party team mode (settings.teamGame)
                   and matchmade 2v2 (gameType '2v2', which never sets the
                   party-only flag). W/L/D from winningTeam vs MY team, ahead
-                  of points; NEVER an opponent name (the backend computes
-                  opponent only for ranked_duel — web gameHistory.js parity). */}
+                  of points; roster names come from the teammates/opponents
+                  arrays below (singular `opponent` stays ranked_duel-only —
+                  web gameHistory.js parity). */}
               {(game.settings?.teamGame || game.gameType === '2v2') && game.userStats?.team && (
                 <View style={styles.gameStat}>
                   <Text style={styles.gameStatLabel}>{t('result')}</Text>
@@ -204,6 +229,20 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                         ? t('victory')
                         : t('defeat')}
                   </Text>
+                </View>
+              )}
+              {(game.teammates?.length ?? 0) > 0 && (
+                <View style={styles.gameStat}>
+                  <Text style={styles.gameStatLabel}>
+                    {t(game.teammates!.length > 1 ? 'teammates' : 'teammate')}
+                  </Text>
+                  {renderRoster(game.teammates!)}
+                </View>
+              )}
+              {(game.opponents?.length ?? 0) > 0 && (
+                <View style={styles.gameStat}>
+                  <Text style={styles.gameStatLabel}>{t('opponents')}</Text>
+                  {renderRoster(game.opponents!)}
                 </View>
               )}
               {isRankedDuel ? (

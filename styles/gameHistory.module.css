@@ -163,6 +163,22 @@
   margin-bottom: 16px;
 }
 
+/* Team cards: people column (result/teammates/opponents) | numbers column
+   (points/xp/duration) */
+.gameStatsTeam {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.teamStatsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .statItem {
   display: flex;
   flex-direction: column;

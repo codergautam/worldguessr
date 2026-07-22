@@ -71,7 +71,27 @@ export default async function handler(req, res) {
           player.accountId !== user._id.toString()
         );
       }
-      
+
+      // Team games (matchmade 2v2 + party team mode): split the roster into
+      // the user's teammates and the opposing team for the history card.
+      // Same accountId-null convention as opponent below (bots/guests get no
+      // profile link).
+      let teammates = null;
+      let teamOpponents = null;
+      if ((game.gameType === '2v2' || game.settings?.teamGame) && userPlayer?.team) {
+        const rosterEntry = (p) => ({
+          username: p.username,
+          accountId: p.accountId || null,
+          countryCode: p.countryCode ?? null
+        });
+        teammates = game.players
+          .filter(p => p.team === userPlayer.team && p.accountId !== user._id.toString())
+          .map(rosterEntry);
+        teamOpponents = game.players
+          .filter(p => p.team && p.team !== userPlayer.team)
+          .map(rosterEntry);
+      }
+
       return {
         gameId: game.gameId,
         gameType: game.gameType,
@@ -134,7 +154,11 @@ export default async function handler(req, res) {
           finalRank: opponentPlayer.finalRank || 2,
           elo: opponentPlayer.elo || null
         } : null,
-        
+
+        // Team rosters (2v2 / party team games), null elsewhere
+        teammates,
+        opponents: teamOpponents,
+
         // Round count for display
         roundsPlayed: game.rounds?.length || 0
       };
