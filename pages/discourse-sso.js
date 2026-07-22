@@ -8,7 +8,7 @@ import { asset } from '@/lib/basePath';
 // redirect that logs them into worldguessr.forum.
 const card = {
   width: 'min(360px, 100%)',
-  background: 'rgba(13, 19, 31, 0.82)',
+  background: 'rgba(15, 26, 19, 0.82)',
   border: '1px solid rgba(168, 184, 178, 0.16)',
   borderRadius: '16px',
   padding: '36px 32px',
@@ -74,9 +74,9 @@ export default function DiscourseSSO() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       minHeight: '100vh', padding: '32px 20px',
       fontFamily: "'Lexend', sans-serif", color: '#f2f5f3',
-      backgroundColor: '#0b0f18',
-      backgroundImage: `linear-gradient(rgba(7,11,19,0.72), rgba(7,11,19,0.86)), url(${asset('/street2.webp')})`,
-      backgroundSize: 'cover', backgroundPosition: 'center',
+      backgroundColor: '#0a120c',
+      backgroundImage: `linear-gradient(rgba(10,18,12,0.86), rgba(10,18,12,0.93)), url(${asset('/street2.webp')})`,
+      backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
     }}>
       <style>{`
         @keyframes wgspin { to { transform: rotate(360deg); } }
