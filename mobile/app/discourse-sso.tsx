@@ -75,7 +75,7 @@ export default function DiscourseSsoScreen() {
         {status === 'working' && (
           <>
             <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
-            <Text style={styles.message}>{t('forumSigningIn', undefined, 'Signing you in…')}</Text>
+            <Text style={styles.message}>{t('forumSigningIn', undefined, 'Loading…')}</Text>
           </>
         )}
 

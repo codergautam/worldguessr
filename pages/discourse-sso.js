@@ -94,7 +94,7 @@ export default function DiscourseSSO() {
               border: '3px solid rgba(76, 175, 80, 0.18)', borderTopColor: '#4CAF50',
               animation: 'wgspin 0.9s linear infinite',
             }} />
-            <div style={{ fontSize: '17px', fontWeight: 500 }}>Signing you in…</div>
+            <div style={{ fontSize: '17px', fontWeight: 500 }}>Loading…</div>
           </>
         )}
 
