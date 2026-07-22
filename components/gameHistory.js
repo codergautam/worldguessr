@@ -158,8 +158,8 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
               className={styles.gameItem}
               onClick={() => onGameClick(game)}
             >
-              {/* Mod-only: flag this game as suspicious evidence for a ban (ranked duels only) */}
-              {selectable && game.gameType === 'ranked_duel' && (
+              {/* Mod-only: flag this game as suspicious evidence for a ban (ranked duels and 2v2) */}
+              {selectable && (game.gameType === 'ranked_duel' || game.gameType === '2v2') && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}
