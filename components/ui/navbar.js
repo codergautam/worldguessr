@@ -1,4 +1,4 @@
-import { FaArrowLeft, FaUser, FaUserFriends, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
+import { FaArrowLeft, FaUser, FaUserFriends, FaVolumeUp, FaVolumeMute, FaStepBackward } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
@@ -76,7 +76,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         aria-label={text("resetStreetView")}
                     >
                         {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
-                        <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
+                        <FaStepBackward size={20} />
                     </button>
                 )}
                 {reloadTip && (
