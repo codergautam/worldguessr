@@ -55,72 +55,41 @@ export default async function handler(req, res) {
     }));
 
     // 2. Get moderation actions against this user (public info only)
-    // Whitelist of action types the user is allowed to see. Excluded:
+    // Single source of truth: action types the user may see, mapped to their public
+    // descriptions. Anything not in this map never reaches the client — there is no
+    // generic fallback label. Excluded:
     // - name_change_manual: the user's own voluntary rename (audit trail, not an action against them)
     // - report_ignored / report_resolved: stamped with targetUser = reported user, so
     //   showing them would leak the existence of reports against the user
     // - user_deleted: account is gone, entry is moot
-    const USER_VISIBLE_ACTIONS = [
-      'ban_permanent',
-      'ban_temporary',
-      'unban',
-      'force_name_change',
-      'undo_force_name_change',
-      'name_change_approved',
-      'name_change_rejected',
-      'warning'
-    ];
+    const USER_VISIBLE_ACTIONS = {
+      ban_permanent: 'Account suspended',
+      ban_temporary: 'Account temporarily suspended',
+      unban: 'Account suspension lifted',
+      force_name_change: 'Username change required',
+      undo_force_name_change: 'Username change requirement lifted',
+      name_change_approved: 'Username change approved',
+      name_change_rejected: 'Username change rejected',
+      warning: 'Warning issued'
+    };
     const moderationHistory = await ModerationLog.find({
       'targetUser.accountId': accountId,
-      actionType: { $in: USER_VISIBLE_ACTIONS }
+      actionType: { $in: Object.keys(USER_VISIBLE_ACTIONS) }
     })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 
     // Format moderation history - only show public information
-    const formattedModerationHistory = moderationHistory.map(log => {
-      // Determine a user-friendly action description
-      let actionDescription;
-      switch (log.actionType) {
-        case 'ban_permanent':
-          actionDescription = 'Account suspended';
-          break;
-        case 'ban_temporary':
-          actionDescription = 'Account temporarily suspended';
-          break;
-        case 'unban':
-          actionDescription = 'Account suspension lifted';
-          break;
-        case 'force_name_change':
-          actionDescription = 'Username change required';
-          break;
-        case 'undo_force_name_change':
-          actionDescription = 'Username change requirement lifted';
-          break;
-        case 'name_change_approved':
-          actionDescription = 'Username change approved';
-          break;
-        case 'name_change_rejected':
-          actionDescription = 'Username change rejected';
-          break;
-        case 'warning':
-          actionDescription = 'Warning issued';
-          break;
-        default:
-          actionDescription = 'Moderation action';
-      }
-
-      return {
-        id: log._id,
-        actionType: log.actionType,
-        actionDescription,
-        publicNote: log.notes || null, // Only the public note, never the internal reason
-        date: log.createdAt,
-        expiresAt: log.expiresAt || null, // For temp bans
-        durationString: log.durationString || null
-      };
-    });
+    const formattedModerationHistory = moderationHistory.map(log => ({
+      id: log._id,
+      actionType: log.actionType,
+      actionDescription: USER_VISIBLE_ACTIONS[log.actionType],
+      publicNote: log.notes || null, // Only the public note, never the internal reason
+      date: log.createdAt,
+      expiresAt: log.expiresAt || null, // For temp bans
+      durationString: log.durationString || null
+    }));
 
     // 3. Get reports submitted by this user
     const submittedReports = await Report.find({
