@@ -55,8 +55,24 @@ export default async function handler(req, res) {
     }));
 
     // 2. Get moderation actions against this user (public info only)
+    // Whitelist of action types the user is allowed to see. Excluded:
+    // - name_change_manual: the user's own voluntary rename (audit trail, not an action against them)
+    // - report_ignored / report_resolved: stamped with targetUser = reported user, so
+    //   showing them would leak the existence of reports against the user
+    // - user_deleted: account is gone, entry is moot
+    const USER_VISIBLE_ACTIONS = [
+      'ban_permanent',
+      'ban_temporary',
+      'unban',
+      'force_name_change',
+      'undo_force_name_change',
+      'name_change_approved',
+      'name_change_rejected',
+      'warning'
+    ];
     const moderationHistory = await ModerationLog.find({
-      'targetUser.accountId': accountId
+      'targetUser.accountId': accountId,
+      actionType: { $in: USER_VISIBLE_ACTIONS }
     })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -78,6 +94,9 @@ export default async function handler(req, res) {
           break;
         case 'force_name_change':
           actionDescription = 'Username change required';
+          break;
+        case 'undo_force_name_change':
+          actionDescription = 'Username change requirement lifted';
           break;
         case 'name_change_approved':
           actionDescription = 'Username change approved';
