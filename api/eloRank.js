@@ -3,6 +3,7 @@ import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
 import { MIN_ELO } from '../components/utils/eloSystem.js';
 import { rateLimit } from '../utils/rateLimit.js';
+import { syncForumUser } from '../serverUtils/syncForumUser.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
@@ -99,6 +100,15 @@ export async function setElo(accountId, newElo, gameData) {
        }
 
      });
+
+    // If this game moved the player into a different league, push the new
+    // league color (and byline) to the forum. League changes are rare, so this
+    // fires far less often than every game.
+    if (gameData.oldElo != null &&
+        getLeague(gameData.oldElo).name !== getLeague(newElo).name) {
+      const u = await User.findById(accountId);
+      if (u) syncForumUser(u);
+    }
   } catch (error) {
     console.error('Error setting elo:', error.message);
   }

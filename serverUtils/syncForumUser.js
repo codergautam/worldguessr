@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { getLeague } from '../components/utils/leagues.js';
 
 const FORUM_URL = 'https://worldguessr.forum';
 
@@ -24,6 +25,14 @@ export function forumIdentityFor(user) {
   if (user.avatarUrl) {
     identity.avatar_url = user.avatarUrl.replace(/=s\d+(-c)?$/, '=s512-c');
   }
+  // WG flag setting rides along as a forum custom field (rendered next to
+  // usernames by the forum theme). Always sent — '' when unset/opted-out —
+  // so removing the flag in-game also clears it on the forum.
+  identity['custom.wg_flag'] = user.countryCode || '';
+  // League color (from the WG league the user's current elo falls in) so the
+  // forum theme can tint the username to match the game. Updates on login and
+  // whenever the league changes (see setElo). Always sent.
+  identity['custom.wg_league_color'] = getLeague(user.elo || 0).color;
   return identity;
 }
 

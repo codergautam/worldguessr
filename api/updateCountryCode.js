@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
+import { syncForumUser } from '../serverUtils/syncForumUser.js';
 import { VALID_COUNTRY_CODES } from '../serverUtils/timezoneToCountry.js';
 
 export default async function handler(req, res) {
@@ -55,6 +56,8 @@ export default async function handler(req, res) {
 
     user.countryCode = newCountryCode;
     await user.save();
+    // Push the new flag to the forum instantly (fire-and-forget)
+    syncForumUser(user);
 
     syncedClearCache(`publicData_${user._id.toString()}`);
     syncedClearCache(`userAuth_${token}`);
