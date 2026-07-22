@@ -23,15 +23,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
-  // Forum-normalized username, set ONLY on grandfathered accounts whose name
-  // Discourse rewrites (underscore prefix/suffix/runs) so new-name claims can
-  // detect forum-level collisions. Names claimed after 2026-07 must be
-  // forum-stable (serverUtils/forumUsername.js) and never set this; renames
-  // clear it. Backfill: scripts/backfillUsernameNorm.js.
-  usernameNorm: {
-    type: String,
-    required: false,
-  },
   created_at: {
     type: Date,
     default: Date.now,
@@ -279,9 +270,6 @@ userSchema.index({ pendingNameChange: 1 });
 userSchema.index({ username: 1 }, { collation: { locale: 'en', strength: 2 } });
 // Plain case-sensitive index for queries that don't use collation (fallback)
 userSchema.index({ username: 1 });
-// Sparse: only the ~31k grandfathered accounts with forum-unstable names carry
-// usernameNorm, so this index is tiny despite the collection size
-userSchema.index({ usernameNorm: 1 }, { sparse: true });
 
 // Export collation config for consistent usage across queries
 export const USERNAME_COLLATION = { locale: 'en', strength: 2 };

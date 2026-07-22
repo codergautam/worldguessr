@@ -4,10 +4,13 @@
 // the ONLY way two different WG names can silently become the same forum name
 // (e.g. "Revolt_" -> "Revolt", colliding with the real player "ReVolt").
 //
-// Prevention (2026-07-22): new names must be "forum-stable" — normalization
-// changes nothing but case — and must not collide with the normalized form of
-// a grandfathered old name (User.usernameNorm, set only on the ~31k accounts
-// whose names Discourse rewrites; see scripts/backfillUsernameNorm.js).
+// Policy (2026-07-22): forum name collisions are acceptable — the second
+// arrival just gets a digit suffix, and identity flows through the account id
+// (custom.wg_id deep links), never the name. What we DO block on new claims:
+// - forum-unstable names (rewritten SILENTLY to a different-looking name —
+//   that's confusing in a way a visible suffix isn't)
+// - the forum's reserved usernames (suffixed AND impersonation-bait in-game)
+// Existing holders of either kind are grandfathered.
 
 export function forumNormalize(username) {
   return String(username)
@@ -24,10 +27,7 @@ export function isForumStable(username) {
 export const FORUM_STABLE_MESSAGE =
   'Username cannot start or end with an underscore, or contain consecutive underscores';
 
-// Discourse also refuses its reserved usernames and silently suffixes them
-// (admin -> admin1), which is both a name divergence and impersonation-bait.
-// Mirrors the forum's reserved_usernames setting. 16 grandfathered WG
-// accounts already hold such names (2026-07-22); new claims are blocked.
+// Mirrors the forum's reserved_usernames setting
 const FORUM_RESERVED = new Set([
   'admin', 'moderator', 'administrator', 'mod', 'sys', 'system', 'you',
   'name', 'username', 'user', 'nickname', 'discourse', 'discourseorg',

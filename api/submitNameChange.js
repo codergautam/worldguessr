@@ -1,6 +1,6 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
-import { forumNormalize, isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from '../serverUtils/forumUsername.js';
+import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from '../serverUtils/forumUsername.js';
 import { Filter } from 'bad-words';
 
 const filter = new Filter();
@@ -87,15 +87,6 @@ export default async function handler(req, res) {
     }).collation(USERNAME_COLLATION);
 
     if (existingUser) {
-      return res.status(400).json({ message: 'This username is already taken' });
-    }
-
-    // Grandfathered forum-name collision (see api/setName.js)
-    const forumClash = await User.findOne({
-      usernameNorm: forumNormalize(trimmedUsername),
-      _id: { $ne: user._id }
-    });
-    if (forumClash) {
       return res.status(400).json({ message: 'This username is already taken' });
     }
 
