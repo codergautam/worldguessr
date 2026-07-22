@@ -1,6 +1,6 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
-import { FaComments, FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
@@ -57,6 +57,7 @@ import WelcomeOverlay from "@/components/welcomeOverlay";
 import AlertModal from "@/components/ui/AlertModal";
 import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
+import CommunityBanner from '@/components/communityBanner';
 import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
@@ -667,6 +668,30 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setNavSlideOut(false); // Reset for next use
             action();
         }, 300);
+    };
+
+    // Forum SSO. On top-level web, go straight into DiscourseConnect:
+    // wg_secret is already in the localStorage /discourse-sso reads, so the
+    // bridge would only copy it onto itself. Embedded contexts (CrazyGames)
+    // keep wg_secret in partitioned storage, so mint a one-time code and hand
+    // the session to top-level worldguessr.com before continuing to the forum.
+    // Used by the "Join our community" banner button.
+    const openForum = async () => {
+        const forumSecret = window.localStorage.getItem("wg_secret");
+        if (!forumSecret) return window.open("https://worldguessr.forum", "_blank");
+        // Cross-origin parents throw on window.top access; that means iframe
+        const embedded = (() => { try { return window.self !== window.top; } catch { return true; } })();
+        if (!embedded) return window.open("https://worldguessr.forum/session/sso", "_blank");
+        try {
+            const resp = await fetch(clientConfig().apiUrl + "/api/forumBridge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "create", secret: forumSecret }),
+            });
+            const data = await resp.json();
+            if (data.code) return window.open(window.location.origin + "/forum-bridge?code=" + data.code, "_blank");
+        } catch (e) { }
+        window.open("https://worldguessr.forum", "_blank");
     };
 
     // Daily challenge navigation (in-app pushState, no real Next route change)
@@ -3989,6 +4014,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                         </div>
 
+                        {/* Community banner sits directly above the footer; always shown
+                            outside schoolguessr/embed contexts (which hide all social
+                            surfaces, same as the footer's social buttons). */}
+                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
+                            !isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
+                            <CommunityBanner
+                                visible={screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen}
+                                onVisitForum={openForum}
+                                text={text}
+                            />
+                        )}
+
                         {/* Footer moved outside of sliding navigation */}
                         <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
                             <div className="footer_btns">
@@ -4005,25 +4042,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                                        {process.env.NEXT_PUBLIC_FORUM_BUTTON && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
-                                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Forum" onClick={async () => {
-                                            // Forum SSO bridge: embedded contexts (CrazyGames) keep wg_secret in
-                                            // partitioned storage, so mint a one-time code and hand the session
-                                            // to top-level worldguessr.com before continuing to the forum.
-                                            const forumSecret = window.localStorage.getItem("wg_secret");
-                                            if (!forumSecret) return window.open("https://worldguessr.forum", "_blank");
-                                            try {
-                                                const resp = await fetch(clientConfig().apiUrl + "/api/forumBridge", {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    body: JSON.stringify({ action: "create", secret: forumSecret }),
-                                                });
-                                                const data = await resp.json();
-                                                if (data.code) return window.open(window.location.origin + "/forum-bridge?code=" + data.code, "_blank");
-                                            } catch (e) { }
-                                            window.open("https://worldguessr.forum", "_blank");
-                                        }}><FaComments className="home__squarebtnicon" /></button>
-                                        )}
                                     </>
                                 )}
                                 {!isApp && inGameDistribution && (

@@ -140,6 +140,8 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
 
     if (!options) return null;
 
+    // This is a full-screen page, so it deliberately opts out of the modal
+    // library's iOS body lock and owns its scroll surface below.
     return (
         <Modal id="" styles={{
             modal: {
@@ -163,13 +165,24 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
             }
         }} classNames={
             {
-                modal: 'g2_modal'
+                // Settings is a full-screen page. Give its shell and portal
+                // container dedicated classes so neither inherits the modal
+                // library's competing scroll surfaces.
+                modal: 'g2_modal settingsPage',
+                modalContainer: 'settingsPageContainer'
             }
         }
-            open={shown} center onClose={onClose} showCloseIcon={false} animationDuration={0}>
+            open={shown}
+            center
+            onClose={onClose}
+            showCloseIcon={false}
+            animationDuration={0}
+            blockScroll={false}
+            aria-labelledby="settings-page-title"
+        >
 
             <div className="g2_nav_ui">
-                <h1 className="g2_nav_title">{text("settings")}</h1>
+                <h1 id="settings-page-title" className="g2_nav_title">{text("settings")}</h1>
                 <div className="g2_nav_hr"></div>
 
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
@@ -314,23 +327,20 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     <a href={navigate("/privacy-crazygames")} target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
                 )}
 
+                {/* Keep every page item inside the one settings scroll surface.
+                    Desktop fixes these links over the nav column; the mobile
+                    column layout puts them in flow after the final setting. */}
+                {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && (
+                    <div className="g2_slide_in settingsFooterLinks">
+                        <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
+                            <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
+                        </a>
+                        <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
+                            <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
+                        </a>
+                    </div>
+                )}
             </div>
-            {/* Footer links. Positioning lives in .settingsFooterLinks because it
-                differs by layout: desktop (row) pins them fixed over the nav
-                column while .g2_content scrolls internally; small screens
-                (column) scroll the outer react-responsive-modal container, where
-                fixed would float over the option rows — there they go static, as
-                the last in-flow flex child at the true bottom of the scroll. */}
-            {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && (
-                <div className="g2_slide_in settingsFooterLinks">
-                    <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
-                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
-                    </a>
-                    <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
-                        <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
-                    </a>
-                </div>
-            )}
 
             {/* Step 1 — warning + consequences */}
             <ConfirmModal

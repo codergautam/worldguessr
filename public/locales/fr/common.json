@@ -939,5 +939,6 @@
   "kickConfirm": "Expulser {{name}} du groupe ?",
   "multiplayerEmoteReactions": "Réactions emotes en multijoueur",
   "forfeit2v2Warning": "Partir maintenant fait perdre le match à ton équipe et met fin à la partie pour les 4 joueurs.",
-  "teamBackgroundWarning": "Attention : quitter l'app trop longtemps abandonne ton coéquipier."
+  "teamBackgroundWarning": "Attention : quitter l'app trop longtemps abandonne ton coéquipier.",
+  "communityBannerTitle": "Rejoignez notre communauté !"
 }
