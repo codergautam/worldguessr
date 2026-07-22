@@ -1,4 +1,5 @@
 import User, { USERNAME_COLLATION } from '../../models/User.js';
+import { forumNormalize, isForumStable } from '../../serverUtils/forumUsername.js';
 import { syncForumUser } from '../../serverUtils/syncForumUser.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import ModerationLog from '../../models/ModerationLog.js';
@@ -62,6 +63,14 @@ export default async function handler(req, res) {
     }
 
     if (action === 'approve') {
+      // Requests filed before the forum-stability rule may carry a name the
+      // forum would rewrite — reject instead of reintroducing collisions
+      if (!isForumStable(nameRequest.requestedUsername)) {
+        return res.status(400).json({
+          message: 'This username would be rewritten by the forum (underscore at start/end or doubled). Reject this request so the user can submit a different name.'
+        });
+      }
+
       // Check if the new username is already taken (case-insensitive with collation index)
       const existingUser = await User.findOne({
         username: nameRequest.requestedUsername,
@@ -74,15 +83,31 @@ export default async function handler(req, res) {
         });
       }
 
+      // Grandfathered forum-name collision (see api/setName.js) — re-checked
+      // here because the clash may have appeared after the request was filed
+      const forumClash = await User.findOne({
+        usernameNorm: forumNormalize(nameRequest.requestedUsername),
+        _id: { $ne: targetUser._id }
+      });
+      if (forumClash) {
+        return res.status(400).json({
+          message: 'This username is already taken. Reject this request so the user can submit a different name.'
+        });
+      }
+
       const oldUsername = targetUser.username;
 
-      // Update the user's username and clear pending status
+      // Update the user's username and clear pending status (usernameNorm is
+      // only for grandfathered forum-unstable names — new names never carry it)
       await User.findByIdAndUpdate(targetUser._id, {
-        username: nameRequest.requestedUsername,
-        pendingNameChange: false,
-        pendingNameChangeReason: null,
-        pendingNameChangePublicNote: null,
-        lastNameChange: new Date()
+        $set: {
+          username: nameRequest.requestedUsername,
+          pendingNameChange: false,
+          pendingNameChangeReason: null,
+          pendingNameChangePublicNote: null,
+          lastNameChange: new Date()
+        },
+        $unset: { usernameNorm: 1 }
       });
 
       // Push the approved name to the forum instantly (fire-and-forget)

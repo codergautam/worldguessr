@@ -1,5 +1,6 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
+import { forumNormalize, isForumStable, FORUM_STABLE_MESSAGE } from '../serverUtils/forumUsername.js';
 import { Filter } from 'bad-words';
 
 const filter = new Filter();
@@ -43,6 +44,12 @@ export default async function handler(req, res) {
       });
   }
 
+  // Forum-stable only — mirrors api/setName.js (Discourse rewrites underscore
+  // prefixes/suffixes/runs, letting different WG names collide on the forum)
+  if (!isForumStable(trimmedUsername)) {
+    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
+  }
+
   // Profanity check — mirrors api/setName.js so a forced-rename can't slip
   // through with a worse name than the one that was forced to be changed.
   if (filter.isProfane(trimmedUsername)) {
@@ -77,6 +84,15 @@ export default async function handler(req, res) {
     }).collation(USERNAME_COLLATION);
 
     if (existingUser) {
+      return res.status(400).json({ message: 'This username is already taken' });
+    }
+
+    // Grandfathered forum-name collision (see api/setName.js)
+    const forumClash = await User.findOne({
+      usernameNorm: forumNormalize(trimmedUsername),
+      _id: { $ne: user._id }
+    });
+    if (forumClash) {
       return res.status(400).json({ message: 'This username is already taken' });
     }
 

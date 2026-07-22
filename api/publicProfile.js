@@ -53,11 +53,12 @@ export default async function handler(req, res) {
     return; // Rate limit exceeded, response already sent
   }
 
-  const { username } = req.query;
-  console.log(`[API] publicProfile: ${username}`);
+  const { username, id } = req.query;
+  console.log(`[API] publicProfile: ${id || username}`);
 
-  // Validate username is provided
-  if (!username || typeof username !== 'string') {
+  // Validate a lookup key is provided (id preferred — usernames change)
+  const validId = id && typeof id === 'string' && mongoose.Types.ObjectId.isValid(id);
+  if (!validId && (!username || typeof username !== 'string')) {
     return res.status(400).json({ message: 'Username is required' });
   }
 
@@ -72,8 +73,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by username (case-insensitive with collation for index usage)
-    const user = await User.findOne({ username: username }).collation(USERNAME_COLLATION);
+    // Find by id when given (stable across renames), else by username
+    // (case-insensitive with collation for index usage)
+    const user = validId
+      ? await User.findById(id)
+      : await User.findOne({ username: username }).collation(USERNAME_COLLATION);
 
     // Generic error message to prevent user enumeration
     if (!user) {

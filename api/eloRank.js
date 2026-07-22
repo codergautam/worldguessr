@@ -7,7 +7,7 @@ import { syncForumUser } from '../serverUtils/syncForumUser.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
-  const { username, secret } = req.query;
+  const { username, secret, id } = req.query;
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
   console.log(`[API] eloRank: ${username || '(by secret)'} | IP: ${ip}`);
 
@@ -41,6 +41,10 @@ export default async function handler(req, res) {
       // Prevent NoSQL injection - secret must be a string
       user = await User.findOne({ secret }).cache(120);
       if (user) foundBySecret = true;
+    } else if(id && typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
+      // Preferred lookup: the account id never changes, unlike the username
+      // (renames + forum-name normalization make name lookups ambiguous)
+      user = await User.findById(id).cache(120);
     } else if(username && typeof username === 'string') {
       // Prevent NoSQL injection - username must be a string
       user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);

@@ -33,6 +33,10 @@ export function forumIdentityFor(user) {
   // forum theme can tint the username to match the game. Updates on login and
   // whenever the league changes (see setElo). Always sent.
   identity['custom.wg_league_color'] = getLeague(user.elo || 0).color;
+  // WG account id as a PUBLIC custom field (external_id is admin-only) so the
+  // forum can deep-link to /user?id=... — identity by id, never by name:
+  // forum usernames can differ from WG names (Discourse rewrites/truncates)
+  identity['custom.wg_id'] = String(user._id);
   return identity;
 }
 

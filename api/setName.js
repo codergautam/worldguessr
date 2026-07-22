@@ -1,5 +1,6 @@
 // pages/api/setName.js
 import User, { USERNAME_COLLATION } from "../models/User.js";
+import { forumNormalize, isForumStable, FORUM_STABLE_MESSAGE } from "../serverUtils/forumUsername.js";
 import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
@@ -41,6 +42,11 @@ export default async function handler(req, res) {
         message: "Username must contain only letters, numbers, and underscores",
       });
   }
+  // Forum-stable only: Discourse rewrites underscore prefixes/suffixes/runs,
+  // which lets two different WG names collide on the forum
+  if (!isForumStable(username)) {
+    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
+  }
   // make sure username is not profane
   if (filter.isProfane(username)) {
     return res.status(400).json({ message: "Inappropriate content" });
@@ -50,6 +56,14 @@ export default async function handler(req, res) {
   const existing = await User.findOne({ username })
     .collation(USERNAME_COLLATION);
   if (existing) {
+    return res
+      .status(400)
+      .json({ message: "Username already taken, please select a new one" });
+  }
+  // A grandfathered old name may map to the same forum name (e.g. "Revolt_"
+  // blocks "Revolt") — sparse usernameNorm index holds only those accounts
+  const forumClash = await User.findOne({ usernameNorm: forumNormalize(username) });
+  if (forumClash) {
     return res
       .status(400)
       .json({ message: "Username already taken, please select a new one" });
@@ -141,6 +155,8 @@ export default async function handler(req, res) {
     const isFirstTimeSettingUsername = !user.username;
     const oldUsername = user.username; // Store old name before changing
     user.username = username;
+    // New names are forum-stable, so any grandfathered norm marker is obsolete
+    user.usernameNorm = undefined;
     await user.save();
 
     // Push the new name to the forum instantly (fire-and-forget)
