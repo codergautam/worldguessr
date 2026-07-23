@@ -672,13 +672,17 @@ const GameSummary = ({
   }, [mapReady, leafletReady, userHasInteracted]); // Only fit bounds if user hasn't interacted
 
   const handleRoundClick = (index) => {
-    setActiveRound(index);
+    // Clicking the active round again deselects it (back to the all-rounds view)
+    const deselecting = activeRound === index;
+    setActiveRound(deselecting ? null : index);
 
     // Check if mobile (screen width <= 1024px)
     const isMobile = window.innerWidth <= 1024;
 
     if (isMobile) {
       setMobileExpanded(!mobileExpanded);
+    } else if (deselecting) {
+      fitMapToBounds();
     } else {
       focusOnRound(index);
     }
