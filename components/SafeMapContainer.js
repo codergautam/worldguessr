@@ -24,11 +24,16 @@ import ErrorBoundary from './ErrorBoundary';
 const RLMapContainer = dynamic(
   () => Promise.all([
     import('react-leaflet'),
+    // Grouped tile crossfade + moveend sync for updateWhenZooming=false.
+    // Must register before fluid wheel so prepareGroupedTileLevel is patched in.
+    import('@/lib/leafletGroupedTiles'),
     // Registers the fluidWheelZoom handler on L.Map before any map mounts.
     // Maps opt in per-container via the fluidWheelZoom prop.
     import('@/lib/leafletFluidZoom'),
     // Settles interrupted CSS zoom animations before any new motion starts.
     import('@/lib/leafletSettleZoomAnim'),
+    // Folds rapid +/- presses into one C1-continuous grouped camera glide.
+    import('@/lib/leafletGroupedZoomControls'),
     // Reprojects vectors every frame during flyTo / wheel-glide zooms instead
     // of CSS-scaling stale geometry — keeps lines crisp and glued to their
     // points during (and despite interruptions of) camera flights.
@@ -84,13 +89,15 @@ export default function SafeMapContainer(props) {
           the stock stepped scrollWheelZoom must stay off or both handlers
           would fire per wheel event. Call sites can override any prop.
 
-          zoomSnap 0 frees mobile PINCH: with the default snap of 1, Leaflet's
-          TouchZoom._onTouchEnd runs the final zoom through _limitZoom, which
-          rounds it to the nearest whole level — every pinch ended with the
-          map lurching off the zoom the fingers chose. Desktop wheel zoom
-          still RESTS on whole levels (crisp raster labels): the fluid handler
-          hard-snaps its landing target to 1 regardless of zoomSnap. */}
-      <RLMapContainer scrollWheelZoom={false} fluidWheelZoom={true} zoomSnap={0} {...props} />
+          zoomSnap 1 is required for crisp raster tiles: Google/Leaflet tiles
+          only exist at whole zoom levels. A fractional rest (zoomSnap 0) leaves
+          every tile permanently CSS-scaled — soft, pixelated labels, worst on
+          mobile pinch. TouchZoom still pinches freely mid-gesture; only the
+          end-of-pinch _animateZoom settles to a raster-friendly rest. The
+          grouped-tile patch uses gentler directional quarter steps below
+          zoom 5, then whole levels once labels need full local sharpness.
+          Desktop fluid wheel still lands on whole levels independently. */}
+      <RLMapContainer scrollWheelZoom={false} fluidWheelZoom={true} zoomSnap={1} {...props} />
     </ErrorBoundary>
   );
 }

@@ -9,13 +9,19 @@ import SoundModal from "../soundModal";
 import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
 import { useState, useEffect, useSyncExternalStore } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
     const { t: text, lang } = useTranslation("common");
 
     // Poki has no login surface (same treatment as CoolMathGames)
     const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
 
-    const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    // SP/CG entry: round 1's load only starts from GameUI's post-paint mount
+    // effect, so !loading alone flashes the button for a frame before the
+    // load begins. Require the round's location — the same signal that
+    // unhides the street view iframe this button reloads (lat/long 0 = the
+    // pre-game placeholder, falsy on purpose).
+    const spRoundUp = !!(latLong?.lat && latLong?.long);
+    const reloadBtn = (((multiplayerState?.inGame) || ((screen === 'singleplayer' || screen === 'countryGuesser') && spRoundUp) || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
 
     const [showAccBtn, setShowAccBtn] = useState(true);
     // Sound button + modal, party waiting lobby only (private lobbies incl.

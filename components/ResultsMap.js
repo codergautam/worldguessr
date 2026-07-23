@@ -6,6 +6,8 @@ import { getPinIcons } from '@/lib/markerIcons';
 import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import SafeMapContainer from './SafeMapContainer';
+import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
+import { googleTileScale } from '@/lib/googleTileScale';
 
 // Reusable all-rounds results Leaflet map, lifted verbatim from the desktop
 // MapContainer block in components/roundOverScreen.js so the mobile WebView
@@ -223,8 +225,8 @@ export default function ResultsMap({
 
     try {
       if (bounds.isValid()) {
-        // Fit bounds once initially, then allow free user interaction
-        map.fitBounds(bounds, { padding: [20, 20] });
+        // Fit once, but keep the resting raster tile level integral.
+        fitBoundsAtWholeZoom(map, bounds, { padding: [20, 20] });
       }
     } catch (error) {
       console.error('Error fitting map to bounds:', error);
@@ -258,8 +260,8 @@ export default function ResultsMap({
         });
       }
 
-      // Use flyToBounds but don't lock the extent - user can freely pan/zoom after
-      map.flyToBounds(bounds, {
+      // Preserve the smooth flight while landing at native raster scale.
+      flyToBoundsAtWholeZoom(map, bounds, {
         padding: [50, 50],
         maxZoom: optimalZoom,
         duration: 1.5,
@@ -314,6 +316,8 @@ export default function ResultsMap({
     return null;
   }
 
+  const tileScale = googleTileScale();
+
   return (
     <MapContainer
       {...(initialBounds
@@ -321,6 +325,8 @@ export default function ResultsMap({
         : { center: [0, 0], zoom: 2 })}
       minZoom={1}
       maxZoom={18}
+      zoomSnap={1}
+      fadeAnimation={true}
       worldCopyJump={false}
       zoomControl={false}
       style={{ height: "100%", width: "100%" }}
@@ -332,9 +338,10 @@ export default function ResultsMap({
       />
 
       <TileLayer
-        url={`https://mt{s}.google.com/vt/lyrs=${mapType || 'm'}&x={x}&y={y}&z={z}&hl=${lang}&scale=2`}
+        url={`https://mt{s}.google.com/vt/lyrs=${mapType || 'm'}&x={x}&y={y}&z={z}&hl=${lang}&scale=${tileScale}`}
         subdomains={['0', '1', '2', '3']}
         maxZoom={22}
+        updateWhenZooming={false}
       />
 
       {finalHistory.map((round, index) => {

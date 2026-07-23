@@ -2921,8 +2921,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             const isRankedDuel = multiplayerState?.inGame &&
                 gd?.duel && !gd?.public && gd?.state !== "end";
 
+            // public === false, not !public: real payloads always carry the
+            // boolean, but hollow rejoin roster broadcasts omit it — undefined
+            // must never read as "private party" (a latched ranked-duel ghost
+            // got the "leave party" confirm, July 23).
             const isPrivateParty = multiplayerState?.inGame &&
-                !!gd && !gd.duel && !gd.public;
+                !!gd && !gd.duel && gd.public === false;
             const liveRound = !["waiting", "end"].includes(gd?.state);
             // Round-1 countdown = server's own preGame definition (teamDuel
             // routes these leaves to a penalty-free cancel): nothing played
@@ -3687,6 +3691,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     gameOptions={gameOptions}
                     screen={screen}
                     multiplayerState={multiplayerState}
+                    latLong={latLong}
                     shown={!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'end')}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}

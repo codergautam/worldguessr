@@ -16,6 +16,8 @@ import CountryFlag from './utils/countryFlag';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
 import SafeMapContainer from './SafeMapContainer';
+import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
+import { googleTileScale } from '@/lib/googleTileScale';
 
 // Error-boundaried MapContainer (see SafeMapContainer): a partial leaflet load
 // throws "a.Map is not a constructor" during commit; without the boundary it
@@ -606,8 +608,9 @@ const GameSummary = ({
 
     try {
       if (bounds.isValid()) {
-        // Fit bounds once initially, then allow free user interaction
-        map.fitBounds(bounds, { padding: [20, 20] });
+        // A whole-level destination keeps raster labels crisp at rest. The
+        // camera move itself can still animate through fractional zooms.
+        fitBoundsAtWholeZoom(map, bounds, { padding: [20, 20] });
       }
     } catch (error) {
       console.error('Error fitting map to bounds:', error);
@@ -640,8 +643,9 @@ const GameSummary = ({
         });
       }
 
-      // Use flyToBounds but don't lock the extent - user can freely pan/zoom after
-      map.flyToBounds(bounds, {
+      // Keep the 1.5s smooth flight, but land on native tile scale instead of
+      // leaving every raster tile permanently CSS-resampled.
+      flyToBoundsAtWholeZoom(map, bounds, {
         padding: [50, 50],
         maxZoom: optimalZoom,
         duration: 1.5,
@@ -964,6 +968,10 @@ const GameSummary = ({
                 : { center: [0, 0], zoom: 2 })}
               minZoom={1}
               maxZoom={18}
+              // Initial bounds are applied by MapContainer before child
+              // controllers mount, so snap that first resting view too.
+              zoomSnap={1}
+              fadeAnimation={true}
               worldCopyJump={false}
               zoomControl={typeof window !== 'undefined' && window.innerWidth > 1024}
               style={{ height: "100%", width: "100%" }}
@@ -976,9 +984,10 @@ const GameSummary = ({
               />
 
               <TileLayer
-                url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+                url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=${googleTileScale()}`}
                 subdomains={['0', '1', '2', '3']}
                 maxZoom={22}
+                updateWhenZooming={false}
               />
 
               {finalHistory.map((round, index) => {
@@ -1672,6 +1681,10 @@ const GameSummary = ({
             : { center: [0, 0], zoom: 2 })}
           minZoom={1}
           maxZoom={18}
+          // Smooth camera animation still uses fractional intermediate frames;
+          // only resting views snap to native raster tile levels.
+          zoomSnap={1}
+          fadeAnimation={true}
           worldCopyJump={false}
           zoomControl={typeof window !== 'undefined' && window.innerWidth > 1024}
           style={{ height: "100%", width: "100%" }}
@@ -1684,9 +1697,10 @@ const GameSummary = ({
           />
 
           <TileLayer
-            url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+            url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=${googleTileScale()}`}
             subdomains={['0', '1', '2', '3']}
             maxZoom={22}
+            updateWhenZooming={false}
           />
 
           {finalHistory.map((round, index) => {

@@ -11,6 +11,8 @@ import CountryFlag from './utils/countryFlag';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
+import { flyToBoundsAtWholeZoom, getWholeZoomBoundsTarget } from '@/lib/leafletWholeZoom';
+import { googleTileScale } from '@/lib/googleTileScale';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -155,12 +157,18 @@ function getResetTarget(map, extent) {
   const bounds = L.latLngBounds([safeExtent[1], safeExtent[0]], [safeExtent[3], safeExtent[2]]);
   let target;
   try {
-    target = map._getBoundsCenterZoom(bounds, { padding: L.point(EXTENT_FIT_PADDING) });
+    target = getWholeZoomBoundsTarget(map, bounds, { padding: L.point(EXTENT_FIT_PADDING) });
   } catch {
-    target = {
-      center: bounds.getCenter(),
-      zoom: map.getBoundsZoom(bounds, false, EXTENT_FIT_PADDING),
-    };
+    const previousZoomSnap = map.options.zoomSnap;
+    try {
+      map.options.zoomSnap = 1;
+      target = {
+        center: bounds.getCenter(),
+        zoom: map.getBoundsZoom(bounds, false, EXTENT_FIT_PADDING),
+      };
+    } finally {
+      map.options.zoomSnap = previousZoomSnap;
+    }
   }
 
   return constrainResetTarget(map, target.center, target.zoom);
@@ -379,7 +387,7 @@ const ClickHandler = memo(function ClickHandler({
         const map = e.target;
         // Shift by whole world-widths as a RAW PIXEL PAN. setView here would
         // (a) round a fractional resting zoom back to an integer via zoomSnap
-        // (fluid wheel zoom parks the map at fractional zooms) and (b) fall
+        // (pinch can momentarily sit between levels mid-gesture) and (b) fall
         // through to Leaflet's hard _resetView path because the offset exceeds
         // the viewport (viewprereset drops every tile) — together a visible
         // zoom snap plus a grey flash on pin placement. panBy touches neither.
@@ -673,13 +681,13 @@ const RevealController = memo(function RevealController({
         if (pinPoint) {
           durationSec = REVEAL.flyDurations.pin;
           const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
-          map.flyToBounds(bounds, { duration: durationSec });
+          flyToBoundsAtWholeZoom(map, bounds, { duration: durationSec });
         } else if (countryGuessPin) {
           durationSec = REVEAL.flyDurations.country;
           const bounds = L.latLngBounds(
             [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
           ).pad(0.5);
-          map.flyToBounds(bounds, { duration: durationSec });
+          flyToBoundsAtWholeZoom(map, bounds, { duration: durationSec });
         } else {
           map.flyTo([dest.lat, dest.long], 5, { duration: durationSec });
         }
@@ -829,15 +837,23 @@ const YourGuessLayer = memo(function YourGuessLayer({
   return (
     <>
       <Marker position={pinPoint} icon={icon}>
+        {/* Text goes in via Leaflet's `content` option, NOT React children:
+            react-leaflet portals children into the tooltip only after it has
+            opened and been positioned, so the first paint centers an EMPTY
+            box — the text then lands half a width to the right until a
+            post-paint update() re-centers it. `content` is measured before
+            the first _setPosition, so frame 1 is correct. Keyed on the text
+            because react-leaflet never syncs option changes to a live
+            instance. */}
         <Tooltip
+          key={tooltipText}
           direction="top"
           offset={[0, -45]}
           opacity={1}
           permanent
+          content={tooltipText}
           position={{ lat: pinPoint.lat, lng: pinPoint.lng }}
-        >
-          {tooltipText}
-        </Tooltip>
+        />
       </Marker>
       {linePositions && (
         <Polyline positions={linePositions} renderer={polylineRenderer} />
@@ -868,15 +884,17 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
         position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}
         icon={icon}
       >
+        {/* `content` option instead of children — same first-paint
+            mispositioning fix as YourGuessLayer's tooltip above. */}
         <Tooltip
+          key={tooltipText}
           direction="top"
           offset={[0, -45]}
           opacity={1}
           permanent
+          content={tooltipText}
           position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}
-        >
-          {tooltipText}
-        </Tooltip>
+        />
       </Marker>
       {linePositions && (
         <Polyline positions={linePositions} dashArray="8 8" renderer={polylineRenderer} />
@@ -1195,6 +1213,8 @@ const MapComponent = ({
   const yourGuessText = text("yourGuess");
 
   const isCoolMath = process.env.NEXT_PUBLIC_COOLMATH === "true";
+  // Client-only map: read DPR once per mount for Google vt `scale`.
+  const tileScale = useMemo(() => googleTileScale(), []);
 
   return (
     <MapContainer
@@ -1202,6 +1222,10 @@ const MapComponent = ({
       zoom={2}
       minZoom={2}
       preferCanvas={true}
+      // Crossfade the final raster level over the scaled level used during a
+      // smooth camera glide. The tile layer below defers intermediate levels;
+      // held pinch preloads one stable target, then uses one short crossfade.
+      fadeAnimation={true}
       // Vertical clamp via viscosity 1.0 — drag is hard-walled at the bound
       // (Leaflet's drag handler reads this option at drag-start; default 0
       // means no clamp). Viscosity also clamps inertial pan, so momentum
@@ -1323,17 +1347,15 @@ const MapComponent = ({
         // Tiles repeat horizontally to give a continuous "world strip"
         // background as the user pans through the dateline.
         noWrap={false}
-        // Disable the 200ms opacity fade-in. When the click handler shifts
-        // the camera by a 360° lng wrap, Leaflet rebuilds the tile pane and
-        // newly-added tiles would otherwise spend ~13 frames at <1 opacity,
-        // showing the bare container behind them. Underlying images are the
-        // same as the wrap copies the user was already viewing (browser
-        // cache hit), so painting them at full opacity is correct and
-        // makes the wrap-snap effectively invisible.
-        fadeAnimation={false}
+        // Hold one raster level through fly/fluid-wheel motion. During pinch,
+        // the grouped-tile patch preloads only a briefly stable rounded target
+        // while fingers remain down, avoiding both end-delay and per-frame churn.
+        updateWhenZooming={false}
         // `lang` prop (mobile embed) drives the tile-label language deterministically;
         // web renders Map.js without it and falls back to the i18n's text("lang").
-        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${lang || text("lang")}&scale=2`}
+        // `scale` packs extra pixels into each 256 CSS tile — 4 on 3x phones so
+        // labels aren't soft/blocky after the compositor upscales a 2x raster.
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${lang || text("lang")}&scale=${tileScale}`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}

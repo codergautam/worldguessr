@@ -295,23 +295,45 @@ export default class Game {
 
 
   rejoinGame(player) {
-    // Back among the living: clear the close handler's roster flag and let
-    // everyone's HUD un-dim before the rejoiner gets their own snapshot.
+    // Back among the living: clear the close handler's roster flag. The
+    // roster-undim broadcast happens below and skips the rejoiner — the
+    // hollow mid-game shape (no public/duel/myId/locations) must never reach
+    // a freshly-refreshed page: as the FIRST game payload it latched inGame
+    // around half-empty gameData (July 23: black end-screen veil + "leave
+    // party" confirm on a ranked duel), and trailing the snapshot it would
+    // resurrect lobby state that a full-payload-only early return just
+    // cleared (queueBoundDuo's skip-to-queue).
     const seat = this.players[player.id];
-    if (seat?.disconnected) {
-      delete seat.disconnected;
-      this.sendStateUpdate();
-    }
+    const wasDisconnected = !!seat?.disconnected;
+    if (wasDisconnected) delete seat.disconnected;
     // Team duels replay their frozen end payload below instead of kicking —
     // a blip in the final seconds used to cost the player the whole results
     // screen ("Reconnected!" toast straight into a silent gameShutdown).
     if(this.public && this.state === 'end' && !this.teamDuel) {
+      // Kick-only burst: no undim for a seat that's being removed anyway
+      // (removePlayer broadcasts its own roster update), and no game payload
+      // for the client's gameShutdown closure guard to trip over.
       this.removePlayer(player);
     } else {
       try {
     player.ws.send(JSON.stringify(this.getInitialSendState(player)));
       } catch(e) {
         console.error('Error sending game state to rejoining player', e);
+      }
+      // Undim for the OTHERS only — the rejoiner's snapshot above was
+      // serialized after the flag cleared, so it already shows them live.
+      if (wasDisconnected) {
+        const undim = this.getSendableState();
+        for (const playerId of Object.keys(this.players)) {
+          if (playerId === player.id) continue;
+          const p = players.get(playerId);
+          if (!p) continue;
+          try {
+            p.send(undim);
+          } catch (e) {
+            console.error('rejoinGame undim: send failed for', playerId, e?.message);
+          }
+        }
       }
       // Team game (party OR matchmade duel) ended while this player was
       // disconnected: replay the frozen end payload, otherwise they reconnect

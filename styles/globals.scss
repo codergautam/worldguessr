@@ -2408,8 +2408,13 @@ h1, h2, h3, span, label {
 
 
 #miniMapArea.shown {
-    opacity: 50%;
-    transform: translateY(0%);
+    // Full alpha keeps labels legible; compositing the whole map at 50%
+    // made otherwise sharp tiles look washed out against Street View.
+    opacity: 100%;
+    // `none` (rather than an identity transform) releases the extra ancestor
+    // compositing layer once the slide-in finishes. Leaflet owns the transforms
+    // inside the map and should be the only persistent transformed layer.
+    transform: none;
     pointer-events: auto;
 }
 
@@ -2461,7 +2466,7 @@ h1, h2, h3, span, label {
         bottom: 0;
         right: 0;
         opacity: 100%;
-        transform: translateY(0%);
+        transform: none;
         margin-right: 0;
         width: 100%;
     }

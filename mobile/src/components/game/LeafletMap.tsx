@@ -42,6 +42,8 @@ const HTML = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #aadaff; }
+  /* Leaflet's additive tile blend turns fractional AA edges white in WebView. */
+  .leaflet-container img.leaflet-tile { mix-blend-mode: normal; }
   .lm-pin { width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
             border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 </style>
@@ -93,17 +95,19 @@ const HTML = `<!DOCTYPE html>
   // and also the first pan stroke / tap. Fix: finish the in-flight zoom the instant
   // ANY new gesture starts (capture phase, before Leaflet's own handlers) so
   // nothing — zoom, pan, or tap — is swallowed.
-  // zoomSnap 0 matches the web maps (SafeMapContainer): the default snap of 1
-  // made TouchZoom._onTouchEnd lurch every pinch to the nearest whole level.
+  // zoomSnap 1: pinch freely mid-gesture, then land on a whole tile level so
+  // rasters stay native-sharp (zoomSnap 0 left permanent CSS-scaled blur).
   var map = L.map('map', { preferCanvas: true, zoomControl: false, attributionControl: false,
-    worldCopyJump: true, tap: true, zoomSnap: 0 }).setView([20, 0], 2);
+    worldCopyJump: true, tap: true, zoomSnap: 1, fadeAnimation: true }).setView([20, 0], 2);
   function finishZoom(){ if (map._animatingZoom) { try { map._onZoomTransitionEnd(); } catch (e) {} } }
   var mc = map.getContainer();
   mc.addEventListener('touchstart', finishZoom, true);
   mc.addEventListener('mousedown', finishZoom, true);
   mc.addEventListener('wheel', finishZoom, true);
-  L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=en&scale=2',
-    { subdomains: ['0','1','2','3'], maxZoom: 20 }).addTo(map);
+  var dpr = window.devicePixelRatio || 1;
+  var tileScale = dpr > 2.5 ? Math.min(4, Math.round(dpr * 1000) / 1000) : 2;
+  L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=en&scale=' + tileScale,
+    { subdomains: ['0','1','2','3'], maxZoom: 20, updateWhenZooming: false }).addTo(map);
 
   var guessM = null, actualM = null, line = null, hintC = null, prev = {};
   function setGuessMarker(p){

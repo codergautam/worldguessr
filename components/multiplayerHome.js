@@ -69,9 +69,12 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
         && !multiplayerState.gameQueued
         && lobbyIntent === 'join';
     const is2v2Queue = multiplayerState.gameQueued === "2v2";
+    // public === false, not !public: hollow rejoin roster broadcasts omit the
+    // boolean, and undefined reading as "private" paints a phantom PartyLobby
+    // over ghost game state.
     const inWaitingLobby = multiplayerState.inGame
         && multiplayerState.gameData?.state === "waiting"
-        && !multiplayerState.gameData?.public;
+        && multiplayerState.gameData?.public === false;
     // Stage 1 of 2v2 matchmaking (teammate search) renders INSIDE the lobby
     // card — the empty seat becomes the searching indicator. The queue banner
     // below is stage 2 (opponent search) only. Falls back to the banner if
