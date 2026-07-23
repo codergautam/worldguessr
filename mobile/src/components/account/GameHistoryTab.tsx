@@ -107,7 +107,8 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
   // players, plain text for bots/guests (same convention as the ranked
   // opponent cell).
   const renderRoster = (roster: NonNullable<Game['teammates']>) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
+    // One roster entry per line (web gameHistory.js parity)
+    <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
       {roster.map((p, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>
           {p.accountId ? (
@@ -173,6 +174,9 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
       {games.map((game) => {
         const typeInfo = getGameType(game.gameType);
         const isRankedDuel = game.gameType === 'ranked_duel';
+        // Team games — BOTH kinds: party team mode (settings.teamGame) and
+        // matchmade 2v2 (gameType '2v2', which never sets the party-only flag).
+        const isTeamGame = !!(game.settings?.teamGame || game.gameType === '2v2');
         const isVictory = game.userStats?.finalRank === 1;
 
         return (
@@ -199,52 +203,78 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               </View>
             </View>
 
-            {/* Stats */}
+            {/* Stats. Team cards get a dedicated split: people column
+                (result → teammates → opponents) beside a numbers column
+                (points → xp → duration), never interleaved. W/L/D from
+                winningTeam vs MY team; roster names come from the
+                teammates/opponents arrays (singular `opponent` stays
+                ranked_duel-only — web gameHistory.js parity). */}
+            {isTeamGame ? (
+              <View style={styles.teamStatsSplit}>
+                <View style={styles.teamStatsCol}>
+                  {game.userStats?.team && (
+                    <View style={[styles.gameStat, styles.teamStatTile]}>
+                      <Text style={styles.gameStatLabel}>{t('result')}</Text>
+                      <Text
+                        style={[
+                          styles.gameStatValue,
+                          {
+                            color:
+                              game.result?.winningTeam == null
+                                ? '#9E9E9E'
+                                : game.result.winningTeam === game.userStats.team
+                                  ? '#4CAF50'
+                                  : '#F44336',
+                          },
+                        ]}
+                      >
+                        {game.result?.winningTeam == null
+                          ? t('draw')
+                          : game.result.winningTeam === game.userStats.team
+                            ? t('victory')
+                            : t('defeat')}
+                      </Text>
+                    </View>
+                  )}
+                  {(game.teammates?.length ?? 0) > 0 && (
+                    <View style={[styles.gameStat, styles.teamStatTile]}>
+                      <Text style={styles.gameStatLabel}>
+                        {t(game.teammates!.length > 1 ? 'teammates' : 'teammate')}
+                      </Text>
+                      {renderRoster(game.teammates!)}
+                    </View>
+                  )}
+                  {(game.opponents?.length ?? 0) > 0 && (
+                    <View style={[styles.gameStat, styles.teamStatTile]}>
+                      <Text style={styles.gameStatLabel}>{t('opponents')}</Text>
+                      {renderRoster(game.opponents!)}
+                    </View>
+                  )}
+                </View>
+                <View style={styles.teamStatsCol}>
+                  <View style={[styles.gameStat, styles.teamStatTile]}>
+                    <Text style={styles.gameStatLabel}>{t('points')}</Text>
+                    <Text style={styles.gameStatValue}>
+                      {game.userStats.totalPoints.toLocaleString()}
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                        {' '}/ {game.result.maxPossiblePoints.toLocaleString()}
+                      </Text>
+                    </Text>
+                  </View>
+                  {game.userStats.totalXp > 0 && (
+                    <View style={[styles.gameStat, styles.teamStatTile]}>
+                      <Text style={styles.gameStatLabel}>{t('xp')}</Text>
+                      <Text style={styles.gameStatValue}>{game.userStats.totalXp}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.gameStat, styles.teamStatTile]}>
+                    <Text style={styles.gameStatLabel}>{t('duration')}</Text>
+                    <Text style={styles.gameStatValue}>{formatTime(game.totalDuration * 1000)}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
             <View style={styles.gameStatsRow}>
-              {/* Team games — BOTH kinds: party team mode (settings.teamGame)
-                  and matchmade 2v2 (gameType '2v2', which never sets the
-                  party-only flag). W/L/D from winningTeam vs MY team, ahead
-                  of points; roster names come from the teammates/opponents
-                  arrays below (singular `opponent` stays ranked_duel-only —
-                  web gameHistory.js parity). */}
-              {(game.settings?.teamGame || game.gameType === '2v2') && game.userStats?.team && (
-                <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>{t('result')}</Text>
-                  <Text
-                    style={[
-                      styles.gameStatValue,
-                      {
-                        color:
-                          game.result?.winningTeam == null
-                            ? '#9E9E9E'
-                            : game.result.winningTeam === game.userStats.team
-                              ? '#4CAF50'
-                              : '#F44336',
-                      },
-                    ]}
-                  >
-                    {game.result?.winningTeam == null
-                      ? t('draw')
-                      : game.result.winningTeam === game.userStats.team
-                        ? t('victory')
-                        : t('defeat')}
-                  </Text>
-                </View>
-              )}
-              {(game.teammates?.length ?? 0) > 0 && (
-                <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>
-                    {t(game.teammates!.length > 1 ? 'teammates' : 'teammate')}
-                  </Text>
-                  {renderRoster(game.teammates!)}
-                </View>
-              )}
-              {(game.opponents?.length ?? 0) > 0 && (
-                <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>{t('opponents')}</Text>
-                  {renderRoster(game.opponents!)}
-                </View>
-              )}
               {isRankedDuel ? (
                 <>
                   <View style={styles.gameStat}>
@@ -309,6 +339,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                 </View>
               )}
             </View>
+            )}
 
             {/* Details row */}
             <View style={styles.gameDetailsRow}>
@@ -393,6 +424,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 12,
+  },
+  // Team cards: people column (result/teammates/opponents) | numbers column
+  // (points/xp/duration)
+  teamStatsSplit: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  teamStatsCol: {
+    flex: 1,
+    gap: 12,
+  },
+  // Neutralizes gameStat's row-flow sizing when the tile sits in a column
+  teamStatTile: {
+    flexGrow: 0,
+    flexBasis: 'auto',
   },
   gameStat: {
     flexGrow: 1,

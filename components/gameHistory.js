@@ -172,6 +172,10 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
       <div className={styles.gamesList}>
         {games.map((game) => {
           const gameTypeInfo = getGameTypeDisplay(game.gameType);
+          // Team games — BOTH kinds: party team mode (settings.teamGame) and
+          // matchmade 2v2 duels (gameType '2v2', which never sets the
+          // party-only flag).
+          const isTeamGame = game.settings?.teamGame || game.gameType === '2v2';
 
           return (
             <div
@@ -212,6 +216,68 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                 </div>
               </div>
 
+              {isTeamGame ? (
+                /* Team cards: people column (result → teammates → opponents)
+                   beside a numbers column (points → xp → duration), never
+                   interleaved. One roster entry per line. */
+                <div className={styles.gameStatsTeam}>
+                  <div className={styles.teamStatsCol}>
+                    {game.userStats?.team && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>{text('result')}</span>
+                        <span className={styles.statValue} style={{
+                          color: game.result?.winningTeam == null ? '#9E9E9E'
+                            : game.result.winningTeam === game.userStats.team ? '#4CAF50' : '#F44336'
+                        }}>
+                          {game.result?.winningTeam == null ? text('draw')
+                            : game.result.winningTeam === game.userStats.team ? text('victory') : text('defeat')}
+                        </span>
+                      </div>
+                    )}
+                    {game.teammates?.length > 0 && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>
+                          {game.teammates.length > 1 ? text('teammates') : text('teammate')}
+                        </span>
+                        <span className={styles.statValue} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', fontSize: '0.85rem' }}>
+                          {renderRoster(game.teammates)}
+                        </span>
+                      </div>
+                    )}
+                    {game.opponents?.length > 0 && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>{text('opponents')}</span>
+                        <span className={styles.statValue} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', fontSize: '0.85rem' }}>
+                          {renderRoster(game.opponents)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.teamStatsCol}>
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('points')}</span>
+                      <span className={styles.statValue}>
+                        {game.userStats.totalPoints.toLocaleString()}
+                        <span className={styles.statPercentage}>
+                          / {game.result.maxPossiblePoints.toLocaleString()}
+                        </span>
+                      </span>
+                    </div>
+                    {game.userStats.totalXp > 0 && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statLabel}>XP</span>
+                        <span className={styles.statValue}>{game.userStats.totalXp}</span>
+                      </div>
+                    )}
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('duration')}</span>
+                      <span className={styles.statValue}>
+                        {formatTime(game.totalDuration)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className={styles.gameStats}>
                 {game.gameType === 'ranked_duel' ? (
                   <>
@@ -265,40 +331,6 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                   </>
                 ) : (
                   <>
-                    {/* Team games — BOTH kinds: party team mode (settings.teamGame)
-                        and matchmade 2v2 duels (gameType '2v2', which never sets
-                        settings.teamGame — that's the party-only flag). W/L/D by
-                        team result, ahead of points. */}
-                    {(game.settings?.teamGame || game.gameType === '2v2') && game.userStats?.team && (
-                      <div className={styles.statItem}>
-                        <span className={styles.statLabel}>{text('result')}</span>
-                        <span className={styles.statValue} style={{
-                          color: game.result?.winningTeam == null ? '#9E9E9E'
-                            : game.result.winningTeam === game.userStats.team ? '#4CAF50' : '#F44336'
-                        }}>
-                          {game.result?.winningTeam == null ? text('draw')
-                            : game.result.winningTeam === game.userStats.team ? text('victory') : text('defeat')}
-                        </span>
-                      </div>
-                    )}
-                    {game.teammates?.length > 0 && (
-                      <div className={styles.statItem}>
-                        <span className={styles.statLabel}>
-                          {game.teammates.length > 1 ? text('teammates') : text('teammate')}
-                        </span>
-                        <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.85rem' }}>
-                          {renderRoster(game.teammates)}
-                        </span>
-                      </div>
-                    )}
-                    {game.opponents?.length > 0 && (
-                      <div className={styles.statItem}>
-                        <span className={styles.statLabel}>{text('opponents')}</span>
-                        <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.85rem' }}>
-                          {renderRoster(game.opponents)}
-                        </span>
-                      </div>
-                    )}
                     <div className={styles.statItem}>
                       <span className={styles.statLabel}>{text('points')}</span>
                       <span className={styles.statValue}>
@@ -327,6 +359,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                   </div>
                 )}
               </div>
+              )}
 
               <div className={styles.gameDetails}>
                 <div className={styles.detailItem}>
