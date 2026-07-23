@@ -70,6 +70,11 @@ export default function Ad({
     const config = {
       refreshTime: AD_REFRESH_SEC,
       renderVisibleOnly: true,
+      // renderVisibleOnly only delays the FIRST render until in-viewport;
+      // refreshVisibleOnly is what pauses the refresh timer while the ad
+      // isn't visible (hidden/background tab, scrolled off-screen). Without
+      // it a backgrounded tab keeps reloading creatives every 30s forever.
+      refreshVisibleOnly: true,
       "report": {
         "enabled": true,
         "icon": false,

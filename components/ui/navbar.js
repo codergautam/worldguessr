@@ -27,8 +27,10 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
     // Sound button + modal, party waiting lobby only (private lobbies incl.
     // the 2v2 staging one — in-game has no navbar surface and home already
     // has the full settings page). Entirely navbar-owned: no home.js plumbing.
+    // public === false, not !public: hollow rejoin roster broadcasts omit
+    // the boolean — undefined must not read as a private lobby.
     const inPartyLobby = screen === 'multiplayer' && multiplayerState?.inGame
-        && multiplayerState?.gameData?.state === "waiting" && !multiplayerState?.gameData?.public;
+        && multiplayerState?.gameData?.state === "waiting" && multiplayerState?.gameData?.public === false;
     const [soundModalOpen, setSoundModalOpen] = useState(false);
     useEffect(() => {
         // Game started / lobby dissolved with the modal up — don't leave it

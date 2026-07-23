@@ -160,8 +160,10 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // singleplayer's "You didn't guess" line.
     const forgotToGuess = guessed && countryGuesser && !onboarding && singlePlayerRound && !guessedCountryCode;
 
+    // factKey is stamped per location (the tutorial order no longer matches
+    // the locale keys' numbering); round-index fallback covers stale state.
     const locationFact = onboarding && guessed && onboarding.round
-        ? text(ONBOARDING_FACTS[onboarding.round - 1] || "")
+        ? text(onboarding.locations?.[onboarding.round - 1]?.factKey || ONBOARDING_FACTS[onboarding.round - 1] || "")
         : null;
 
     const isCountryGuessrRound = countryGuesser && !pinPoint;

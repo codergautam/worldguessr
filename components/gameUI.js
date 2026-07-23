@@ -92,6 +92,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         setOnboarding({
           round: 1,
           points: 0,
+          maxPoints: 0,
+          mode: onboarding.mode,
           startTime: Date.now(),
           locations: onboarding.locations, // Keep template locations for gameplay
           gameResults: [] // Clear previous game results
@@ -104,6 +106,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             finalOnboardingShown: true,
             round: prev.round,
             points: prev.points,
+            maxPoints: prev.maxPoints,
             mode: prev.mode,
             timeTaken: Date.now() - prev.startTime,
             locations: prev.gameResults || []
@@ -612,7 +615,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, [continentGuessrStreak])
 
   useEffect(() => {
-    // No typewriter text — modal handles intro, country buttons show immediately
+    // Re-arm the country buttons each round (guess() hides them); harmless in
+    // classic rounds since CountryBtns only renders when countryGuesser is set
     if(onboarding && !onboarding.completed) {
       setShowCountryButtons(true);
     }
@@ -897,8 +901,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // polygons cached, guess() resolves the pin's country SYNCHRONOUSLY, so the
   // streak update commits in the same render as setShowAnswer — resolving it
   // after the reveal made the banner swap its streak message while already on
-  // screen. Held off while the welcome overlay is up: onboarding's GameUI
-  // mounts under it and that pre-interaction window must stay fetch-free.
+  // screen. Held off while the welcome overlay is up (modal A/B variant):
+  // that pre-interaction window must stay fetch-free.
   const needsBorders = !!(
     (gameOptions?.location === 'all' && !countryGuesser && !welcomeOverlayShown) || dailyMode
   );
@@ -917,13 +921,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(onboarding) {
-      const roundPoints = (onboarding?.mode && onboarding.mode !== "classic") ? (isCorrect ? 1000 : 0) : countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000});
+      const isClassicRound = !((onboarding?.mode && onboarding.mode !== "classic") || countryGuesser);
+      const roundPoints = !isClassicRound ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000});
+      // Per-round max, accumulated at guess time: the mode pill lets a run mix
+      // pin-drop (5000/round) and country (1000/round) rounds, so a single
+      // mode-derived total would lie on the results screens.
+      const roundMax = isClassicRound ? 5000 : 1000;
       setOnboarding((prev) => {
 
         return {
           ...prev,
           nextRoundTime:0,
           points: (prev.points??0) + roundPoints,
+          maxPoints: (prev.maxPoints??0) + roundMax,
           gameResults: [...(prev.gameResults || []), {
             lat: latLong.lat,
             long: latLong.long,

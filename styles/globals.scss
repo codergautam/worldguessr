@@ -5215,33 +5215,6 @@ img.countryGuessrBtn__emoji {
 }
 
 
-.onboardingDiv {
-    position: fixed;
-    z-index: 1000;
-    left: 50%;
-    transform: translateX(-50%) translateY(-100%);
-    top: 50px;
-    background-color: rgb(16, 27, 17);
-    color: white;
-    padding-left: 50px;
-    padding-top: 25px;
-    padding-bottom: 25px;
-    padding-right: 50px;
-    font-size: 1.5em;
-    border-radius: 10px;
-    width: 40%;
-    height: auto;
-    min-height: 40px;
-    // hidden
-    opacity: 0;
-}
-
-.onboardingDiv.shown {
-    animation: fadeIn 1s ease-in-out forwards;
-    transform: translateY(0%) translateX(-50%);
-    opacity: 1;
-}
-
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
     .countryGuessrOptions {
         bottom: 8px;
@@ -6466,14 +6439,6 @@ body.leaflet-dragging .hintCircle {
 
 
 
-
-    /* Onboarding div optimizations */
-    .onboardingDiv {
-        width: 60%;
-        top: 20px;
-        padding: 15px 25px;
-        font-size: 1.2em;
-    }
 
     /* Country guesser options optimizations */
     .countryGuessrOptions {
@@ -7856,7 +7821,7 @@ div:hover .elo-badge {
     }
 }
 
-/* ===== Welcome Modal ===== */
+/* ===== Welcome Modal (onboarding A/B "modal" control variant) ===== */
 .welcome-modal-backdrop {
     position: fixed;
     top: 0;
@@ -8010,6 +7975,11 @@ div:hover .elo-badge {
     &:hover {
         color: rgba(255, 255, 255, 0.7);
     }
+}
+
+@keyframes onboardingResultsFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* ===== Onboarding Complete (Celebration + Keep Playing) ===== */
@@ -8419,78 +8389,6 @@ div:hover .elo-badge {
     gap: 6px;
 }
 
-/* ===== Post-Tutorial Screen ===== */
-.post-tutorial {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    padding: 24px 20px 12px;
-    color: white;
-    font-family: "Lexend", "Lexend Fallback", sans-serif;
-    animation: fadeInUp 0.4s ease forwards;
-}
-
-.post-tutorial__title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #3fb950;
-    margin-bottom: 4px;
-}
-
-.post-tutorial__subtitle {
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 16px;
-}
-
-.post-tutorial__actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.post-tutorial__btn {
-    width: 260px;
-    font-size: 0.9rem !important;
-    padding: 12px 20px !important;
-}
-
-.post-tutorial__btn--alt {
-    opacity: 0.85;
-}
-
-.post-tutorial__link {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.5);
-    cursor: pointer;
-    font-family: "Lexend", "Lexend Fallback", sans-serif;
-    font-size: 0.82rem;
-    text-decoration: underline;
-
-    &:hover {
-        color: rgba(255, 255, 255, 0.8);
-    }
-}
-
-/* ===== Tutorial Pill ===== */
-.tutorial-pill {
-    position: fixed;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1001;
-    background: rgba(63, 185, 80, 0.85);
-    color: white;
-    padding: 6px 16px;
-    border-radius: 20px;
-    font-size: 0.82rem;
-    font-family: "Lexend", "Lexend Fallback", sans-serif;
-    font-weight: 600;
-    backdrop-filter: blur(4px);
-}
-
 @media (max-width: 480px) {
     .welcome-modal {
         padding: 24px 18px 20px;
@@ -8522,10 +8420,5 @@ div:hover .elo-badge {
 
     .countryGuessrOptions.continentMode {
         width: calc(100% - 12px);
-    }
-
-    .post-tutorial__btn {
-        width: 100%;
-        max-width: 280px;
     }
 }

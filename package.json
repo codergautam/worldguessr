@@ -31,6 +31,7 @@
   ],
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
+    "@growthbook/growthbook": "^1.6.5",
     "@osm_borders/maritime_10m": "^1.1.0",
     "@react-oauth/google": "^0.12.1",
     "@smastrom/react-rating": "^1.5.0",

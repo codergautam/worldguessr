@@ -25,7 +25,6 @@ import getMyTeam from "@/components/utils/getMyTeam";
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
-import OnboardingText from "@/components/onboardingText";
 import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
@@ -39,10 +38,8 @@ const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChall
 const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
 // Conditionally-rendered modals/screens ship as async chunks so they (and the
 // react-responsive-modal dep most of them share) stay out of the initial index
-// bundle — the welcome modal (our LCP element) can't paint until hydration
-// finishes, so every KB cut here lands directly on LCP. WelcomeOverlay stays
-// static: it must paint the instant onboarding starts, covering the street
-// view load. AlertModal/EmoteReactions are too small to be worth a chunk.
+// bundle — every KB cut here lands directly on LCP.
+// AlertModal/EmoteReactions are too small to be worth a chunk.
 const MultiplayerHome = dynamic(() => import("@/components/multiplayerHome"), { ssr: false });
 const SetUsernameModal = dynamic(() => import("@/components/setUsernameModal"), { ssr: false });
 const SettingsModal = dynamic(() => import("@/components/settingsModal"), { ssr: false });
@@ -54,6 +51,7 @@ const WhatsNewModal = dynamic(() => import("@/components/ui/WhatsNewModal"), { s
 const PendingNameChangeModal = dynamic(() => import("./pendingNameChangeModal"), { ssr: false });
 import EmoteReactions from "@/components/emoteReactions";
 import WelcomeOverlay from "@/components/welcomeOverlay";
+import resolveOnboardingVariant from "@/components/utils/growthbook";
 import AlertModal from "@/components/ui/AlertModal";
 import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
@@ -221,6 +219,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     {}
                 ).then((res) => res.json()).then((data) => {
                     if (data.secret) {
+                        // GA4 recommended names; a fresh account has no
+                        // username yet (SetUsernameModal gates on the same).
+                        sendEvent(data.username ? "login" : "sign_up", { method: "google" });
                         setSession({ token: data })
                         window.localStorage.setItem("wg_secret", data.secret)
                     } else if (data.error) {
@@ -485,6 +486,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         function finish() {
             const onboardingCompletedd = gameStorage.getItem("onboarding");
             if (onboardingCompletedd !== "done") {
+                // CrazyGames sits outside the onboarding A/B — always the old
+                // modal flow.
                 const started = startOnboarding();
                 if (started) setWelcomeOverlayShown(true);
             }
@@ -580,12 +583,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [otherOptions, setOtherOptions] = useState([]); // for country guesser
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+    // A/B (GrowthBook "onboarding-flow"): "modal" = old mode-select overlay
+    // (control), "dropin" = straight into classic round 1 (treatment). null
+    // until resolved — the onboarding-start effect waits on it.
+    const [onboardingVariant, setOnboardingVariant] = useState(null);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
     // Gates the onboarding GameUI mount — and with it the round-1 street view
-    // preload — until load + idle while the welcome overlay is up. See the
-    // effect next to the onboarding-start effect.
+    // preload — until load + idle while the welcome overlay is up (modal
+    // variant only). See the effect next to the onboarding-start effect.
     const [svPreloadReady, setSvPreloadReady] = useState(false);
-    const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
     const lastSingleplayerScreen = useRef(null);
@@ -924,6 +930,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     {}
                 ).then((res) => res.json()).then((data) => {
                     if (data.secret) {
+                        sendEvent(data.username ? "login" : "sign_up", { method: "google" });
                         setSession({ token: data });
                         window.localStorage.setItem("wg_secret", data.secret);
                     } else if (data.error) {
@@ -983,11 +990,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         setScreen("onboarding")
 
-        // 3 universally recognizable locations for the tutorial
+        // 3 universally recognizable locations, ordered easiest-to-pin first
+        // (Times Square: instantly readable + the US is a huge map target).
+        // factKey pairs each location with its locale fact — the facts predate
+        // this ordering, so round index must NOT be used to pick them.
         const onboardingLocations = [
-            { lat: 29.9773337, long: 31.1321796, heading: 223, pitch: 5, country: "EG", otherOptions: ["TR", "BR", "IN"] },
-            { lat: 40.7566514, long: -73.986534, heading: 31, country: "US", otherOptions: ["GB", "JP", "AU"] },
-            { lat: 48.8583601, long: 2.2915727, heading: 41, country: "FR", otherOptions: ["IT", "ES", "DE"] },
+            { lat: 40.7566514, long: -73.986534, heading: 31, country: "US", otherOptions: ["GB", "JP", "AU"], factKey: "onboardingFact2" },
+            { lat: 48.8583601, long: 2.2915727, heading: 41, country: "FR", otherOptions: ["IT", "ES", "DE"], factKey: "onboardingFact3" },
+            { lat: 29.9773337, long: 31.1321796, heading: 223, pitch: 5, country: "EG", otherOptions: ["TR", "BR", "IN"], factKey: "onboardingFact1" },
         ]
 
         setOnboarding({
@@ -999,6 +1009,23 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         sendEvent("tutorial_begin", { mode })
         setShowCountryButtons(mode !== "classic")
         return true;
+    }
+
+    // The skipped-mode analytics event fires inside WelcomeOverlay (the only
+    // surface with a skip control right now) — not here, or it double-fires.
+    function skipOnboarding() {
+        try { gameStorage.setItem("onboarding", "done"); } catch (e) { }
+        // The onboarding GameUI has started the round-1 street view load
+        // (loading=true). Clearing latLong below unmounts the iframe, so its
+        // onLoad — the only thing that resets loading — never fires; without
+        // this, home is stuck behind the loading mask.
+        cancelInFlightLocationLoad();
+        setLoading(false);
+        setLatLong(null);
+        setShowAnswer(false);
+        setOnboarding(null);
+        setOnboardingCompleted(true);
+        setScreen("home");
     }
     function openMap(mapSlug) {
         const country = countries.find((c) => c === mapSlug.toUpperCase());
@@ -1113,8 +1140,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [onboarding?.round])
 
+    // Completion-rate metric for the onboarding A/B: tutorial_end only fires
+    // on an exit-card CLICK, which misses players who finish round 3 and then
+    // close the tab. This stamps the actual completion moment, once.
+    const tutorialCompleteFiredRef = useRef(false);
     useEffect(() => {
         if (onboarding?.completed) {
+            if (!tutorialCompleteFiredRef.current) {
+                tutorialCompleteFiredRef.current = true;
+                sendEvent("tutorial_complete", { mode: onboarding.mode });
+            }
             setOnboardingCompleted(true)
         }
     }, [onboarding?.completed])
@@ -1290,6 +1325,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [])
 
+    // Resolve the onboarding A/B variant only for undecided new users.
+    // Embedded platforms sit outside the experiment (old modal flow, no SDK
+    // fetch); plain web waits on GrowthBook (≤2s, fails safe to "modal").
+    useEffect(() => {
+        if (onboardingCompleted !== false || onboardingVariant !== null) return;
+        if (inCrazyGames || window.inCrazyGames || inCoolMathGames || inGameDistribution
+            || window.inGameDistribution || inPoki || inIframe()) {
+            setOnboardingVariant("modal");
+            return;
+        }
+        let cancelled = false;
+        resolveOnboardingVariant().then((v) => { if (!cancelled) setOnboardingVariant(v); });
+        return () => { cancelled = true; };
+    }, [onboardingCompleted, onboardingVariant, inCrazyGames, inCoolMathGames, inGameDistribution])
+
     useEffect(() => {
 
         // check if learn mode
@@ -1300,16 +1350,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         if (onboardingCompleted === false) {
             if (onboardingCompleted === null) return;
+            // Hold until the A/B variant is known — nothing renders for a new
+            // user before this anyway (home UI is gated on onboardingCompleted).
+            if (onboardingVariant === null) return;
             if (!loading) {
 
-                // Enter onboarding with the mode-select modal on top. The
-                // street view preload behind it is held until load + idle
-                // (svPreloadReady below) so the Google Maps embed can't
-                // starve first paint / hydration on slow connections.
-                // CrazyGames used to skip this branch, which started the tutorial without
-                // letting players choose the onboarding mode.
                 if (startOnboarding("classic")) {
-                    setWelcomeOverlayShown(true);
+                    // "modal" (control) = old mode-select overlay on top;
+                    // "dropin" (treatment) = straight into round 1.
+                    if (onboardingVariant === "modal") setWelcomeOverlayShown(true);
                     return;
                 }
 
@@ -1340,14 +1389,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }
             }
         }
-    }, [onboardingCompleted])
+    }, [onboardingCompleted, onboardingVariant])
 
-    // While the welcome overlay covers the screen, hold the onboarding GameUI
-    // mount (whose mount effect loads round 1 and with it the ~700 KB Google
-    // Maps embed + pano tiles) until the load event plus an idle callback.
-    // Real users spend seconds reading the modal, so the preload still wins
-    // the race; picking a mode drops the overlay, which mounts GameUI
-    // immediately regardless of this flag — fast clickers never wait on it.
+    // While the welcome overlay covers the screen (modal variant), hold the
+    // onboarding GameUI mount (whose mount effect loads round 1 and with it
+    // the ~700 KB Google Maps embed + pano tiles) until the load event plus an
+    // idle callback. Real users spend seconds reading the modal, so the
+    // preload still wins the race; picking a mode drops the overlay, which
+    // mounts GameUI immediately regardless of this flag.
     useEffect(() => {
         if (!welcomeOverlayShown || svPreloadReady) return;
         let cancelled = false;
@@ -1558,19 +1607,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     // Virtual page_view per screen change. The initial screen's real page_view
     // already fires from the gtag config snippet. The automatic home→onboarding
-    // flip under the welcome overlay is the landing experience, not a
-    // navigation, so it stays silent until the user picks a mode (overlay
-    // drops → effect re-runs → fires then).
+    // flip is the landing experience, not a navigation (there's no manual way
+    // to enter onboarding from home), so it advances the ref silently.
     const prevScreenForGaRef = useRef(screen);
     useEffect(() => {
         if (screen === prevScreenForGaRef.current) return;
-        if (screen === "onboarding" && welcomeOverlayShown) return;
+        if (screen === "onboarding" && prevScreenForGaRef.current === "home") {
+            prevScreenForGaRef.current = screen;
+            return;
+        }
         prevScreenForGaRef.current = screen;
         sendEvent("page_view", {
             page_location: window.location.origin + (screen === "home" ? "/" : `/${screen.toLowerCase()}`),
             page_title: `WorldGuessr - ${screen}`,
         });
-    }, [screen, welcomeOverlayShown]);
+    }, [screen]);
 
     // game_start = a round is actually in front of the player. Every mode
     // funnels its round location through latLong (SP/CG fetch or rotate,
@@ -3523,7 +3574,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
-                    multiplayerState?.inGame && !multiplayerState?.gameData?.public
+                    // === false: hollow payloads omit the boolean; undefined
+                    // must not read as an invitable private game.
+                    multiplayerState?.inGame && multiplayerState?.gameData?.public === false
                     // No inviting into a full party / 2v2 staging lobby — the
                     // invite could only ever bounce off gameIsFull. Same seat
                     // fallback as partyLobby (2v2 lobbies cap at 2).
@@ -3552,31 +3605,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
                     onModeSelected={(mode) => {
-                        setOnboardingMode(mode);
-                        try { gameStorage.setItem("onboarding_seen", "true"); } catch(e) {}
                         // Update the running onboarding with the chosen mode
                         setOnboarding((prev) => prev ? { ...prev, mode } : prev);
                         setShowCountryButtons(mode !== "classic");
                         setWelcomeOverlayShown(false);
                     }}
                     onSkip={() => {
-                        try {
-                            gameStorage.setItem("onboarding_seen", "true");
-                            gameStorage.setItem("onboarding", "done");
-                        } catch(e) {}
-                        // GameUI mounts under this overlay at load+idle and starts
-                        // the round-1 street view load (loading=true). Clearing
-                        // latLong below unmounts the iframe, so its onLoad —
-                        // the only thing that resets loading — never fires;
-                        // without this, home is stuck behind the loading mask.
-                        cancelInFlightLocationLoad();
-                        setLoading(false);
-                        setLatLong(null);
-                        setShowAnswer(false);
                         setWelcomeOverlayShown(false);
-                        setOnboarding(null);
-                        setOnboardingCompleted(true);
-                        setScreen("home");
+                        skipOnboarding();
                     }}
                 />
             )}
@@ -4220,8 +4256,9 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                 </div>}
 
                 {/* (!welcomeOverlayShown || svPreloadReady): while the welcome
-                    overlay is up, GameUI's mount is what triggers the round-1
-                    street view load — deferred to load+idle, see svPreloadReady */}
+                    overlay is up (modal A/B variant), GameUI's mount is what
+                    triggers the round-1 street view load — deferred to
+                    load+idle, see svPreloadReady */}
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && (!welcomeOverlayShown || svPreloadReady) && <div className="home__onboarding">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
@@ -4235,7 +4272,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     <RoundOverScreen
                         points={onboarding.points}
                         time={msToTime(onboarding.timeTaken)}
-                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        maxPoints={onboarding.maxPoints || (onboarding.mode === "classic" ? 15000 : 3000)}
                         history={onboarding.locations || []}
                         options={options}
                     />
@@ -4245,7 +4282,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     <OnboardingComplete
                         mode={onboarding.mode}
                         points={onboarding.points}
-                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        maxPoints={onboarding.maxPoints || (onboarding.mode === "classic" ? 15000 : 3000)}
                         onClassic={() => {
                             sendEvent("tutorial_end", { mode: "classic" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
