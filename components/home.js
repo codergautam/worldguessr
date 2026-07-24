@@ -669,8 +669,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
 
 
-    const [inCoolMathGames, setInCoolMathGames] = useState(false);
-    const [inGameDistribution, setInGameDistribution] = useState(false);
+    // Build-time platform flags, same pattern as inPoki below: NEXT_PUBLIC_*
+    // is inlined by Next at compile time, identical in the server and client
+    // bundles, so a plain constant can't cause a hydration mismatch. These
+    // used to be useState(false) + a post-paint useEffect flip, which painted
+    // one wrong frame (login button / Ranked button / footer links visible)
+    // on every CoolMath and GameDistribution load.
+    const inCoolMathGames = process.env.NEXT_PUBLIC_COOLMATH === "true";
+    const inGameDistribution = process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
     // Poki mirrors the CoolMath treatment for account features: no login surface,
     // so ranked/2v2 (which require an account) and social links are hidden too.
     const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
@@ -860,7 +866,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // check if ?coolmath=true
     useEffect(() => {
         if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
-            setInCoolMathGames(true);
             window.lastCoolmathAd = Date.now();
 
             // Fade out and remove the static HTML splash from _document.js
@@ -890,7 +895,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // GameDistribution SDK initialization
     useEffect(() => {
         if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
-            setInGameDistribution(true);
             window.inGameDistribution = true;
 
             // Set up GD SDK event callbacks
@@ -2300,6 +2304,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         setLoading(true)
+                        // Close the mobile minimap IN THIS BATCH, not in
+                        // gameUI's after-paint effect: multiplayerShowAnswer
+                        // derives false the moment state hits 'guess', so a
+                        // still-true miniMapShown rendered the expanded
+                        // guess/hint buttons for a frame between the reveal
+                        // teardown and the effect's reset — the "opened
+                        // minimap flashes at round start" bug.
+                        setMiniMapShown(false)
                         // Increment key to force refresh even if coords are the same
                         setLatLongKey(k => k + 1)
                         if (incomingRoundLoc) {
@@ -2769,9 +2781,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         window.screen = screen;
     }, [screen])
 
-    useEffect(() => {
+    // useLayoutEffect (not useEffect): the Play Again / gameCancelled
+    // teardown commits screen "home" + nextGameQueued in one pass, and this
+    // effect is what re-queues into "multiplayer". As a plain useEffect that
+    // ran AFTER paint, so the full home screen (menu, ELO button, home-mode
+    // navbar) flashed for a frame on every Play Again. Pre-paint, the
+    // re-queue's setScreen lands in the same visual frame as the teardown —
+    // the home frame never paints. Safe against double-fire: publicDuel/
+    // unrankedDuel clear nextGameQueued synchronously, so the re-run this
+    // triggers no-ops. On ad platforms crazyMidgame defers the callback
+    // behind an interstitial — home showing under the ad overlay there is
+    // unavoidable and pre-existing.
+    useLayoutEffect(() => {
         if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
-            // handleMultiplayerAction("publicDuel");
             if (multiplayerState?.nextGameType === "ranked") {
                 handleMultiplayerAction("publicDuel")
             } else if (multiplayerState?.nextGameType === "unranked") {
@@ -3745,7 +3767,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
                     loginQueued={loginQueued}
                     setLoginQueued={setLoginQueued}
-                    inGame={multiplayerState?.inGame || screen === "singleplayer" || screen === "countryGuesser"}
+                    // AccountBtn renders on the home screen only (navbar gates
+                    // it there), so the old lobbyIntent/joinOptions clauses
+                    // that raced to hide the navbar pill on multiplayer
+                    // sub-screens — and their stale-deep-link fragility — are
+                    // gone with the pill itself. This now only guards against
+                    // being in a live game while a menu screen shows.
+                    inGame={multiplayerState?.inGame}
                     openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                     session={session}
                     reloadBtnPressed={reloadBtnPressed}
@@ -3905,7 +3933,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 {/* reload button for public game. duelReloadBtnTop is 90 unless
                     the collision probe found the HP-bar name pill actually
-                    covering it (long teammate names in team duels). */}
+                    covering it (long teammate names in team duels).
+                    NOTE (July 24 flicker audit): the per-round remount here is
+                    fine — .navbar .navBtn's hudEnter can't reach this button
+                    (it renders outside the navbar) and no other rule animates
+                    it, so appearing at "guess" is already instant. Verified;
+                    don't "fix" this again. */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: `${duelReloadBtnTop}px`, left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
@@ -3915,11 +3948,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
 
-                {/* ELO/League button */}
+                {/* ELO/League button. mapModal hides via visibility, not
+                    unmount — same contract as the Community Maps button
+                    below: leagueBtn carries the shared hudEnter entrance,
+                    and unmounting while the modal this row opens is up
+                    replayed the slide-in on every modal close. */}
                 <div>
-                    {screen === "home" && !mapModal && session && session?.token?.secret && (
+                    {screen === "home" && session && session?.token?.secret && (
                         <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
-                            style={{ backgroundColor: eloData?.league?.color }}
+                            style={{ backgroundColor: eloData?.league?.color, visibility: mapModal ? 'hidden' : 'visible' }}
                         >
                             {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
                         </button>

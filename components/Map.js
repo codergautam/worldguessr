@@ -623,8 +623,16 @@ const RevealController = memo(function RevealController({
   // that exact point back to the new bottom-centre — pinning the guessing content
   // in place so the new space just fills in above (no re-center jump). maxBounds is
   // lifted on answerShown so this isn't clamped.
+  // Mobile WEB reveals need the same treatment: the phone CSS snaps
+  // #miniMapArea from the 70% band to fullscreen in one frame (deliberately —
+  // no slide), and without this pre-paint resize the first fullscreen frame
+  // painted Leaflet's stale 70%-sized projection shifted up by the height
+  // delta, then hopped again when the post-paint invalidate recentred it (the
+  // open-minimap reveal flicker). Both boxes share the viewport-bottom edge,
+  // so pinning the bottom-centre geo point makes the snap invisible: the
+  // guess content stays put and the new space just fills in above.
   useLayoutEffect(() => {
-    if (!answerShown || !map || !(bandFraction > 0 && bandFraction < 1)) return;
+    if (!answerShown || !map || !((bandFraction > 0 && bandFraction < 1) || isMobile)) return;
     try {
       const s0 = map.getSize();
       const anchor = map.containerPointToLatLng([s0.x / 2, s0.y]);
@@ -633,7 +641,7 @@ const RevealController = memo(function RevealController({
       const cur = map.latLngToContainerPoint(anchor);
       map.panBy(cur.subtract([s1.x / 2, s1.y]), { animate: false });
     } catch (e) {}
-  }, [map, answerShown, bandFraction]);
+  }, [map, answerShown, bandFraction, isMobile]);
 
   useEffect(() => {
     if (!map || !answerShown || !dest || stopCameraAnimations) return;

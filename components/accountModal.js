@@ -21,7 +21,17 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
     const [receivedRequests, setReceivedRequests] = useState([]);
     const [selectedGame, setSelectedGame] = useState(null);
     const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
-    const [isTouchDevice, setIsTouchDevice] = useState(false);
+    // Lazy initializer: defaulting to false made the touch-specific paddings
+    // snap in one frame after the modal opened on phones/tablets. Safe to
+    // read window here — AccountModal is dynamic({ ssr: false }) and only
+    // mounts on user action, so no server render exists to mismatch.
+    const [isTouchDevice, setIsTouchDevice] = useState(() =>
+        typeof window !== 'undefined' && (
+            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+            || 'ontouchstart' in window
+            || navigator.maxTouchPoints > 0
+        )
+    );
     const [copiedLink, setCopiedLink] = useState(false);
     const bodyRef = useRef(null);
     const badgeStyle = {

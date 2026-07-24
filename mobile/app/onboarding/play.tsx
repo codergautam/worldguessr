@@ -374,6 +374,15 @@ export default function OnboardingPlay() {
             totalRounds={TOTAL_ROUNDS}
             points={lastResult.points}
             distance={lastResult.distance}
+            // "It was {Country}!" reveal (web endBanner.js:220 — onboarding
+            // landmarks are world-map rounds, so a wrong-country pin names the
+            // answer). Without these three the banner silently skips the line.
+            answerCountry={lastResult.correct}
+            guessLat={lastResult.guessLat}
+            guessLng={lastResult.guessLng}
+            // Tutorial always names the answer, even on a correct-country pin
+            // (user ruling; regular game keeps the wrong-country-only reveal).
+            alwaysRevealCountry
             onNext={advanceRound}
             isFinal={isFinalRound}
             factText={factText}

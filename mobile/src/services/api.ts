@@ -283,7 +283,13 @@ export const api = {
     });
   },
 
-  publicProfile: async (username: string) => {
+  // Web pages/user.js parity: id is the stable lookup key (usernames change);
+  // plain string = username, kept for old links and in-app navigation.
+  publicProfile: async (lookup: string | { id: string }) => {
+    const query =
+      typeof lookup === 'string'
+        ? `username=${encodeURIComponent(lookup)}`
+        : `id=${encodeURIComponent(lookup.id)}`;
     return fetchApi<{
       username: string;
       elo: number;
@@ -300,7 +306,7 @@ export const api = {
         ties: number;
         winRate: number;
       };
-    }>(`/api/publicProfile?username=${encodeURIComponent(username)}`);
+    }>(`/api/publicProfile?${query}`);
   },
 
   eloRank: async (username: string) => {

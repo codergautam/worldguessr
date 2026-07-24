@@ -37,11 +37,16 @@ function formatTooltipDate(dateStr) {
 // Narrow viewports cram 14 thin bars into unreadable slivers — drop to 10
 // below ~340px so bars stay >= 18px wide with a 2px gap.
 function useWindowCount() {
-  const [count, setCount] = useState(14);
+  // Lazy initializer, not a post-mount effect flip: starting at a hardcoded
+  // 14 painted one cramped 14-bar frame on <=340px phones before the effect
+  // corrected it to 10. Safe to read window here — this whole subtree lives
+  // under DailyChallengeScreen, which is dynamic({ ssr: false }), so there is
+  // no server render to mismatch against.
+  const [count, setCount] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth <= 340 ? 10 : 14
+  );
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     const read = () => setCount(window.innerWidth <= 340 ? 10 : 14);
-    read();
     window.addEventListener('resize', read);
     return () => window.removeEventListener('resize', read);
   }, []);

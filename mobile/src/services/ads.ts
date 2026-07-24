@@ -154,6 +154,26 @@ const AD_INTERVAL_MS = 5 * 60 * 1000;
 // Seeded to app-open time: guarantees no ad within the first 5 minutes.
 let lastInterstitialAt = Date.now();
 
+// The JS process survives backgrounding, so `lastInterstitialAt` keeps aging on
+// wall-clock time while the app sits on the home screen — reopening after a
+// long stint would greet the very first game tap with an instant interstitial.
+// A long background stint IS a fresh session as far as ad pacing goes: re-seed
+// the cap timer on return, exactly like the app-open seed above. Short hops
+// (notification peek, quick app switch) stay under the threshold and keep the
+// cap running normally.
+const BACKGROUND_RESEED_MS = 2 * 60 * 1000;
+let backgroundedAt: number | null = null;
+AppState.addEventListener('change', (state) => {
+  if (state === 'background') {
+    backgroundedAt = Date.now();
+  } else if (state === 'active' && backgroundedAt !== null) {
+    if (Date.now() - backgroundedAt >= BACKGROUND_RESEED_MS) {
+      lastInterstitialAt = Date.now();
+    }
+    backgroundedAt = null;
+  }
+});
+
 /** Supporters never see ads — mirrors web gameUI.js:788 (!session?.token?.supporter).
  * Read lazily via getState() so it always reflects current login/logout state. */
 function isSupporter(): boolean {

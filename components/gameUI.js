@@ -1064,7 +1064,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 
 
-  const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
+  // No `loading` term: every getready→guess flip sets loading=true until the
+  // pano loads, and that .shown round-trip replayed the hudEnter entrance —
+  // the timer played its intro twice every round. The round clock IS running
+  // while the pano loads, so staying visible is also the truthful display
+  // (the onboarding timer below has always ignored loading the same way).
+  const multiplayerTimerShown = !((showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
   // Stays up through the answer reveal (z-1001 clears the fullscreen answer
   // map, and the points counter ticking up on reveal is half the fun) — only
   // the completion screens retire it.
@@ -1105,6 +1110,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     || mapResetting
   );
   const mapLocationForRender = mapFadingOutForRender && fadeOutMapLocation ? fadeOutMapLocation : latLong;
+  // The open-minimap answer reveal on phones is a deliberate SNAP (user
+  // ruling: no slide). What makes the snap clean is Map.js: on the reveal
+  // flip, RevealController's mobile layout effect resizes Leaflet
+  // synchronously pre-paint with a bottom-anchored recentre, so the first
+  // painted fullscreen frame shows the guess content exactly where it was —
+  // no stale-projection jump, no post-paint recentre hop.
   // (!loading || onboardingActive): with the onboarding map visible during the
   // pano load, the camera fit must run EARLY — while tiles are still loading
   // and the map is not yet revealed. Holding it until !loading made

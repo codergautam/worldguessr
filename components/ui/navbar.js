@@ -72,10 +72,17 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
                     {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
                     {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
-                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) &&  <>
+                    {/* Modal gates live on a visibility wrapper (same as
+                        AccountBtn / friendBtn below): the back button carries
+                        the shared .navBtn hudEnter entrance, and unmounting
+                        it replayed the slide-in on every modal close. The
+                        daily-phase gate stays a mount condition — that's a
+                        real screen transition and should replay. */}
+                    {!(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) &&
+                        <div style={{ display: 'contents', visibility: (gameOptionsModalShown || accountModalOpen || selectCountryModalShown || partyModalShown) ? 'hidden' : 'visible' }}>
                         <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
                         <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
-                    </>
+                        </div>
                     }
                 </div>
                 {reloadBtnContext && (
@@ -118,12 +125,19 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 )}
                 <div className="navbar__right">
 
-                    {inPartyLobby && !accountModalOpen && !partyModalShown && (
+                    {/* Modal gates on a visibility wrapper (same as the
+                        buttons below): unmounting replayed the friendBtn
+                        hudEnter entrance every time a modal closed over the
+                        lobby. inPartyLobby stays a mount condition — entering
+                        the lobby is a real transition. */}
+                    {inPartyLobby && (
+                        <div style={{ display: 'contents', visibility: (accountModalOpen || partyModalShown) ? 'hidden' : 'visible' }}>
                         <button className="gameBtn friendBtn" onClick={() => setSoundModalOpen(true)} aria-label={text("audioSettings")}>
                             {allMuted
                                 ? <FaVolumeMute size={40} className="friendBtnIcon" />
                                 : <FaVolumeUp size={40} className="friendBtnIcon" />}
                         </button>
+                        </div>
                     )}
 
                     {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
@@ -149,14 +163,20 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     {/* visibility (not unmount) while a modal covers it: the
                         entrance animation runs on mount, so unmount+remount
                         replayed the slide every time the modal closed. A
-                        finished animation survives a visibility round-trip. */}
-                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && screen !== "onboarding" && screen !== 'daily' && (
+                        finished animation survives a visibility round-trip.
+                        HOME ONLY (July 24): the navbarMode pill that used to
+                        ride along on multiplayer sub-screens spent its life
+                        flashing green through queue/lobby entry and died at
+                        match found — every login-locked flow has its own gate
+                        modal, so it protected nothing. Onboarding keeps its
+                        dedicated instance below. */}
+                    {screen === "home" && !inGame && showAccBtn && !inCoolMathGames && !inPoki && (
                         <div style={{ display: 'contents', visibility: (accountModalOpen || mapModalOpen) ? 'hidden' : 'visible' }}>
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
                             session={session}
-                            navbarMode={screen !== "home"}
+                            navbarMode={false}
                             openAccountModal={openAccountModal}
                             loginQueued={loginQueued}
                             setLoginQueued={setLoginQueued}

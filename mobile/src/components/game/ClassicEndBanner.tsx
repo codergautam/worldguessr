@@ -45,6 +45,12 @@ interface Props {
   isFinal?: boolean;
   factText?: string;
   compact?: boolean;
+  /**
+   * Onboarding ONLY (user ruling): name the answer country even when the pin
+   * landed IN it — the tutorial always teaches "It was X!". Everywhere else
+   * the reveal stays wrong-country-only (web endBanner.js:220 parity).
+   */
+  alwaysRevealCountry?: boolean;
   /** Replaces the next-button (multiplayer "Next round starting…"). */
   footerSlot?: React.ReactNode;
   /**
@@ -105,6 +111,7 @@ export default function ClassicEndBanner({
   isFinal,
   factText,
   compact,
+  alwaysRevealCountry,
   footerSlot,
   streak,
   lostStreak,
@@ -169,6 +176,14 @@ export default function ClassicEndBanner({
       cancelled = true;
     };
   }, [answerCountry, guessLat, guessLng]);
+
+  // Onboarding always-reveal: names the answer on EVERY classic round, right
+  // or wrong, without waiting on findCountryLocal. Everywhere else this is
+  // just wrongCountryName (wrong-country-only reveal).
+  const revealCountryName =
+    alwaysRevealCountry && answerCountry
+      ? nameFromCode(answerCountry, getCurrentLanguage())
+      : wrongCountryName;
 
   // ── HP-mode / team-round derivations (web endBanner.js team sections) ────
   const isHpMode = verdict?.damage !== undefined; // 1v1 duel + team2v2
@@ -287,11 +302,11 @@ export default function ClassicEndBanner({
               {personalRoundText}
             </Text>
           </>
-        ) : wrongCountryName ? (
+        ) : revealCountryName ? (
           <>
             <Animated.View style={[styles.mainRow, popStyle]}>
               <Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }]}>
-                {t('incorrectCountryWas', { country: wrongCountryName })}
+                {t('incorrectCountryWas', { country: revealCountryName })}
               </Text>
               <CountryFlag countryCode={answerCountry ?? ''} size={sc(compactLandscape ? 13 : 15)} />
             </Animated.View>

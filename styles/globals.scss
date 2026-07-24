@@ -1855,8 +1855,11 @@ h1, h2, h3, span, label {
     user-select: none;
     pointer-events: none;
     width: max-content;
+    // Show/hide is INSTANT by design (July 24): no entrance animation, no
+    // transition. The show flag round-trips across round boundaries, and any
+    // animated entrance replays on every return — the "timer intro plays
+    // twice" bug. Don't re-add hudEnter or a transition here.
     opacity: 0;
-    transform: translateY(-20px) scale(0.95);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.35),
         0 4px 12px rgba(36, 87, 52, 0.3),
@@ -1865,13 +1868,10 @@ h1, h2, h3, span, label {
     margin-right: 10px;
     letter-spacing: 0.025em;
     font-variant-numeric: tabular-nums;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timer.shown {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
 }
 
@@ -1895,7 +1895,8 @@ h1, h2, h3, span, label {
 // animation-level priority — which beats normal declarations and would
 // defeat the slide-out fade below. After the animation ends, each element's
 // static styles own it.
-.timer.shown,
+// .timer is deliberately NOT here: its shown flag round-trips at round
+// boundaries and the entrance replayed every time (see .timer above).
 .navbar .navBtn,
 .navbar .accountBtn,
 .navbar .friendBtn,
@@ -4686,7 +4687,6 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 }
 
 .multiplayerLeaderboard {
-    border-radius: 10px;
     position: fixed;
     width: 100vw;
     height: 100vh;

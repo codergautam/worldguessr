@@ -47,6 +47,10 @@ export const unstable_settings = {
 
 // Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
+// Dissolve the native splash instead of the default hard cut. The home
+// entrance (one-wave nav slide + background settle) starts underneath while
+// this fade runs, so app-open reads as one continuous reveal.
+SplashScreen.setOptions({ duration: 400, fade: true });
 
 // Preload all runtime image assets during startup
 const imageAssets = [
@@ -67,6 +71,10 @@ export default function RootLayout() {
   // on this means the i18n table is primed before the first screen renders, so
   // the (tabs) navigator mounts in the right language with no remount flash.
   const settingsLoaded = useSettingsStore((s) => s.loaded);
+  // Also gate on the onboarding flag: index.tsx can't Redirect until it loads,
+  // and without this the splash fade would lift onto its blank green interim
+  // view for a frame instead of the real destination (home or tutorial).
+  const onboardingLoaded = useOnboardingStore((s) => s.loaded);
 
   // Establish WebSocket connection (persists across all screens)
   useWebSocket();
@@ -106,12 +114,12 @@ export default function RootLayout() {
   }, [settingsLoaded]);
 
   useEffect(() => {
-    if (fontsLoaded && assetsLoaded && settingsLoaded) {
+    if (fontsLoaded && assetsLoaded && settingsLoaded && onboardingLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, assetsLoaded, settingsLoaded]);
+  }, [fontsLoaded, assetsLoaded, settingsLoaded, onboardingLoaded]);
 
-  if (!fontsLoaded || !assetsLoaded || !settingsLoaded) {
+  if (!fontsLoaded || !assetsLoaded || !settingsLoaded || !onboardingLoaded) {
     return (
       <View style={[styles.container, styles.loading]}>
         <ActivityIndicator size="large" color={colors.primary} />

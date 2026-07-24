@@ -46,91 +46,78 @@ type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel
 interface MenuButtonProps {
   label: string;
   onPress: () => void;
-  delay: number;
-  /** Start the entrance only once auth is settled, so conditional items (e.g.
-   * Ranked Duel) that mount when login resolves still animate IN SEQUENCE with
-   * the rest instead of a beat later. */
-  ready: boolean;
   /** Optional trailing accessory rendered next to the label (e.g. the daily
    * streak pill on the Daily Challenge entry, mirroring web's DailyMenuItem). */
   accessory?: React.ReactNode;
 }
 
 /**
- * Shared left-to-right entrance for every row in the home menu — the mode
- * buttons AND the divider rules between groups. Slides the element in from the
- * left while fading it up, starting once `ready` flips true (auth settled) plus
- * `delay`, and only ever once (guarded by a ref so it never replays on a
- * re-render). Returns the animated style to spread onto an Animated.View.
+ * Entrance for the home nav column — web verbatim: `.g2_nav_ui > *` plays the
+ * SAME `nav_slide_in 0.3s ease-in-out` on every child at once (title,
+ * dividers, button groups, footer), so the whole column glides in as ONE unit
+ * the moment it mounts. No per-button stagger (a previous version staggered
+ * each row 60ms apart from -80px — the "fly-in parade" — which web never
+ * does), and no auth gating: the menu list is static (Ranked shows for guests
+ * too, 2v2 is a compile-time flag), so there is nothing to wait for and the
+ * wave starts immediately, underneath the native splash fade-out.
  *
- * Centralising this is what keeps the dividers in lock-step with the buttons:
- * every menu row reveals as one staggered wave instead of the dividers painting
- * statically at full opacity before the buttons (and jumping as the post-auth
- * layout settles). Mirrors web, where `.g2_nav_ui > *` runs `nav_slide_in` on
- * ALL nav children, the `.g2_nav_hr` dividers included.
+ * One hook instance drives every block (the same Animated.Values are shared
+ * across the header/menu/footer Animated.Views), exactly like one CSS
+ * keyframe animating all children in lock-step.
  */
-function useMenuEntrance(delay: number, ready: boolean) {
-  const slideAnim = useRef(new Animated.Value(-80)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const hasAnimated = useRef(false);
+// Web slides each nav child from translateX(-100%); the mobile column
+// (title ≈230px, menu maxWidth 300) starts fully offscreen-left the same way.
+const NAV_SLIDE_FROM = -300;
+
+function useNavEntrance() {
+  const slide = useRef(new Animated.Value(NAV_SLIDE_FROM)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!ready || hasAnimated.current) return;
-    hasAnimated.current = true;
+    // 300ms ease-in-out on both channels = web's `nav_slide_in 0.3s ease-in-out`.
     Animated.parallel([
-      Animated.timing(slideAnim, {
+      Animated.timing(slide, {
         toValue: 0,
-        duration: 350,
-        delay,
+        duration: 300,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }),
-      Animated.timing(opacityAnim, {
+      Animated.timing(opacity, {
         toValue: 1,
-        duration: 350,
-        delay,
+        duration: 300,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }),
     ]).start();
-  }, [ready, delay, slideAnim, opacityAnim]);
+  }, [slide, opacity]);
 
-  return { transform: [{ translateX: slideAnim }], opacity: opacityAnim };
+  return { transform: [{ translateX: slide }], opacity };
 }
 
-function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
-  const entranceStyle = useMenuEntrance(delay, ready);
-
+function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
   return (
-    <Animated.View style={entranceStyle}>
-      <Pressable
-        // Home main-menu scope plays ui_click, not click_2 (web .g2_nav_ui
-        // parity via the delegated listener) — every MenuButton inherits it.
-        sfx="ui"
-        style={({ pressed }) => [
-          styles.menuButton,
-          pressed && styles.menuButtonPressed,
-        ]}
-        onPress={onPress}
-      >
-        <View style={styles.menuButtonRow}>
-          <Text style={styles.menuButtonText}>{label}</Text>
-          {accessory}
-        </View>
-      </Pressable>
-    </Animated.View>
+    <Pressable
+      // Home main-menu scope plays ui_click, not click_2 (web .g2_nav_ui
+      // parity via the delegated listener) — every MenuButton inherits it.
+      sfx="ui"
+      style={({ pressed }) => [
+        styles.menuButton,
+        pressed && styles.menuButtonPressed,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.menuButtonRow}>
+        <Text style={styles.menuButtonText}>{label}</Text>
+        {accessory}
+      </View>
+    </Pressable>
   );
 }
 
-/**
- * The horizontal rule between menu groups. Shares the menu entrance so the lines
- * slide in alongside the buttons rather than painting at full opacity on the
- * first frame — that static early paint, at the pre-auth (compact) layout, was
- * the "white line flashing higher than where it belongs" before the menu
- * animated in. Web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child and rides
- * the same `nav_slide_in`.
- */
-function MenuDivider({ delay, ready }: { delay: number; ready: boolean }) {
-  const entranceStyle = useMenuEntrance(delay, ready);
-  return <Animated.View style={[styles.divider, entranceStyle]} />;
+/** The horizontal rule between menu groups — rides the menu block's shared
+ * entrance (web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child). */
+function MenuDivider() {
+  return <View style={styles.divider} />;
 }
 
 function OutlinedTitle({ children }: { children: string }) {
@@ -264,23 +251,24 @@ export default function HomeScreen() {
   const [modPopupReady, setModPopupReady] = useState(false);
   const modPopupAnim = useRef(new Animated.Value(0)).current;
 
-  const titleAnim = useRef(new Animated.Value(0)).current;
-  const titleSlide = useRef(new Animated.Value(-30)).current;
+  // Opening wave: header, menu and footer all share this one entrance (web:
+  // one keyframe on all `.g2_nav_ui` children). The header actions overlay
+  // reuses only its opacity — a top-right element sliding in from the LEFT
+  // would read wrong, and web's account corner doesn't slide either.
+  const navEntrance = useNavEntrance();
 
+  // The backdrop settles from a gentle zoom while the native splash dissolves
+  // over it, so app-open reads as one continuous reveal instead of a hard cut.
+  // Runs once per mount = once per app open (home stays mounted thereafter).
+  const bgScale = useRef(new Animated.Value(1.05)).current;
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(titleAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(titleSlide, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    Animated.timing(bgScale, {
+      toValue: 1,
+      duration: 1400,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [bgScale]);
 
   // Warm the Daily Challenge cache once the session resolves, so opening
   // /daily has no layout shift (mirrors web's home-rendered DailyMenuItem).
@@ -689,12 +677,6 @@ export default function HomeScreen() {
             leagueFontSize: 13,
           };
 
-  let buttonIndex = 0;
-  const getDelay = () => {
-    buttonIndex++;
-    return 150 + buttonIndex * 60;
-  };
-
   const loggedIn = isAuthenticated && !!user?.username;
   // Authenticated but hasn't picked a username yet — the forced SetUsernameModal
   // is covering the screen, so don't render the misleading "Login" button behind it.
@@ -715,11 +697,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
+      <Animated.View style={[styles.backgroundImage, { transform: [{ scale: bgScale }] }]}>
+        <ImageBackground
+          source={require('../../assets/street2.jpg')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+      </Animated.View>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[
@@ -735,9 +719,10 @@ export default function HomeScreen() {
       />
 
       <SafeAreaView style={styles.content} edges={['top', 'bottom', 'left', 'right']}>
-        <View
+        <Animated.View
           style={[
             styles.headerActionsOverlay,
+            { opacity: navEntrance.opacity },
             {
               top: insets.top + spacing.md,
               right: Math.max(insets.right, spacing.xl),
@@ -865,7 +850,7 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         <ScrollView
           style={styles.scrollView}
@@ -873,14 +858,9 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Animated.View
-              style={{
-                opacity: titleAnim,
-                transform: [{ translateX: titleSlide }, { translateY: 30 }],
-              }}
-            >
+          {/* Header — rides the shared entrance wave */}
+          <Animated.View style={[styles.header, navEntrance]}>
+            <View style={{ transform: [{ translateY: 30 }] }}>
               <Pressable
                 onLongPress={async () => {
                   // Hidden replay path so the tutorial can be tested repeatedly
@@ -893,7 +873,7 @@ export default function HomeScreen() {
               >
                 <OutlinedTitle>WorldGuessr</OutlinedTitle>
               </Pressable>
-            </Animated.View>
+            </View>
 
             {/* Right side: account area */}
             <View
@@ -1018,11 +998,27 @@ export default function HomeScreen() {
                   </View>
                 </Pressable>
               )}
+              {/* League-pill-sized spacer: the menu no longer waits for auth
+                  before revealing, so the header must reserve the SAME height
+                  before and after login resolves — otherwise the pill row
+                  appearing would shove the already-visible menu downward. */}
+              {!loggedIn && (
+                <View
+                  style={{
+                    marginTop: headerActionMetrics.leagueMarginTop,
+                    paddingVertical: headerActionMetrics.leaguePaddingVertical,
+                  }}
+                >
+                  {/* Same text style as the real pill — font family changes
+                      line height, and this must reserve EXACTLY its height. */}
+                  <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}> </Text>
+                </View>
+              )}
             </View>
-          </View>
+          </Animated.View>
 
-          {/* Menu */}
-          <View style={styles.menu}>
+          {/* Menu — rides the shared entrance wave, one unit like web */}
+          <Animated.View style={[styles.menu, navEntrance]}>
             {/* Pending-deletion restore banner — shown when the account is inside
                 its 30-day deletion grace window. Tapping prompts to cancel deletion
                 (explicit Restore, never auto-cancel on login). */}
@@ -1092,20 +1088,16 @@ export default function HomeScreen() {
               </Pressable>
             )}
 
-            <MenuDivider delay={getDelay()} ready={!authLoading} />
+            <MenuDivider />
 
             <View style={styles.menuGroup}>
               <MenuButton
                 label={t('singleplayer')}
                 onPress={() => handleModePress('singleplayer')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
               <MenuButton
                 label={t('dailyChallenge')}
                 onPress={() => handleModePress('dailyChallenge')}
-                delay={getDelay()}
-                ready={!authLoading}
                 accessory={
                   dailyStatus.streak > 0 ? (
                     <DailyStreakBadge streak={dailyStatus.streak} variant={dailyStatus.variant} />
@@ -1118,14 +1110,10 @@ export default function HomeScreen() {
               <MenuButton
                 label={t('rankedDuel')}
                 onPress={() => handleModePress('rankedDuel')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
               <MenuButton
                 label={isAuthenticated ? t('unrankedDuel') : t('findDuel')}
                 onPress={() => handleModePress('unrankedDuel')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
               {/* Gated on the SAME rollout switch as the verify flag: a build
                   that doesn't announce teamSupport gets server-rejected from
@@ -1134,44 +1122,38 @@ export default function HomeScreen() {
                 <MenuButton
                   label={t('twovtwo')}
                   onPress={() => handleModePress('2v2')}
-                  delay={getDelay()}
-                  ready={!authLoading}
                 />
               )}
             </View>
 
-            <MenuDivider delay={getDelay()} ready={!authLoading} />
+            <MenuDivider />
 
             <View style={styles.menuGroup}>
               <MenuButton
                 label={t('createGame')}
                 onPress={() => handleModePress('createGame')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
               <MenuButton
                 label={t('joinGame')}
                 onPress={() => handleModePress('joinGame')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
             </View>
 
-            <MenuDivider delay={getDelay()} ready={!authLoading} />
+            <MenuDivider />
 
             <View style={styles.menuGroup}>
               <MenuButton
                 label={t('communityMaps')}
                 onPress={() => handleModePress('communityMaps')}
-                delay={getDelay()}
-                ready={!authLoading}
               />
             </View>
-          </View>
+          </Animated.View>
 
-          {/* Bottom Icons */}
-          <View
-            style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}
+          {/* Bottom Icons — rides the shared entrance wave. onLayout is safe
+              here: transforms don't affect layout, so the measured right edge
+              is the settled position even mid-slide. */}
+          <Animated.View
+            style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape, navEntrance]}
             // Right edge in safe-area coords (the ScrollView spans the full
             // safe width), consumed by the online-badge collision check.
             onLayout={(e) => setFooterIconsRightEdge(e.nativeEvent.layout.x + e.nativeEvent.layout.width)}
@@ -1202,7 +1184,7 @@ export default function HomeScreen() {
             >
               <Ionicons name="settings-outline" size={24} color="rgba(255,255,255,0.85)" />
             </Pressable>
-          </View>
+          </Animated.View>
         </ScrollView>
 
         {/* Online player count — bottom right. Always mounted so it can slide
