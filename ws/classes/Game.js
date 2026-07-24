@@ -20,6 +20,17 @@ import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
+// Sample `count` distinct locations from the pool. Tops up with duplicates only
+// if the pool itself has fewer than `count` entries (e.g. the ws boot fallback
+// pool before the first /allCountries.json fetch lands).
+function pickDistinctLocations(pool, count) {
+  const picks = shuffle(pool).slice(0, count);
+  while (picks.length < count && pool.length > 0) {
+    picks.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  return picks;
+}
+
 export default class Game {
   constructor(id, {
     public: isPublic = false,
@@ -1309,10 +1320,7 @@ export default class Game {
       let bestContinentCount = 0;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const candidate = [];
-        for (let i = 0; i < this.rounds; i++) {
-          candidate.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
-        }
+        const candidate = pickDistinctLocations(allLocations, this.rounds);
         const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
         if (continents.size >= MIN_CONTINENTS) {
           bestPick = candidate;
@@ -1332,9 +1340,9 @@ export default class Game {
         })
       }
     } else {
-      // Duels: pure random
-      for (let i = 0; i < this.rounds; i++) {
-        this.locations.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
+      // Duels: random sample, no repeats within a game
+      for (const loc of pickDistinctLocations(allLocations, this.rounds)) {
+        this.locations.push(loc);
         this.sendAllPlayers({
           type: 'generating',
           generated: this.locations.length,

@@ -6,13 +6,13 @@
 //
 // Feature key: "onboarding-flow" (string) — "modal" = old mode-select overlay
 // (control), "dropin" = straight into classic round 1 (treatment). Exposure
-// events reach GA4 via thirdPartyTrackingPlugin (gtag stub queues pre-load).
+// events reach GA4 via the trackingCallback below (gtag stub queues pre-load).
 let variantPromise = null;
 
 export default function resolveOnboardingVariant() {
     if (!variantPromise) {
         variantPromise = (async () => {
-            const [{ GrowthBook }, { autoAttributesPlugin, thirdPartyTrackingPlugin }] = await Promise.all([
+            const [{ GrowthBook }, { autoAttributesPlugin }] = await Promise.all([
                 import("@growthbook/growthbook"),
                 import("@growthbook/growthbook/plugins"),
             ]);
@@ -23,10 +23,19 @@ export default function resolveOnboardingVariant() {
                 // (inspect/force variants). Dev builds only — in prod it's
                 // a public console handle into the experiment config.
                 enableDevMode: process.env.NODE_ENV !== "production",
-                plugins: [
-                    autoAttributesPlugin(),
-                    thirdPartyTrackingPlugin({ trackers: ["ga4", "gtm"] }),
-                ],
+                plugins: [autoAttributesPlugin()],
+                // NOT thirdPartyTrackingPlugin: its tracker names are
+                // "gtag"/"gtm"/"segment" — we passed "ga4" and every exposure
+                // was silently skipped (zero experiment_viewed ever reached
+                // GA4). variation_id must stay NUMERIC (result.variationId,
+                // not result.key which is the string "0"/"1") — GrowthBook's
+                // prefilled GA4 assignment queries read value.int_value.
+                trackingCallback: (experiment, result) => {
+                    window.gtag("event", "experiment_viewed", {
+                        experiment_id: experiment.key,
+                        variation_id: result.variationId,
+                    });
+                },
             });
             // skipCache: the decision is read ONCE right after init — a stale
             // localStorage payload (e.g. cached from a misconfigured SDK

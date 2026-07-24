@@ -281,15 +281,11 @@ export default class Player {
 
           // make sure the user is not already logged in (only on prod)
             for (const p of players.values()) {
+              // Repeated verifies arrive on the SAME socket (CG auth listener
+              // refires, home.js session effect) — matching our own entry here
+              // would uac-kick the player's live connection.
+              if (p.id === this.id) continue;
               if (p.accountId === valid._id.toString()) {
-                // this.send({
-                //   type: 'error',
-                //   message: 'uac'
-                // });
-                // this.ws.close();
-                // console.log('User already connected:', valid.username);
-                // return;
-
                 // disconnect the other player
                 p.send({
                   type: 'error',
@@ -303,6 +299,13 @@ export default class Player {
                 );
 
                 await handleReconnect(p.id, p.accountId, p.accountId);
+                // handleReconnect adopted the old session onto this socket and
+                // deleted `this` from players. Falling through would verify the
+                // orphaned object a second time — and with multiple same-account
+                // entries, revive each of them onto this one socket: every extra
+                // revival stays flagged connected forever and inflates the
+                // online count.
+                return;
               }
             }
             this.verified = true;
