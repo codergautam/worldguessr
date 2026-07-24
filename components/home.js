@@ -588,6 +588,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // until resolved — the onboarding-start effect waits on it.
     const [onboardingVariant, setOnboardingVariant] = useState(null);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    // A new user's ENTIRE bootstrap — variant fetch → startOnboarding →
+    // GameUI stamping the round-1 location (which sets loading=true in the
+    // same batch) — expressed as one continuous condition. Handing off
+    // between separate flags left one-frame gaps that blanked the spinner.
+    // Deliberately ignores welcomeOverlayShown: cutting the spinner when the
+    // modal STARTS its 0.4s fade left a beat of raw background — instead the
+    // spinner keeps running and the modal (z-10000) fades in over it.
+    // {0,0} is the cleared-location sentinel, not a real location.
+    const newUserBooting = onboardingCompleted === false
+        && !onboarding?.completed
+        && (!latLong || (latLong.lat === 0 && latLong.long === 0));
     // Gates the onboarding GameUI mount — and with it the round-1 street view
     // preload — until load + idle while the welcome overlay is up (modal
     // variant only). See the effect next to the onboarding-start effect.
@@ -1192,11 +1203,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // they'll still see the tutorial later if they navigate to home.
             const onDailyEntry = initialScreen === 'daily'
               || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
+            // A stored account secret means this browser has played before —
+            // never a tutorial candidate, even if the "onboarding" flag is
+            // missing (cleared game keys, pre-flag accounts). Without this,
+            // logged-in users sit in the undecided window for the whole
+            // session-verify round trip: hidden navbar, GrowthBook fetch, and
+            // a tutorial that starts then gets torn down when verify lands.
+            const hasStoredAccount = !!window.localStorage.getItem("wg_secret");
             if (onboarding && onboarding === "done") {
                 setOnboardingCompleted(true)
 
 
             }
+            else if (hasStoredAccount && !cg) setOnboardingCompleted(true)
             else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
             else if (hasPartyParam) setOnboardingCompleted(true)
             else if (onDailyEntry) setOnboardingCompleted(true)
@@ -1336,6 +1355,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             return;
         }
         let cancelled = false;
+        // Warm the react-leaflet chunk in parallel with the variant fetch:
+        // MapWidget is a lazy dynamic import, so without this the drop-in
+        // arm serializes variant fetch → chunk download → tile fetch and the
+        // minimap shows up visibly late. Same specifier as gameUI's dynamic()
+        // → same webpack chunk.
+        import("../components/Map").catch(() => {});
         resolveOnboardingVariant().then((v) => { if (!cancelled) setOnboardingVariant(v); });
         return () => { cancelled = true; };
     }, [onboardingCompleted, onboardingVariant, inCrazyGames, inCoolMathGames, inGameDistribution])
@@ -3662,8 +3687,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     />
                 )}
 
-                {/* Loading overlay - covers iframe with background image to prevent white flicker */}
-                <div className={`loading-overlay ${(loading || mapSwitchMaskShown) ? 'loading-overlay--visible' : ''}`}>
+                {/* Loading overlay - covers iframe with background image to prevent white flicker.
+                    newUserBooting: a new user's bootstrap (A/B fetch → onboarding start)
+                    has NOTHING else on screen (home UI + navbar are gated) — without the
+                    spinner that window is a dead static image. */}
+                <div className={`loading-overlay ${(loading || mapSwitchMaskShown || newUserBooting) ? 'loading-overlay--visible' : ''}`}>
                     <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
@@ -3693,7 +3721,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }} />
                 </div>
 
-                <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
+                <BannerText text={`${text("loading")}...`} shown={loading || newUserBooting} showCompass={true} />
 
 
 
@@ -3728,7 +3756,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     screen={screen}
                     multiplayerState={multiplayerState}
                     latLong={latLong}
-                    shown={!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'end')}
+                    // !(home && onboardingCompleted !== true): a brand-new
+                    // user's first paint is screen "home" while the A/B
+                    // variant resolves — without this the home-mode navbar
+                    // (login button) flashes before onboarding takes over.
+                    shown={(!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'end'))
+                        && !(screen === "home" && onboardingCompleted !== true)}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     partyModalShown={partyModalShown}
@@ -3849,21 +3882,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     </div>
                 )}
 
-                {screen === 'home' && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                {/* onboardingCompleted === true: a new user's first paint is
+                    screen "home" during the A/B bootstrap — without this gate
+                    the ad flashes before screen flips to onboarding. */}
+                {screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
                         <Ad
                             unit={"worldguessr_home_ad"}
                             inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
-                {inGameDistribution && screen === 'home' && (
+                {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
                     <div className="home_ad">
                         <GameDistributionBanner
                             id="gd-banner-home"
                             screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 )}
-                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (screen === 'home' && onboardingCompleted !== true) || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 

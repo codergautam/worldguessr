@@ -1073,6 +1073,7 @@ const MapComponent = ({
   resetKey,
   cameraCancelKey,
   onRevealReady,
+  onTilesLoaded,
   bandFraction,
   lang,
 }) => {
@@ -1081,6 +1082,16 @@ const MapComponent = ({
   // Lives on a ref so toggling it doesn't trigger renders.
   const resizingRef = useRef(false);
   const answerSnapshotRef = useRef(null);
+
+  // Leaflet fires the tile layer's 'load' whenever the visible tile batch
+  // finishes painting. Consumers (onboarding's show-map-while-pano-loads) use
+  // the first firing as "safe to reveal without a white flash". Ref + stable
+  // handler identity so the layer is never re-created for a callback change.
+  const onTilesLoadedRef = useRef(onTilesLoaded);
+  onTilesLoadedRef.current = onTilesLoaded;
+  const tileEventHandlers = useMemo(() => ({
+    load: () => { if (onTilesLoadedRef.current) onTilesLoadedRef.current(); },
+  }), []);
 
   // The answer map can remain mounted while multiplayer has already advanced
   // live props to the next round. Freeze every answer overlay input at reveal
@@ -1344,6 +1355,7 @@ const MapComponent = ({
       )}
 
       <TileLayer
+        eventHandlers={tileEventHandlers}
         // Tiles repeat horizontally to give a continuous "world strip"
         // background as the user pans through the dateline.
         noWrap={false}

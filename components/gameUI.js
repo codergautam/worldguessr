@@ -667,16 +667,25 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound])
 
+  // Onboarding keeps the guess map available while the pano is still loading:
+  // a brand-new player beelining for the map shouldn't have to wait on Street
+  // View (the drop-in A/B variant lands here with nothing else on screen).
+  // Gated on the tile layer's first 'load' event so the early reveal shows a
+  // fully painted map — un-gated it slid in mid-tile-fetch, flashing white.
+  const [miniMapTilesLoaded, setMiniMapTilesLoaded] = useState(false);
+  const onboardingActive = !!(onboarding && !onboarding.completed);
+  const onboardingMapWhileLoading = onboardingActive && miniMapTilesLoaded;
+
   useEffect(() => {
     // !mapResetting: hold the corner minimap until the post-fade settle
     // window ends, so it fades in once, cleanly, after the map has already
     // snapped back to the corner rect (see mapResetting).
-    if (!loading && latLong && width > 600 && !isTouchScreen && !mapResetting) {
+    if ((!loading || onboardingMapWhileLoading) && latLong && width > 600 && !isTouchScreen && !mapResetting) {
       setMiniMapShown(true)
     } else {
       setMiniMapShown(false)
     }
-  }, [loading, latLong, width, mapResetting])
+  }, [loading, latLong, width, mapResetting, onboardingMapWhileLoading])
 
   useEffect(() => {
     if (!multiplayerState?.inGame) {
@@ -1056,7 +1065,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
-  const onboardingTimerShown = !((showAnswer||!onboarding));
+  // Stays up through the answer reveal (z-1001 clears the fullscreen answer
+  // map, and the points counter ticking up on reveal is half the fun) — only
+  // the completion screens retire it.
+  const onboardingTimerShown = !!onboarding && !onboarding.completed;
   const multiplayerAnswerRevealLeaving = !!(
     multiplayerState?.inGame &&
     prevMultiplayerRoundStateRef.current.state === "getready" &&
@@ -1086,14 +1098,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const shouldShowMiniMap = !welcomeOverlayShown &&
     (miniMapShown || showAnswerOnMap) &&
     (!onboarding?.completed &&
-      ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && !loading) || mapFadingOutForRender)) &&
+      ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && (!loading || onboardingMapWhileLoading)) || mapFadingOutForRender)) &&
     !(onboarding && !showAnswer && !mapFadingOutForRender && onboarding.mode !== 'classic');
   const forceHideMiniMap = !!(
     (multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap)
     || mapResetting
   );
   const mapLocationForRender = mapFadingOutForRender && fadeOutMapLocation ? fadeOutMapLocation : latLong;
-  const mapReadyForCameraReset = !welcomeOverlayShown && !forceHideMiniMap && !loading && !!mapLocationForRender;
+  // (!loading || onboardingActive): with the onboarding map visible during the
+  // pano load, the camera fit must run EARLY — while tiles are still loading
+  // and the map is not yet revealed. Holding it until !loading made
+  // ExtentFitter fire its reset cover the instant Street View finished,
+  // flashing white over an already-visible map.
+  const mapReadyForCameraReset = !welcomeOverlayShown && !forceHideMiniMap && (!loading || onboardingActive) && !!mapLocationForRender;
   const mapCameraResetKey = multiplayerState?.inGame
     ? `mp:${multiplayerState?.gameData?.code || ''}:${multiplayerState?.gameData?.curRound || ''}:${multiplayerState?.gameData?.state || ''}`
     : onboarding
@@ -1244,7 +1261,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 
       <div id="miniMapArea" onMouseEnter={() => {
-        if(!loading) setMiniMapExpanded(true)
+        if(!loading || onboardingMapWhileLoading) setMiniMapExpanded(true)
       }} onMouseLeave={() => {
         if(mapPinned || showAnswerOnMap) return;
         setMiniMapExpanded(false)
@@ -1271,7 +1288,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           </button>
         </div>
 )}
-        <MapWidget shown={mapReadyForCameraReset} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
+        <MapWidget shown={mapReadyForCameraReset} onTilesLoaded={() => setMiniMapTilesLoaded(true)} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
@@ -1281,7 +1298,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
       <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done||onboarding?.completed) ? 'answerShownBtns' : ''}`}>
         {miniMapShown && renderGuessHintBtns()}
-        {!loading && !welcomeOverlayShown && (
+        {(!loading || onboardingMapWhileLoading) && !welcomeOverlayShown && (
           <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
             setMiniMapShown(!miniMapShown)
           }}>

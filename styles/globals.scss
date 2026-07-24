@@ -1723,7 +1723,15 @@ h1, h2, h3, span, label {
     z-index: 1120;
     padding-left: 10px;
     padding-right: 10px;
-    overflow-x: hidden;
+    // overflow-x:hidden alone computes overflow-y to AUTO (spec) — the navbar
+    // became its own scroll container and grew a navbar-height scrollbar when
+    // a child was taller than it. hidden on BOTH axes cut those children off
+    // instead (login/profile buttons deliberately hang below the bar). `clip`
+    // is the fix: it never creates a scroll container AND is the only value
+    // that lets the other axis stay `visible`.
+    overflow-x: hidden; // fallback for pre-`clip` browsers (≤ iOS 15)
+    overflow-x: clip;
+    overflow-y: visible;
     pointer-events: none;
     // enter from top
 
@@ -1835,6 +1843,40 @@ h1, h2, h3, span, label {
     transform: translateY(0) scale(1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
+}
+
+// First-paint entrance for HUD chrome (timer pills, navbar buttons, ad
+// slots): these mount with their final classes already applied — the
+// show/hide transitions never run on mount — and Lexend can land a frame
+// after first paint, so un-animated they pop in mid-font-swap looking
+// squashed for a beat. A short delayed fade lets fonts and layout settle
+// while the element is still invisible.
+// The translate is safe ONLY because .navbar overflows with `clip`
+// (never a scroll container) — under the old overflow-x:hidden it
+// conjured a navbar-height scrollbar. Keep clip and the slide together.
+@keyframes hudEnter {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.timer.shown {
+    animation: hudEnter 0.3s ease-out 0.12s both;
+}
+
+.navbar .navBtn,
+.navbar .accountBtn {
+    animation: hudEnter 0.3s ease-out 0.12s both;
+}
+
+.nitro-ad-slot {
+    animation: hudEnter 0.3s ease-out 0.12s both;
+}
+
+// NitroPay injects the creative iframe well after the slot mounts (the ad
+// stack loads on first interaction) — fade the fill in too instead of
+// letting the creative pop into the empty box.
+.nitro-ad-slot iframe {
+    animation: hudEnter 0.25s ease-out both;
 }
 
 .timer.onTop {

@@ -134,6 +134,7 @@ export default function Ad({
 
   return (
     <div
+      className="nitro-ad-slot"
       style={{
         position: "relative",
         display: "inline-block",

@@ -19,13 +19,21 @@ export default function resolveOnboardingVariant() {
             const gb = new GrowthBook({
                 apiHost: "https://cdn.growthbook.io",
                 clientKey: "sdk-WONQWG92BNlreR1",
-                enableDevMode: true,
+                // Exposes window._growthbook for the DevTools extension
+                // (inspect/force variants). Dev builds only — in prod it's
+                // a public console handle into the experiment config.
+                enableDevMode: process.env.NODE_ENV !== "production",
                 plugins: [
                     autoAttributesPlugin(),
                     thirdPartyTrackingPlugin({ trackers: ["ga4", "gtm"] }),
                 ],
             });
-            await gb.init({ timeout: 2000 });
+            // skipCache: the decision is read ONCE right after init — a stale
+            // localStorage payload (e.g. cached from a misconfigured SDK
+            // connection) would win the race over the background refresh and
+            // stick the user with the fallback. Real new users have no cache
+            // anyway, so this costs nothing.
+            await gb.init({ timeout: 2000, skipCache: true });
             return gb.getFeatureValue("onboarding-flow", "modal");
         })().catch(() => "modal");
     }
