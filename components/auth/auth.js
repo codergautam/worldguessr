@@ -17,6 +17,7 @@ function notifySessionChange() {
 
 export function signOut() {
   window.localStorage.removeItem("wg_secret");
+  window.localStorage.removeItem("wg_session_cache");
   // Guest id is cleared alongside the secret so a different account signing
   // in on the same device can't auto-absorb the previous user's orphaned
   // guest progress.
@@ -117,6 +118,19 @@ export function useSession() {
 
     window.fetchingSession = true;
 
+    // Optimistic hydration: render the last verified session instantly while
+    // the network verify runs — prod's round-trip (a few hundred ms) was
+    // holding the whole logged-in UI (username pill, ELO button) hostage.
+    // Every verify outcome below replaces or clears this; the secret match
+    // guards against a snapshot from a previously signed-in account.
+    try {
+      const cached = JSON.parse(window.localStorage.getItem("wg_session_cache"));
+      if (cached && cached.username && cached.secret === secret) {
+        session = { token: cached };
+        notifySessionChange();
+      }
+    } catch (e) {}
+
     const authStartTime = performance.now();
     console.log(`[Auth] Starting authentication with retry mechanism (5s timeout, unlimited retries)`);
 
@@ -146,6 +160,7 @@ export function useSession() {
 
         if (data.error) {
           console.error(`[Auth] Server error:`, data.error);
+          try { window.localStorage.removeItem("wg_session_cache"); } catch (err) {}
           session = null;
           notifySessionChange();
           return;
@@ -153,6 +168,7 @@ export function useSession() {
 
         if (data.secret) {
           window.localStorage.setItem("wg_secret", data.secret);
+          try { window.localStorage.setItem("wg_session_cache", JSON.stringify(data)); } catch (err) {}
           session = {token: data};
           console.log(`[Auth] Session established for user:`, data.username);
           notifySessionChange();
@@ -163,6 +179,7 @@ export function useSession() {
           claimGuestProgressIfAny(data.secret).catch(() => {});
         } else {
           console.log(`[Auth] No session data received, user not logged in`);
+          try { window.localStorage.removeItem("wg_session_cache"); } catch (err) {}
           session = null;
           notifySessionChange();
         }
@@ -175,6 +192,7 @@ export function useSession() {
         // Clear potentially corrupted session data
         try {
           window.localStorage.removeItem("wg_secret");
+          window.localStorage.removeItem("wg_session_cache");
         } catch (err) {
           console.warn(`[Auth] Could not clear localStorage:`, err);
         }
