@@ -919,11 +919,48 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if (needsBorders) loadBorders().catch(() => {});
   }, [needsBorders]);
 
+  // True "minutes actually played" per visit: GA4's engagement clock pauses
+  // while focus sits inside the SV iframe, so guessed-round durations are the
+  // only honest play-time signal. Accumulate per guessed round, flush as ONE
+  // play_time event when the tab hides — a per-round event would fire at
+  // game_start's rate, the volume that got game_start excluded from the BQ
+  // export.
+  const playTimeAccum = useRef({ seconds: 0, rounds: 0 });
+  useEffect(() => {
+    const flush = () => {
+      const acc = playTimeAccum.current;
+      if (acc.rounds > 0) {
+        sendEvent('play_time', { seconds: acc.seconds, rounds: acc.rounds });
+        playTimeAccum.current = { seconds: 0, rounds: 0 };
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      flush();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, []);
+
   function guess(correctOverride) {
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
+    // Same math as the per-round timeTaken stamps below; hoisted so the
+    // play-time accumulator and onboarding_guess share one value.
+    const roundSeconds = Math.round((Date.now() - roundStartTime) / 1000);
+    // SP + onboarding only: multiplayer never maintains roundStartTime (its
+    // rounds are server-timed), so a stale stamp would poison the totals.
+    // The 1h cap drops abandoned-tab rounds for the same reason.
+    if ((onboarding || singlePlayerRound) && roundSeconds > 0 && roundSeconds < 3600) {
+      playTimeAccum.current.seconds += roundSeconds;
+      playTimeAccum.current.rounds += 1;
+    }
     if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
       onboardingRevealStartedAt.current = Date.now();
     }
@@ -940,6 +977,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         sendEvent("onboarding_guess", {
           round: (onboarding.gameResults?.length ?? 0) + 1,
           mode: onboarding.mode || "classic",
+          timeTaken: roundSeconds,
         });
       }
       const isClassicRound = !((onboarding?.mode && onboarding.mode !== "classic") || countryGuesser);
