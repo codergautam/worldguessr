@@ -930,6 +930,18 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(onboarding) {
+      // Arm-neutral bounce signal for the onboarding A/B: a submitted guess
+      // takes identical intent in both variants (session_engaged is
+      // focus-biased toward the modal arm; game_start auto-fires on dropin's
+      // round-1 load). Onboarding-only keeps it out of the BQ export's daily
+      // event budget. No timeout path reaches guess() during onboarding, so
+      // every fire is a deliberate action.
+      if (!onboarding.completed) {
+        sendEvent("onboarding_guess", {
+          round: (onboarding.gameResults?.length ?? 0) + 1,
+          mode: onboarding.mode || "classic",
+        });
+      }
       const isClassicRound = !((onboarding?.mode && onboarding.mode !== "classic") || countryGuesser);
       const roundPoints = !isClassicRound ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000});
       // Per-round max, accumulated at guess time: the mode pill lets a run mix
