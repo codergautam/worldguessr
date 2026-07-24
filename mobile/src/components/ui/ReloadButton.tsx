@@ -82,11 +82,13 @@ export default function ReloadButton({ onPress, style, disabled }: ReloadButtonP
           pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
         ]}
       >
+        {/* Dim lives on the gradient, not the Animated wrapper — the layout
+            animations drive the wrapper's opacity and would fight it. */}
         <LinearGradient
           colors={BLUE_GRADIENT}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.gradient}
+          style={[styles.gradient, disabled && styles.gradientDisabled]}
         >
           <Animated.View style={iconStyle}>
             <Ionicons name="refresh" size={24} color={colors.white} />
@@ -110,5 +112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.4,
     borderColor: '#1d1d5b',
+  },
+  gradientDisabled: {
+    opacity: 0.45,
   },
 });

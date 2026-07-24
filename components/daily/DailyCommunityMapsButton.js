@@ -2,12 +2,15 @@ import React from 'react';
 import { FaMapMarkedAlt } from 'react-icons/fa';
 import { useTranslation } from '@/components/useTranslations';
 
-export default function DailyCommunityMapsButton({ onClick, hidden, loggedOut }) {
+export default function DailyCommunityMapsButton({ onClick, hidden, covered, loggedOut }) {
   const { t: text } = useTranslation();
   if (hidden) return null;
   return (
     <button
       type="button"
+      // covered: a modal is over this screen — hide without unmounting so the
+      // entrance animation doesn't replay when the modal closes.
+      style={covered ? { visibility: 'hidden' } : undefined}
       className={`daily-community-maps-btn${loggedOut ? ' daily-community-maps-btn--below-login' : ''}`}
       aria-label={text('communityMaps')}
       title={text('communityMaps')}

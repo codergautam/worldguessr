@@ -3926,11 +3926,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     )}
                 </div>
 
-                {/* Community Maps icon (moved out of left menu) */}
-                {screen === "home" && onboardingCompleted && !mapModal && !inPoki &&
+                {/* Community Maps icon (moved out of left menu). mapModal
+                    hides via `covered` (visibility), not unmount — closing
+                    the modal it opens must not replay its entrance. */}
+                {screen === "home" && onboardingCompleted && !inPoki &&
                     !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
                     <DailyCommunityMapsButton
                         onClick={() => setMapModal(true)}
+                        covered={!!mapModal}
                         loggedOut={!session?.token?.secret}
                     />
                 )}
@@ -4102,14 +4105,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         {!process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
                             !isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                             <CommunityBanner
-                                visible={screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen}
+                                visible={screen === "home" && onboardingCompleted === true}
+                                covered={!!(mapModal || merchModal || friendsModal || accountModalOpen)}
                                 onVisitForum={openForum}
                                 text={text}
                             />
                         )}
 
                         {/* Footer moved outside of sliding navigation */}
-                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
+                        {/* visible drives the entrance ANIMATION (replays on
+                            screen returns — leaving home display:nones the
+                            ancestor, and re-rendering restarts animations).
+                            covered = visibility-hidden under modals: same
+                            screen, so closing a modal must NOT replay. */}
+                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true) ? "visible" : ""} ${(mapModal || merchModal || friendsModal || accountModalOpen) ? "covered" : ""}`}>
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                                     <>

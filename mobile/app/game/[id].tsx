@@ -2574,9 +2574,10 @@ export default function GameScreen() {
         {/* Non-duel ("unranked"/party) navbar row — sits to the RIGHT of the back
             button, mirroring web's `[back] [👤 playerCnt] … [reload]` order:
               • Player count badge (#playerCnt) — persistent for the whole match.
-              • Reload street view button — only while actively guessing; its
-                wrapper stays mounted so the slide+fade hide/re-enter plays every
-                round, and it flows to the right of the badge in the flex row. */}
+              • Reload street view button — persistent like the badge, DISABLED
+                (dimmed) outside active guessing: per-round unmount replayed the
+                slide+fade every round (July 23 ruling: round cycling is not an
+                entrance). */}
         {isMultiplayer && !gameData?.duel && (
           <SafeAreaView
             style={[
@@ -2587,9 +2588,10 @@ export default function GameScreen() {
             pointerEvents="box-none"
           >
             {playersInMatch > 0 && <PlayerCountBadge count={playersInMatch} />}
-            {!!currentLocation && !showMapResult && !showLoadingBanner && (
-              <ReloadButton onPress={() => mpStreetViewRef.current?.reload()} />
-            )}
+            <ReloadButton
+              disabled={!currentLocation || showMapResult || showLoadingBanner}
+              onPress={() => mpStreetViewRef.current?.reload()}
+            />
           </SafeAreaView>
         )}
 
@@ -2611,9 +2613,13 @@ export default function GameScreen() {
             edges={['top']}
             pointerEvents="box-none"
           >
-            {gameData?.state === 'guess' && !gameState.isShowingResult && (
-              <ReloadButton onPress={() => mpStreetViewRef.current?.reload()} />
-            )}
+            {/* Persistent through round cycling (guess→getready flips every
+                round — disabled, not unmounted, so the entrance doesn't
+                replay). The opaque GetReadyOverlay covers it between rounds. */}
+            <ReloadButton
+              disabled={gameData?.state !== 'guess' || gameState.isShowingResult}
+              onPress={() => mpStreetViewRef.current?.reload()}
+            />
           </SafeAreaView>
         )}
 

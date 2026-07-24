@@ -713,6 +713,26 @@ html {
 .home__footer.visible {
     transform: translateY(0);
     opacity: 1;
+    // Entrance is an ANIMATION (not the transition below) so it replays when
+    // home is re-entered from another screen — transitions can't run out of
+    // the ancestor's display:none, which made queue→home returns pop in dead.
+    // No fill mode: after it ends, the static values above own the element
+    // (a forwards fill would override the :has(.g2_slide_out) fade-out).
+    animation: footerEnter 0.5s ease;
+}
+
+@keyframes footerEnter {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+}
+
+// Modal cover: visibility keeps the element rendered, so neither the
+// entrance animation nor the transition restarts when the modal closes —
+// modals are the same screen, closing one is not an entrance.
+.home__footer.covered {
+    visibility: hidden;
 }
 
 .home__footer {
@@ -782,6 +802,16 @@ html {
 .community_banner.visible {
     transform: translateY(0);
     opacity: 1;
+    // Same entrance policy as .home__footer: an ANIMATION so it replays on
+    // screen returns (transitions can't run out of the ancestor's
+    // display:none). No fill mode — statics above own the element after.
+    animation: footerEnter 0.5s ease;
+}
+
+// Modal cover, same as .home__footer.covered: same screen, closing a modal
+// must not replay the entrance.
+.community_banner.covered {
+    visibility: hidden;
 }
 .community_banner__icon {
     font-size: 1.35em;
@@ -1859,24 +1889,39 @@ h1, h2, h3, span, label {
     to { opacity: 1; transform: translateY(0); }
 }
 
-.timer.shown {
-    animation: hudEnter 0.3s ease-out 0.12s both;
-}
-
+// ONE rule for every HUD entrance so they're identical by construction.
+// `backwards` fill, NOT `both`: the backwards part hides the element through
+// the 0.12s delay, but a forwards fill would pin the end-state at
+// animation-level priority — which beats normal declarations and would
+// defeat the slide-out fade below. After the animation ends, each element's
+// static styles own it.
+.timer.shown,
 .navbar .navBtn,
-.navbar .accountBtn {
-    animation: hudEnter 0.3s ease-out 0.12s both;
-}
-
+.navbar .accountBtn,
+.navbar .friendBtn,
+.leagueBtn,
+.daily-community-maps-btn,
 .nitro-ad-slot {
-    animation: hudEnter 0.3s ease-out 0.12s both;
+    animation: hudEnter 0.3s ease-out 0.12s backwards;
 }
 
 // NitroPay injects the creative iframe well after the slot mounts (the ad
 // stack loads on first interaction) — fade the fill in too instead of
 // letting the creative pop into the empty box.
 .nitro-ad-slot iframe {
-    animation: hudEnter 0.25s ease-out both;
+    animation: hudEnter 0.25s ease-out backwards;
+}
+
+// Exit: the top-right HUD lives OUTSIDE .home__content, so the sidebar's
+// slide-out (.g2_slide_out) never touched it — it hard-popped at the screen
+// flip while the footer glided. Mirror the footer's fade off the same signal;
+// by the time the screen flips and these unmount, they're already invisible.
+body:has(.g2_slide_out) .navbar .accountBtn,
+body:has(.g2_slide_out) .navbar .friendBtn,
+body:has(.g2_slide_out) .leagueBtn,
+body:has(.g2_slide_out) .daily-community-maps-btn {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
 }
 
 .timer.onTop {

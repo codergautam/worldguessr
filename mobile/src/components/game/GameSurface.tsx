@@ -599,9 +599,12 @@ function GameSurface(
     !showLoadingBanner &&
     !isShowingResult &&
     !hideInputs;
-  // Reload button: shown while the pano is loaded and the player is actively
-  // guessing — mirrors web's reloadBtn conditions (active round, not result).
-  const showReload = enableReload && !showLoadingBanner && !isShowingResult && !hideInputs;
+  // Reload button: mounted for the whole mode (context), merely DISABLED
+  // through loading/result/hidden-input windows — those recur every round,
+  // and unmounting on them replayed the enter/exit slide each round (web
+  // navbar reload got the same treatment July 23).
+  const showReload = enableReload;
+  const reloadDisabled = showLoadingBanner || isShowingResult || hideInputs;
 
   // Fade the country-button dock and the FAB in/out instead of hard-mounting
   // so round transitions do not pop.
@@ -756,7 +759,7 @@ function GameSurface(
             <View style={styles.topLeftStack} pointerEvents="box-none">
               {topLeftSlot}
               {showReload && (
-                <ReloadButton onPress={() => streetViewRef.current?.reload()} />
+                <ReloadButton disabled={reloadDisabled} onPress={() => streetViewRef.current?.reload()} />
               )}
             </View>
           </SafeAreaView>

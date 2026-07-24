@@ -105,7 +105,7 @@ const HTML = `<!DOCTYPE html>
   mc.addEventListener('mousedown', finishZoom, true);
   mc.addEventListener('wheel', finishZoom, true);
   var dpr = window.devicePixelRatio || 1;
-  var tileScale = dpr > 2.5 ? Math.min(4, Math.round(dpr * 1000) / 1000) : 2;
+  var tileScale = Math.max(1, Math.min(4, Math.round(dpr * 1000) / 1000));
   L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=en&scale=' + tileScale,
     { subdomains: ['0','1','2','3'], maxZoom: 20, updateWhenZooming: false }).addTo(map);
 

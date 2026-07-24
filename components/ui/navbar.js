@@ -21,7 +21,12 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
     // unhides the street view iframe this button reloads (lat/long 0 = the
     // pre-game placeholder, falsy on purpose).
     const spRoundUp = !!(latLong?.lat && latLong?.long);
-    const reloadBtn = (((multiplayerState?.inGame) || ((screen === 'singleplayer' || screen === 'countryGuesser') && spRoundUp) || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    // Context decides MOUNTING (which screens/states have a reloadable SV at
+    // all); loading and the between-rounds latLong gap only DISABLE — they
+    // recur every round, and unmounting on them replayed the entrance
+    // animation each round load.
+    const reloadBtnContext = (((multiplayerState?.inGame) || screen === 'singleplayer' || screen === 'countryGuesser' || (screen === 'daily' && dailyPhase === 'game'))) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    const reloadBtnDisabled = loading || ((screen === 'singleplayer' || screen === 'countryGuesser') && !spRoundUp);
 
     const [showAccBtn, setShowAccBtn] = useState(true);
     // Sound button + modal, party waiting lobby only (private lobbies incl.
@@ -73,9 +78,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     </>
                     }
                 </div>
-                {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
+                {reloadBtnContext && (
                     <button
                         className="gameBtn navBtn backBtn reloadBtn g2_blue_button"
+                        style={{ visibility: (accountModalOpen || gameOptionsModalShown) ? 'hidden' : 'visible' }}
+                        disabled={reloadBtnDisabled}
                         onClick={() => { hideReloadTip(); reloadBtnPressed(); }}
                         onMouseEnter={showReloadTip}
                         onMouseLeave={hideReloadTip}
@@ -139,7 +146,12 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
+                    {/* visibility (not unmount) while a modal covers it: the
+                        entrance animation runs on mount, so unmount+remount
+                        replayed the slide every time the modal closed. A
+                        finished animation survives a visibility round-trip. */}
+                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && screen !== "onboarding" && screen !== 'daily' && (
+                        <div style={{ display: 'contents', visibility: (accountModalOpen || mapModalOpen) ? 'hidden' : 'visible' }}>
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
@@ -149,12 +161,19 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             loginQueued={loginQueued}
                             setLoginQueued={setLoginQueued}
                         />
+                        </div>
                     )}
 
-                    {session?.token?.secret && !accountModalOpen && screen !== "onboarding" && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
+                    {/* Modal gates live on the visibility wrapper (same as
+                        AccountBtn above): unmounting replayed the entrance
+                        every time a modal closed. Screen/state gates stay as
+                        mount conditions — those transitions SHOULD replay. */}
+                    {session?.token?.secret && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
+                        <div style={{ display: 'contents', visibility: (accountModalOpen || gameOptionsModalShown || mapModalOpen) ? 'hidden' : 'visible' }}>
                         <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
                             <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
                         </button>
+                        </div>
                     )}
                 </div>
             </div>
