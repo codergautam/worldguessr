@@ -142,6 +142,11 @@ export default function ModDashboard({ session }) {
   const [selectedGameType, setSelectedGameType] = useState('all'); // 'all', 'ranked_duel', '2v2', 'unranked_multiplayer', 'private_multiplayer'
   const [gameLoading, setGameLoading] = useState(false);
   const [reportedUserId, setReportedUserId] = useState(null);
+  // Perspective actually requested for the OPEN game view. Passing the
+  // dashboard's long-lived targetUser here instead let a stale lookup target
+  // become the viewer perspective on an unrelated reported game — the July 22
+  // "stacked pins" false cheating signal.
+  const [gamePerspectiveId, setGamePerspectiveId] = useState(null);
   const [reportsPagination, setReportsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0, hasMore: false });
 
   // User history reports pagination
@@ -367,6 +372,7 @@ export default function ModDashboard({ session }) {
     setGameLoading(true);
     setError(null);
     setReportedUserId(reportedAccountId);
+    setGamePerspectiveId(targetUserId || reportedAccountId || null);
 
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/gameDetails', {
@@ -1484,15 +1490,16 @@ export default function ModDashboard({ session }) {
           onBack={() => {
             setSelectedGame(null);
             setReportedUserId(null);
+            setGamePerspectiveId(null);
             // Scroll restore happens in the useLayoutEffect keyed on
             // selectedGame — a timer here races the commit that un-hides
             // the dashboard and loses on modern React/Chrome.
           }}
           onUsernameLookup={handleUsernameLookup}
-          options={{ 
-            isModView: true, 
+          options={{
+            isModView: true,
             reportedUserId: reportedUserId,
-            targetUserId: targetUser?._id || reportedUserId // Pass target user's ID for correct perspective
+            targetUserId: gamePerspectiveId
           }}
         />
       )}

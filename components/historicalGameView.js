@@ -178,32 +178,71 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   const reportedUserId = options?.reportedUserId;
   const targetUserId = options?.targetUserId;
 
+  // Find the perspective player (the user whose view we're showing) BEFORE
+  // transforming rounds — the "your guess" pin below must come from this
+  // exact player. For mod view, use target user if available, otherwise
+  // reported user, otherwise first player.
+  const findPerspectivePlayer = () => {
+    // For mod view, first try to use target user (from user lookup)
+    if (isModView && targetUserId) {
+      const player = fullGameData.players.find(p => p.accountId === targetUserId || p.playerId === targetUserId);
+      if (player) return player;
+    }
+
+    // For mod view, try to use reported user (from reports)
+    if (isModView && reportedUserId) {
+      const player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
+      if (player) return player;
+    }
+
+    // Try to match by currentUserId (for regular users viewing their own games)
+    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
+    if (player) return player;
+
+    // Fallback to first player
+    return fullGameData.players[0];
+  };
+
+  const perspectivePlayer = findPerspectivePlayer();
+  // Normalized id (accountId for logged-in players, per-game playerId for
+  // guests) — the SAME key both APIs stamp on allGuesses/players entries, so
+  // the guess pin, myId, and the players map can never disagree.
+  const perspectiveId = perspectivePlayer?.playerId || perspectivePlayer?.accountId || fullGameData.currentUserId;
+
   const transformedHistory = fullGameData.rounds.map((round, index) => {
-    // For mod view, if round.guess is null, try to use data from allGuesses
-    let guessData = round.guess;
-
-    if (!guessData && isModView && round.allGuesses && round.allGuesses.length > 0) {
-      // For mod view, use target user's guess if available (from user lookup),
-      // otherwise reported user's guess (from reports), otherwise first player's guess
-      const targetUserGuess = targetUserId ?
-        round.allGuesses.find(g => g.playerId === targetUserId) : null;
-      const reportedUserGuess = reportedUserId ?
-        round.allGuesses.find(g => g.playerId === reportedUserId) : null;
-      const fallbackGuess = targetUserGuess || reportedUserGuess || round.allGuesses[0];
-
+    // The "your guess" pin MUST be the perspective player's own guess.
+    // round.guess is the SERVER's perspective pick, which can be a different
+    // player than the one chosen above (stale lookup target, missing
+    // targetUserId on the request...). Using it blindly rendered player B's
+    // pin at player A's coordinates — "stacked pins" that read as identical
+    // guesses and got someone falsely banned for cheating (July 22). Derive
+    // from allGuesses by id instead; round.guess is only trusted when the
+    // server's perspective IS ours.
+    let guessData = null;
+    const ownGuess = round.allGuesses?.find(g => g.playerId === perspectiveId);
+    if (ownGuess) {
       guessData = {
-        guessLat: fallbackGuess.guessLat,
-        guessLong: fallbackGuess.guessLong,
-        points: fallbackGuess.points,
-        timeTaken: fallbackGuess.timeTaken,
-        xpEarned: fallbackGuess.xpEarned || 0,
-        usedHint: fallbackGuess.usedHint || false
+        guessLat: ownGuess.guessLat,
+        guessLong: ownGuess.guessLong,
+        points: ownGuess.points,
+        timeTaken: ownGuess.timeTaken,
+        xpEarned: ownGuess.xpEarned || 0,
+        usedHint: ownGuess.usedHint || false
       };
+    } else if (round.guess && perspectiveId === fullGameData.currentUserId) {
+      guessData = round.guess;
     }
 
     if (!guessData) {
-      // User didn't participate in this round
-      return null;
+      if (!isModView) {
+        // User didn't participate in this round
+        return null;
+      }
+      // Mod view: keep the round — dropping it (or substituting another
+      // player's guess, as the old fallback did) misrepresents the game.
+      // Null coords = no perspective pin; other players' pins still render
+      // from the players map.
+      guessData = { guessLat: null, guessLong: null, points: 0, timeTaken: 0, xpEarned: 0, usedHint: false };
     }
 
     // For duels and multiplayer, include players data
@@ -251,31 +290,6 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   const isTeamGame = fullGameData.players?.some(p => p.team) || false;
   // Team games reuse the duel presentation (they ARE duels between two teams).
   const isDuel = fullGameData.gameType === 'ranked_duel' || isTeamGame;
-
-  // Find the perspective player (the user whose view we're showing)
-  // For mod view, use target user if available, otherwise reported user, otherwise first player
-  const findPerspectivePlayer = () => {
-    // For mod view, first try to use target user (from user lookup)
-    if (isModView && targetUserId) {
-      const player = fullGameData.players.find(p => p.accountId === targetUserId || p.playerId === targetUserId);
-      if (player) return player;
-    }
-
-    // For mod view, try to use reported user (from reports)
-    if (isModView && reportedUserId) {
-      const player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
-      if (player) return player;
-    }
-
-    // Try to match by currentUserId (for regular users viewing their own games)
-    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
-    if (player) return player;
-
-    // Fallback to first player
-    return fullGameData.players[0];
-  };
-
-  const perspectivePlayer = findPerspectivePlayer();
 
   // For duels, prepare the data structure
   let duelData = null;
@@ -325,12 +339,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   // For multiplayer games, prepare the state
   let multiplayerState = null;
   if (fullGameData.gameType !== 'singleplayer' && fullGameData.gameType !== 'daily_challenge') {
-    // Use the perspective player's ID
-    const myPlayerId = perspectivePlayer?.playerId || perspectivePlayer?.accountId || fullGameData.currentUserId;
-
     multiplayerState = {
       gameData: {
-        myId: myPlayerId, // Use the correct playerId that matches the game data
+        // The SAME normalized id the transform keyed the guess pin on — myId,
+        // the players map, and guessLat/guessLong stay one player forever.
+        myId: perspectiveId,
         players: fullGameData.players.map(player => ({
           id: player.playerId,
           username: player.username,

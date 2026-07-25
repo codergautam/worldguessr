@@ -4343,6 +4343,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
+                        mapSwitchMaskShown={mapSwitchMaskShown}
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
@@ -4351,6 +4352,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
 
                 {screen === "countryGuesser" && <div className="home__singleplayer">
                     <GameUI
+                        mapSwitchMaskShown={mapSwitchMaskShown}
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}

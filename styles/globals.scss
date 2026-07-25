@@ -718,12 +718,22 @@ html {
     // the ancestor's display:none, which made queue→home returns pop in dead.
     // No fill mode: after it ends, the static values above own the element
     // (a forwards fill would override the :has(.g2_slide_out) fade-out).
-    animation: footerEnter 0.5s ease;
+    // 0.3s ease-in-out = `.g2_nav_ui > *`'s nav_slide_in, verbatim. The footer
+    // used to run 0.5s ease: it started with the nav but landed 200ms after it,
+    // and `ease`'s long tail crawled the last few px. On mobile the footer is
+    // pinned centered at the bottom, detached from the nav column, so it was
+    // the only thing still moving on a settled screen — it read as "late".
+    animation: footerEnter 0.3s ease-in-out;
 }
 
+// 40px, not 100px: the shorter distance keeps the glide readable inside the
+// nav's 0.3s window instead of looking rushed. Must stay in sync with the
+// resting transform below so the animation and the transition trace the SAME
+// path — the animation wins while it runs, then hands off to the transition's
+// value at 0.3s, and a mismatch there would snap the element back down.
 @keyframes footerEnter {
     from {
-        transform: translateY(100px);
+        transform: translateY(40px);
         opacity: 0;
     }
 }
@@ -741,9 +751,10 @@ html {
     position: fixed;
     pointer-events: all;
     z-index: 10000;
-    transform: translateY(100px);
+    // Same distance/duration/easing as footerEnter above — see the note there.
+    transform: translateY(40px);
     opacity: 0;
-    transition: transform 0.5s ease, opacity 0.5s ease;
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
 .footer_btns {
     display: flex;
@@ -767,7 +778,10 @@ html {
         padding: 10px;
         background-color: var(--primaryTransparent);
         aspect-ratio: 1/1;
-        animation: fadeIn 0.4s ease-in-out forwards;
+        // Rides the same 0.3s wave as the footer shell and the nav column;
+        // at 0.4s the icons were still fading in after their own container
+        // had already landed.
+        animation: fadeIn 0.3s ease-in-out forwards;
         opacity: 0;
         border: 1.5px solid var(--primaryDark);
     }
@@ -1656,9 +1670,15 @@ html {
     background: var(--gradLight);
 }
 
+/* g2 containers: NO backdrop-filter. These are the home navigation/menu
+   panels and they sit over the LIVE background pano — Firefox re-samples a
+   backdrop-filter region every time the pixels behind it change, and the pano
+   changes every frame, so glass menus meant continuous re-blur ("menus are
+   laggy in Firefox"). The frost's legibility job is done instead by a solid
+   dark underlay layer beneath each variant's tint gradient — same swap
+   already shipped for the map/leaderboard/user shells. */
 .g2_container {
-    background: var(--gradLight);
-    backdrop-filter: blur(10px);
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.55), rgba(6, 16, 10, 0.55));
     /* box-shadow (not filter: drop-shadow): drop-shadow on the same element as
        backdrop-filter triggers white/grey compositing artifacts in Chrome.
        box-shadow renders identically for these rounded cards without conflict. */
@@ -1666,16 +1686,14 @@ html {
 }
 
 .g2_container_harsh {
-    background: var(--gradBottomAngle) !important;
-    backdrop-filter: blur(10px);
+    background: var(--gradBottomAngle), linear-gradient(rgba(6, 16, 10, 0.55), rgba(6, 16, 10, 0.55)) !important;
     box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
 .g2_container_light {
-    background: var(--gradLight);
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.45), rgba(6, 16, 10, 0.45));
     background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
     box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
@@ -1685,15 +1703,13 @@ html {
 }
 
 .g2_container_full {
-    background: var(--gradFull);
-    backdrop-filter: blur(10px);
+    background: var(--gradFull), linear-gradient(rgba(6, 16, 10, 0.5), rgba(6, 16, 10, 0.5));
     box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
 .g2_container_dark {
-    background: var(--gradLight) !important;
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.6), rgba(6, 16, 10, 0.6)) !important;
     background-color: rgba(0, 0, 0, 0.25) !important;
-    backdrop-filter: blur(10px);
     box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
@@ -3573,8 +3589,9 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 }
 
 .join-party-card {
-    background: var(--gradLight);
-    backdrop-filter: blur(15px);
+    /* blur swapped for the g2 dark-underlay recipe (see .g2_container) —
+       menu surface over the live pano, Firefox re-blurred it per frame. */
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.6), rgba(6, 16, 10, 0.6));
     border-radius: 24px;
     padding: clamp(30px, 5vw, 50px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -5519,7 +5536,8 @@ body.leaflet-dragging .hintCircle {
 .game-summary-sidebar {
     width: 400px;
     background: linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(20, 65, 25, 0.85) 100%);
-    backdrop-filter: blur(10px);
+    /* backdrop-filter removed: this gradient is 85-95% opaque — the blur was
+       invisible and cost a re-sample of the scene behind it on every frame. */
     border-left: 2px solid var(--primary);
     overflow: hidden; /* Remove auto scroll from main sidebar */
     z-index: 2;
@@ -5533,11 +5551,13 @@ body.leaflet-dragging .hintCircle {
     padding: 30px 25px 20px;
     border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     text-align: center;
-    background: rgba(0, 0, 0, 0.2);
+    /* Sticky header over a scrolling list: its backdrop blur re-sampled the
+       rows sliding beneath it on every scroll frame. Slightly deeper solid
+       tint instead — the sidebar behind it is near-opaque anyway. */
+    background: rgba(0, 0, 0, 0.35);
     position: sticky;
     top: 0;
     z-index: 10;
-    backdrop-filter: blur(10px);
     transition: all 0.3s ease;
     flex-shrink: 0;
 }
@@ -6740,7 +6760,8 @@ body.leaflet-dragging .hintCircle {
     border-radius: 5px;
     color: white;
     cursor: pointer;
-    backdrop-filter: blur(10px);
+    /* backdrop-filter removed: primaryTransparent is 0.85 alpha — the blur
+       was invisible behind it and only bought a compositor layer. */
 }
 
 .view-requests-button.selected {

@@ -66,7 +66,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete, mapSwitchMaskShown }) {
   const { t: text } = useTranslation("common");
   const onboardingRevealStartedAt = useRef(0);
 
@@ -680,12 +680,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // !mapResetting: hold the corner minimap until the post-fade settle
     // window ends, so it fades in once, cleanly, after the map has already
     // snapped back to the corner rect (see mapResetting).
-    if ((!loading || onboardingMapWhileLoading) && latLong && width > 600 && !isTouchScreen && !mapResetting) {
+    // !mapSwitchMaskShown: same hold for the options-modal map switch — its
+    // window is owned by home's switch mask (see forceHideMiniMap below).
+    if ((!loading || onboardingMapWhileLoading) && latLong && width > 600 && !isTouchScreen && !mapResetting && !mapSwitchMaskShown) {
       setMiniMapShown(true)
     } else {
       setMiniMapShown(false)
     }
-  }, [loading, latLong, width, mapResetting, onboardingMapWhileLoading])
+  }, [loading, latLong, width, mapResetting, onboardingMapWhileLoading, mapSwitchMaskShown])
 
   useEffect(() => {
     if (!multiplayerState?.inGame) {
@@ -1158,6 +1160,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const forceHideMiniMap = !!(
     (multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap)
     || mapResetting
+    // Map switch from the options modal: home clears latLong in one batch and
+    // reloads in the next, which cycled miniMapShown false→true THROUGH ITS
+    // SLIDE TRANSITION — and the minimap (z-1000) dances above the switch
+    // mask (z-101), in full view. Hold it hidden for the mask window instead;
+    // it comes back with one clean entrance when the new map is ready.
+    || mapSwitchMaskShown
   );
   const mapLocationForRender = mapFadingOutForRender && fadeOutMapLocation ? fadeOutMapLocation : latLong;
   // The open-minimap answer reveal on phones is a deliberate SNAP (user

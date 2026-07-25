@@ -10,13 +10,26 @@ import CountryFlag from '@/components/utils/countryFlag';
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
 
-  const [leaderboardData, setLeaderboardData] = useState([]);
-  const [pastDay, setPastDay] = useState(false);
+  // Which tabs are SELECTED (drives the buttons + what to fetch).
+  const [view, setView] = useState({ pastDay: false, useElo: true });
+  // What is SHOWN. The response is stamped with the view it was fetched for
+  // (forPastDay/forElo) and the list renders from the stamp, never from the
+  // live toggles — so data can never paint under another tab's labels or
+  // +/- formatting, no matter how requests race on slow connections.
+  const [result, setResult] = useState({ status: 'loading', data: null, forPastDay: false, forElo: true });
   const [inCrazyGames, setInCrazyGames] = useState(false);
-  const [useElo, setUseElo] = useState(true);
   const { data: session, status } = useSession();
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
+
+  // Flip the view and the spinner IN THE SAME COMMIT. The old flow set
+  // loading from the fetch effect (after paint), which let one frame of the
+  // previous tab's data render under the new tab's formatting — the
+  // "flash of + before loading" bug.
+  const switchView = (patch) => {
+    const next = { ...view, ...patch };
+    if (next.pastDay === view.pastDay && next.useElo === view.useElo) return;
+    setView(next);
+    setResult(r => ({ ...r, status: 'loading' }));
+  };
 
   // Format score with +/- prefix for daily leaderboards
   const formatScore = (value, isDailyLeaderboard) => {
@@ -37,28 +50,40 @@ const Leaderboard = ({ }) => {
 
   useEffect(() => {
     const configData = config();
+    // Abort the in-flight request whenever the tabs change (or on unmount):
+    // cleanup runs before the next effect, so at most one request can ever
+    // write to state.
+    const controller = new AbortController();
     const fetchData = async () => {
-      setLoading(true);
+      setResult(r => ({ ...r, status: 'loading' }));
       try {
-      const params = {
-        username: session ? session.token.username : undefined,
-        pastDay: pastDay ? true : undefined,
-        mode: useElo ? "elo" : "xp"
-      };
-      const queryParams = new URLSearchParams(params).toString();
-      const response = await fetch(configData.apiUrl+`/api/leaderboard${queryParams ? `?${queryParams}` : ''}`);
-      const data = await response.json();
-      setLoading(false);
-      setLeaderboardData(data);
+        const params = {
+          username: session ? session.token.username : undefined,
+          pastDay: view.pastDay ? true : undefined,
+          mode: view.useElo ? "elo" : "xp"
+        };
+        const queryParams = new URLSearchParams(params).toString();
+        const response = await fetch(configData.apiUrl + `/api/leaderboard${queryParams ? `?${queryParams}` : ''}`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`leaderboard HTTP ${response.status}`);
+        const data = await response.json();
+        // Stamp the payload with the view it answers — the render reads these,
+        // not the live toggles.
+        setResult({ status: 'ready', data, forPastDay: view.pastDay, forElo: view.useElo });
       } catch (error) {
-        setLoading(false);
-        setError(true);
-      console.error('Error fetching leaderboard data:', error);
+        // Superseded request: the newer effect owns the UI — touch nothing.
+        if (error.name === 'AbortError') return;
+        setResult(r => ({ ...r, status: 'error' }));
+        console.error('Error fetching leaderboard data:', error);
       }
     };
 
     fetchData();
-  }, [session, pastDay, useElo]);
+    return () => controller.abort();
+  }, [session, view.pastDay, view.useElo]);
+
+  const loading = result.status === 'loading';
+  const error = result.status === 'error';
+  const leaderboardData = result.data;
 
   return (
     <div className={styles.container}>
@@ -74,6 +99,15 @@ const Leaderboard = ({ }) => {
           body {
           overflow-y: auto !important;
           }
+          /* Reserve the scrollbar's lane permanently. Without this, the
+             loading spinner (short page) drops the scrollbar, the viewport
+             widens ~17px, and the fixed cover background re-centers — a
+             visible flicker on every tab switch on classic-scrollbar
+             platforms (Windows). Overlay-scrollbar platforms are unaffected
+             either way. */
+          html {
+          scrollbar-gutter: stable;
+          }
           `}
         </style>
       </Head>
@@ -85,14 +119,14 @@ const Leaderboard = ({ }) => {
           <div className={styles.controls}>
             <div className={styles.timeControls}>
               <button
-                className={`${styles.controlButton} ${!pastDay ? styles.active : ''}`}
-                onClick={() => setPastDay(false)}
+                className={`${styles.controlButton} ${!view.pastDay ? styles.active : ''}`}
+                onClick={() => switchView({ pastDay: false })}
               >
                 {text("allTime")}
               </button>
               <button
-                className={`${styles.controlButton} ${pastDay ? styles.active : ''}`}
-                onClick={() => setPastDay(true)}
+                className={`${styles.controlButton} ${view.pastDay ? styles.active : ''}`}
+                onClick={() => switchView({ pastDay: true })}
               >
                 {text("pastDay")}
               </button>
@@ -100,14 +134,14 @@ const Leaderboard = ({ }) => {
 
             <div className={styles.modeControls}>
               <button
-                className={`${styles.controlButton} ${useElo ? styles.active : ''}`}
-                onClick={() => setUseElo(true)}
+                className={`${styles.controlButton} ${view.useElo ? styles.active : ''}`}
+                onClick={() => switchView({ useElo: true })}
               >
                 {text("elo")}
               </button>
               <button
-                className={`${styles.controlButton} ${!useElo ? styles.active : ''}`}
-                onClick={() => setUseElo(false)}
+                className={`${styles.controlButton} ${!view.useElo ? styles.active : ''}`}
+                onClick={() => switchView({ useElo: false })}
               >
                 {text("xp")}
               </button>
@@ -138,7 +172,7 @@ const Leaderboard = ({ }) => {
 
         {!loading && !error && (
           <div className={styles.leaderboardContainer}>
-            {session && leaderboardData.myRank && (
+            {session && leaderboardData?.myRank && (
               <div className={styles.myRankCard}>
                 <div className={styles.rankBadge}>#{leaderboardData.myRank}</div>
                 <div className={styles.playerInfo}>
@@ -147,8 +181,8 @@ const Leaderboard = ({ }) => {
                     {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
                   </div>
                   <span className={styles.playerScore}>
-                    {formatScore(useElo ? leaderboardData?.myElo : leaderboardData?.myXp, pastDay)}
-                    <span className={styles.scoreType}>{useElo ? 'Elo' : 'XP'}</span>
+                    {formatScore(result.forElo ? leaderboardData?.myElo : leaderboardData?.myXp, result.forPastDay)}
+                    <span className={styles.scoreType}>{result.forElo ? 'Elo' : 'XP'}</span>
                   </span>
                 </div>
                 <div className={styles.myRankLabel}>Your Rank</div>
@@ -184,9 +218,9 @@ const Leaderboard = ({ }) => {
 
                   <div className={styles.scoreContainer}>
                     <span className={styles.score}>
-                      {formatScore(useElo ? user?.elo : user?.totalXp, pastDay)}
+                      {formatScore(result.forElo ? user?.elo : user?.totalXp, result.forPastDay)}
                     </span>
-                    <span className={styles.scoreLabel}>{useElo ? 'Elo' : 'XP'}</span>
+                    <span className={styles.scoreLabel}>{result.forElo ? 'Elo' : 'XP'}</span>
                   </div>
                 </div>
               ))}

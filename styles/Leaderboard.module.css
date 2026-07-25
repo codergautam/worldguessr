@@ -25,6 +25,9 @@
   z-index: 0;
   overflow-x: hidden;
   overflow-y: auto !important;
+  /* Belt-and-braces with the html rule injected by the page: if this shell
+     ever becomes the scroller, its scrollbar reserves a stable lane too. */
+  scrollbar-gutter: stable;
   box-sizing: border-box;
   font-family: "Rubik", "Rubik Fallback", sans-serif;
 }
@@ -33,11 +36,13 @@
   content: '';
   position: fixed;
   inset: 0;
+  /* Same tint recipe as the 2v2 end-screen mask (globals.scss
+     .team-2v2-end-exit-mask) — the old 0.9-black/navy gradient read as a
+     different, much darker site than the home screen over the same artwork. */
   background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.9) 0%,
-    rgba(20, 26, 57, 0.8) 50%,
-    rgba(0, 0, 0, 0.9) 100%
+    0deg,
+    rgba(0, 0, 0, 0.78) 0%,
+    rgba(0, 30, 15, 0.58) 100%
   ),
   var(--bg-street2);
   background-size: cover;
