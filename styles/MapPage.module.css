@@ -1,7 +1,35 @@
+/* Page shell.
+   Was `background-attachment: fixed` — Firefox cannot composite a
+   fixed-attachment background: it re-rasterises the full-viewport street2
+   image + gradient on every scroll frame and re-invalidates it whenever any
+   descendant changes (the reported "menus are laggy in Firefox" bug).
+   Artwork lives in a `position: fixed` ::before layer instead — identical
+   visual (background pinned to viewport, content scrolls over it), but
+   rasterised once and then only composited. Same fix as
+   Leaderboard.module.css and accountModal.css. */
 .container {
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
+  background-color: #000000;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* z-index: 0 (not auto) so this element is a stacking context. Without it the
+     z-index:-1 ::before below escapes to the root stacking context and paints
+     *under* this element's black background — a solid black page. It also keeps
+     the shell painting above the global body::before street layer, which is
+     where the old element-background sat. */
+  z-index: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.container::before {
+  content: '';
+  position: fixed;
+  inset: 0;
   background: linear-gradient(
     135deg,
     rgba(0, 0, 0, 0.9) 0%,
@@ -11,13 +39,8 @@
   var(--bg-street2);
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow-x: hidden;
-  box-sizing: border-box;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .main {
@@ -32,15 +55,23 @@
   box-sizing: border-box;
 }
 
+/* The blur(20px) cards below were all swapped for layered gradients + an inset
+   top highlight — the same frosted-glass substitute used throughout
+   mapModal.css. Each backdrop-filter forces the compositor to re-sample the
+   region behind it on every paint, scroll or hover, and this page stacks four
+   of them over a full-page background image. */
 .branding {
   text-align: center;
   margin-bottom: 3rem;
   padding: 2rem;
-  background: rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 16, 0.72) 0%, rgba(4, 12, 8, 0.78) 100%),
+    linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
   border-radius: 20px;
-  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
 }
 
@@ -199,7 +230,8 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-  backdrop-filter: blur(10px);
+  /* backdrop-filter removed: this button's gradient is fully opaque, so the
+     blur was invisible and only bought an extra compositor layer. */
   border: 2px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
 }
@@ -218,12 +250,15 @@
 /* World Map Section */
 .worldMapSection {
   margin: 2rem 0;
-  background: rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 16, 0.72) 0%, rgba(4, 12, 8, 0.78) 100%),
+    linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
   padding: 2rem;
   border-radius: 20px;
-  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   width: 100%;
   box-sizing: border-box;
 }
@@ -261,21 +296,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 16, 0.68) 0%, rgba(4, 12, 8, 0.74) 100%),
+    linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
   padding: 1.5rem;
   border-radius: 15px;
   flex: 1;
   min-width: 150px;
-  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
   box-sizing: border-box;
 }
 
 .stat:hover {
   transform: translateY(-5px);
-  background: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(16, 34, 23, 0.72) 0%, rgba(8, 18, 12, 0.78) 100%),
+    linear-gradient(135deg, rgba(76, 175, 80, 0.18) 0%, rgba(0, 0, 0, 0) 60%);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
@@ -303,12 +343,15 @@
 
 .mapDescription {
   margin-top: 2rem;
-  background: rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(10, 24, 16, 0.72) 0%, rgba(4, 12, 8, 0.78) 100%),
+    linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
   padding: 2rem;
   border-radius: 20px;
-  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   width: 100%;
   box-sizing: border-box;
 }
@@ -472,9 +515,13 @@
   transition: transform 0.3s ease;
 }
 
-/* Dark mode enhancements */
+/* Dark mode enhancements.
+   Retargeted from .container to .container::before along with the shell fix
+   above — left on .container it would have re-introduced a full-page
+   background image, and without the (removed) fixed attachment it would have
+   scrolled with the content instead of staying pinned. */
 @media (prefers-color-scheme: dark) {
-  .container {
+  .container::before {
     background: linear-gradient(
       135deg,
       rgba(0, 0, 0, 0.95) 0%,
@@ -482,6 +529,8 @@
       rgba(0, 0, 0, 0.95) 100%
     ),
     var(--bg-street2);
+    background-size: cover;
+    background-position: center;
   }
 }
 

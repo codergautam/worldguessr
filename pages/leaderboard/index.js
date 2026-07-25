@@ -66,7 +66,9 @@ const Leaderboard = ({ }) => {
         <title>{text("leaderboard")}</title>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <script src="https://unpkg.com/@phosphor/icons"></script>
+        {/* Removed <script src="https://unpkg.com/@phosphor/icons"> — a
+            render-blocking third-party request for an icon font this page
+            never used (it renders emoji medals and CountryFlag instead). */}
         <style>
           {`
           body {

@@ -246,10 +246,40 @@ export default function UserProfilePage() {
       </div>
 
       <style jsx>{`
+        /* Page shell.
+           Was \`background-attachment: fixed\` on this element, which is also the
+           scroll container. Firefox cannot composite a fixed-attachment
+           background, so it re-rasterised the full-viewport street2 image plus
+           the gradient on every scroll frame. The artwork now lives in a
+           \`position: fixed\` ::before layer: identical visual, rasterised once.
+           Same fix as Leaderboard.module.css and accountModal.css. */
         .user-profile-page {
           min-height: 100vh;
           width: 100%;
           max-width: 100vw;
+          background-color: #000000;
+          color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          /* z-index: 0 (not auto) so this element is a stacking context.
+             Without it the z-index:-1 ::before below escapes to the root
+             stacking context and paints *under* this element's black
+             background — a solid black page. It also keeps the shell painting
+             above the global body::before street layer, which is where the old
+             element-background sat. */
+          z-index: 0;
+          overflow-x: hidden;
+          overflow-y: auto !important;
+          padding: 20px;
+          box-sizing: border-box;
+          font-family: "Lexend", "Lexend Fallback", sans-serif;
+        }
+
+        .user-profile-page::before {
+          content: '';
+          position: fixed;
+          inset: 0;
           background: linear-gradient(
             135deg,
             rgba(0, 0, 0, 0.9) 0%,
@@ -259,16 +289,8 @@ export default function UserProfilePage() {
           url("${asset('/street2.webp')}");
           background-size: cover;
           background-position: center;
-          background-attachment: fixed;
-          color: #ffffff;
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          overflow-x: hidden;
-          overflow-y: auto !important;
-          padding: 20px;
-          box-sizing: border-box;
-          font-family: "Lexend", "Lexend Fallback", sans-serif;
+          pointer-events: none;
+          z-index: -1;
         }
 
         .loading-container {

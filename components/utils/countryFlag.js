@@ -26,12 +26,20 @@ export default function CountryFlag({ countryCode, style = {}, size = 1, marginR
   const height = size;
   const width = size * 1.5;
 
+  // loading="lazy": the leaderboard renders 100 of these at once, which fired
+  // 100 simultaneous flagcdn.com requests on open and stalled the page in every
+  // browser. Offscreen rows now wait until they're scrolled to; anything
+  // already in view still loads immediately, so nothing here regresses.
+  // decoding="async" keeps the image decode off the main thread so it can't
+  // block a scroll frame.
   return (
     <img
       src={flagUrl}
       srcSet={`${flagUrl2x} 2x`}
       alt={countryCode}
       title={countryCode}
+      loading="lazy"
+      decoding="async"
       style={{
         display: 'inline-block',
         width: `${width}em`,
