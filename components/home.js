@@ -17,6 +17,7 @@ import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
 import sendEvent from "@/components/utils/sendEvent";
+import trackVisibleTime from "@/components/utils/visibleTime";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
 import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx, refreshVolumesFromStorage } from "@/components/utils/audio";
@@ -1677,6 +1678,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         lastGameStartRef.current = key;
         sendEvent("game_start", { mode: screen });
     }, [latLong, screen, welcomeOverlayShown, dailyPhase, multiplayerState?.gameData?.state]);
+
+    // Own-analytics session clock: visible-tab seconds, every mode and screen
+    // (see visibleTime.js). Module-level latch makes re-mounts harmless.
+    useEffect(() => {
+        trackVisibleTime();
+    }, []);
 
     const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
         if (typeof window === 'undefined') return true;
