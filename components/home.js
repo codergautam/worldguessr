@@ -1685,6 +1685,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         trackVisibleTime();
     }, []);
 
+    // logged_in user property: stamps every subsequent GA4 event so BigQuery
+    // can split logged vs guest (the site sends no user_id — without this the
+    // auth dimension does not exist in the export). Mirrors the app's own
+    // logged-out definition (!secret); per-user queries take MAX over the
+    // day, so the pre-resolution 'false' on a slow session load is harmless.
+    useEffect(() => {
+        try {
+            window.gtag("set", "user_properties", {
+                logged_in: session?.token?.secret ? "true" : "false",
+            });
+        } catch (e) {}
+    }, [session?.token?.secret]);
+
     const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
         if (typeof window === 'undefined') return true;
         try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
