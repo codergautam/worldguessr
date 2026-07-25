@@ -57,8 +57,16 @@ function notifyVolumes() {
   for (const cb of volumeListeners) { try { cb(); } catch (e) { } }
 }
 
+// Served as WAV, not MP3: MP3 ends carry codec padding and decoders disagree
+// on how much of the final frame is padding vs content. ui_click is only
+// ~59ms, and Firefox's decoder trims its decay tail (audibly cut off) while
+// Chrome's keeps it. WAV decodes sample-exact in every browser; at click
+// lengths the size cost is a few KB. Only add sounds here when a browser
+// audibly mangles the MP3 — MP3 stays the default (Safari-safe, small).
+const WAV_SOUNDS = new Set(['ui_click']);
+
 function soundUrl(name) {
-  return asset(`/sounds/${name}.mp3`);
+  return asset(`/sounds/${name}.${WAV_SOUNDS.has(name) ? 'wav' : 'mp3'}`);
 }
 
 function ensureContext() {
