@@ -17,7 +17,10 @@ export default function trackVisibleTime() {
 
   const flush = () => {
     if (visibleSince !== null) {
-      accumMs += Date.now() - visibleSince;
+      // Clamp each visible stretch to 1h (same sanity cap as play_time):
+      // system clock jumps produced single flushes worth WEEKS of seconds —
+      // one such row was 67% of an experiment arm's total site_time.
+      accumMs += Math.min(Math.max(Date.now() - visibleSince, 0), 3600000);
       visibleSince = null;
     }
     const seconds = Math.round(accumMs / 1000);
