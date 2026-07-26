@@ -934,16 +934,23 @@ html {
         margin: 6px 12px;
     }
 
-    // if height less than 500px
+    /* These layouts center the nav column across the full width, so the
+       desktop left-rail x position (left: 5vw) reads misaligned. Center via
+       flex, not margin auto: .footer_btns' 1000px max-width cap would
+       otherwise leave it hugging the left edge of a stretched block shell. */
+    .home__footer {
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+    }
+
+    // if height less than 500px, drop into the flow below the nav items
+    // (.footer_btns already centers its buttons in the base rule)
     @media screen and (max-height: 500px) {
         .home__footer {
-            bottom: 10px;
             position: static;
-            align-items: center !important;
-        }
-        .footer_btns {
-            align-items: center !important;
-            justify-content: center !important;
+            margin-bottom: 10px;
         }
     }
 
