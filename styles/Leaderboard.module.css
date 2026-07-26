@@ -78,8 +78,11 @@
   text-align: center;
   margin-bottom: 3rem;
   padding: 2rem;
+  /* App-family green (same hue direction as the shell tint and the map
+     modal's sticky header), several stops lighter than the old navy slab.
+     Kept mostly opaque for legibility — this is sticky, rows scroll under. */
   background:
-    linear-gradient(180deg, rgba(16, 21, 46, 0.96) 0%, rgba(8, 11, 26, 0.94) 100%),
+    linear-gradient(180deg, rgba(17, 33, 23, 0.90) 0%, rgba(10, 21, 14, 0.88) 100%),
     linear-gradient(135deg, rgba(76, 175, 80, 0.10) 0%, rgba(0, 0, 0, 0) 60%);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
