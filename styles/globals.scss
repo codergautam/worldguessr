@@ -1111,6 +1111,13 @@ html {
 }
 
 .home__squarebtn {
+    /* The CoolMath button holds a next/image `fill` logo, which is
+       position:absolute + inset:0 and anchors to the nearest POSITIONED
+       ancestor. Without this the chain walked past the <a> and .footer_btns
+       up to .home__footer (position: fixed), so the logo stretched across the
+       whole footer row instead of its own 50px square, and full viewport
+       width on the layouts where the shell spans left:0/right:0. */
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
