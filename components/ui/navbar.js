@@ -119,7 +119,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
 
                 {screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
-                    <span id="playerCnt" className="bigSpan">
+                    <span id="playerCnt" className="bigSpan" style={{ visibility: (gameOptionsModalShown || accountModalOpen || selectCountryModalShown || partyModalShown) ? 'hidden' : 'visible' }}>
                         &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
                     </span>
                 )}

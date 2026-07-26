@@ -137,6 +137,10 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             open={shown && !selectCountryModalShown}
             center
             showCloseIcon={false}
+            blockScroll={false} // Critical: on iOS body-scroll-lock preventDefaults every
+                                // touchmove the library's container can't consume itself,
+                                // which kills the modal's own scrolling. Same as settings/
+                                // account/maps modals. Nothing behind can scroll anyway.
             animationDuration={400}
             classNames={{ modal: 'party-modal-container' }}
             styles={{
@@ -155,6 +159,17 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 {/* Header */}
                 <div className="party-modal__header">
                     <h2 className="party-modal__title">{text("editOptions")}</h2>
+                    {/* Same commit as the footer Save: on phones the footer
+                        starts below the fold, so keep an always-visible way
+                        to confirm-and-close in the header. */}
+                    <button
+                        className="party-modal__header-save"
+                        disabled={!isValidRoundTime}
+                        onClick={commitAndClose}
+                        aria-label={text("save")}
+                    >
+                        <FaCheck />
+                    </button>
                 </div>
                 
                 {/* Content */}
@@ -425,12 +440,42 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 }
                 
                 .party-modal__header {
+                    position: relative;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     padding: 20px 24px;
                     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                     background: rgba(0, 0, 0, 0.2);
+                }
+
+                .party-modal__header-save {
+                    position: absolute;
+                    right: 16px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 38px;
+                    height: 38px;
+                    border: none;
+                    border-radius: 10px;
+                    background: var(--primary);
+                    color: #fff;
+                    font-size: 1rem;
+                    cursor: pointer;
+                    transition: background 0.2s ease;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                }
+
+                .party-modal__header-save:hover:not(:disabled) {
+                    background: var(--primaryDark);
+                }
+
+                .party-modal__header-save:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
                 }
                 
                 .party-modal__title {
