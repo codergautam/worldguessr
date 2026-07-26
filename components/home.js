@@ -1,5 +1,5 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaBook } from "react-icons/fa";
+import { FaDiscord, FaBook, FaStepBackward } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
@@ -2880,7 +2880,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }, [])
 
+    // Leading-edge throttle: every press restarts the pano fetch, so spam
+    // clicks queue reloads and judder the iframe. Both reload buttons
+    // (navbar + duel) route through here.
+    const lastReloadAtRef = useRef(0);
     function reloadBtnPressed() {
+        const now = Date.now();
+        if (now - lastReloadAtRef.current < 1000) return;
+        lastReloadAtRef.current = now;
         if (window.reloadLoc) {
             window.reloadLoc()
         }
@@ -3962,7 +3969,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: `${duelReloadBtnTop}px`, left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
+                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><FaStepBackward size={20} /></button>
                     </div>
                 )}
 

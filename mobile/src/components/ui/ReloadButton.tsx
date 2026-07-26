@@ -3,8 +3,8 @@
  * reload affordance (`components/ui/navbar.js` → `reloadBtnPressed` →
  * `window.reloadLoc()`). Sits beside BackButton and mirrors its silhouette
  * (44×44 rounded square) for HUD cohesion, but wears the web's blue gradient
- * (`--gradBlue`) and the real web icon asset (`return.png`) so it reads the same
- * on both platforms.
+ * (`--gradBlue`) and the web's rewind icon (FaStepBackward there, Ionicons
+ * play-skip-back here) so it reads the same on both platforms.
  *
  * The actual pano reload is owned by StreetViewWebView (`ref.reload()`); this
  * component is purely the animated control: press-scale feedback, a one-shot
@@ -12,6 +12,7 @@
  * non-jarring behaviour when the OS "Reduce Motion" setting is on.
  */
 
+import { useRef } from 'react';
 import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Pressable } from './SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,7 +52,14 @@ export default function ReloadButton({ onPress, style, disabled }: ReloadButtonP
     transform: [{ rotate: `${spin.value}deg` }],
   }));
 
+  const lastPressAt = useRef(0);
+
   const handlePress = () => {
+    // Leading-edge throttle, same 1s window as web's reloadBtnPressed —
+    // spam presses restart the pano fetch and judder the WebView.
+    const now = Date.now();
+    if (now - lastPressAt.current < 1000) return;
+    lastPressAt.current = now;
     haptics.light();
     // Decorative spin — honour Reduce Motion by simply not animating it.
     if (!reduceMotion) {
@@ -91,7 +99,7 @@ export default function ReloadButton({ onPress, style, disabled }: ReloadButtonP
           style={[styles.gradient, disabled && styles.gradientDisabled]}
         >
           <Animated.View style={iconStyle}>
-            <Ionicons name="refresh" size={24} color={colors.white} />
+            <Ionicons name="play-skip-back" size={24} color={colors.white} />
           </Animated.View>
         </LinearGradient>
       </Pressable>

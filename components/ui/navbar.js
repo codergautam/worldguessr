@@ -1,9 +1,8 @@
-import { FaArrowLeft, FaUser, FaUserFriends, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
+import { FaArrowLeft, FaUser, FaUserFriends, FaVolumeUp, FaVolumeMute, FaStepBackward } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
-import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
 import SoundModal from "../soundModal";
 import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
@@ -97,8 +96,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         onBlur={hideReloadTip}
                         aria-label={text("resetStreetView")}
                     >
-                        {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
-                        <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
+                        <FaStepBackward size={20} />
                     </button>
                 )}
                 {reloadTip && (
