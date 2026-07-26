@@ -3146,6 +3146,15 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     to { opacity: 1; transform: translateY(0); pointer-events: all; }
 }
 
+#endBanner.endBannerFadeOut {
+    // Rides the answer map's exit: same animation as
+    // #miniMapArea.countryGuessrMapFadeOut so banner and map leave as one
+    // surface. Must sit below .countryGuessrDelayed — a CG round mid-exit
+    // carries both classes and this animation has to win the tie.
+    pointer-events: none;
+    animation: mapFadeOut 0.3s ease forwards;
+}
+
 
 .topGameInfoButton {
     align-self: flex-end;

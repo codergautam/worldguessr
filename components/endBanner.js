@@ -110,7 +110,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 // click listener can't see a programmatic advance).
                 playSfx('click_2');
                 // fullReset → gameUI.advanceRound → setMapFadingOut(true),
-                // which hides this banner via the mapFadingOut prop.
+                // which fades this banner out with the map (endBannerFadeOut).
                 fullResetRef.current({ source: "endBannerAutoAdvance" });
             }, duration * 1000);
             autoAdvanceTimer.current = interval;
@@ -378,13 +378,16 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         </>
     );
 
-    // singlePlayerRound.done: the game-ending advance keeps the answer scene
-    // (and its `guessed` state) mounted beneath the results summary, but this
-    // banner lives in .endCards (z-index 1001, above the summary's 1000) — it
-    // must yield on the click that ended the game or its buttons float over
-    // the results.
-    return (
-        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut && !singlePlayerRound?.done ? '' : 'none' }}>
+    // Exit freeze: advanceRound loads the next round DURING the 300ms fade
+    // (deliberate — hides the load latency), so live inputs flip under the
+    // fading banner: latLong → next round's country name,
+    // singlePlayerRound.round / onboarding.round → isLastRound ("Next Round"
+    // flashing to "View Results" on the 4→5 advance). Freeze the whole
+    // rendered content at its last pre-fade frame; only the wrapper div stays
+    // live so endBannerFadeOut can animate it. Entry is untouched
+    // (mapFadingOut is false at reveal, content renders live).
+    const bannerContent = (
+        <>
 
             <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
                 {panoShown ? text("showMap") : text("showPano")}
@@ -506,6 +509,19 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     )}
                 </div>
             )}
+        </>
+    );
+    const frozenContentRef = useRef(bannerContent);
+    if (!mapFadingOut) frozenContentRef.current = bannerContent;
+
+    // singlePlayerRound.done: the game-ending advance keeps the answer scene
+    // (and its `guessed` state) mounted beneath the results summary, but this
+    // banner lives in .endCards (z-index 1001, above the summary's 1000) — it
+    // must yield on the click that ended the game or its buttons float over
+    // the results.
+    return (
+        <div id='endBanner' className={`${isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''}${mapFadingOut ? ' endBannerFadeOut' : ''}`} style={{ display: guessed && !singlePlayerRound?.done ? '' : 'none' }}>
+            {frozenContentRef.current}
         </div>
     )
 }
