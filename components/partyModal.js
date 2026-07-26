@@ -393,6 +393,21 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 .party-modal-container {
                     max-width: 480px !important;
                     width: 94vw !important;
+                    /* This element (the react-responsive-modal dialog node) must be
+                       the scroll surface, like every other mobile modal here:
+                       body-scroll-lock registers it, so on touch devices gestures
+                       it can't consume itself get preventDefaulted — the library's
+                       outer container never receives them. Without a height cap it
+                       grows past the viewport and nothing scrolls. */
+                    max-height: calc(100% - 2.4rem) !important;
+                    overscroll-behavior-y: contain;
+                    /* Side margins must be 0: 94vw + the library's 1.2rem side
+                       margins exceed 100vw, which wraps the container's invisible
+                       centering strut (:after, height 100%) onto its own line —
+                       that both kills vertical centering and appends a full
+                       viewport-height of empty scrollable void below the card.
+                       Horizontal centering comes from the container's text-align. */
+                    margin: 1.2rem 0 !important;
                 }
             `}</style>
             <style jsx>{`
