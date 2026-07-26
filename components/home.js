@@ -2880,7 +2880,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }, [])
 
+    // Leading-edge throttle: every press restarts the pano fetch, so spam
+    // clicks queue reloads and judder the iframe. Both reload buttons
+    // (navbar + duel) route through here.
+    const lastReloadAtRef = useRef(0);
     function reloadBtnPressed() {
+        const now = Date.now();
+        if (now - lastReloadAtRef.current < 1000) return;
+        lastReloadAtRef.current = now;
         if (window.reloadLoc) {
             window.reloadLoc()
         }
