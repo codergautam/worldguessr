@@ -278,7 +278,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                                 onChange={(e) => toggleHideLastSeen(e.target.checked)}
                             />
                         </div>
-                        {false && (
+                        {strictEligible && (
                         <>
                         <div className="settingsModalInner">
                             <label htmlFor="strictMatchmaking">
