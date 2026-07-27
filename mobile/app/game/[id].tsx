@@ -49,7 +49,7 @@ import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
-import MapSelectorModal from '../../src/components/game/MapSelectorModal';
+import MapSelectorModal, { SvMode } from '../../src/components/game/MapSelectorModal';
 import CountryEndBanner from '../../src/components/game/CountryEndBanner';
 import ClassicEndBanner, { type MpRoundVerdict } from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
@@ -57,6 +57,7 @@ import DuelHUD, { BAR_WIDTH as DUEL_BAR_WIDTH, BAR_MAX_FRACTION as DUEL_BAR_MAX_
 import TeamScorebar from '../../src/components/multiplayer/TeamScorebar';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import EmoteReactions, { EMOTE_TOGGLE_SIZE } from '../../src/components/multiplayer/EmoteReactions';
+import GameChat from '../../src/components/multiplayer/GameChat';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import PlayerCountBadge from '../../src/components/multiplayer/PlayerCountBadge';
 import TransitionCurtain from '../../src/components/TransitionCurtain';
@@ -394,13 +395,15 @@ function DuelWarningBanner({
 }
 
 export default function GameScreen() {
-  const { id, map, mapName, rounds, time, mode } = useLocalSearchParams<{
+  const { id, map, mapName, rounds, time, mode, svMode: svModeParam } = useLocalSearchParams<{
     id: string;
     map?: string;
     mapName?: string;
     rounds?: string;
     time?: string;
     mode?: string;
+    /** Street View mode carried through Play Again (results.tsx round-trips it). */
+    svMode?: string;
   }>();
   const router = useRouter();
   const navigation = useNavigation();
@@ -428,6 +431,7 @@ export default function GameScreen() {
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
+  const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
   const initialCountrySubMode = subModeFromDefaultMode(mode);
 
   // Multiplayer state
@@ -658,7 +662,15 @@ export default function GameScreen() {
   const [countryGuesserSubMode, setCountryGuesserSubMode] = useState<CountryGuesserSubMode | null>(
     initialCountrySubMode,
   );
-  const [nmpzEnabled, setNmpzEnabled] = useState(false);
+  // Three-way Street View mode (web mapView.js parity), not an NMPZ boolean:
+  // 'noMove' allows pan/zoom, 'nmpz' freezes. See SvMode. Seeded from the
+  // route param so Play Again (a full router.replace remount) keeps the mode
+  // the player just finished with — same carry-through as map/mapName.
+  const [svMode, setSvMode] = useState<SvMode>(
+    svModeParam === 'noMove' || svModeParam === 'nmpz' ? svModeParam : 'moving',
+  );
+  const svNm = svMode !== 'moving';
+  const svNpz = svMode === 'nmpz';
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration, setTimerDuration] = useState(30);
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -1868,7 +1880,6 @@ export default function GameScreen() {
 
   const spResultsNavigated = useRef(false);
   const handleNextRound = useCallback(() => {
-    setShowPano(false); // each round's result starts on the map (web parity)
     if (gameState.currentRound >= gameState.totalRounds) {
       if (spResultsNavigated.current) return;
       spResultsNavigated.current = true;
@@ -1923,6 +1934,8 @@ export default function GameScreen() {
           // restarts the SAME map instead of resetting to the world map.
           map: currentMapSlug,
           mapName: currentMapName,
+          // ...and the SV mode, for the same reason.
+          svMode,
         },
       });
       return;
@@ -1935,6 +1948,10 @@ export default function GameScreen() {
         isShowingResult: false,
       }));
       setGuessPosition(null);
+      // Under the cover only (daily does the same): flipping showPano while
+      // the result is still up makes GameSurface slide the collapsed map back
+      // to fullscreen in plain view before the loading cover lands.
+      setShowPano(false);
       setHintShown(false); // hint is per-round; the 2/game count persists
       setLostWorldStreak(0); // clear the "lost streak" line before the next guess
       roundStartTimeRef.current = Date.now();
@@ -2310,7 +2327,8 @@ export default function GameScreen() {
           hintCircleData={hintCircleData}
           maxDist={isCountryGuesserMode ? undefined : gameState.maxDist}
           round={gameState.currentRound}
-          nmpz={nmpzEnabled}
+          nm={svNm}
+          npz={svNpz}
           guessPosition={guessPosition}
           onGuessPositionChange={setGuessPosition}
           onSubmitPin={handleSubmitGuess}
@@ -2368,7 +2386,7 @@ export default function GameScreen() {
               >
                 <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
                 <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
-                  {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
+                  {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove', undefined, 'No moving')}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
               </Pressable>
@@ -2393,8 +2411,8 @@ export default function GameScreen() {
           onClose={() => setMapModalVisible(false)}
           onSelectMap={handleMapSelect}
           currentMapSlug={currentMapSlug}
-          nmpzEnabled={nmpzEnabled}
-          onNmpzToggle={setNmpzEnabled}
+          svMode={svMode}
+          onSvModeChange={setSvMode}
           timerEnabled={timerEnabled}
           onTimerToggle={setTimerEnabled}
           timerDuration={timerDuration}
@@ -2494,7 +2512,7 @@ export default function GameScreen() {
         // server's emote handler only checks gameId, not state. The focus gate
         // mirrors the in-game mount below: a non-host parked on /game/results while
         // the host restarts the party would otherwise double-mount reactions.
-        <MultiplayerLobby onLeave={handleLeave} emotesShown={emotesEnabled && isScreenFocused} />
+        <MultiplayerLobby onLeave={handleLeave} emotesShown={emotesEnabled && isScreenFocused} chatShown={chatEnabled && isScreenFocused} />
       ) : (
       <View style={styles.container}>
       <Animated.View
@@ -2511,7 +2529,11 @@ export default function GameScreen() {
               heading={currentLocation.heading ?? currentLocation.head}
               pitch={currentLocation.pitch}
               onLoad={handleStreetViewLoad}
-              nmpz={isMultiplayer ? (gameData?.nm ?? false) : nmpzEnabled}
+              // The freeze is npz, NEVER nm: reading nm here froze mobile
+              // members of a No Move party solid while web players panned and
+              // zoomed freely. nm selects the renderer, npz locks the view.
+              nm={isMultiplayer ? (gameData?.nm ?? false) : svNm}
+              npz={isMultiplayer ? (gameData?.npz ?? false) : svNpz}
               // Dual-slot crossfade: the next round's pano (currentLocation bumps
               // to round N+1 during the between-rounds reveal — that's the
               // preload) loads in the HIDDEN slot while the current pano stays
@@ -2744,7 +2766,11 @@ export default function GameScreen() {
               long={mapActualLocation.long}
               heading={mapActualLocation.heading ?? mapActualLocation.head}
               pitch={mapActualLocation.pitch}
-              nmpz={gameData?.nm ?? false}
+              nm={gameData?.nm ?? false}
+              npz={gameData?.npz ?? false}
+              // Reveal instance: the npz freeze lifts on the answer (web
+              // contract). Mount-constant here, which the iframe path requires.
+              showAnswer
             />
           </View>
         )}
@@ -3052,6 +3078,15 @@ export default function GameScreen() {
       {emotesEnabled && isMultiplayer && isScreenFocused && gameData && !gameData.disableEmotes
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
         <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel && !gameData.team2v2} />
+      )}
+
+      {/* ═══ TEXT CHAT — parties + 2v2 only (audience mirrors the server gate:
+          private games or team2v2; public FFA and 1v1 duels excluded). Same
+          isScreenFocused handoff to /game/results as the emote FAB. ═══ */}
+      {chatEnabled && isMultiplayer && isScreenFocused && gameData && !gameData.disableChat
+        && (!gameData.public || gameData.team2v2)
+        && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
+        <GameChat hidden={miniMapShown && !showMapResult} stackUp={emotesEnabled && !gameData.disableEmotes} />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}

@@ -25,13 +25,91 @@ import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../maps/MapSection';
 import MapDetailView from '../maps/MapDetailView';
 import SingleplayerModeTiles, { SingleplayerModeTile } from './SingleplayerModeTiles';
 
+/**
+ * Street View mode. Web (components/maps/mapView.js) has always had three, but
+ * mobile collapsed them into one NMPZ boolean and sent `nm: x, npz: x` — so a
+ * mobile host could not create a No Move party, and editing the options of an
+ * existing No Move party silently upgraded it to NMPZ for everyone.
+ * moving = free; noMove = pan/zoom only; nmpz = frozen.
+ */
+export type SvMode = 'moving' | 'noMove' | 'nmpz';
+
+/** Label for a Street View mode. NMPZ is a proper noun everywhere, untranslated. */
+const svModeLabel = (mode: SvMode) =>
+  mode === 'nmpz' ? 'NMPZ'
+    : mode === 'noMove' ? t('noMove', undefined, 'No moving')
+      : t('moving', undefined, 'Moving');
+
+/** Label for a comms mode — shared by the dropdown trigger and its menu rows. */
+const commsLabel = (mode?: 'chat' | 'emotes' | 'none') =>
+  mode === 'emotes' ? t('emotes', undefined, 'Emotes')
+    : mode === 'none' ? t('commsOff', undefined, 'Off')
+      : t('chat', undefined, 'Chat');
+
+/**
+ * Inline dropdown option row: label left, compact current-value trigger right —
+ * the same silhouette as the sheet's Switch rows — with the options unfolding
+ * right-aligned beneath while open. The trigger only ever shows the CURRENT
+ * value, so it fits beside any label (the old 3-button segment could not,
+ * which is why these briefly went full-width). One component for every
+ * dropdown in this sheet: Street View mode and Communication today.
+ */
+function OptionDropdown<K extends string>({ icon, label, value, options, open, onToggle, onSelect }: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  value: K;
+  options: readonly { key: K; label: string; sub?: string }[];
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (key: K) => void;
+}) {
+  const current = options.find((o) => o.key === value);
+  return (
+    <>
+      <View style={styles.optionRow}>
+        <View style={styles.optionLabel}>
+          <Ionicons name={icon} size={20} color="#fff" />
+          <Text style={styles.optionText}>{label}</Text>
+        </View>
+        <Pressable
+          onPress={onToggle}
+          style={({ pressed }) => [styles.selectBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.selectBtnText}>{current?.label ?? ''}</Text>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+      </View>
+      {open && (
+        <View style={styles.selectMenu}>
+          {options.map((o) => (
+            <Pressable
+              key={o.key}
+              onPress={() => onSelect(o.key)}
+              style={({ pressed }) => [styles.selectItem, pressed && { opacity: 0.7 }]}
+            >
+              <View style={styles.optionLabelTextStack}>
+                <Text style={[styles.selectItemText, value === o.key && styles.selectItemTextActive]}>
+                  {o.label}
+                </Text>
+                {o.sub ? <Text style={styles.optionSubtext}>{o.sub}</Text> : null}
+              </View>
+              {value === o.key && <Ionicons name="checkmark" size={16} color="#4CAF50" />}
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </>
+  );
+}
+
 interface MapSelectorModalProps {
   visible: boolean;
   onClose: () => void;
   onSelectMap: (slug: string, name: string) => void;
   currentMapSlug: string;
-  nmpzEnabled: boolean;
-  onNmpzToggle: (v: boolean) => void;
+  /** Street View mode — three-way, matching web mapView.js (see SvMode). */
+  svMode: SvMode;
+  onSvModeChange: (v: SvMode) => void;
   timerEnabled: boolean;
   onTimerToggle: (v: boolean) => void;
   timerDuration: number;
@@ -50,12 +128,27 @@ interface MapSelectorModalProps {
   teamConfig?: TeamConfig;
   onTeamConfigChange?: (config: TeamConfig) => void;
   /**
-   * Party mode: mute emote reactions for this game (default off — emotes on).
-   * The row renders only when the handler is provided (web partyModal.js
-   * parity; singleplayer callers omit it).
+   * Party comms mode: chat XOR emotes, host-set, chat default (user ruling;
+   * web partyModal.js parity). The row renders only when the handler is
+   * provided (singleplayer callers omit it).
    */
-  disableEmotes?: boolean;
-  onDisableEmotesToggle?: (v: boolean) => void;
+  comms?: 'chat' | 'emotes' | 'none';
+  onCommsChange?: (v: 'chat' | 'emotes' | 'none') => void;
+  /**
+   * Which comms modes this host may pick. Guest hosts get emotes/off only:
+   * they can neither send chat nor moderate a chat room, so 'chat' is not
+   * theirs to offer (user ruling — they used to get no choice at all).
+   */
+  commsChoices?: readonly ('chat' | 'emotes' | 'none')[];
+  /**
+   * Party guest access (host-only, party mode only): false = signed-in
+   * accounts only. Rendered only when the handler is provided. Sent via its
+   * own setPartySecurity message — never rides setPrivateGameOptions (that
+   * regenerates locations). The LOCK control lives on the lobby card by the
+   * game code, not here.
+   */
+  allowGuests?: boolean;
+  onAllowGuestsChange?: (v: boolean) => void;
 }
 
 export interface TeamConfig {
@@ -75,8 +168,8 @@ export default function MapSelectorModal({
   onClose,
   onSelectMap,
   currentMapSlug,
-  nmpzEnabled,
-  onNmpzToggle,
+  svMode,
+  onSvModeChange,
   timerEnabled,
   onTimerToggle,
   timerDuration,
@@ -88,8 +181,11 @@ export default function MapSelectorModal({
   onRoundsChange,
   teamConfig,
   onTeamConfigChange,
-  disableEmotes,
-  onDisableEmotesToggle,
+  comms,
+  onCommsChange,
+  commsChoices = ['chat', 'emotes', 'none'],
+  allowGuests,
+  onAllowGuestsChange,
 }: MapSelectorModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -119,6 +215,8 @@ export default function MapSelectorModal({
   const sheetAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
+  const [commsOpen, setCommsOpen] = useState(false);
+  const [svModeOpen, setSvModeOpen] = useState(false);
   const closingRef = useRef(false);
 
   const animateOpen = useCallback(() => {
@@ -551,22 +649,21 @@ export default function MapSelectorModal({
                     <View style={styles.divider} />
                   </>
                 )}
-                {/* NMPZ Toggle */}
-                <View style={styles.optionRow}>
-                  <View style={styles.optionLabel}>
-                    <Ionicons name="eye-off-outline" size={20} color="#fff" />
-                    <View style={styles.optionLabelTextStack}>
-                      <Text style={styles.optionText}>NMPZ</Text>
-                      <Text style={styles.optionSubtext}>{t('nmpzExpansion', undefined, '(No Move, Pan, Zoom)')}</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={nmpzEnabled}
-                    onValueChange={onNmpzToggle}
-                    trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
-                    thumbColor="#fff"
-                  />
-                </View>
+                {/* Street View mode — Moving / No Move / NMPZ, the same three
+                    the web dropdown offers (mapView.js). */}
+                <OptionDropdown
+                  icon="footsteps-outline"
+                  label={t('mode', undefined, 'Mode')}
+                  value={svMode}
+                  options={[
+                    { key: 'moving', label: svModeLabel('moving') },
+                    { key: 'noMove', label: svModeLabel('noMove') },
+                    { key: 'nmpz', label: 'NMPZ', sub: t('nmpzExpansion', undefined, '(No Move, Pan, Zoom)') },
+                  ] as const}
+                  open={svModeOpen}
+                  onToggle={() => { setSvModeOpen((o) => !o); setCommsOpen(false); }}
+                  onSelect={(mode) => { onSvModeChange(mode); setSvModeOpen(false); }}
+                />
 
                 {/* Timer Toggle */}
                 <View style={styles.divider} />
@@ -604,18 +701,38 @@ export default function MapSelectorModal({
                   </View>
                 )}
 
-                {/* Emote mute — party mode only (web partyModal.js parity). */}
-                {onDisableEmotesToggle && (
+                {/* Comms mode — chat XOR emotes, party mode only (web
+                    partyModal.js parity; chat is the fresh-party default).
+                    Guest hosts get emotes/off only (commsChoices). */}
+                {onCommsChange && (
+                  <>
+                    <View style={styles.divider} />
+                    <OptionDropdown
+                      icon="chatbubble-ellipses-outline"
+                      label={t('communication', undefined, 'Communication')}
+                      value={comms ?? 'chat'}
+                      options={commsChoices.map((mode) => ({ key: mode, label: commsLabel(mode) }))}
+                      open={commsOpen}
+                      onToggle={() => { setCommsOpen((o) => !o); setSvModeOpen(false); }}
+                      onSelect={(mode) => { onCommsChange(mode); setCommsOpen(false); }}
+                    />
+                  </>
+                )}
+
+                {/* Guest access (web partyModal parity: guests off =
+                    signed-in accounts only). Lock is the button by the game
+                    code on the lobby card. */}
+                {onAllowGuestsChange && (
                   <>
                     <View style={styles.divider} />
                     <View style={styles.optionRow}>
                       <View style={styles.optionLabel}>
-                        <Ionicons name="happy-outline" size={20} color="#fff" />
-                        <Text style={styles.optionText}>{t('disableEmotes')}</Text>
+                        <Ionicons name="person-add-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>{t('allowGuests', undefined, 'Allow guests')}</Text>
                       </View>
                       <Switch
-                        value={!!disableEmotes}
-                        onValueChange={onDisableEmotesToggle}
+                        value={allowGuests !== false}
+                        onValueChange={onAllowGuestsChange}
                         trackColor={{ false: 'rgba(255,255,255,0.2)', true: '#4CAF50' }}
                         thumbColor="#fff"
                       />
@@ -905,6 +1022,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 4,
+  },
+  // OptionDropdown: compact trigger inline with the label (Switch-row
+  // silhouette), options unfolding right-aligned beneath while open.
+  selectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  selectBtnText: {
+    color: '#fff',
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 14,
+  },
+  selectMenu: {
+    alignSelf: 'flex-end',
+    minWidth: 200,
+    marginTop: 2,
+    marginBottom: 6,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  selectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  selectItemText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 14,
+  },
+  selectItemTextActive: {
+    color: '#fff',
   },
   optionLabel: {
     flexDirection: 'row',

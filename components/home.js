@@ -51,6 +51,7 @@ const DiscordModal = dynamic(() => import("@/components/discordModal"), { ssr: f
 const WhatsNewModal = dynamic(() => import("@/components/ui/WhatsNewModal"), { ssr: false });
 const PendingNameChangeModal = dynamic(() => import("./pendingNameChangeModal"), { ssr: false });
 import EmoteReactions from "@/components/emoteReactions";
+import GameChat from "@/components/gameChat";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import resolveOnboardingVariant from "@/components/utils/growthbook";
 import AlertModal from "@/components/ui/AlertModal";
@@ -72,6 +73,8 @@ import { useGoogleLogin } from "@react-oauth/google";
 // import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 // import SvEmbedIframe from "./streetview/svHandler"; // REMOVED: Using direct StreetView instead of double-iframe setup
+// In-house WebGL pano for singleplayer No Move mode — only loaded when that mode runs
+const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), { ssr: false });
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
@@ -533,6 +536,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         loadOptions();
                         try {
                             setMultiplayerEmotesEnabled(gameStorage.getItem('multiplayerEmotesEnabled') !== 'false');
+                            setMultiplayerChatEnabled(gameStorage.getItem('multiplayerChatEnabled') !== 'false');
                             const savedStreak = parseInt(gameStorage.getItem('countryStreak'));
                             if (!isNaN(savedStreak)) setCountryStreak(savedStreak);
                             const savedCgStreak = parseInt(gameStorage.getItem('countryGuessrStreak'));
@@ -1703,6 +1707,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
     });
 
+    const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        try { return gameStorage.getItem('multiplayerChatEnabled') !== 'false'; } catch { return true; }
+    });
+
     const updateTimeOffsetFromSync = (serverNow, clientSentAt) => {
         if (!serverNow || !clientSentAt) return;
         const now = Date.now();
@@ -1976,7 +1985,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 showRoadName: options.showRoadName,
                 location: options.location,
                 displayLocation: options.displayLocation,
-                disableEmotes: options.disableEmotes
+                disableEmotes: options.disableEmotes,
+                disableChat: options.disableChat
             }));
         }
 
@@ -1987,6 +1997,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         if (action === "kickPlayer" && args[0] && multiplayerState?.gameData?.host) {
             ws.send(JSON.stringify({ type: "kickPlayer", playerId: args[0] }))
+        }
+
+        if (action === "transferHost" && args[0] && multiplayerState?.gameData?.host) {
+            ws.send(JSON.stringify({ type: "transferHost", playerId: args[0] }))
+        }
+
+        // Separate wire message from setPrivateGameOptions on purpose: that
+        // path regenerates the party's locations on every call. Partial
+        // payload: the lobby lock button sends only `locked`, the settings
+        // modal sends only `allowGuests` — the server ignores absent fields,
+        // so neither control can stomp the other.
+        if (action === "setPartySecurity" && args[0] && multiplayerState?.gameData?.host) {
+            const payload = { type: "setPartySecurity" };
+            if (typeof args[0].locked === 'boolean') payload.locked = args[0].locked;
+            if (typeof args[0].allowGuests === 'boolean') payload.allowGuests = args[0].allowGuests;
+            ws.send(JSON.stringify(payload))
         }
 
         // ---- Intra-party team mode ----
@@ -3491,10 +3517,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // the memo so it only re-renders on an actual team change, not on every
     // players-array update.
     const myEmoteTeam = getMyTeam(multiplayerState?.gameData?.players, multiplayerState?.gameData?.myId);
-    // 2v2 queue (stage-2 "finding opponents" banner) keeps emotes alive: the
-    // duo still shares its staging lobby server-side, so sends/broadcasts work
-    // even though inGame is false and gameData is wiped.
-    const emotesLive = multiplayerState?.inGame || multiplayerState?.gameQueued === '2v2';
+    // Comms XOR: 2v2 surfaces (staging/queue/match) are chat-only now, so the
+    // stage-2 queue term is gone — with gameData wiped during that window the
+    // disableEmotes flag is unreadable and the FAB would show dead (server
+    // drops emotes in the staging room). In-game surfaces still gate on the
+    // server's disableEmotes below.
+    const emotesLive = multiplayerState?.inGame;
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
         subscribeMessages={subscribeMessages}
@@ -3508,6 +3536,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
     />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableEmotes])
+
+    // Chat audience mirrors the server gate: private games (parties, teamGame,
+    // 2v2 staging) or matchmade 2v2 (team2v2, teammate-only server-side).
+    // Public FFA and 1v1 duels are excluded. Stage-2 2v2 queue rides the
+    // persisting staging lobby, same as emotes.
+    const chatLive = (multiplayerState?.inGame && multiplayerState?.gameData
+        && (!multiplayerState?.gameData?.public || multiplayerState?.gameData?.team2v2))
+        || multiplayerState?.gameQueued === '2v2';
+    const GameChatMemo = React.useMemo(() => <GameChat
+        ws={ws}
+        subscribeMessages={subscribeMessages}
+        // hostGuest: guest-hosted parties are emotes-only server-side — hide
+        // the whole chat surface (FAB included) for every member.
+        enabled={multiplayerChatEnabled && !multiplayerState?.gameData?.disableChat && !multiplayerState?.gameData?.hostGuest}
+        live={!!chatLive}
+        canSend={!!session?.token?.username}
+        myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
+        // Team contexts get the Team/All channel picker; 2v2 defaults to the
+        // team channel (its legacy audience), team parties default to All.
+        teamCapable={!!(multiplayerState?.gameData?.team2v2 || multiplayerState?.gameData?.teamGame)}
+        defaultTeamChannel={!!multiplayerState?.gameData?.team2v2}
+        myTeam={myEmoteTeam}
+        gameState={multiplayerState?.gameData?.state}
+        // Chat shares the bottom-left corner with the emote FAB; stack above
+        // it whenever emotes are concurrently visible (2v2 — parties are XOR).
+        stackUp={multiplayerEmotesEnabled && !multiplayerState?.gameData?.disableEmotes && emotesLive}
+    />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
 
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
@@ -3674,6 +3729,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
+            {/* CoolMath explicitly opted out of chat; SchoolGuessr is the
+                school build. Both are compile-time flags, so the chat chunk
+                drops out of those bundles entirely. */}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && !process.env.NEXT_PUBLIC_COOLMATH && GameChatMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
@@ -3705,6 +3764,38 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     singleplayer toggle or multiplayer game stamped into it
                     (nm/npz/showRoadName), so the shared pano must not read
                     those while the daily owns it. */}
+                {((screen === "singleplayer" || screen === "countryGuesser" || screen === "multiplayer") && gameOptions?.nm) ? (
+                    /* No Move + NMPZ modes: in-house WebGL pano (movement
+                       structurally impossible; npz additionally freezes
+                       pan/zoom) replaces the Google embed. SP, country/
+                       continent guesser, and multiplayer parties (the MP
+                       'game' handler stamps server nm/npz into gameOptions;
+                       ranked/public games never set nm). Server locations
+                       carry no freshPano, so MP always fresh-resolves. */
+                    <CustomStreetView
+                        lat={latLong?.lat}
+                        long={latLong?.long}
+                        heading={latLong?.heading}
+                        panoId={latLong?.freshPano}
+                        npz={gameOptions?.npz}
+                        showAnswer={showAnswer}
+                        hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
+                            !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
+                        )}
+                        refreshKey={latLongKey}
+                        onLoad={() => {
+                            // 100 not 300: unlike the iframe, tiles are already
+                            // painted when this fires — the long grace only
+                            // slowed the reveal.
+                            setTimeout(() => {
+                                setLoading(false)
+                                setMapSwitchMaskShown(false);
+                                setMapSwitchSawLoading(false);
+                            }, 100)
+
+                        }}
+                    />
+                ) : (
                 <StreetView
                     nm={screen === "daily" ? false : gameOptions?.nm}
                     npz={screen === "daily" ? false : gameOptions?.npz}
@@ -3728,6 +3819,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                     }}
                 />
+                )}
 
                 {team2v2EndExitMaskShown && (
                     <div
@@ -3817,7 +3909,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // (login button) flashes before onboarding takes over.
                     shown={(!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'end'))
                         && !(screen === "home" && onboardingCompleted !== true)}
-                    gameOptionsModalShown={gameOptionsModalShown}
+                    // && !mapModalClosing: the flag stays up through the maps
+                    // modal's 400ms exit animation, which kept the navbar's
+                    // back/reload buttons visibility-hidden long after the
+                    // modal had visually cleared them. Un-hide the moment the
+                    // close starts — the fading shell is still above them, so
+                    // they're revealed by the fade instead of popping in late.
+                    gameOptionsModalShown={gameOptionsModalShown && !mapModalClosing}
                     selectCountryModalShown={selectCountryModalShown}
                     partyModalShown={partyModalShown}
                     dailyPhase={dailyPhase}
@@ -4289,7 +4387,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     showTimerOption={screen === "singleplayer" || screen === "countryGuesser"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
 
                 <Modal
                     isOpen={leaveConfirmOpen}

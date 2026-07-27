@@ -19,6 +19,15 @@ export const OUTBOUND = {
   // (full) size and is fitted/about to fly. The host uses this exact signal to
   // unclip the map to full-screen with no resize flicker (no guessed delay).
   REVEAL_READY: "revealReady",
+  // { type } — Street View embed only (svEntry.jsx): the WebGL pano's base
+  // tiles are painted (or load failed / 8s failsafe fired). THIS is the
+  // loading-cover signal — the WebView's own onLoadEnd fires when the document
+  // loads, milliseconds in, while the canvas is still black.
+  SV_LOADED: "svLoaded",
+  // { type, panoId } — Street View embed only: the prefetchPano's base tiles
+  // are on the GPU; a swap to it paints in one frame. The host may now answer
+  // commitPreload with 'ready' (the instant, Moving-mode round transition).
+  SV_PREFETCHED: "svPrefetched",
 };
 
 // The embed page exposes window[APPLY_FN](messageObject) so the RN host can

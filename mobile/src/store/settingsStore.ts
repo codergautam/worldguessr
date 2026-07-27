@@ -27,6 +27,7 @@ interface PersistedSettings {
   mapType: MapType;
   language: SupportedLanguage;
   multiplayerEmotesEnabled: boolean;
+  multiplayerChatEnabled: boolean;
   hapticsEnabled: boolean;
   /**
    * Audio volumes in SLIDER space 0–1 (perceptual toGain(v)=v² applies only at
@@ -46,6 +47,7 @@ interface SettingsState extends PersistedSettings {
   setMapType: (mapType: MapType) => void;
   setLanguage: (language: SupportedLanguage) => void;
   setMultiplayerEmotesEnabled: (enabled: boolean) => void;
+  setMultiplayerChatEnabled: (enabled: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setMusicVolume: (v: number) => void;
   setSfxVolume: (v: number) => void;
@@ -56,6 +58,7 @@ const DEFAULTS: PersistedSettings = {
   mapType: 'm',
   language: 'en',
   multiplayerEmotesEnabled: true,
+  multiplayerChatEnabled: true,
   hapticsEnabled: true,
   musicVolume: 0.5,
   sfxVolume: 0.85,
@@ -67,6 +70,7 @@ function persist(s: PersistedSettings): void {
     mapType: s.mapType,
     language: s.language,
     multiplayerEmotesEnabled: s.multiplayerEmotesEnabled,
+    multiplayerChatEnabled: s.multiplayerChatEnabled,
     hapticsEnabled: s.hapticsEnabled,
     musicVolume: s.musicVolume,
     sfxVolume: s.sfxVolume,
@@ -111,6 +115,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         typeof stored.multiplayerEmotesEnabled === 'boolean'
           ? stored.multiplayerEmotesEnabled
           : DEFAULTS.multiplayerEmotesEnabled,
+      multiplayerChatEnabled:
+        typeof stored.multiplayerChatEnabled === 'boolean'
+          ? stored.multiplayerChatEnabled
+          : DEFAULTS.multiplayerChatEnabled,
       hapticsEnabled:
         typeof stored.hapticsEnabled === 'boolean'
           ? stored.hapticsEnabled
@@ -145,6 +153,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setMultiplayerEmotesEnabled: (multiplayerEmotesEnabled) => {
     set({ multiplayerEmotesEnabled });
+    persist(get());
+  },
+
+  setMultiplayerChatEnabled: (multiplayerChatEnabled) => {
+    set({ multiplayerChatEnabled });
     persist(get());
   },
 

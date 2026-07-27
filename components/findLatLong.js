@@ -74,13 +74,16 @@ function generateLatLong(location, { requireKnownCountry, requireKnownContinent 
             }
 
             console.log(`[PERF] Total generateLatLong time (success): ${(performance.now() - startTime).toFixed(2)}ms`);
-            resolve({ lat: latO, long: longO, country });
+            // freshPano: just resolved seconds ago, safe to trust — unlike the
+            // stale panoId strings in map files. Lets the No Move renderer
+            // skip its own getPanorama round trip.
+            resolve({ lat: latO, long: longO, country, freshPano: data.location?.pano || null });
           }).catch((e) => {
             console.log("Failed to get country", e);
             // Both server and local lookups failed. In country-guesser mode this
             // spot is unusable; reject and retry. In classic we tolerate Unknown.
             if (requireKnownCountry) return resolve(null);
-            resolve({ lat: latO, long: longO, country: "Unknown" });
+            resolve({ lat: latO, long: longO, country: "Unknown", freshPano: data.location?.pano || null });
           });
         } else {
           console.log("Failed to get panorama", status, data);

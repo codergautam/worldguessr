@@ -21,6 +21,11 @@ const SHIMS = {
   // covered so a future import-style change can't silently re-bundle the
   // Web Audio engine.
   '@/components/utils/audio': path.join(root, 'embed/shims/audio.js'),
+  // customStreetView.js's ONLY npm import (Street View bundle). The real
+  // Loader pulls the whole Maps JS API into the WebView just to back a
+  // resolvePanoId the host never calls — the host resolves pano ids natively
+  // and always supplies one. See the shim for the fail-loud contract.
+  '@googlemaps/js-api-loader': path.join(root, 'embed/shims/googleMapsLoader.js'),
 };
 
 const resolvePlugin = {
@@ -35,7 +40,7 @@ const resolvePlugin = {
     b.onResolve({ filter: /^\.\.?\/.*utils\/audio$/ }, () => ({
       path: path.join(root, 'embed/shims/audio.js'),
     }));
-    b.onResolve({ filter: /^(@\/|next\/dynamic$|next\/router$)/ }, (args) => {
+    b.onResolve({ filter: /^(@\/|next\/dynamic$|next\/router$|@googlemaps\/js-api-loader$)/ }, (args) => {
       if (SHIMS[args.path]) return { path: SHIMS[args.path] };
       if (!args.path.startsWith('@/')) return undefined;
       // Generic '@/x' → repo-root/x with extension resolution.
@@ -65,68 +70,89 @@ const jsonModulePlugin = {
   },
 };
 
-const result = await esbuild.build({
-  entryPoints: [path.join(root, 'embed/entry.jsx')],
-  bundle: true,
-  write: false,
-  format: 'iife',
-  platform: 'browser',
-  target: ['es2019'],
-  minify: true,
-  jsx: 'automatic',
-  resolveExtensions,
-  define: {
-    'process.env.NODE_ENV': '"production"',
-    'process.env.NEXT_PUBLIC_BASE_PATH': '""',
-    'process.env.NEXT_PUBLIC_COOLMATH': '""',
-    // Catch-all AFTER the specific keys (longest match wins): any OTHER
-    // process.env.X in the web graph becomes ({}).X → undefined, instead of a
-    // bare `process` reference that throws ReferenceError at eval inside the
-    // WebView (no Node globals there) and kills the whole bundle before it
-    // can signal ready — the host then waits out READY_TIMEOUT_MS and falls
-    // back to the native LeafletMap (July 13: process.env.NEXT_PUBLIC_POKI in
-    // lib/basePath.js did exactly this on the next rebuild).
-    'process.env': '{}',
-  },
-  loader: {
-    // The web codebase (Map.js, ResultsMap.js, countryFlag.js, …) writes JSX in
-    // .js files — Next/babel allows it, esbuild must be told.
-    '.js': 'jsx',
-    '.png': 'dataurl',
-    '.jpg': 'dataurl',
-    '.jpeg': 'dataurl',
-    '.gif': 'dataurl',
-    '.svg': 'dataurl',
-    // pin.mp3 (~3KB) inlined for the shim's Web Audio pin click — the one
-    // sound that plays INSIDE the WebView (latency; see embed/shims/audio.js).
-    '.mp3': 'dataurl',
-    '.css': 'text',
-  },
-  plugins: [resolvePlugin, jsonModulePlugin],
-  logLevel: 'info',
-});
+// One esbuild config shared by both bundles — only the entry differs.
+async function buildBundle({ entry, head = '', out, exportName }) {
+  const result = await esbuild.build({
+    entryPoints: [path.join(root, entry)],
+    bundle: true,
+    write: false,
+    format: 'iife',
+    platform: 'browser',
+    target: ['es2019'],
+    minify: true,
+    jsx: 'automatic',
+    resolveExtensions,
+    define: {
+      'process.env.NODE_ENV': '"production"',
+      'process.env.NEXT_PUBLIC_BASE_PATH': '""',
+      'process.env.NEXT_PUBLIC_COOLMATH': '""',
+      // Catch-all AFTER the specific keys (longest match wins): any OTHER
+      // process.env.X in the web graph becomes ({}).X → undefined, instead of a
+      // bare `process` reference that throws ReferenceError at eval inside the
+      // WebView (no Node globals there) and kills the whole bundle before it
+      // can signal ready — the host then waits out READY_TIMEOUT_MS and falls
+      // back to the native LeafletMap (July 13: process.env.NEXT_PUBLIC_POKI in
+      // lib/basePath.js did exactly this on the next rebuild).
+      'process.env': '{}',
+    },
+    loader: {
+      // The web codebase (Map.js, ResultsMap.js, countryFlag.js, …) writes JSX in
+      // .js files — Next/babel allows it, esbuild must be told.
+      '.js': 'jsx',
+      '.png': 'dataurl',
+      '.jpg': 'dataurl',
+      '.jpeg': 'dataurl',
+      '.gif': 'dataurl',
+      '.svg': 'dataurl',
+      // pin.mp3 (~3KB) inlined for the shim's Web Audio pin click — the one
+      // sound that plays INSIDE the WebView (latency; see embed/shims/audio.js).
+      '.mp3': 'dataurl',
+      '.css': 'text',
+    },
+    plugins: [resolvePlugin, jsonModulePlugin],
+    logLevel: 'info',
+  });
 
-const js = result.outputFiles.map((f) => f.text).join('\n');
-const html =
-  '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
-  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>' +
+  const js = result.outputFiles.map((f) => f.text).join('\n');
+  const html =
+    '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>' +
+    head +
+    '</head><body><div id="root"></div><script>' +
+    js +
+    '</script></body></html>';
+
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(outDir, out),
+    '// AUTO-GENERATED by embed/build.mjs — do not edit. Run `node embed/build.mjs` to regenerate.\n' +
+      '/* eslint-disable */\n' +
+      `export const ${exportName} = ` +
+      JSON.stringify(html) +
+      ';\n',
+  );
+  console.log(`Wrote mobile/src/generated/${out} (${(html.length / 1024).toFixed(0)} KB)`);
+}
+
+// Leaflet map bundle (unchanged output path/name/content).
+await buildBundle({
+  entry: 'embed/entry.jsx',
   // App main font (Lexend) for Leaflet tooltips/controls — see the .leaflet-container
   // rule in embed/entry.jsx. Network-loaded (the map needs network for tiles anyway);
   // falls back to system sans-serif offline.
-  '<link rel="preconnect" href="https://fonts.googleapis.com"/>' +
-  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>' +
-  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap"/>' +
-  '</head><body><div id="root"></div><script>' +
-  js +
-  '</script></body></html>';
+  head:
+    '<link rel="preconnect" href="https://fonts.googleapis.com"/>' +
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>' +
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap"/>',
+  out: 'embedHtml.ts',
+  exportName: 'EMBED_HTML',
+});
 
-fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(
-  path.join(outDir, 'embedHtml.ts'),
-  '// AUTO-GENERATED by embed/build.mjs — do not edit. Run `node embed/build.mjs` to regenerate.\n' +
-    '/* eslint-disable */\n' +
-    'export const EMBED_HTML = ' +
-    JSON.stringify(html) +
-    ';\n',
-);
-console.log(`Wrote mobile/src/generated/embedHtml.ts (${(html.length / 1024).toFixed(0)} KB)`);
+// Street View bundle: the REAL components/streetview/customStreetView.js (web's
+// No Move / NMPZ renderer) behind embed/svEntry.jsx. No font link — the compass
+// is pure SVG and the attribution line pins Arial; this surface must paint fast.
+await buildBundle({
+  entry: 'embed/svEntry.jsx',
+  out: 'svEmbedHtml.ts',
+  exportName: 'SV_EMBED_HTML',
+});

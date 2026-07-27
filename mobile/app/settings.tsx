@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ImageBackground,
   Linking,
@@ -26,6 +26,7 @@ import { borderRadius, fontSizes, spacing } from '../src/styles/theme';
 import { useSettingsStore, type MapType } from '../src/store/settingsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
+import { leagues } from '../src/shared/user/leagues';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
 import VolumeSliders from '../src/components/VolumeSliders';
@@ -77,6 +78,8 @@ export default function SettingsScreen() {
   const setMapType = useSettingsStore((s) => s.setMapType);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
   const setEmotesEnabled = useSettingsStore((s) => s.setMultiplayerEmotesEnabled);
+  const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
+  const setChatEnabled = useSettingsStore((s) => s.setMultiplayerChatEnabled);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
 
   // Recomputed each render so labels follow a live language switch (the screen
@@ -101,6 +104,12 @@ export default function SettingsScreen() {
   const requestFriends = useMultiplayerStore((s) => s.requestFriends);
   const setAllowFriendReqOnServer = useMultiplayerStore((s) => s.setAllowFriendReqOnServer);
   const setHideLastSeenOnServer = useMultiplayerStore((s) => s.setHideLastSeenOnServer);
+  const strictMatchmaking = useMultiplayerStore((s) => s.strictMatchmaking);
+  const setStrictMatchmakingOnServer = useMultiplayerStore((s) => s.setStrictMatchmakingOnServer);
+  // Voyager+ only (web settingsModal parity; the server enforces it too) —
+  // below the floor the row hides entirely rather than showing a disabled tease.
+  const strictEligible = (user?.elo ?? 0) >= leagues.voyager.min;
+  const [strictInfoShown, setStrictInfoShown] = useState(false);
 
   // Hydrate both toggles. Keyed on `verified` (not just mount): a send before
   // the socket is verified is silently dropped, and `verified` flips false on
@@ -287,6 +296,30 @@ export default function SettingsScreen() {
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
             </View>
+            <View style={[styles.row, styles.rowDivider]}>
+              <View style={styles.rowTextWrap}>
+                <Text style={styles.rowLabel}>
+                  {t('multiplayerChat', undefined, 'In-game chat')}
+                </Text>
+                <Text style={styles.rowSub}>
+                  {t(
+                    'chatSettingDesc',
+                    undefined,
+                    'Show text chat in parties and team games.',
+                  )}
+                </Text>
+              </View>
+              <Switch
+                value={chatEnabled}
+                onValueChange={(v) => {
+                  haptics.selection();
+                  setChatEnabled(v);
+                }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor="rgba(255,255,255,0.18)"
+              />
+            </View>
           </Section>
 
           {/* Haptics */}
@@ -354,6 +387,36 @@ export default function SettingsScreen() {
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
               </View>
+              {strictEligible && (
+              <>
+              <View style={[styles.row, styles.rowDivider, accountSettingsLocked && styles.rowLocked]}>
+                <View style={[styles.rowTextWrap, styles.rowLabelWithInfo]}>
+                  <Text style={styles.rowLabel}>{t('strictMatchmaking', undefined, 'Avoid lower skill duels')}</Text>
+                  <Pressable hitSlop={8} onPress={() => setStrictInfoShown((v) => !v)}>
+                    <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.55)" />
+                  </Pressable>
+                </View>
+                <Switch
+                  value={!!strictMatchmaking}
+                  disabled={accountSettingsLocked}
+                  onValueChange={(v) => {
+                    haptics.selection();
+                    setStrictMatchmakingOnServer(v); // optimistic in the store; echo reconciles
+                  }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  thumbColor={colors.white}
+                  ios_backgroundColor="rgba(255,255,255,0.18)"
+                />
+              </View>
+              {strictInfoShown && (
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoCardText}>
+                    {t('strictMatchmakingHint', undefined, 'Ranked duels will only match you with Voyager and Nomad players (5000+ ELO). Queue times may be longer.')}
+                  </Text>
+                </View>
+              )}
+              </>
+              )}
             </Section>
           )}
 
@@ -533,6 +596,26 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
     lineHeight: fontSizes.xs * 1.4,
+  },
+  // Label + inline info glyph on one line (strict matchmaking row).
+  rowLabelWithInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Tap-to-unfold explanation card under a settings row (the ⓘ toggles it).
+  infoCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  infoCardText: {
+    fontFamily: 'Lexend',
+    fontSize: fontSizes.sm,
+    color: colors.textMuted,
+    lineHeight: fontSizes.sm * 1.45,
   },
   radioEmpty: {
     width: 22,

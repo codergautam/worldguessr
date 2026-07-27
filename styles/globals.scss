@@ -363,6 +363,40 @@ html {
     display: flex;
     flex-direction: row;
 }
+
+/* Inline info toggle beside a settings label (strict matchmaking): bare glyph
+   button, no chrome — tapping unfolds a .party-lobby__hint line below. */
+.settings-info-btn {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    margin-left: 6px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75em;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.settings-info-btn:hover {
+    color: #fff;
+}
+
+/* The unfolded explanation itself — mirrors the mobile settings info card
+   (soft rounded panel, muted-but-legible text). Deliberately NOT
+   .party-lobby__hint: that one is small, dim and centered for the party
+   modal's compact rows; next to the settings modal's large labels it read
+   as fine print. Indent matches .settingsModalInner so the card sits in
+   the option column, and max-width keeps the line length readable. */
+.settings-info-card {
+    margin: 4px 10px 10px 32px;
+    max-width: 480px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.98rem;
+    line-height: 1.45;
+}
 .settingsModalInner label {
     font-size: min(clamp(1.3em, 3vw, 1.8em), clamp(1.1em, 4vh, 1.6em));
 }
@@ -478,6 +512,22 @@ html {
     min-width: 110px;
     max-width: 220px;
     height: 44px;
+}
+/* Narrow phones: the slider's 110px floor + 48px readout crush the label
+   below one word's width, and .modal-content's overflow-wrap:break-word
+   then splits it mid-word ("MUSIC / VOLUM / E"). Give the label its own
+   full-width line and let the slider fill the line below. */
+@media (max-width: 480px) {
+    .soundModalRow {
+        flex-wrap: wrap;
+        gap: 6px 12px;
+    }
+    .soundModalRow label {
+        flex: 0 0 100%;
+    }
+    .soundModalRow .settingsVolumeSlider {
+        max-width: none;
+    }
 }
 .g2_modal {
     width: 100%;
@@ -924,14 +974,22 @@ html {
         display: none;
     }
 
-    /* Column layout: the fixed bottom zone belongs to the centered mobile
-       ad + footer chrome, so the button joins the flow right below the nav
-       items instead of overlapping them. */
+    /* Stays pinned above the footer here too (base `bottom` untouched), just
+       centered to follow the centered footer below. It used to go
+       `position: static` and drop into the flow right under the nav items,
+       which on a tall narrow window left it floating mid-screen with the
+       footer still pinned 800px below it. The old reason — "the fixed bottom
+       zone belongs to the centered mobile ad" — only ever applied to phone
+       widths, where this button is display:none anyway (≤600px rule above);
+       for the widths that do reach here the ad is bottom-RIGHT, and it lifts
+       clear of this button (see .home_ad's tall-narrow rule).
+       margin auto, not translateX: the entrance animation owns `transform`. */
     .community_banner {
-        position: static;
-        align-self: center;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
         width: fit-content;
-        margin: 6px 12px;
     }
 
     /* These layouts center the nav column across the full width, so the
@@ -2064,9 +2122,10 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 // never stacked to begin with).
 @media screen and (max-width: 830px) and (orientation: portrait) {
     .timer.timer--with-scorebar {
-        // Scorebar band ends ~91px (top 40 + ~51 tall) — 96 keeps real
-        // headroom instead of the 1px razor a 92px top left.
-        top: 96px;
+        // Scorebar band ends ~103px (top 52 + ~51 tall; portrait scorebar
+        // rides at 52 to clear the navbar buttons) — 108 keeps real headroom
+        // instead of a razor-thin gap.
+        top: 108px;
         right: 50%;
         transform: translateX(50%);
         margin-right: 0;
@@ -2500,29 +2559,6 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     transition: opacity 0.4s ease;
 }
 
-.gm-bundled-control-on-bottom {
-    right: auto !important;
-    left: 0 !important;
-}
-// obnly on ios
-@supports (-webkit-touch-callout: none) {
-    .gm-bundled-control-on-bottom {
-        transform: translateY(-100px) !important;
-    }
-}
-
-.gm-style-cc {
-    display: none;
-}
-// less than 460px
-// @media screen and (max-width: 460px) {
-//   .gm-bundled-control-on-bottom {
-//     bottom: calc(161px + 100px) !important;
-//   }
-
-
-// }
-
 
 
 #miniMapArea.shown {
@@ -2931,6 +2967,179 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 .miniMap__btn.unavailable:hover {
     transform: none !important;
     filter: grayscale(0.7) brightness(0.7);
+}
+
+/* Custom No Move renderer: match Google SV's pointer — pointing finger idle
+   (and through a click that never moves), four-arrow pan cursor only once the
+   view is actually turning (the engine adds .dragging on the first moving
+   pointermove, not on pointerdown).
+   No transition here: `#streetview` (ID, so it outranks this) already pins
+   `transition: opacity` and keeps `.streetview`'s `transition: all` from
+   animating width/height through mobile URL-bar and rotation resizes, which
+   smears the canvas. Keep that ID rule — this is not a second line of
+   defence, it never applied. */
+canvas.streetview {
+    cursor: pointer;
+}
+canvas.streetview.dragging {
+    cursor: all-scroll;
+}
+
+/* No Move / NMPZ compass (customStreetView.js). Google's own Street View
+   compass, rebuilt: black circular control, four-facet red-north/white-south
+   needle, rotate arrows on both flanks. Deliberately NOT the green .timer chip
+   recipe — this is meant to read as native Street View chrome, not game HUD.
+   Bottom-right like Google's, living in the 69px strip that #miniMapArea
+   leaves free at the right edge (minimap sits at right:69px on desktop, and
+   the mobile guess row at right:65px), so it never fights the map. z-index
+   stays below the minimap's 1000: when the map expands over this corner the
+   compass goes under it, same as Google's does.
+   `right` is deliberately safe-area-FREE: every neighbour in this corner uses
+   bare px, so adding the inset shifted only the compass inward and drove it
+   straight into the guess row on a notched phone in landscape. */
+.sv-compass {
+    position: fixed;
+    right: 7px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    z-index: 101;
+    width: 56px;
+    height: 56px;
+    box-sizing: border-box;
+    background: #000;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px -1px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    opacity: 1;
+    /* 0.2s to match the canvas's own fade (`#streetview`), so the compass and
+       the imagery it belongs to appear and leave as one thing. */
+    transition: opacity 0.2s ease-out;
+    /* Only the buttons take input: a bare div would turn its whole 56px square
+       (corners included) into a dead zone where drags can't reach the canvas. */
+    pointer-events: none;
+}
+
+.sv-compass__face,
+.sv-compass__rotate {
+    pointer-events: auto;
+    /* The canvas next door pins touch-action; without it here a hold-to-spin
+       reads as a scroll gesture and the browser pointercancels the press. */
+    touch-action: none;
+}
+
+/* TRAP: `pointer-events: none` on the container does NOT disable these buttons
+   — a descendant that declares `auto` always wins, which is the very mechanism
+   the rule above relies on. Every hidden/inert state must therefore repeat the
+   `none` ON THE CHILDREN, or you get invisible live hit targets parked in the
+   corner: during round loads, the MP queue and the 2v2 end screen the compass
+   is transparent but was still swallowing taps, and a tap landing just after
+   the pano loaded knocked the round off its stamped start heading. */
+.sv-compass--hidden {
+    opacity: 0;
+}
+
+/* NMPZ: the freeze owns the view, so the rotate arrows unmount and the needle
+   is inert — it still tracks, which is the whole point of a compass in NMPZ. */
+.sv-compass--hidden .sv-compass__face,
+.sv-compass--hidden .sv-compass__rotate,
+.sv-compass--frozen .sv-compass__face,
+.sv-compass--frozen .sv-compass__rotate {
+    pointer-events: none;
+}
+
+/* The needle doubles as the reset-to-north button (Google's behaviour), so it
+   sits under the arrows in the stack and gives up the two side strips to them. */
+.sv-compass__face {
+    position: absolute;
+    inset: 8px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.sv-compass__face svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.sv-compass__rotate {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    /* Above the face button: the needle's 40px box overlaps both side strips,
+       and DOM order alone would let it swallow the left arrow's inner half. */
+    z-index: 1;
+    width: 15px;
+    height: 26px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: opacity 120ms ease;
+}
+
+.sv-compass__rotate svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.sv-compass__rotate:hover {
+    opacity: 1;
+}
+
+.sv-compass__rotate:active {
+    opacity: 1;
+    transform: translateY(-50%) scale(0.88);
+}
+
+.sv-compass__rotate--ccw {
+    left: 1px;
+}
+
+.sv-compass__rotate--cw {
+    right: 1px;
+}
+
+/* Matches the breakpoint every neighbour in this corner uses. At the old
+   `max-width: 700px` a coarse-pointer device wider than that (any phone in
+   landscape, most tablets) drew the compass at desktop size while the guess
+   row had already switched to its mobile layout — straight into each other. */
+@media screen and (max-width: 600px), screen and (pointer: coarse) {
+    .sv-compass {
+        width: 48px;
+        height: 48px;
+    }
+
+    .sv-compass__face {
+        inset: 7px;
+    }
+
+    .sv-compass__rotate {
+        width: 13px;
+        height: 22px;
+    }
+
+    /* Country guesser on touch layouts: .countryGuessrOptions goes full-bleed
+       at bottom:8px, z-index 1000, and swallows this corner whole — the
+       compass was invisible for the entire guess phase, then popped into view
+       on the answer screen. Sit above the panel instead. */
+    body:has(.countryGuessrOptions.shown) .sv-compass {
+        bottom: calc(126px + env(safe-area-inset-bottom));
+    }
+
+    body:has(.countryGuessrOptions.shown.continentMode) .sv-compass {
+        bottom: calc(190px + env(safe-area-inset-bottom));
+    }
 }
 
 .streetview,
@@ -3899,6 +4108,18 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     }
 }
 
+// Transfer-host crown rides the kick button chrome with a gold hover
+// instead of the kick red.
+.party-lobby__makehost:hover {
+    color: #e7c04b;
+    background: rgba(231, 192, 75, 0.12);
+}
+
+// Lobby lock button (by the game code): gold while the party is locked.
+.party-lobby__lock-btn.locked {
+    color: #e7c04b;
+}
+
 .party-lobby__icon-btn--small {
     padding: 7px;
     font-size: 0.8rem;
@@ -4374,6 +4595,63 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     }
 }
 
+// Portrait rides 12px lower: at top:40 the bar's top edge grazed the navbar
+// button row (user report, mobile web portrait). Portrait-only — narrow
+// landscape keeps 40 because vertical space is the scarce resource there.
+// The stacked round timer below moves in lockstep (see .timer--with-scorebar).
+@media screen and (max-width: 830px) and (orientation: portrait) {
+    .team-scorebar {
+        top: 52px;
+    }
+}
+
+// Landscape-short viewports with NO ad actually showing. "Actually showing"
+// is `.topAdFixed > *` — the Ad component returns null when no size fits,
+// leaving the wrapper mounted but EMPTY, while wide-short windows like
+// 1382x490 DO fit the 728 and render a child. State-driven on purpose: a
+// width guess here once put the bar on top of a live ad.
+//
+// TWO lift tiers, because the centered bar must clear the navbar's left
+// cluster (back + reload + player count + ws icon ≈ up to ~315px with a
+// wide scorebar): measured on-device, the bar still grazes the cluster at
+// ~930px, and only ~1150px+ gives comfortable daylight. So 831-1149 drops
+// only to the 40px band (same line narrow landscape has always shared with
+// the buttons — still kills the phantom 100px ad clearance), and ≥1150
+// joins the timer's top line.
+@media screen and (orientation: landscape) and (max-height: 500px) and (min-width: 831px) {
+    body:not(:has(.topAdFixed > *)) .team-scorebar {
+        top: 40px;
+    }
+}
+
+// (No separate ≥1150 landscape-short tier: the desktop ≥1150 no-ad rule
+// below co-applies with identical specificity and later cascade position,
+// so it owns every ≥1150 no-ad case regardless of height.)
+
+// Real touch devices (phones/tablets, pointer: coarse) ride the top line
+// from 831px: their navbar renders the COMPACT icon cluster, so the centered
+// bar clears it at widths where a desktop window (text buttons + player
+// count) still collides — that's why the same 930px overlaps on a resized
+// desktop window but has "plenty of space" on an iPhone. Later in the
+// cascade than the 40px tier on purpose.
+@media screen and (orientation: landscape) and (max-height: 500px) and (min-width: 831px) and (pointer: coarse) {
+    body:not(:has(.topAdFixed > *)) .team-scorebar {
+        top: 10px;
+    }
+}
+
+// ≥1150px with no ad SHOWING (supporters, embeds without the band, unfit
+// sizes): the 100px clearance protects nothing — join the timer's top line.
+// The 1150px threshold is the measured navbar-cluster clearance point (the
+// centered bar grazes the cluster at ~930px on desktop windows); this rule
+// sits later in the cascade than the 40px tier and owns all ≥1150 no-ad
+// cases, any height.
+@media screen and (min-width: 1150px) {
+    body:not(:has(.topAdFixed > *)) .team-scorebar {
+        top: 10px;
+    }
+}
+
 // Final team totals under the Victory/Defeat headline (cumulative parties).
 .team-final-scoreline {
     display: flex;
@@ -4695,6 +4973,16 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
         transform: translateX(-20px);
         pointer-events: none;
     }
+    // Party "Edit Options" card (94vw wide, centered) and its change-map
+    // sub-modal leave only a 3vw gutter on phones — the FAB overlaps the
+    // card. Both selectors, or the FAB pops back for the 400ms swap between
+    // the two modals mid-flow.
+    body:has(.party-modal-container) .emoteReactionsParent,
+    body:has(.map-modal-full) .emoteReactionsParent {
+        opacity: 0;
+        transform: translateX(-20px);
+        pointer-events: none;
+    }
     .emoteReactionsParent.rightSide {
         left: auto;
         right: 12px;
@@ -4723,6 +5011,360 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
         width: 44px;
         height: 44px;
         font-size: 24px;
+    }
+}
+
+// ---- Party/2v2 text chat (gameChat.js) ----
+// Bottom-LEFT (user ruling), sharing the corner with the emote FAB. In
+// chat-mode parties the emote FAB is gone (comms XOR) so chat takes its
+// spot; in 2v2 both are live and .stacked lifts chat above the emote FAB.
+.gameChatParent {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+// Both comms live (2v2): clear the 64px emote toggle + gap below.
+.gameChatParent.stacked {
+    bottom: 96px;
+}
+
+// Round-over screen: left side is busy with results UI — flip right,
+// exactly like .emoteReactionsParent.rightSide (which flips there too,
+// so the stack relationship survives the move).
+.gameChatParent.rightSide {
+    left: auto;
+    right: 20px;
+    align-items: flex-end;
+}
+
+.chatToggleBtn {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.chatToggleBtn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.05);
+}
+
+.chatUnreadBadge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #b42828;
+    color: white;
+    font-family: lexend;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+// Panel surface = the PARTY UI card recipe verbatim (.join-party-card):
+// gradLight over the g2 dark underlay, white hairline border, single soft
+// shadow, radius 24. NO backdrop blur — the party surfaces dropped it
+// (Firefox re-blurred per frame). User ruling July 26: copy the party
+// design, never invent colors for this panel.
+.chatPanel {
+    // Same underlay hue as the party card, but 0.9 instead of 0.6: the card
+    // sits over a dimmed screen, this floats over the live pano — at 0.6 the
+    // imagery bled through the text ("TOO TRANSPARENT").
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.9), rgba(6, 16, 10, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    font-family: lexend;
+    color: white;
+    width: min(320px, calc(100vw - 24px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chatPanelHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px 6px;
+}
+
+.chatPanelTitle {
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+    text-align: left;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+// Team/All channel picker in the panel header — mini version of the
+// party-lobby segmented control.
+.chatChannelSeg {
+    display: inline-flex;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.chatChannelBtn {
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+    font-family: lexend;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    cursor: pointer;
+
+    & + & { border-left: 1px solid rgba(255, 255, 255, 0.15); }
+    &:hover { color: #fff; }
+    &.active { background: var(--primary); color: #fff; }
+}
+
+// Small "Team" tag on team-channel messages so mixed logs stay readable.
+.chatMsgTeamTag {
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: rgba(36, 87, 52, 0.7);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+.chatMutedChip {
+    border: none;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: lexend;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.chatMutedChip:hover {
+    background: rgba(180, 40, 40, 0.6);
+}
+
+.chatCloseBtn {
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.chatCloseBtn:hover {
+    color: white;
+}
+
+.chatMessages {
+    overflow-y: auto;
+    // The panel must NEVER exceed the screen: subtract ~210px for panel
+    // chrome (header/typing/input) + the fixed bottom-left anchor offset.
+    // Landscape phones hit the calc() branch; the min() floor shrinks with
+    // the viewport for the same reason.
+    max-height: min(680px, calc(100svh - 210px));
+    min-height: min(320px, 40svh);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 12px;
+    text-align: left;
+}
+
+.chatMsg {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 6px 26px 6px 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.chatMsg.self {
+    background: rgba(36, 87, 52, 0.55);
+}
+
+// Team modes: color by allegiance, SAME palette as .emoteFloatItem — blue is
+// my team (including me, so these sit after .self and win), green is the
+// opponents. Outside team modes m.team is null and the classic look holds.
+.chatMsg.teamMine {
+    background: rgba(59, 130, 246, 0.45);
+}
+
+.chatMsg.teamOpp {
+    background: rgba(34, 139, 34, 0.45);
+}
+
+.chatMsgName {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.chatMsgText {
+    font-size: 0.9rem;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.chatMuteBtn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.chatMsg:hover .chatMuteBtn {
+    opacity: 1;
+}
+
+.chatMuteBtn:hover {
+    color: #ff8a8a;
+}
+
+.chatTypingLine {
+    min-height: 18px;
+    font-size: 0.72rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.65);
+    padding: 0 12px 2px;
+    text-align: left;
+}
+
+.chatInputRow {
+    display: flex;
+    gap: 6px;
+    padding: 0 10px 10px;
+}
+
+// Input = .join-party-input materials (white field, dark text, primaryDark
+// border, radius 12) at chat-row size.
+.chatInput {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 2px solid var(--primaryDark);
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    font-family: lexend;
+    font-size: 0.9rem;
+    padding: 0 10px;
+    outline: none;
+}
+
+.chatInput::placeholder {
+    color: #999;
+}
+
+.chatInput:focus {
+    border-color: var(--primary);
+}
+
+.chatInput:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+// Send = .join-party-button materials (primary fill, primaryDark border,
+// radius 12, hover deepens) at chat-row size.
+.chatSendBtn {
+    border: 2px solid var(--primaryDark);
+    border-radius: 12px;
+    // Fixed square matched to the input's 36px — flex-stretch made it adopt
+    // the row height and the 18px icon drowned in vertical padding.
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    align-self: center;
+    padding: 0;
+    background: var(--primary);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.chatSendBtn:hover:not(:disabled) {
+    background: var(--primaryDark);
+}
+
+.chatSendBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .gameChatParent {
+        bottom: 12px;
+        left: 12px;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .gameChatParent.stacked {
+        bottom: 84px; // 60px mobile emote toggle + 12px gap
+    }
+    .gameChatParent.rightSide {
+        left: auto;
+        right: 12px;
+    }
+    // Same hide rules as the emote FAB: the expanded mobile minimap and the
+    // party options/map modals cover this corner too.
+    body:has(#miniMapArea.shown.answerNotShown) .gameChatParent,
+    body:has(.party-modal-container) .gameChatParent,
+    body:has(.map-modal-full) .gameChatParent {
+        opacity: 0;
+        transform: translateX(-20px);
+        pointer-events: none;
+    }
+    .chatToggleBtn {
+        width: 60px;
+        height: 60px;
+    }
+    .chatMessages {
+        max-height: min(52svh, calc(100svh - 200px));
+        // Slightly under desktop's 320px so it clears the bottom HUD, but
+        // still clearly taller than the original 180px; shrinks with short
+        // (landscape) viewports so the panel never exceeds the screen.
+        min-height: min(260px, 40svh);
     }
 }
 
@@ -5091,25 +5733,14 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     -ms-filter: invert(100%);
 }
 
-.gm-control-active[title="Zoom in"],
-.gm-control-active[title="Zoom out"] {
-    -webkit-filter: invert(100%);
-    -moz-filter: invert(100%);
-    -o-filter: invert(100%);
-    -ms-filter: invert(100%);
-}
-
-.gm-compass {
-    transform: translateY(50%);
-}
-
-.streetview.nmpz .gm-compass {
-    transform: translateY(-20px);
-}
-
 #playerCnt {
     font-size: 1.5em;
     margin-top: 5px;
+    /* .bigSpan's transition:all catches the discrete visibility flip and
+       delays the hidden state by 250ms, so the count lingered after the
+       rest of the navbar chrome whenever a modal opened. Nothing on this
+       span animates — hide/show must be instant and in sync. */
+    transition: none;
 }
 
 img[alt="Google"] {
@@ -6987,22 +7618,6 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 }
 
 
-.privacyPolicyLink {
-    color: white;
-    text-decoration: underline;
-    cursor: pointer;
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    z-index: 1000;
-}
-
-
-.privacyPolicyLink a {
-    color: white;
-    text-decoration: underline;
-}
-
 .topAdFixed {
   position: fixed;
   top: 5px;
@@ -7842,6 +8457,19 @@ div:hover .elo-badge {
     .home_ad {
         right: 50%;
         transform: translateX(50%);
+    }
+}
+
+/* Tall narrow windows center the footer, and .community_banner centers with it
+   directly above — on a ~700px-wide viewport that band reaches the ad's column,
+   and the ad (z 999) would draw over the button (z 998). Lift the ad above the
+   button instead of moving the button off the footer. Bounds = exactly when the
+   button is both visible and centered: the column layout's aspect trigger plus
+   the button's own >600px / >680px visibility gates. */
+@media (max-aspect-ratio: 1/1.5) and (min-width: 601px) and (min-height: 681px) {
+    .home_ad {
+        /* .community_banner's bottom + its ~41px height + 9px gap */
+        bottom: calc(72px + max(3vw, 50px) + 50px);
     }
 }
 

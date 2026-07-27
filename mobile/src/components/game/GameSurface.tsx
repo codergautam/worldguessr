@@ -157,7 +157,9 @@ interface GameSurfaceProps {
   /** Shows the blue "reload street view" button (web parity). Default on. */
   enableReload?: boolean;
   /** Locks Street View pan/zoom (web NMPZ — "No Move, Pan, Zoom"). */
-  nmpz?: boolean;
+  /** Street View mode flags (web parity): nm = No Move, npz = also frozen. */
+  nm?: boolean;
+  npz?: boolean;
 }
 
 /** Fraction of screen height the expanded minimap occupies during gameplay (0–1). */
@@ -211,7 +213,8 @@ function GameSurface(
     maxDist,
     round,
     enableReload = true,
-    nmpz = false,
+    nm = false,
+    npz = false,
   }: GameSurfaceProps,
   ref: React.Ref<GameSurfaceHandle>,
 ) {
@@ -732,7 +735,8 @@ function GameSurface(
               long={location.long}
               heading={location.heading ?? undefined}
               pitch={location.pitch}
-              nmpz={nmpz}
+              nm={nm}
+              npz={npz}
               onLoad={handleStreetViewLoad}
               // Warm the next round's pano in the hidden slot while the result
               // map is up. Mirror the visible props exactly so committing it then

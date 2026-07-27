@@ -18,8 +18,16 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     const [localTeamGame, setLocalTeamGame] = useState(false);
     const [localScoring, setLocalScoring] = useState('closest');
     const [localAllowPick, setLocalAllowPick] = useState(false);
-    // Emote mute — default off (emotes on); server truth lives on gameData.
-    const [localDisableEmotes, setLocalDisableEmotes] = useState(false);
+    // Party comms are EXCLUSIVE by user ruling: chat / emotes / off, host
+    // picks, chat is the default. Maps onto the two server booleans
+    // (disableEmotes/disableChat) so old clients and the server contract
+    // stay untouched: chat = emotes off, emotes = chat off, off = both off.
+    const [localComms, setLocalComms] = useState('chat');
+    // Guest access — buffered like team config, committed on Save via its
+    // own setPartySecurity message (setPrivateGameOptions regenerates
+    // locations). Lock is NOT here: it's the instant button on the lobby
+    // card next to the code.
+    const [localAllowGuests, setLocalAllowGuests] = useState(true);
 
     // Sync local state ONLY when the modal opens. The steppers/timer toggle
     // commit straight into createOptions while the modal is open — if those
@@ -36,7 +44,27 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             setLocalTeamGame(!!multiplayerState?.gameData?.teamGame);
             setLocalScoring(multiplayerState?.gameData?.teamScoring ?? 'closest');
             setLocalAllowPick(!!multiplayerState?.gameData?.allowTeamPick);
-            setLocalDisableEmotes(!!multiplayerState?.gameData?.disableEmotes);
+            {
+                const fromServer =
+                    multiplayerState?.gameData?.disableChat && multiplayerState?.gameData?.disableEmotes ? 'none'
+                    : multiplayerState?.gameData?.disableChat ? 'emotes' : 'chat';
+                // Guest hosts can't pick chat (see the selector below), so never
+                // seed them a value that isn't on their menu.
+                setLocalComms(fromServer === 'chat' && !session?.token?.username ? 'emotes' : fromServer);
+            }
+            setLocalAllowGuests(multiplayerState?.gameData?.allowGuests !== false);
+            // NMPZ/No Move toggles read the gameOptions prop, but that's
+            // MultiplayerHome-local state that resets on remount — the party's
+            // truth lives on gameData (same as team config above). Without
+            // this seed, a saved NM/NMPZ party showed its toggles OFF on
+            // reopen.
+            if (multiplayerState?.gameData?.nm !== undefined) {
+                setGameOptions((prev) => ({
+                    ...prev,
+                    nm: !!multiplayerState.gameData.nm,
+                    npz: !!multiplayerState.gameData.npz,
+                }));
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shown]);
@@ -98,7 +126,16 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             nm: gameOptions.nm,
             npz: gameOptions.npz,
             showRoadName: gameOptions.showRoadName,
-            disableEmotes: localDisableEmotes,
+            // Guest hosts choose emotes or off (never chat: they can neither
+            // send it nor moderate the room), so their chat flag is pinned true
+            // and only the emote flag follows the choice.
+            ...(session?.token?.username ? {
+                disableEmotes: localComms === 'chat' || localComms === 'none',
+                disableChat: localComms === 'emotes' || localComms === 'none',
+            } : {
+                disableEmotes: localComms === 'none',
+                disableChat: true,
+            }),
         };
 
         setMultiplayerState(prev => ({
@@ -119,6 +156,15 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 enabled: localTeamGame,
                 scoring: localScoring,
                 allowTeamPick: localAllowPick,
+            });
+        }
+
+        // Guest access rides the same Save, own wire message, only when
+        // changed — and sends ONLY allowGuests so a lock toggled from the
+        // lobby button while this modal sat open is never stomped.
+        if (localAllowGuests !== (cur?.allowGuests !== false)) {
+            handleAction("setPartySecurity", {
+                allowGuests: localAllowGuests,
             });
         }
         onClose();
@@ -269,7 +315,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     </div>
                     
                     {/* Timer Toggle */}
-                    <div className="party-modal__setting party-modal__setting--toggle">
+                    <div className="party-modal__setting party-modal__setting--row">
                         <label className="party-modal__label">{text('disableTimer')}</label>
                         <button 
                             className={`party-modal__toggle ${isTimerDisabled ? 'party-modal__toggle--active' : ''}`}
@@ -333,41 +379,60 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     
                     <div className="party-modal__divider" />
                     
-                    {/* NMPZ Toggle */}
-                    <div className="party-modal__setting party-modal__setting--toggle">
-                        <label className="party-modal__label">{text('nmpz')}</label>
-                        <button 
-                            className={`party-modal__toggle ${(gameOptions.nm && gameOptions.npz) ? 'party-modal__toggle--active' : ''}`}
-                            onClick={() => {
-                                const newValue = !(gameOptions.nm && gameOptions.npz);
-                                setGameOptions({
-                                    ...gameOptions,
-                                    nm: newValue,
-                                    npz: newValue
-                                });
+                    {/* Street view mode dropdown — Moving / No Move / NMPZ
+                        (nm/npz mapping: neither / nm only / both; an npz-only
+                        state is unreachable by design). NMPZ explains its
+                        acronym on hover via title. */}
+                    <div className="party-modal__setting party-modal__setting--row">
+                        <label className="party-modal__label" htmlFor="partyModeSelect">{text('mode')}</label>
+                        <select
+                            id="partyModeSelect"
+                            className="g2_input party-modal__select"
+                            title={gameOptions.nm && gameOptions.npz ? text('nmpz') : undefined}
+                            value={gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving'}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' });
                             }}
-                            aria-pressed={gameOptions.nm && gameOptions.npz}
                         >
-                            <span className="party-modal__toggle-track">
-                                <span className="party-modal__toggle-thumb" />
-                            </span>
-                        </button>
+                            <option value="moving">{text('moving')}</option>
+                            <option value="noMove">{text('noMove')}</option>
+                            <option value="nmpz" title={text('nmpz')}>NMPZ</option>
+                        </select>
                     </div>
                     
-                    {/* Emote mute — default off. The FAB hides on every client
-                        and the server drops raw emote messages too. */}
-                    <div className="party-modal__setting party-modal__setting--toggle">
-                        <label className="party-modal__label">{text('disableEmotes')}</label>
-                        <button
-                            className={`party-modal__toggle ${localDisableEmotes ? 'party-modal__toggle--active' : ''}`}
-                            onClick={() => setLocalDisableEmotes((v) => !v)}
-                            aria-pressed={localDisableEmotes}
-                        >
-                            <span className="party-modal__toggle-track">
-                                <span className="party-modal__toggle-thumb" />
-                            </span>
-                        </button>
+                    {/* Comms mode — chat / emotes / off (host-set, chat
+                        default). Disabled channels hide on every client AND
+                        the server drops their raw messages; "off" disables
+                        both booleans. GUEST hosts get emotes or off only: they
+                        can neither send chat nor moderate a chat room, so the
+                        server pins their room chat-free either way. */}
+                    <div className="party-modal__setting">
+                        <label className="party-modal__label">{text('communication')}</label>
+                        <div className="party-lobby__seg party-lobby__seg--block" role="group">
+                            {(session?.token?.username ? ['chat', 'emotes', 'none'] : ['emotes', 'none']).map((mode) => (
+                                <button
+                                    key={mode}
+                                    className={`party-lobby__seg-btn ${localComms === mode ? 'party-lobby__seg-btn--active' : ''}`}
+                                    onClick={() => setLocalComms(mode)}
+                                >{text(mode === 'chat' ? 'chat' : mode === 'emotes' ? 'emotes' : 'commsOff')}</button>
+                            ))}
+                        </div>
                     </div>
+
+                    <div className="party-modal__divider" />
+
+                    {/* Guests off = only signed-in accounts can join. Compact
+                        one-liner (user ruling); the LOCK control lives on the
+                        lobby card next to the game code, not here. */}
+                    <label className="party-lobby__checkbox">
+                        <input
+                            type="checkbox"
+                            checked={localAllowGuests}
+                            onChange={() => setLocalAllowGuests((v) => !v)}
+                        />
+                        <span>{text('allowGuests')}</span>
+                    </label>
 
                     <div className="party-modal__divider" />
 
@@ -499,12 +564,21 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     gap: 10px;
                 }
                 
-                .party-modal__setting--toggle {
+                /* Label left, control right. Used by anything whose control is
+                   small enough to sit on the label's line (toggle, select). */
+                .party-modal__setting--row {
                     flex-direction: row;
                     align-items: center;
                     justify-content: space-between;
                 }
-                
+
+                .party-modal__select {
+                    padding: 8px 12px;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                }
+
                 .party-modal__setting--map {
                     flex-direction: row;
                     align-items: center;

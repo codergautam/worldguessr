@@ -20,6 +20,18 @@ import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../services/websocketConfig';
 let lastEmoteSend = 0;
 let nextEmoteId = 1;
 
+// Chat throttles + id counter (mirror web gameChat.js; server re-enforces both).
+// 1100, not 1000: margin over the server's own 1000ms window — jitter could
+// otherwise compress inter-arrival and silently drop an optimistic send.
+const CHAT_COOLDOWN_MS = 1100;
+const TYPING_PING_MS = 1500;
+const TYPING_TTL_MS = 3000;
+export const CHAT_MAX_LEN = 200;
+const CHAT_LOG_CAP = 100;
+let lastChatSend = 0;
+let lastTypingPing = 0;
+let nextChatMsgId = 1;
+
 // "Did the server actually queue me?" watchdog. Started when we send a duel join
 // (joinQueue); cleared the moment the server acks (queueJoined / publicDuelRange)
 // or a match starts (game). If it fires, the join never registered and we bail
@@ -194,6 +206,12 @@ export interface GameData {
   nm: boolean;
   npz: boolean;
   showRoadName: boolean;
+  // Party security (host-set): locked = no new joins; allowGuests=false =
+  // signed-in accounts only. Wire: ws Game.js getSendableState.
+  locked?: boolean;
+  allowGuests?: boolean;
+  /** Guest-hosted party — emotes-only, chat surface hidden everywhere. */
+  hostGuest?: boolean;
   duelEnd?: DuelEndData;
   map?: string;
   // ── Team modes (wire contract: ws Game.js getInitialSendState/getSendableState) ──
@@ -211,6 +229,8 @@ export interface GameData {
   allowTeamPick?: boolean;
   /** Host setting: emote reactions muted for this game (server-enforced too). */
   disableEmotes?: boolean;
+  /** Host setting: text chat disabled for this game (server-enforced too). */
+  disableChat?: boolean;
   teamScores?: TeamScores | null;
   teamRoundScores?: TeamRoundScores | null;
   /**
@@ -248,6 +268,26 @@ export interface EmoteReaction {
   isSelf: boolean;
   /** Sender's team in team modes — drives mine/opponent allegiance coloring. */
   team: 'a' | 'b' | null;
+}
+
+/** A text chat message (parties + 2v2; the server scopes the audience). */
+export interface ChatMessage {
+  id: number;
+  senderId: string;
+  name: string;
+  countryCode: string | null;
+  team: 'a' | 'b' | null;
+  /** True = sent on the team channel (badge it) — server-stamped. */
+  teamChat: boolean;
+  text: string;
+  isSelf: boolean;
+}
+
+/** A transient "X is typing" entry, TTL-pruned by the store. */
+export interface ChatTypingEntry {
+  id: string;
+  name: string;
+  until: number;
 }
 
 /** Notification queued when an opponent sends us a friend request. */
@@ -393,6 +433,13 @@ interface MultiplayerState {
   // In-game emote reactions (replaces chat)
   emotes: EmoteReaction[];
 
+  // Text chat (parties + 2v2 teammate chat) — log/typing/unread are
+  // game-scoped; the mute set is session-scoped (store root, never reset).
+  chatMessages: ChatMessage[];
+  chatTyping: ChatTypingEntry[];
+  chatUnread: number;
+  mutedChatIds: Record<string, true>;
+
   // Friends / invites
   friendRequests: FriendRequest[];
   gameInvites: GameInvite[];
@@ -407,6 +454,8 @@ interface MultiplayerState {
   allowFriendReq: boolean;
   /** Own "hide my last seen" preference; null until the first server echo. */
   hideLastSeen: boolean | null;
+  /** Voyager+ "only match Voyagers and Nomads" preference; null until echoed. */
+  strictMatchmaking: boolean | null;
   /** Last `friendReqState` code we received (and the moment we received it, for auto-clear). */
   friendReqState: FriendReqState | null;
   friendReqStateAt: number;
@@ -467,6 +516,10 @@ interface MultiplayerState {
   setPlayerTeam: (playerId: string, team: 'a' | 'b') => void;
   /** Host: kick a lobby member (server refuses kicking queued members). */
   kickPlayer: (playerId: string) => void;
+  /** Host: hand the crown to another lobby member (host-leave disband follows the new host). */
+  transferHost: (playerId: string) => void;
+  /** Host: lock the party / toggle guest joining. Partial: send only the field being changed (lobby lock button vs modal guest switch must never stomp each other). Own wire message — never rides setPrivateGameOptions (that path regenerates locations). */
+  setPartySecurity: (opts: { locked?: boolean; allowGuests?: boolean }) => void;
   /**
    * Ack Play Again on the team2v2 end screen. Does NOT leave the game — the
    * session must stay attached for the queue-bound regroup burst on consensus.
@@ -479,6 +532,12 @@ interface MultiplayerState {
   setEnteringGameCode: (value: boolean) => void;
   sendEmote: (index: number) => void;
   clearEmote: (id: number) => void;
+  /** teamOnly: team-channel send (team contexts only; server falls back to the game type's legacy audience when absent). */
+  sendChat: (text: string, teamOnly?: boolean) => void;
+  sendChatTyping: (teamOnly?: boolean) => void;
+  muteChatSender: (id: string) => void;
+  unmuteAllChat: () => void;
+  markChatRead: () => void;
   clearGameInvite: (code: string) => void;
   clearFriendRequest: (id: string) => void;
   /** Enqueue a toast (id + timestamp generated automatically). */
@@ -501,6 +560,7 @@ interface MultiplayerState {
   removeFriend: (id: string) => void;
   setAllowFriendReqOnServer: (allow: boolean) => void;
   setHideLastSeenOnServer: (hide: boolean) => void;
+  setStrictMatchmakingOnServer: (strict: boolean) => void;
   inviteFriendToGame: (friendSocketId: string, friendId?: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
   /**
@@ -542,6 +602,11 @@ const gameInitialState = {
   inGame: false,
   gameData: null as GameData | null,
   emotes: [] as EmoteReaction[],
+  // Chat log/typing/unread are game-scoped and reset with the game. The mute
+  // set deliberately lives OUTSIDE this object (store root) so it survives.
+  chatMessages: [] as ChatMessage[],
+  chatTyping: [] as ChatTypingEntry[],
+  chatUnread: 0,
   // Party-scoped "invite sent" checkmarks (InviteFriendsModal) — meaningless
   // outside the party they were sent for, so they reset with the game.
   invitedFriends: {} as Record<string, number>,
@@ -575,6 +640,7 @@ const accountInitialState = {
   receivedRequests: [] as FriendRequestEntry[],
   allowFriendReq: true,
   hideLastSeen: null as boolean | null,
+  strictMatchmaking: null as boolean | null,
   friendReqState: null as FriendReqState | null,
   friendReqStateAt: 0,
 };
@@ -589,11 +655,11 @@ const accountInitialState = {
 // never stored.
 const SETTINGS_ACK_TIMEOUT_MS = 6000;
 const settingsAckTimers: Partial<
-  Record<'allowFriendReq' | 'hideLastSeen', ReturnType<typeof setTimeout>>
+  Record<'allowFriendReq' | 'hideLastSeen' | 'strictMatchmaking', ReturnType<typeof setTimeout>>
 > = {};
 
 function armSettingsAckWatchdog(
-  field: 'allowFriendReq' | 'hideLastSeen',
+  field: 'allowFriendReq' | 'hideLastSeen' | 'strictMatchmaking',
   revert: () => void,
 ) {
   clearTimeout(settingsAckTimers[field]);
@@ -620,6 +686,9 @@ const initialState = {
   playerCount: 0,
   guestName: null as string | null,
   maintenance: false,
+  // Session-scoped chat mutes: survive every game/account lifecycle reset
+  // (a muted loudmouth stays muted for the whole app session).
+  mutedChatIds: {} as Record<string, true>,
   ...accountInitialState,
   ...gameInitialState,
 };
@@ -744,6 +813,25 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     wsService.send({ type: 'kickPlayer', playerId });
   },
 
+  transferHost: (playerId) => {
+    if (!get().gameData?.host) return;
+    wsService.send({ type: 'transferHost', playerId });
+  },
+
+  setPartySecurity: (opts) => {
+    const gd = get().gameData;
+    if (!gd?.host) return;
+    const msg: { type: string; locked?: boolean; allowGuests?: boolean } = { type: 'setPartySecurity' };
+    const merge: Partial<GameData> = {};
+    if (typeof opts.locked === 'boolean') { msg.locked = opts.locked; merge.locked = opts.locked; }
+    if (typeof opts.allowGuests === 'boolean') { msg.allowGuests = opts.allowGuests; merge.allowGuests = opts.allowGuests; }
+    if (msg.locked === undefined && msg.allowGuests === undefined) return;
+    wsService.send(msg);
+    // Optimistic, like setTeamConfig: the controls read gameData, and a
+    // round-trip lag reads as a broken toggle. The next broadcast reconciles.
+    set({ gameData: { ...gd, ...merge } });
+  },
+
   sendPlayAgain2v2: () => {
     wsService.send({ type: 'playAgain2v2' });
   },
@@ -764,6 +852,37 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   },
 
   clearEmote: (id) => set((s) => ({ emotes: s.emotes.filter((e) => e.id !== id) })),
+
+  // Send a chat message (client-side throttle; server also enforces 1s +
+  // audience + guest gates — this never decides who receives it).
+  sendChat: (text, teamOnly = false) => {
+    const message = text.trim();
+    if (message.length < 1 || message.length > CHAT_MAX_LEN) return;
+    const now = Date.now();
+    if (now - lastChatSend < CHAT_COOLDOWN_MS) return;
+    lastChatSend = now;
+    wsService.send({ type: 'chat', message, teamOnly: !!teamOnly });
+  },
+
+  // Typing ping, throttled hard; receivers TTL-prune, no stop message exists.
+  sendChatTyping: (teamOnly = false) => {
+    const now = Date.now();
+    if (now - lastTypingPing < TYPING_PING_MS) return;
+    lastTypingPing = now;
+    wsService.send({ type: 'chatTyping', teamOnly: !!teamOnly });
+  },
+
+  muteChatSender: (id) =>
+    set((s) => ({
+      mutedChatIds: { ...s.mutedChatIds, [id]: true as const },
+      // Hide their history too, and any live typing entry.
+      chatMessages: s.chatMessages.filter((m) => m.senderId !== id),
+      chatTyping: s.chatTyping.filter((e) => e.id !== id),
+    })),
+
+  unmuteAllChat: () => set({ mutedChatIds: {} }),
+
+  markChatRead: () => set({ chatUnread: 0 }),
 
   clearGameInvite: (code) =>
     set((s) => ({
@@ -831,6 +950,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     const prev = get().hideLastSeen;
     set({ hideLastSeen: hide });
     armSettingsAckWatchdog('hideLastSeen', () => set({ hideLastSeen: prev }));
+  },
+  setStrictMatchmakingOnServer: (strict) => {
+    if (!wsService.send({ type: 'setStrictMatchmaking', strict })) return;
+    const prev = get().strictMatchmaking;
+    set({ strictMatchmaking: strict });
+    armSettingsAckWatchdog('strictMatchmaking', () => set({ strictMatchmaking: prev }));
   },
   inviteFriendToGame: (friendSocketId, friendId) => {
     wsService.send({ type: 'inviteFriend', friendId: friendSocketId });
@@ -1452,6 +1577,52 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
+    // ── chat — party/2v2 text chat broadcast (server scopes the audience) ──
+    if (data.type === 'chat') {
+      if (typeof data.message !== 'string' || !data.id) return;
+      if (state.mutedChatIds[data.id]) return;
+      const isSelf = data.id === (state.gameData?.myId ?? state.queueMyId);
+      const msg: ChatMessage = {
+        id: nextChatMsgId++,
+        senderId: data.id,
+        name: data.name || '',
+        countryCode: data.countryCode || null,
+        team: data.team === 'a' || data.team === 'b' ? data.team : null,
+        teamChat: !!data.teamChat,
+        text: data.message,
+        isSelf,
+      };
+      set((s) => ({
+        chatMessages: [...s.chatMessages.slice(-(CHAT_LOG_CAP - 1)), msg],
+        // A message from X supersedes X's typing entry immediately.
+        chatTyping: s.chatTyping.filter((e) => e.id !== data.id),
+        chatUnread: s.chatUnread + (isSelf ? 0 : 1),
+      }));
+      return;
+    }
+
+    // ── chatTyping — transient indicator, TTL-pruned here so the component
+    // stays a pure renderer (same pattern as emote auto-expire) ──
+    if (data.type === 'chatTyping') {
+      if (!data.id || data.id === (state.gameData?.myId ?? state.queueMyId)) return;
+      if (state.mutedChatIds[data.id]) return;
+      const until = Date.now() + TYPING_TTL_MS;
+      set((s) => ({
+        chatTyping: [
+          ...s.chatTyping.filter((e) => e.id !== data.id),
+          { id: data.id, name: data.name || '', until },
+        ],
+      }));
+      setTimeout(() => {
+        const now = Date.now();
+        set((s) => {
+          const alive = s.chatTyping.filter((e) => e.until > now);
+          return alive.length === s.chatTyping.length ? s : { chatTyping: alive };
+        });
+      }, TYPING_TTL_MS + 50);
+      return;
+    }
+
     // ── streak (home.js streak handler — web parity) ────────────────────────
     if (data.type === 'streak') {
       // Only streak CONTINUATIONS (2+) toast. Resets are silent by ruling,
@@ -1485,6 +1656,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         // optimistic flip that the server refused gets snapped back here.
         allowFriendReq: !!data.allowFriendReq,
         hideLastSeen: !!data.hideLastSeen,
+        strictMatchmaking: !!data.strictMatchmaking,
       });
       return;
     }

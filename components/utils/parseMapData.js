@@ -91,16 +91,16 @@ export default function parseMapData(obj) {
     }
 
     const params = ["lat","lng","heading","pitch","zoom","panoId"];
-    const misspelled = [["latitude"], ["longitude","long","lon"]];
+    // canonical name first, then the aliases that fold into it
+    const misspelled = [["lat","latitude"], ["lng","longitude","long","lon"]];
     let data = {};
 
     // fix misspelled keys
     try {
     for(const key of misspelled) {
-      for(const k of key) {
-        if(loc[k] !== undefined) {
+      for(const k of key.slice(1)) {
+        if(loc[k] !== undefined && loc[key[0]] === undefined) {
           loc[key[0]] = loc[k];
-          delete loc[k];
         }
       }
     }

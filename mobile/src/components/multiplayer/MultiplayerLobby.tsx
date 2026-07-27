@@ -27,6 +27,7 @@ import { Pressable } from '../ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { router } from 'expo-router';
 import { colors, t } from '../../shared';
 import { haptics } from '../../services/haptics';
@@ -37,11 +38,13 @@ import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { getPartyLink } from '../../shared/utils/partyLink';
 import { runGameInterstitial } from '../../services/ads';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useAuthStore } from '../../store/authStore';
 import PlayerList from './PlayerList';
 import InviteFriendsModal from './InviteFriendsModal';
-import MapSelectorModal from '../game/MapSelectorModal';
+import MapSelectorModal, { SvMode } from '../game/MapSelectorModal';
 import VolumeSliders from '../VolumeSliders';
 import EmoteReactions from './EmoteReactions';
+import GameChat from './GameChat';
 
 interface MultiplayerLobbyProps {
   /** Leave/back handler owned by the unified screen (web backBtnPressed parity). */
@@ -51,9 +54,10 @@ interface MultiplayerLobbyProps {
    * see [id].tsx). Web renders emotes in every waiting lobby, not just mid-match.
    */
   emotesShown?: boolean;
+  chatShown?: boolean;
 }
 
-export default function MultiplayerLobby({ onLeave, emotesShown = false }: MultiplayerLobbyProps) {
+export default function MultiplayerLobby({ onLeave, emotesShown = false, chatShown = false }: MultiplayerLobbyProps) {
   // Read insets via the hook (synchronous from context) rather than the native
   // <SafeAreaView> component, whose padding lands a frame late — under the
   // 'fade' screen transition that one-frame jump is visible as the header
@@ -74,6 +78,11 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const serverTimePerRound = useMultiplayerStore((s) => s.gameData?.timePerRound);
   const serverDisplayLocation = useMultiplayerStore((s) => s.gameData?.displayLocation);
   const serverNm = useMultiplayerStore((s) => s.gameData?.nm);
+  const serverNpz = useMultiplayerStore((s) => s.gameData?.npz);
+  // Party security — server truth drives the switches directly; the store
+  // action merges optimistically so they don't lag the round trip.
+  const serverLocked = useMultiplayerStore((s) => !!s.gameData?.locked);
+  const serverAllowGuests = useMultiplayerStore((s) => s.gameData?.allowGuests !== false);
   // ── 2v2 staging lobby (web partyLobby.js parity: same server object as a
   // party, only the title and the single primary action differ) ─────────────
   const is2v2Lobby = useMultiplayerStore((s) => !!s.gameData?.is2v2Lobby);
@@ -98,6 +107,10 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
   const teamScoring = useMultiplayerStore((s) => s.gameData?.teamScoring ?? 'closest');
   const allowTeamPick = useMultiplayerStore((s) => !!s.gameData?.allowTeamPick);
   const serverDisableEmotes = useMultiplayerStore((s) => !!s.gameData?.disableEmotes);
+  const serverDisableChat = useMultiplayerStore((s) => !!s.gameData?.disableChat);
+  // Guest hosts pick emotes or off only — never chat, which they can neither
+  // send nor moderate. The server pins their room chat-free regardless.
+  const canHostChat = !!useAuthStore((s) => s.user?.username);
   const teamGame = TEAM_SUPPORT && !is2v2 && serverTeamGame;
 
   // Measured portrait footer height so the emote FAB clears the action buttons
@@ -148,9 +161,25 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
     const secs = Math.round(serverTimePerRound / 1000);
     return secs >= 60 * 60 * 24 ? 0 : secs;
   });
-  const [nmpz, setNmpz] = useState(serverNm ?? false);
-  // Emote mute — default off (emotes on); server truth on gameData (web parity).
-  const [disableEmotes, setDisableEmotes] = useState(serverDisableEmotes);
+  // Street View mode is THREE-way on the wire (web mapView.js parity), never a
+  // single boolean: nm alone = No Move (pan/zoom live), nm+npz = NMPZ. Collapsing
+  // them here used to send `nm: x, npz: x`, so a mobile host could not create a
+  // No Move party at all — and once host transfer could land the crown on a
+  // mobile client, that client's next options edit silently upgraded an existing
+  // No Move party to full NMPZ for everyone in it.
+  const [svMode, setSvMode] = useState<SvMode>(
+    serverNpz ? 'nmpz' : serverNm ? 'noMove' : 'moving',
+  );
+  // Party comms are EXCLUSIVE (chat / emotes / off, host-set, chat default —
+  // user ruling; web partyModal parity). Maps onto the two server booleans:
+  // chat = emotes off, emotes = chat off, none = both off.
+  const [comms, setComms] = useState<'chat' | 'emotes' | 'none'>(() => {
+    const fromServer = serverDisableChat && serverDisableEmotes ? 'none'
+      : serverDisableChat ? 'emotes' : 'chat';
+    // A guest host has no 'chat' to land on — the server flips their room to
+    // emotes-only — but never let a stale stamp seed a value they can't pick.
+    return fromServer === 'chat' && !canHostChat ? 'emotes' : fromServer;
+  });
   const [mapSlug, setMapSlug] = useState('all');
   const [mapName, setMapName] = useState(serverDisplayLocation ?? t('world'));
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -175,12 +204,21 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
       timePerRound: timePerRound === 0 ? 60 * 60 * 24 : timePerRound,
       location: mapSlug,
       displayLocation: mapName,
-      nm: nmpz,
-      npz: nmpz,
-      showRoadName: !nmpz,
-      disableEmotes,
+      nm: svMode !== 'moving',
+      npz: svMode === 'nmpz',
+      showRoadName: svMode === 'moving',
+      // Guest hosts pick emotes or off (never chat: they can neither send it
+      // nor moderate the room), so their chat flag is pinned true and only the
+      // emote flag follows the choice. Account hosts get all three.
+      ...(canHostChat ? {
+        disableEmotes: comms === 'chat' || comms === 'none',
+        disableChat: comms === 'emotes' || comms === 'none',
+      } : {
+        disableEmotes: comms === 'none',
+        disableChat: true,
+      }),
     });
-  }, [rounds, timePerRound, nmpz, mapSlug, mapName, disableEmotes]);
+  }, [rounds, timePerRound, svMode, mapSlug, mapName, comms, canHostChat]);
 
   // Skip the redundant mount-time send: local options are initialised FROM the
   // server's values, so re-broadcasting them when the lobby first renders is a
@@ -194,7 +232,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
       return;
     }
     sendOptions();
-  }, [rounds, timePerRound, nmpz, mapSlug, mapName, disableEmotes, isHost]);
+  }, [rounds, timePerRound, svMode, mapSlug, mapName, comms, isHost]);
 
   const playerCount = players?.length ?? 0;
   // 2v2 staging caps at 2 seats; open parties effectively never fill. Full →
@@ -300,6 +338,26 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
               size={16}
               color="rgba(255,255,255,0.8)"
             />
+          </Pressable>
+        )}
+        {showKick && (
+          <Pressable
+            hitSlop={6}
+            style={styles.kickBtn}
+            onPress={() => {
+              haptics.light();
+              Alert.alert(t('makeHost'), t('makeHostConfirm', { name: p.username }), [
+                { text: t('cancel'), style: 'cancel' },
+                {
+                  text: t('makeHost'),
+                  onPress: () => useMultiplayerStore.getState().transferHost(p.id),
+                },
+              ]);
+            }}
+          >
+            {/* Crown, not a star — web parity (partyLobby.js FaCrown make-host
+                button; FontAwesome6 is the same glyph family). */}
+            <FontAwesome6 name="crown" size={13} color="#e7c04b" />
           </Pressable>
         )}
         {showKick && (
@@ -487,6 +545,23 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
                   color="rgba(255,255,255,0.5)"
                 />
               </Pressable>
+              {/* Lock lives by the code (web partyLobby parity): one tap,
+                  instant, sends ONLY the locked field. Gold while engaged. */}
+              {!!isHost && !is2v2 && (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    haptics.light();
+                    useMultiplayerStore.getState().setPartySecurity({ locked: !serverLocked });
+                  }}
+                >
+                  <Ionicons
+                    name={serverLocked ? 'lock-closed' : 'lock-open-outline'}
+                    size={16}
+                    color={serverLocked ? '#e7c04b' : 'rgba(255,255,255,0.5)'}
+                  />
+                </Pressable>
+              )}
             </View>
             <Pressable onPress={handleShareCode} style={styles.codeRow}>
               <Text style={styles.codeText}>{codeHidden ? '••••••' : gameCode}</Text>
@@ -636,7 +711,10 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
                 const dispTimer = tSecs > 0
                   ? t('secondsShort', { secs: tSecs }, '{{secs}}s')
                   : t('timerOff', undefined, 'Timer Off');
-                const dispNmpz = (isHost ? nmpz : serverNm) ? 'NMPZ' : null;
+                // Label the ACTUAL SV mode: a No Move party read "NMPZ" here.
+                const dispSv = isHost ? svMode : (serverNpz ? 'nmpz' : serverNm ? 'noMove' : 'moving');
+                const dispNmpz = dispSv === 'nmpz' ? 'NMPZ'
+                  : dispSv === 'noMove' ? t('noMove', undefined, 'No moving') : null;
                 // Mode chip copy (web partyLobby.js): Team Duel shows its
                 // scoring flavor; Classic stays implicit (no chip noise).
                 const dispMode = teamGame
@@ -762,6 +840,17 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
         <EmoteReactions hidden={mapModalVisible} bottomOffset={isLandscape ? 0 : footerHeight} />
       )}
 
+      {/* Chat FAB — bottom-right (emotes own bottom-left). Lobbies are always
+          private, so the audience gate is trivially satisfied here; the host
+          disableChat toggle and the raw server gates still apply. */}
+      {chatShown && !serverDisableChat && (
+        <GameChat
+          hidden={mapModalVisible}
+          bottomOffset={isLandscape ? 0 : footerHeight}
+          stackUp={emotesShown && !serverDisableEmotes}
+        />
+      )}
+
       <InviteFriendsModal
         visible={inviteModalVisible}
         onClose={() => setInviteModalVisible(false)}
@@ -802,16 +891,23 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false }: Multi
           setMapName(name);
         }}
         currentMapSlug={mapSlug}
-        nmpzEnabled={nmpz}
-        onNmpzToggle={setNmpz}
+        svMode={svMode}
+        onSvModeChange={setSvMode}
         timerEnabled={timePerRound !== 0}
         onTimerToggle={(v) => setTimePerRound(v ? 30 : 0)}
         timerDuration={timePerRound}
         onTimerDurationChange={setTimePerRound}
         rounds={rounds}
         onRoundsChange={setRounds}
-        disableEmotes={disableEmotes}
-        onDisableEmotesToggle={setDisableEmotes}
+        comms={comms}
+        onCommsChange={setComms}
+        // Guests choose emotes or off; only account hosts may open a chat room.
+        commsChoices={canHostChat ? ['chat', 'emotes', 'none'] : ['emotes', 'none']}
+        // Guest access rides its own wire message (store action), never
+        // sendOptions — setPrivateGameOptions regenerates locations. The
+        // LOCK control is the button by the game code, not in this modal.
+        allowGuests={serverAllowGuests}
+        onAllowGuestsChange={(v) => useMultiplayerStore.getState().setPartySecurity({ allowGuests: v })}
         // Team surface — MUST ride the rollout switch (see the teamGame gate
         // above): undefined props hide the whole Game Mode section.
         teamConfig={TEAM_SUPPORT ? { enabled: serverTeamGame, scoring: teamScoring, allowTeamPick } : undefined}
