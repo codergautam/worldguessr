@@ -174,14 +174,23 @@ export default function GameChat({
   // double lift. This subtraction is immune by construction: a window the OS
   // already resized puts its bottom AT the keyboard top → overlap zero.
   const [kbLift, setKbLift] = useState(0);
+  // Last reported keyboard top (screen coords), so the lift can be RECOMPUTED
+  // when the window itself moves: on Android resize-mode devices the window
+  // shrinks to above the keyboard, and keyboardDidShow can fire BEFORE the new
+  // window height lands — a one-shot computation would freeze a full-keyboard
+  // lift on top of an already-resized window (double lift again). Re-running
+  // this effect on winH replays the math against the fresh height instead.
+  const kbTopRef = useRef<number | null>(null);
   useEffect(() => {
+    const lift = (screenY: number) => setKbLift(Math.max(0, winH - screenY));
+    if (kbTopRef.current !== null) lift(kbTopRef.current); // winH changed mid-keyboard
     const show = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => setKbLift(Math.max(0, winH - e.endCoordinates.screenY)),
+      (e) => { kbTopRef.current = e.endCoordinates.screenY; lift(e.endCoordinates.screenY); },
     );
     const hide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setKbLift(0),
+      () => { kbTopRef.current = null; setKbLift(0); },
     );
     return () => { show.remove(); hide.remove(); };
   }, [winH]);
@@ -195,9 +204,10 @@ export default function GameChat({
   // The panel must NEVER exceed the screen (landscape phones, keyboard up):
   // cap the message list at what's left after the EFFECTIVE offset, the top
   // inset and ~130px of panel chrome (header + typing line + input row +
-  // borders). Floor keeps it usable; the floor also shrinks so short
-  // viewports fit.
-  const listMax = Math.max(90, Math.min(440, winH - effectiveBottom - insets.top - 130));
+  // borders). The usability floor YIELDS while the keyboard is up — landscape
+  // + keyboard leaves ~40pt for the list, and holding the 90pt floor there
+  // pushed the header (and its only close button) off the top of the screen.
+  const listMax = Math.max(kbLift > 0 ? 32 : 90, Math.min(440, winH - effectiveBottom - insets.top - 130));
   const listMin = Math.min(160, listMax);
   const now = Date.now();
   const typers = chatTyping.filter((e) => e.until > now);
@@ -241,6 +251,14 @@ export default function GameChat({
     // measured kbLift (see above) — not position:absolute (which ignores any
     // container padding) and not KAV (which double-lifts, same comment).
     <View style={styles.overlay} pointerEvents="box-none">
+      {/* RN never blurs a focused TextInput on outside taps, and the box-none
+          overlay lets them fall through to the game — so nothing dismissed the
+          keyboard. While it's up (and ONLY then), this transparent layer eats
+          the first outside tap to close it; the panel, rendered after, still
+          receives its own touches. Standard iOS first-tap-dismisses pattern. */}
+      {kbLift > 0 && (
+        <Pressable sfx="none" style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
+      )}
       <Animated.View
         style={[styles.panelAnchor, { marginBottom: effectiveBottom, marginLeft: left }, hideStyle]}
         pointerEvents={hidden ? 'none' : 'box-none'}
@@ -285,6 +303,10 @@ export default function GameChat({
             contentContainerStyle={styles.listContent}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             keyboardShouldPersistTaps="handled"
+            // Standard chat gesture and the pressure valve for tight layouts:
+            // drag the message list to pull the keyboard down (iOS tracks the
+            // finger; Android dismisses on drag).
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           >
             {chatMessages.map((m) => (
               <MessageRow key={m.id} msg={m} myTeam={myTeam} onMute={confirmMute} />

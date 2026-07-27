@@ -652,8 +652,8 @@ export default function MapSelectorModal({
                 {/* Street View mode — Moving / No Move / NMPZ, the same three
                     the web dropdown offers (mapView.js). */}
                 <OptionDropdown
-                  icon="eye-off-outline"
-                  label={t('streetViewMode', undefined, 'Street View')}
+                  icon="footsteps-outline"
+                  label={t('mode', undefined, 'Mode')}
                   value={svMode}
                   options={[
                     { key: 'moving', label: svModeLabel('moving') },
