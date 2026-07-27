@@ -12,7 +12,9 @@ export default function MakeMapForm({ map, setMap, createMap }) {
     description_long: map.description_long,
     data: map.data || []
   });
-  const [uploaded, setUploaded] = useState(false);
+  const [uploaded, setUploaded] = useState(
+    (map.data || []).length > mapConst.MAX_INLINE_LOCATIONS
+  );
 
   const handleFormChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -55,8 +57,29 @@ export default function MakeMapForm({ map, setMap, createMap }) {
   };
 
 
+  const handleDownload = () => {
+    if(formData.data.length === 0) {
+      toast.error("No locations to download");
+      return;
+    }
+    // entries are JSON strings; write clean objects to the file
+    const locs = formData.data.map((loc) => {
+      try { return JSON.parse(loc); } catch(e) { return loc; }
+    });
+    const blob = new Blob([JSON.stringify(locs)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${formData.name.trim() || "map"} locations.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   function handleFileUpload(e) {
     const file = e.target.files[0];
+    if (!file) return;
+    // allow picking a same-named file again (e.g. corrected replacement)
+    e.target.value = "";
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
@@ -202,29 +225,26 @@ export default function MakeMapForm({ map, setMap, createMap }) {
           </>
           )}
           <h3>
-            { uploaded ? "Bulk Uploaded":"...or Bulk Upload a file" }
+            { uploaded ? `${formData.data.length} locations loaded` : "...or Bulk Upload a file" }
             </h3>
-            { !uploaded && (
+            { uploaded ? (
+          <span>Download the locations to edit them, then upload the file to replace them</span>
+            ) : (
           <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-g3nerator.vercel.app/" target="_blank" rel="noreferrer">map-g3nerator.vercel.app</a></span>
             )}
-          { !uploaded && (
-            <div>
-              <label htmlFor="file-upload" className="add-button button" style={{width: 'fit-content', display: 'inline-block'}}>
-                <input type="file" accept=".json" onChange={handleFileUpload} style={{overflow: 'hidden', width: 0, height: 0, opacity: 0}} id="file-upload" />
-                Upload File
-              </label>
-            </div>
-          )}
-          {
-            uploaded && (
-              <button type="button" className="add-button" onClick={() => {
-                setFormData({ ...formData, data: [] });
-              setUploaded(false)
-              }}>
-                Clear Upload
-              </button>
-            )
-          }
+          <div>
+            <label htmlFor="file-upload" className="add-button button" style={{width: 'fit-content', display: 'inline-block'}}>
+              <input type="file" accept=".json" onChange={handleFileUpload} style={{overflow: 'hidden', width: 0, height: 0, opacity: 0}} id="file-upload" />
+              { uploaded ? "Replace with File" : "Upload File" }
+            </label>
+            {
+              uploaded && (
+                <button type="button" className="add-button" style={{marginLeft: '10px'}} onClick={handleDownload}>
+                  Download JSON
+                </button>
+              )
+            }
+          </div>
         </div>
         <div className="make-map-form" style={{ gap: 0 }}>
         <button type="submit"
