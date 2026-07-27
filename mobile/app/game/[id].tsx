@@ -1880,7 +1880,6 @@ export default function GameScreen() {
 
   const spResultsNavigated = useRef(false);
   const handleNextRound = useCallback(() => {
-    setShowPano(false); // each round's result starts on the map (web parity)
     if (gameState.currentRound >= gameState.totalRounds) {
       if (spResultsNavigated.current) return;
       spResultsNavigated.current = true;
@@ -1949,6 +1948,10 @@ export default function GameScreen() {
         isShowingResult: false,
       }));
       setGuessPosition(null);
+      // Under the cover only (daily does the same): flipping showPano while
+      // the result is still up makes GameSurface slide the collapsed map back
+      // to fullscreen in plain view before the loading cover lands.
+      setShowPano(false);
       setHintShown(false); // hint is per-round; the 2/game count persists
       setLostWorldStreak(0); // clear the "lost streak" line before the next guess
       roundStartTimeRef.current = Date.now();

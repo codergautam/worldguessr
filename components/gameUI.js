@@ -260,7 +260,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // The transition is chosen by what's on screen when the trigger fires:
   //   1. Final-round "View Results" (endsGame): NO teardown — the answer
   //      scene stays mounted as the results summary's crossfade base.
-  //   2. Play Again from the summary (done): the map is COVERED — yank it
+  //   2. Play Again from the summary (done), or any advance with the pano
+  //      toggle on (showPanoOnResult): the map is COVERED / hidden — yank it
   //      forceHidden in the same commit the answer state clears. A visible
   //      fade here would UNCOVER it first: the old answer map (often
   //      street-level zoom) flashes fullscreen before fading.
@@ -293,7 +294,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       return;
     }
     // Case 2: replay from the results summary — yank under cover (see above).
-    if (singlePlayerRound?.done) {
+    // The pano toggle lands here too: the map is hidden behind the pano
+    // (shouldShowMiniMap's !showPanoOnResult term), and the case-3 fade would
+    // force-mount it fullscreen via mapFadingOutForRender just to fade it out.
+    if (singlePlayerRound?.done || showPanoOnResult) {
       setShowAnswer(false);
       setPinPoint(null);
       setMapResetting(true);
@@ -717,7 +721,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       setMiniMapFullscreen(false);
     }
 
-    if (leftAnswerRevealForGuess) {
+    // No fade when the pano toggle is on: the map sat hidden through the
+    // reveal, and mapFadingOut would force-mount it fullscreen just to fade it.
+    if (leftAnswerRevealForGuess && !showPanoOnResult) {
       if (multiplayerMapFadeTimerRef.current) {
         clearTimeout(multiplayerMapFadeTimerRef.current);
       }
@@ -1128,6 +1134,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const onboardingTimerShown = !!onboarding && !onboarding.completed;
   const multiplayerAnswerRevealLeaving = !!(
     multiplayerState?.inGame &&
+    // Pano toggle on = the map sat hidden through the reveal; bridging the
+    // teardown would flash it fullscreen (the fade effect skips it too).
+    !showPanoOnResult &&
     prevMultiplayerRoundStateRef.current.state === "getready" &&
     prevMultiplayerRoundStateRef.current.round !== 1 &&
     multiplayerState?.gameData?.state === "guess" &&
