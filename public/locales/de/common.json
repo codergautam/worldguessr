@@ -957,6 +957,8 @@
   "leavePartyWarning": "Die Party verlassen? Zum erneuten Beitreten brauchst du den Code.",
   "leaveParty": "Verlassen",
   "hideMyLastSeen": "Meine Zuletzt-gesehen-Zeit verbergen",
+  "strictMatchmaking": "Duelle gegen schwächere Spieler vermeiden",
+  "strictMatchmakingHint": "Ranglisten-Duelle bringen dich nur noch gegen Spieler der Ligen Voyager und Nomad (5000+ ELO). Die Suche kann länger dauern.",
   "accountSettings": "Kontoeinstellungen",
   "audioSettings": "Audio",
   "generalSettings": "Allgemein",

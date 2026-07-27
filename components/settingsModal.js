@@ -3,11 +3,13 @@ import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
 import { FaGithub } from "react-icons/fa";
+import { FaCircleInfo } from "react-icons/fa6";
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
 import ConfirmModal from './ui/Modal';
 import { signOut } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import VolumeSliders from './ui/volumeSliders';
+import { leagues } from './utils/leagues';
 
 // Section header built ONLY from the modal's existing vocabulary:
 // .settingsModalInner gives the same indent as the option rows, the <label>
@@ -47,6 +49,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 setAccountSettings({
                     allowFriendReq: !!data.allowFriendReq,
                     hideLastSeen: !!data.hideLastSeen,
+                    strictMatchmaking: !!data.strictMatchmaking,
                 });
             }
         });
@@ -64,6 +67,14 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
         setAccountSettings((prev) => ({ ...prev, hideLastSeen: checked }));
         ws?.send(JSON.stringify({ type: 'setHideLastSeen', hide: checked }));
     };
+    const toggleStrictMatchmaking = (checked) => {
+        setAccountSettings((prev) => ({ ...prev, strictMatchmaking: checked }));
+        ws?.send(JSON.stringify({ type: 'setStrictMatchmaking', strict: checked }));
+    };
+    // Voyager+ only (server enforces too): below the floor the row hides
+    // entirely rather than showing a disabled tease.
+    const strictEligible = (session?.token?.elo ?? 0) >= leagues.voyager.min;
+    const [strictInfoShown, setStrictInfoShown] = useState(false);
 
     // ── Danger Zone — account deletion (moved here from the moderation view) ──
     // Multi-step confirm. 0 = closed, 1 = warning, 2 = type-to-confirm.
@@ -267,6 +278,32 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                                 onChange={(e) => toggleHideLastSeen(e.target.checked)}
                             />
                         </div>
+                        {false && (
+                        <>
+                        <div className="settingsModalInner">
+                            <label htmlFor="strictMatchmaking">
+                                {text("strictMatchmaking")}
+                                <button
+                                    type="button"
+                                    className="settings-info-btn"
+                                    aria-label={text("strictMatchmakingHint")}
+                                    onClick={() => setStrictInfoShown((s) => !s)}
+                                ><FaCircleInfo /></button>
+                            </label>
+                            <input
+                                className="g2_input"
+                                type="checkbox"
+                                id="strictMatchmaking"
+                                checked={!!accountSettings?.strictMatchmaking}
+                                disabled={accountSettings === null}
+                                onChange={(e) => toggleStrictMatchmaking(e.target.checked)}
+                            />
+                        </div>
+                        {strictInfoShown && (
+                            <div className="settings-info-card">{text("strictMatchmakingHint")}</div>
+                        )}
+                        </>
+                        )}
 
                         {/* Danger Zone — account deletion (hidden in CrazyGames iframe).
                             If a deletion is already scheduled, this becomes a Restore prompt instead. */}

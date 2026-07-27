@@ -957,6 +957,8 @@
   "leavePartyWarning": "¿Salir del grupo? Necesitarás el código para volver a entrar.",
   "leaveParty": "Salir",
   "hideMyLastSeen": "Ocultar mi última conexión",
+  "strictMatchmaking": "Evitar duelos de menor nivel",
+  "strictMatchmakingHint": "Los duelos clasificatorios solo te emparejarán con jugadores Voyager y Nomad (5000+ ELO). La búsqueda puede tardar más.",
   "accountSettings": "Configuración de la cuenta",
   "audioSettings": "Audio",
   "generalSettings": "General",

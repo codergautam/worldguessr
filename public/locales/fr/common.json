@@ -957,6 +957,8 @@
   "leavePartyWarning": "Quitter le groupe ? Vous aurez besoin du code pour revenir.",
   "leaveParty": "Quitter",
   "hideMyLastSeen": "Masquer ma dernière connexion",
+  "strictMatchmaking": "Éviter les duels de niveau inférieur",
+  "strictMatchmakingHint": "Les duels classés ne vous opposeront qu'à des joueurs Voyager et Nomad (5000+ ELO). La recherche peut prendre plus de temps.",
   "accountSettings": "Paramètres du compte",
   "audioSettings": "Audio",
   "generalSettings": "Général",

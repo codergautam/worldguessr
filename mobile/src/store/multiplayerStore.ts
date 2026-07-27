@@ -454,6 +454,8 @@ interface MultiplayerState {
   allowFriendReq: boolean;
   /** Own "hide my last seen" preference; null until the first server echo. */
   hideLastSeen: boolean | null;
+  /** Voyager+ "only match Voyagers and Nomads" preference; null until echoed. */
+  strictMatchmaking: boolean | null;
   /** Last `friendReqState` code we received (and the moment we received it, for auto-clear). */
   friendReqState: FriendReqState | null;
   friendReqStateAt: number;
@@ -558,6 +560,7 @@ interface MultiplayerState {
   removeFriend: (id: string) => void;
   setAllowFriendReqOnServer: (allow: boolean) => void;
   setHideLastSeenOnServer: (hide: boolean) => void;
+  setStrictMatchmakingOnServer: (strict: boolean) => void;
   inviteFriendToGame: (friendSocketId: string, friendId?: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
   /**
@@ -637,6 +640,7 @@ const accountInitialState = {
   receivedRequests: [] as FriendRequestEntry[],
   allowFriendReq: true,
   hideLastSeen: null as boolean | null,
+  strictMatchmaking: null as boolean | null,
   friendReqState: null as FriendReqState | null,
   friendReqStateAt: 0,
 };
@@ -651,11 +655,11 @@ const accountInitialState = {
 // never stored.
 const SETTINGS_ACK_TIMEOUT_MS = 6000;
 const settingsAckTimers: Partial<
-  Record<'allowFriendReq' | 'hideLastSeen', ReturnType<typeof setTimeout>>
+  Record<'allowFriendReq' | 'hideLastSeen' | 'strictMatchmaking', ReturnType<typeof setTimeout>>
 > = {};
 
 function armSettingsAckWatchdog(
-  field: 'allowFriendReq' | 'hideLastSeen',
+  field: 'allowFriendReq' | 'hideLastSeen' | 'strictMatchmaking',
   revert: () => void,
 ) {
   clearTimeout(settingsAckTimers[field]);
@@ -946,6 +950,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     const prev = get().hideLastSeen;
     set({ hideLastSeen: hide });
     armSettingsAckWatchdog('hideLastSeen', () => set({ hideLastSeen: prev }));
+  },
+  setStrictMatchmakingOnServer: (strict) => {
+    if (!wsService.send({ type: 'setStrictMatchmaking', strict })) return;
+    const prev = get().strictMatchmaking;
+    set({ strictMatchmaking: strict });
+    armSettingsAckWatchdog('strictMatchmaking', () => set({ strictMatchmaking: prev }));
   },
   inviteFriendToGame: (friendSocketId, friendId) => {
     wsService.send({ type: 'inviteFriend', friendId: friendSocketId });
@@ -1646,6 +1656,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         // optimistic flip that the server refused gets snapped back here.
         allowFriendReq: !!data.allowFriendReq,
         hideLastSeen: !!data.hideLastSeen,
+        strictMatchmaking: !!data.strictMatchmaking,
       });
       return;
     }

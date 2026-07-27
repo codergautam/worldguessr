@@ -957,6 +957,8 @@
   "leavePartyWarning": "Покинуть группу? Чтобы вернуться, понадобится код.",
   "leaveParty": "Покинуть",
   "hideMyLastSeen": "Скрывать время моего последнего визита",
+  "strictMatchmaking": "Избегать дуэлей с менее опытными игроками",
+  "strictMatchmakingHint": "В рейтинговых дуэлях вы будете играть только против игроков лиг Voyager и Nomad (5000+ ELO). Поиск может занять больше времени.",
   "accountSettings": "Настройки аккаунта",
   "audioSettings": "Звук",
   "generalSettings": "Общие",

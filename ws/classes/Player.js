@@ -30,6 +30,12 @@ export default class Player {
     this.receivedReq = [];
     this.allowFriendReq = true;
     this.hideLastSeen = false;
+    // Voyager+ ranked preference — see models/User.js. Stored regardless of
+    // league; ELIGIBILITY (elo >= voyager floor) is checked where it's used,
+    // at queue join, so ranking up/down needs no settings write. True matches
+    // the schema default (default-ON, user ruling July 27); guests can never
+    // be strict anyway (no elo passes the queue gate).
+    this.strictMatchmaking = true;
 
     this.platform = "empty";
     // Client announced team capability in verify. Pre-rollout web bundles and
@@ -435,6 +441,7 @@ export default class Player {
 
           this.allowFriendReq = valid.allowFriendReq;
           this.hideLastSeen = !!valid.hideLastSeen;
+          this.strictMatchmaking = !!valid.strictMatchmaking;
 
         } else {
           console.log('failed to login', json.secret);
@@ -543,7 +550,8 @@ export default class Player {
     // reconcile against (in-memory copies only change AFTER a DB write sticks,
     // and every set* attempt — accepted or rejected — triggers this push).
     allowFriendReq: this.allowFriendReq,
-    hideLastSeen: this.hideLastSeen
+    hideLastSeen: this.hideLastSeen,
+    strictMatchmaking: this.strictMatchmaking
   };
   this.send(data);
   } catch (e) {

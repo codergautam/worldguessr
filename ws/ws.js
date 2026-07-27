@@ -800,7 +800,12 @@ app.ws('/wg', {
           elo: player.elo,
           guest: false,
           queueTime: Date.now(),
-          duel: true
+          duel: true,
+          // Voyager+ opt-in: the 10s widening below floors at the Voyager
+          // minimum instead of 0, so this player only ever meets Voyagers and
+          // Nomads. Eligibility re-checked here (not just at settings time)
+          // so a derank quietly returns them to the normal pool.
+          strict: !!(player.strictMatchmaking && player.elo >= leagues.voyager.min)
         }
         playersInQueue.set(player.id, queueDetails);
 
@@ -1333,6 +1338,41 @@ app.ws('/wg', {
         }).catch((e) => {
           console.log(e);
           player.sendFriendData(); // write failed — echo the unchanged truth
+        });
+      }
+
+      // Voyager+ ranked preference (setHideLastSeen's exact shape, incl. the
+      // cooldown + authoritative sendFriendData echo on every outcome). The
+      // clients hide the toggle below Voyager, but never trust that: turning
+      // it ON requires the elo here too — a low-elo client poking the wire
+      // could otherwise park itself in a pool it doesn't belong to. OFF is
+      // always allowed (deranked players must be able to clear it).
+      if (json.type === "setStrictMatchmaking" && typeof json.strict === 'boolean' && player.accountId) {
+        if (json.strict && (!player.elo || player.elo < leagues.voyager.min)) {
+          player.sendFriendData(); // snap the optimistic client back
+          return;
+        }
+        if (Date.now() - player.lastStrictMatchmakingChange < 5000) {
+          player.send({
+            type: 'toast',
+            key: 'pleaseWaitSeconds',
+            seconds: Math.round(5 - (Date.now() - player.lastStrictMatchmakingChange) / 1000),
+            toastType: 'error'
+          });
+          player.sendFriendData();
+          return;
+        }
+        player.lastStrictMatchmakingChange = Date.now();
+        User.updateOne({ _id: player.accountId }, { strictMatchmaking: json.strict }).then(() => {
+          player.strictMatchmaking = json.strict;
+          player.send({
+            type: 'toast',
+            key: 'preferenceUpdated'
+          });
+          player.sendFriendData();
+        }).catch((e) => {
+          console.log(e);
+          player.sendFriendData();
         });
       }
 
@@ -2920,15 +2960,19 @@ try {
       }
 
       // remaining players in queue check if wait was longer than 10 seconds, in that case set their elo range to infinity
+      // — unless the player opted into strict matchmaking (Voyager+ setting):
+      // their widened floor is the Voyager minimum, so the pool stays
+      // Voyagers + Nomads no matter how long they wait.
       for(const playerId of playersInQueue) {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
         if(!queueData.guest && queueData.duel && Date.now() - queueData.queueTime > 10000) {
-          playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 20000, queueTime: Date.now() });
+          const widenedMin = queueData.strict ? leagues.voyager.min : 0;
+          playersInQueue.set(playerId[0], { ...queueData, min: widenedMin, max: 20000, queueTime: Date.now() });
 
           player.send({
             type: 'publicDuelRange',
-            range: [0, 20000]
+            range: [widenedMin, 20000]
           });
         }
       }
@@ -2941,6 +2985,10 @@ try {
       if (BOTS_ENABLED) {
         for (const [playerId, queueData] of playersInQueue) {
           if (!queueData.duel) continue;
+          // Strict players opted into a 5000+ pool; bots sit at 800-1000.
+          // (Structurally near-impossible anyway — Voyagers aren't newbie-
+          // eligible — but the guard states the intent.)
+          if (queueData.strict) continue;
           const player = players.get(playerId);
           if (!player || !player.inQueue || player.gameId || !player.elo) continue;
           if (!BOTS_INSTANT && !player.accountId) continue;

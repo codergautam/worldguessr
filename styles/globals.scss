@@ -363,6 +363,40 @@ html {
     display: flex;
     flex-direction: row;
 }
+
+/* Inline info toggle beside a settings label (strict matchmaking): bare glyph
+   button, no chrome — tapping unfolds a .party-lobby__hint line below. */
+.settings-info-btn {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    margin-left: 6px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75em;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.settings-info-btn:hover {
+    color: #fff;
+}
+
+/* The unfolded explanation itself — mirrors the mobile settings info card
+   (soft rounded panel, muted-but-legible text). Deliberately NOT
+   .party-lobby__hint: that one is small, dim and centered for the party
+   modal's compact rows; next to the settings modal's large labels it read
+   as fine print. Indent matches .settingsModalInner so the card sits in
+   the option column, and max-width keeps the line length readable. */
+.settings-info-card {
+    margin: 4px 10px 10px 32px;
+    max-width: 480px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.98rem;
+    line-height: 1.45;
+}
 .settingsModalInner label {
     font-size: min(clamp(1.3em, 3vw, 1.8em), clamp(1.1em, 4vh, 1.6em));
 }

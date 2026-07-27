@@ -151,6 +151,17 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // Ranked-queue preference (Voyager+ only, enforced at queue time): after the
+  // 10s ELO-range widening, only widen down to the Voyager floor instead of
+  // everyone — the player is matched exclusively with Voyagers and Nomads.
+  // Default ON (user ruling July 27): every Voyager+ gets the protected pool
+  // unless they opt out. Safe to default for the whole collection because the
+  // queue stamp requires elo >= voyager.min — for everyone below, the stored
+  // true is inert until they rank up, at which point it arms itself.
+  strictMatchmaking: {
+    type: Boolean,
+    default: true
+  },
   firstLoginComplete: {
     type: Boolean,
     default: false

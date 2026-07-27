@@ -958,6 +958,8 @@
   "leavePartyWarning": "Leave the party? You'll need the code to rejoin.",
   "leaveParty": "Leave party",
   "hideMyLastSeen": "Hide my last seen time",
+  "strictMatchmaking": "Avoid lower skill duels",
+  "strictMatchmakingHint": "Ranked duels will only match you with Voyager and Nomad players (5000+ ELO). Queue times may be longer.",
   "accountSettings": "Account Settings",
   "audioSettings": "Audio",
   "generalSettings": "General",
