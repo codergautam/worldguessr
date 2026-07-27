@@ -23,7 +23,7 @@ function SectionHeader({ label, color, first }) {
     );
 }
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, session, setSession, ws }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
     const { t: text } = useTranslation("common");
 
     // ── Account settings ─────────────────────────────────────────────────
@@ -230,6 +230,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <div className="settingsModalInner">
                             <label htmlFor="mpEmotes">{text("multiplayerEmoteReactions")}</label>
                             <input className="g2_input" type="checkbox" id="mpEmotes" checked={!!multiplayerEmotesEnabled} onChange={() => setMultiplayerEmotesEnabled(!multiplayerEmotesEnabled)} />
+                        </div>
+                    )}
+                    {typeof setMultiplayerChatEnabled === 'function' && (
+                        <div className="settingsModalInner">
+                            <label htmlFor="mpChat">{text("multiplayerChat")}</label>
+                            <input className="g2_input" type="checkbox" id="mpChat" checked={!!multiplayerChatEnabled} onChange={() => setMultiplayerChatEnabled(!multiplayerChatEnabled)} />
                         </div>
                     )}
                 </>

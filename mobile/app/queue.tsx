@@ -31,7 +31,7 @@ import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplaye
 import { useSettingsStore } from '../src/store/settingsStore';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
-import EmoteReactions from '../src/components/multiplayer/EmoteReactions';
+import GameChat from '../src/components/multiplayer/GameChat';
 
 const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
 
@@ -91,7 +91,7 @@ export default function QueueScreen() {
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
-  const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
+  const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
   const exitedRef = useRef(false);
   const is2v2 = gameQueued === '2v2';
   // 2v2 Cancel is a REQUEST, not a local teardown (see handleCancel) — this
@@ -350,13 +350,10 @@ export default function QueueScreen() {
         </View>
       )}
 
-      {/* 2v2 stage-2: the duo still shares its staging lobby server-side, so
-          emotes keep flowing while opponent-searching (web keeps its emote bar
-          on the queue banner). Store self-styling works off queueMyId. Team
-          coloring is inherently inactive here (gameData null → myTeam
-          unresolvable) — web behaves the same. Gated on the settings toggle
-          like every other mount (web returns null when it's off). */}
-      {is2v2 && emotesEnabled && <EmoteReactions />}
+      {/* 2v2 stage-2: chat-only (comms XOR ruling — the staging lobby is
+          created with disableEmotes, so an emote FAB here would send into a
+          server drop). The duo's chat rides the persisting staging-lobby room. */}
+      {is2v2 && chatEnabled && <GameChat />}
     </View>
   );
 }

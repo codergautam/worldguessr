@@ -60,6 +60,14 @@ export default class Game {
     this.teamScoring = 'closest';     // 'closest' (best guess, default) | 'average'
     this.allowTeamPick = false;       // non-hosts may switch their own team
     this.disableEmotes = false;       // host option: mute emote reactions for this game
+    this.disableChat = false;         // host option: disable text chat for this game
+    // Comms-XOR ruling: 2v2 staging lobbies are chat-only, full stop.
+    // Stamped HERE so every creation path complies — the regroup/invite/
+    // matchmaker sites were spawning staging lobbies with both surfaces live
+    // because only createPrivateGame remembered the stamp.
+    if (is2v2Lobby) this.disableEmotes = true;
+    this.locked = false;              // host option: no NEW joins (code/invite); rejoins unaffected
+    this.allowGuests = true;          // host option: false = signed-in accounts only
     this.lastRoundTeamScores = null;  // { round, scores: {a,b} } stash between givePoints and saveRoundToHistory
     this.lastTeamEnd = null;          // frozen duelEnd payload for end-state rejoins
     this.gameCount = 1; // Track how many times this game has been played
@@ -120,6 +128,12 @@ export default class Game {
       teamScoring: this.teamScoring,
       allowTeamPick: this.allowTeamPick,
       disableEmotes: this.disableEmotes,
+      disableChat: this.disableChat,
+      // Party security must survive ws restarts like every other host
+      // setting — omitting these silently unlocked parties and re-admitted
+      // guests on every deploy while disableChat survived.
+      locked: this.locked,
+      allowGuests: this.allowGuests,
       lastRoundTeamScores: this.lastRoundTeamScores,
       lastTeamEnd: this.lastTeamEnd,
       roundStartTimes: this.roundStartTimes,
@@ -261,6 +275,10 @@ export default class Game {
       teamScoring: this.teamScoring,
       allowTeamPick: !!this.allowTeamPick,
       disableEmotes: !!this.disableEmotes,
+      disableChat: !!this.disableChat,
+      locked: !!this.locked,
+      allowGuests: this.allowGuests !== false,
+      hostGuest: (() => { const h = Object.values(this.players).find((p) => p.host); return !!h && !h.accountId; })(),
       teamRoundScores: this.lastRoundTeamScores ?? null,
       players: Object.values(this.players),
       host: this.players[player.id].host,
@@ -759,6 +777,12 @@ export default class Game {
       teamScoring: this.teamScoring,
       allowTeamPick: !!this.allowTeamPick,
       disableEmotes: !!this.disableEmotes,
+      disableChat: !!this.disableChat,
+      locked: !!this.locked,
+      allowGuests: this.allowGuests !== false,
+      // Guest-hosted parties are emotes-only — clients hide the whole chat
+      // surface off this flag (roster entries carry accountId).
+      hostGuest: (() => { const h = Object.values(this.players).find((p) => p.host); return !!h && !h.accountId; })(),
       teamRoundScores: this.lastRoundTeamScores ?? null,
       players: Object.values(this.players),
       generated: this.locations?.length || 0,

@@ -9,6 +9,7 @@ import {
 import { View, ActivityIndicator, StyleSheet, Animated, Easing } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors } from '../../shared';
+import CustomStreetViewWebView from './CustomStreetViewWebView';
 
 /** Result of committing a warm preload (see `StreetViewHandle.commitPreload`). */
 export type CommitPreloadResult =
@@ -56,7 +57,27 @@ interface StreetViewWebViewProps {
   cropRightPx?: number;
   showInitialLoader?: boolean;
   interactive?: boolean;
-  nmpz?: boolean;
+  /**
+   * Street View mode, web parity. `nm` = No Move (pan/zoom allowed, movement
+   * not), `npz` = additionally frozen. The Google embed cannot express No Move
+   * — there is no way to allow drag-pan while blocking click-to-move in a
+   * cross-origin iframe — so `nm` still freezes here, matching what mobile has
+   * always done. The in-house WebGL renderer takes the `nm` branch instead and
+   * makes movement structurally impossible while leaving pan/zoom live.
+   * Freezing is the deliberate interim: the alternative (leaving the embed
+   * movable) would hand mobile players a movement ADVANTAGE in a No Move party.
+   */
+  nm?: boolean;
+  npz?: boolean;
+  /**
+   * Lifts the npz freeze (web contract: interactive again once the answer is
+   * shown). IFRAME-PATH CAVEAT: freeze state is baked into the wrapper HTML,
+   * so this must be MOUNT-CONSTANT there — a mid-life flip reloads the iframe.
+   * The reveal pano (a separate instance mounted with showAnswer={true})
+   * satisfies that; the live pano never passes it. The WebGL path handles
+   * live flips fine.
+   */
+  showAnswer?: boolean;
   /**
    * Warm the NEXT pano in the hidden slot at opacity 0 without disturbing the
    * visible one. Call `commitPreload()` (imperative handle) to crossfade to it.
@@ -93,7 +114,7 @@ function buildStreetViewHtml(
   heading: number | null | undefined,
   pitch: number,
   cropRightPx: number,
-  nmpz: boolean,
+  frozen: boolean,
   reloadNonce: number,
 ) {
   const headingParam = heading !== null && heading !== undefined ? `&heading=${heading}` : '';
@@ -123,7 +144,7 @@ function buildStreetViewHtml(
           width: calc(100vw + ${cropRightPx}px);
           height: calc(100vh + 300px);
           border: none;
-          pointer-events: ${nmpz ? 'none' : 'auto'};
+          pointer-events: ${frozen ? 'none' : 'auto'};
         }
       </style>
     </head>
@@ -161,9 +182,15 @@ function StreetViewWebView({
   transitionDuration = 350,
   cropRightPx = 0,
   showInitialLoader = true,
-  nmpz = false,
+  nm = false,
+  npz = false,
+  showAnswer = false,
   preload = null,
 }: StreetViewWebViewProps, ref: React.Ref<StreetViewHandle>) {
+  // Iframe fallback only (the wrapper routes nm to the WebGL renderer): the
+  // embed has no No-Move gear, so nm freezes here too. showAnswer must be
+  // mount-constant on this path — see the prop docs.
+  const frozen = (nm || npz) && !showAnswer;
   const [sources, setSources] = useState<Record<SlotKey, WebViewSourceState | null>>({
     primary: null,
     secondary: null,
@@ -300,10 +327,10 @@ function StreetViewWebView({
     prevReloadNonceRef.current = reloadNonce;
     const useCrossfade = smoothTransitions || isReload;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${nmpz}-${reloadNonce}`;
+    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, nmpz, reloadNonce),
+      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -340,7 +367,7 @@ function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, heading, pitch, cropRightPx, nmpz, reloadNonce, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   // ── Warm preload ─────────────────────────────────────────────────────────
   // Load the NEXT pano into the inactive slot at opacity 0 WITHOUT crossfading,
@@ -365,7 +392,7 @@ function StreetViewWebView({
     // after commit + `lat/long` advancing to this pano, the main effect computes
     // the same key and early-returns instead of reloading from scratch.
     const normPitch = preloadPitch ?? 0;
-    const preloadKey = `${preloadLat}-${preloadLong}-${language}-${fov}-${preloadHeading ?? ''}-${normPitch}-${cropRightPx}-${nmpz}-${reloadNonce}`;
+    const preloadKey = `${preloadLat}-${preloadLong}-${language}-${fov}-${preloadHeading ?? ''}-${normPitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
 
     const activeSlot = activeSlotRef.current;
     const activeSource = sourcesRef.current[activeSlot];
@@ -381,10 +408,10 @@ function StreetViewWebView({
       ...prev,
       [slot]: {
         key: preloadKey,
-        html: buildStreetViewHtml(preloadLat, preloadLong, language, fov, preloadHeading, normPitch, cropRightPx, nmpz, reloadNonce),
+        html: buildStreetViewHtml(preloadLat, preloadLong, language, fov, preloadHeading, normPitch, cropRightPx, frozen, reloadNonce),
       },
     }));
-  }, [preloadLat, preloadLong, preloadHeading, preloadPitch, language, fov, cropRightPx, nmpz, reloadNonce, primaryOpacity, secondaryOpacity]);
+  }, [preloadLat, preloadLong, preloadHeading, preloadPitch, language, fov, cropRightPx, frozen, reloadNonce, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     // A warm-preload slot finished loading while still warm (not yet committed).
@@ -473,7 +500,43 @@ function StreetViewWebView({
   );
 }
 
-export default forwardRef<StreetViewHandle, StreetViewWebViewProps>(StreetViewWebView);
+const IframeStreetView = forwardRef<StreetViewHandle, StreetViewWebViewProps>(StreetViewWebView);
+
+/**
+ * Web-parity gate (components/home.js:3767): `nm` → the in-house WebGL
+ * renderer (CustomStreetViewWebView — real pan/zoom, movement structurally
+ * impossible, covers NMPZ too since NMPZ sets nm), else the Google embed.
+ * Living here means every call site (GameSurface, [id].tsx live + reveal,
+ * MapDetailView) inherits the gate without changes.
+ *
+ * Fallback: if the WebGL path can't serve a round (pano resolution failed,
+ * page never handshook), flip THAT ROUND to the frozen embed — the round
+ * plays, and the next round tries WebGL again (keyed by coords, so one dead
+ * spot doesn't condemn the rest of the game).
+ */
+function StreetViewSurface(props: StreetViewWebViewProps, ref: React.Ref<StreetViewHandle>) {
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const roundKey = `${props.lat},${props.long}`;
+  if (props.nm && failedKey !== roundKey) {
+    return (
+      <CustomStreetViewWebView
+        ref={ref}
+        lat={props.lat}
+        long={props.long}
+        heading={props.heading}
+        npz={props.npz}
+        showAnswer={props.showAnswer}
+        onLoad={props.onLoad}
+        showInitialLoader={props.showInitialLoader}
+        preload={props.preload}
+        onUnavailable={() => setFailedKey(roundKey)}
+      />
+    );
+  }
+  return <IframeStreetView {...props} ref={ref} />;
+}
+
+export default forwardRef<StreetViewHandle, StreetViewWebViewProps>(StreetViewSurface);
 
 const styles = StyleSheet.create({
   container: {

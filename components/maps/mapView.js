@@ -382,13 +382,28 @@ export default function MapView({
                 {/* Game Options */}
                 {showOptions && (
                     <div className="map-options">
-                        <div>
-                            <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
-                            <input id="nmpz"
-                            name="nmpz"
-                            type="checkbox" checked={gameOptions.nm && gameOptions.npz} onChange={(e) => {
-                                setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
-                            }} />
+                        {/* Street view mode dropdown — Moving / No Move / NMPZ
+                            (nm/npz: neither / nm only / both). NMPZ explains
+                            its acronym on hover. */}
+                        <div className="map-option-mode">
+                            <label htmlFor="svModeSelect">{text('mode')}</label>
+                            <select
+                                id="svModeSelect"
+                                className="sv-mode-select"
+                                // title on the SELECT: option-level titles don't
+                                // render in most browsers, so the NMPZ acronym
+                                // explains itself on the closed control instead
+                                title={gameOptions.nm && gameOptions.npz ? text('nmpz') : undefined}
+                                value={gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving'}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' });
+                                }}
+                            >
+                                <option value="moving">{text('moving')}</option>
+                                <option value="noMove">{text('noMove')}</option>
+                                <option value="nmpz" title={text('nmpz')}>NMPZ</option>
+                            </select>
                         </div>
 
                         {showTimerOption && (

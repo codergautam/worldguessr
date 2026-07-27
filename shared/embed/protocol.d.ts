@@ -5,6 +5,8 @@ export const OUTBOUND: {
   KM: "km";
   OPEN_MAPS: "openMaps";
   REVEAL_READY: "revealReady";
+  SV_LOADED: "svLoaded";
+  SV_PREFETCHED: "svPrefetched";
 };
 export const APPLY_FN: "__embedApply";
 
@@ -59,4 +61,22 @@ export type OutboundMessage =
   | { type: "guess"; lat: number; lng: number }
   | { type: "km"; km: string }
   | { type: "openMaps"; lat: number; lng: number; panoId?: string }
-  | { type: "revealReady" };
+  | { type: "revealReady" }
+  | { type: "svLoaded" }
+  | { type: "svPrefetched"; panoId: string };
+
+/** Serializable props for the Street View embed (embed/svEntry.jsx →
+ *  components/streetview/customStreetView.js). The host withholds coords until
+ *  panoId is natively resolved — the in-page resolver is shimmed out. */
+export interface EmbedSvProps {
+  lat?: number;
+  long?: number;
+  heading?: number | null;
+  /** Freshly resolved pano id — REQUIRED alongside coords (never map-file ids). */
+  panoId?: string | null;
+  npz?: boolean;
+  showAnswer?: boolean;
+  refreshKey?: number;
+  /** NEXT round's fresh pano id — the page prefetches its base tiles. */
+  prefetchPano?: string | null;
+}

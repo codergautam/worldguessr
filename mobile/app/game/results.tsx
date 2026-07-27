@@ -34,6 +34,7 @@ import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/servic
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
+import GameChat from '../../src/components/multiplayer/GameChat';
 import TeamScoreline from '../../src/components/multiplayer/TeamScoreline';
 import BackButton from '../../src/components/ui/BackButton';
 import ReviewPromptModal from '../../src/components/ReviewPromptModal';
@@ -311,6 +312,7 @@ export default function GameResultsScreen() {
     public: publicParam,
     map: mapParam,
     mapName: mapNameParam,
+    svMode: svModeParam,
   } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
@@ -326,6 +328,8 @@ export default function GameResultsScreen() {
     public?: string;
     map?: string;
     mapName?: string;
+    /** Street View mode of the finished game — rides Play Again like map/mapName. */
+    svMode?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
@@ -372,6 +376,11 @@ export default function GameResultsScreen() {
   const playAgain2v2 = useMultiplayerStore((s) => s.gameData?.playAgain2v2);
   const mpMyId = useMultiplayerStore((s) => s.gameData?.myId);
   const mpDisableEmotes = useMultiplayerStore((s) => !!s.gameData?.disableEmotes);
+  const mpDisableChat = useMultiplayerStore((s) => !!s.gameData?.disableChat);
+  // Chat audience mirrors the server gate: private games or matchmade 2v2.
+  const mpChatEligible = useMultiplayerStore(
+    (s) => !!s.gameData && (!s.gameData.public || !!s.gameData.team2v2),
+  );
   const pa2v2Needed = playAgain2v2?.needed ?? 2;
   const pa2v2Acked = playAgain2v2?.ackedIds?.length ?? 0;
   const selfAcked2v2 = !!(mpMyId && playAgain2v2?.ackedIds?.includes(mpMyId));
@@ -685,6 +694,7 @@ export default function GameResultsScreen() {
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
+  const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
 
   const isLandscape = width > height;
 
@@ -694,6 +704,7 @@ export default function GameResultsScreen() {
   // singleplayer or history replays (no live game / WS room to send into). `sendEmote`
   // is WS-only (no in-game guard) and useWebSocket keeps the socket alive on /game/results.
   const showEmotes = isLiveMultiplayer && !isHistoryView && emotesEnabled && !mpDisableEmotes;
+  const showChat = isLiveMultiplayer && !isHistoryView && chatEnabled && !mpDisableChat && mpChatEligible;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
     // Prefer real coordinates over panoId: a stale/invalid panoId opens the wrong
@@ -978,6 +989,9 @@ export default function GameResultsScreen() {
         id: 'singleplayer',
         map: replayMap,
         ...(replayMap !== 'all' && mapNameParam ? { mapName: mapNameParam } : {}),
+        // Same carry-through as map/mapName: Play Again keeps the SV mode the
+        // player just finished with (No Move / NMPZ), not a reset to Moving.
+        ...(svModeParam ? { svMode: svModeParam } : {}),
         rounds: isCountryGuesserResult ? '10' : '5',
         time: '60',
         mode: mode || 'world',
@@ -2310,6 +2324,12 @@ export default function GameResultsScreen() {
           hidden={detailsExpanded}
           hideName={isDuelGame && !is2v2Game}
         />
+      )}
+
+      {/* Chat FAB — bottom-right counterpart, same lift/hide contract. The
+          store owns the log, so it carries over from the game screen. */}
+      {showChat && (
+        <GameChat bottomOffset={collapsedHeight} hidden={detailsExpanded} stackUp={showEmotes} />
       )}
 
       {/* Bottom panel — matches web .game-summary-sidebar on mobile */}

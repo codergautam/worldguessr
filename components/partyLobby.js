@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import NextImage from 'next/image';
 import { useTranslation } from '@/components/useTranslations';
-import { FaLink, FaUserPlus, FaBolt, FaPlay, FaCrown, FaPen, FaEye, FaEyeSlash, FaXmark, FaShuffle, FaChevronRight, FaChevronLeft } from 'react-icons/fa6';
+import { FaLink, FaUserPlus, FaBolt, FaPlay, FaCrown, FaPen, FaEye, FaEyeSlash, FaXmark, FaShuffle, FaChevronRight, FaChevronLeft, FaLock, FaLockOpen } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import { getLeague } from './utils/leagues';
@@ -31,6 +31,10 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
   // doesn't blank out mid fade-out animation.
   const [kickTarget, setKickTarget] = useState(null);
   const [kickModalOpen, setKickModalOpen] = useState(false);
+
+  // Host-transfer confirmation modal, same lifecycle discipline as kick.
+  const [transferTarget, setTransferTarget] = useState(null);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   const gameData = multiplayerState?.gameData;
   const pending = !gameData?.code;
@@ -157,6 +161,16 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
           >{p.team === 'a' ? <FaChevronRight /> : <FaChevronLeft />}</button>
         )}
         {host && !pending && !is2v2 && p.id !== myId && (
+          <>
+          <button
+            className="party-lobby__kick party-lobby__makehost"
+            aria-label={text("makeHost")}
+            title={text("makeHost")}
+            onClick={() => {
+              setTransferTarget({ id: p.id, username: p.username });
+              setTransferModalOpen(true);
+            }}
+          ><FaCrown /></button>
           <button
             className="party-lobby__kick"
             aria-label={text("kickPlayer")}
@@ -166,6 +180,7 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
               setKickModalOpen(true);
             }}
           ><FaXmark /></button>
+          </>
         )}
       </span>
     </div>
@@ -231,6 +246,18 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
               disabled={pending}
               onClick={() => setCodeHidden((v) => !v)}
             >{codeHidden ? <FaEyeSlash /> : <FaEye />}</button>
+            {/* Lock rides the eye's small chrome, up here by the label (user
+                ruling; mobile parity — its lock sits by the eye too). Sends
+                only the locked field. */}
+            {host && !is2v2 && (
+              <button
+                className={`party-lobby__eye party-lobby__lock-btn ${gameData?.locked ? 'locked' : ''}`}
+                aria-label={text("lockParty")}
+                title={text("lockParty")}
+                disabled={pending}
+                onClick={() => handleAction("setPartySecurity", { locked: !gameData?.locked })}
+              >{gameData?.locked ? <FaLock /> : <FaLockOpen />}</button>
+            )}
           </div>
           <div className="party-lobby__code-row">
             <span className="party-lobby__code">{pending || codeHidden ? "••••••" : gameData.code}</span>
@@ -406,6 +433,23 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
         }
       >
         <p style={{ margin: 0 }}>{text("kickConfirm", { name: kickTarget?.username ?? "" })}</p>
+      </Modal>
+
+      <Modal
+        isOpen={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        title={text("makeHost")}
+        actions={
+          <>
+            <button onClick={() => setTransferModalOpen(false)}>{text("cancel")}</button>
+            <button onClick={() => {
+              handleAction("transferHost", transferTarget?.id);
+              setTransferModalOpen(false);
+            }}>{text("makeHost")}</button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>{text("makeHostConfirm", { name: transferTarget?.username ?? "" })}</p>
       </Modal>
     </>
   );

@@ -77,6 +77,8 @@ export default function SettingsScreen() {
   const setMapType = useSettingsStore((s) => s.setMapType);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
   const setEmotesEnabled = useSettingsStore((s) => s.setMultiplayerEmotesEnabled);
+  const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
+  const setChatEnabled = useSettingsStore((s) => s.setMultiplayerChatEnabled);
   const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
 
   // Recomputed each render so labels follow a live language switch (the screen
@@ -281,6 +283,30 @@ export default function SettingsScreen() {
                 onValueChange={(v) => {
                   haptics.selection();
                   setEmotesEnabled(v);
+                }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor="rgba(255,255,255,0.18)"
+              />
+            </View>
+            <View style={[styles.row, styles.rowDivider]}>
+              <View style={styles.rowTextWrap}>
+                <Text style={styles.rowLabel}>
+                  {t('multiplayerChat', undefined, 'In-game chat')}
+                </Text>
+                <Text style={styles.rowSub}>
+                  {t(
+                    'chatSettingDesc',
+                    undefined,
+                    'Show text chat in parties and team games.',
+                  )}
+                </Text>
+              </View>
+              <Switch
+                value={chatEnabled}
+                onValueChange={(v) => {
+                  haptics.selection();
+                  setChatEnabled(v);
                 }}
                 trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
                 thumbColor={colors.white}

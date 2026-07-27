@@ -18,6 +18,8 @@ node_modules/
 # windows: sass output accidentally redirected to the NUL device creates real files
 NUL
 nul.map
+# ...and %TEMP% is cmd.exe syntax PowerShell never expands, so it lands as a real dir
+%TEMP%/
 
 # production
 /build

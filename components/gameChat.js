@@ -1,0 +1,241 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import CountryFlag from '@/components/utils/countryFlag';
+import { useTranslation } from '@/components/useTranslations';
+
+const MAX_MESSAGES = 100;
+const MAX_LEN = 200;
+// 1100, not 1000: the server enforces its own independent 1000ms window and
+// the draft clears optimistically on send — with zero margin, network jitter
+// could compress inter-arrival below 1000ms server-side and silently drop a
+// message the client believed it sent.
+const SEND_COOLDOWN = 1100;
+const TYPING_PING_MS = 1500;
+const TYPING_TTL = 3000;
+
+// Text chat for party lobbies/games and matchmade 2v2 (teammate-only there —
+// the server scopes the broadcast; this component never decides audience).
+// One instance lives at home.js top level and stays mounted, so the log,
+// unread count and mute set survive lobby -> game -> play-again. All state is
+// component-local: no home.js thread-through, no module-level shared throttles
+// (both were old-chatBox mistakes).
+function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCapable, defaultTeamChannel, myTeam, gameState, stackUp }) {
+  const { t: text } = useTranslation('common');
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  // Channel picker (team contexts only): true = teammates, false = everyone.
+  const [teamChannel, setTeamChannel] = useState(false);
+  // Reset to the game type's default whenever the type changes (party toggled
+  // to team mode, staging lobby → 2v2 match): 2v2 defaults team, else all.
+  useEffect(() => {
+    setTeamChannel(!!(teamCapable && defaultTeamChannel));
+  }, [teamCapable, defaultTeamChannel]);
+  const [typing, setTyping] = useState({});
+  const [unread, setUnread] = useState(0);
+  // Session-scoped: deliberately NOT cleared when live drops, so muting a
+  // player holds across games in one sitting.
+  const [mutedIds, setMutedIds] = useState(() => new Set());
+
+  const myIdRef = useRef(myId);
+  useEffect(() => { myIdRef.current = myId; }, [myId]);
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+  const mutedRef = useRef(mutedIds);
+  useEffect(() => { mutedRef.current = mutedIds; }, [mutedIds]);
+
+  // Per-instance throttles (never module-level).
+  const lastSendRef = useRef(0);
+  const lastTypingPingRef = useRef(0);
+  const nextKeyRef = useRef(1);
+  const listRef = useRef(null);
+  const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    if (!enabled || !live || !subscribeMessages) return;
+    const unsubscribe = subscribeMessages((data) => {
+      if (data.type === 'chat') {
+        if (typeof data.message !== 'string' || !data.id) return;
+        if (mutedRef.current.has(data.id)) return;
+        const isSelf = data.id === myIdRef.current;
+        const key = nextKeyRef.current++;
+        setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
+          key,
+          senderId: data.id,
+          name: data.name || '',
+          countryCode: data.countryCode || null,
+          team: data.team || null,
+          teamChat: !!data.teamChat,
+          text: data.message,
+          isSelf,
+        }]);
+        // A message from X supersedes X's typing state immediately.
+        setTyping(prev => {
+          if (!prev[data.id]) return prev;
+          const next = { ...prev };
+          delete next[data.id];
+          return next;
+        });
+        if (!isSelf && !openRef.current) setUnread(u => u + 1);
+      } else if (data.type === 'chatTyping') {
+        if (!data.id || data.id === myIdRef.current) return;
+        if (mutedRef.current.has(data.id)) return;
+        setTyping(prev => ({ ...prev, [data.id]: { name: data.name || '', until: Date.now() + TYPING_TTL } }));
+      }
+    });
+    return unsubscribe;
+  }, [enabled, live, subscribeMessages]);
+
+  // Leaving the chat surface wipes the ephemeral log. Staying live across
+  // the 2v2 staging -> match transition intentionally keeps it (same duo).
+  useEffect(() => {
+    if (!live) {
+      setMessages([]);
+      setTyping({});
+      setUnread(0);
+      setOpen(false);
+      setDraft('');
+    }
+  }, [live]);
+
+  // NO auto-open (user ruling July 26, reverses the earlier discoverability
+  // auto-open): chat always starts as the FAB — the unread badge is the
+  // discoverability signal.
+
+  // TTL prune for typing entries; interval only runs while someone is typing.
+  const typingCount = Object.keys(typing).length;
+  useEffect(() => {
+    if (typingCount === 0) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setTyping(prev => {
+        const alive = Object.entries(prev).filter(([, v]) => v.until > now);
+        if (alive.length === Object.keys(prev).length) return prev;
+        return Object.fromEntries(alive);
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [typingCount]);
+
+  useEffect(() => {
+    if (open) setUnread(0);
+  }, [open, messages.length]);
+
+  // Pin the list to the newest message.
+  useEffect(() => {
+    if (open && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [open, messages.length]);
+
+  const send = useCallback(() => {
+    if (!canSend || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const message = draft.trim();
+    if (message.length < 1 || message.length > MAX_LEN) return;
+    const now = Date.now();
+    if (now - lastSendRef.current < SEND_COOLDOWN) return; // keep the draft, just drop the attempt
+    lastSendRef.current = now;
+    ws.send(JSON.stringify({ type: 'chat', message, teamOnly: !!(teamCapable && teamChannel) }));
+    setDraft('');
+  }, [canSend, ws, draft, teamCapable, teamChannel]);
+
+  const onDraftChange = useCallback((e) => {
+    const value = e.target.value;
+    setDraft(value);
+    if (!canSend || !value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const now = Date.now();
+    if (now - lastTypingPingRef.current < TYPING_PING_MS) return;
+    lastTypingPingRef.current = now;
+    ws.send(JSON.stringify({ type: 'chatTyping', teamOnly: !!(teamCapable && teamChannel) }));
+  }, [canSend, ws, teamCapable, teamChannel]);
+
+  if (!enabled || !live) return null;
+
+  const visible = messages.filter(m => !mutedIds.has(m.senderId));
+  const typers = Object.values(typing).filter(v => v.until > Date.now());
+  const typingLine = typers.length === 0 ? '' :
+    typers.length === 1 ? text('isTyping', { name: typers[0].name }) :
+      text('areTyping', { count: typers.length });
+
+  return (
+    <div className={`gameChatParent ${gameState === 'end' ? 'rightSide' : ''} ${stackUp ? 'stacked' : ''}`}>
+      {open ? (
+        <div className="chatPanel">
+          <div className="chatPanelHeader">
+            <span className="chatPanelTitle">{teamCapable && teamChannel ? text('teamChat') : text('chat')}</span>
+            {teamCapable && (
+              <div className="chatChannelSeg" role="group">
+                <button type="button"
+                  className={`chatChannelBtn ${teamChannel ? 'active' : ''}`}
+                  onClick={() => setTeamChannel(true)}
+                >{text('chatChannelTeam')}</button>
+                <button type="button"
+                  className={`chatChannelBtn ${!teamChannel ? 'active' : ''}`}
+                  onClick={() => setTeamChannel(false)}
+                >{text('chatChannelAll')}</button>
+              </div>
+            )}
+            {mutedIds.size > 0 && (
+              <button className="chatMutedChip" type="button" title={text('unmuteAll')}
+                onClick={() => setMutedIds(new Set())}>
+                {text('chatMutedCount', { count: mutedIds.size })}
+              </button>
+            )}
+            <button className="chatCloseBtn" type="button" aria-label={text('close')} onClick={() => setOpen(false)}>✕</button>
+          </div>
+          <div className="chatMessages" ref={listRef}>
+            {visible.map(m => (
+              // Team modes color by allegiance (same palette as emotes): blue
+              // = my team incl. me, green = opponents. Outside team modes the
+              // classic look (green self, dark others) applies.
+              <div key={m.key} className={`chatMsg ${m.isSelf ? 'self' : ''} ${m.team && myTeam ? (m.team === myTeam ? 'teamMine' : 'teamOpp') : ''}`}>
+                <span className="chatMsgName">
+                  {m.name}
+                  {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
+                  {m.teamChat && <span className="chatMsgTeamTag">{text('chatChannelTeam')}</span>}
+                </span>
+                <span className="chatMsgText">{m.text}</span>
+                {!m.isSelf && (
+                  <button className="chatMuteBtn" type="button" title={text('mutePlayer')}
+                    onClick={() => setMutedIds(prev => new Set(prev).add(m.senderId))}>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                      <path d="M11 5 L6 9 H3 v6 h3 l5 4 z" />
+                      <line x1="16" y1="9" x2="22" y2="15" />
+                      <line x1="22" y1="9" x2="16" y2="15" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="chatTypingLine">{typingLine}</div>
+          <div className="chatInputRow">
+            <input
+              className="chatInput"
+              type="text"
+              value={draft}
+              maxLength={MAX_LEN}
+              disabled={!canSend}
+              placeholder={canSend ? text('chatPlaceholder') : text('loginToChat')}
+              onChange={onDraftChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') send();
+                if (e.key === 'Escape') setOpen(false);
+              }}
+            />
+            <button className="chatSendBtn" type="button" disabled={!canSend || !draft.trim()} onClick={send} aria-label={text('chat')}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M2 21 L23 12 L2 3 L2 10 L17 12 L2 14 Z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="chatToggleBtn" type="button" aria-label={text('chat')} onClick={() => setOpen(true)}>
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          {unread > 0 && <span className="chatUnreadBadge">{unread > 9 ? '9+' : unread}</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default React.memo(GameChat);

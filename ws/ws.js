@@ -22,6 +22,7 @@ import {
   BOTS_ENABLED, BOTS_INSTANT,
   createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
 } from './botUtils.js';
+import { Filter } from 'bad-words';
 config();
 
 console.log("[INFO] Starting ws.js")
@@ -84,6 +85,17 @@ function pick5WorldArbMix(worldPool) {
   return locs;
 }
 
+// Profanity filter for party/2v2 text chat (restored with chat; wordlist
+// shared with the CrazyGames build requirements).
+// split(/\r?\n/) + trim, NOT split('\n'): the wordlist file is CRLF, and a
+// bare newline split left a trailing \r on all 3388 entries — none could
+// ever match, so the whole custom list was silently dead.
+const chatFilter = new Filter();
+chatFilter.removeWords('damn');
+fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split(/\r?\n/).forEach((word) => {
+  const w = word.trim();
+  if (w) chatFilter.addWords(w);
+});
 
 // init state vars
 const dev = process.env.NODE_ENV !== 'production'
@@ -530,7 +542,7 @@ setInterval(() => {
   ipDuelRequestsLast10.clear();
 }, 10000);
 
-function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes) {
+function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat) {
           // maxDist no longer required-> can be pulled from community map
           if (!location) return;
           if (!rounds || !timePerRound) {
@@ -563,6 +575,7 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           // settings save silently un-mute the game. Fresh games are covered
           // by the Game constructor (disableEmotes = false).
           if (disableEmotes !== undefined) game.disableEmotes = !!disableEmotes;
+          if (disableChat !== undefined) game.disableChat = !!disableChat;
           game.location = location;
           // clear current locations
           game.locations = [];
@@ -957,6 +970,86 @@ app.ws('/wg', {
         });
       }
 
+      // Text chat: private games (party lobbies/games incl. teamGame) are
+      // party-wide by default; team contexts (matchmade 2v2 + intra-party
+      // team games) let the SENDER pick Team vs All via json.teamOnly (2v2
+      // defaults to teammate-only for old bundles that send no flag). Public
+      // FFA and 1v1 duels have no chat at all. Senders must be named
+      // accounts (guests read-only).
+      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (!game.players[player.id]) return;
+        if (game.public && !game.teamDuel) return;
+        // Host disabled chat — drop server-side too (clients hide the panel,
+        // but raw messages and stale clients must not bypass it).
+        if (game.disableChat) return;
+        // Guest-hosted parties are emotes-only for the whole room (roster
+        // entries carry accountId, no socket lookup needed).
+        const roomHost = Object.values(game.players).find((p) => p.host);
+        if (roomHost && !roomHost.accountId) return;
+        if (!player.accountId || !player.username || player.banned) return;
+        let message = json.message;
+        if (typeof message !== 'string') return;
+        message = message.trim();
+        if (message.length < 1 || message.length > 200) return;
+        if (Date.now() - (player.lastMessage || 0) < 1000) return;
+        player.lastMessage = Date.now();
+        // bad-words throws on input with no word characters (emoji-only);
+        // those can't contain wordlist entries, so keep the original.
+        try { message = chatFilter.clean(message); } catch (e) { }
+        // Channel: team contexts (matchmade 2v2 AND intra-party team games)
+        // let the SENDER pick team vs everyone via json.teamOnly. Absent =
+        // the legacy audience for the game type, so old bundles keep their
+        // contract: 2v2 stays teammate-only, team parties stay party-wide.
+        const teamCapable = !!(game.teamDuel || game.teamGame);
+        const teamOnly = teamCapable
+          ? (typeof json.teamOnly === 'boolean' ? json.teamOnly : !!game.teamDuel)
+          : false;
+        const payload = {
+          type: 'chat',
+          id: player.id,
+          name: player.username,
+          countryCode: player.countryCode || null,
+          team: game.players[player.id]?.team ?? null,
+          teamChat: teamOnly, // clients badge team-channel messages
+          message,
+        };
+        if (teamOnly) {
+          const team = game.players[player.id]?.team;
+          if (team !== 'a' && team !== 'b') return;
+          game.sendTeam(team, payload);
+        } else {
+          game.sendAllPlayers(payload);
+        }
+      }
+
+      // Typing indicator: same audience and gates as chat, throttled harder.
+      // No stop-typing message — clients prune on a ~3s TTL.
+      if (json.type === 'chatTyping' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (!game.players[player.id]) return;
+        if (game.public && !game.teamDuel) return;
+        if (game.disableChat) return;
+        const roomHost = Object.values(game.players).find((p) => p.host);
+        if (roomHost && !roomHost.accountId) return;
+        if (!player.accountId || !player.username || player.banned) return;
+        if (Date.now() - (player.lastTypingPing || 0) < 1500) return;
+        player.lastTypingPing = Date.now();
+        const payload = { type: 'chatTyping', id: player.id, name: player.username };
+        // Typing follows the same channel rules as chat.
+        const teamCapable = !!(game.teamDuel || game.teamGame);
+        const teamOnly = teamCapable
+          ? (typeof json.teamOnly === 'boolean' ? json.teamOnly : !!game.teamDuel)
+          : false;
+        if (teamOnly) {
+          const team = game.players[player.id]?.team;
+          if (team !== 'a' && team !== 'b') return;
+          game.sendTeam(team, payload);
+        } else {
+          game.sendAllPlayers(payload);
+        }
+      }
+
       // Host force-ends a stalled round (private games only). The use case is
       // timer-disabled parties where idle players hold the round open forever;
       // the collapse reuses the "everyone placed" path — pull nextEvtTime to
@@ -1134,6 +1227,13 @@ app.ws('/wg', {
             toastType: 'error'
           });
         }, (game) => {
+          // Locked parties reject friend invites too — the host locked the
+          // door; unlock to admit. (Guest gate is moot here: acceptInvite
+          // already requires accountId.) Sentence-as-key for old bundles.
+          if (game.locked) {
+            player.send({ type: 'toast', key: 'This party is locked', toastType: 'error' });
+            return;
+          }
           // Rollout gate: a friend on a pre-team client accepted an invite into
           // a team lobby it can't render. Reject BEFORE the leave-queue /
           // leave-game side effects. Sentence-as-key: old clients show unknown
@@ -1299,6 +1399,16 @@ app.ws('/wg', {
         // game options / location generation entirely.
         const is2v2Lobby = json.mode === '2v2';
         const game = new Game(gameId, { is2v2Lobby });
+        // Comms are EXCLUSIVE everywhere chat exists (user ruling: never
+        // both). Fresh parties default to chat (host can flip to emotes);
+        // 2v2 staging has no host options and is chat-only, full stop.
+        // GUEST-created parties are emotes-only (user ruling): a guest can
+        // neither send chat nor moderate a chat room, so it never opens.
+        if (!is2v2Lobby && !player.accountId) {
+          game.disableChat = true;
+        } else {
+          game.disableEmotes = true;
+        }
         games.set(gameId, game);
         game.addPlayer(player, true);
         if (!is2v2Lobby) {
@@ -1335,8 +1445,8 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         // make sure player is host
         if(game.players[player.id].host) {
-          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes } = json;
-          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes);
+          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes, disableChat } = json;
+          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes, disableChat);
 
         }
       }
@@ -1377,6 +1487,49 @@ app.ws('/wg', {
           }
         }
         game.applyTeamConfig(json);
+      }
+
+      // ---- Party security ----
+      // Separate from setPrivateGameOptions for the same reason as
+      // setTeamConfig: that path clears and regenerates locations on every
+      // call, which a lock/guest toggle must never do.
+      if (json.type === 'setPartySecurity' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (game.public || game.is2v2Lobby) return;
+        if (!game.players[player.id]?.host) return;
+        const wasLocked = !!game.locked;
+        const wasAllowGuests = game.allowGuests !== false;
+        if (typeof json.locked === 'boolean') game.locked = json.locked;
+        if (typeof json.allowGuests === 'boolean') game.allowGuests = json.allowGuests;
+        // Everyone sees the door state change, not just the host.
+        if (!!game.locked !== wasLocked) {
+          game.sendAllPlayers({
+            type: 'toast',
+            key: game.locked ? 'partyLocked' : 'partyUnlocked',
+            toastType: 'info'
+          });
+        }
+        // Guests-off clears CURRENT guests too, not just future joins.
+        // Lobby state only — a mid-game removePlayer trips forfeit paths.
+        // kickPlayer's guards apply: never the host, never a queued member
+        // (must not strand a searching client), and socketless roster entries
+        // are left for the disconnect purge (their accountId is unknowable).
+        if (wasAllowGuests && game.allowGuests === false && game.state === 'waiting') {
+          for (const pid of Object.keys(game.players)) {
+            // A removePlayer broadcast can self-prune ghost roster entries
+            // mid-sweep (sendAllPlayers drops entries whose Player is gone) —
+            // re-check the snapshot pid still exists before touching it.
+            if (!game.players[pid]) continue;
+            if (pid === player.id || game.players[pid].host) continue;
+            const member = players.get(pid);
+            if (!member || member.accountId) continue;
+            if (member.inQueue || playersInQueue.has(pid)) continue;
+            // Sentence-as-key: guests can be on any client vintage.
+            member.send({ type: 'toast', key: 'Log in to join this party', toastType: 'error' });
+            game.removePlayer(member);
+          }
+        }
+        game.sendStateUpdate();
       }
 
       if (json.type === 'shuffleTeams' && player.gameId && games.has(player.gameId)) {
@@ -1444,6 +1597,17 @@ app.ws('/wg', {
           if (game.id === current?.id) {
             // Entering the code of the lobby you're already in.
             player.send({ type: 'gameJoinError', error: 'Invalid game code' });
+            return;
+          }
+          // Party security gates. Plain sentences: gameJoinError strings are
+          // displayed verbatim on every client vintage. Rejoins are unaffected
+          // (they ride the rejoinCode path, not this one).
+          if (game.locked) {
+            player.send({ type: 'gameJoinError', error: 'This party is locked' });
+            return;
+          }
+          if (game.allowGuests === false && !player.accountId) {
+            player.send({ type: 'gameJoinError', error: 'Log in to join this party' });
             return;
           }
           // Rollout gate: clients that didn't announce teamSupport in verify
@@ -1521,6 +1685,48 @@ app.ws('/wg', {
           game.sendAllPlayers({ type: 'player', id: targetId, action: 'remove' });
         }
         player.send({ type: 'toast', key: 'playerKicked', name: targetName, toastType: 'success' });
+      }
+
+      // Host hands the crown to another member of a private waiting lobby.
+      // After this, the host-leave disband rule follows the NEW host — that's
+      // the point: the creator can hand off and leave without nuking the party.
+      if (json.type === 'transferHost' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // Same surface as kickPlayer: real parties only, lobby state only.
+        if (game.public || game.is2v2Lobby || game.state !== 'waiting') return;
+        if (!game.players[player.id]?.host) return;
+        const targetId = json.playerId;
+        if (typeof targetId !== 'string' || targetId === player.id || !game.players[targetId]) return;
+        const target = players.get(targetId);
+        // Never crown a ghost: a roster entry whose socket is gone (purge
+        // pending) could neither run the lobby nor disband it by leaving.
+        if (!target || target.disconnected) return;
+        // No transfers while the lobby is queue-bound (find2v2Match keeps
+        // members in 'waiting' with their gameId while searching): the
+        // per-member full payload below is the exact snap-back-to-lobby
+        // signal the 2v2 code uses, and sending it to searching clients
+        // desyncs them (mirrors kickPlayer's mid-queue guard).
+        if (Object.keys(game.players).some((pid) => players.get(pid)?.inQueue || playersInQueue.has(pid))) return;
+        game.players[player.id].host = false;
+        game.players[targetId].host = true;
+        // A guest heir can't send chat or moderate it — the room flips to
+        // emotes-only the moment the crown lands (user ruling). One-way: a
+        // later transfer back to an account holder keeps emotes until that
+        // host re-enables chat in settings.
+        if (!target.accountId && !game.disableChat) {
+          game.disableChat = true;
+          game.disableEmotes = false;
+        }
+        // Per-recipient full payloads, not a bare broadcast: each client's own
+        // `host` flag rides getInitialSendState only, and every host-gated
+        // surface (settings, kick, start, security) must flip immediately.
+        for (const pid of Object.keys(game.players)) {
+          const sock = players.get(pid);
+          if (sock && !sock.disconnected) sock.send(game.getInitialSendState(sock));
+        }
+        // Sentence-as-key: the new host may be on an old bundle.
+        target.send({ type: 'toast', key: 'You are now the party host', toastType: 'success' });
+        player.send({ type: 'toast', key: 'hostTransferred', name: game.players[targetId].username, toastType: 'success' });
       }
 
       // ---- 2v2 team mode ----
@@ -2367,6 +2573,9 @@ try {
     const gameId = uuidv4();
     // public=true (loop manages lifecycle like a public duel), teamDuel=true.
     const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+    // Comms XOR (user ruling): 2v2 has chat, so emotes are off — matchmade
+    // games have no host to choose. FFA/1v1 keep emotes (no chat there).
+    game.disableEmotes = true;
     // Matchmade 2v2s play a world + arbitrary-map mix (same override
     // pattern as the high-elo 1v1 path — constructor generation of the
     // "all" pool is synchronous, so replacing here is safe).

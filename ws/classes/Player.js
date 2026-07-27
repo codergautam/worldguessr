@@ -19,6 +19,7 @@ export default class Player {
     this.gameId = null;
     this.inQueue = false;
     this.lastMessage = 0;
+    this.lastTypingPing = 0;
     this.verified = false;
     this.supporter = false;
     this.screen = "home";

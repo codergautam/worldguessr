@@ -184,8 +184,12 @@
   border: none !important;
 }
 
-/* Mobile responsive */
-@media (max-width: 1024px) {
+/* Mobile responsive — gated to the SAME condition that stacks the summary
+   vertically (globals.scss .game-summary-container column flip). A bare
+   max-width:1024 also caught NON-stacked landscape widths (e.g. 1000x700):
+   desktop side-by-side layout but mobile 15px padding, so the victory title
+   smashed into the navbar. Compact only when actually stacked. */
+@media (max-width: 799px), (max-width: 1024px) and (orientation: portrait) {
   /* Make duel header compact on mobile like regular games */
   .duel-header {
     padding: 15px 15px 10px !important;
@@ -231,6 +235,17 @@
 
   .elo-change {
     font-size: 1.2rem;
+  }
+}
+
+/* Non-stacked 800-1024px landscape band: desktop side-by-side layout, so it
+   needs the same 60px navbar clearance the >1024 tier gets (globals.scss
+   .summary-header rule stops at 1025px, and the component's inline
+   paddingTop picks 15px below 1024 — both undershoot this band).
+   .summary-header covers the duel variant too (it carries both classes). */
+@media (min-width: 800px) and (max-width: 1024px) and (orientation: landscape) {
+  .summary-header {
+    padding-top: 60px !important;
   }
 }
 

@@ -285,6 +285,48 @@
   accent-color: var(--map-primary);
 }
 
+/* Street view mode dropdown (Moving / No Move / NMPZ) — native member of
+   the map-options row: dark field, map-primary border, real size. The
+   settings-page .g2_input it replaced was a small white pill that read as
+   a foreign object on this dark surface. */
+.map-option-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-size: 1rem;
+}
+
+.sv-mode-select {
+  font-family: lexend, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1.4px solid var(--map-primary);
+  border-radius: 10px;
+  padding: 8px 36px 8px 14px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  /* inline chevron: the native arrow is invisible on a dark field */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='white' stroke-width='2' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.sv-mode-select:hover,
+.sv-mode-select:focus {
+  border-color: white;
+}
+
+/* The popup list renders on the OS sheet — keep it legible on both themes */
+.sv-mode-select option {
+  background: #14411a;
+  color: white;
+}
+
 .map-option-timer {
   display: flex;
   align-items: center;
@@ -295,10 +337,31 @@
   justify-content: center;
 }
 
+/* Timer checkbox — same family as .sv-mode-select: dark field, map-primary
+   border, real size. The 18px accent-color native box read as a stray dot
+   next to the styled dropdown. */
 .map-option-timer input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--map-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 1.4px solid var(--map-primary);
+  border-radius: 7px;
+  background-color: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.map-option-timer input[type="checkbox"]:hover {
+  border-color: white;
+}
+
+.map-option-timer input[type="checkbox"]:checked {
+  background-color: var(--map-primary);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='13' height='11' viewBox='0 0 13 11'><path d='M1.5 5.5l3.5 3.5L11.5 1.5' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .timer-slider {
