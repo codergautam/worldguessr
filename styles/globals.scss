@@ -5100,7 +5100,10 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 }
 
 .gm-compass {
-    transform: translateY(50%);
+    transform: scale(1.5) !important;
+    filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.7)) !important;
+    z-index: 1000 !important;
+    transition: transform 0.2s ease-in-out;
 }
 
 .streetview.nmpz .gm-compass {
