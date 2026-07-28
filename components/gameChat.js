@@ -124,6 +124,23 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
     if (open && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [open, messages.length]);
 
+  // iOS Safari doesn't shrink the page for the software keyboard — it pans
+  // the whole page up so the focused input stays visible (desired: that's
+  // what keeps the chat box on-screen while typing). But on dismiss WebKit
+  // often leaves that pan behind, so bottom-anchored HUD (the guess button
+  // row) sits shifted up until the next tap forces a re-clamp. Undo the
+  // leftover pan ourselves once the keyboard is gone — after it, never
+  // during. Delayed past the ~250ms dismiss animation: resetting mid-close
+  // gets overridden by WebKit's own final viewport adjustment.
+  const resetKeyboardPan = useCallback(() => {
+    setTimeout(() => window.scrollTo(0, 0), 300);
+  }, []);
+  // Covers closing the panel (✕ / Escape / live drop) while the input still
+  // has focus: the input unmounts without ever firing blur.
+  useEffect(() => {
+    if (!open) resetKeyboardPan();
+  }, [open, resetKeyboardPan]);
+
   const send = useCallback(() => {
     if (!canSend || !ws || ws.readyState !== WebSocket.OPEN) return;
     const message = draft.trim();
@@ -181,10 +198,14 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           </div>
           <div className="chatMessages" ref={listRef}>
             {visible.map(m => (
-              // Team modes color by allegiance (same palette as emotes): blue
-              // = my team incl. me, green = opponents. Outside team modes the
-              // classic look (green self, dark others) applies.
-              <div key={m.key} className={`chatMsg ${m.isSelf ? 'self' : ''} ${m.team && myTeam ? (m.team === myTeam ? 'teamMine' : 'teamOpp') : ''}`}>
+              // Allegiance tint (same palette as emotes): blue = me + my
+              // team, green = opponents, neutral dark = others outside team
+              // modes. Own and team-channel messages are blue by CONSTRUCTION
+              // (team chat never crosses teams), not by team comparison, so
+              // they stay blue even when myTeam can't be derived (2v2 stage-2
+              // queue wipes gameData) — my own message must never tint green
+              // (July 27 ruling; replaces the old green .self look).
+              <div key={m.key} className={`chatMsg ${(m.isSelf || m.teamChat || (m.team && myTeam && m.team === myTeam)) ? 'teamMine' : (m.team && myTeam ? 'teamOpp' : '')}`}>
                 <span className="chatMsgName">
                   {m.name}
                   {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
@@ -214,6 +235,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
               disabled={!canSend}
               placeholder={canSend ? text('chatPlaceholder') : text('loginToChat')}
               onChange={onDraftChange}
+              onBlur={resetKeyboardPan}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') send();
                 if (e.key === 'Escape') setOpen(false);

@@ -46,18 +46,21 @@ import PlayerName from '../PlayerName';
 const NEVER = ReduceMotion.Never;
 
 function MessageRow({ msg, myTeam, onMute }: { msg: ChatMessage; myTeam: 'a' | 'b' | null; onMute: (m: ChatMessage) => void }) {
-  // Team modes color by allegiance (same palette as web emotes/chat): blue =
-  // my team incl. me, green = opponents; the team styles sit after self in
-  // the array so they win. Outside team modes msg.team is null.
-  const teamMine = !!(msg.team && myTeam && msg.team === myTeam);
-  const teamOpp = !!(msg.team && myTeam && msg.team !== myTeam);
+  // Allegiance tint (same palette as web emotes/chat): blue = me + my team,
+  // green = opponents, neutral dark = others outside team modes. Own and
+  // team-channel messages are blue by CONSTRUCTION (team chat never crosses
+  // teams), not by team comparison, so they stay blue even when myTeam can't
+  // be derived — my own message must never tint green (July 27 ruling;
+  // replaces the old green self look).
+  const teamMine = msg.isSelf || msg.teamChat || !!(msg.team && myTeam && msg.team === myTeam);
+  const teamOpp = !teamMine && !!(msg.team && myTeam);
   return (
     <Animated.View entering={FadeInDown.duration(180).easing(Easing.out(Easing.ease)).reduceMotion(NEVER)}>
       <Pressable
         sfx="none"
         onLongPress={msg.isSelf ? undefined : () => onMute(msg)}
         delayLongPress={350}
-        style={[styles.msgRow, msg.isSelf && styles.msgRowSelf, teamMine && styles.msgRowTeamMine, teamOpp && styles.msgRowTeamOpp]}
+        style={[styles.msgRow, teamMine && styles.msgRowTeamMine, teamOpp && styles.msgRowTeamOpp]}
       >
         <View style={styles.msgNameLine}>
           <PlayerName
@@ -446,10 +449,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  msgRowSelf: {
-    backgroundColor: 'rgba(36, 87, 52, 0.55)',
-  },
-  // Team allegiance tints — same palette as web emotes/chat.
+  // Allegiance tints — same palette as web emotes/chat. Blue doubles as the
+  // own-message tint (self is always teamMine; no separate self style).
   msgRowTeamMine: {
     backgroundColor: 'rgba(59, 130, 246, 0.45)',
   },

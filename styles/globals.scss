@@ -5189,8 +5189,10 @@ canvas.streetview.dragging {
     // The panel must NEVER exceed the screen: subtract ~210px for panel
     // chrome (header/typing/input) + the fixed bottom-left anchor offset.
     // Landscape phones hit the calc() branch; the min() floor shrinks with
-    // the viewport for the same reason.
-    max-height: min(680px, calc(100svh - 210px));
+    // the viewport for the same reason. 420px growth ceiling (July 27,
+    // "prevent the chat getting too tall" — was 680px, which read as a
+    // full-height column over the pano on desktop).
+    max-height: min(420px, calc(100svh - 210px));
     min-height: min(320px, 40svh);
     display: flex;
     flex-direction: column;
@@ -5209,13 +5211,10 @@ canvas.streetview.dragging {
     flex-shrink: 0;
 }
 
-.chatMsg.self {
-    background: rgba(36, 87, 52, 0.55);
-}
-
-// Team modes: color by allegiance, SAME palette as .emoteFloatItem — blue is
-// my team (including me, so these sit after .self and win), green is the
-// opponents. Outside team modes m.team is null and the classic look holds.
+// Allegiance tint, SAME palette as .emoteFloatItem — blue is me + my team
+// (own messages are ALWAYS blue, July 27 ruling: the old green .self look is
+// gone), green is the opponents; the neutral dark base covers everyone else
+// outside team modes.
 .chatMsg.teamMine {
     background: rgba(59, 130, 246, 0.45);
 }
@@ -5360,7 +5359,9 @@ canvas.streetview.dragging {
         height: 60px;
     }
     .chatMessages {
-        max-height: min(52svh, calc(100svh - 200px));
+        // 40svh growth ceiling (July 27, was 52svh: with ~110px chrome the
+        // panel covered ~3/4 of a phone screen at full log).
+        max-height: min(40svh, calc(100svh - 200px));
         // Slightly under desktop's 320px so it clears the bottom HUD, but
         // still clearly taller than the original 180px; shrinks with short
         // (landscape) viewports so the panel never exceeds the screen.
