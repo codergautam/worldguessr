@@ -189,7 +189,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         every time a modal closed. Screen/state gates stay as
                         mount conditions — those transitions SHOULD replay. */}
                     {session?.token?.secret && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
-                        <div style={{ display: 'contents', visibility: (accountModalOpen || gameOptionsModalShown || mapModalOpen) ? 'hidden' : 'visible' }}>
+                        <div style={{ display: 'contents', visibility: (accountModalOpen || gameOptionsModalShown || mapModalOpen || partyModalShown) ? 'hidden' : 'visible' }}>
                         <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
                             <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
                         </button>
