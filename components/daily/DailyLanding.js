@@ -8,6 +8,7 @@ import PersonalRecordsCard from './PersonalRecordsCard';
 import DailyHistoryBars14 from './DailyHistoryBars14';
 import DailyLeaderboardModal from './DailyLeaderboardModal';
 import { derivePercentile } from '@/shared/daily/percentile';
+import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
 
 export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
   const { t: text } = useTranslation();
@@ -61,7 +62,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
           {userData?.streak > 0 && (
             <DailyStreakBadge streak={userData.streak} size="lg" variant={graceDay ? 'at-risk' : (playedToday ? 'done' : 'pulsing')} />
           )}
-          {!isLoggedIn && (
+          {!isLoggedIn && !HIDE_ACCOUNT_UI && (
             <span style={{ color: 'rgba(255,255,255,0.8)' }}>
               {userData?.streak > 0
                 ? text('dailyLandingLockInStreak', { streak: userData.streak })

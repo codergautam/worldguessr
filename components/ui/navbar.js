@@ -7,13 +7,11 @@ import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
 import SoundModal from "../soundModal";
 import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
+import { HIDE_ACCOUNT_UI } from "../utils/accountUi";
 import { useState, useEffect, useSyncExternalStore } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
     const { t: text, lang } = useTranslation("common");
-
-    // Poki has no login surface (same treatment as CoolMathGames)
-    const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
 
     // SP/CG entry: round 1's load only starts from GameUI's post-paint mount
     // effect, so !loading alone flashes the button for a frame before the
@@ -170,7 +168,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         match found — every login-locked flow has its own gate
                         modal, so it protected nothing. Onboarding keeps its
                         dedicated instance below. */}
-                    {screen === "home" && !inGame && showAccBtn && !inCoolMathGames && !inPoki && (
+                    {screen === "home" && !inGame && showAccBtn && !HIDE_ACCOUNT_UI && (
                         <div style={{ display: 'contents', visibility: (accountModalOpen || mapModalOpen) ? 'hidden' : 'visible' }}>
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
@@ -206,7 +204,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     >
                         <span className="onboardingJoinPartyBtn__content">{text("joinGame")}</span>
                     </button>
-                    {!inGame && showAccBtn && !inCoolMathGames && !inPoki && !accountModalOpen && !mapModalOpen && (
+                    {!inGame && showAccBtn && !HIDE_ACCOUNT_UI && !accountModalOpen && !mapModalOpen && (
                         <div className="onboardingLoginBtn">
                             <AccountBtn
                                 inCrazyGames={inCrazyGames}

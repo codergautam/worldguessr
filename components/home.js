@@ -20,6 +20,7 @@ import sendEvent from "@/components/utils/sendEvent";
 import trackVisibleTime from "@/components/utils/visibleTime";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
+import { HIDE_ACCOUNT_UI, neutralGateKey } from "@/components/utils/accountUi";
 import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx, refreshVolumesFromStorage } from "@/components/utils/audio";
 import deriveTeamEndFallback from "@/components/utils/teamDuelEndFallback";
 import getMyTeam from "@/components/utils/getMyTeam";
@@ -2617,7 +2618,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                 }
             } else if (data.type === "gameJoinError") {
-                if (data.error === 'Link your Google account to play 2v2') {
+                if (data.error === 'Link your Google account to play 2v2' && !HIDE_ACCOUNT_UI) {
                     // ws joinPrivateGame's guest gate on 2v2 staging lobbies.
                     // A guest opening a friend's 2v2 invite is a conversion
                     // moment, not a bad code — don't let the generic mapping
@@ -2675,7 +2676,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // mobile store's gameJoinError mapping.
                     const errorKey = data.error === 'Game is full' ? 'partyFull'
                         : data.error === 'Invalid game code' ? 'invalidPartyCode'
-                            : null;
+                            // Gate sentences that name Google/login ("Log in to
+                            // join this party", the 2v2 link message) swap to
+                            // neutral copy on no-account builds; null everywhere
+                            // else, so the server's own wording still passes.
+                            : neutralGateKey(data.error)
+                                ?? null;
                     const errorMsg = errorKey ? (text(errorKey) || data.error) : data.error;
                     if (multiplayerState.lobbyIntent) {
                         // On the join screen (or a lobby shell) → inline error.
@@ -2744,7 +2750,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // alone is easy to miss while panning a street view. Mix
                 // ratio ~-6dB: at full tilt the ping barked over everything.
                 if (['opponentLocked', 'otherTeamLocked', 'lastGuesser'].includes(data.key)) playSfx('multinoti', { volume: 0.5 });
-                toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
+                // Sentence-as-key gate toasts name Google/login; no-account
+                // builds get neutral copy instead (null = pass through).
+                const toastKey = neutralGateKey(data.key) ?? data.key;
+                toast(text(toastKey, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
             } else if (data.type === 'invite') {
                 // code, invitedByName, invitedById
                 const { code, invitedByName, invitedById } = data;
@@ -3878,7 +3887,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         }))
                     }}
                     accountModalOpen={accountModalOpen}
-                    inCoolMathGames={inCoolMathGames}
                     inGameDistribution={inGameDistribution}
                     maintenance={maintenance}
                     inCrazyGames={inCrazyGames}

@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from '@/components/auth/auth';
+import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
 import { getClientLocalDate } from '@/utils/dailyDate';
 import { useDailyChallenge } from './useDailyChallenge';
 import DailyLanding from './DailyLanding';
@@ -94,9 +95,10 @@ export default function DailyChallengeScreen({
   onPhaseChange,
 }) {
   const { t: text } = useTranslation();
-  // Poki has no login surface; suppressing onSignIn hides every daily sign-in
-  // CTA (landing, results, leaderboard modal) since they all gate on it.
-  const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
+  // Poki and CoolMath have no login surface. Suppressing onSignIn hides the
+  // sign-in BUTTONS (landing, results, leaderboard modal). The copy AROUND
+  // those buttons ("Sign in to save your streak") is a separate gate inside
+  // each component — it used to render happily with the button gone.
   const today = getClientLocalDate();
   const { locationData, locationError, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
 
@@ -478,7 +480,7 @@ export default function DailyChallengeScreen({
         userData={results?.user || landingBootstrap?.userData}
         isLoggedIn={!!session?.token?.secret}
         onStartChallenge={handleStart}
-        onSignIn={inPoki ? undefined : () => signIn()}
+        onSignIn={HIDE_ACCOUNT_UI ? undefined : () => signIn()}
         animateEntrance={phase === 'landing' && landingEntranceActive}
       />
     );
@@ -588,7 +590,7 @@ export default function DailyChallengeScreen({
         isLoggedIn={!!session?.token?.secret}
         disqualified={disqualified || submitResponse?.disqualified}
         onClose={onExit}
-        onSignIn={inPoki ? undefined : () => signIn()}
+        onSignIn={HIDE_ACCOUNT_UI ? undefined : () => signIn()}
         inCoolMathGames={inCoolMathGames}
       />
     );

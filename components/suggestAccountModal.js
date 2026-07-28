@@ -2,6 +2,7 @@ import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from "@/components/auth/auth";
 import gameStorage from "./utils/localStorage";
+import { HIDE_ACCOUNT_UI } from "./utils/accountUi";
 import { FaGoogle, FaTrophy, FaChartLine, FaGamepad, FaUsers } from 'react-icons/fa';
 
 // Locked-mode conversion variants: guests clicking 2v2 / Ranked get this same
@@ -20,6 +21,11 @@ const VARIANTS = {
 
 export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inviterName = null, inCrazyGames = false }) {
   const { t: text } = useTranslation("common");
+  // Every variant of this modal is account-signup copy, so it can never render
+  // on a no-account build. Guarded HERE rather than trusting call sites: the
+  // 2v2 join-error path opens it from a WebSocket handler, which is precisely
+  // the caller that forgot.
+  if (HIDE_ACCOUNT_UI) return null;
   const variantDef = variant ? VARIANTS[variant] : null;
   const Icon = variantDef?.Icon || FaTrophy;
 

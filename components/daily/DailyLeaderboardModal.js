@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Modal from '@/components/ui/Modal';
 import config from '@/clientConfig';
 import { useTranslation } from '@/components/useTranslations';
+import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
 
 // Client-side pages over the single top-100 response — 100 rows of
 // {rank,username,score} is one small fetch; no point round-tripping per page.
@@ -132,7 +133,7 @@ export default function DailyLeaderboardModal({ isOpen, onClose, date, userData 
             </>
           )}
 
-          {!isLoggedIn && (
+          {!isLoggedIn && !HIDE_ACCOUNT_UI && (
             <>
               <div className="daily-leaderboard-separator">
                 <span>•••</span>
