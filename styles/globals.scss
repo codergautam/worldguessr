@@ -3219,6 +3219,15 @@ canvas.streetview.dragging {
     border-radius: 0;
     margin-right: 0;
     margin-top: 0;
+    // Promote NOW, while the answer is just sitting there, so the layer already
+    // exists when countryGuessrMapFadeOut starts. That fade begins in the same
+    // frame the next round's Street View starts loading; without a ready layer
+    // the browser has to promote this whole fullscreen Leaflet subtree on a main
+    // thread that is already blocked, and the fade visibly hitches on its first
+    // frames. Composited up front, it runs off the main thread entirely.
+    // Only opacity — a transform here would rebase Leaflet's own pane transforms
+    // and desync tiles from the overlay pane.
+    will-change: opacity;
     // Explicit property list — `all` forces the browser to check transitions
     // on every property, which adds style-recompute work per frame.
     // `transform` and `opacity` must be here so the slide-out animation runs

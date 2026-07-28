@@ -466,7 +466,16 @@ const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, ca
     if (!active && !cancelKeyChanged) return;
     resizingRef.current = false;
     stopMapAnimations(map);
-    try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+    // invalidateSize reads clientWidth/Height, forcing a full document layout.
+    // This is a layout effect, and `active` flips true in the very commit that
+    // starts the answer map's fade-out — so doing it inline delays that fade's
+    // first paint until after the reflow, on a main thread the next round's pano
+    // load is already competing for. Nothing here needs the new size before
+    // paint: the container is either unchanged (fade) or hidden (reset/settle).
+    const rafId = requestAnimationFrame(() => {
+      try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [map, active, cameraCancelKey, resizingRef]);
   return null;
 });
