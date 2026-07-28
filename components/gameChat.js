@@ -128,13 +128,28 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   // the whole page up so the focused input stays visible (desired: that's
   // what keeps the chat box on-screen while typing). But on dismiss WebKit
   // often leaves that pan behind, so bottom-anchored HUD (the guess button
-  // row) sits shifted up until the next tap forces a re-clamp. Undo the
-  // leftover pan ourselves once the keyboard is gone — after it, never
-  // during. Delayed past the ~250ms dismiss animation: resetting mid-close
-  // gets overridden by WebKit's own final viewport adjustment.
+  // row) sits shifted up until the next tap forces a re-clamp. Undo it
+  // ourselves with a per-frame zeroing burst across the dismiss window: a
+  // single delayed scrollTo left the button visibly parked high, then
+  // snapping — per-frame, any pan WebKit re-applies mid-animation is erased
+  // on the next frame, so the HUD never rests off-position. The
+  // activeElement guard aborts the burst when the user refocuses an input
+  // (keyboard coming back — that pan is wanted, never fight it).
+  const panResetRafRef = useRef(0);
   const resetKeyboardPan = useCallback(() => {
-    setTimeout(() => window.scrollTo(0, 0), 300);
+    cancelAnimationFrame(panResetRafRef.current);
+    const until = Date.now() + 700;
+    const tick = () => {
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+      if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+        window.scrollTo(0, 0);
+      }
+      if (Date.now() < until) panResetRafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
   }, []);
+  useEffect(() => () => cancelAnimationFrame(panResetRafRef.current), []);
   // Covers closing the panel (✕ / Escape / live drop) while the input still
   // has focus: the input unmounts without ever firing blur.
   useEffect(() => {
