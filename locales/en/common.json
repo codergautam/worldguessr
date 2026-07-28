@@ -75,6 +75,8 @@
   "gameCode": "Game Code",
   "invalidPartyCode": "Invalid or expired party code",
   "partyFull": "This party is full",
+  "twovtwoUnavailableHere": "2v2 matches aren't available in this version",
+  "partyGuestsNotAllowed": "This party isn't accepting new players",
   "host": "Host",
   "playAgain": "Play Again",
   "goHome": "Go Home",
