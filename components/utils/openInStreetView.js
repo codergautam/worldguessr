@@ -59,12 +59,32 @@ export default function openInStreetView({ lat, lng, panoId, heading } = {}) {
   if (!url || typeof window === "undefined") return Promise.resolve("failed");
 
   if (!embeddedPortal()) {
-    let win = null;
-    // noopener: otherwise the opened tab can navigate this one via window.opener.
-    try { win = window.open(url, "_blank", "noopener,noreferrer"); } catch (e) {}
-    if (win) return Promise.resolve("opened");
-    // null = popup blocker, or GameDistribution's guard replacing window.open
-    // with a no-op. Fall through to the clipboard rather than doing nothing.
+    // Synthetic anchor click, NOT window.open. Two bugs lived in the old
+    // window.open(url, "_blank", "noopener,noreferrer") call:
+    //  1. With `noopener` in the features string window.open returns null BY
+    //     SPEC even when the tab opened, so the "popup blocked" fallback ran
+    //     on every successful open — the link opened AND got copied, with the
+    //     "copied to clipboard" toast on top.
+    //  2. window.open creates the new context on about:blank first, then
+    //     navigates it. On phones the navigation is taken over by the Google
+    //     Maps app (intent / universal link), stranding that about:blank tab
+    //     in the browser. A real link click lets the browser hand off to the
+    //     app the same way a tapped <a> does — no orphan tab.
+    // Gesture-driven anchor clicks aren't popup-blocked, so there is no
+    // blocked case to detect; portals never reach this branch.
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return Promise.resolve("opened");
+    } catch (e) {
+      // DOM refused (shouldn't happen) — fall through to the clipboard
+      // rather than doing nothing.
+    }
   }
   return copy(url).then((ok) => (ok ? "copied" : "failed"));
 }

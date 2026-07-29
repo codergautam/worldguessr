@@ -12,7 +12,6 @@ import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
 import { flyToBoundsAtWholeZoom, getWholeZoomBoundsTarget } from '@/lib/leafletWholeZoom';
-import { prepareGroupedTileLevel } from '@/lib/leafletGroupedTiles';
 import { googleTileScale } from '@/lib/googleTileScale';
 
 /* ---------------------------------------------------------------------------
@@ -752,7 +751,10 @@ const ExtentFitter = memo(function ExtentFitter({
         try {
           map.eachLayer((layer) => {
             if (layer instanceof L.GridLayer) {
-              try { layer._update(); layer._pruneTiles(); } catch {}
+              // _noPrune was latched true by the prefetch's noPrune _setView;
+              // without this the fade-driven prune path stays parked until the
+              // next reveal's _setView flips it back.
+              try { layer._noPrune = false; layer._update(); layer._pruneTiles(); } catch {}
             }
           });
         } catch {}
@@ -783,10 +785,33 @@ const ExtentFitter = memo(function ExtentFitter({
         map._suspendTileUpdates = true;
         // Prefetch the DESTINATION tile level so the world fades in under the
         // shrinking answer-view raster instead of popping in after landing.
-        // Same mechanism the fluid wheel and held pinch use: keeps the current
-        // answer tiles as the crossfade base and re-aligns transforms to the
-        // live camera before the next paint.
-        try { prepareGroupedTileLevel(map, flyTarget.center, flyTarget.zoom); } catch {}
+        // Deliberately NOT prepareGroupedTileLevel: that helper also serves
+        // every mobile pinch, and routing this flight through it (with the
+        // _zoom spoof the multi-level jump needs) coincided with a mobile
+        // pinch-settle regression — keep the shared pinch path untouched and
+        // pay the small duplication here, desktop reveal-exit only.
+        // The spoof: _setView's internal _update re-derives from map.getZoom()
+        // and its >1-level escape would bounce this z10→z2 prefetch back to
+        // the live level around the target center. Same synchronous-override
+        // trick as getResetTargetForSize with _size. noPrune keeps the answer
+        // tiles as the crossfade base; transforms re-align to the live camera
+        // before the next paint.
+        try {
+          map.eachLayer((layer) => {
+            if (!(layer instanceof L.GridLayer) || layer.options.updateWhenZooming !== false) return;
+            try {
+              if (layer._tileZoom === Math.round(flyTarget.zoom)) return;
+              const realZoom = map._zoom;
+              map._zoom = flyTarget.zoom;
+              try {
+                layer._setView(flyTarget.center, flyTarget.zoom, true, false);
+              } finally {
+                map._zoom = realZoom;
+              }
+              layer._setZoomTransforms(map.getCenter(), map.getZoom());
+            } catch {}
+          });
+        } catch {}
 
         map.flyTo(flyTarget.center, flyTarget.zoom, {
           duration: SMOOTH_RESET_FLY_SEC,
