@@ -458,10 +458,19 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
     };
 
     const graphStyle = {
-        background: 'rgba(255, 255, 255, 0.05)',
+        // 0.1 (not the old 0.05): matches the sibling profile/elo cards, which
+        // bumped the tint when their blur was removed so the frost's legibility
+        // job survives without it.
+        background: 'rgba(255, 255, 255, 0.1)',
         borderRadius: '20px',
         padding: '30px',
-        backdropFilter: 'blur(20px)',
+        // No backdropFilter: this card hosts the chart.js CANVAS — hover
+        // tooltips/points repaint it constantly, and Chrome re-composites a
+        // backdrop-filter region every time the pixels inside it change =
+        // white flicker artifacts on every graph interaction. Same removal
+        // already done in accountView/eloView/moderationView; this card was
+        // the one missed. The dark modal backdrop makes the blur a no-op
+        // visually anyway.
         border: '1px solid rgba(255, 255, 255, 0.1)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         marginTop: '20px'

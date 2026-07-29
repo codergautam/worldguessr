@@ -257,7 +257,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
               }}
             />
             <button className="chatSendBtn" type="button" disabled={!canSend || !draft.trim()} onClick={send} aria-label={text('chat')}>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
                 <path d="M2 21 L23 12 L2 3 L2 10 L17 12 L2 14 Z" />
               </svg>
             </button>

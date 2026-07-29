@@ -5334,17 +5334,24 @@ canvas.streetview.dragging {
 
 .chatInputRow {
     display: flex;
-    gap: 6px;
+    // Zero flex gap (user ruling): the send square's inner padding around the
+    // icon supplies all the visual separation on the dark panel.
+    gap: 0;
     padding: 0 10px 10px;
 }
 
 // Input = .join-party-input materials (white field, dark text, primaryDark
 // border, radius 12) at chat-row size.
-.chatInput {
+// Compound selector on purpose: the unscoped input[type="text"] rule in
+// styles/multiPlayerModal.css (specificity 0,1,1) forces margin:10px /
+// padding:10px / user-select:none onto any bare input class — the same
+// landmine mapModal.css documents for .map-search-input. (0,2,0) outranks it.
+.chatInputRow .chatInput {
     flex: 1;
     min-width: 0;
     height: 36px;
     box-sizing: border-box;
+    margin: 0;
     border-radius: 12px;
     border: 2px solid var(--primaryDark);
     background: rgba(255, 255, 255, 0.95);
@@ -5352,6 +5359,7 @@ canvas.streetview.dragging {
     font-family: lexend;
     font-size: 0.9rem;
     padding: 0 10px;
+    user-select: text;
     outline: none;
 }
 

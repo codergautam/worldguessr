@@ -2244,7 +2244,7 @@ try {
     });
 
     // Helper to check if two players were last opponents (and should skip matching)
-    // Allow rematch if either player has been waiting > 15 seconds
+    // Allow rematch if either player has been waiting > 60 seconds
     const shouldSkipLastOpponent = (p1, p2, queueTime1, queueTime2) => {
       if (ALLOW_REMATCH) return false;
       const p1Account = players.get(p1)?.accountId;
@@ -2291,7 +2291,7 @@ try {
           if (matchedPlayers.has(id2) || guest2) continue;
 
           // Skip if these players were just matched together (prevent same matchup twice in a row)
-          // Unless one of them has been waiting > 15 seconds
+          // Unless one of them has been waiting > 60 seconds
           if (shouldSkipLastOpponent(id1, id2, queueTime, queueTime2)) continue;
 
           // Check if each player falls within the other's acceptable ELO range
@@ -2532,8 +2532,9 @@ try {
       }
 
       // Track last opponent to prevent same matchup twice in a row
-      // only for users below 5000 elo
-      if (p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
+      // whenever at least one side is below 5000 elo (Voyager-vs-Voyager is
+      // exempt: that pool is thin enough that blocking rematches can strand it)
+      if (p1.elo < leagues.voyager.min || p2.elo < leagues.voyager.min) {
         lastDuelOpponent.set(p1.accountId, p2.accountId);
         lastDuelOpponent.set(p2.accountId, p1.accountId);
       }
@@ -2963,12 +2964,17 @@ try {
       // — unless the player opted into strict matchmaking (Voyager+ setting):
       // their widened floor is the Voyager minimum, so the pool stays
       // Voyagers + Nomads no matter how long they wait.
+      // Widen ONCE (flag), never reset queueTime: it must keep meaning "when
+      // I joined the queue" so shouldSkipLastOpponent's 60s rematch waiver can
+      // actually be reached (resetting it here kept wait times pinned <10s,
+      // which made the rematch block permanent and could starve a two-player
+      // pool).
       for(const playerId of playersInQueue) {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
-        if(!queueData.guest && queueData.duel && Date.now() - queueData.queueTime > 10000) {
+        if(!queueData.guest && queueData.duel && !queueData.widened && Date.now() - queueData.queueTime > 10000) {
           const widenedMin = queueData.strict ? leagues.voyager.min : 0;
-          playersInQueue.set(playerId[0], { ...queueData, min: widenedMin, max: 20000, queueTime: Date.now() });
+          playersInQueue.set(playerId[0], { ...queueData, min: widenedMin, max: 20000, widened: true });
 
           player.send({
             type: 'publicDuelRange',

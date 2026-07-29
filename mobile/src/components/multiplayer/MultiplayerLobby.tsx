@@ -20,9 +20,16 @@ import {
   Animated,
   InteractionManager,
   Modal,
+  Platform,
   Share,
   useWindowDimensions,
 } from 'react-native';
+import ReAnimated, {
+  Easing as ReEasing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 import { Pressable } from '../ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -744,7 +751,21 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
             </Pressable>
           )}
 
-          {isHost && (
+          {/* 2v2 duo full: the button is UNMOUNTED, not greyed — with both
+              seats taken there is no state the host can reach from here where
+              inviting works again (unlike the search case below), so a
+              disabled button is dead chrome. Parties keep the greyed web
+              behavior: their roster can free a seat at any time.
+              Fade in/out is iOS-ONLY: the residual Android addViewAt crash
+              (reanimated stuck-exiting-view family, upstream #9170; rides
+              until the SDK 57 hop) is triggered by exiting views in stacked
+              layouts. Android snaps the button out and the cluster below's
+              LinearTransition alone carries the smoothness. */}
+          {isHost && !(is2v2 && partyFull) && (
+            <ReAnimated.View
+              entering={Platform.OS === 'ios' ? FadeIn.duration(220) : undefined}
+              exiting={Platform.OS === 'ios' ? FadeOut.duration(180) : undefined}
+            >
             <Pressable
               style={({ pressed }) => [
                 styles.optionsBtn,
@@ -764,11 +785,22 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
               <Ionicons name="people" size={18} color={colors.white} />
               <Text style={styles.optionsBtnText}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
             </Pressable>
+            </ReAnimated.View>
           )}
 
+          {/* 2v2 action + status cluster. The layout transition makes these
+              glide up into the freed row when the invite button unmounts
+              (friend joined) instead of teleporting. Grouping them under one
+              wrapper is what lets a single `layout` prop cover all of them;
+              the wrapper restates the footer's gap so spacing is unchanged. */}
+          {is2v2 && (
+            <ReAnimated.View
+              layout={LinearTransition.duration(220).easing(ReEasing.out(ReEasing.cubic))}
+              style={styles.footerCluster}
+            >
           {/* 2v2 primary action: Find Match (host, idle) / Cancel (searching).
               One button + at most one status line, web footer parity. */}
-          {isHost && is2v2 && !teammateSearch && (
+          {isHost && !teammateSearch && (
             <Pressable
               style={({ pressed }) => [
                 styles.startBtn,
@@ -786,7 +818,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
             </Pressable>
           )}
 
-          {is2v2 && teammateSearch && (
+          {teammateSearch && (
             <Pressable
               style={({ pressed }) => [styles.optionsBtn, pressed && { opacity: 0.85 }]}
               onPress={handleCancelSearch}
@@ -797,13 +829,15 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
           {/* 2v2 status line (priority mirrors web): non-host countdown →
               solo hint. Parties keep their existing body status text. */}
-          {is2v2 && (() => {
+          {(() => {
             let status: string | null = null;
             if (queueCountdown != null && !isHost) status = `${t('queueingIn', { s: queueCountdown })}…`;
             else if (!isHost) status = `${t('waitingForHostToStart')}...`;
             else if (playerCount < 2 && !teammateSearch) status = t('twovtwoSoloHint');
             return status ? <Text style={styles.waitingText}>{status}</Text> : null;
           })()}
+            </ReAnimated.View>
+          )}
 
           {isHost && !is2v2 && (
             <Pressable
@@ -1125,6 +1159,9 @@ const styles = StyleSheet.create({
   },
   soundModalTitle: { color: colors.white, fontSize: fontSizes.md, fontFamily: 'Lexend-Bold' },
   footer: { padding: spacing.lg, gap: spacing.sm },
+  // 2v2 action+status wrapper: restates the footer's gap so grouping those
+  // rows under the layout-animated view changes no spacing.
+  footerCluster: { gap: spacing.sm },
   // Landscape: fixed-width right sidebar holding the settings preview + actions,
   // vertically centered so the Start button stays on-screen on short viewports.
   footerLandscape: {
