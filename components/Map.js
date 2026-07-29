@@ -976,11 +976,28 @@ const ExtentFitter = memo(function ExtentFitter({
             try {
               if (layer._tileZoom === Math.round(flyTarget.zoom)) return;
               const realZoom = map._zoom;
+              const realPixelOrigin = map._pixelOrigin;
               map._zoom = flyTarget.zoom;
+              // The zoom spoof alone is NOT enough. _updateLevels anchors the
+              // new level via unproject(getPixelOrigin()) — with _zoom spoofed
+              // the answer-view-scale origin (2^answerZoom px) passes through
+              // unrescaled, and the level is born with ~10^5-10^6 px tile
+              // coordinates. The CSS math cancels exactly, but the compositor
+              // transforms in fp32: at those magnitudes sub-pixel precision is
+              // gone, adjacent tiles land ±0.02-0.25px apart, and plus-lighter
+              // turns the misalignment into faint white seams at round start —
+              // severity tracks the previous answer's zoom (the "random mild
+              // white lines until you touch the map" report; any zoom rebuilds
+              // the level with a sane origin, which is why interacting fixed
+              // it). Give the level a target-zoom-scale origin from birth.
+              try {
+                map._pixelOrigin = map._getNewPixelOrigin(L.latLng(flyTarget.center), flyTarget.zoom);
+              } catch {}
               try {
                 layer._setView(flyTarget.center, flyTarget.zoom, true, false);
               } finally {
                 map._zoom = realZoom;
+                map._pixelOrigin = realPixelOrigin;
               }
               layer._setZoomTransforms(map.getCenter(), map.getZoom());
               // _updateLevels just made the destination the CURRENT level,
