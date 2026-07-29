@@ -8319,6 +8319,22 @@ div[dir="ltr"] {
         border-color: transparent !important;
     }
 
+    /* The chrome-layer countdown paints directly under the VS label, but this
+       breakpoint stacks the bars vertically, so that spot IS the second
+       player's pill — the countdown landed on top of the opponent bar. Swap
+       roles for the intro: unhide the in-flow slot (already in the right
+       place, below the whole stack) and hide the chrome copy. visibility on
+       both, never display — each column must keep its height or the VS
+       label's centering drifts off the slot. Exit (slot unmounted, chrome
+       copy hidden) shows no countdown here; it's frozen at ~0 by then. */
+    .hb-vs-countdown--slot {
+        visibility: visible;
+    }
+
+    .hb-vs-chrome .hb-vs-countdown {
+        visibility: hidden;
+    }
+
     /* First player at top */
     .hb-bars > div:first-child {
         order: 0;
