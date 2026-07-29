@@ -228,10 +228,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // cover is cleared by this timer; anything else re-begins loading
         // first and invalidates the token. Real loads clear via the pano
         // onLoad handlers, which respect the same floor.
+        //
+        // rAF first, timer second: the dwell is measured from the frame the
+        // cover actually PAINTS, not from this call. On slow machines the
+        // advance commit itself can stall past the whole dwell, and a
+        // call-relative timer would expire before the cover's first paint —
+        // one-frame flash instead of a smooth beat. Background tabs park
+        // rAF, which only holds the cover longer; the token guard keeps a
+        // parked clear from ever touching a newer round.
         if (!panoReady) return;
-        setTimeout(() => {
-            if (spRoundLoadingTokenRef.current === token) setLoading(false);
-        }, SP_MIN_LOADING_MS);
+        requestAnimationFrame(() => {
+            if (spRoundLoadingTokenRef.current !== token) return;
+            setTimeout(() => {
+                if (spRoundLoadingTokenRef.current === token) setLoading(false);
+            }, SP_MIN_LOADING_MS);
+        });
     }, []);
     const [pendingCountryGuessrLoad, setPendingCountryGuessrLoad] = useState(0);
     const countryGuessrLoadRecoveryRef = useRef(0);
@@ -4410,9 +4421,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             // slowed the reveal. SP-family rounds additionally
                             // hold the cover to their minimum dwell; the floor
                             // stamp is always expired/zero in multiplayer.
+                            //
+                            // Token guard: reveal-time PRELOADS also land here
+                            // and schedule a pointless setLoading(false).
+                            // Background-tab throttling can park that stale
+                            // timeout until refocus, where it fired right
+                            // after the next round raised the cover and
+                            // killed the loading screen. Once a newer
+                            // round-loading begins, this timer owns nothing.
+                            // MP never bumps the token, so it always clears.
+                            const token = spRoundLoadingTokenRef.current;
                             const floorLeft = multiplayerState?.inGame ? 0
                                 : spLoadingFloorRef.current - Date.now();
                             setTimeout(() => {
+                                if (spRoundLoadingTokenRef.current !== token) return;
                                 setLoading(false)
                                 setMapSwitchMaskShown(false);
                                 setMapSwitchSawLoading(false);
@@ -4440,10 +4462,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         notePanoLoaded();
                         // SP-family rounds hold the cover to their minimum
                         // dwell (see beginSpRoundLoading); multiplayer keeps
-                        // the plain 300ms grace.
+                        // the plain 300ms grace. Token guard: same stale-
+                        // preload-timer protection as the CustomStreetView
+                        // handler above (background-tab throttling parks the
+                        // preload's no-op clear until refocus, where it
+                        // killed the NEXT round's cover).
+                        const token = spRoundLoadingTokenRef.current;
                         const floorLeft = multiplayerState?.inGame ? 0
                             : spLoadingFloorRef.current - Date.now();
                         setTimeout(() => {
+                            if (spRoundLoadingTokenRef.current !== token) return;
                             setLoading(false)
                             setMapSwitchMaskShown(false);
                             setMapSwitchSawLoading(false);

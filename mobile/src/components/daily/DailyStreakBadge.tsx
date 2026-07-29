@@ -77,12 +77,11 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
 
   if (!streak || streak <= 0) return null;
 
-  const diamond = streak >= 30;
-  // Background mirrors web's .daily-streak-pill cascade. `.diamond` is the LAST
-  // single-class rule in daily.scss, so for streak >= 30 it overrides the
-  // done/at-risk/default backgrounds regardless of variant — diamond always
-  // wins. The variant still drives the icon + animation below (diamond sets no
-  // animation of its own on web).
+  // Diamond is a done-only reward (mirrors web DailyStreakBadge.js): pre-guess
+  // states keep their signal colors at ANY streak length — orange = not
+  // played, red = at risk. A 30+ completion celebrates in cyan instead of
+  // green. The variant still drives the icon + animation below.
+  const diamond = streak >= 30 && variant === 'done';
   const colors: readonly [string, string, ...string[]] = diamond
     ? ['#e4f9ff', '#b9f2ff', '#5ed0e6']
     : variant === 'done'

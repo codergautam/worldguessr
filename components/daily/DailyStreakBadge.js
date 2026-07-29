@@ -9,7 +9,11 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
   if (variant === 'pulsing') classList.push('pulsing');
   if (variant === 'at-risk') classList.push('at-risk');
   if (variant === 'done') classList.push('done');
-  if (streak >= 30) classList.push('diamond');
+  // Diamond is a done-only reward: pre-guess states must keep their signal
+  // colors (orange = not played, red = streak at risk) at ANY streak length.
+  // With done also present, .diamond wins the cascade (declared later), so
+  // 30+ completions show cyan instead of green.
+  if (streak >= 30 && variant === 'done') classList.push('diamond');
 
   const fontSize = size === 'lg' ? '0.9em' : undefined;
 
