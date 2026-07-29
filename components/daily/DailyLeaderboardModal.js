@@ -4,6 +4,7 @@ import Modal from '@/components/ui/Modal';
 import config from '@/clientConfig';
 import { useTranslation } from '@/components/useTranslations';
 import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
+import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
 
 // Client-side pages over the single top-100 response — 100 rows of
 // {rank,username,score} is one small fetch; no point round-tripping per page.
@@ -18,9 +19,10 @@ function medal(rank) {
 
 function ProfileNameLink({ username, className }) {
   if (!username) return null;
-  // Poki hosts the build at a nested per-deploy CDN path with no /user route —
-  // the target="_blank" link would open a 404 tab. Plain text instead.
-  if (process.env.NEXT_PUBLIC_POKI === 'true') {
+  // Plain text on the builds that can't carry a profile link: Poki hosts at a
+  // nested per-deploy CDN path with no /user route so the tab would 404, and
+  // GameDistribution forbids opening tabs at all.
+  if (NO_PROFILE_LINKS) {
     return <span className={className}>{username}</span>;
   }
   return (

@@ -46,7 +46,7 @@ interface Round {
 interface Props {
   date: string;
   rounds: Round[];
-  locations?: Array<{ lat: number; long: number }>;
+  locations?: Array<{ lat: number; long: number; heading?: number | null; panoId?: string | null }>;
   totalScore: number;
   submitResponse?: any;
   results?: any;

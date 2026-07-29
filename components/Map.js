@@ -46,6 +46,12 @@ const REVEAL = {
   flyDurations: { pin: 0.5, country: 1.2, world: 1.8 }, // seconds (Leaflet)
 };
 
+// Seconds. Pairs with #miniMapArea.revealExiting's transition — the camera
+// flight out of an answer reveal and the container shrink land together.
+// 400ms (was 250): a z10→z2 zoom-out at 250ms reads as a snap; the longer
+// window lets Leaflet's ease-out breathe without feeling sluggish.
+const SMOOTH_RESET_FLY_SEC = 0.4;
+
 const MOBILE_MEDIA_QUERY = "(max-width: 600px)";
 const EXTENT_FIT_PADDING = [12, 12];
 const MIN_EXTENT_SPAN_DEGREES = 0.0001;
@@ -174,6 +180,43 @@ function getResetTarget(map, extent) {
   return constrainResetTarget(map, target.center, target.zoom);
 }
 
+// Leaflet's fit math (_getBoundsCenterZoom / _limitCenter) reads map.getSize().
+// During reveal-exit the container is still fullscreen (or mid-shrink), so a
+// naive getResetTarget would aim at a zoom that only fits once the box is
+// corner-sized after refresh — the "huge difference" after a smooth reset.
+function getResetTargetForSize(map, extent, size) {
+  if (!map || !size || !(size.x > 0) || !(size.y > 0)) {
+    return getResetTarget(map, extent);
+  }
+  const prevSize = map._size;
+  map._size = L.point(size.x, size.y);
+  try {
+    return getResetTarget(map, extent);
+  } finally {
+    map._size = prevSize;
+  }
+}
+
+// Destination size for the guess-phase corner minimap — mirrors #miniMapArea's
+// resting CSS (not .answerShown / .mapExpanded). Used when the live container
+// is still fullscreen at fly-start.
+function estimateGuessPhaseMapSize() {
+  if (typeof document === 'undefined') return null;
+  const area = document.getElementById('miniMapArea');
+  const parent = area?.parentElement;
+  if (!parent) return null;
+
+  const mobile = typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 600px), (pointer: coarse)').matches;
+
+  // Keep in sync with styles/globals.scss #miniMapArea (+ mobile block).
+  const areaW = mobile ? parent.clientWidth : parent.clientWidth * 0.2;
+  const areaH = mobile ? parent.clientHeight * 0.7 : parent.clientHeight * 0.3;
+  if (!(areaW > 0) || !(areaH > 0)) return null;
+
+  return L.point(Math.round(areaW), Math.round(areaH));
+}
+
 /** True only when the map container has a real (non-zero) viewport. Leaflet's
  *  projection math is degenerate at 0×0, so any camera mutation there lands on a
  *  garbage centre near the maxBounds edge. */
@@ -236,6 +279,45 @@ function stopMapAnimations(map) {
   // lib/leafletSettleZoomAnim.js. The manual _animatingZoom flag-clearing
   // that used to live here is unreachable now and was removed.
   try { map.stop(); } catch {}
+}
+
+// Handlers a user can still be holding when the reveal ends (drag / pinch /
+// fluid wheel glide). Any of them calling map._stop() mid-flight cancels
+// ExtentFitter's smooth flyTo and — because needsFit is already cleared —
+// leaves the camera parked at the answer-view pan/zoom for the whole guess.
+function listMapInteractionHandlers(map) {
+  if (!map) return [];
+  return [
+    map.dragging,
+    map.touchZoom,
+    map.doubleClickZoom,
+    map.scrollWheelZoom,
+    map.boxZoom,
+    map.keyboard,
+    map.fluidWheelZoom,
+  ].filter(Boolean);
+}
+
+function disableMapInteraction(map) {
+  const disabled = [];
+  for (const handler of listMapInteractionHandlers(map)) {
+    try {
+      if (handler.enabled?.()) {
+        // dragging.disable() finishes an in-progress drag (Draggable.finishDrag)
+        // before removing the listeners — required so a held mouse button can't
+        // keep writing the camera after we start flyTo.
+        handler.disable();
+        disabled.push(handler);
+      }
+    } catch {}
+  }
+  return disabled;
+}
+
+function enableMapInteraction(handlers) {
+  for (const handler of handlers) {
+    try { handler.enable(); } catch {}
+  }
 }
 
 function setMaxBoundsWithoutAutoPan(map, bounds) {
@@ -425,8 +507,12 @@ const ClickHandler = memo(function ClickHandler({
  * means the guess phase only ever paints at the fit target. ExtentFitter still
  * owns the size-stable refit afterwards; both use getResetTarget so they agree.
  */
-const BoundsApplier = memo(function BoundsApplier({ bounds, extent }) {
+const BoundsApplier = memo(function BoundsApplier({ bounds, extent, smoothReset }) {
   const map = useMap();
+  // Read at apply-time, not a dep: this only matters on the frame `bounds`
+  // flips, and making it a dep would re-run the snap when the flag clears.
+  const smoothRef = useRef(smoothReset);
+  smoothRef.current = smoothReset;
   // Read the latest extent at apply-time without making it a dep (the array ref
   // churns every render; the only moment we need it is when `bounds` flips).
   const extentRef = useRef(extent);
@@ -439,6 +525,14 @@ const BoundsApplier = memo(function BoundsApplier({ bounds, extent }) {
     // a degenerate viewport. maxBounds is now set; defer the recenter to when the
     // container has size — ExtentFitter's size-stable fit will handle it.
     if (!hasRenderSize(map)) return;
+
+    // Smooth reset: ExtentFitter is about to FLY to this exact target while the
+    // container shrinks. Re-applying maxBounds above is still required (it is
+    // what stops the guess phase panning past ±85°), but the instant setView
+    // below would teleport the camera before the flight ever starts and turn
+    // the whole thing back into a snap. Leave the camera alone and let the
+    // flight land it.
+    if (smoothRef.current) return;
 
     try {
       // Kill any carried-over camera animation (e.g. flick inertia from panning
@@ -484,9 +578,27 @@ const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, ca
  * Fits the map to a custom extent during the guessing phase. It waits for the
  * minimap to be visible so Leaflet computes zoom from the real play viewport.
  */
-const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, resetKey }) {
+const ExtentFitter = memo(function ExtentFitter({
+  extent,
+  answerShown,
+  shown,
+  resetKey,
+  smoothReset,
+  onResetComplete,
+}) {
   const map = useMap();
   const [resettingCamera, setResettingCamera] = useState(false);
+  // Latched, not just a same-commit ref: `smoothReset` is true for a single
+  // GameUI render (the getready→guess edge, derived from a prev-state ref).
+  // If this effect bails early that commit — typically `shown` false while the
+  // next-round pano is still loading / forceHide is up — the flag would be
+  // gone by the time `shown` flips true, and we'd fall into the legacy cover
+  // path. Latch until the smooth fly actually starts.
+  const pendingSmoothResetRef = useRef(false);
+  if (smoothReset) pendingSmoothResetRef.current = true;
+  // Last known resting corner size (not answerShown / mapExpanded). Preferred
+  // over estimateGuessPhaseMapSize when available — real layout beats CSS %.
+  const lastGuessSizeRef = useRef(null);
   const lastExtentKeyRef = useRef(null);
   const lastResetKeyRef = useRef(null);
   const needsFitRef = useRef(true);
@@ -503,16 +615,130 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
     }
 
     if (!map || answerShown || !shown) {
-      if (answerShown) needsFitRef.current = true;
+      if (answerShown) {
+        needsFitRef.current = true;
+        // A new reveal supersedes any unconsumed leave intent (e.g. the player
+        // disconnected while the next-round pano was still loading).
+        pendingSmoothResetRef.current = false;
+      }
       setResettingCamera(false);
+      // Keep pendingSmoothResetRef when !shown: the leave commit may have
+      // arrived while `shown` was false; the fly still needs to run once
+      // `shown` returns.
       return;
     }
 
-    if (!needsFitRef.current) {
+    // Remember the resting corner viewport so a later reveal-exit can fit
+    // against it while the live container is still fullscreen. Skip the leave
+    // frame itself (pendingSmoothReset / .revealExiting) — getSize() is still
+    // the fullscreen box then and would clobber the good latch.
+    try {
+      const area = map.getContainer()?.closest?.('#miniMapArea');
+      const resting = area
+        && !area.classList.contains('answerShown')
+        && !area.classList.contains('mapExpanded')
+        && !area.classList.contains('fullscreen')
+        && !area.classList.contains('revealExiting');
+      if (resting && !pendingSmoothResetRef.current && hasRenderSize(map)) {
+        const s = map.getSize();
+        lastGuessSizeRef.current = L.point(s.x, s.y);
+      }
+    } catch {}
+
+    if (!needsFitRef.current && !pendingSmoothResetRef.current && !onResetComplete) {
       requestAnimationFrame(() => {
         try { map.invalidateSize({ pan: false, animate: false }); } catch {}
       });
       return;
+    }
+
+    // Smooth reset (leaving a multiplayer answer reveal): the container is
+    // CSS-shrinking fullscreen -> corner right now and the map is in full view
+    // the whole way. Fly to the target over the same window instead of the
+    // stable-frame + hard-snap dance below.
+    //
+    // No cover: `.leaflet-camera-reset-cover` is a flat #aadaff fill over the
+    // entire map, which is fine when it hides a snap the user was never meant
+    // to see, and reads as a grey/blue flash when there is nothing to hide.
+    // No forceCrispViewReset either: its `_resetView` tears the tile grid down
+    // and rebuilds it, so tiles pop in from empty. flyTo keeps the existing
+    // pyramid and lets Leaflet backfill.
+    //
+    // useResizeWatcher's ResizeObserver is already invalidating once per frame
+    // as the box shrinks, so the projection tracks the container for free —
+    // and those invalidations are cheap now that the canvas backing store is
+    // reused rather than reallocated (lib/leafletLiveVectors.js).
+    if (pendingSmoothResetRef.current) {
+      pendingSmoothResetRef.current = false;
+      needsFitRef.current = false;
+      setResettingCamera(false);
+
+      let settled = false;
+      let settleTimer = null;
+      let reenabledHandlers = [];
+      // Target for the CORNER minimap size, not the current fullscreen
+      // container. Flying to a fullscreen-fit zoom was the "looks right after
+      // refresh, wrong after smooth reset" bug — refresh runs the legacy path
+      // once the box is already corner-sized.
+      let flyTarget = null;
+
+      const settleSmoothReset = (forceSnap) => {
+        if (settled) return;
+        settled = true;
+        if (settleTimer != null) {
+          clearTimeout(settleTimer);
+          settleTimer = null;
+        }
+        try {
+          // Verify BOTH axes of the destination. The old cleanup checked only
+          // zoom, so a fast advance could cancel the flight near the right zoom
+          // but at an arbitrary in-between center; needsFit was already false,
+          // leaving that center parked for the whole next round.
+          if (flyTarget && hasRenderSize(map)) {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            const centerPx = map.project(center, flyTarget.zoom);
+            const targetPx = map.project(flyTarget.center, flyTarget.zoom);
+            const centerOffPx = centerPx.distanceTo(targetPx);
+            const zoomOff = Math.abs(zoom - flyTarget.zoom);
+            // Normal completed flyTo is already within these tolerances and
+            // stays untouched. Interrupted/cleaned-up flights are finalized at
+            // the canonical target before the host is allowed to hide/reveal.
+            if (forceSnap || zoomOff > 0.01 || centerOffPx > 1) {
+              stopMapAnimations(map);
+              map.setView(flyTarget.center, flyTarget.zoom, { animate: false });
+            }
+          }
+        } catch {}
+        enableMapInteraction(reenabledHandlers);
+        reenabledHandlers = [];
+      };
+
+      try {
+        // Kill inertia / mid-glide fluid zoom / an in-flight reveal fly, then
+        // take the input handlers so a still-held drag or wheel notch can't
+        // _stop() the reset fly the moment it starts.
+        stopMapAnimations(map);
+        reenabledHandlers = disableMapInteraction(map);
+        const cornerSize = lastGuessSizeRef.current || estimateGuessPhaseMapSize();
+        flyTarget = getResetTargetForSize(map, extent, cornerSize);
+        setMaxBoundsWithoutAutoPan(map, toValidLatLngBounds(VIEW_BOUNDS));
+        map.flyTo(flyTarget.center, flyTarget.zoom, {
+          duration: SMOOTH_RESET_FLY_SEC,
+          // Leaflet's flyTo easing is already close to the CSS `ease` the
+          // container uses; leave the curve alone so the two stay in step.
+        });
+        // Don't trust moveend to reopen input: invalidateSize from the shrink
+        // ResizeObserver can fire moveend mid-flight. Just wait out the fly.
+        settleTimer = setTimeout(
+          () => settleSmoothReset(false),
+          Math.ceil(SMOOTH_RESET_FLY_SEC * 1000) + 40,
+        );
+      } catch {
+        settleSmoothReset(true);
+      }
+
+      return () => settleSmoothReset(true);
     }
 
     // "Play again" from the summary keeps this Leaflet map mounted, then
@@ -524,10 +750,22 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
     let rafId = null;
     let finalRafId = null;
     let fallbackTimer = null;
+    let resetFinished = false;
+    let reenabledHandlers = disableMapInteraction(map);
     let lastW = container?.clientWidth ?? 0;
     let lastH = container?.clientHeight ?? 0;
     let stableFrames = 0;
     const STABLE_FRAMES_REQUIRED = 3;
+
+    const finishReset = (notifyHost) => {
+      if (resetFinished) return;
+      resetFinished = true;
+      enableMapInteraction(reenabledHandlers);
+      reenabledHandlers = [];
+      if (notifyHost) {
+        try { onResetComplete?.(); } catch {}
+      }
+    };
 
     const applyFit = () => {
       if (cancelled) return;
@@ -549,9 +787,13 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
           } catch {}
           needsFitRef.current = false;
           setResettingCamera(false);
+          // The host may be holding this map forceHidden. Release it only
+          // after the second canonical reset above has landed.
+          finishReset(true);
         });
       } catch {
         setResettingCamera(false);
+        finishReset(true);
       }
     };
 
@@ -599,6 +841,7 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
       if (rafId != null) cancelAnimationFrame(rafId);
       if (finalRafId != null) cancelAnimationFrame(finalRafId);
       if (fallbackTimer != null) clearTimeout(fallbackTimer);
+      finishReset(false);
     };
   }, [map, extentKey, answerShown, shown, resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return resettingCamera ? <div className="leaflet-camera-reset-cover" /> : null;
@@ -1093,6 +1336,8 @@ const MapComponent = ({
   onTilesLoaded,
   bandFraction,
   lang,
+  smoothReset,
+  onResetComplete,
 }) => {
   const { t: text } = useTranslation("common");
   // Single source of truth for "the reveal animation owns invalidateSize".
@@ -1273,14 +1518,21 @@ const MapComponent = ({
       </div>
 
       <CameraAnimationStopper active={stopCameraAnimations} cameraCancelKey={cameraCancelKey} resizingRef={resizingRef} />
-      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} extent={gameOptions?.extent} />
+      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} extent={gameOptions?.extent} smoothReset={smoothReset} />
       <ClickHandler
         answerShown={answerShown}
         multiplayerState={multiplayerState}
         ws={ws}
         setPinPoint={setPinPoint}
       />
-      <ExtentFitter extent={gameOptions?.extent} answerShown={answerShown} shown={shown} resetKey={resetKey} />
+      <ExtentFitter
+        extent={gameOptions?.extent}
+        answerShown={answerShown}
+        shown={shown}
+        resetKey={resetKey}
+        smoothReset={smoothReset}
+        onResetComplete={onResetComplete}
+      />
       <RevealController
         answerShown={answerShown}
         dest={answerLocation}
@@ -1393,4 +1645,17 @@ const MapComponent = ({
   );
 };
 
-export default MapComponent;
+// Memoized on purpose. GameUI ticks a 100ms multiplayer countdown for the whole
+// match, so it re-renders ~10x/sec — and every one of those renders used to walk
+// this entire Leaflet subtree (MapContainer + every overlay + the tile layer)
+// even though not one map prop had changed. That React work landed ON TOP of the
+// answer reveal, which is the frame budget's worst moment of the round: the
+// container is CSS-animating to fullscreen while RevealController invalidates
+// Leaflet once per frame and flyToBounds pulls a new tile set.
+//
+// Shallow prop compare is enough — every prop this takes is either a primitive,
+// a useState setter, or an object whose identity is already stable between
+// WebSocket messages (`multiplayerState`, `location`, `options`). The one
+// callback prop (`onTilesLoaded`) is useCallback'd at the call site; if a new
+// prop is added here, keep it referentially stable or this memo goes inert.
+export default memo(MapComponent);

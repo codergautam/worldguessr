@@ -11,6 +11,7 @@ const StreetView = ({
   pitch,
   showAnswer = false,
   hidden = false,
+  slowEnter = false,
   refreshKey = 0,
   onLoad
 }) => {
@@ -79,7 +80,7 @@ const StreetView = ({
   return (
     <iframe
       ref={iframeRef}
-      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
+      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""} streetview`}
       referrerPolicy="no-referrer-when-downgrade"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
       onLoad={() => {

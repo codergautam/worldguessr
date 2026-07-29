@@ -5,6 +5,8 @@ import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from '@/utils/dailyDate';
 import { derivePercentile } from '@/shared/daily/percentile';
+import { NO_EXTERNAL_LINKS } from '@/components/utils/externalLinks';
+import { streetViewUrl } from '@/components/utils/openInStreetView';
 import ScoreDistributionChart from './ScoreDistributionChart';
 
 const MAX_PER_ROUND = 5000;
@@ -67,7 +69,7 @@ function RoundBadges({ rounds, roundAverages = [], locations = [], allowMapLinks
         const avg = Number.isFinite(roundAverages[i]) ? roundAverages[i] : null;
         const loc = locations[i];
         const mapUrl = allowMapLinks && loc && Number.isFinite(loc.lat) && Number.isFinite(loc.long)
-          ? `https://www.google.com/maps?q=${loc.lat},${loc.long}`
+          ? streetViewUrl({ lat: loc.lat, lng: loc.long, heading: loc.heading, panoId: loc.panoId })
           : null;
 
         // Only show a "% above avg" brag badge when the player is strictly
@@ -457,7 +459,7 @@ export default function DailyResultsScreen({
           rounds={rounds}
           roundAverages={distribution?.roundAverages || []}
           locations={locations}
-          allowMapLinks={!inCoolMathGames && !process.env.NEXT_PUBLIC_POKI}
+          allowMapLinks={!inCoolMathGames && !process.env.NEXT_PUBLIC_POKI && !NO_EXTERNAL_LINKS}
         />
 
         <div className="daily-stats-grid">

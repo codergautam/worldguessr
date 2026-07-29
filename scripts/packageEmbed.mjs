@@ -13,10 +13,36 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const exportDir = path.join(projectRoot, '.next-poki');
+
+// One packager for every portal that takes a zip upload served from a nested
+// CDN path (Poki: <sub>.gdn.poki.com/<uuid>/, GD: html5.gamedistribution.com/
+// <id>/). The relative-ref rewrites below are what nested hosting requires;
+// per-portal differences are just which export dir to read and what to name
+// the zip.
+const TARGETS = {
+    // mustInline: the build-time flag this target cannot work without. Next
+    // inlines NEXT_PUBLIC_* vars that are SET at build time; an UNSET one
+    // survives in the bundle as a literal identifier read off the runtime
+    // process shim (= undefined). asset()/basePath then resolve to the CDN
+    // root and every runtime-loaded image 404s on the portal's nested path
+    // (how the July 28 GD test build shipped broken). The packager greps the
+    // chunks for the identifier and refuses to zip if it survived.
+    poki: { exportDir: '.next-poki', stagedName: 'poki', zipName: 'worldguessr-poki.zip', mustInline: 'NEXT_PUBLIC_POKI' },
+    // GD mounts the zip at the STABLE gameId path, so it uses a hardcoded
+    // build-time basePath (Next-native, like the CI build) instead of the
+    // runtime-derived relative-asset mode Poki needs.
+    gd: { exportDir: '.next-gd', stagedName: 'gd', zipName: 'worldguessr-gd.zip', mustInline: 'NEXT_PUBLIC_BASE_PATH' },
+};
+const targetName = process.argv[2];
+const target = TARGETS[targetName];
+if (!target) {
+    throw new Error(`Usage: node scripts/packageEmbed.mjs <${Object.keys(TARGETS).join('|')}>`);
+}
+
+const exportDir = path.join(projectRoot, target.exportDir);
 const submissionDir = path.join(projectRoot, 'builds-submission');
-const stagedBuildDir = path.join(submissionDir, 'poki');
-const archivePath = path.join(submissionDir, 'worldguessr-poki.zip');
+const stagedBuildDir = path.join(submissionDir, target.stagedName);
+const archivePath = path.join(submissionDir, target.zipName);
 const temporaryArchivePath = `${archivePath}.tmp`;
 
 const crcTable = new Uint32Array(256);
@@ -73,7 +99,7 @@ async function collectFiles(directory, prefix = '') {
         } else if (entry.isFile()) {
             files.push({ absolutePath, archiveName });
         } else {
-            throw new Error(`Unsupported file type in Poki export: ${absolutePath}`);
+            throw new Error(`Unsupported file type in export: ${absolutePath}`);
         }
     }
 
@@ -143,7 +169,7 @@ function validateEntryPage(entryHtml, archiveNames) {
     const missingAssets = referencedNextAssets.filter((asset) => !archiveNames.has(asset));
     if (missingAssets.length > 0) {
         throw new Error(
-            `Poki index.html references assets missing from the archive:\n${missingAssets.join('\n')}`,
+            `index.html references assets missing from the archive:\n${missingAssets.join('\n')}`,
         );
     }
 }
@@ -213,7 +239,7 @@ async function createZip(files, destination) {
     endRecord.writeUInt32LE(localOffset, 16);
 
     if (localOffset > 0xffffffff || centralDirectory.length > 0xffffffff) {
-        throw new Error('Poki build is too large for a ZIP32 archive');
+        throw new Error('Build is too large for a ZIP32 archive');
     }
 
     await writeFile(destination, Buffer.concat([...localParts, centralDirectory, endRecord]));
@@ -225,7 +251,7 @@ for (const outputPath of [stagedBuildDir, archivePath, temporaryArchivePath]) {
 
 const exportStats = await stat(exportDir).catch(() => null);
 if (!exportStats?.isDirectory()) {
-    throw new Error(`Poki export not found at ${exportDir}. Run the Poki Next.js build first.`);
+    throw new Error(`Export not found at ${exportDir}. Run the ${targetName} Next.js build first.`);
 }
 
 await mkdir(submissionDir, { recursive: true });
@@ -248,13 +274,27 @@ for (const entry of await readdir(cssDir, { withFileTypes: true }).catch(() => [
 const files = await collectFiles(stagedBuildDir);
 const archiveNames = new Set(files.map((file) => file.archiveName));
 if (!archiveNames.has('index.html')) {
-    throw new Error('Poki export has no root index.html');
+    throw new Error('Export has no root index.html');
 }
 if (![...archiveNames].some((name) => name.startsWith('_next/static/'))) {
-    throw new Error('Poki export has no _next/static assets');
+    throw new Error('Export has no _next/static assets');
 }
 if ([...archiveNames].some((name) => name.includes('\\'))) {
-    throw new Error('Poki archive paths must use forward slashes');
+    throw new Error('Archive paths must use forward slashes');
+}
+
+// See TARGETS.mustInline: the flag's identifier surviving in a chunk proves
+// the export was built without it set.
+for (const file of files) {
+    if (!file.archiveName.startsWith('_next/static/') || !file.archiveName.endsWith('.js')) continue;
+    const contents = await readFile(file.absolutePath, 'utf8');
+    if (contents.includes(target.mustInline)) {
+        throw new Error(
+            `${file.archiveName} still references ${target.mustInline} — this export was built ` +
+            `WITHOUT ${target.mustInline}=true and would 404 every runtime asset on the portal's ` +
+            `nested CDN path. Rebuild with "pnpm build:${targetName}", never bare "next build".`,
+        );
+    }
 }
 
 const rewrittenHtmlFiles = await rewriteHtmlAbsoluteRefs(stagedBuildDir, archiveNames);
@@ -270,5 +310,5 @@ console.log(
         archiveStats.size /
         1024 /
         1024
-    ).toFixed(1)} MiB) with Poki-compatible asset paths (${rewrittenCssFiles} CSS + ${rewrittenHtmlFiles} HTML files rewritten to relative refs).`,
+    ).toFixed(1)} MiB) with nested-hosting-compatible asset paths (${rewrittenCssFiles} CSS + ${rewrittenHtmlFiles} HTML files rewritten to relative refs).`,
 );

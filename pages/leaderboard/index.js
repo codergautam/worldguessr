@@ -6,6 +6,7 @@ import config from '@/clientConfig';
 import styles from '@/styles/Leaderboard.module.css';
 import { navigate } from '@/lib/basePath';
 import CountryFlag from '@/components/utils/countryFlag';
+import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -203,17 +204,30 @@ const Leaderboard = ({ }) => {
                   </div>
 
                   <div className={styles.playerDetails}>
-                    <a
-                      href={`${navigate('/user')}?u=${encodeURIComponent(user.username)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.username}
-                      style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {user.username}
-                      {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
-                    </a>
+                    {/* GameDistribution links here from its footer, and forbids
+                        the game opening tabs — plain text there instead of a
+                        dead-end profile link. Poki has no /user route at all. */}
+                    {NO_PROFILE_LINKS ? (
+                      <span
+                        className={styles.username}
+                        style={{ color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        {user.username}
+                        {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
+                      </span>
+                    ) : (
+                      <a
+                        href={`${navigate('/user')}?u=${encodeURIComponent(user.username)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.username}
+                        style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {user.username}
+                        {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
+                      </a>
+                    )}
                   </div>
 
                   <div className={styles.scoreContainer}>

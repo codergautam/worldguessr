@@ -10,6 +10,12 @@ import { useDailyChallenge } from './useDailyChallenge';
 import DailyLanding from './DailyLanding';
 import DailyResultsScreen from './DailyResultsScreen';
 
+// Keep in sync with components/home.js PANO_PRELOAD_DELAY_MS — iframe swap
+// waits until the answer map covers the pano. 450 is a user ruling (see the
+// home.js comment): the old iframe document outlives the swap long enough
+// that the slower mobile/CG covers don't matter in practice.
+const PANO_PRELOAD_DELAY_MS = 450;
+
 const GameUI = dynamic(() => import('@/components/gameUI'), { ssr: false });
 
 function DailyRoundBadge({ round, total }) {
@@ -92,10 +98,18 @@ export default function DailyChallengeScreen({
   setLatLongKey,
   loading,
   setLoading,
+  beginRoundLoading,
   onPhaseChange,
+  beginSpPanoPreload,
+  clearSpPanoPreload,
+  spPanoKeyRef,
+  spPanoLoadedKeyRef,
+  setSpPanoLoadedKey,
+  setPanoLocation,
 }) {
   const { t: text } = useTranslation();
-  // Poki and CoolMath have no login surface. Suppressing onSignIn hides the
+  // Poki, CoolMath and GameDistribution have no login surface. Suppressing
+  // onSignIn hides the
   // sign-in BUTTONS (landing, results, leaderboard modal). The copy AROUND
   // those buttons ("Sign in to save your streak") is a separate gate inside
   // each component — it used to render happily with the button gone.
@@ -147,7 +161,6 @@ export default function DailyChallengeScreen({
   const [miniMapShown, setMiniMapShown] = useState(false);
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
-  const [showPanoOnResult, setShowPanoOnResult] = useState(false);
   const [finalRounds, setFinalRounds] = useState(null);
   const [submitResponse, setSubmitResponse] = useState(null);
   // Background-submit handle, populated while the user reads the final
@@ -207,23 +220,76 @@ export default function DailyChallengeScreen({
   // covers the iframe in the same frame the round bumps. With useEffect, the
   // browser paints once with showAnswer cleared but loading still false and
   // latLong still pointing at the old round — flashing the old StreetView.
+  //
+  // When the previous reveal already preloaded this round's pano, skip the
+  // loading overlay and the iframe remount — same commit path as multiplayer.
   const currentRound = singlePlayerRound?.round || 1;
   useLayoutEffect(() => {
     if (phase !== 'game' || !locationData?.locations) return;
     const loc = locationData.locations[currentRound - 1];
     if (!loc) return;
-    setShowAnswer(false);
-    setPinPoint(null);
-    setHintShown(false);
-    setLoading(true);
-    setLatLong({
+    const nextLatLong = {
       lat: loc.lat,
       long: loc.long,
       heading: loc.heading,
       country: loc.country,
-    });
+    };
+    const preloadKey = `daily:${currentRound}`;
+    const preloaded = spPanoKeyRef?.current === preloadKey;
+
+    setShowAnswer(false);
+    setPinPoint(null);
+    setHintShown(false);
+    setLatLong(nextLatLong);
+
+    if (preloaded) {
+      // Pointed vs LOADED, read before the clears null the ref: a pointed
+      // pano whose load hasn't finished is showing Google's white mid-load
+      // document — the round must open under the loading overlay, and the
+      // in-flight load's own onLoad clears it. Only a finished preload earns
+      // the no-loading-screen start.
+      const preloadReady = spPanoLoadedKeyRef?.current === preloadKey;
+      setPanoLocation?.(null);
+      if (spPanoKeyRef) spPanoKeyRef.current = null;
+      setSpPanoLoadedKey?.(null);
+      // Minimum loading dwell, same as the SP/onboarding preload commits —
+      // see beginSpRoundLoading in home.js.
+      if (beginRoundLoading) beginRoundLoading(preloadReady);
+      else setLoading(!preloadReady);
+      return;
+    }
+
+    // Not preloaded for THIS round: any leftover preload must die here.
+    // panoSource prefers panoLocation, and a stale one from another mode
+    // survives the browser-Back jump into /daily (popstate sets the screen
+    // directly, bypassing the SP-family cleanup) — without this, a scored
+    // daily round 1 opened on a singleplayer location. All three are no-ops
+    // in the normal case where nothing was pending.
+    setPanoLocation?.(null);
+    if (spPanoKeyRef) spPanoKeyRef.current = null;
+    setSpPanoLoadedKey?.(null);
+    if (beginRoundLoading) beginRoundLoading(false);
+    else setLoading(true);
     setLatLongKey(k => k + 1);
-  }, [phase, currentRound, locationData, setLatLong, setLatLongKey, setLoading]);
+  }, [phase, currentRound, locationData, setLatLong, setLatLongKey, setLoading, beginRoundLoading, spPanoKeyRef, setSpPanoLoadedKey, setPanoLocation]);
+
+  // Preload the NEXT round's pano under the answer map (same delay as MP so
+  // the iframe swap is covered). Final round has nothing to preload.
+  useEffect(() => {
+    if (phase !== 'game' || !showAnswer || !locationData?.locations) return;
+    const nextLoc = locationData.locations[currentRound];
+    if (!nextLoc || !beginSpPanoPreload) return;
+    const key = `daily:${currentRound + 1}`;
+    const t = setTimeout(() => {
+      beginSpPanoPreload({
+        lat: nextLoc.lat,
+        long: nextLoc.long,
+        heading: nextLoc.heading,
+        country: nextLoc.country,
+      }, key);
+    }, PANO_PRELOAD_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [phase, showAnswer, currentRound, locationData, beginSpPanoPreload]);
 
   // Clean up home's StreetView when not actively in-game. We deliberately do
   // NOT clear it on 'results': the modal's blurred backdrop sits over the
@@ -233,8 +299,9 @@ export default function DailyChallengeScreen({
   useEffect(() => {
     if (phase === 'landing' || phase === 'confirming' || phase === 'submitting') {
       setLatLong(null);
+      clearSpPanoPreload?.();
     }
-  }, [phase, setLatLong]);
+  }, [phase, setLatLong, clearSpPanoPreload]);
 
   // Disqualify the run if the player switches tabs / minimizes / hides the
   // page while actively playing. We intentionally only listen to
@@ -551,8 +618,6 @@ export default function DailyChallengeScreen({
           setMiniMapShown={setMiniMapShown}
           singlePlayerRound={singlePlayerRound}
           setSinglePlayerRound={setSinglePlayerRound}
-          showPanoOnResult={showPanoOnResult}
-          setShowPanoOnResult={setShowPanoOnResult}
           options={options}
           countryStreak={0}
           setCountryStreak={() => {}}

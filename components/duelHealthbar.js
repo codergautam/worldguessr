@@ -4,11 +4,7 @@ import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 import { MdWifiOff } from 'react-icons/md';
 import { useTranslation } from '@/components/useTranslations';
-
-// Poki hosts the build at a nested per-deploy CDN path with no /user route —
-// a root-absolute profile link would open a 404 tab. Fall back to the same
-// plain-text rendering guests (hasProfile=false) already get.
-const inPoki = process.env.NEXT_PUBLIC_POKI === 'true';
+import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
 
 const easeOutElastic = (t) => {
   const c4 = (2 * Math.PI) / 3;
@@ -65,7 +61,7 @@ const TeamNames = ({ names, dcLabel }) => {
         // name+flag so the elo suffix stays un-underlined, like the 1v1 bar.
         return (
           <span key={i} style={rowStyle}>
-            {entry.username && !entry.isMe && entry.hasProfile && !inPoki ? (
+            {entry.username && !entry.isMe && entry.hasProfile && !NO_PROFILE_LINKS ? (
               <Link href={`/user?u=${encodeURIComponent(entry.username)}`} target="_blank"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', maxWidth: '100%', minWidth: 0, color: 'inherit', textDecoration: 'underline', pointerEvents: 'auto' }}>
                 {inner}
@@ -87,10 +83,14 @@ const TeamNames = ({ names, dcLabel }) => {
 const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true }) => {
   const { t: text } = useTranslation("common");
   const [displayHealth, setDisplayHealth] = useState(health);
-  const [prevHealth, setPrevHealth] = useState(health);
   const [isAnimating, setIsAnimating] = useState(false);
   const [damageIndicator, setDamageIndicator] = useState(null);
   const prevHealthRef = useRef(health);
+  // The count-down animation reads its start value from here, not from the
+  // `displayHealth` render closure: the loop is what writes that state, so
+  // closing over it is how two overlapping runs used to fight each other.
+  const displayHealthRef = useRef(health);
+  displayHealthRef.current = displayHealth;
 
   const getHealthColor = (percentage) => {
     if (percentage > 60) return { bg: '#4ade80', glow: '#22c55e' }; // Green
@@ -101,40 +101,70 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
   const healthPercentage = Math.max(0, (displayHealth / maxHealth) * 100);
   const colors = getHealthColor(healthPercentage);
 
+  // HP drain. Every guard below exists because this ran unguarded on the answer
+  // reveal — the single most frame-starved moment of a duel round (fullscreen
+  // answer map resizing + flyTo + a WebSocket state burst all in the same tick).
   useEffect(() => {
     if (health !== prevHealthRef.current) {
       const damage = prevHealthRef.current - health;
-      if (damage > 0) {
-        setDamageIndicator(damage);
-        setTimeout(() => setDamageIndicator(null), 2000);
-      }
-      setPrevHealth(prevHealthRef.current);
+      if (damage > 0) setDamageIndicator(damage);
       prevHealthRef.current = health;
     }
 
-    let startTime;
     const duration = 1200;
+    const startValue = displayHealthRef.current;
+    // Nothing to drain: mount (displayHealth is seeded FROM health), or a
+    // zero-damage round. The old code still ran the full rAF loop here,
+    // interpolating a number towards itself: ~70 frames of no-op setDisplayHealth
+    // for zero pixels of movement.
+    //
+    // The `.animating` window is NOT no-op though — it's what gives the bar its
+    // scale(1.05) + drop-shadow lift, and on mount that lift is part of the
+    // round-1 "VS" intro. So keep the class for exactly the same 1200ms, and
+    // drop only the frame loop that was doing nothing.
+    if (startValue === health) {
+      setIsAnimating(true);
+      const t = setTimeout(() => setIsAnimating(false), duration);
+      return () => clearTimeout(t);
+    }
+
+    let rafId = null;
+    let startTime = null;
     setIsAnimating(true);
 
     const animateHealth = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-
-      const progress = Math.min(elapsed / duration, 1);
-      const easedProgress = progress; // Simple linear interpolation
-      const newDisplayHealth = Math.max(0, displayHealth + easedProgress * (health - displayHealth));
-
-      setDisplayHealth(newDisplayHealth);
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      // Simple linear interpolation
+      setDisplayHealth(Math.max(0, startValue + progress * (health - startValue)));
 
       if (progress < 1) {
-        requestAnimationFrame(animateHealth);
+        rafId = requestAnimationFrame(animateHealth);
       } else {
+        rafId = null;
         setIsAnimating(false);
       }
     };
 
-    requestAnimationFrame(animateHealth);
+    rafId = requestAnimationFrame(animateHealth);
+
+    // Was missing entirely. Without it the loop outlived both a second HP
+    // change inside the 1.2s window (two chains writing displayHealth at once,
+    // each re-rendering the bar every frame) and unmount — leaving the game
+    // mid-drain kept a dead component's rAF chain running to completion.
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [health]);
+
+  // Damage number lifetime, owned by its own effect so the timer is cancelable.
+  // It used to be a bare setTimeout inside the drain effect, which meant an
+  // unmount mid-round left it pending and firing into nothing.
+  useEffect(() => {
+    if (damageIndicator === null) return;
+    const t = setTimeout(() => setDamageIndicator(null), 2000);
+    return () => clearTimeout(t);
+  }, [damageIndicator]);
 
   return (
     <div className={`health-bar-container modern ${isAnimating ? 'animating' : ''}`}>
@@ -172,7 +202,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
         <div className="player-name-wrapper">
           {Array.isArray(names) && names.length > 0 ? (
             <TeamNames names={names} dcLabel={text("disconnectedTag")} />
-          ) : isOpponent && name && hasProfile && !inPoki ? (
+          ) : isOpponent && name && hasProfile && !NO_PROFILE_LINKS ? (
             <Link
               href={`/user?u=${encodeURIComponent(name)}`}
               target="_blank"

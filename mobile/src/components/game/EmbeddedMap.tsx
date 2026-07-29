@@ -14,6 +14,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { EMBED_HTML } from '../../generated/embedHtml';
 import { playSfx, toGain } from '../../services/sound';
 import { useSettingsStore } from '../../store/settingsStore';
+import streetViewUrl from '../../utils/streetViewUrl';
 import LeafletMap from './LeafletMap';
 
 /**
@@ -274,7 +275,10 @@ export default function EmbeddedMap({
         case 'openMaps':
           if (typeof msg.lat === 'number' && typeof msg.lng === 'number') {
             if (onOpenMaps) onOpenMaps({ lat: msg.lat, lng: msg.lng, panoId: msg.panoId });
-            else Linking.openURL(`https://www.google.com/maps?q=${msg.lat},${msg.lng}`);
+            else {
+              const url = streetViewUrl({ lat: msg.lat, lng: msg.lng, panoId: msg.panoId });
+              if (url) Linking.openURL(url);
+            }
           }
           break;
         case 'revealReady':

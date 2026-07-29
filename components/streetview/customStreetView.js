@@ -825,6 +825,7 @@ const CustomStreetView = ({
   npz = false,
   showAnswer = false,
   hidden = false,
+  slowEnter = false,
   refreshKey = 0,
   // NEXT round's fresh pano id (or null): warms its base tiles into the HTTP
   // cache while the current round's answer screen covers the canvas, so the
@@ -997,7 +998,7 @@ const CustomStreetView = ({
       <canvas
         ref={canvasRef}
         id="streetview"
-        className={`streetview ${frozen ? "nmpz" : ""} ${hidden ? "hidden" : ""}`}
+        className={`streetview ${frozen ? "nmpz" : ""} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""}`}
         style={{
           position: "fixed",
           inset: 0,

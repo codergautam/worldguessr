@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Linking, Animated } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import { t } from '../../shared/locale';
+import streetViewUrl from '../../utils/streetViewUrl';
 import { dailyColors } from './styles';
 
 // Core Animated (not Reanimated) so the pop plays even with OS Reduce Motion on.
@@ -19,6 +20,8 @@ interface Round {
 interface LocationLike {
   lat: number;
   long: number;
+  heading?: number | null;
+  panoId?: string | null;
 }
 
 function barColor(score: number) {
@@ -65,9 +68,11 @@ function Badge({
     diffLabel = t('aboveAvg', { pct: 100 });
   }
 
+  // Same URL web's daily round badges build (DailyResultsScreen.js): pano +
+  // viewpoint + heading via the Maps URLs API.
   const mapUrl =
     allowMapLinks && location && Number.isFinite(location.lat) && Number.isFinite(location.long)
-      ? `https://www.google.com/maps?q=${location.lat},${location.long}`
+      ? streetViewUrl({ lat: location.lat, lng: location.long, heading: location.heading, panoId: location.panoId })
       : null;
 
   const content = (

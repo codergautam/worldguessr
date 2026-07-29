@@ -2589,7 +2589,44 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 }
 
 #miniMapArea.answerNotShown {
-    transition: all 250ms ease;
+    // Explicit list, not `all`. This container holds a Leaflet map, so it
+    // restyles constantly; `all` makes the browser diff every animatable
+    // property on every one of those recalcs. Duration stays at the play-time
+    // hover expand/collapse speed (paired with #miniMapArea:hover below).
+    //
+    // The list must still cover EVERY property that differs between
+    // .answerShown and this state — between-rounds reveal exit adds
+    // .revealExiting (below) to lengthen the same list so the box shrink
+    // and ExtentFitter's fly land together.
+    transition:
+        width 250ms ease,
+        height 250ms ease,
+        top 250ms ease,
+        right 250ms ease,
+        bottom 250ms ease,
+        left 250ms ease,
+        margin 250ms ease,
+        border-radius 250ms ease,
+        opacity 250ms ease,
+        transform 250ms ease;
+}
+
+// Multiplayer answer reveal → next guess only. Overrides the 250ms play-time
+// shrink above so the container tracks SMOOTH_RESET_FLY_SEC (Map.js). Do not
+// put this duration on .answerNotShown itself — that class is also the
+// resting guess-phase state, and unhover would inherit the slow fly timing.
+#miniMapArea.answerNotShown.revealExiting {
+    transition:
+        width 400ms ease,
+        height 400ms ease,
+        top 400ms ease,
+        right 400ms ease,
+        bottom 400ms ease,
+        left 400ms ease,
+        margin 400ms ease,
+        border-radius 400ms ease,
+        opacity 400ms ease,
+        transform 400ms ease;
 }
 
 #miniMapArea.answerNotShown #miniMapContent {
@@ -2736,6 +2773,16 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     .mobile_minimap__btns.answerShownBtns * {
         visibility: hidden;
         transition: none;
+    }
+
+    /* Reveal-exit windows (map fading out, camera resetting under cover):
+       the Guess button is deliberately VISIBLE from the click frame — that's
+       the whole point of clearing showAnswer early — but a tap must not
+       toggle the sheet while the map is mid-fade or mid-reset, or the sheet
+       opens onto a stale/half-reset camera. Input-off only; no visual change,
+       the windows are ~300ms + ~350ms. */
+    .mobile_minimap__btns.mobileGuessFabIdle .g2_mobile_guess {
+        pointer-events: none;
     }
 
     /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
@@ -3180,6 +3227,14 @@ canvas.streetview.dragging {
 #streetview {
     transition: opacity 0.2s ease-out;
     background-color: #1a1a2e; /* Prevent white flash during iframe src change */
+}
+
+// Duel round-1 start: slow SHOW only. Duration = DUEL_PANO_ENTER_MS in
+// components/utils/duelIntroTiming.js. Concealment on later reveals still
+// uses the base 0.2s rule above.
+#streetview.streetview--duel-enter,
+.streetview.streetview--duel-enter {
+    transition: opacity 750ms ease;
 }
 
 // on screens larger than 600px
@@ -7854,7 +7909,13 @@ div[dir="ltr"] {
     margin: 15px;
     font-family: 'Lexend', 'Lexend Fallback', sans-serif;
     position: relative;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    // Explicit property list, not `all`. These bars re-render with the round
+    // clock and then once per frame for the 1.2s HP drain; `all` makes the
+    // browser diff every animatable property on every one of those style
+    // recalcs, and the drain lands during the answer reveal.
+    transition:
+        transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
     &.animating {
         transform: scale(1.05);
@@ -7891,13 +7952,22 @@ div[dir="ltr"] {
 }
 
 .health-bar-bg {
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+    // NO backdrop-filter — same ruling as .g2_container above, which is the
+    // only other surface that sits over the live pano. A backdrop-filter region
+    // is re-sampled every time the pixels behind it change, and behind these
+    // bars is Street View, which changes every frame the player looks around.
+    // Two of these were blurring continuously for the whole 60s guess phase, in
+    // duels only. That is why duels felt heavier than public games with more
+    // players in them. The tint is already 80-90% opaque, so the blur was
+    // contributing almost nothing; a solid underlay does the legibility job.
+    background:
+        linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%),
+        rgba(8, 8, 8, 0.92);
     border-radius: 15px;
     padding: 8px;
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.4),
         inset 0 2px 4px rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -7921,7 +7991,7 @@ div[dir="ltr"] {
         content: '';
         position: absolute;
         top: 0;
-        left: -100%;
+        left: 0;
         width: 100%;
         height: 100%;
         background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
@@ -7929,9 +7999,13 @@ div[dir="ltr"] {
     }
 }
 
+// transform, NOT `left`. `left` is a layout property, so this infinite loop was
+// running layout on two elements every frame for the entire duel — the same
+// "infinite `left` anim" that caused the Firefox menu lag. translateX is
+// compositor-only and renders identically.
 @keyframes shimmer {
-    0% { left: -100%; }
-    100% { left: 100%; }
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
 .health-bar-shine {
@@ -8056,6 +8130,101 @@ div[dir="ltr"] {
     flex-direction: column;
 }
 
+// Continuous VS + countdown layer (intro and exit). Styles live on the child
+// classes below — never on ephemeral inline styles, never remounted into a
+// different parent. Duration = DUEL_INTRO_EXIT_MS in duelIntroTiming.js.
+.hb-vs-chrome {
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1002;
+    opacity: 1;
+    transition: opacity 600ms ease;
+}
+
+.hb-vs-chrome--exiting {
+    opacity: 0;
+}
+
+// Invisible flex spacers in .hb-bars / under it so the real chrome paints in
+// the same place the old in-flow VS + countdown occupied.
+.hb-vs-slot {
+    visibility: hidden;
+    font-family: lexend, sans-serif;
+    font-weight: 900;
+    font-size: 32px;
+    letter-spacing: 8px;
+    margin: 12px 0;
+    padding: 12px 24px;
+    border: 3px solid transparent;
+    animation: none;
+}
+
+.hb-vs-countdown--slot {
+    visibility: hidden;
+}
+
+.hb-vs-label {
+    font-family: lexend, sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 32px !important;
+    color: #ffffff !important;
+    text-shadow:
+        0 0 25px #00ffff,
+        0 0 50px #00ffff,
+        0 0 75px #00ffff,
+        3px 3px 0 #000000,
+        -3px -3px 0 #000000,
+        3px -3px 0 #000000,
+        -3px 3px 0 #000000 !important;
+    letter-spacing: 8px !important;
+    animation: vsGlow 2s ease-in-out infinite alternate !important;
+    margin: 12px 0 !important;
+    text-align: center !important;
+    background: linear-gradient(45deg, rgba(0, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    padding: 12px 24px !important;
+    border: 3px solid rgba(0, 255, 255, 0.4);
+    box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+.hb-vs-countdown {
+    z-index: 1000;
+    pointer-events: none;
+    color: white;
+    font-size: 20px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    margin-top: 10px;
+}
+
+// Guess start: bars slide down from above immediately (not after the VS fade).
+// Duration = DUEL_CORNER_SLIDE_MS in duelIntroTiming.js.
+.hb-corner-enter--left {
+    animation: hbSlideInLeft 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hb-corner-enter--right {
+    animation: hbSlideInRight 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hbSlideInLeft {
+    from { transform: translate3d(-20px, -110%, 0); }
+    to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hbSlideInRight {
+    from { transform: translate3d(20px, -110%, 0); }
+    to { transform: translate3d(0, 0, 0); }
+}
+
 .hb-bars {
     display: flex;
     justify-content: center;
@@ -8065,9 +8234,9 @@ div[dir="ltr"] {
     overflow: hidden;
 }
 
-/* AAA Game Style VS element for DUEL INTRO ONLY - not round over screen */
-.hb-bars .vs-divider,
-.hb-bars p {
+/* Legacy selector kept for any leftover .vs-divider markup; real VS chrome
+   uses .hb-vs-label above so intro and exit share one style path. */
+.hb-bars .vs-divider {
     font-family: lexend, sans-serif !important;
     font-weight: 900 !important;
     font-size: 32px !important;
@@ -8113,7 +8282,8 @@ div[dir="ltr"] {
 
     /* Override desktop styling for mobile - DUEL INTRO ONLY */
     .hb-bars .vs-divider,
-    .hb-bars p {
+    .hb-vs-label,
+    .hb-vs-slot {
         font-family: lexend, sans-serif !important;
         font-weight: 900 !important;
         font-size: 28px !important;
@@ -8136,14 +8306,28 @@ div[dir="ltr"] {
         border: 2px solid rgba(0, 255, 255, 0.3);
     }
 
+    .hb-vs-slot {
+        visibility: hidden;
+        color: transparent !important;
+        text-shadow: none !important;
+        animation: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-color: transparent !important;
+    }
+
     /* First player at top */
     .hb-bars > div:first-child {
         order: 0;
         animation: playerSlideDown 0.6s ease-out 0.2s both;
     }
 
+    .hb-bars > .hb-vs-slot {
+        order: 1;
+    }
+
     /* Second player at bottom */
-    .hb-bars > div:last-child {
+    .hb-bars > div:last-of-type {
         order: 2;
         animation: playerSlideUp 0.6s ease-out 0.4s both;
     }
@@ -8366,6 +8550,13 @@ div:hover .elo-badge {
     z-index: 1000;
     pointer-events: none;
     animation: slideInFromBottom 0.5s ease-out;
+    opacity: 1;
+    // Matches DUEL_INTRO_EXIT_MS — warning leaves with the VS chrome.
+    transition: opacity 600ms ease;
+}
+
+.duel-warning-container--exiting {
+    opacity: 0;
 }
 
 .duel-warning-content {
@@ -9190,4 +9381,39 @@ div:hover .elo-badge {
     .countryGuessrOptions.continentMode {
         width: calc(100% - 12px);
     }
+}
+
+// ── GameDistribution ad break ────────────────────────────────────────────────
+// GD is the only partner that renders ads INSIDE our document. Its SDK appends
+// <div id="gdsdk__advertisement"> to document.body at z-index 1010, position
+// fixed, 100% x 100%. Every layer of ours above 1010 painted straight through
+// the ad: .navbar (1120), .mobile_minimap__btns (1200), .guessBtn (1500),
+// .Toastify__toast-container (10020), .reloadBtnTooltip (100000) and the daily
+// HUD (1150 to 11000). CrazyGames, Poki and CoolMath all paint the ad from
+// their own parent frame, where our z-index can never reach it, which is why
+// this bug is unique to GD.
+//
+// We hide OUR OWN roots by name instead of out-z-indexing theirs, and the
+// direction matters: if GD ever renames or restyles its container, the worst
+// case here is today's bug on one element. Bumping their container instead
+// would fail the other way and black out the ad slot entirely.
+//
+// visibility, NOT display:none. A display round-trip replays every entrance
+// animation on the way back and forces Leaflet a full relayout, so the game
+// would flash its whole HUD in after each ad.
+//
+// Toggled by window.onGDPauseGame / window.onGDResumeGame in components/home.js.
+// GD fires SDK_GAME_PAUSE for video ads only, never for display banners, so our
+// own 728x90 banner cannot trigger a false hide.
+// The `*` arms are load-bearing: visibility is INHERITED, so any descendant
+// with its own `visibility: visible` rule (.loading-overlay--visible,
+// .banner-text.shown, navbar button gating) un-hides itself right through
+// the root-level hide — that is how a lone blue button survived over a GD
+// video ad. Forcing every descendant closes the class of bug, not one button.
+body.gd-ad-active #__next,
+body.gd-ad-active #__next *,
+body.gd-ad-active .react-responsive-modal-root,
+body.gd-ad-active .react-responsive-modal-root * {
+    visibility: hidden !important;
+    pointer-events: none !important;
 }

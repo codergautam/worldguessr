@@ -36,6 +36,8 @@ const nextConfig = {
     // ./_next/... (and sets webpack publicPath to ./_next/), which is exactly
     // what the historically-working Poki build shipped (__NEXT_DATA__ recorded
     // assetPrefix "."). Scoped to Poki only so root/basePath hosting is untouched.
+    // (GameDistribution's zip mounts at its STABLE gameId path, so build:gd
+    // hardcodes NEXT_PUBLIC_BASE_PATH instead — Next-native, like its CI build.)
     assetPrefix: process.env.NEXT_PUBLIC_POKI === 'true' ? '.' : undefined,
     // NEXT_DIST_DIR (e.g. '.next-poki') controls where the static EXPORT lands.
     // WARNING: it does NOT isolate the build itself. With output:'export',

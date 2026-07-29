@@ -4,7 +4,7 @@ import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -24,6 +24,7 @@ import { HIDE_ACCOUNT_UI, neutralGateKey } from "@/components/utils/accountUi";
 import { duckAudio, setMusicAllowed, setMusicPlaylist, playSfx, preloadSfx, refreshVolumesFromStorage } from "@/components/utils/audio";
 import deriveTeamEndFallback from "@/components/utils/teamDuelEndFallback";
 import getMyTeam from "@/components/utils/getMyTeam";
+import { DUEL_PANO_ENTER_MS } from "@/components/utils/duelIntroTiming";
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
@@ -82,6 +83,21 @@ import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
+// How long to wait after a multiplayer reveal starts before navigating the pano
+// to the next round's preload target. Must outlast BOTH things that would let
+// the swap be seen: #streetview's 200ms conceal fade and #miniMapArea's 300ms
+// grow to fullscreen. An iframe keeps the old document painted until the new one
+// commits and then shows its own dark background, so swapping early reads as a
+// black flash.
+// Outlasts desktop's 300ms answer-map grow. Mobile's cover takes 600ms and
+// the country-guesser fade 500ms — ON PAPER the swap fires before those fully
+// land, but an iframe keeps the OLD document painted until the new one
+// commits, and Google's embed takes far longer than the remaining gap to
+// paint anything. USER RULING July 28: tested extensively on mobile at 450,
+// no flash — a bump to 650 was tried and reverted. Don't "fix" this again
+// without an observed flash.
+// Keep in sync with the copy in components/daily/DailyChallengeScreen.js.
+const PANO_PRELOAD_DELAY_MS = 450;
 const TEAM_2V2_END_EXIT_COVER_MS = 50;
 const TEAM_2V2_END_EXIT_REVEAL_MS = 160;
 
@@ -110,6 +126,44 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
+    // What the STREET VIEW shows, which during a reveal is not the same thing
+    // as `latLong`. `latLong` is the round's answer: the reveal map flies to it
+    // and EndBanner scores against it, so it must keep pointing at the round
+    // that just ENDED for the whole reveal. The pano meanwhile wants to be
+    // loading the round that is about to START. Used by multiplayer and by
+    // singleplayer / onboarding / daily (same pattern). Null → fall back to
+    // latLong.
+    const [panoLocation, setPanoLocation] = useState(null)
+    // Singleplayer / onboarding / daily: identity of the pano preload target
+    // (`onboarding:2`, `daily:3`, `sp:lat,long`). Parallel to mpPanoRoundRef.
+    const spPanoKeyRef = useRef(null);
+    // Loaded-tracking is state (concealment must re-render on it) PLUS a ref
+    // mirror: the commit fast paths that consult it run inside long-lived
+    // closures (the WS message handler, loadLocation called mid-batch), where
+    // state reads can be a render stale. The wrapper keeps the two in lockstep
+    // so no call site has to remember there are two.
+    const [spPanoLoadedKey, _setSpPanoLoadedKey] = useState(null);
+    const spPanoLoadedKeyRef = useRef(null);
+    const setSpPanoLoadedKey = useCallback((v) => {
+        spPanoLoadedKeyRef.current = v;
+        _setSpPanoLoadedKey(v);
+    }, []);
+    // Next SP location reserved during reveal (removed from allLocsArray so it
+    // can't be re-rolled). Promoted into latLong on advance.
+    const reservedNextLocRef = useRef(null);
+    const beginSpPanoPreload = useCallback((loc, key) => {
+        if (!loc || !key || spPanoKeyRef.current === key) return;
+        spPanoKeyRef.current = key;
+        setSpPanoLoadedKey(null);
+        setLatLongKey((k) => k + 1);
+        setPanoLocation(loc);
+    }, []);
+    const clearSpPanoPreload = useCallback(() => {
+        spPanoKeyRef.current = null;
+        setSpPanoLoadedKey(null);
+        setPanoLocation(null);
+        reservedNextLocRef.current = null;
+    }, []);
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
@@ -157,9 +211,32 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
     const loadLocationRequestRef = useRef(0);
+    // Singleplayer-family rounds (SP, country/continent guesser, onboarding,
+    // daily) open under the loading cover for at least SP_MIN_LOADING_MS —
+    // including preload commits whose pano is already showing the next round.
+    // The instant swap read as a glitchy snap; a fixed dwell gives every
+    // advance the same rhythm. Real loads longer than the floor are
+    // untouched, and multiplayer never goes through here (server-driven
+    // timing owns that feel).
+    const spLoadingFloorRef = useRef(0);
+    const spRoundLoadingTokenRef = useRef(0);
+    const beginSpRoundLoading = useCallback((panoReady) => {
+        const token = ++spRoundLoadingTokenRef.current;
+        spLoadingFloorRef.current = Date.now() + SP_MIN_LOADING_MS;
+        setLoading(true);
+        // A ready preload fires no onLoad (nothing new navigates), so the
+        // cover is cleared by this timer; anything else re-begins loading
+        // first and invalidates the token. Real loads clear via the pano
+        // onLoad handlers, which respect the same floor.
+        if (!panoReady) return;
+        setTimeout(() => {
+            if (spRoundLoadingTokenRef.current === token) setLoading(false);
+        }, SP_MIN_LOADING_MS);
+    }, []);
     const [pendingCountryGuessrLoad, setPendingCountryGuessrLoad] = useState(0);
     const countryGuessrLoadRecoveryRef = useRef(0);
     const MAP_MODAL_CLOSE_ANIMATION_MS = 400;
+    const SP_MIN_LOADING_MS = 300;
 
     // Background music plays only while the game surface is mounted — every
     // route that renders Home (/, lang roots, /daily) gets it, standalone
@@ -261,10 +338,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             },
             flow: "auth-code",
-            ...(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" ? {
-                ux_mode: "redirect",
-                redirect_uri: typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined,
-            } : {}),
+            // GD used to get `ux_mode: "redirect"` here, which navigated the
+            // whole page to accounts.google.com. GD forbids the game leaving
+            // its page, so that was an outright policy violation and it got us
+            // rejected. GD is now in HIDE_ACCOUNT_UI, so nothing can reach
+            // this; the config is gone as well so a future surface can't
+            // resurrect the redirect by accident.
         });
 
         if (typeof window !== "undefined") window.login = login;
@@ -905,8 +984,47 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             // Set up GD SDK event callbacks
             // Called by the GD SDK bridge in headContent.js
-            window.onGDPauseGame = () => { };
+            //
+            // GD is the only partner that renders its ads INSIDE our document:
+            // the SDK appends <div id="gdsdk__advertisement"> to document.body
+            // at z-index 1010, position fixed, full viewport. CrazyGames, Poki
+            // and CoolMath all paint from their own parent frame where our
+            // z-index cannot reach, which is why this only ever broke here.
+            // Everything of ours above 1010 punched straight through the ad
+            // (.navbar is 1120, .guessBtn 1500, toasts 10020). Hiding our own
+            // roots for the duration is the fix; see .gd-ad-active in
+            // globals.scss for why it hides by name rather than by z-index.
+            let adBreakWatchdog = null;
+            const endAdBreak = () => {
+                if (adBreakWatchdog) {
+                    clearTimeout(adBreakWatchdog);
+                    adBreakWatchdog = null;
+                }
+                document.body.classList.remove('gd-ad-active');
+                duckAudio(false);
+            };
+            window.onGDPauseGame = () => {
+                document.body.classList.add('gd-ad-active');
+                // GD's own docs require the game to be muted for the whole
+                // break: "background audio through video advertisements is
+                // forbidden". crazyMidgame already ducks for between-round
+                // ads, but the first-interaction pre-roll below does not.
+                duckAudio(true);
+                // SDK_GAME_START fires on every ad exit path (complete, no
+                // fill, error, cancel), but a dropped event would leave the
+                // game invisible forever. Longer than any GD ad pod, shorter
+                // than a player's patience.
+                if (adBreakWatchdog) clearTimeout(adBreakWatchdog);
+                adBreakWatchdog = setTimeout(() => {
+                    console.warn("GD ad break watchdog fired, restoring UI");
+                    endAdBreak();
+                }, 60000);
+            };
             window.onGDResumeGame = () => {
+                // Idempotent on purpose: GD fires SDK_GAME_START with no
+                // preceding SDK_GAME_PAUSE at SDK init and on splash skip, so
+                // this runs at least once before any ad has ever played.
+                endAdBreak();
                 if (window._gdAdTimeout) {
                     clearTimeout(window._gdAdTimeout);
                     window._gdAdTimeout = null;
@@ -919,6 +1037,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             // Show interstitial pre-roll on first user interaction (GD SDK requires a user gesture)
             const handleFirstInteraction = () => {
+                // A brand-new user's first click lands INSIDE the tutorial,
+                // so an unconditional preroll fires over onboarding. Skip the
+                // preroll for that entire first session (same storage key
+                // home.js uses to decide whether to start the tutorial);
+                // between-round interstitials take over once they play a
+                // real game. Returning users are unchanged.
+                try {
+                    if (gameStorage.getItem("onboarding") !== "done") {
+                        document.removeEventListener('click', handleFirstInteraction);
+                        document.removeEventListener('touchstart', handleFirstInteraction);
+                        return;
+                    }
+                } catch (e) { }
                 try {
                     if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
                         gdsdk.showAd('interstitial');
@@ -988,6 +1119,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [screen])
 
     const [allLocsArray, setAllLocsArray] = useState([]);
+    const allLocsArrayRef = useRef([]);
+    allLocsArrayRef.current = allLocsArray;
 
     function startOnboarding(mode = "classic") {
 
@@ -1752,11 +1885,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [multiplayerState.connected]);
 
+    // Signature of ONLY the roster fields that can reshape the HP-bar name pill.
+    // The probe below does a getBoundingClientRect (a forced synchronous layout)
+    // and used to depend on the `players` ARRAY, which gets a brand-new identity
+    // on every `place` message — i.e. on every guess anyone locks in. Those
+    // messages change `guess`/`final`/`latLong`, none of which the pill renders,
+    // so every one of them bought a full document reflow for an identical
+    // result. This is duel-only code, which is part of why duels felt heavier
+    // than public games.
+    const duelPillSignature = (multiplayerState?.gameData?.players || [])
+        .map((p) => `${p.id}:${p.username}:${p.countryCode}:${p.elo}:${p.team ?? ''}:${p.disconnected ? 1 : 0}`)
+        .join('|');
+
     // Collision probe for the in-duel reload button (see duelReloadBtnTop).
-    // Runs after commit so the HP bars' DOM is current; players in the deps
-    // re-measures when names/elo/disconnect markers reshape the pill. Only
-    // desktop: compact mobile bars never reach the button (and the probe
-    // staying inert keeps mobile pixel-identical to before).
+    // Runs after commit so the HP bars' DOM is current. Only desktop: compact
+    // mobile bars never reach the button (and the probe staying inert keeps
+    // mobile pixel-identical to before).
     useEffect(() => {
         const gd = multiplayerState?.gameData;
         if (!(gd?.duel && gd?.state === "guess")) return;
@@ -1774,7 +1918,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         }
         setDuelReloadBtnTop(top);
-    }, [multiplayerState?.gameData?.state, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.players, width]);
+    }, [multiplayerState?.gameData?.state, multiplayerState?.gameData?.duel, duelPillSignature, width]);
 
     useEffect(() => {
         if (!session?.token?.secret) return;
@@ -2347,10 +2491,32 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         incomingRoundLoc
                     );
 
+                    // Two DISTINCT questions about the between-rounds preload,
+                    // and conflating them was the "white flash at round start"
+                    // bug:
+                    //  - pointed: the pano was told to navigate to THIS round.
+                    //    Means we must not renavigate it (that would throw the
+                    //    in-flight work away), NOT that there is anything
+                    //    watchable on screen yet.
+                    //  - ready: the iframe's load event fired for this round.
+                    //    Only THEN may the round start with no loading screen —
+                    //    unhiding a pointed-but-still-loading iframe shows
+                    //    Google's white mid-load document with nothing covering
+                    //    it. Ref, not state: this closure is long-lived.
+                    // pointed && !ready = short reveal / slow network: keep the
+                    // in-flight load, but put the loading overlay up; the
+                    // iframe's own onLoad clears it (same path a normal load
+                    // takes).
+                    const panoPointedAtThisRound = !!(
+                        incomingRoundLoc && mpPanoRoundRef.current === data.curRound
+                    );
+                    const panoPreloadedForThisRound = panoPointedAtThisRound &&
+                        mpPanoLoadedRoundRef.current === data.curRound;
+
                     if (((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") || needsRejoinGuessLocation) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
-                        setLoading(true)
+                        if (!panoPreloadedForThisRound) setLoading(true)
                         // Close the mobile minimap IN THIS BATCH, not in
                         // gameUI's after-paint effect: multiplayerShowAnswer
                         // derives false the moment state hits 'guess', so a
@@ -2359,10 +2525,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         // teardown and the effect's reset — the "opened
                         // minimap flashes at round start" bug.
                         setMiniMapShown(false)
-                        // Increment key to force refresh even if coords are the same
-                        setLatLongKey(k => k + 1)
+                        // latLong ALWAYS advances here — it is the round's
+                        // answer, and the reveal map / EndBanner read it.
                         if (incomingRoundLoc) {
                             setLatLong(incomingRoundLoc)
+                        }
+                        if (!panoPointedAtThisRound) {
+                            // Increment key to force refresh even if coords are the same
+                            setLatLongKey(k => k + 1)
+                            setPanoLocation(incomingRoundLoc ?? null)
+                            // Keep the ref honest: this path is now the thing
+                            // that owns which round the pano shows.
+                            mpPanoRoundRef.current = incomingRoundLoc ? data.curRound : null;
                         }
                     }
 
@@ -3007,15 +3181,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         window._gdAdTimeout = null;
                     }
                     window._gdAdFinished = adFinished;
-                    // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
-                    window._gdAdTimeout = setTimeout(() => {
-                        console.warn("GD ad timeout, forcing resume");
-                        window._gdAdTimeout = null;
+                    // Every exit path funnels through onGDResumeGame: it
+                    // removes the ad-break UI hide, clears the timeout and
+                    // consumes _gdAdFinished exactly once (idempotent, so
+                    // promise + SDK event + timeout can all fire safely).
+                    const resume = () => {
+                        if (window.onGDResumeGame) { window.onGDResumeGame(); return; }
+                        if (window._gdAdTimeout) {
+                            clearTimeout(window._gdAdTimeout);
+                            window._gdAdTimeout = null;
+                        }
                         const cb = window._gdAdFinished;
                         window._gdAdFinished = null;
                         if (cb) cb();
+                    };
+                    // Safety timeout in case SDK events never fire (dev mode, errors)
+                    window._gdAdTimeout = setTimeout(() => {
+                        console.warn("GD ad timeout, forcing resume");
+                        resume();
                     }, 15000);
-                    gdsdk.showAd('interstitial');
+                    const res = gdsdk.showAd('interstitial');
+                    // No-fill ("Promo not found") REJECTS this promise but does
+                    // not reliably follow with SDK_GAME_START — relying on
+                    // events alone left the round stuck until the 15s timeout.
+                    // The promise is the authoritative completion signal.
+                    if (res && typeof res.then === 'function') {
+                        res.then(resume).catch(resume);
+                    }
                 } else {
                     adFinished();
                 }
@@ -3176,6 +3368,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     } catch (e) { }
                 }
 
+                // Kill the MP pano in THIS commit. Left to the
+                // wasInMultiplayerRef cleanup below, home's first frame
+                // painted its transparent content onto the final round's
+                // still-mounted fullscreen pano (the end-screen exit white
+                // flash — SP never flashed because its pano feeds from
+                // latLong, nulled synchronously above). That cleanup is now
+                // a pre-paint useLayoutEffect and catches server-driven
+                // exits too; clearing here as well spares this hot path the
+                // extra synchronous render the layout effect would trigger.
+                mpPanoRoundRef.current = null;
+                setMpPanoLoadedRound(null);
+                setPanoLocation(null);
+
                 // Own the full teardown here instead of waiting for the
                 // server's gameShutdown to reset inGame — public end-state
                 // games intentionally ignore that message, so this branch
@@ -3284,11 +3489,86 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (loading && !force) return;
         const loadLocationRequestId = ++loadLocationRequestRef.current;
         const isCurrentLocationLoad = () => loadLocationRequestId === loadLocationRequestRef.current;
-        setLoading(true)
+
+        // --- Preload commit: pano already pointed at the next round during
+        // the answer reveal. Promote latLong only — no loading overlay, no
+        // iframe remount. Same idea as the multiplayer getready→guess skip.
+        if (keepAnswer && screen === "onboarding" && onboarding?.locations) {
+            const loc = onboarding.locations[onboarding.round - 1];
+            const key = `onboarding:${onboarding.round}`;
+            if (loc && spPanoKeyRef.current === key) {
+                // Read BEFORE the clears below null the ref. Pointed-but-still-
+                // loading means the iframe is already navigating to the right
+                // place — keep that (no key bump, no renavigation) but the
+                // round must open UNDER the loading overlay, not on Google's
+                // white mid-load document. The in-flight load's own onLoad
+                // clears `loading`, exactly like a non-preloaded round.
+                const panoReady = spPanoLoadedKeyRef.current === key;
+                setPanoLocation(null);
+                spPanoKeyRef.current = null;
+                setSpPanoLoadedKey(null);
+                reservedNextLocRef.current = null;
+                setHintShown(false);
+                setLatLong(loc);
+                const mode = onboarding.mode || "classic";
+                if (mode === "continent") {
+                    setOtherOptions([...ALL_CONTINENTS]);
+                } else if (mode === "country") {
+                    const distractors = [];
+                    const available = countries.filter(c => c !== loc.country);
+                    while (distractors.length < 3) {
+                        const pick = available[Math.floor(Math.random() * available.length)];
+                        if (!distractors.includes(pick)) distractors.push(pick);
+                    }
+                    setOtherOptions(shuffle([...distractors, loc.country]));
+                } else {
+                    let options = JSON.parse(JSON.stringify(loc.otherOptions || []));
+                    options.push(loc.country);
+                    setOtherOptions(shuffle(options));
+                }
+                beginSpRoundLoading(panoReady);
+                return;
+            }
+        }
+        if (keepAnswer && (screen === "singleplayer" || screen === "countryGuesser") && reservedNextLocRef.current) {
+            const loc = reservedNextLocRef.current;
+            reservedNextLocRef.current = null;
+            const key = `sp:${loc.lat},${loc.long}`;
+            setHintShown(false);
+            setLatLong(loc);
+            if (spPanoKeyRef.current === key) {
+                // Same read-before-clear as the onboarding branch above:
+                // pointed means keep the in-flight load, ready decides whether
+                // the loading overlay is owed.
+                const panoReady = spPanoLoadedKeyRef.current === key;
+                setPanoLocation(null);
+                spPanoKeyRef.current = null;
+                setSpPanoLoadedKey(null);
+                beginSpRoundLoading(panoReady);
+                return;
+            }
+            // Reserved but pano never pointed — fall through to a normal load
+            // of this exact loc (already removed from the pool).
+            beginSpRoundLoading(false);
+            setLatLongKey((k) => k + 1);
+            setPanoLocation(null);
+            spPanoKeyRef.current = null;
+            setSpPanoLoadedKey(null);
+            return;
+        }
+
+        beginSpRoundLoading(false);
         if (!keepAnswer) setShowAnswer(false)
         if (!keepAnswer) setPinPoint(null)
         if (!keepAnswer) setLatLong(null)
         setHintShown(false)
+        // Stale preload from a cancelled reveal must not stick.
+        if (!keepAnswer) {
+            setPanoLocation(null);
+            spPanoKeyRef.current = null;
+            setSpPanoLoadedKey(null);
+            reservedNextLocRef.current = null;
+        }
 
         if (screen === "onboarding") {
             const loc = onboarding.locations[onboarding.round - 1];
@@ -3573,7 +3853,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         stackUp={multiplayerEmotesEnabled && !multiplayerState?.gameData?.disableEmotes && emotesLive}
     />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
 
-    const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
 
     useEffect(() => {
@@ -3677,6 +3956,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // They just can't do multiplayer - the check is done in the websocket server
     // Banned users are also excluded from leaderboards (handled in api/leaderboard.js)
 
+    // Multiplayer's gameOptions, memoized. It used to be an object literal in
+    // the GameUI mount below, so it got a fresh identity on every render of
+    // this component — which means every WebSocket message, including the
+    // `place` broadcasts that fire on each opponent/teammate map click. That
+    // churn propagates into the (memoized) Leaflet map as a prop change and
+    // re-walks the whole subtree for nothing.
+    // extent: server-stamped ONLY. gameOptions.extent is singleplayer state —
+    // preferring it here leaked a stale community-map bbox (e.g. Taiwan) into
+    // multiplayer games joined via invite, zooming the guess map to the old map.
+    const multiplayerGameOptions = useMemo(() => ({
+        location: "all",
+        maxDist: 20000,
+        extent: multiplayerState?.gameData?.extent ?? null,
+        nm: multiplayerState?.gameData?.nm,
+        npz: multiplayerState?.gameData?.npz,
+        showRoadName: multiplayerState?.gameData?.showRoadName,
+    }), [
+        multiplayerState?.gameData?.extent,
+        multiplayerState?.gameData?.nm,
+        multiplayerState?.gameData?.npz,
+        multiplayerState?.gameData?.showRoadName,
+    ]);
+
     const multiplayerGameState = multiplayerState?.gameData?.state;
     const multiplayerEndAnswerHoldActive = multiplayerGameState === 'end' && !multiplayerEndAnswerHoldExpired;
     const multiplayerShowAnswer = multiplayerEndAnswerHoldActive || (
@@ -3694,6 +3996,314 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         multiplayerState?.gameData?.public &&
         (multiplayerState?.gameData?.duelEnd || multiplayerState?.gameData?.team2v2)
     );
+
+    /* ------------------------------------------------------------------
+     *  Multiplayer Street View preload
+     * ------------------------------------------------------------------
+     * SERVER FACT this rests on: the round counter is incremented at the
+     * guess -> getready edge, BEFORE the reveal is shown (ws/ws.js, the
+     * `game.curRound++; game.state = 'getready';` pair). And `locations` is
+     * the whole game's array, delivered once at start/join and carried
+     * forward by the client's merge because ordinary round updates omit the
+     * key entirely. So for the entire between-rounds reveal,
+     * `gameData.locations[curRound - 1]` is ALREADY the next round's spot,
+     * sitting in state, costing nothing to read.
+     *
+     * Two things were wrong before this:
+     *
+     *  1. Nothing loaded a pano until the getready -> guess flip, which is
+     *     the same instant the server starts the round clock. On a slow
+     *     machine that is ten seconds of a sixty second round spent staring
+     *     at a loading screen. Ranked duels hit it every round.
+     *
+     *  2. Worse, at round-1 getready NOTHING set `latLong` at all, so the
+     *     pano still held the HOME MENU's background location — and the
+     *     queue's `gameQueued` hide had just been dropped, so it was fully
+     *     visible. Players watched a random unrelated Street View for the
+     *     whole 5s "VS" countdown, then it flashed out and the real round
+     *     loaded. That is a wasted full pano load + 5s of live rendering
+     *     immediately before the moment that actually needs the GPU.
+     *
+     * Both are the same fix: point the pano at the upcoming round as soon as
+     * `getready` arrives, and keep it concealed until the round starts.
+     */
+    // Which round number the pano currently points at. A ref, not state: it
+    // exists to let the guess transition SKIP a reload, and re-rendering for
+    // it would defeat the purpose.
+    const mpPanoRoundRef = useRef(null);
+    // Which round the pano has actually FINISHED loading, as opposed to which
+    // one it has been pointed at. The two differ for exactly as long as a load
+    // is in flight, and that gap is the whole reason this exists: reassigning
+    // an iframe's src does not blank it, the old document stays up until the
+    // new one commits. Without this, opening "show street view" mid-reveal
+    // would paint the preloaded UPCOMING round for those few hundred ms.
+    const [mpPanoLoadedRound, _setMpPanoLoadedRound] = useState(null);
+    // Ref mirror for the same reason as spPanoLoadedKeyRef: the guess-flip
+    // consult happens inside the WS handler's closure.
+    const mpPanoLoadedRoundRef = useRef(null);
+    const setMpPanoLoadedRound = useCallback((v) => {
+        mpPanoLoadedRoundRef.current = v;
+        _setMpPanoLoadedRound(v);
+    }, []);
+    const notePanoLoaded = useCallback(() => {
+        if (multiplayerState?.inGame) {
+            setMpPanoLoadedRound(mpPanoRoundRef.current);
+        } else if (spPanoKeyRef.current != null) {
+            setSpPanoLoadedKey(spPanoKeyRef.current);
+        }
+    }, [multiplayerState?.inGame]);
+    // Only clear panoLocation when LEAVING multiplayer — a continuous
+    // `if (!inGame) setPanoLocation(null)` would wipe singleplayer / daily /
+    // onboarding preloads every render outside a match.
+    //
+    // useLayoutEffect, deliberately: server-driven exits (kick, gameShutdown,
+    // reconnect-fail) reach home without passing through backBtnPressed's
+    // synchronous clear, and as a passive effect this ran one frame late —
+    // home's first frame painted its transparent content onto the still-
+    // mounted final-round pano (the end-screen exit white flash). Pre-paint,
+    // the clear flushes before the browser can show that frame. On the
+    // backBtnPressed path everything here is already null, the setters bail,
+    // and no extra render happens.
+    const wasInMultiplayerRef = useRef(false);
+    useLayoutEffect(() => {
+        if (multiplayerState?.inGame) {
+            wasInMultiplayerRef.current = true;
+            return;
+        }
+        if (wasInMultiplayerRef.current) {
+            mpPanoRoundRef.current = null;
+            setMpPanoLoadedRound(null);
+            setPanoLocation(null);
+        }
+        wasInMultiplayerRef.current = false;
+    }, [multiplayerState?.inGame]);
+    // Preload half: point the pano at the upcoming round once getready lands.
+    // Passive on purpose — its swap timing is tuned and user-verified; only
+    // the leave-clear above needed to become pre-paint.
+    useEffect(() => {
+        if (!multiplayerState?.inGame) return;
+        const gd = multiplayerState.gameData;
+        if (gd?.state !== "getready") return;
+        // Post-final ghost getready: the server runs one after the last round
+        // and curRound overshoots. There is no next round to preload.
+        if (!gd.rounds || gd.curRound > gd.rounds) return;
+
+        const point = (round) => {
+            const loc = gd.locations?.[round - 1];
+            if (!loc || mpPanoRoundRef.current === round) return;
+            mpPanoRoundRef.current = round;
+            // latLongKey is the "load even if the coordinates are identical"
+            // signal — two rounds can legitimately sample the same spot, and
+            // without the bump the pano components' content-key check would
+            // no-op and leave stale content up.
+            setLatLongKey((k) => k + 1);
+            // setPanoLocation, NOT setLatLong: moving latLong here would fly
+            // the reveal map to the upcoming location and make EndBanner score
+            // the round against the wrong place ("It was X" naming next round's
+            // country). Map.js's answerSnapshot would absorb some of that, but
+            // EndBanner's per-render points/country would not.
+            setPanoLocation(loc);
+        };
+
+        // Do NOT swap on this frame. Navigating an iframe unloads the current
+        // document, and what shows through until the next one paints is the
+        // element's own #1a1a2e background — a black flash. On this frame the
+        // outgoing pano is still fully visible: concealment has only just
+        // started its 200ms opacity fade, and the answer map is 300ms into
+        // growing from the corner rect to fullscreen. Swapping now flashes
+        // black in the gap between the two.
+        //
+        // Wait until the pano is genuinely covered, THEN navigate. Nobody can
+        // see it after that, and an 8s reveal does not miss 450ms of head
+        // start. Round 1 is not exempt: it has no answer map to hide behind,
+        // only the concealment fade, and that is exactly when a black flash
+        // would be most visible.
+        const swap = setTimeout(() => point(gd.curRound), PANO_PRELOAD_DELAY_MS);
+        return () => clearTimeout(swap);
+    }, [
+        multiplayerState?.inGame,
+        multiplayerState?.gameData?.state,
+        multiplayerState?.gameData?.curRound,
+        multiplayerState?.gameData?.rounds,
+        multiplayerState?.gameData?.locations,
+    ]);
+
+    // ONE rule: during a reveal, hide the pano unless what it is actually
+    // DISPLAYING is the round that just ended. Nothing else — not the toggle,
+    // not `loading`, not whether a preload is in flight.
+    //
+    // Expressed the other way round (hide as soon as the reveal starts, show it
+    // back for the toggle) it caused the residual black flash: concealment
+    // landed on frame 0 and ran #streetview's 200ms opacity fade while the
+    // answer map was only partway through its own 300ms grow, so the part of
+    // the screen the map had not reached yet watched the pano dissolve. The
+    // pano at that instant is still showing the finished round, which is
+    // exactly what the player is entitled to see, so there was never a reason
+    // to hide it. Now it just sits there until the map covers it.
+    //
+    // Everything else falls out of the same rule:
+    //  - round 1, where the pano still holds the HOME MENU location and there
+    //    is no answer map to cover it: loaded round is null, entitled round is
+    //    0, so it hides immediately. No menu pano, ever.
+    //  - the preload swap at +450ms: by then the map is fullscreen and opaque,
+    //    so the iframe going dark mid-navigation is unobservable.
+    //  - "show street view": the swap back to the finished round un-hides
+    //    itself the moment it lands, and stays hidden while in flight, so the
+    //    upcoming location can never be painted.
+    //  - the post-final ghost getready never preloads, so the pano still holds
+    //    the last round and the toggle works there too.
+    const multiplayerRevealEntitledRound = (multiplayerState?.gameData?.curRound ?? 0) - 1;
+    const multiplayerPanoConcealed = !!(
+        multiplayerState?.inGame &&
+        multiplayerGameState === "getready" &&
+        mpPanoLoadedRound !== multiplayerRevealEntitledRound
+    );
+
+    // Onboarding: preload locations[round] (next) while showing answer for
+    // locations[round-1]. Key matches what loadLocation will look for on advance.
+    useEffect(() => {
+        if (screen !== "onboarding" || !showAnswer || !onboarding?.locations) return;
+        if (onboarding.completed) return;
+        const nextRound = onboarding.round + 1;
+        if (nextRound > onboarding.locations.length) return;
+        const nextLoc = onboarding.locations[nextRound - 1];
+        if (!nextLoc) return;
+        const key = `onboarding:${nextRound}`;
+        const t = setTimeout(() => beginSpPanoPreload(nextLoc, key), PANO_PRELOAD_DELAY_MS);
+        return () => clearTimeout(t);
+    }, [screen, showAnswer, onboarding?.round, onboarding?.locations, onboarding?.completed, beginSpPanoPreload]);
+
+    // Singleplayer / country guesser: reserve next from the pool (or fetch)
+    // during the answer reveal, then point the pano at it under the map.
+    useEffect(() => {
+        if (screen !== "singleplayer" && screen !== "countryGuesser") return;
+        if (!showAnswer) return;
+        if (singlePlayerRound?.totalRounds && singlePlayerRound.round >= singlePlayerRound.totalRounds) {
+            return;
+        }
+
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            if (cancelled) return;
+            if (reservedNextLocRef.current) return;
+
+            const pool = allLocsArrayRef.current || [];
+            const remaining = (latLong?.lat != null && latLong?.long != null)
+                ? pool.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long)
+                : pool.slice();
+
+            const take = (loc) => {
+                if (cancelled || !loc) return;
+                reservedNextLocRef.current = loc;
+                // Drop both the reserved next AND the round that just ended, so
+                // the ended spot can't reappear after we promote the reservation.
+                const endedLat = latLong?.lat;
+                const endedLong = latLong?.long;
+                setAllLocsArray((prev) =>
+                    (prev || []).filter((l) => {
+                        if (l.lat === loc.lat && l.long === loc.long) return false;
+                        if (endedLat != null && l.lat === endedLat && l.long === endedLong) return false;
+                        return true;
+                    })
+                );
+                beginSpPanoPreload(loc, `sp:${loc.lat},${loc.long}`);
+            };
+
+            if (remaining.length > 0) {
+                const loc = gameOptions.location === "all"
+                    ? remaining[0]
+                    : remaining[Math.floor(Math.random() * remaining.length)];
+                take(loc);
+                return;
+            }
+
+            // Pool empty — resolve a fresh spot in the background.
+            (async () => {
+                try {
+                    const requireKnownCountry = screen === "countryGuesser";
+                    const requireKnownContinent = screen === "countryGuesser" && countryGuessrMode.subMode === "continent";
+                    const mod = await import("@/components/findLatLong");
+                    const loc = await mod.default({ ...gameOptions, requireKnownCountry, requireKnownContinent });
+                    if (cancelled) return;
+                    take(loc);
+                } catch (err) {
+                    console.error("[preload] Failed to reserve next location:", err);
+                }
+            })();
+        }, PANO_PRELOAD_DELAY_MS);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [
+        screen,
+        showAnswer,
+        singlePlayerRound?.round,
+        singlePlayerRound?.totalRounds,
+        latLong?.lat,
+        latLong?.long,
+        gameOptions.location,
+        gameOptions.maxDist,
+        countryGuessrMode.subMode,
+        beginSpPanoPreload,
+    ]);
+
+    // Leaving SP modes drops any reserved preload so it can't bleed into home.
+    useEffect(() => {
+        if (multiplayerState?.inGame) return;
+        if (screen === "singleplayer" || screen === "countryGuesser" || screen === "onboarding" || screen === "daily") {
+            return;
+        }
+        clearSpPanoPreload();
+    }, [screen, multiplayerState?.inGame, clearSpPanoPreload]);
+
+    // SP/daily/onboarding conceal: once the pano has finished loading a location
+    // that isn't the answer (latLong), hide it — the answer map covers the swap.
+    const samePanoAsAnswer = !!(
+        panoLocation && latLong &&
+        panoLocation.lat === latLong.lat && panoLocation.long === latLong.long
+    );
+    const spPanoConcealed = !!(
+        !multiplayerState?.inGame &&
+        panoLocation &&
+        spPanoLoadedKey != null &&
+        !samePanoAsAnswer
+    );
+    const panoConcealed = multiplayerPanoConcealed || spPanoConcealed;
+
+    // Round-1 VS → first guess: slow the pano opacity fade so it rises under
+    // the dissolving intro (see components/utils/duelIntroTiming.js). Kept
+    // longer than DUEL_INTRO_EXIT_MS on purpose — the pano should still be
+    // easing in when the corner bars start their slide.
+    const [duelPanoEnter, setDuelPanoEnter] = useState(false);
+    const wasDuelRound1GetreadyRef = useRef(false);
+    const duelRound1Getready = !!(
+        multiplayerState?.inGame &&
+        multiplayerState?.gameData?.duel &&
+        multiplayerGameState === "getready" &&
+        multiplayerState?.gameData?.curRound === 1
+    );
+    useLayoutEffect(() => {
+        if (wasDuelRound1GetreadyRef.current && multiplayerGameState === "guess") {
+            setDuelPanoEnter(true);
+        }
+        wasDuelRound1GetreadyRef.current = duelRound1Getready;
+    }, [duelRound1Getready, multiplayerGameState]);
+    useEffect(() => {
+        if (!duelPanoEnter) return;
+        const t = setTimeout(() => setDuelPanoEnter(false), DUEL_PANO_ENTER_MS);
+        return () => clearTimeout(t);
+    }, [duelPanoEnter]);
+    useEffect(() => {
+        if (multiplayerState?.inGame) return;
+        setDuelPanoEnter(false);
+        wasDuelRound1GetreadyRef.current = false;
+    }, [multiplayerState?.inGame]);
+
+    // Pano coords: diverge from latLong whenever a reveal preload is active
+    // (multiplayer or singleplayer-family).
+    const panoSource = panoLocation || latLong;
 
     return (
         <>
@@ -3782,25 +4392,31 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                        ranked/public games never set nm). Server locations
                        carry no freshPano, so MP always fresh-resolves. */
                     <CustomStreetView
-                        lat={latLong?.lat}
-                        long={latLong?.long}
-                        heading={latLong?.heading}
-                        panoId={latLong?.freshPano}
+                        lat={panoSource?.lat}
+                        long={panoSource?.long}
+                        heading={panoSource?.heading}
+                        panoId={panoSource?.freshPano}
                         npz={gameOptions?.npz}
                         showAnswer={showAnswer}
-                        hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
+                        slowEnter={duelPanoEnter}
+                        hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || (
                             !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
                         )}
                         refreshKey={latLongKey}
                         onLoad={() => {
+                            notePanoLoaded();
                             // 100 not 300: unlike the iframe, tiles are already
                             // painted when this fires — the long grace only
-                            // slowed the reveal.
+                            // slowed the reveal. SP-family rounds additionally
+                            // hold the cover to their minimum dwell; the floor
+                            // stamp is always expired/zero in multiplayer.
+                            const floorLeft = multiplayerState?.inGame ? 0
+                                : spLoadingFloorRef.current - Date.now();
                             setTimeout(() => {
                                 setLoading(false)
                                 setMapSwitchMaskShown(false);
                                 setMapSwitchSawLoading(false);
-                            }, 100)
+                            }, Math.max(100, floorLeft))
 
                         }}
                     />
@@ -3809,22 +4425,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     nm={screen === "daily" ? false : gameOptions?.nm}
                     npz={screen === "daily" ? false : gameOptions?.npz}
                     showAnswer={showAnswer}
-                    lat={latLong?.lat}
-                    long={latLong?.long}
-                    panoId={latLong?.panoId}
-                    heading={latLong?.heading}
-                    pitch={latLong?.pitch}
+                    lat={panoSource?.lat}
+                    long={panoSource?.long}
+                    panoId={panoSource?.panoId}
+                    heading={panoSource?.heading}
+                    pitch={panoSource?.pitch}
                     showRoadLabels={screen === "onboarding" ? false : screen === "daily" ? true : gameOptions?.showRoadName}
-                    hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
+                    slowEnter={duelPanoEnter}
+                    hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || (
                         screen === "home" || !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
                     )}
                     refreshKey={latLongKey}
                     onLoad={() => {
+                        notePanoLoaded();
+                        // SP-family rounds hold the cover to their minimum
+                        // dwell (see beginSpRoundLoading); multiplayer keeps
+                        // the plain 300ms grace.
+                        const floorLeft = multiplayerState?.inGame ? 0
+                            : spLoadingFloorRef.current - Date.now();
                         setTimeout(() => {
                             setLoading(false)
                             setMapSwitchMaskShown(false);
                             setMapSwitchSawLoading(false);
-                        }, 300)
+                        }, Math.max(300, floorLeft))
 
                     }}
                 />
@@ -4123,7 +4746,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setLatLongKey={setLatLongKey}
                         loading={loading}
                         setLoading={setLoading}
+                        beginRoundLoading={beginSpRoundLoading}
                         onPhaseChange={setDailyPhase}
+                        beginSpPanoPreload={beginSpPanoPreload}
+                        clearSpPanoPreload={clearSpPanoPreload}
+                        spPanoKeyRef={spPanoKeyRef}
+                        spPanoLoadedKeyRef={spPanoLoadedKeyRef}
+                        setSpPanoLoadedKey={setSpPanoLoadedKey}
+                        setPanoLocation={setPanoLocation}
                     />
                 )}
 
@@ -4184,9 +4814,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 </button>
                                                 {/* Ranked shows for guests too — clicking opens the link-Google
                                                     conversion modal instead of the queue (server publicDuel
-                                                    requires accountId anyway). Hidden on CoolMathGames and
-                                                    Poki, where there is no login surface at all. */}
-                                                {!inCoolMathGames && !inPoki && (
+                                                    requires accountId anyway). Hidden on the no-account builds
+                                                    (CoolMath / Poki / GameDistribution), where there is no login
+                                                    surface at all for that modal to lead to. */}
+                                                {!HIDE_ACCOUNT_UI && (
                                                     <button className="g2_nav_text ranked" aria-label="Duels" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
@@ -4209,12 +4840,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     }
                                                     navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"));
                                                 }}>{
-                                                    // Ranked is hidden on CoolMath/Poki, so "Unranked" would be
-                                                    // meaningless jargon there — it's just "Find Match".
-                                                    (inCoolMathGames || inPoki) ? text("findMatch") :
+                                                    // Ranked is hidden on the no-account builds, so "Unranked"
+                                                    // would be meaningless jargon there — it's just "Find Match".
+                                                    HIDE_ACCOUNT_UI ? text("findMatch") :
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
-                                                {!inCoolMathGames && !inPoki && (
+                                                {!HIDE_ACCOUNT_UI && (
                                                     <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
                                                         if (!session?.token?.secret) {
                                                             setShowSuggestLoginModal(false); // never stack the two login modals
@@ -4460,7 +5091,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "countryGuesser" && <div className="home__singleplayer">
@@ -4469,7 +5100,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {/* (!welcomeOverlayShown || svPreloadReady): while the welcome
@@ -4482,7 +5113,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         welcomeOverlayShown={welcomeOverlayShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed &&
@@ -4571,16 +5202,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
-                            // extent: server-stamped ONLY. gameOptions.extent is
-                            // singleplayer state — preferring it here leaked a stale
-                            // community-map bbox (e.g. Taiwan) into multiplayer games
-                            // joined via invite, zooming the guess map to the old map.
-                            location: "all", maxDist: 20000, extent: multiplayerState?.gameData?.extent ?? null,
-                            nm: multiplayerState?.gameData?.nm,
-                            npz: multiplayerState?.gameData?.npz,
-                            showRoadName: multiplayerState?.gameData?.showRoadName
-                        }} setGameOptions={() => { }} showAnswer={multiplayerShowAnswer} setShowAnswer={guessMultiplayer} />
+                        inCrazyGames={inCrazyGames} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={multiplayerGameOptions} setGameOptions={() => { }} showAnswer={multiplayerShowAnswer} setShowAnswer={guessMultiplayer} />
                 )}
 
                 {/* End screen for PUBLIC matchmade duels (ranked 1v1 + 2v2) —

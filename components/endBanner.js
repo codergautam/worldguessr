@@ -9,6 +9,8 @@ import { continentKey } from "./utils/continentLocale";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
 import getMyTeam from "./utils/getMyTeam";
 import CountryFlag from "./utils/countryFlag";
+import openInStreetView from "./utils/openInStreetView";
+import { toast } from "react-toastify";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -30,8 +32,22 @@ const ONBOARDING_FACTS = [
 ];
 const ONBOARDING_AUTO_ADVANCE_SECONDS = 7;
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessedCountryCode, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown, mapFadingOut }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessedCountryCode, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, setExplanationModalShown, mapFadingOut }) {
     const { t: text, lang } = useTranslation("common");
+
+    // The round's real location, not the guess. The helper sends pano AND
+    // viewpoint together: the pano wins, and Google falls back to the
+    // viewpoint when a map-file panoId is stale.
+    const openLocationInStreetView = () => {
+        openInStreetView({
+            lat: latLong?.lat,
+            lng: latLong?.long,
+            panoId: latLong?.panoId,
+            heading: latLong?.heading,
+        }).then((outcome) => {
+            if (outcome === "copied") toast.success(text("copiedToClipboard"));
+        });
+    };
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
     const autoAdvanceTimeout = useRef(null);
@@ -81,13 +97,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
     useEffect(() => {
         let timer;
-        if (guessed && points >= 4850 && !panoShown && !confettiTriggered.current) {
+        if (guessed && points >= 4850 && !confettiTriggered.current) {
             confettiTriggered.current = true;
             timer = setTimeout(() => triggerConfetti(), 500);
         }
         if (!guessed) confettiTriggered.current = false;
         return () => clearTimeout(timer);
-    }, [guessed, points, panoShown]);
+    }, [guessed, points]);
 
     // Auto-advance for onboarding (consider shorter on last round to keep flow snappy)
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
@@ -389,8 +405,15 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const bannerContent = (
         <>
 
-            <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
-                {panoShown ? text("showMap") : text("showPano")}
+            {/* Opens the round's location in Google Street View in a new tab.
+                Embedded portals (and popup blockers) can't do that, so those
+                get the link copied instead — see utils/openInStreetView. This
+                replaced an in-page show-pano/show-map toggle: that toggle had
+                to fight the round's own Street View for the same element,
+                which is unworkable now that the pano spends the reveal
+                preloading the NEXT round. */}
+            <button className="openInMaps topGameInfoButton" onClick={openLocationInStreetView}>
+                {text("openInMaps")}
             </button>
 
             <div className="bannerContent">
@@ -501,7 +524,10 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
                     {session?.token?.canMakeClues && (
                         <button className="openInMaps" onClick={() => {
-                            if (!panoShown) toggleMap();
+                            // Used to flip the pano into view first so the clue
+                            // author could see what they were describing. The
+                            // Street View tab above does that job now, and the
+                            // in-page pano is no longer ours to show.
                             setExplanationModalShown(true);
                         }}>
                             {text("writeExplanation")}

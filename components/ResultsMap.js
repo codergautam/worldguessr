@@ -6,6 +6,7 @@ import { getPinIcons } from '@/lib/markerIcons';
 import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import SafeMapContainer from './SafeMapContainer';
+import openInStreetView from './utils/openInStreetView';
 import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
 import { googleTileScale } from '@/lib/googleTileScale';
 
@@ -188,10 +189,10 @@ export default function ResultsMap({
       onOpenMaps({ lat, lng, panoId });
       return;
     }
-    const url = panoId
-      ? `http://maps.google.com/maps?q=&layer=c&panoid=${panoId}&cbp=11,0,0,0,0`
-      : `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
-    if (typeof window !== 'undefined') window.open(url, '_blank');
+    // Was a bare window.open with no embedded-portal check, so on
+    // CrazyGames/Poki/GameDistribution the button silently did nothing. The
+    // shared helper copies the link there instead.
+    openInStreetView({ lat, lng, panoId });
   };
 
   const handleUserInteraction = () => {

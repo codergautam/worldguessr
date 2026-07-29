@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState, useRef } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
@@ -27,38 +27,61 @@ import HealthBar from "./duelHealthbar";
 import TeamScorebar from "./teamScorebar";
 import deriveTeamEndFallback from "./utils/teamDuelEndFallback";
 import getMyTeam from "./utils/getMyTeam";
+import { DUEL_INTRO_EXIT_MS } from "./utils/duelIntroTiming";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
 // Shared scaffold for the duel HP bars + 5s "VS" intro — one source for the
-// layout so intro tweaks (spacing, timing, a11y) can't drift between the 1v1
-// and team-duel blocks, which previously each carried a near-identical copy.
-function DuelIntroBars({ isStartingDuel, countdown, leftBar, rightBar }) {
+// layout so intro tweaks can't drift between the 1v1 and team-duel blocks.
+//
+// Two independent layers:
+//   1. Bars — centered during getready; corner + slide the frame guess starts.
+//   2. VS chrome — one continuous mount for intro AND exit. Same classes the
+//      whole time; only `.hb-vs-chrome--exiting` flips opacity. Never remount
+//      into a different style context (that was the glow→plain-box jump).
+function DuelIntroBars({ isStartingDuel, vsExiting, countdown, leftBar, rightBar }) {
+  const showVsChrome = isStartingDuel || vsExiting;
+
   return (
-    <div className={isStartingDuel ? 'hb-parent' : ''}>
-      <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
-        {/* hb-left: stable hook for home.js's reload-button collision probe */}
-        <div style={{ zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none' }}
-          className={`hb-left ${isStartingDuel ? 'hb-start1' : ''}`}>
-          {leftBar}
+    <>
+      <div className={isStartingDuel ? 'hb-parent' : undefined}>
+        <div className={isStartingDuel ? 'hb-bars' : undefined}>
+          {/* hb-left: stable hook for home.js's reload-button collision probe */}
+          <div
+            style={{ zIndex: 1001, position: 'fixed', top: 0, left: 0, pointerEvents: 'none' }}
+            className={['hb-left', isStartingDuel ? 'hb-start1' : 'hb-corner-enter--left'].join(' ')}
+          >
+            {leftBar}
+          </div>
+
+          {/* Invisible spacer so the bars keep the VS gap while the real label
+              lives in the absolute chrome layer (same metrics as .hb-vs-label). */}
+          {isStartingDuel && (
+            <span className="hb-vs-slot" aria-hidden="true">VS</span>
+          )}
+
+          <div
+            style={{ zIndex: 1001, position: 'fixed', top: 0, right: 0, pointerEvents: 'none' }}
+            className={isStartingDuel ? 'hb-start2' : 'hb-corner-enter--right'}
+          >
+            {rightBar}
+          </div>
         </div>
 
         {isStartingDuel && (
-          <p style={{ zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            VS
+          <p className="hb-vs-countdown hb-vs-countdown--slot" aria-hidden="true">
+            {countdown}
           </p>
         )}
-
-        <div style={{ zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none' }}
-          className={isStartingDuel ? 'hb-start2' : ''}>
-          {rightBar}
-        </div>
       </div>
 
-      <p style={{ zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
-        {countdown}
-      </p>
-    </div>
+      {showVsChrome && (
+        <div className={`hb-vs-chrome${vsExiting ? ' hb-vs-chrome--exiting' : ''}`}>
+          <p className="hb-vs-label">VS</p>
+          <p className="hb-vs-countdown">{countdown}</p>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -66,7 +89,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete, mapSwitchMaskShown }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete, mapSwitchMaskShown }) {
   const { t: text } = useTranslation("common");
   const onboardingRevealStartedAt = useRef(0);
 
@@ -82,7 +105,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     });
   }
 
-  function loadLocationFuncRaw(keepAnswer, advanceSource) {
+  function loadLocationFuncRaw(keepAnswer, advanceSource, forceLoad) {
     if (onboarding && advanceSource) {
       logOnboardingAdvance("loadLocationFuncRaw", { keepAnswer, advanceSource });
     }
@@ -189,7 +212,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     } else {
 
 
-      loadLocation({ keepAnswer })
+      loadLocation({ keepAnswer, force: forceLoad })
 
       if(singlePlayerRound && !singlePlayerRound?.done) {
         setSinglePlayerRound((prev) => {
@@ -239,9 +262,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
     // Show midgame ad between singleplayer rounds
     if((inGameDistribution || inCrazyGames || process.env.NEXT_PUBLIC_POKI === "true") && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+      // Raise the loading cover BEFORE the ad: the round teardown runs under
+      // the ad surface, so whatever the SDK uncovered at ad end (half-torn
+      // answer scene, stale pano) flickered between backgrounds. With the
+      // cover up, ad exit always reveals the stable loading screen. The
+      // post-ad load must then force past loadLocation's own
+      // `if (loading && !force)` guard, which this very cover would trip.
+      // Final-round advances land on the summary and never touch `loading`,
+      // so raising it there would strand the cover — hence the gate.
+      const advancesToNextRound = singlePlayerRound.round < singlePlayerRound.totalRounds;
+      if (advancesToNextRound && setLoading) setLoading(true);
       window.crazyMidgame(() => {
         afterAd()
-        loadLocationFuncRaw(keepAnswer, advanceSource)
+        loadLocationFuncRaw(keepAnswer, advanceSource, advancesToNextRound)
       });
     } else {
       afterAd()
@@ -260,23 +293,27 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // The transition is chosen by what's on screen when the trigger fires:
   //   1. Final-round "View Results" (endsGame): NO teardown — the answer
   //      scene stays mounted as the results summary's crossfade base.
-  //   2. Play Again from the summary (done), or any advance with the pano
-  //      toggle on (showPanoOnResult): the map is COVERED / hidden — yank it
-  //      forceHidden in the same commit the answer state clears. A visible
-  //      fade here would UNCOVER it first: the old answer map (often
+  //   2. Play Again from the summary (done): the map is COVERED / hidden —
+  //      yank it forceHidden in the same commit the answer state clears. A
+  //      visible fade here would UNCOVER it first: the old answer map (often
   //      street-level zoom) flashes fullscreen before fading.
-  //   3. Mid-game next round: the map is VISIBLE — fade it out in place
+  //   3. Mid-game next round: fade the answer map in place
   //      (countryGuessrMapFadeOut fades, countryGuessrMapReveal pins
-  //      transform so it can't slide), then clear the answer state once
-  //      it's invisible. Built for the country-guessr reveal, shared by
-  //      all modes.
-  // Paths 2 and 3 end in the mapResetting settle window so the
-  // fullscreen→corner reshuffle and camera reset happen hidden.
+  //      transform so it can't slide), then reset it under cover and release
+  //      only after Map verifies the final camera.
+  // Paths 2 and 3 use mapResetting's completion handshake; there is no
+  // elapsed-time guess for when the camera is safe to expose.
   function advanceRound(advanceSource) {
-    // A fade is already in flight (showAnswer stays true during the 300ms
-    // window) — a re-entrant trigger (space spam) would advance a second
-    // time and skip a round.
-    if (mapFadingOut) return;
+    // Multiplayer rounds are server-driven; nothing here applies. The one
+    // path that reaches this in MP is the spacebar handler (showAnswer is
+    // multiplayerShowAnswer during a reveal), and letting it run case 3
+    // set mapResetting in a mount whose completion handshake can never fire
+    // — the reveal map snapped invisible and stayed broken for the match.
+    // SP-family mounts don't pass multiplayerState, so this is inert there.
+    if (multiplayerState?.inGame) return;
+    // A fade / hidden reset is already in flight — a re-entrant trigger
+    // (space spam) would advance a second time and skip a round.
+    if (mapFadingOut || mapResetting) return;
     setMapCameraCancelKey((prev) => prev + 1);
     // Game-ending advance ("View Results" / space on the final answer): the
     // results summary is about to mount ON TOP of this scene, and it takes
@@ -294,37 +331,51 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       return;
     }
     // Case 2: replay from the results summary — yank under cover (see above).
-    // The pano toggle lands here too: the map is hidden behind the pano
-    // (shouldShowMiniMap's !showPanoOnResult term), and the case-3 fade would
-    // force-mount it fullscreen via mapFadingOutForRender just to fade it out.
-    if (singlePlayerRound?.done || showPanoOnResult) {
+    if (singlePlayerRound?.done) {
       setShowAnswer(false);
       setPinPoint(null);
-      setMapResetting(true);
+      // Mobile sheet closes with the round, same as MP's WS-batch close —
+      // belt over the latLong-change collapse, which can't fire until the
+      // new location actually lands.
+      setMiniMapShown(false);
+      // Country/continent guessers intentionally unmount the map while
+      // guessing, so there is no live camera to wait for.
+      setMapResetting(!countryGuesser);
       loadLocationFunc(true, advanceSource);
-      setTimeout(() => {
-        setMapResetting(false);
-      }, 350);
+      if (countryGuesser) window._countryGuessrKeepAnswer = false;
       return;
     }
-    // Case 3: mid-game — fade the visible map out in place.
+
+    // Case 3: mid-game — preserve the smooth answer-map crossfade. Resetting
+    // immediately here exposes the preloaded iframe's black swap and makes the
+    // camera reset read as a visible zoom. Only the old post-fade blind delay
+    // is removed; the camera work itself stays fully hidden.
+    // Same round-boundary close as case 2 / the MP batch. Harmless on
+    // desktop: the layout effect re-derives the corner minimap pre-paint.
+    setMiniMapShown(false);
     setFadeOutMapLocation(latLong);
     setMapFadingOut(true);
     window._countryGuessrKeepAnswer = true;
+    // The map still renders as an answer through mapFadingOutForRender, but
+    // raw showAnswer can clear now. On touch layouts this drops
+    // .answerShownBtns on the SAME click frame, exposing the Guess button
+    // immediately while the stale map remains safely covered/fading.
+    setShowAnswer(false);
     loadLocationFunc(true, advanceSource);
     setTimeout(() => {
       setMapFadingOut(false);
       setFadeOutMapLocation(null);
-      setShowAnswer(false);
       setPinPoint(null);
-      window._countryGuessrKeepAnswer = false;
       // The fade is done (map at opacity 0) — now hold it forceHidden while
-      // it snaps back to the corner rect and the camera reset lands, then
-      // let the corner minimap fade in on its own.
-      setMapResetting(true);
-      setTimeout(() => {
+      // the event-driven camera reset lands, then reveal the verified map.
+      if (countryGuesser) {
+        // This mode unmounts the map in guess phase; no reset callback can
+        // arrive from an unmounted map, and none is needed.
         setMapResetting(false);
-      }, 350);
+        window._countryGuessrKeepAnswer = false;
+      } else {
+        setMapResetting(true);
+      }
     }, 300);
   }
 
@@ -352,13 +403,30 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [fadeOutMapLocation, setFadeOutMapLocation] = useState(null);
   const [mapCameraCancelKey, setMapCameraCancelKey] = useState(0);
-  // Post-fade settle window (advanceRound): when the answer-map fade ends,
-  // the map snaps from fullscreen answerShown back to the corner-minimap
-  // rect while the new round's camera reset lands. forceHidden covers that
-  // reshuffle, and the corner minimap re-shows (miniMapShown effect) only
-  // once this clears — without it the minimap fades in mid-snap and the two
-  // animations fight (visible rapid flashing).
+  // Hidden reset ownership. ExtentFitter clears this through
+  // finishHiddenMapReset only after the destination size is stable and the
+  // canonical center+zoom has been applied twice.
   const [mapResetting, setMapResetting] = useState(false);
+  const finishHiddenMapReset = useCallback(() => {
+    setMapResetting(false);
+    window._countryGuessrKeepAnswer = false;
+  }, []);
+  // Watchdog on the completion handshake. advanceRound's re-entry guard
+  // blocks on mapResetting, and the ONLY thing clearing it is ExtentFitter
+  // reaching its completion callback — which never happens if Leaflet throws
+  // into the error boundary (a known intermittent crash) or a pano load
+  // hangs. Before the event-driven rework a hard 350ms timer cleared this
+  // unconditionally; without a fallback, one miss soft-locks every future
+  // round advance. 1500ms = 4x the old budget, so it only fires when the
+  // handshake is genuinely broken; firing early at worst exposes the map a
+  // frame before the camera verify, which is exactly what the old timer did
+  // every round. Goes through finishHiddenMapReset so the keepAnswer global
+  // is cleared on this path too.
+  useEffect(() => {
+    if (!mapResetting) return;
+    const t = setTimeout(finishHiddenMapReset, 1500);
+    return () => clearTimeout(t);
+  }, [mapResetting, finishHiddenMapReset]);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
@@ -367,7 +435,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
   const prevMultiplayerRoundStateRef = useRef({ state: null, round: null });
-  const multiplayerMapFadeTimerRef = useRef(null);
   // dist between guess & target
   const [km, setKm] = useState(null);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
@@ -438,11 +505,40 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // setCmgAdsEnabled(true);
   }, [inCoolMathGames]);
 
-   const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
+  const isStartingDuel = !!(multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
+  // Render-time leave edge (ref still holds the previous getready). That keeps
+  // the VS chrome mounted on the guess frame with --exiting already on — no
+  // unmount/remount, no style context swap. Hold covers the dissolve after.
+  const prevStartingDuelRef = useRef(false);
+  const justLeftStartingDuel = prevStartingDuelRef.current && !isStartingDuel;
+  const [vsExitHold, setVsExitHold] = useState(false);
+  useLayoutEffect(() => {
+    if (justLeftStartingDuel) setVsExitHold(true);
+  }, [justLeftStartingDuel]);
+  useEffect(() => {
+    prevStartingDuelRef.current = isStartingDuel;
+  }, [isStartingDuel]);
+  useEffect(() => {
+    if (!vsExitHold) return;
+    const t = setTimeout(() => setVsExitHold(false), DUEL_INTRO_EXIT_MS);
+    return () => clearTimeout(t);
+  }, [vsExitHold]);
+  useEffect(() => {
+    if (multiplayerState?.inGame) return;
+    setVsExitHold(false);
+    prevStartingDuelRef.current = false;
+  }, [multiplayerState?.inGame]);
+  const vsExiting = justLeftStartingDuel || vsExitHold;
+  const duelIntroOverlayShown = isStartingDuel || vsExiting;
+  // Freeze the getready countdown for the dissolve. The live timer flips to the
+  // guess-phase nextEvtTime (~60s) on the same state change, and painting that
+  // into the fading VS chrome reads as a glitch.
+  const introCountdownRef = useRef(0);
+  if (isStartingDuel) introCountdownRef.current = timeToNextMultiplayerEvt;
+  const vsChromeCountdown = introCountdownRef.current;
 
   useEffect(() => {
     if(showAnswer) {
-      setShowPanoOnResult(false)
       if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
         onboardingRevealStartedAt.current = Date.now();
       }
@@ -454,18 +550,32 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 
 
+  // Multiplayer round clock. Reads its inputs through a ref rather than deps:
+  // `multiplayerState` gets a fresh identity on EVERY WebSocket message, so a
+  // dep on it tore down and rebuilt this interval constantly (and reset its
+  // phase). The only thing that should own an interval here is "am I in a game
+  // at all".
+  const mpClockRef = useRef({ nextEvtTime: null, timeOffset: 0 });
+  mpClockRef.current = {
+    nextEvtTime: multiplayerState?.inGame ? (multiplayerState?.gameData?.nextEvtTime ?? null) : null,
+    timeOffset,
+  };
+  const mpClockRunning = !!(multiplayerState?.inGame);
   useEffect(() => {
-
+    if (!mpClockRunning) return;
     const interval = setInterval(() => {
-    if(multiplayerState?.inGame && multiplayerState?.gameData?.nextEvtTime) {
-      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100)/10))
-    }
-    }, 100)
-
-    return () => {
-      clearInterval(interval)
-    }
-  }, [multiplayerState, timeOffset])
+      const { nextEvtTime, timeOffset: offset } = mpClockRef.current;
+      if (!nextEvtTime) return;
+      const next = Math.max(0, Math.floor(((nextEvtTime - Date.now()) - offset) / 100) / 10);
+      // Bail out when the tenth-of-a-second hasn't moved. Each accepted tick
+      // re-renders this whole component (timer, HP bars, EndBanner, ad slots,
+      // the Leaflet subtree before it was memoized) — a no-op setState paying
+      // that price 10x/sec is pure waste, and it stacked straight onto the
+      // answer reveal, the heaviest frames of the round.
+      setTimeToNextMultiplayerEvt((prev) => (prev === next ? prev : next));
+    }, 100);
+    return () => clearInterval(interval);
+  }, [mpClockRunning])
 
   useEffect(() => {
     // fetch clue (if any)
@@ -679,29 +789,112 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [miniMapTilesLoaded, setMiniMapTilesLoaded] = useState(false);
   const onboardingActive = !!(onboarding && !onboarding.completed);
   const onboardingMapWhileLoading = onboardingActive && miniMapTilesLoaded;
+  // Stable identity: this is the only callback prop <MapWidget> takes, and Map
+  // is memoized — an inline arrow here would break the memo on every one of
+  // this component's ~10 renders/sec and re-walk the whole Leaflet subtree.
+  const handleTilesLoaded = useCallback(() => setMiniMapTilesLoaded(true), []);
 
-  useEffect(() => {
-    // !mapResetting: hold the corner minimap until the post-fade settle
-    // window ends, so it fades in once, cleanly, after the map has already
-    // snapped back to the corner rect (see mapResetting).
-    // !mapSwitchMaskShown: same hold for the options-modal map switch — its
-    // window is owned by home's switch mask (see forceHideMiniMap below).
-    if ((!loading || onboardingMapWhileLoading) && latLong && width > 600 && !isTouchScreen && !mapResetting && !mapSwitchMaskShown) {
+  // useLayoutEffect, NOT useEffect. The multiplayer round-start batch sets
+  // miniMapShown=false in home.js's WebSocket handler (it exists to collapse
+  // the MOBILE expanded minimap before the new round paints). On desktop this
+  // effect immediately wants it back to true — but as a passive effect it ran
+  // AFTER paint, so there was one painted frame with `.shown` missing. That
+  // frame is enough to start #miniMapArea's transition toward
+  // translateY(105%) + opacity 0, which then reverses: the corner minimap
+  // visibly dips and flashes on every single round reset. Running before paint
+  // means the false and the true collapse into one frame and nothing animates.
+  //
+  // !mapResetting: hold the corner minimap until the post-fade settle
+  // window ends, so it fades in once, cleanly, after the map has already
+  // snapped back to the corner rect (see mapResetting).
+  // !mapSwitchMaskShown: same hold for the options-modal map switch — its
+  // window is owned by home's switch mask (see forceHideMiniMap below).
+  //
+  // Mobile owns this state through the Guess toggle. Do not force it false on
+  // mapResetting: a player can press the newly-immediate Guess button during
+  // the 300ms crossfade, and that request must survive until the hidden camera
+  // reset releases the map. Round-change effects below already collapse it.
+  const desktopMiniMapLayoutRef = useRef(false);
+  useLayoutEffect(() => {
+    const desktopLayout = width > 600 && !isTouchScreen;
+    if (desktopLayout && (!loading || onboardingMapWhileLoading) && latLong && !mapResetting && !mapSwitchMaskShown) {
       setMiniMapShown(true)
-    } else {
+    } else if (desktopLayout || desktopMiniMapLayoutRef.current) {
+      // Desktop controls visibility automatically. Also collapse exactly once
+      // when a responsive layout crosses from desktop to mobile.
       setMiniMapShown(false)
     }
-  }, [loading, latLong, width, mapResetting, onboardingMapWhileLoading, mapSwitchMaskShown])
+    desktopMiniMapLayoutRef.current = desktopLayout;
+  }, [loading, latLong, width, isTouchScreen, mapResetting, onboardingMapWhileLoading, mapSwitchMaskShown, setMiniMapShown])
+
+  // Mobile's between-rounds close. The effect above deliberately no longer
+  // touches miniMapShown on phones (so transient settle flags can't eat a
+  // Guess tap made during the crossfade) — but that removed the only thing
+  // closing the sheet at round transitions, and an opened sheet stayed open
+  // for every following round in SP/CG/onboarding/daily (MP survives via
+  // home's same-batch close). Close it exactly when the ROUND changes —
+  // latLong is the one input every mode replaces exactly once per round —
+  // and at no other moment, so a mid-round open is never stomped. Layout
+  // effect: the false must land in the same paint as the new round, or the
+  // sheet visibly starts its slide-away on frame one (the same one-frame
+  // flash the desktop branch above is pre-paint for).
+  const prevRoundLatLongRef = useRef(latLong);
+  useLayoutEffect(() => {
+    const prev = prevRoundLatLongRef.current;
+    prevRoundLatLongRef.current = latLong;
+    if (width > 600 && !isTouchScreen) return; // desktop: owned above
+    if (!latLong || latLong === prev) return;
+    setMiniMapShown(false);
+  }, [latLong, width, isTouchScreen, setMiniMapShown])
+
+  // Derive this during render, while the ref still describes the previous
+  // multiplayer state. ExtentFitter's child effect runs before this component's
+  // effect, so setting a flag below is one commit too late: it takes the legacy
+  // hard-reset path and mounts the flat blue camera cover. Passing the
+  // transition directly lets BoundsApplier skip its pre-paint snap and lets
+  // ExtentFitter start the camera flight on the same commit as the CSS shrink.
+  // DESKTOP ONLY (same gate as the minimap layout effect above). The visible
+  // shrink-fly and its `.shown` hold are desktop furniture; on phones the
+  // reveal exit is a ruled SNAP, and holding `.shown` there had a nasty side
+  // effect: mobile's `.miniMap.shown` IS the expanded 70% guess sheet, so the
+  // hold opened the sheet uninvited at the start of every round and then slid
+  // it away. Everything downstream inherits this gate — mpRevealExitHold,
+  // keepMapThroughRevealExit, and the smoothReset prop into Map.js — so
+  // mobile keeps its pre-existing exit path end to end.
+  const multiplayerAnswerRevealLeaving = !!(
+    width > 600 && !isTouchScreen &&
+    multiplayerState?.inGame &&
+    prevMultiplayerRoundStateRef.current.state === "getready" &&
+    prevMultiplayerRoundStateRef.current.round !== 1 &&
+    multiplayerState?.gameData?.state === "guess" &&
+    prevMultiplayerRoundStateRef.current.round === multiplayerState?.gameData?.curRound
+  );
+
+  // `multiplayerAnswerRevealLeaving` is true for a single render. The CSS shrink
+  // + camera fly run for ~400ms after that (SMOOTH_RESET_FLY_SEC); keep the map
+  // out of forceHide and keep `.shown` for that window so a still-loading
+  // next-round pano cannot snap the box off-screen mid-transition
+  // (forceHidden uses transition:none).
+  const [mpRevealExitHold, setMpRevealExitHold] = useState(false);
+  useLayoutEffect(() => {
+    if (!multiplayerAnswerRevealLeaving) return;
+    setMpRevealExitHold(true);
+  }, [multiplayerAnswerRevealLeaving]);
+  useEffect(() => {
+    if (!mpRevealExitHold) return;
+    const t = setTimeout(() => setMpRevealExitHold(false), 420);
+    return () => clearTimeout(t);
+  }, [mpRevealExitHold]);
+  const keepMapThroughRevealExit =
+    multiplayerAnswerRevealLeaving ||
+    mpRevealExitHold;
 
   useEffect(() => {
     if (!multiplayerState?.inGame) {
       prevMultiplayerRoundStateRef.current = { state: null, round: null };
-      if (multiplayerMapFadeTimerRef.current) {
-        clearTimeout(multiplayerMapFadeTimerRef.current);
-        multiplayerMapFadeTimerRef.current = null;
-      }
       setMapFadingOut(false);
       setFadeOutMapLocation(null);
+      setMpRevealExitHold(false);
       return;
     }
 
@@ -714,38 +907,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       (prevState === "getready" && prevRound === curRound) ||
       (prevState === "guess" && prevRound !== curRound)
     );
-    const leftAnswerRevealForGuess = prevState === "getready" && prevRound !== 1 && curState === "guess" && prevRound === curRound;
 
     if (startedNewGuessRound && !mapPinned) {
       setMiniMapExpanded(false);
       setMiniMapFullscreen(false);
     }
 
-    // No fade when the pano toggle is on: the map sat hidden through the
-    // reveal, and mapFadingOut would force-mount it fullscreen just to fade it.
-    if (leftAnswerRevealForGuess && !showPanoOnResult) {
-      if (multiplayerMapFadeTimerRef.current) {
-        clearTimeout(multiplayerMapFadeTimerRef.current);
-      }
-      setFadeOutMapLocation(latLong);
-      setMapFadingOut(true);
-      multiplayerMapFadeTimerRef.current = setTimeout(() => {
-        setMapFadingOut(false);
-        setFadeOutMapLocation(null);
-        multiplayerMapFadeTimerRef.current = null;
-      }, 300);
-    }
-
     prevMultiplayerRoundStateRef.current = { state: curState, round: curRound };
   }, [multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.curRound, mapPinned]);
-
-  useEffect(() => {
-    return () => {
-      if (multiplayerMapFadeTimerRef.current) {
-        clearTimeout(multiplayerMapFadeTimerRef.current);
-      }
-    };
-  }, []);
 
   // Explicitly reset minimap expansion on every new round (singleplayer or onboarding).
   // Without this, singleplayer relies on a mouseleave event firing as the minimap
@@ -1132,17 +1301,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // map, and the points counter ticking up on reveal is half the fun) — only
   // the completion screens retire it.
   const onboardingTimerShown = !!onboarding && !onboarding.completed;
-  const multiplayerAnswerRevealLeaving = !!(
-    multiplayerState?.inGame &&
-    // Pano toggle on = the map sat hidden through the reveal; bridging the
-    // teardown would flash it fullscreen (the fade effect skips it too).
-    !showPanoOnResult &&
-    prevMultiplayerRoundStateRef.current.state === "getready" &&
-    prevMultiplayerRoundStateRef.current.round !== 1 &&
-    multiplayerState?.gameData?.state === "guess" &&
-    prevMultiplayerRoundStateRef.current.round === multiplayerState?.gameData?.curRound
-  );
-  const mapFadingOutForRender = mapFadingOut || multiplayerAnswerRevealLeaving;
+  // The multiplayer reveal-exit no longer fades, so there is no fade to bridge:
+  // `.answerShown` is meant to drop on the very frame the state flips to
+  // 'guess', which is what starts the container shrinking. (This used to hold
+  // `showAnswerOnMap` true for one extra frame so the 300ms opacity animation
+  // had something to run on. Keeping it now would just delay the shrink by a
+  // frame and re-introduce a step in what should be one continuous motion.)
+  const mapFadingOutForRender = mapFadingOut;
   const showAnswerOnMap = showAnswer || mapFadingOutForRender;
   const multiplayerRoundOverShowingAnswer = !!(
     multiplayerState?.inGame &&
@@ -1161,13 +1326,24 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // the CG reveal class) slide down behind the fading summary — the "sliver
   // of streetview" bug. showAnswer staying true at done is what keeps the
   // no-summary arm (!showAnswerOnMap && !loading) from firing there.
+  //
+  // multiplayerAnswerRevealLeaving / mpRevealExitHold: home's getready→guess batch sets
+  // miniMapShown=false (mobile expanded-map cleanup). Without bridging here,
+  // the leave frame would drop `.shown` and the box would start sliding off-
+  // screen instead of shrinking fullscreen→corner. The desktop useLayoutEffect
+  // restores miniMapShown before paint, but this keeps the CSS class correct
+  // on the same render that flips answerShown off — and for the ~400ms shrink
+  // window after, while a still-loading pano would otherwise forceHide it.
   const shouldShowMiniMap = !welcomeOverlayShown &&
-    (miniMapShown || showAnswerOnMap) &&
+    (miniMapShown || showAnswerOnMap || keepMapThroughRevealExit) &&
     (!onboarding?.completed &&
-      ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && (!loading || onboardingMapWhileLoading)) || mapFadingOutForRender)) &&
+      (showAnswerOnMap || (!showAnswerOnMap && (!loading || onboardingMapWhileLoading || keepMapThroughRevealExit)) || mapFadingOutForRender)) &&
     !(onboarding && !showAnswer && !mapFadingOutForRender && onboarding.mode !== 'classic');
   const forceHideMiniMap = !!(
-    (multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap)
+    // Not during keepMapThroughRevealExit: forceHidden snaps opacity/transform
+    // with transition:none, which would abort the fullscreen→corner shrink mid-flight
+    // whenever the next-round pano isn't preloaded yet (loading=true on the same batch).
+    (multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap && !keepMapThroughRevealExit)
     || mapResetting
     // Map switch from the options modal: home clears latLong in one batch and
     // reloads in the next, which cycled miniMapShown false→true THROUGH ITS
@@ -1188,7 +1364,18 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // and the map is not yet revealed. Holding it until !loading made
   // ExtentFitter fire its reset cover the instant Street View finished,
   // flashing white over an already-visible map.
-  const mapReadyForCameraReset = !welcomeOverlayShown && !forceHideMiniMap && (!loading || onboardingActive) && !!mapLocationForRender;
+  // mapResetting is visually forceHidden but intentionally camera-ready:
+  // ExtentFitter must measure the REAL destination box and finish its reset
+  // under that cover. Conflating "not painted" with "not ready to reset" is
+  // what forced the old blind 350ms wait.
+  //
+  // keepMapThroughRevealExit is the multiplayer visible-fly path.
+  const mapReadyForCameraReset = !welcomeOverlayShown &&
+    !!mapLocationForRender &&
+    (
+      mapResetting ||
+      (!forceHideMiniMap && (!loading || onboardingActive || keepMapThroughRevealExit))
+    );
   const mapCameraResetKey = multiplayerState?.inGame
     ? `mp:${multiplayerState?.gameData?.code || ''}:${multiplayerState?.gameData?.curRound || ''}:${multiplayerState?.gameData?.state || ''}`
     : onboarding
@@ -1239,7 +1426,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const me = players.find(p => p.id === myId);
   const opponent = players.find(p => p.id !== myId);
   return (
-    <DuelIntroBars isStartingDuel={isStartingDuel} countdown={timeToNextMultiplayerEvt}
+    <DuelIntroBars isStartingDuel={isStartingDuel} vsExiting={vsExiting} countdown={vsChromeCountdown}
       leftBar={
         <HealthBar health={me?.score} maxHealth={5000} name={text("you")}
           isStartingDuel={isStartingDuel} elo={me?.elo} countryCode={me?.countryCode} />
@@ -1285,7 +1472,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     .map(nameEntry);
   const enemyNames = players.filter(p => p.team === enemyTeam).map(nameEntry);
   return (
-    <DuelIntroBars isStartingDuel={isStartingDuel} countdown={timeToNextMultiplayerEvt}
+    <DuelIntroBars isStartingDuel={isStartingDuel} vsExiting={vsExiting} countdown={vsChromeCountdown}
       leftBar={
         <HealthBar health={teamScores[myTeam]} maxHealth={5000} name={text("yourTeam")}
           names={myNames.length ? myNames : null}
@@ -1315,8 +1502,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 )}
 
 {/* Duel Anti-Cheat Warning */}
-{multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && isStartingDuel && (
-  <div className="duel-warning-container">
+{multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && duelIntroOverlayShown && (
+  <div className={`duel-warning-container${vsExiting ? ' duel-warning-container--exiting' : ''}`}>
     <div className="duel-warning-content">
       <div className="warning-icon">⚠️</div>
       <div className="warning-text">
@@ -1334,7 +1521,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 */}
 
 
-      {(!countryGuesser || (countryGuesser && showAnswer)) && multiplayerMapStateAllowsRender && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? (multiplayerState?.gameData?.state === "guess" || multiplayerRoundOverShowingAnswer) : true ) && (
+      {(!countryGuesser || (countryGuesser && showAnswerOnMap)) && multiplayerMapStateAllowsRender && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? (multiplayerState?.gameData?.state === "guess" || multiplayerRoundOverShowingAnswer) : true ) && (
         <>
 
 
@@ -1343,7 +1530,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }} onMouseLeave={() => {
         if(mapPinned || showAnswerOnMap) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded && !showAnswerOnMap ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswerOnMap ? 'answerShown' : 'answerNotShown'} ${(showAnswerOnMap && countryGuesser && !showPanoOnResult) || mapFadingOutForRender ? 'countryGuessrMapReveal' : ''} ${mapFadingOutForRender ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded && !showAnswerOnMap ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswerOnMap ? 'answerShown' : 'answerNotShown'} ${keepMapThroughRevealExit ? 'revealExiting' : ''} ${(showAnswerOnMap && countryGuesser) || mapFadingOutForRender ? 'countryGuessrMapReveal' : ''} ${mapFadingOutForRender ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
 
 {!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -1366,7 +1553,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           </button>
         </div>
 )}
-        <MapWidget shown={mapReadyForCameraReset} onTilesLoaded={() => setMiniMapTilesLoaded(true)} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
+        <MapWidget shown={mapReadyForCameraReset} onTilesLoaded={handleTilesLoaded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} smoothReset={multiplayerAnswerRevealLeaving} onResetComplete={mapResetting ? finishHiddenMapReset : undefined} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
@@ -1374,12 +1561,27 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         </div>
       </div>
 
-      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done||onboarding?.completed) ? 'answerShownBtns' : ''}`}>
+      {/* Map-guess modes only. Country/continent guesser answers via
+          CountryBtns and this row was never visible there — but it used to be
+          MOUNTED during the CG reveal (hidden by .answerShownBtns, keyed on
+          raw showAnswer). Once the parent block's gate moved to showAnswerOnMap
+          (needed so the CG fade survives showAnswer clearing on the click
+          frame), the hide class dropped at t=0 while the block stayed up, and
+          the Guess FAB flashed bottom-right for the whole fade window at every
+          CG round advance. Unmounting it in CG matches every prior version's
+          VISIBLE behavior. */}
+      {!countryGuesser && (
+      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done||onboarding?.completed) ? 'answerShownBtns' : ''} ${(mapFadingOut || mapResetting) ? 'mobileGuessFabIdle' : ''}`}>
         {miniMapShown && renderGuessHintBtns()}
-        {(!loading || onboardingMapWhileLoading) && !welcomeOverlayShown && (
-          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
-            setMiniMapShown(!miniMapShown)
-          }}>
+        {!welcomeOverlayShown && (
+          <button
+            className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`}
+            disabled={loading && !onboardingMapWhileLoading}
+            aria-busy={loading && !onboardingMapWhileLoading}
+            onClick={() => {
+              setMiniMapShown(!miniMapShown)
+            }}
+          >
               {!miniMapShown ? (
                 <>
             <FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''}
@@ -1391,6 +1593,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             </button>
         )}
       </div>
+      )}
       </>
       )}
 
@@ -1560,11 +1763,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 countryStreaksEnabled={gameOptions?.location === "all"}
 isWorldMap={gameOptions?.location === "all"}
 dailyMode={dailyMode}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessedCountryCode={guessedCountryCode} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={mapLocationForRender} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessedCountryCode={guessedCountryCode} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer || mapFadingOut} latLong={mapLocationForRender} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
   advanceRound(advanceRequest?.source || "endBanner");
-  }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} mapFadingOut={mapFadingOut} toggleMap={() => {
-    setShowPanoOnResult(!showPanoOnResult)
-  }} panoShown={showPanoOnResult} />
+  }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} mapFadingOut={mapFadingOut} />
 
     {/* Critical timer screen warning effect */}
     {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown && !showAnswer && !pinPoint && multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess') ||

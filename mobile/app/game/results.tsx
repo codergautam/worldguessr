@@ -30,6 +30,7 @@ import { haptics, hapticForScore } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
+import streetViewUrl from '../../src/utils/streetViewUrl';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
@@ -707,17 +708,10 @@ export default function GameResultsScreen() {
   const showChat = isLiveMultiplayer && !isHistoryView && chatEnabled && !mpDisableChat && mpChatEligible;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
-    // Prefer real coordinates over panoId: a stale/invalid panoId opens the wrong
-    // pano, whereas cbll/viewpoint always lands on the true location. Fall back to
-    // panoId only when lat/lng are missing, and no-op if we have neither.
-    let url: string;
-    if (typeof lat === 'number' && typeof lng === 'number') {
-      url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
-    } else if (panoId) {
-      url = `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}`;
-    } else {
-      return;
-    }
+    // Both pano AND viewpoint: pano takes precedence, Google falls back to the
+    // viewpoint when the id is stale (see mobile/src/utils/streetViewUrl.ts).
+    const url = streetViewUrl({ lat, lng, panoId });
+    if (!url) return;
     haptics.light();
     Linking.openURL(url);
   }, []);

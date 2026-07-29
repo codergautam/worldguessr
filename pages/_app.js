@@ -13,6 +13,7 @@ import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
 import getPlatform from '@/components/utils/getPlatform';
 import { attachUiClickSounds } from '@/components/utils/audio';
+import { installExternalLinkGuard } from '@/components/utils/externalLinks';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
@@ -100,6 +101,11 @@ function App({ Component, pageProps }) {
   useEffect(() => {
     attachUiClickSounds();
   }, []);
+
+  // GameDistribution forbids the game navigating away or opening tabs. Every
+  // known link is fixed at its source; this is the backstop for the surfaces
+  // that don't exist yet. No-op on every other build.
+  useEffect(() => installExternalLinkGuard(), []);
 
   // Tag the GA session with the platform (worldguessr / coolmath / crazygames /
   // gamedistribution / ...) so users can be segmented by source. Embedded SDKs

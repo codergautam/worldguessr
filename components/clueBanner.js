@@ -5,6 +5,7 @@ import { Rating } from '@smastrom/react-rating';
 import { toast } from 'react-toastify';
 import { ThinStar } from '@smastrom/react-rating';
 import Link from 'next/link';
+import { NO_EXTERNAL_LINKS } from '@/components/utils/externalLinks';
 
 export default function ClueBanner({ explanations, close, session }) {
   const { t: text } = useTranslation("common");
@@ -38,7 +39,11 @@ style={{overflowY: 'scroll', maxHeight: '40vh'}}
       {explanation.cluetext.split("\n").map((line, i) => (
   <p className='motivation' style={{fontSize: '0.6em', marginBottom: '15px'}} key={i}>
     {line.split(" ").map((word, j) => (
-      word.startsWith("http") || word.startsWith("www.") || word.startsWith("plonkit.net") ? (
+      // Clue text is user-written, so the set of URLs here is unbounded —
+      // the one link source we can never audit ahead of a partner review.
+      // GameDistribution forbids leaving the page, so linkify nothing there
+      // and leave the URL as readable text.
+      !NO_EXTERNAL_LINKS && (word.startsWith("http") || word.startsWith("www.") || word.startsWith("plonkit.net")) ? (
         <button key={j} className="linkButton" onClick={() => window.open(word.startsWith("http") ? word : `https://${word}`, '_blank')}>{word}</button>
       ) : (
         word + " "

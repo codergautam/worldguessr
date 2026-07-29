@@ -15,6 +15,7 @@ import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
+import openInStreetView from './utils/openInStreetView';
 import SafeMapContainer from './SafeMapContainer';
 import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
 import { googleTileScale } from '@/lib/googleTileScale';
@@ -518,39 +519,13 @@ const GameSummary = ({
     return '#F44336';
   };
 
+  // Shared with EndBanner and ResultsMap — see utils/openInStreetView. The
+  // inline copy that used to live here re-derived the embedded-portal list
+  // locally, which is the drift utils/externalLinks.js exists to prevent.
   const openInGoogleMaps = (lat, lng, panoId = null) => {
-    let url;
-    if (typeof lat === 'number' && typeof lng === 'number') {
-      url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
-    } else if (panoId) {
-      url = `http://maps.google.com/maps?q=&layer=c&panoid=${panoId}&cbp=11,0,0,0,0`;
-    } else {
-      return;
-    }
-
-    // Check if we're on an embedded portal that can't open external links
-    const isCrazyGames = typeof window !== 'undefined' && window.inCrazyGames;
-    const isCoolMathGames = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_COOLMATH === "true";
-    const isGameDistribution = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
-    const isPoki = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_POKI === "true";
-
-    if (isCrazyGames || isCoolMathGames || isGameDistribution || isPoki) {
-      // Copy URL to clipboard instead of opening
-      navigator.clipboard.writeText(url).then(() => {
-        toast.success(text("copiedToClipboard"));
-      }).catch(() => {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = url;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        toast.success(text("copiedToClipboard"));
-      });
-    } else {
-      window.open(url, '_blank');
-    }
+    openInStreetView({ lat, lng, panoId }).then((outcome) => {
+      if (outcome === "copied") toast.success(text("copiedToClipboard"));
+    });
   };
 
   const copyGameId = () => {
