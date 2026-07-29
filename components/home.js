@@ -98,8 +98,15 @@ const ROUND_OVER_FADE_MS = 500;
 // without an observed flash.
 // Keep in sync with the copy in components/daily/DailyChallengeScreen.js.
 const PANO_PRELOAD_DELAY_MS = 450;
-const TEAM_2V2_END_EXIT_COVER_MS = 50;
-const TEAM_2V2_END_EXIT_REVEAL_MS = 160;
+// Public matchmade duel end-screen exits (ranked 1v1, unranked 1v1, 2v2):
+// Home / Play Again tear down two Leaflet maps, the SV iframe and the whole
+// game tree while un-hiding home in ONE commit — a frame long enough to eat
+// the click feedback and stutter home's entrance wave (the July 5 audit
+// measured the mount-side twin of this commit at ~1.7s). So the exit is
+// covered: mount the opaque mask in its own cheap commit, run the teardown
+// under it 50ms later, then reveal home already settled.
+const DUEL_END_EXIT_COVER_MS = 50;
+const DUEL_END_EXIT_REVEAL_MS = 160;
 
 // After sending a publicDuel/unrankedDuel join we wait this long for the server's
 // `queueJoined` ack (ranked also sends `publicDuelRange`). No ack => the join never
@@ -200,9 +207,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [multiplayerEndAnswerHoldExpired, setMultiplayerEndAnswerHoldExpired] = useState(false);
     const multiplayerEndAnswerHoldTimerRef = useRef(null);
-    const [team2v2EndExitMaskShown, setTeam2v2EndExitMaskShown] = useState(false);
-    const [team2v2EndExitMaskRevealing, setTeam2v2EndExitMaskRevealing] = useState(false);
-    const team2v2EndExitTimersRef = useRef([]);
+    const [duelEndExitMaskShown, setDuelEndExitMaskShown] = useState(false);
+    const [duelEndExitMaskRevealing, setDuelEndExitMaskRevealing] = useState(false);
+    const duelEndExitTimersRef = useRef([]);
     // Queue-join confirmation watchdog: pending timeout id + a mirror of the latest
     // multiplayerState so the (delayed) timeout can read fresh state. See
     // WS_QUEUE_CONFIRM_TIMEOUT_MS and armQueueConfirmWatchdog().
@@ -3237,40 +3244,46 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }, []);
 
-    function clearTeam2v2EndExitTimers() {
-        team2v2EndExitTimersRef.current.forEach((timer) => clearTimeout(timer));
-        team2v2EndExitTimersRef.current = [];
+    function clearDuelEndExitTimers() {
+        duelEndExitTimersRef.current.forEach((timer) => clearTimeout(timer));
+        duelEndExitTimersRef.current = [];
     }
 
-    function beginTeam2v2EndExit(afterCovered) {
-        clearTeam2v2EndExitTimers();
-        setTeam2v2EndExitMaskRevealing(false);
-        setTeam2v2EndExitMaskShown(true);
+    function beginDuelEndExit(afterCovered) {
+        clearDuelEndExitTimers();
+        setDuelEndExitMaskRevealing(false);
+        setDuelEndExitMaskShown(true);
 
         const actionTimer = setTimeout(() => {
             try {
                 afterCovered();
             } finally {
                 const revealTimer = setTimeout(() => {
-                    setTeam2v2EndExitMaskRevealing(true);
+                    setDuelEndExitMaskRevealing(true);
                     const clearTimer = setTimeout(() => {
-                        setTeam2v2EndExitMaskShown(false);
-                        setTeam2v2EndExitMaskRevealing(false);
-                    }, TEAM_2V2_END_EXIT_REVEAL_MS);
-                    team2v2EndExitTimersRef.current.push(clearTimer);
-                }, TEAM_2V2_END_EXIT_COVER_MS);
-                team2v2EndExitTimersRef.current.push(revealTimer);
+                        setDuelEndExitMaskShown(false);
+                        setDuelEndExitMaskRevealing(false);
+                    }, DUEL_END_EXIT_REVEAL_MS);
+                    duelEndExitTimersRef.current.push(clearTimer);
+                }, DUEL_END_EXIT_COVER_MS);
+                duelEndExitTimersRef.current.push(revealTimer);
             }
-        }, TEAM_2V2_END_EXIT_COVER_MS);
-        team2v2EndExitTimersRef.current.push(actionTimer);
+        }, DUEL_END_EXIT_COVER_MS);
+        duelEndExitTimersRef.current.push(actionTimer);
     }
 
-    useEffect(() => () => clearTeam2v2EndExitTimers(), []);
+    useEffect(() => () => clearDuelEndExitTimers(), []);
 
 
     function backBtnPressed(queueNextGame = false, nextGameType, skipConfirm = false) {
-        if (!skipConfirm && multiplayerState?.inGame && multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === "end") {
-            beginTeam2v2EndExit(() => backBtnPressed(queueNextGame, nextGameType, true));
+        // EVERY public matchmade duel end-screen exit goes under the cover
+        // mask, not just team2v2's: the 1v1 in-card Home / Play Again used to
+        // run the raw single-commit teardown, which is exactly the laggy,
+        // glitchy cut the mask exists to hide (see DUEL_END_EXIT_COVER_MS).
+        // Private-game end screens keep their own flows (confirm modals,
+        // lobby returns) and are excluded by showPublicDuelEndScreen's gate.
+        if (!skipConfirm && showPublicDuelEndScreen) {
+            beginDuelEndExit(() => backBtnPressed(queueNextGame, nextGameType, true));
             return;
         }
 
@@ -4481,9 +4494,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 />
                 )}
 
-                {team2v2EndExitMaskShown && (
+                {duelEndExitMaskShown && (
                     <div
-                        className={`team-2v2-end-exit-mask ${team2v2EndExitMaskRevealing ? 'team-2v2-end-exit-mask--revealing' : ''}`}
+                        className={`duel-end-exit-mask ${duelEndExitMaskRevealing ? 'duel-end-exit-mask--revealing' : ''}`}
                         aria-hidden="true"
                     />
                 )}
@@ -5267,10 +5280,10 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         teamActions={multiplayerState?.gameData?.team2v2 ? {
                             playAgain: ({ willExit } = {}) => {
                                 const sendPlayAgain = () => { try { ws.send(JSON.stringify({ type: 'playAgain2v2' })); } catch (e) {} };
-                                if (willExit) beginTeam2v2EndExit(sendPlayAgain);
+                                if (willExit) beginDuelEndExit(sendPlayAgain);
                                 else sendPlayAgain();
                             },
-                            back: () => { beginTeam2v2EndExit(() => { try { ws.send(JSON.stringify({ type: 'teamDuelBack' })); } catch (e) {} }); }
+                            back: () => { beginDuelEndExit(() => { try { ws.send(JSON.stringify({ type: 'teamDuelBack' })); } catch (e) {} }); }
                         } : null}
                     />
                 )}

@@ -36,8 +36,8 @@
   content: '';
   position: fixed;
   inset: 0;
-  /* Same tint recipe as the 2v2 end-screen mask (globals.scss
-     .team-2v2-end-exit-mask) — the old 0.9-black/navy gradient read as a
+  /* Same tint recipe as the duel end-screen exit mask (globals.scss
+     .duel-end-exit-mask) — the old 0.9-black/navy gradient read as a
      different, much darker site than the home screen over the same artwork. */
   background: linear-gradient(
     0deg,

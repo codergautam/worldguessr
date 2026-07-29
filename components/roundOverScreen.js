@@ -199,9 +199,17 @@ const GameSummary = ({
   useEffect(() => {
     if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number" && !eloAnimationComplete) {
       const { oldElo, newElo } = data;
+      // ±0 change: nothing to count. Without this bail the ±1 stepping below
+      // starts at oldElo, immediately steps PAST newElo and never equals it
+      // again — a 0ms interval re-rendering this whole summary forever.
+      if (oldElo === newElo) {
+        setAnimatedElo(newElo);
+        setEloAnimationComplete(true);
+        return;
+      }
       const duration = 1500;
       const steps = Math.abs(newElo - oldElo);
-      const stepTime = steps > 0 ? duration / steps : 0;
+      const stepTime = duration / steps;
 
       let currentElo = oldElo;
       const interval = setInterval(() => {

@@ -576,7 +576,10 @@ html {
   transition: none; /* Instant show - no transition when appearing */
 }
 
-.team-2v2-end-exit-mask {
+/* Public matchmade duel end-screen exit cover (ranked 1v1, unranked 1v1 and
+   2v2 — was team2v2-only as .team-2v2-end-exit-mask). Durations pair with
+   DUEL_END_EXIT_COVER_MS / DUEL_END_EXIT_REVEAL_MS in home.js. */
+.duel-end-exit-mask {
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -587,16 +590,16 @@ html {
   background-size: cover;
   background-position: center;
   opacity: 1;
-  animation: team2v2EndExitCover 50ms ease-out both;
+  animation: duelEndExitCover 50ms ease-out both;
 }
 
-.team-2v2-end-exit-mask--revealing {
+.duel-end-exit-mask--revealing {
   opacity: 0;
   animation: none;
   transition: opacity 160ms ease-out;
 }
 
-@keyframes team2v2EndExitCover {
+@keyframes duelEndExitCover {
   from { opacity: 0; }
   to { opacity: 1; }
 }

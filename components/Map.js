@@ -12,6 +12,7 @@ import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
 import { flyToBoundsAtWholeZoom, getWholeZoomBoundsTarget } from '@/lib/leafletWholeZoom';
+import { prepareGroupedTileLevel } from '@/lib/leafletGroupedTiles';
 import { googleTileScale } from '@/lib/googleTileScale';
 
 /* ---------------------------------------------------------------------------
@@ -668,6 +669,23 @@ const ExtentFitter = memo(function ExtentFitter({
     // as the box shrinks, so the projection tracks the container for free —
     // and those invalidations are cheap now that the canvas backing store is
     // reused rather than reallocated (lib/leafletLiveVectors.js).
+    //
+    // What those per-frame invalidations are NOT allowed to do during the fly:
+    //  - Enforce maxBounds. invalidateSize fires 'moveend' SYNCHRONOUSLY and
+    //    _panInsideMaxBounds -> panInsideBounds -> panTo calls _stop(), which
+    //    cancels the flight a few frames in (a fullscreen-sized viewport at
+    //    corner-fit zoom always "needs" a clamp). Bounds application is
+    //    deferred to settle; input is disabled for the window, so nothing can
+    //    actually escape ±85° in the meantime.
+    //  - Update the tile grid. Mid-flight the camera sits >1 level from
+    //    _tileZoom, and both GridLayer._update's escape hatch and the grouped
+    //    moveend sync respond with a full abort-fetches-and-rebuild — once per
+    //    frame for the whole shrink (the fluid-wheel Part 3 failure mode,
+    //    resurrected via moveend). map._suspendTileUpdates parks _onMoveEnd
+    //    for the window (gate lives in lib/leafletGroupedTiles.js, the owner
+    //    of that patch chain); 'zoom'/'viewreset' listeners stay live, so the
+    //    landing (tagged flyTo frames, then one untagged final _move)
+    //    reconciles tiles normally.
     if (pendingSmoothResetRef.current) {
       pendingSmoothResetRef.current = false;
       needsFitRef.current = false;
@@ -676,6 +694,7 @@ const ExtentFitter = memo(function ExtentFitter({
       let settled = false;
       let settleTimer = null;
       let reenabledHandlers = [];
+      let onVisibilityHidden = null;
       // Target for the CORNER minimap size, not the current fullscreen
       // container. Flying to a fullscreen-fit zoom was the "looks right after
       // refresh, wrong after smooth reset" bug — refresh runs the legacy path
@@ -689,7 +708,18 @@ const ExtentFitter = memo(function ExtentFitter({
           clearTimeout(settleTimer);
           settleTimer = null;
         }
+        if (onVisibilityHidden != null) {
+          try { document.removeEventListener('visibilitychange', onVisibilityHidden); } catch {}
+          onVisibilityHidden = null;
+        }
         try {
+          // Leaflet's cached _size can still be the FULLSCREEN box here: in a
+          // hidden tab neither the ResizeObserver nor any rAF ran during the
+          // shrink. setView's _limitCenter clamps against that stale viewport
+          // — a corner-zoom world view only "fits" a fullscreen box centered
+          // at the equator, which was the tab-switch "wrong extent on the new
+          // round" bug. Refresh the size before verifying anything.
+          try { map.invalidateSize({ pan: false, animate: false }); } catch {}
           // Verify BOTH axes of the destination. The old cleanup checked only
           // zoom, so a fast advance could cancel the flight near the right zoom
           // but at an arbitrary in-between center; needsFit was already false,
@@ -710,6 +740,22 @@ const ExtentFitter = memo(function ExtentFitter({
             }
           }
         } catch {}
+        // Deferred from fly-start so moveend enforcement couldn't kill the
+        // flight. flyTarget is _limitCenter-constrained already, so this is a
+        // pure re-arm of the guess-phase ±85° clamp.
+        setMaxBoundsWithoutAutoPan(map, toValidLatLngBounds(VIEW_BOUNDS));
+        map._suspendTileUpdates = false;
+        // Completed flights reconcile tiles via their final untagged zoom
+        // event and snaps via viewreset; this covers the in-tolerance landing
+        // that happened while moveend updates were suspended (and prunes the
+        // retained answer-view levels either way).
+        try {
+          map.eachLayer((layer) => {
+            if (layer instanceof L.GridLayer) {
+              try { layer._update(); layer._pruneTiles(); } catch {}
+            }
+          });
+        } catch {}
         enableMapInteraction(reenabledHandlers);
         reenabledHandlers = [];
       };
@@ -722,12 +768,37 @@ const ExtentFitter = memo(function ExtentFitter({
         reenabledHandlers = disableMapInteraction(map);
         const cornerSize = lastGuessSizeRef.current || estimateGuessPhaseMapSize();
         flyTarget = getResetTargetForSize(map, extent, cornerSize);
-        setMaxBoundsWithoutAutoPan(map, toValidLatLngBounds(VIEW_BOUNDS));
+        // Lift for the flight (BoundsApplier attached them this same commit);
+        // settle re-applies. See the moveend-assassin note above.
+        setMaxBoundsWithoutAutoPan(map, null);
+
+        // Hidden tab: rAF never fires, so flyTo would hang on its first frame
+        // and the (throttled) settle timer would land it late against a stale
+        // viewport. Nobody is watching — settle to the exact target now.
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          settleSmoothReset(true);
+          return () => settleSmoothReset(true);
+        }
+
+        map._suspendTileUpdates = true;
+        // Prefetch the DESTINATION tile level so the world fades in under the
+        // shrinking answer-view raster instead of popping in after landing.
+        // Same mechanism the fluid wheel and held pinch use: keeps the current
+        // answer tiles as the crossfade base and re-aligns transforms to the
+        // live camera before the next paint.
+        try { prepareGroupedTileLevel(map, flyTarget.center, flyTarget.zoom); } catch {}
+
         map.flyTo(flyTarget.center, flyTarget.zoom, {
           duration: SMOOTH_RESET_FLY_SEC,
           // Leaflet's flyTo easing is already close to the CSS `ease` the
           // container uses; leave the curve alone so the two stay in step.
         });
+        // Losing visibility mid-fly freezes the rAF loop with the camera in
+        // an arbitrary in-between state; finalize immediately instead.
+        onVisibilityHidden = () => {
+          if (document.visibilityState === 'hidden') settleSmoothReset(true);
+        };
+        document.addEventListener('visibilitychange', onVisibilityHidden);
         // Don't trust moveend to reopen input: invalidateSize from the shrink
         // ResizeObserver can fire moveend mid-flight. Just wait out the fly.
         settleTimer = setTimeout(
