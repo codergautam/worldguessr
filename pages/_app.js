@@ -10,6 +10,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
+import { dailyBackgroundPath } from '@/lib/dailyBackground';
 import installErrorTracking from '@/lib/errorTracking';
 import getPlatform from '@/components/utils/getPlatform';
 import { attachUiClickSounds } from '@/components/utils/audio';
@@ -40,9 +41,31 @@ function App({ Component, pageProps }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Set CSS custom properties for background images that need basePath
-    const streetBackground = asset('/street2.webp');
+    // Set CSS custom properties for background images that need basePath.
+    // dailyBackgroundPath rotates per UTC day; _document.js already set the
+    // identical value pre-paint, so this is a same-value re-assert plus the
+    // app-ready preload gate below waiting on the right image.
+    const streetBackground = asset(dailyBackgroundPath());
     document.documentElement.style.setProperty('--bg-street2', `url("${streetBackground}")`);
+
+    // Prefetch TOMORROW's background at idle so the daily rotation never
+    // costs a cold LCP fetch: today's first visit finds the image already
+    // in HTTP cache from yesterday's session. Lowest-priority hint, deferred
+    // past the pre-interaction window (perf-overhaul rule); portals resolve
+    // every day to street2 so the guard makes this a no-op there.
+    const tomorrowBackground = asset(dailyBackgroundPath(Date.now() + 86400000));
+    if (tomorrowBackground !== streetBackground && typeof document !== 'undefined') {
+      const prefetchTomorrow = () => {
+        if (document.querySelector(`link[rel="prefetch"][href="${tomorrowBackground}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.as = 'image';
+        link.href = tomorrowBackground;
+        document.head.appendChild(link);
+      };
+      if ('requestIdleCallback' in window) requestIdleCallback(prefetchTomorrow, { timeout: 15000 });
+      else setTimeout(prefetchTomorrow, 8000);
+    }
 
     let cancelled = false;
     const markAppReady = () => {

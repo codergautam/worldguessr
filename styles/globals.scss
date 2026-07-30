@@ -9444,3 +9444,75 @@ body.gd-ad-active .react-responsive-modal-root * {
     visibility: hidden !important;
     pointer-events: none !important;
 }
+
+// ── Daily background city chip (components/bgCityChip.js, home screen) ──────
+// Decorative "which city is this?" pin + info card. No backdrop-filter
+// (standing perf ruling: never blur over live surfaces); flat translucent
+// fills match the footer chrome. z-index 90 sits above the background and
+// home content but below every banner/nav/modal layer (navbar 1120+).
+.bgCityChip {
+    position: fixed;
+    left: 12px;
+    bottom: 84px;
+    z-index: 90;
+    font-family: 'Lexend', 'Lexend Fallback', sans-serif;
+}
+
+.bgCityChip__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease;
+}
+
+.bgCityChip__btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.bgCityChip__card {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: 264px;
+    background: rgba(8, 18, 12, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+}
+
+.bgCityChip__cardTitle {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.bgCityChip__cardBlurb {
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0.88;
+    margin: 0 0 8px;
+}
+
+.bgCityChip__cardCredit {
+    font-size: 11px;
+    opacity: 0.55;
+}
+
+@media screen and (max-width: 600px), screen and (pointer: coarse) {
+    .bgCityChip {
+        bottom: 96px;
+    }
+
+    .bgCityChip__card {
+        width: min(264px, calc(100vw - 24px));
+    }
+}

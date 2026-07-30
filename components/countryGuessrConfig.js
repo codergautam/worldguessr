@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { asset } from '@/lib/basePath';
+import { dailyBackgroundPath } from '@/lib/dailyBackground';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
 import ContinentIcon from './ContinentIcon';
@@ -33,7 +34,7 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
 
   return (
     <div className="countryGuessr-config" style={{
-      backgroundImage: `url("${asset('/street2.webp')}")`,
+      backgroundImage: `url("${asset(dailyBackgroundPath())}")`,
     }}>
       <div className="countryGuessr-config__sidebar">
         <h1 className="home__title g2_nav_title">{text("countryGuesser")}</h1>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
+import { dailyBackgroundPath } from '@/lib/dailyBackground';
 import { FaGithub } from "react-icons/fa";
 import { FaCircleInfo } from "react-icons/fa6";
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
@@ -166,7 +167,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset('/street2.webp')}")`,
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset(dailyBackgroundPath())}")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
