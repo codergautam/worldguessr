@@ -45,15 +45,13 @@ import PlayerName from '../PlayerName';
 
 const NEVER = ReduceMotion.Never;
 
-function MessageRow({ msg, myTeam, onMute }: { msg: ChatMessage; myTeam: 'a' | 'b' | null; onMute: (m: ChatMessage) => void }) {
+function MessageRow({ msg, onMute }: { msg: ChatMessage; onMute: (m: ChatMessage) => void }) {
   // Allegiance tint (same palette as web emotes/chat): blue = me + my team,
-  // green = opponents, neutral dark = others outside team modes. Own and
-  // team-channel messages are blue by CONSTRUCTION (team chat never crosses
-  // teams), not by team comparison, so they stay blue even when myTeam can't
-  // be derived — my own message must never tint green (July 27 ruling;
-  // replaces the old green self look).
-  const teamMine = msg.isSelf || msg.teamChat || !!(msg.team && myTeam && msg.team === myTeam);
-  const teamOpp = !teamMine && !!(msg.team && myTeam);
+  // green = opponents, neutral dark = outside team modes. Stamped ONCE at
+  // receive time in the store (against the latched team) — never derived at
+  // render, which is what let 2v2 state wipes repaint the whole log.
+  const teamMine = msg.tint === 'mine';
+  const teamOpp = msg.tint === 'opp';
   return (
     <Animated.View entering={FadeInDown.duration(180).easing(Easing.out(Easing.ease)).reduceMotion(NEVER)}>
       <Pressable
@@ -103,16 +101,19 @@ export default function GameChat({
   const chatUnread = useMultiplayerStore((s) => s.chatUnread);
   const mutedCount = useMultiplayerStore((s) => Object.keys(s.mutedChatIds).length);
   // Team contexts (matchmade 2v2 + intra-party team games) get the Team/All
-  // channel picker; 2v2 defaults to team (its legacy audience).
-  const is2v2 = useMultiplayerStore((s) => !!s.gameData?.team2v2);
-  const teamCapable = useMultiplayerStore((s) => !!(s.gameData?.team2v2 || s.gameData?.teamGame));
+  // channel picker; 2v2 defaults to team (its legacy audience). STICKY across
+  // the whole 2v2 flow: is2v2Lobby covers the staging room, gameQueued the
+  // stage-2 queue window where gameData is wiped — without those terms the
+  // picker vanished and reappeared with every state hop (July 30 report).
+  // Server-safe in staging: its teamCapable gate zeroes teamOnly there, and
+  // the duo IS the team. Message tint no longer needs myTeam here — it's
+  // stamped per-message at receive time in the store.
+  const is2v2 = useMultiplayerStore((s) =>
+    !!(s.gameData?.team2v2 || s.gameData?.is2v2Lobby || s.gameQueued === '2v2'));
+  const teamCapable = useMultiplayerStore((s) =>
+    !!(s.gameData?.team2v2 || s.gameData?.teamGame || s.gameData?.is2v2Lobby || s.gameQueued === '2v2'));
   // Guest-hosted parties are emotes-only server-side — hide the whole surface.
   const hostGuest = useMultiplayerStore((s) => !!s.gameData?.hostGuest);
-  // My allegiance for team-tinted message rows ('a' | 'b' | null).
-  const myTeam = useMultiplayerStore((s) => {
-    const myId = s.gameData?.myId ?? s.queueMyId;
-    return s.gameData?.players?.find((p) => p.id === myId)?.team ?? null;
-  });
   const sendChat = useMultiplayerStore((s) => s.sendChat);
   const sendChatTyping = useMultiplayerStore((s) => s.sendChatTyping);
   const muteChatSender = useMultiplayerStore((s) => s.muteChatSender);
@@ -312,7 +313,7 @@ export default function GameChat({
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           >
             {chatMessages.map((m) => (
-              <MessageRow key={m.id} msg={m} myTeam={myTeam} onMute={confirmMute} />
+              <MessageRow key={m.id} msg={m} onMute={confirmMute} />
             ))}
           </ScrollView>
           <Text style={styles.typingLine} numberOfLines={1}>{typingLine}</Text>

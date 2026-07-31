@@ -281,6 +281,13 @@ export interface ChatMessage {
   teamChat: boolean;
   text: string;
   isSelf: boolean;
+  /**
+   * Allegiance tint, stamped ONCE at receive time against the latched team:
+   * 'mine' = blue (me / team channel / my team / 2v2 staging duo),
+   * 'opp' = green (confirmed opposing team), '' = neutral. Never recomputed —
+   * render-time derivation let 2v2 state wipes repaint the whole log.
+   */
+  tint: '' | 'mine' | 'opp';
 }
 
 /** A transient "X is typing" entry, TTL-pruned by the store. */
@@ -438,6 +445,13 @@ interface MultiplayerState {
   chatMessages: ChatMessage[];
   chatTyping: ChatTypingEntry[];
   chatUnread: number;
+  /** Last known own team, latched for chat tint stamping — survives the 2v2
+   *  stage-2 queue's gameData wipe; resets per room / with the game. */
+  chatTeamLatch: 'a' | 'b' | null;
+  /** Last chat room key — persistent (NOT derived from prevGameData: the
+   *  Play Again regroup path nulls gameData between matches, which would
+   *  blind a prev-vs-next comparison and leak the old match's log). */
+  chatLastRoomKey: string | null;
   mutedChatIds: Record<string, true>;
 
   // Friends / invites
@@ -607,6 +621,8 @@ const gameInitialState = {
   chatMessages: [] as ChatMessage[],
   chatTyping: [] as ChatTypingEntry[],
   chatUnread: 0,
+  chatTeamLatch: null as 'a' | 'b' | null,
+  chatLastRoomKey: null as string | null,
   // Party-scoped "invite sent" checkmarks (InviteFriendsModal) — meaningless
   // outside the party they were sent for, so they reset with the game.
   invitedFriends: {} as Record<string, number>,
@@ -1155,6 +1171,38 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       const enteringWaiting =
         data.state === 'waiting' && !!prevGameData && prevGameData.state !== 'waiting';
 
+      // Per-ROOM chat clearing (July 30 ruling, mirrors web gameChat.js):
+      // a fresh room means a fresh log, so last match's messages never haunt
+      // the next one. Matchmade games carry no join code, so the 2v2 flags +
+      // startTime (stamped once per game in ws Game.js start()) form the key —
+      // per-match-unique, because the Play Again regroup skips the staging
+      // paint and a bare '2v2-match' constant compared equal across the
+      // rematch. staging→match and match→staging both flip the key; the
+      // stage-2 queue window yields no key (no false clear); parties keep
+      // their stable code so party chat still spans play-agains. Compared
+      // against the PERSISTENT chatLastRoomKey, not prevGameData — the
+      // regroup path nulls gameData between matches. The tint latch resets
+      // with the room: new room, new teams.
+      const nextRoomKey = data.code
+        || (data.team2v2 ? `2v2m:${data.startTime ?? ''}`
+          : data.is2v2Lobby ? '2v2-staging' : null);
+      const chatRoomChanged = !!(state.chatLastRoomKey && nextRoomKey
+        && state.chatLastRoomKey !== nextRoomKey);
+
+      // Team switch (self-picked OR host-moved — both arrive as a roster
+      // update): July 30 ruling — the old team's channel is not mine anymore,
+      // DROP its messages and repaint the remaining log to the new allegiance
+      // (live truth). Only a definite→different-definite latch transition
+      // counts; wipes to null are state flickers. Moot when the room changed
+      // (the whole log clears anyway).
+      const chatMyId = data.myId ?? prevGameData?.myId ?? state.queueMyId;
+      const chatRoster: Array<{ id: string; team?: 'a' | 'b' | null }> =
+        data.players ?? prevGameData?.players ?? [];
+      const chatLiveTeam = chatRoster.find((p) => p.id === chatMyId)?.team;
+      const chatDefTeam = chatLiveTeam === 'a' || chatLiveTeam === 'b' ? chatLiveTeam : null;
+      const chatTeamSwitched = !!(chatDefTeam && state.chatTeamLatch
+        && chatDefTeam !== state.chatTeamLatch && !chatRoomChanged);
+
       // Map each player's guess to `latLong`, exactly like web (it reads
       // `player.guess`). The server keeps `player.guess` populated through the
       // between-rounds 'getready' state — saveRoundToHistory() does NOT clear it;
@@ -1197,6 +1245,26 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       }
 
       set({
+        ...(chatRoomChanged
+          ? { chatMessages: [], chatTyping: [], chatUnread: 0, chatTeamLatch: null }
+          : null),
+        ...(chatTeamSwitched
+          ? {
+            chatMessages: state.chatMessages
+              .filter((m) => !m.teamChat)
+              .map((m) => {
+                const ally = m.isSelf || !!(m.team && m.team === chatDefTeam);
+                const opp = !ally && !!m.team;
+                return { ...m, tint: (ally ? 'mine' : opp ? 'opp' : '') as ChatMessage['tint'] };
+              }),
+          }
+          : null),
+        // Unconditional when definite (spread order: overrides the room-clear
+        // null above) — on match entry the room change and the new room's
+        // team assignment ride the SAME payload; leaving the latch null would
+        // strand tint stamping for the whole match.
+        ...(chatDefTeam ? { chatTeamLatch: chatDefTeam } : null),
+        ...(nextRoomKey ? { chatLastRoomKey: nextRoomKey } : null),
         gameQueued: false,
         queueStage: null,
         // A joiner's 'join' intent is served once the game arrives; creators
@@ -1582,21 +1650,38 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       if (typeof data.message !== 'string' || !data.id) return;
       if (state.mutedChatIds[data.id]) return;
       const isSelf = data.id === (state.gameData?.myId ?? state.queueMyId);
+      // Refresh the team latch from live data when available; the latch (not
+      // the live value) backs tint stamping so the stage-2 queue's gameData
+      // wipe can't misclassify messages that arrive mid-flicker.
+      const chatMyId = state.gameData?.myId ?? state.queueMyId;
+      const liveTeam = state.gameData?.players?.find((p) => p.id === chatMyId)?.team;
+      const latch = liveTeam === 'a' || liveTeam === 'b' ? liveTeam : state.chatTeamLatch;
+      // 2v2 staging/queue rooms hold only your duo — every message is an ally's.
+      const allAllies = !!((state.gameData?.is2v2Lobby || state.gameQueued === '2v2')
+        && !state.gameData?.team2v2);
+      const team = data.team === 'a' || data.team === 'b' ? data.team : null;
+      // Allegiance decided ONCE, here. Blue = me / team channel (never crosses
+      // teams by construction) / staging duo / latched-team match. Green =
+      // strictly the confirmed-opposing remainder. Stamped for life.
+      const ally = isSelf || !!data.teamChat || allAllies || !!(team && latch && team === latch);
+      const opp = !ally && !!(team && latch && team !== latch);
       const msg: ChatMessage = {
         id: nextChatMsgId++,
         senderId: data.id,
         name: data.name || '',
         countryCode: data.countryCode || null,
-        team: data.team === 'a' || data.team === 'b' ? data.team : null,
+        team,
         teamChat: !!data.teamChat,
         text: data.message,
         isSelf,
+        tint: ally ? 'mine' : opp ? 'opp' : '',
       };
       set((s) => ({
         chatMessages: [...s.chatMessages.slice(-(CHAT_LOG_CAP - 1)), msg],
         // A message from X supersedes X's typing entry immediately.
         chatTyping: s.chatTyping.filter((e) => e.id !== data.id),
         chatUnread: s.chatUnread + (isSelf ? 0 : 1),
+        chatTeamLatch: latch ?? s.chatTeamLatch,
       }));
       return;
     }

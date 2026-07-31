@@ -3868,14 +3868,38 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
         // Team contexts get the Team/All channel picker; 2v2 defaults to the
         // team channel (its legacy audience), team parties default to All.
-        teamCapable={!!(multiplayerState?.gameData?.team2v2 || multiplayerState?.gameData?.teamGame)}
-        defaultTeamChannel={!!multiplayerState?.gameData?.team2v2}
+        // STICKY across the whole 2v2 flow: is2v2Lobby covers the staging
+        // room, gameQueued covers the stage-2 queue window where gameData is
+        // wiped — without those terms the picker vanished and reappeared with
+        // every state hop (July 30 report). Server-safe in staging: its
+        // teamCapable gate zeroes teamOnly there, and the duo IS the team.
+        teamCapable={!!(multiplayerState?.gameData?.team2v2 || multiplayerState?.gameData?.teamGame
+            || multiplayerState?.gameData?.is2v2Lobby || multiplayerState?.gameQueued === '2v2')}
+        defaultTeamChannel={!!(multiplayerState?.gameData?.team2v2
+            || multiplayerState?.gameData?.is2v2Lobby || multiplayerState?.gameQueued === '2v2')}
         myTeam={myEmoteTeam}
+        // 2v2 staging/queue rooms hold only your duo — every message is an
+        // ally's, tint blue at receive regardless of team-field presence.
+        allAllies={!!((multiplayerState?.gameData?.is2v2Lobby || multiplayerState?.gameQueued === '2v2')
+            && !multiplayerState?.gameData?.team2v2)}
+        // Per-room log clearing: a new room = fresh chat. Matchmade games
+        // carry no join code, so the 2v2 flags stand in — staging→match and
+        // match→staging both change the key, which is exactly the "clear
+        // after each match" ruling; the queue's gameData wipe yields null
+        // (ignored), and parties keep their stable code so party chat still
+        // spans play-agains.
+        // Match key includes startTime (stamped once per game, Game.js
+        // start()): a bare '2v2-match' constant leaked across Play Again —
+        // the queueBoundDuo regroup skips the staging paint, so match→match
+        // compared equal and last match's chat survived into the rematch.
+        roomCode={multiplayerState?.gameData?.code
+            || (multiplayerState?.gameData?.team2v2 ? `2v2m:${multiplayerState?.gameData?.startTime ?? ''}`
+                : multiplayerState?.gameData?.is2v2Lobby ? '2v2-staging' : null)}
         gameState={multiplayerState?.gameData?.state}
         // Chat shares the bottom-left corner with the emote FAB; stack above
         // it whenever emotes are concurrently visible (2v2 — parties are XOR).
         stackUp={multiplayerEmotesEnabled && !multiplayerState?.gameData?.disableEmotes && emotesLive}
-    />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
+    />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.is2v2Lobby, multiplayerState?.gameQueued, multiplayerState?.gameData?.code, multiplayerState?.gameData?.startTime, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
 
 
 

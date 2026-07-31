@@ -18,7 +18,7 @@ const TYPING_TTL = 3000;
 // unread count and mute set survive lobby -> game -> play-again. All state is
 // component-local: no home.js thread-through, no module-level shared throttles
 // (both were old-chatBox mistakes).
-function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCapable, defaultTeamChannel, myTeam, gameState, stackUp }) {
+function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCapable, defaultTeamChannel, myTeam, allAllies, roomCode, gameState, stackUp }) {
   const { t: text } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -41,6 +41,38 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   useEffect(() => { openRef.current = open; }, [open]);
   const mutedRef = useRef(mutedIds);
   useEffect(() => { mutedRef.current = mutedIds; }, [mutedIds]);
+  // LATCHED allegiance, not the live prop: 2v2 wipes gameData during the
+  // stage-2 queue and reconnects, so a render-time team comparison repainted
+  // the whole log whenever state flickered (the "colors keep changing" bug).
+  // The latch holds the last known team; it resets per room below. Only a
+  // DEFINITE→DIFFERENT-DEFINITE transition is a real team switch — a wipe to
+  // null is a state flicker and must not count.
+  const myTeamRef = useRef(myTeam ?? null);
+  useEffect(() => {
+    if (!myTeam) return;
+    const prev = myTeamRef.current;
+    myTeamRef.current = myTeam;
+    if (prev && prev !== myTeam) {
+      // I changed teams (self-picked or host-moved) — July 30 ruling: the old
+      // team's channel is not mine anymore, DROP its messages; repaint the
+      // remaining all-channel log to the new allegiance (live truth).
+      setMessages(msgs => msgs
+        .filter(m => !m.teamChat)
+        .map(m => {
+          const ally = m.isSelf || !!(m.team && m.team === myTeam);
+          const opp = !ally && !!m.team;
+          return { ...m, tint: ally ? 'teamMine' : (opp ? 'teamOpp' : '') };
+        }));
+    }
+  }, [myTeam]);
+  const allAlliesRef = useRef(!!allAllies);
+  useEffect(() => { allAlliesRef.current = !!allAllies; }, [allAllies]);
+  // Render-fresh mirror of the prop, for the room-clear effect below: it must
+  // RE-SEED the latch (not null it) — on match entry the room change and my
+  // team assignment land in the same commit, and nulling would leave the
+  // latch empty for the whole match (teams never change again mid-match).
+  const myTeamPropRef = useRef(myTeam);
+  myTeamPropRef.current = myTeam;
 
   // Per-instance throttles (never module-level).
   const lastSendRef = useRef(0);
@@ -56,6 +88,16 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
         if (typeof data.message !== 'string' || !data.id) return;
         if (mutedRef.current.has(data.id)) return;
         const isSelf = data.id === myIdRef.current;
+        // Allegiance is decided ONCE, here, and stored on the message — never
+        // recomputed at render. Blue = me, team-channel (by construction it
+        // never crosses teams), everyone in a 2v2 staging/queue room (the duo
+        // IS the team), or a team match against the latched myTeam. Green =
+        // strictly the confirmed-opposing remainder. A message keeps its
+        // color for life no matter what the game state does afterwards.
+        const latchedTeam = myTeamRef.current;
+        const ally = isSelf || !!data.teamChat || allAlliesRef.current
+          || !!(data.team && latchedTeam && data.team === latchedTeam);
+        const opp = !ally && !!(data.team && latchedTeam && data.team !== latchedTeam);
         const key = nextKeyRef.current++;
         setMessages(prev => [...prev.slice(-(MAX_MESSAGES - 1)), {
           key,
@@ -66,6 +108,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           teamChat: !!data.teamChat,
           text: data.message,
           isSelf,
+          tint: ally ? 'teamMine' : (opp ? 'teamOpp' : ''),
         }]);
         // A message from X supersedes X's typing state immediately.
         setTyping(prev => {
@@ -84,8 +127,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
     return unsubscribe;
   }, [enabled, live, subscribeMessages]);
 
-  // Leaving the chat surface wipes the ephemeral log. Staying live across
-  // the 2v2 staging -> match transition intentionally keeps it (same duo).
+  // Leaving the chat surface wipes the ephemeral log.
   useEffect(() => {
     if (!live) {
       setMessages([]);
@@ -93,8 +135,34 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
       setUnread(0);
       setOpen(false);
       setDraft('');
+      myTeamRef.current = null;
+      lastRoomRef.current = null;
     }
   }, [live]);
+
+  // Per-ROOM clearing (July 30 ruling, supersedes the July 26 "log survives
+  // staging→match" design): a fresh room means a fresh log — staging→match
+  // clears, match→back-to-staging clears, so last match's messages never
+  // haunt the next one. Compare DEFINED codes only: the stage-2 queue wipes
+  // gameData (code=undefined) while chat rides the persisting staging room —
+  // that wipe is a state flicker, not a room change, and must not clear.
+  // The allegiance latch resets with the room: new room, new teams.
+  const lastRoomRef = useRef(null);
+  useEffect(() => {
+    if (!roomCode) return;
+    if (lastRoomRef.current && lastRoomRef.current !== roomCode) {
+      setMessages([]);
+      setTyping({});
+      setUnread(0);
+      setDraft('');
+      // Re-seed from the live prop, never null: the new room's team often
+      // arrives in the SAME commit as the room change (match entry), and the
+      // myTeam effect above may have already latched it — nulling here would
+      // strand the latch empty for the whole match.
+      myTeamRef.current = myTeamPropRef.current ?? null;
+    }
+    lastRoomRef.current = roomCode;
+  }, [roomCode]);
 
   // NO auto-open (user ruling July 26, reverses the earlier discoverability
   // auto-open): chat always starts as the FAB — the unread badge is the
@@ -213,14 +281,10 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           </div>
           <div className="chatMessages" ref={listRef}>
             {visible.map(m => (
-              // Allegiance tint (same palette as emotes): blue = me + my
-              // team, green = opponents, neutral dark = others outside team
-              // modes. Own and team-channel messages are blue by CONSTRUCTION
-              // (team chat never crosses teams), not by team comparison, so
-              // they stay blue even when myTeam can't be derived (2v2 stage-2
-              // queue wipes gameData) — my own message must never tint green
-              // (July 27 ruling; replaces the old green .self look).
-              <div key={m.key} className={`chatMsg ${(m.isSelf || m.teamChat || (m.team && myTeam && m.team === myTeam)) ? 'teamMine' : (m.team && myTeam ? 'teamOpp' : '')}`}>
+              // Tint was stamped at RECEIVE time (see the subscribe handler)
+              // and never changes afterwards — render-time team comparison is
+              // what let state wipes repaint the whole log.
+              <div key={m.key} className={`chatMsg ${m.tint || ''}`}>
                 <span className="chatMsgName">
                   {m.name}
                   {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
