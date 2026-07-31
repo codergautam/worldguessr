@@ -11,6 +11,7 @@ import {
   Animated,
   Easing,
   InteractionManager,
+  LayoutChangeEvent,
   Platform,
   StyleSheet,
   Text,
@@ -178,6 +179,47 @@ export function getExpandedMapHeight(width: number, height: number): number {
   );
 }
 
+/**
+ * Right-edge clearance for the expanded-map button row (Hint / Guess /
+ * collapse-arrow). On height-starved screens (landscape phones) the row's top
+ * edge rises into the top-right HUD (map pill / round-score card), which
+ * buried the collapse arrow under the card. Web fixes this with a fixed
+ * `padding-right: 160px` under `(orientation: landscape) and (max-height:
+ * 515px)` (globals.scss .mobile_minimap__btns.miniMapShown); native can be
+ * exact instead: measure the HUD box and the surface, and reserve the HUD's
+ * full width only when the two would actually overlap vertically. The Guess
+ * button is flex:1, so it alone absorbs the shrink.
+ *
+ * Shared by the singleplayer surface below and the multiplayer screen in
+ * `app/game/[id].tsx` so the two rows stay in sync. Wire `onRootLayout` to the
+ * screen-filling root view, `onHudLayout` to the top-right HUD container, and
+ * apply `rowClearRight` (when > 0) as the row's paddingRight.
+ */
+export function useMapRowHudClearance(expandedMapHeight: number, rowHeight: number) {
+  const [rootHeight, setRootHeight] = useState(0);
+  const [hudBox, setHudBox] = useState<{ width: number; height: number } | null>(null);
+
+  const onRootLayout = useCallback((e: LayoutChangeEvent) => {
+    setRootHeight(e.nativeEvent.layout.height);
+  }, []);
+  const onHudLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setHudBox((prev) =>
+      prev && prev.width === width && prev.height === height ? prev : { width, height },
+    );
+  }, []);
+
+  // Row top edge in root coordinates (the row sits 8dp above the expanded
+  // map). HUD box height already includes its safe-area top padding since the
+  // measured container is anchored at top:0. The 8dp buffer keeps "touching"
+  // reading as clear.
+  const rowTopEdge = rootHeight - (expandedMapHeight + 8) - rowHeight;
+  const rowClearRight =
+    rootHeight > 0 && hudBox && rowTopEdge < hudBox.height + 8 ? hudBox.width : 0;
+
+  return { onRootLayout, onHudLayout, rowClearRight };
+}
+
 function GameSurface(
   {
     location,
@@ -240,6 +282,13 @@ function GameSurface(
   // CONSTANT full-height range, the mini state is this fraction — so reveal can
   // animate the height smoothly from mini → full instead of jumping.
   const miniFraction = fullMapHeight > 0 ? expandedMapHeight / fullMapHeight : 0.5;
+
+  // Keep the collapse arrow clear of the top-right HUD on short screens — see
+  // the hook's doc comment. Row height mirrors the buttons' 48 / sc(48).
+  const { onRootLayout, onHudLayout, rowClearRight } = useMapRowHudClearance(
+    expandedMapHeight,
+    isTablet ? sc(48) : 48,
+  );
 
   // ── State ──────────────────────────────────────────────────────────────
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
@@ -721,7 +770,7 @@ function GameSurface(
   }));
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={onRootLayout}>
       <Animated.View
         style={[StyleSheet.absoluteFillObject, { opacity: sceneOpacity }]}
         pointerEvents={scenePointerEvents}
@@ -850,6 +899,7 @@ function GameSurface(
                 bottom: expandedMapHeight + 8,
                 paddingHorizontal: Math.max(insets.right, spacing.md),
               },
+              rowClearRight > 0 && { paddingRight: rowClearRight },
               {
                 opacity: mapBtnsAnim,
                 transform: [
@@ -1035,7 +1085,12 @@ function GameSurface(
       {/* Top-right slot is rendered ABOVE the scene fade so the login/join
           party toolbar is tappable even during the initial reveal. */}
       {topRightSlot && (
-        <SafeAreaView edges={['top']} style={styles.topRight} pointerEvents="box-none">
+        <SafeAreaView
+          edges={['top']}
+          style={styles.topRight}
+          pointerEvents="box-none"
+          onLayout={onHudLayout}
+        >
           {topRightSlot}
         </SafeAreaView>
       )}

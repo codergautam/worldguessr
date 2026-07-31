@@ -44,7 +44,7 @@ import { dismissAllSafe } from '../../src/utils/navigation';
 
 import StreetViewWebView, { StreetViewHandle } from '../../src/components/game/StreetViewWebView';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
-import GameSurface, { GameSurfaceHandle, getExpandedMapHeight } from '../../src/components/game/GameSurface';
+import GameSurface, { GameSurfaceHandle, getExpandedMapHeight, useMapRowHudClearance } from '../../src/components/game/GameSurface';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
@@ -1141,6 +1141,14 @@ export default function GameScreen() {
   // mapSlideAnim value for the open mini-map (mapHeight uses a constant full-range
   // so reveal animates mini→full smoothly instead of jumping).
   const miniFraction = fullMapHeight > 0 ? expandedMapHeight / fullMapHeight : 0.5;
+
+  // Keep the collapse arrow clear of the top-right round/score card on short
+  // screens (landscape phones) — shared with GameSurface, see the hook's doc
+  // comment there. Duels never mount the top-right card, so this stays 0 there.
+  const { onRootLayout, onHudLayout, rowClearRight } = useMapRowHudClearance(
+    expandedMapHeight,
+    isTablet ? sc(48) : 48,
+  );
 
   // Map height interpolation: 0 = hidden (0px), 1 = expanded map height (or 100% when answer shown)
   const mapHeight = mapSlideAnim.interpolate({
@@ -2505,7 +2513,7 @@ export default function GameScreen() {
   // and host "Play Again"/back → lobby): it fades through the brand colour
   // instead of flashing WebView-teardown artifacts. getready⇄guess stay 'game'.
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onRootLayout}>
       {isLobby ? (
         // Web parity: emotes are live in EVERY waiting lobby (party, 2v2 staging,
         // stage-1 teammate search) — home.js renders them whenever inGame, and the
@@ -2553,7 +2561,7 @@ export default function GameScreen() {
             fades it in/out so the show/hide isn't a hard flash.
             Duels use the centered timer below the health bars instead (see DUEL HUD). */}
         {isMultiplayer && !gameData?.duel && (
-          <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+          <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none" onLayout={onHudLayout}>
             <RevealView visible={!showMapResult && !showLoadingBanner} translateY={-10} durationIn={260} durationOut={180}>
               <GameTimer
                 timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
@@ -2788,6 +2796,7 @@ export default function GameScreen() {
             style={[
               styles.mapButtonsRow,
               { bottom: expandedMapHeight + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              rowClearRight > 0 && { paddingRight: rowClearRight },
               {
                 opacity: mapBtnsAnim,
                 transform: [{
