@@ -3815,6 +3815,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // location" shortcut would swap in a random pano mid-challenge.
         if (screen === "onboarding" || screen === "daily") return;
 
+        // Once the answer is up the guess has already banked its points, and
+        // this raw loadLocation() bypasses advanceRound — the round counter
+        // never moves, so clicking the logo replays the same round forever
+        // (reported: 9-round "5-round" matches). Answer up = logo inert.
+        if (showAnswer) return;
+
         if (screen !== "home" && !loading) {
             if (screen === "multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
                 return;
