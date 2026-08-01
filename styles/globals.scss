@@ -3831,8 +3831,13 @@ canvas.streetview.dragging {
     }
 }
 
+// No `transition: all` here. Same specificity as #miniMapArea.answerNotShown
+// but later in source, so while hovered — the exact moment the hover-expand
+// animates — it silently replaced the deliberately explicit property list
+// (see .answerNotShown) with `all`, making the browser diff every animatable
+// property on every style recalc of a container Leaflet restyles constantly.
+// The .answerNotShown list already carries the 250ms expand/collapse.
 #miniMapArea:hover {
-    transition: all 250ms ease;
     opacity: 100%;
 }
 
@@ -7998,6 +8003,12 @@ div[dir="ltr"] {
     border-radius: 12px;
     overflow: hidden;
 
+    // Gated to the 1.2s .animating window (HP drain + round-1 intro): these
+    // decorative loops used to run infinite for the entire match — the only
+    // permanently-running animations ranked duels had over unranked, keeping
+    // the compositor busy through every minimap zoom. At rest the sweep is
+    // hidden (a frozen mid-sweep band reads as a smudge); one full 1.2s pass
+    // per hit matches the drain window exactly.
     &::before {
         content: '';
         position: absolute;
@@ -8006,8 +8017,15 @@ div[dir="ltr"] {
         width: 100%;
         height: 100%;
         background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-        animation: shimmer 3s infinite;
+        opacity: 0;
     }
+}
+
+.health-bar-container.animating .health-bar-fill::before {
+    opacity: 1;
+    // forwards: rest at translateX(100%) (clipped) rather than snapping back
+    // to a static centered band if the .animating class outlives the sweep.
+    animation: shimmer 1.2s forwards;
 }
 
 // transform, NOT `left`. `left` is a layout property, so this infinite loop was
@@ -8036,7 +8054,13 @@ div[dir="ltr"] {
     right: 0;
     bottom: 0;
     border-radius: 12px;
-    animation: pulse 2s ease-in-out infinite;
+    // Static rest glow; the breathing loop only runs during the .animating
+    // hit window (see the shimmer gate above for why).
+    opacity: 0.15;
+}
+
+.health-bar-container.animating .health-bar-pulse {
+    animation: pulse 1.2s ease-in-out forwards;
     opacity: 0.3;
 }
 

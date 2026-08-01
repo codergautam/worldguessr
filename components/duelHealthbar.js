@@ -260,4 +260,32 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
   );
 };
 
-export default HealthBar;
+// Memoized: GameUI re-renders every 100ms for the round clock, and these bars
+// were re-rendering (players.find results, getLeague, Link, flag) on every
+// tick for the whole match. Every prop is a primitive except `names` (2v2
+// team stacks), whose entries are rebuilt each render — compare by value.
+const namesEqual = (a, b) => {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = typeof a[i] === 'string' ? { name: a[i] } : a[i];
+    const y = typeof b[i] === 'string' ? { name: b[i] } : b[i];
+    if (x.name !== y.name || x.username !== y.username || x.isMe !== y.isMe
+      || x.hasProfile !== y.hasProfile || x.countryCode !== y.countryCode
+      || x.disconnected !== y.disconnected || x.elo !== y.elo) return false;
+  }
+  return true;
+};
+
+export default React.memo(HealthBar, (prev, next) =>
+  prev.health === next.health &&
+  prev.maxHealth === next.maxHealth &&
+  prev.name === next.name &&
+  prev.elo === next.elo &&
+  prev.isStartingDuel === next.isStartingDuel &&
+  prev.isOpponent === next.isOpponent &&
+  prev.countryCode === next.countryCode &&
+  prev.disconnected === next.disconnected &&
+  prev.hasProfile === next.hasProfile &&
+  namesEqual(prev.names, next.names)
+);

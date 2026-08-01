@@ -98,6 +98,17 @@ const ROUND_OVER_FADE_MS = 500;
 // without an observed flash.
 // Keep in sync with the copy in components/daily/DailyChallengeScreen.js.
 const PANO_PRELOAD_DELAY_MS = 450;
+// Reveals additionally wait out the answer map's camera flight before
+// navigating the pano iframe. The +450ms swap used to land mid-flight, and
+// the embed's document load + WebGL boot + pano fetches collided with the
+// fly's rAF frames: the between-rounds micro-stutter (USER RULING Aug 1:
+// preload starts after the fly lands; supersedes the fixed-450 part of the
+// July 28 ruling for between-rounds reveals only — 450 remains the
+// concealment floor everywhere, and stays exact for MP round 1, which has
+// the VS intro, no fly, and the most to gain from load headroom).
+// Mirror of Map.js REVEAL.flyDurations — keep in sync.
+const REVEAL_FLY_MS = { pin: 500, country: 1200, world: 1800 };
+const PANO_PRELOAD_MARGIN_MS = 100;
 // Public matchmade duel end-screen exits (ranked 1v1, unranked 1v1, 2v2):
 // Home / Play Again tear down two Leaflet maps, the SV iframe and the whole
 // game tree while un-hiding home in ONE commit — a frame long enough to eat
@@ -4222,7 +4233,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // start. Round 1 is not exempt: it has no answer map to hide behind,
         // only the concealment fade, and that is exactly when a black flash
         // would be most visible.
-        const swap = setTimeout(() => point(gd.curRound), PANO_PRELOAD_DELAY_MS);
+        //
+        // Between rounds (curRound > 1) the reveal map is also FLYING to the
+        // answer for 0.5-1.8s — wait that out too, so the iframe load can't
+        // steal the flight's frames. See REVEAL_FLY_MS.
+        let delay = PANO_PRELOAD_DELAY_MS;
+        if (gd.curRound > 1) {
+            const myGuess = gd.players?.find?.((p) => p.id === gd.myId)?.guess;
+            delay += (myGuess ? REVEAL_FLY_MS.pin : REVEAL_FLY_MS.world)
+                + PANO_PRELOAD_MARGIN_MS;
+        }
+        const swap = setTimeout(() => point(gd.curRound), delay);
         return () => clearTimeout(swap);
     }, [
         multiplayerState?.inGame,
@@ -4286,6 +4307,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             return;
         }
 
+        // Same fly collision as the multiplayer preload above, and this is the
+        // path that runs EVERY singleplayer round: the reveal map is flying to
+        // the answer while the pano iframe would be loading a whole new
+        // document. Wait the flight out. SP reveals are user-paced (the round
+        // only advances on Next), so the extra ~600ms costs no head start.
+        const spFlyMs = pinPoint
+            ? REVEAL_FLY_MS.pin
+            : (screen === "countryGuesser" ? REVEAL_FLY_MS.country : REVEAL_FLY_MS.world);
+
         let cancelled = false;
         const timer = setTimeout(() => {
             if (cancelled) return;
@@ -4334,12 +4364,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     console.error("[preload] Failed to reserve next location:", err);
                 }
             })();
-        }, PANO_PRELOAD_DELAY_MS);
+        }, PANO_PRELOAD_DELAY_MS + spFlyMs + PANO_PRELOAD_MARGIN_MS);
 
         return () => {
             cancelled = true;
             clearTimeout(timer);
         };
+        // pinPoint is read for the fly-duration pick only. It is stable for the
+        // whole reveal (placed during the guess phase, cleared on advance), and
+        // a guess-phase change re-runs into the !showAnswer early return.
     }, [
         screen,
         showAnswer,
@@ -4351,7 +4384,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         gameOptions.maxDist,
         countryGuessrMode.subMode,
         beginSpPanoPreload,
-    ]);
+    ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Leaving SP modes drops any reserved preload so it can't bleed into home.
     useEffect(() => {
