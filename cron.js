@@ -14,15 +14,15 @@ import countries from './public/countries.json' with { type: "json" };
 import fs from 'fs';
 import path from 'path';
 
+import zlib from 'zlib';
+// mainWorld stays a static import: updateAllCountriesCache resamples it every
+// 60s. The other pool files are read inside initializeCountryPools instead so
+// their parsed arrays can be garbage-collected once grouped — at Vali-scale
+// (50k/country in world-extra.json) a lingering import copy would roughly
+// double cron's resident memory.
 import mainWorld from './data/world-main.json' with { type: "json" };
-import arbitraryWorld from './data/world-arbitrary.json' with { type: "json" };
-import pinpointableWorld from './data/world-pinpointable.json' with { type: "json" };
-import diverseWorld from './data/diverse-locations.json' with { type: "json" };
 
 console.log("Locations in mainWorld", mainWorld.length);
-console.log("Locations in arbitraryWorld", arbitraryWorld.length);
-console.log("Locations in pinpointableWorld", pinpointableWorld.length);
-console.log("Locations in diverseWorld", diverseWorld.length); // this is a map that contains locations for just underrepresented countries in other maps
 
 configDotenv();
 
@@ -469,7 +469,19 @@ const initializeCountryPools = () => {
   const startTime = Date.now();
 
   // Combine all locations
-  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld, ...diverseWorld];
+  // Read-and-release: these files only feed the country pools. world-extra.json
+  // is the Vali/generateCountryLocations output — country top-ups only,
+  // deliberately NOT part of the /allCountries world sample (mainWorld is).
+  const readPool = (f) => JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', f), 'utf8'));
+  const arbitraryWorld = readPool('world-arbitrary.json');
+  const pinpointableWorld = readPool('world-pinpointable.json');
+  const diverseWorld = readPool('diverse-locations.json'); // locations for countries underrepresented in the other maps
+  // world-extra ships gzipped: at 4M+ locations the raw JSON is ~315MB, which
+  // GitHub refuses (100MB file cap). ~80MB compressed.
+  const extraWorld = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(process.cwd(), 'data', 'world-extra.json.gz'))).toString());
+  console.log(`[INIT] Pool files: arbitrary ${arbitraryWorld.length}, pinpointable ${pinpointableWorld.length}, diverse ${diverseWorld.length}, extra ${extraWorld.length}`);
+
+  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld, ...diverseWorld, ...extraWorld];
 
   // Group by country
   for (const loc of allLocations) {

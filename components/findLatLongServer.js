@@ -1,6 +1,6 @@
 
 
-async function hasStreetViewImage(lat, long, radius) {
+export async function hasStreetViewImage(lat, long, radius) {
   if(!lat || !long) {
     console.log("Invalid lat/long", lat, long);
     return false;

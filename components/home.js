@@ -116,6 +116,31 @@ const DUEL_END_EXIT_REVEAL_MS = 160;
 // mobile WS_QUEUE_CONFIRM_TIMEOUT_MS.)
 const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
 
+// Official-country-map repeat guard: /countryLocations responses sit in the
+// CDN/browser cache, so back-to-back games can receive the identical location
+// array. Remember the spots a player actually saw (per country, across
+// sessions) and filter them out of the next fetch. Ring-buffered so old spots
+// eventually come back around.
+const SEEN_COUNTRY_LOCS_CAP = 300;
+// Never filter the array below this: enough for a full game plus the
+// duplicate-latLong while-loop guard. If filtering would go under it, the
+// ring has swallowed the pool — reset it instead of starving the picker.
+const SEEN_COUNTRY_LOCS_MIN_POOL = 20;
+const seenLocsKey = (country) => `seenLocs_${country}`;
+function getSeenCountryLocs(country) {
+    try {
+        return JSON.parse(gameStorage.getItem(seenLocsKey(country))) || [];
+    } catch (e) {
+        return [];
+    }
+}
+function markSeenCountryLoc(country, loc) {
+    const key = `${loc.lat},${loc.long}`;
+    const seen = getSeenCountryLocs(country).filter((k) => k !== key);
+    seen.push(key);
+    gameStorage.setItem(seenLocsKey(country), JSON.stringify(seen.slice(-SEEN_COUNTRY_LOCS_CAP)));
+}
+
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
@@ -3659,6 +3684,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             }
                         }
 
+                        // Official country maps: drop spots this player saw in
+                        // recent games — a CDN-cached response would otherwise
+                        // re-serve the exact same array they just played.
+                        if (gameOptions.countryMap && gameOptions.official) {
+                            const seen = new Set(getSeenCountryLocs(gameOptions.countryMap));
+                            if (seen.size > 0) {
+                                const fresh = data.locations.filter((l) => !seen.has(`${l.lat},${l.long}`));
+                                if (fresh.length >= SEEN_COUNTRY_LOCS_MIN_POOL) {
+                                    data.locations = fresh;
+                                } else {
+                                    gameStorage.removeItem(seenLocsKey(gameOptions.countryMap));
+                                }
+                            }
+                        }
+
                         // Fisher-Yates shuffle (unbiased)
                         for (let i = data.locations.length - 1; i > 0; i--) {
                             const j = Math.floor(Math.random() * (i + 1));
@@ -3755,6 +3795,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
 
     }
+
+    // Every location a player actually receives on an official country map is
+    // remembered (one latLong choke-point — covers every pick site: fetch,
+    // cached-walk, reserve-during-reveal) so the next /countryLocations fetch
+    // can filter it out. See getSeenCountryLocs.
+    useEffect(() => {
+        if (!latLong || latLong.lat == null || latLong.long == null) return;
+        if (!gameOptions.countryMap || !gameOptions.official) return;
+        markSeenCountryLoc(gameOptions.countryMap, latLong);
+    }, [latLong]);
 
     // Generate country/continent options when location or submode changes in country guesser mode.
     // Continent options are fixed (the 6 continent names), so we pre-populate them as soon as

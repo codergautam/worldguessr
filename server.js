@@ -308,8 +308,11 @@ for (const country of countries) {
   countryLocations[country] = [];
 }
 app.get('/countryLocations/:country', (req, res) => {
-  // Cache for 10 minutes on Cloudflare and browser
-  res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
+  // 60s only: cron rotates the served window every 30s and this route's own
+  // in-memory cache is 60s. A longer CDN/browser TTL pins one 2000-location
+  // slice for every game a player starts in that window, which is where the
+  // "country maps keep repeating" reports came from.
+  res.set('Cache-Control', 'public, max-age=60, s-maxage=60');
 
   if(!countryLocations[req.params.country]) {
     return res.status(404).json({ message: 'Country not found' });

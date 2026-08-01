@@ -28,6 +28,10 @@ nul.map
 # misc
 .DS_Store
 *.pem
+
+# world-extra ships only as data/world-extra.json.gz (raw is ~315MB, over
+# GitHub's 100MB cap); the raw file is a local regeneration intermediate
+data/world-extra.json
 tmpclaude*
 logs
 
