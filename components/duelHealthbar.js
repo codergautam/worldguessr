@@ -82,15 +82,14 @@ const TeamNames = ({ names, dcLabel }) => {
 
 const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true }) => {
   const { t: text } = useTranslation("common");
-  const [displayHealth, setDisplayHealth] = useState(health);
   const [isAnimating, setIsAnimating] = useState(false);
   const [damageIndicator, setDamageIndicator] = useState(null);
   const prevHealthRef = useRef(health);
-  // The count-down animation reads its start value from here, not from the
-  // `displayHealth` render closure: the loop is what writes that state, so
-  // closing over it is how two overlapping runs used to fight each other.
-  const displayHealthRef = useRef(health);
-  displayHealthRef.current = displayHealth;
+  // What the number label currently shows. The rAF counter below owns it and
+  // writes the DOM directly — React never renders mid-drain values anymore,
+  // so a re-render during the 1.2s must repaint from here, not from state.
+  const shownHealthRef = useRef(health);
+  const numberRef = useRef(null);
 
   const getHealthColor = (percentage) => {
     if (percentage > 60) return { bg: '#4ade80', glow: '#22c55e' }; // Green
@@ -98,7 +97,9 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
     return { bg: '#ef4444', glow: '#dc2626' }; // Red
   };
 
-  const healthPercentage = Math.max(0, (displayHealth / maxHealth) * 100);
+  // Render the TARGET width/color; the transition on .health-bar-fill
+  // (globals.scss) walks them over the same 1.2s the old JS loop took.
+  const healthPercentage = Math.max(0, (health / maxHealth) * 100);
   const colors = getHealthColor(healthPercentage);
 
   // HP drain. Every guard below exists because this ran unguarded on the answer
@@ -112,47 +113,54 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
     }
 
     const duration = 1200;
-    const startValue = displayHealthRef.current;
-    // Nothing to drain: mount (displayHealth is seeded FROM health), or a
-    // zero-damage round. The old code still ran the full rAF loop here,
-    // interpolating a number towards itself: ~70 frames of no-op setDisplayHealth
-    // for zero pixels of movement.
-    //
-    // The `.animating` window is NOT no-op though — it's what gives the bar its
-    // scale(1.05) + drop-shadow lift, and on mount that lift is part of the
-    // round-1 "VS" intro. So keep the class for exactly the same 1200ms, and
-    // drop only the frame loop that was doing nothing.
+    const startValue = shownHealthRef.current;
+
+    // The `.animating` window runs whether or not anything drains — it's the
+    // bar's scale(1.05) + drop-shadow lift, and on mount that lift is part of
+    // the round-1 "VS" intro. Same 1200ms in both branches.
+    setIsAnimating(true);
+    const animatingTimeout = setTimeout(() => setIsAnimating(false), duration);
+
+    // Nothing to count: mount (shownHealthRef is seeded FROM health), or a
+    // zero-damage round. Width/color are already at target, so the CSS
+    // transition has nothing to walk either.
     if (startValue === health) {
-      setIsAnimating(true);
-      const t = setTimeout(() => setIsAnimating(false), duration);
-      return () => clearTimeout(t);
+      return () => clearTimeout(animatingTimeout);
     }
 
+    // The bar itself drains via the CSS transition on .health-bar-fill; JS
+    // only rolls the number label, writing textContent through the ref. The
+    // old loop was a setDisplayHealth per frame — ~140 React commits per bar
+    // per hit, all landing on the answer reveal, the single most
+    // frame-starved moment of a duel round.
     let rafId = null;
     let startTime = null;
-    setIsAnimating(true);
 
     const animateHealth = (timestamp) => {
       if (startTime === null) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      // Simple linear interpolation
-      setDisplayHealth(Math.max(0, startValue + progress * (health - startValue)));
+      // Linear, matching the CSS transition's timing function
+      const value = Math.max(0, startValue + progress * (health - startValue));
+      shownHealthRef.current = value;
+      if (numberRef.current) {
+        const label = String(Math.max(0, Math.round(value)));
+        if (numberRef.current.textContent !== label) numberRef.current.textContent = label;
+      }
 
       if (progress < 1) {
         rafId = requestAnimationFrame(animateHealth);
       } else {
         rafId = null;
-        setIsAnimating(false);
       }
     };
 
     rafId = requestAnimationFrame(animateHealth);
 
-    // Was missing entirely. Without it the loop outlived both a second HP
-    // change inside the 1.2s window (two chains writing displayHealth at once,
-    // each re-rendering the bar every frame) and unmount — leaving the game
-    // mid-drain kept a dead component's rAF chain running to completion.
+    // Cancellation matters: a second HP change inside the 1.2s window starts
+    // its count from wherever this one stopped (shownHealthRef), and unmount
+    // mid-drain must not leave a dead component's rAF chain running.
     return () => {
+      clearTimeout(animatingTimeout);
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [health]);
@@ -191,7 +199,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
               </div>
             </div>
             <div className="health-text">
-              <span className="health-number">{Math.max(0, Math.round(displayHealth))}</span>
+              <span className="health-number" ref={numberRef}>{Math.max(0, Math.round(shownHealthRef.current))}</span>
               <span className="health-max">/{maxHealth}</span>
             </div>
           </div>

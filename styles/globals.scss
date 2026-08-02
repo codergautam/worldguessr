@@ -7997,6 +7997,11 @@ div[dir="ltr"] {
     position: relative;
     border-radius: 12px;
     overflow: hidden;
+    // The drain animates HERE. duelHealthbar sets the target width/color once
+    // per HP change and this walks them over the same 1.2s the old JS loop
+    // took — that loop was a setState per frame (~140 React commits per bar
+    // per hit) landing on the answer reveal. Linear to match the old interp.
+    transition: width 1.2s linear, background-color 1.2s linear, box-shadow 1.2s linear;
 
     // Gated to the 1.2s .animating window (HP drain + round-1 intro): these
     // decorative loops used to run infinite for the entire match — the only

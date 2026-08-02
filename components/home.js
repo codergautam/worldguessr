@@ -519,18 +519,39 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 prev = parseInt(prev.toString().replace(/,/g, ""));
                 const diff = eloData.elo - prev;
 
+                // Settled: stop ticking entirely. This interval used to run at
+                // 10ms for the whole session (a main-thread wakeup 100x/sec
+                // through every game); the [eloData?.elo] dep re-arms it the
+                // next time the value actually changes.
+                if (diff === 0) {
+                    clearInterval(interval);
+                    return prev;
+                }
+
                 // Determine the step based on the difference
                 const step = Math.ceil(Math.abs(diff) / 10) || 1; // Minimum step is 1
 
                 // Smooth animation
                 if (diff > 0) return Math.min(prev + step, eloData.elo);
-                if (diff < 0) return Math.max(prev - step, eloData.elo);
-                return prev;
+                return Math.max(prev - step, eloData.elo);
             });
         }, 10);
 
         return () => clearInterval(interval);
     }, [eloData?.elo]);
+    // Warm the maps-modal chunk while the menu idles. It's next/dynamic
+    // (ssr:false), so the first open otherwise pays the whole fetch+evaluate
+    // inside the click — measured as a 2.3s EvaluateScript task on a
+    // CPU-throttled dev build.
+    useEffect(() => {
+        const warm = () => { import("@/components/maps/mapsModal").catch(() => {}); };
+        if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+            const id = window.requestIdleCallback(warm, { timeout: 8000 });
+            return () => window.cancelIdleCallback(id);
+        }
+        const t = setTimeout(warm, 3500);
+        return () => clearTimeout(t);
+    }, []);
     useEffect(() => {
         const clientConfigData = clientConfig();
         setConfig(clientConfigData);

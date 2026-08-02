@@ -20,20 +20,23 @@ const TILES: Array<{
   titleKey: string;
   image: string;
 }> = [
+  // -tile variants are 480px/<45KB thumbs; the originals are 2048-5876px
+  // wide (up to 1.6MB) and were being decoded on-device for these small
+  // tiles. Thumbs ship with the web deploy — web deploys before mobile.
   {
     mode: 'world',
     titleKey: 'world',
-    image: 'https://www.worldguessr.com/world.jpg',
+    image: 'https://www.worldguessr.com/world-tile.jpg',
   },
   {
     mode: 'country',
     titleKey: 'countryGuesser',
-    image: 'https://www.worldguessr.com/flags.jpg',
+    image: 'https://www.worldguessr.com/flags-tile.jpg',
   },
   {
     mode: 'continent',
     titleKey: 'continentGuesser',
-    image: 'https://www.worldguessr.com/continents.jpg',
+    image: 'https://www.worldguessr.com/continents-tile.jpg',
   },
 ];
 

@@ -47,7 +47,10 @@ export default function AnimatedCounter({
 
     const startTime = Date.now();
 
-    const animate = () => {
+    // 30Hz interval, not per-frame rAF: each tick is a React commit of the
+    // host tree (score bars re-render on the reveal), and a rolling number
+    // reads identically at 30 updates/sec.
+    animationRef.current = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
@@ -57,20 +60,18 @@ export default function AnimatedCounter({
       const currentValue = startValue + (difference * easeOutCubic);
       setDisplayValue(Math.round(currentValue));
 
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
+      if (progress >= 1) {
+        clearInterval(animationRef.current);
+        animationRef.current = null;
         setDisplayValue(endValue);
         setIsAnimating(false);
         previousValue.current = endValue;
       }
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
+    }, 33);
 
     return () => {
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+        clearInterval(animationRef.current);
       }
       if (incrementTimeoutRef.current) {
         clearTimeout(incrementTimeoutRef.current);

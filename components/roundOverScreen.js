@@ -156,16 +156,14 @@ const GameSummary = ({
       const endValue = points;
       const duration = 1200; // Slightly longer for more dramatic effect
       const startTime = Date.now();
-      let animationFrameId = null;
       let timeoutId = null;
-      let cancelled = false;
 
       // Start the CSS animation
       setPointsAnimating(true);
 
-      const animate = () => {
-        if (cancelled) return;
-
+      // 30Hz interval, not per-frame rAF: every tick re-renders this whole
+      // summary tree, and nobody can read digits changing faster than this.
+      const intervalId = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
@@ -175,21 +173,17 @@ const GameSummary = ({
         const currentValue = startValue + (endValue - startValue) * easedProgress;
         setAnimatedPoints(Math.round(currentValue));
 
-        if (progress < 1) {
-          animationFrameId = requestAnimationFrame(animate);
-        } else {
+        if (progress >= 1) {
+          clearInterval(intervalId);
           setAnimatedPoints(endValue);
           // End the CSS animation after a brief delay for the glow to fade
           timeoutId = setTimeout(() => setPointsAnimating(false), 300);
         }
-      };
-
-      animationFrameId = requestAnimationFrame(animate);
+      }, 33);
 
       // Cleanup: cancel animation and timeout if points changes or component unmounts
       return () => {
-        cancelled = true;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        clearInterval(intervalId);
         if (timeoutId) clearTimeout(timeoutId);
       };
     }
@@ -208,18 +202,20 @@ const GameSummary = ({
         return;
       }
       const duration = 1500;
-      const steps = Math.abs(newElo - oldElo);
-      const stepTime = duration / steps;
+      const startTime = Date.now();
 
-      let currentElo = oldElo;
+      // Time-based at 30Hz. The old ±1-per-tick stepping made the interval
+      // period 1500/|Δelo| — a 150-elo swing meant a 10ms interval driving
+      // 100 re-renders/sec of this whole end screen, right through the
+      // heaviest window of the duel (the t=120-124s 93-dropped-frames zone).
       const interval = setInterval(() => {
-        currentElo += currentElo < newElo ? 1 : -1;
-        setAnimatedElo(currentElo);
-        if (currentElo === newElo) {
+        const progress = Math.min((Date.now() - startTime) / duration, 1);
+        setAnimatedElo(Math.round(oldElo + (newElo - oldElo) * progress));
+        if (progress >= 1) {
           clearInterval(interval);
           setEloAnimationComplete(true); // Mark animation as complete
         }
-      }, stepTime);
+      }, 33);
 
       return () => clearInterval(interval);
     }

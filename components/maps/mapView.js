@@ -49,7 +49,9 @@ export default function MapView({
         handleSearch(searchTerm);
     }, [searchTerm, handleSearch]);
 
-    function refreshHome(removeMapId) {
+    // useCallback: this is a prop of every MapTile — a fresh identity here
+    // re-renders the entire grid through the tiles' memo.
+    const refreshHome = useCallback(function refreshHome(removeMapId) {
         if (removeMapId) {
             setMapHome((prev) => {
                 const newMapHome = { ...prev };
@@ -99,11 +101,11 @@ export default function MapView({
             clearTimeout(backupMapHomeTimeout);
             loadBackupFallback();
         });
-    }
+    }, [session?.token?.secret]);
 
     useEffect(() => {
         refreshHome();
-    }, [session?.token?.secret]);
+    }, [refreshHome]);
 
     // Track the .mapView content width via ResizeObserver. This replaces a
     // window 'resize' listener + per-render document.querySelector — both
@@ -207,20 +209,23 @@ export default function MapView({
                 });
 
                 const newHeartsCnt = json.hearts;
+                // Clone, never mutate: MapTile is memoized on `map` by
+                // reference, so editing the object in place updates nothing —
+                // React compares the same reference and skips the tile. This
+                // only ever appeared to work because inline per-render
+                // closures used to break the memo for every tile anyway.
+                const updated = { ...map, hearts: newHeartsCnt, hearted: json.hearted };
+                const withUpdate = (m) => (m.id === map.id ? updated : m);
+
                 setMapHome((prev) => {
                     const newMapHome = { ...prev };
                     Object.keys(newMapHome).forEach((section) => {
-                        newMapHome[section] = newMapHome[section].map((m) => {
-                            if (m.id === map.id) {
-                                m.hearts = newHeartsCnt;
-                                m.hearted = json.hearted;
-                            }
-                            return m;
-                        });
+                        if (!Array.isArray(newMapHome[section])) return;
+                        newMapHome[section] = newMapHome[section].map(withUpdate);
 
                         if (section === "likedMaps") {
                             if (json.hearted) {
-                                newMapHome[section].push(map);
+                                newMapHome[section] = [...newMapHome[section], updated];
                             } else {
                                 newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
                             }
@@ -230,15 +235,7 @@ export default function MapView({
                 });
 
                 if (searchResults.length > 0) {
-                    setSearchResults((prev) => {
-                        return prev.map((m) => {
-                            if (m.id === map.id) {
-                                m.hearts = newHeartsCnt;
-                                m.hearted = json.hearted;
-                            }
-                            return m;
-                        });
-                    });
+                    setSearchResults((prev) => prev.map(withUpdate));
                 }
             } else {
                 toast.error(text(json.message || json.error || "unexpectedError"));
@@ -250,6 +247,30 @@ export default function MapView({
             toast.error("Unexpected Error hearting map - 2");
         });
     }
+
+    // ONE stable function per concern for the whole grid. The old inline
+    // closures (`onClick={() => onMapClick(map)}` etc.) gave every tile fresh
+    // props on every render, so MapTile's memo never held — a single expand
+    // or keystroke re-rendered all ~230 mounted tiles (measured ~900ms per
+    // click on a CPU-throttled dev build).
+    const onMapClickRef = useRef(onMapClick);
+    onMapClickRef.current = onMapClick;
+    const handleTileSelect = useCallback((m) => onMapClickRef.current(m), []);
+    const heartMapRef = useRef(heartMap);
+    heartMapRef.current = heartMap;
+    const handleTileHeart = useCallback((m) => heartMapRef.current(m), []);
+    const handleTilePencil = useCallback((m) => {
+        setMakeMap({
+            ...initMakeMap,
+            open: true,
+            edit: true,
+            mapId: m.id,
+            name: m.name,
+            description_short: m.description_short,
+            description_long: m.description_long,
+            data: m.data.map((loc) => JSON.stringify(loc)),
+        });
+    }, [setMakeMap, initMakeMap]);
 
     const hasResults = searchResults.length > 0 || Object.keys(mapHome)
         .filter((k) => k !== "message")
@@ -465,7 +486,7 @@ export default function MapView({
                         <div className="singleplayer-mode-tiles">
                             {((searchTerm.length === 0) || text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
-                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    bgImage={`url("${asset('/world-tile.jpg')}")`}
                                     map={{ name: text("allCountries"), slug: "all" }}
                                     onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
                                     searchTerm={searchTerm}
@@ -473,7 +494,7 @@ export default function MapView({
                             )}
                             {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
-                                    bgImage={`url("${asset('/flags.jpg')}")`}
+                                    bgImage={`url("${asset('/flags-tile.jpg')}")`}
                                     map={{ name: text("countryGuesser"), slug: "__countryGuesser" }}
                                     onClick={() => onMapClick({ name: text("countryGuesser"), slug: "__countryGuesser" })}
                                     searchTerm={searchTerm}
@@ -481,7 +502,7 @@ export default function MapView({
                             )}
                             {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
-                                    bgImage={`url("${asset('/continents.jpg')}")`}
+                                    bgImage={`url("${asset('/continents-tile.jpg')}")`}
                                     map={{ name: text("continentGuesser"), slug: "__continentGuesser" }}
                                     onClick={() => onMapClick({ name: text("continentGuesser"), slug: "__continentGuesser" })}
                                     searchTerm={searchTerm}
@@ -515,7 +536,11 @@ export default function MapView({
 
                                 if (mapsArray.length === 0) return null;
 
-                                const isExpanded = expandedSections[section] || section === "recent";
+                                // "recent" used to be hardcoded always-expanded — with 100
+                                // maps in it, that alone dominated the open-the-modal commit.
+                                // It now collapses like every section; search results shown
+                                // through it stay fully visible.
+                                const isExpanded = expandedSections[section] || (section === "recent" && searchResults.length > 0);
                                 const rows = getRowsForSection(section);
                                 const mapsPerRow = getMapsPerRow(section);
                                 
@@ -526,7 +551,7 @@ export default function MapView({
                                     defaultMaxMaps = mapsArray.length;
                                 }
 
-                                const shouldShowExpandButton = mapsArray.length > defaultMaxMaps && section !== "recent";
+                                const shouldShowExpandButton = mapsArray.length > defaultMaxMaps && !(section === "recent" && searchResults.length > 0);
                                 const displayedMaps = isExpanded ? mapsArray : mapsArray.slice(0, defaultMaxMaps);
 
                                 return (
@@ -542,14 +567,14 @@ export default function MapView({
                                         <div className="map-section-container">
                                             <div className={`map-grid${section === 'countryMaps' ? ' country-maps' : ''}`}>
                                                 {displayedMaps.map((map, i) => {
-                                                    const displayMap = (section === "countryMaps" && map.countryMap)
-                                                        ? { ...map, name: nameFromCode(map.countryMap, lang) }
-                                                        : map;
                                                     return (<MapTile
                                                         key={map.id || i}
-                                                        map={displayMap}
+                                                        map={map}
+                                                        displayName={(section === "countryMaps" && map.countryMap)
+                                                            ? nameFromCode(map.countryMap, lang)
+                                                            : undefined}
                                                         canHeart={session?.token?.secret && heartingMap !== map.id}
-                                                        onClick={() => onMapClick(map)}
+                                                        onSelect={handleTileSelect}
                                                         country={map.countryMap}
                                                         searchTerm={searchTerm}
                                                         secret={session?.token?.secret}
@@ -561,19 +586,8 @@ export default function MapView({
                                                         showReviewOptions={
                                                             session?.token?.staff && section === "reviewQueue"
                                                         }
-                                                        onPencilClick={(map) => {
-                                                            setMakeMap({
-                                                                ...initMakeMap,
-                                                                open: true,
-                                                                edit: true,
-                                                                mapId: map.id,
-                                                                name: map.name,
-                                                                description_short: map.description_short,
-                                                                description_long: map.description_long,
-                                                                data: map.data.map((loc) => JSON.stringify(loc)),
-                                                            });
-                                                        }}
-                                                        onHeart={() => heartMap(map)}
+                                                        onPencilClick={handleTilePencil}
+                                                        onHeart={handleTileHeart}
                                                     />
                                                     );
                                                 })}

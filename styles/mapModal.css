@@ -601,6 +601,13 @@
    an inset top highlight to fake the "lit-from-above glass card" depth, and
    an opacity-only fadeIn on a translateY (transform-only, GPU-cheap). */
 .map-tile {
+  /* Tile-level containment on top of the section-level one above: an
+     EXPANDED section (up to 100 tiles) is itself near the viewport, so its
+     below-the-fold tiles still cost layout/paint without this. `auto`
+     remembers the real size after first paint, so the estimate only guides
+     the initial scrollbar. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
   background: linear-gradient(135deg, rgba(36, 87, 52, 0.20) 0%, rgba(0, 0, 0, 0.58) 100%);
   border-radius: var(--map-border-radius);
   cursor: pointer;

@@ -10,6 +10,12 @@ function MapTile({
     map,
     onHeart,
     onClick,
+    // Stable-callback variant of onClick: receives the map, so the parent can
+    // pass ONE function to every tile and the memo below actually holds.
+    onSelect,
+    // Localized display name (country maps). A string prop instead of cloning
+    // the map object per render — object clones defeated the memo too.
+    displayName,
     country,
     searchTerm,
     canHeart,
@@ -26,7 +32,6 @@ function MapTile({
         ? bgImage.replace(/^url\(\s*["']?/, '').replace(/["']?\s*\)$/, '')
         : (country ? `https://flagcdn.com/h240/${country?.toLowerCase()}.png` : "");
     const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
-    const [imgLoaded, setImgLoaded] = useState(false);
 
     // Define escapeRegExp outside of highlightMatch so it exists before being called
     const escapeRegExp = (string) => {
@@ -49,7 +54,7 @@ function MapTile({
     const handleHeartClick = (e) => {
         e.stopPropagation();
         if (!canHeart) return;
-        onHeart();
+        onHeart(map);
     };
 
     // Rest of the component remains unchanged
@@ -127,7 +132,7 @@ function MapTile({
     return (
         <div
             className={`map-tile ${country ? 'country' : ''} ${!imageUrl ? 'no-image' : ''}`}
-            onClick={onClick}
+            onClick={onSelect ? () => onSelect(map) : onClick}
             // The whole tile acts as a button; role="button" also opts it into
             // the app-wide delegated click sound (audio.js watches [role="button"]).
             role="button"
@@ -140,12 +145,19 @@ function MapTile({
                 <div className="map-tile-image">
                     <img
                         src={imageUrl}
+                        // Flags at the density the tile actually renders:
+                        // ~140 CSS px wide, so h120 for 1x screens and h240
+                        // only on retina. h240-for-everyone doubled decode.
+                        srcSet={country ? `https://flagcdn.com/h120/${country?.toLowerCase()}.png 1x, https://flagcdn.com/h240/${country?.toLowerCase()}.png 2x` : undefined}
                         alt=""
                         loading="lazy"
                         decoding="async"
                         draggable={false}
-                        onLoad={() => setImgLoaded(true)}
-                        className={imgLoaded ? "loaded" : ""}
+                        // classList, not setState: with up to ~90 flags
+                        // trickling in, a React re-render per onLoad turned
+                        // image arrival into a render storm. The CSS fade
+                        // (.loaded) is untouched.
+                        onLoad={(e) => e.currentTarget.classList.add("loaded")}
                     />
                 </div>
             )}
@@ -153,8 +165,8 @@ function MapTile({
             {/* Bottom half: Content */}
             <div className="map-tile-content">
                 <div className="map-tile__top-section">
-                    <div className="map-tile__name" title={map.name}>
-                        <h3 style={textColor ? { color: textColor } : {}}>{highlightMatch(map.name, searchTerm)}</h3>
+                    <div className="map-tile__name" title={displayName || map.name}>
+                        <h3 style={textColor ? { color: textColor } : {}}>{highlightMatch(displayName || map.name, searchTerm)}</h3>
                         
                         {/* Status indicators */}
                         {!country && (map.in_review || map.reject_reason) && map.yours && !map.accepted && (
