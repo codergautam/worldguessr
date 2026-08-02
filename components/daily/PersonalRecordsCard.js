@@ -6,12 +6,17 @@ import { useTranslation } from '@/components/useTranslations';
 // daily results modal and the landing page's history panel. Works for
 // guests the same as logged-in users because GuestProfile.daily's shape
 // mirrors User.dailyHistory / dailyStreakBest.
-export default function PersonalRecordsCard({ history = [], streakBest = 0, personalBest = 0, todayScore = null }) {
+export default function PersonalRecordsCard({ history = [], streakBest = 0, personalBest = 0, todayScore = null, daysPlayed = 0 }) {
   const { t: text } = useTranslation();
-  const daysPlayed = history.length;
+  // Server lifetime counter, floored by what the payload proves anyway:
+  // history is a rolling 30-entry window (its length saturates — the old
+  // "30 days played, 36 streak" impossibility), and a best streak of N
+  // requires ≥N days played. The floor keeps guests and not-yet-reseeded
+  // legacy users truthful.
+  const days = Math.max(daysPlayed || 0, history.length, streakBest || 0);
   const todayBroke = Number.isFinite(todayScore) && todayScore > 0 && todayScore >= personalBest;
 
-  if (daysPlayed === 0) {
+  if (days === 0) {
     return (
       <div className="daily-stat-card daily-records-card">
         <div className="daily-stat-title">{text('personalRecords')}</div>
@@ -40,7 +45,7 @@ export default function PersonalRecordsCard({ history = [], streakBest = 0, pers
         <div className="daily-record-row">
           <span className="daily-record-icon" aria-hidden="true">📅</span>
           <span className="daily-record-label">{text('daysPlayed')}</span>
-          <span className="daily-record-value">{daysPlayed.toLocaleString()}</span>
+          <span className="daily-record-value">{days.toLocaleString()}</span>
         </div>
       </div>
     </div>

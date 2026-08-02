@@ -107,7 +107,7 @@ async function fetchGuestBlock(date, guestId) {
 
 async function fetchUserBlock(date, secret) {
   const user = await User.findOne({ secret })
-    .select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate dailyGraceUsedDates')
+    .select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate dailyGraceUsedDates dailyDaysPlayed')
     .lean();
   if (!user) return null;
 
@@ -182,6 +182,16 @@ async function fetchUserBlock(date, secret) {
     ownTotalTime: isDq ? null : (own?.totalTime || null),
     history,
     personalBest: history.reduce((m, h) => Math.max(m, h.score || 0), 0),
+    // Lifetime counter, floored by what this doc proves regardless: the
+    // 30-capped window length and the streaks (N-day streak ⇒ ≥N days
+    // played). The floor carries legacy users until their next submit
+    // seeds dailyDaysPlayed server-side.
+    daysPlayed: Math.max(
+      user.dailyDaysPlayed || 0,
+      history.length,
+      user.dailyStreakBest || 0,
+      liveStreak || 0,
+    ),
   };
 }
 

@@ -132,6 +132,17 @@ const userSchema = new mongoose.Schema({
     }],
     default: [],
   },
+  // LIFETIME daily-days-played counter. dailyHistory above is a rolling
+  // 30-entry display window, so history.length saturates at 30 — deriving
+  // "days played" from it produced impossible stats (30 days played, 36
+  // streak). Incremented once per locked date by /submit (both the played
+  // and DQ branches — a DQ advances the streak, so it must count as a day
+  // played or the impossibility recurs); legacy users are seeded there from
+  // max(window length, streaks) on their next submit.
+  dailyDaysPlayed: {
+    type: Number,
+    default: 0,
+  },
   lastLogin: {
     type: Date,
     default: Date.now

@@ -178,6 +178,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
           history={userData?.history || []}
           streakBest={userData?.streakBest || 0}
           personalBest={userData?.personalBest || 0}
+          daysPlayed={userData?.daysPlayed || 0}
         />
         {(userData?.history?.length || 0) > 0 && (
           <DailyHistoryBars14 history={userData?.history || []} today={today} />

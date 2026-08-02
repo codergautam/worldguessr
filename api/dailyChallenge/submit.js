@@ -153,7 +153,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   // touches _id/username) — the DQ path fires on tab-switch spam, and
   // hydrating full User docs there bought nothing.
   const user = await User.findOne({ secret })
-    .select('_id username banned dailyStreak dailyStreakBest lastDailyDate dailyGraceUsedDates dailyHistory')
+    .select('_id username banned dailyStreak dailyStreakBest lastDailyDate dailyGraceUsedDates dailyHistory dailyDaysPlayed')
     .lean();
   if (!user) {
     // DQ: a bad secret degrades to the anon response shape (no identity to
@@ -234,6 +234,21 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     dailyGraceUsedDates: graceAfter,
   };
 
+  // Lifetime days-played. dailyHistory is a rolling 30-entry window, so its
+  // length saturates — this counter is the real total. Seed legacy users from
+  // the strongest lower bound the doc still proves: the window length and the
+  // prior streaks (a streak of N requires N distinct played days, all before
+  // today — duplicate submits for today never reach the write branches below,
+  // both are dup-gated by the unique (date,user) index). +1 = today. The DQ
+  // branch counts too: a DQ advances the streak like a played day, and a
+  // non-counted DQ would let streak exceed days-played again.
+  const daysPlayedBefore = Math.max(
+    user.dailyDaysPlayed || 0,
+    (user.dailyHistory || []).length,
+    user.dailyStreakBest || 0,
+    user.dailyStreak || 0,
+  );
+
   if (dq) {
     // Disqualified: lock the date with the marker row; on the row that
     // actually locked it, advance the streak exactly like a played day and
@@ -260,7 +275,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     await Promise.all([
       // dailyHistory deliberately absent from the $set: a 0-score DQ entry
       // would pollute personal bests and the profile calendar.
-      User.updateOne({ _id: user._id }, { $set: userStreakSet }),
+      User.updateOne({ _id: user._id }, { $set: { ...userStreakSet, dailyDaysPlayed: daysPlayedBefore + 1 } }),
       writeLoggedInDailyGame({
         user,
         date,
@@ -297,7 +312,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     return User.updateOne(
       { _id: user._id },
       {
-        $set: { ...userStreakSet, dailyHistory: nextHistory },
+        $set: { ...userStreakSet, dailyHistory: nextHistory, dailyDaysPlayed: daysPlayedBefore + 1 },
       }
     );
   })();

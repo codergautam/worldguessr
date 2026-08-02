@@ -382,10 +382,66 @@ function cameraRestsAt(map, center, zoom) {
   }
 }
 
+// Replace the resting tile ELEMENTS invisibly — the automated zoom-in-out
+// cure for the resting white hairlines. Aug 2 __dumpMap forensics: broken and
+// cured rest states are geometrically identical (integer zoom, scale(1),
+// exact origin); they differ only in WHICH elements exist. Tiles born under
+// reveal-era container geometry keep stale per-layer raster alignment (each
+// plus-lighter IMG composites independently) — so the cure must replace
+// elements, not adjust math.
+//
+// Invariants the swap must hold:
+//  - old elements stay painted until replacements are ready (a gap flashes
+//    the backdrop white);
+//  - flip + removal happen in ONE tick (a full-opacity overlap frame
+//    double-composites under plus-lighter into a bright flash);
+//  - layer._resetView() with an emptied tile registry both reconciles
+//    grid/levels/transforms to the resting camera AND creates the fresh
+//    elements — no viewprereset, so this never tears down mid-paint.
+function rebirthTiles(map) {
+  try {
+    map.eachLayer((layer) => {
+      if (!(layer instanceof L.GridLayer)) return;
+      try {
+        const orphans = [];
+        for (const key in layer._tiles) {
+          const el = layer._tiles[key] && layer._tiles[key].el;
+          if (el && el.parentNode) orphans.push(el);
+        }
+        layer._tiles = {};
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          try {
+            const now = +new Date();
+            for (const key in layer._tiles) {
+              const t = layer._tiles[key];
+              if (!t) continue;
+              t.loaded = now - 1000; // fade math resolves to 1: no refade
+              t.active = true;
+              if (t.el) L.DomUtil.setOpacity(t.el, 1);
+            }
+          } catch {}
+          for (const el of orphans) { try { el.remove(); } catch {} }
+        };
+        layer.once('load', finish);
+        setTimeout(finish, 600); // straggler cap: stale pixels never outlive this
+        layer._resetView();
+      } catch {
+        try { layer.redraw(); } catch {}
+      }
+    });
+  } catch {}
+}
+
+// Returns true when a HARD reset (full teardown + rebuild) actually ran at
+// the current size — callers use it to decide whether the resting tiles were
+// just reborn (crisp) or survived from reveal-era geometry (need rebirth).
 function forceCrispViewReset(map, center, zoom) {
   // Resetting at 0×0 projects onto a degenerate viewport and lands on a garbage
   // centre; the size-gated callers re-run this once the container has real size.
-  if (!hasRenderSize(map)) return;
+  if (!hasRenderSize(map)) return false;
   // During reveal Leaflet may be mid fly/pan/zoom animation. A normal fitBounds
   // can inherit that pixel origin and leave scaled, blurry tiles until the user
   // zooms. Cancel animation state first, then apply a target already constrained
@@ -407,12 +463,13 @@ function forceCrispViewReset(map, center, zoom) {
   // Guard: skip any hard reset whose camera is already resting on its exact
   // target — a redundant reset has nothing to reset. Real moves (the answer
   // view flying home) still get the full crisp treatment.
+  let hardReset = false;
   if (!cameraRestsAt(map, target.center, target.zoom)) {
-    try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
+    try { map.setView(target.center, target.zoom, { animate: false, reset: true }); hardReset = true; } catch {}
     // setView's reset path already ran _resetView to this exact target; only
     // re-run it if the camera somehow did not land (a throwing listener).
     if (!cameraRestsAt(map, target.center, target.zoom)) {
-      try { map._resetView?.(target.center, target.zoom, true); } catch {}
+      try { map._resetView?.(target.center, target.zoom, true); hardReset = true; } catch {}
     }
   }
   stopMapAnimations(map);
@@ -425,9 +482,11 @@ function forceCrispViewReset(map, center, zoom) {
   try {
     if (beforeClamp && !beforeClamp.equals(map.getCenter())) {
       map._resetView?.(map.getCenter(), map.getZoom(), true);
+      hardReset = true;
     }
   } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+  return hardReset;
 }
 
 /* ---------------------------------------------------------------------------
@@ -822,24 +881,24 @@ const ExtentFitter = memo(function ExtentFitter({
         }
         if (!target) return false;
         if (!forceSnap && cameraAtTarget(target)) {
-          // Within tolerance is NOT exact. A landing accepted at e.g. zoom
-          // 2.004 rests the current tile level CSS-scaled by 2^0.004 — every
-          // tile boundary fractional, and plus-lighter renders each one as a
-          // thin bright seam (the between-rounds "white lines until I zoom"
-          // report). Two-step exact alignment, no teardown:
-          //  1. stop animations FIRST — a still-coasting flyTo tail, or the
-          //     settle window's own moveend churn reaching panTo (stock
-          //     setView opens with _stop()), would otherwise re-park the
-          //     camera at a fresh fractional zoom AFTER we accept;
-          //  2. one raw _move to the exact target — rewrites the level
-          //     transforms at scale exactly 1 without firing viewprereset,
-          //     so no tile-grid rebuild, no GC cost, nothing visible.
+          // Accepted ≠ exact: the tolerances above admit e.g. zoom 2.004,
+          // which rests the level CSS-scaled (hairline seams at every tile
+          // boundary), and this is the only landing that keeps reveal-born
+          // tile elements alive (stale raster alignment — the other seam
+          // source). Stop the flight FIRST (its tail, or settle-window
+          // moveend churn reaching panTo → stock setView's leading _stop(),
+          // would re-park the camera after acceptance), land the exact
+          // camera, then rebirth the elements at rest — rebirthTiles also
+          // reconciles grid/levels/transforms, standing in for the flight
+          // completion pass the stop just killed. The snap branch below
+          // needs none of this: its setView rebuilds everything at rest.
           try {
             stopMapAnimations(map);
             if (map.getZoom() !== target.zoom
               || !map.getCenter().equals(L.latLng(target.center))) {
               map._move(target.center, target.zoom);
             }
+            rebirthTiles(map);
           } catch {}
           return true;
         }
@@ -1138,17 +1197,25 @@ const ExtentFitter = memo(function ExtentFitter({
       if (fallbackTimer != null) clearTimeout(fallbackTimer);
       try {
         const target = getResetTarget(map, extent);
-        forceCrispViewReset(map, target.center, target.zoom);
+        const hard1 = forceCrispViewReset(map, target.center, target.zoom);
         finalRafId = requestAnimationFrame(() => {
           // Re-derive the canonical target rather than trusting getCenter(): between
           // the reset above and this frame, the hard maxBounds clamp (viscosity 1.0)
           // can shove a tall low-zoom viewport to the ±85° edge. Reading getCenter()
           // here cemented that drift (logged target≈72°N instead of 30,0); re-fitting
           // to getResetTarget snaps it back to the intended world/extent view.
+          let hard2 = false;
           try {
             const t = getResetTarget(map, extent);
-            forceCrispViewReset(map, t.center, t.zoom);
+            hard2 = forceCrispViewReset(map, t.center, t.zoom);
           } catch {}
+          // Both stable-size passes guard-skipped ⇒ the resting tiles are
+          // reveal-born survivors (stale raster alignment = hairlines):
+          // rebirth once at rest. A hard reset already rebuilt at rest, so
+          // rebirthing after one would only churn. The t0 pass deliberately
+          // doesn't count — it can run at pre-shrink geometry, which births
+          // exactly the tiles that need replacing.
+          if (!hard1 && !hard2) rebirthTiles(map);
           needsFitRef.current = false;
           setResettingCamera(false);
           // The host may be holding this map forceHidden. Release it only
@@ -1387,6 +1454,55 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
   useEffect(() => {
     if (!map) return;
     return () => { try { map.stop(); } catch {} };
+  }, [map]);
+  // DEV-ONLY white-lines forensics: run __dumpMap() in the console the moment
+  // seams are visible (before the zoom-in-out cure), then again after. The
+  // diff of zoom/origin/transform/zIndex/tile counts between the two dumps
+  // names the guilty subsystem outright.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production' || !map || typeof window === 'undefined') return;
+    window.__dumpMap = () => {
+      const out = {
+        zoom: map.getZoom(),
+        integerZoom: map.getZoom() === Math.round(map.getZoom()),
+        center: map.getCenter(),
+        size: map.getSize(),
+        container: {
+          w: map.getContainer()?.clientWidth,
+          h: map.getContainer()?.clientHeight,
+        },
+        panePos: (() => { try { return L.DomUtil.getPosition(map._mapPane); } catch { return null; } })(),
+        pixelOrigin: map.getPixelOrigin(),
+        suspendTileUpdates: !!map._suspendTileUpdates,
+        layers: [],
+      };
+      map.eachLayer((layer) => {
+        if (!(layer instanceof L.GridLayer)) return;
+        const tiles = Object.values(layer._tiles || {});
+        const info = {
+          tileZoom: layer._tileZoom,
+          noPrune: !!layer._noPrune,
+          tiles: tiles.length,
+          current: tiles.filter((t) => t.current).length,
+          loaded: tiles.filter((t) => t.loaded).length,
+          levels: {},
+        };
+        for (const z in (layer._levels || {})) {
+          const lv = layer._levels[z];
+          info.levels[z] = {
+            origin: lv.origin,
+            zoom: lv.zoom,
+            zIndex: lv.el?.style?.zIndex,
+            transform: lv.el?.style?.transform,
+            children: lv.el?.childElementCount,
+          };
+        }
+        out.layers.push(info);
+      });
+      console.log('[__dumpMap]', JSON.stringify(out, null, 1));
+      return out;
+    };
+    return () => { try { delete window.__dumpMap; } catch {} };
   }, [map]);
   return null;
 });

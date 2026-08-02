@@ -20,6 +20,7 @@ interface Props {
   streakBest?: number;
   personalBest?: number;
   todayScore?: number | null;
+  daysPlayed?: number;
 }
 
 // "NEW BEST" badge — pulses (web dailyRecordNewPulse: scale 1↔1.06 + glow, 1.8s).
@@ -48,8 +49,11 @@ export default function PersonalRecordsCard({
   streakBest = 0,
   personalBest = 0,
   todayScore = null,
+  daysPlayed = 0,
 }: Props) {
-  const daysPlayed = history.length;
+  // Mirrors web PersonalRecordsCard: server lifetime counter floored by the
+  // 30-capped window length and streakBest (an N streak proves ≥N days).
+  const days = Math.max(daysPlayed || 0, history.length, streakBest || 0);
   const todayBroke =
     Number.isFinite(todayScore as number) && (todayScore as number) > 0 && (todayScore as number) >= personalBest;
 
@@ -63,7 +67,7 @@ export default function PersonalRecordsCard({
         pointerEvents="none"
       />
       <Text style={styles.title}>{t('personalRecords')}</Text>
-      {daysPlayed === 0 ? (
+      {days === 0 ? (
         <Text style={styles.empty}>{t('dailyStartOfJourney')}</Text>
       ) : (
         <View style={styles.grid}>
@@ -85,7 +89,7 @@ export default function PersonalRecordsCard({
           <View style={styles.row}>
             <Text style={styles.icon}>📅</Text>
             <Text style={styles.label}>{t('daysPlayed')}</Text>
-            <Text style={styles.value}>{daysPlayed.toLocaleString()}</Text>
+            <Text style={styles.value}>{days.toLocaleString()}</Text>
           </View>
         </View>
       )}
