@@ -821,7 +821,28 @@ const ExtentFitter = memo(function ExtentFitter({
           try { target = getResetTarget(map, extent); } catch {}
         }
         if (!target) return false;
-        if (!forceSnap && cameraAtTarget(target)) return true;
+        if (!forceSnap && cameraAtTarget(target)) {
+          // Within tolerance is NOT exact. A landing accepted at e.g. zoom
+          // 2.004 rests the current tile level CSS-scaled by 2^0.004 — every
+          // tile boundary fractional, and plus-lighter renders each one as a
+          // thin bright seam (the between-rounds "white lines until I zoom"
+          // report). Two-step exact alignment, no teardown:
+          //  1. stop animations FIRST — a still-coasting flyTo tail, or the
+          //     settle window's own moveend churn reaching panTo (stock
+          //     setView opens with _stop()), would otherwise re-park the
+          //     camera at a fresh fractional zoom AFTER we accept;
+          //  2. one raw _move to the exact target — rewrites the level
+          //     transforms at scale exactly 1 without firing viewprereset,
+          //     so no tile-grid rebuild, no GC cost, nothing visible.
+          try {
+            stopMapAnimations(map);
+            if (map.getZoom() !== target.zoom
+              || !map.getCenter().equals(L.latLng(target.center))) {
+              map._move(target.center, target.zoom);
+            }
+          } catch {}
+          return true;
+        }
         try {
           stopMapAnimations(map);
           setMaxBoundsWithoutAutoPan(map, null);
