@@ -17,7 +17,9 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
 import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
-import Ad from "./bannerAdNitro";
+// NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
+// unimported as the slot-lifecycle reference for the Playwire wrapper.
+// import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
@@ -1405,6 +1407,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
+{/* NitroPay removed (Playwire swap, Aug 2) — the CMG in-game banner ran on
+    Nitro units behind cmgAdsEnabled; dark until the CMG/Playwire decision:
 { inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
@@ -1412,6 +1416,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
     </div>
 )}
+*/}
 
 { inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>

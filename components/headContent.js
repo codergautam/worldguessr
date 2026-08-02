@@ -49,7 +49,13 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// start nitroPay script
+// ── NitroPay REMOVED for the Playwire swap (Aug 2) ─────────────────────────
+// bannerAdNitro.js is kept, unimported, as the slot-lifecycle reference.
+// When wiring Playwire's RAMP loader here, PRESERVE the pattern below: the ad
+// stack loads on FIRST USER INTERACTION via requestIdleCallback (July perf
+// overhaul — keeps GPT/prebid/id-syncs off the initial load; Playwire's stock
+// eager <head> snippet would regress it).
+/*
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
       const loadNitroAds = () => {
@@ -63,9 +69,9 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       // Load the ad stack on the first real user interaction instead of at
       // page load. New players see no ads during onboarding anyway, and
       // returning players interact within moments (mousemove counts), so this
-      // costs ~no impressions — but it keeps NitroPay + everything it drags
-      // in (GPT, prebid, Confiant, Amazon, id syncs) entirely off the initial
-      // load. Idle-until-interaction visitors never fetch ads at all.
+      // costs ~no impressions — but it keeps the ad stack + everything it
+      // drags in (GPT, prebid, Confiant, Amazon, id syncs) entirely off the
+      // initial load. Idle-until-interaction visitors never fetch ads at all.
       // requestIdleCallback keeps the fetch off the triggering interaction's
       // own critical path (INP).
       const INTERACTION_EVENTS = ['pointerdown', 'mousemove', 'touchstart', 'keydown', 'wheel'];
@@ -87,10 +93,10 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
         window.addEventListener(evt, onFirstInteraction, listenerOpts);
       }
 
-// end nitroPay script
       return () => {
         removeInteractionListeners();
       };
+*/
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
     //<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
@@ -128,7 +134,11 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
-      // Only load NitroPay if cmgopt flag is true
+      // NitroPay REMOVED (Playwire swap, Aug 2). The CMG build's optional
+      // Nitro layer (behind the remote cmgopt.txt flag) is dark until a
+      // Playwire equivalent is wired — decide with CMG whether their build
+      // gets Playwire units at all.
+      /*
       let nitroScript = null;
       let unmounted = false;
       fetch('https://www.worldguessr.com/cmgopt.txt')
@@ -144,14 +154,11 @@ ads.js"></script>*/
           }
         })
         .catch(() => {});
+      */
 
       return () => {
-        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
-        if (nitroScript && nitroScript.parentNode) {
-          document.head.removeChild(nitroScript);
-        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {

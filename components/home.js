@@ -79,7 +79,9 @@ import StreetView from "./streetview/streetView";
 const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), { ssr: false });
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
-import Ad from "./bannerAdNitro";
+// NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
+// unimported as the slot-lifecycle reference for the Playwire wrapper.
+// import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
@@ -417,7 +419,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
 
-    // Pass hashed email (anonymous) to NitroAds for better ad targeting (logged-in users only, HTTPS only)
+    // NitroPay removed (Playwire swap, Aug 2) — was: pass email to NitroAds
+    // for ad targeting. Playwire has its own identity hooks; wire theirs here
+    // if/when wanted.
+    /*
     useEffect(() => {
         const email = session?.token?.email;
         if (!email || typeof window === 'undefined' || !window.nitroAds || window.location.protocol !== 'https:') return;
@@ -435,6 +440,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
         })();
     }, [session?.token?.email])
+    */
 
 
     useEffect(() => {
@@ -4844,6 +4850,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* onboardingCompleted === true: a new user's first paint is
                     screen "home" during the A/B bootstrap — without this gate
                     the ad flashes before screen flips to onboarding. */}
+                {/* NitroPay removed (Playwire swap, Aug 2) — home menu banner slot.
+                    Rebuild with the Playwire wrapper using the same gate + sizes:
                 {screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
                         <Ad
@@ -4851,6 +4859,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
+                */}
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
                     <div className="home_ad">
                         <GameDistributionBanner
