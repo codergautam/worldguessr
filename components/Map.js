@@ -368,6 +368,20 @@ function setMaxBoundsWithoutAutoPan(map, bounds) {
   return latLngBounds;
 }
 
+// Is the camera already resting exactly where a reset would put it? Compared in
+// projected pixels (independent of map._size, so trustworthy against a stale
+// viewport) — same verdict style as ExtentFitter's cameraAtTarget.
+function cameraRestsAt(map, center, zoom) {
+  try {
+    if (Math.abs(map.getZoom() - zoom) > 1e-6) return false;
+    const now = map.project(map.getCenter(), zoom);
+    const want = map.project(L.latLng(center), zoom);
+    return now.distanceTo(want) <= 0.5;
+  } catch {
+    return false;
+  }
+}
+
 function forceCrispViewReset(map, center, zoom) {
   // Resetting at 0×0 projects onto a degenerate viewport and lands on a garbage
   // centre; the size-gated callers re-run this once the container has real size.
@@ -382,12 +396,37 @@ function forceCrispViewReset(map, center, zoom) {
   const target = constrainResetTarget(map, center, zoom, playBounds);
 
   setMaxBoundsWithoutAutoPan(map, null);
-  try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
-  try { map._resetView?.(target.center, target.zoom, true); } catch {}
+  // Every _resetView (setView's reset:true path included) fires 'viewprereset',
+  // and GridLayer answers by DESTROYING every tile element in every level
+  // (leaflet-src 4294 → 11345 → _invalidateAll 11568) — then rebuilding from
+  // empty. This function fired that three times per call, and the round-
+  // transition fitter calls it up to three times: up to NINE full tile-grid
+  // teardowns per round. Beyond the grey flashes, the mass img destruction
+  // feeds Blink's pre-finalizer queue — the measured 100-125ms CppGC.AtomicSweep
+  // MajorGC pauses (the "random stutter";).
+  // Guard: skip any hard reset whose camera is already resting on its exact
+  // target — a redundant reset has nothing to reset. Real moves (the answer
+  // view flying home) still get the full crisp treatment.
+  if (!cameraRestsAt(map, target.center, target.zoom)) {
+    try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
+    // setView's reset path already ran _resetView to this exact target; only
+    // re-run it if the camera somehow did not land (a throwing listener).
+    if (!cameraRestsAt(map, target.center, target.zoom)) {
+      try { map._resetView?.(target.center, target.zoom, true); } catch {}
+    }
+  }
   stopMapAnimations(map);
   setMaxBoundsWithoutAutoPan(map, playBounds);
+  let beforeClamp = null;
+  try { beforeClamp = map.getCenter(); } catch {}
   try { map.panInsideBounds(playBounds, { animate: false }); } catch {}
-  try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
+  // Re-baseline only if the clamp actually moved the camera. Unmoved, this was
+  // a reset to where we already are: no camera effect, one more grid teardown.
+  try {
+    if (beforeClamp && !beforeClamp.equals(map.getCenter())) {
+      map._resetView?.(map.getCenter(), map.getZoom(), true);
+    }
+  } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
 }
 
