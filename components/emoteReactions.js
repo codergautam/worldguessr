@@ -65,12 +65,16 @@ function EmoteReactions({ ws, subscribeMessages, enabled, inGame, myId, myTeam, 
     <div className={`emoteReactionsParent ${rightSide ? 'rightSide' : ''}`}>
       <div className="emoteFloatStack" aria-hidden="true">
         {reactions.map(r => {
-          // Team modes: color by allegiance — blue for my team (incl. me),
-          // green for opponents. Outside team modes r.team is null and the
-          // classic look (green self, dark others) applies.
-          const teamClass = r.team && myTeam ? (r.team === myTeam ? 'teamMine' : 'teamOpp') : '';
+          // Allegiance tint, same palette and same rule as chat: my bubble is
+          // ALWAYS blue, opponents are ALWAYS green (July 27 ruling). isSelf
+          // leads the test because a 1v1 has no teams at all — gating blue on
+          // `r.team && myTeam` dropped every duel through to the old green
+          // `.self` look, which only showed in UNRANKED duels (ranked ones set
+          // gameData.duel, which hides the name and makes the bubble
+          // transparent via .noName).
+          const mine = r.isSelf || (r.team && myTeam && r.team === myTeam);
           return (
-            <div key={r.id} className={`emoteFloatItem ${r.isSelf ? 'self' : ''} ${teamClass} ${hideName ? 'noName' : ''}`}>
+            <div key={r.id} className={`emoteFloatItem ${mine ? 'teamMine' : 'teamOpp'} ${hideName ? 'noName' : ''}`}>
               <span className="emoteFloatGlyph">{r.emote}</span>
               {!hideName && r.name && (
                 <span className="emoteFloatName">

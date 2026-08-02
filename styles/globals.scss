@@ -4906,9 +4906,10 @@ canvas.streetview.dragging {
     backdrop-filter: blur(4px);
 }
 
-.emoteFloatItem.self {
-    background: rgba(34, 139, 34, 0.7);
-}
+// No `.self` rule any more: own bubbles are ALWAYS blue (.teamMine), matching
+// chat. The green-self look survived here long after chat dropped it, and in
+// 1v1 unranked duels — the one surface with no teams AND visible names — it
+// was the only rule that ever matched your own emote.
 
 // Team modes (2v2 duels + team parties): allegiance coloring — blue = my
 // team (including me), green = opposing team. Declared after .self so they

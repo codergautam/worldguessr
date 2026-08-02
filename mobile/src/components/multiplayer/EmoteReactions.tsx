@@ -68,18 +68,15 @@ function FloatingEmote({
     };
   });
 
-  // Team modes: color by allegiance — blue for my team (incl. me), green for
-  // opponents (web .emoteFloatItem.teamMine/.teamOpp). Outside team modes
-  // r.team is null and the self/default styling applies unchanged.
-  const teamStyle =
-    reaction.team && myTeam
-      ? reaction.team === myTeam
-        ? styles.floatItemTeamMine
-        : styles.floatItemTeamOpp
-      : null;
+  // Allegiance tint, same rule as web and as chat: my bubble is ALWAYS blue,
+  // opponents ALWAYS green. isSelf leads because a 1v1 has no teams, so
+  // gating blue on `reaction.team && myTeam` dropped duels through to the old
+  // green self style (web .emoteFloatItem.teamMine/.teamOpp).
+  const mine = reaction.isSelf || (reaction.team && myTeam && reaction.team === myTeam);
+  const teamStyle = mine ? styles.floatItemTeamMine : styles.floatItemTeamOpp;
   return (
     <Animated.View
-      style={[styles.floatItem, reaction.isSelf && styles.floatItemSelf, teamStyle, hideName && styles.floatItemNoName, style]}
+      style={[styles.floatItem, teamStyle, hideName && styles.floatItemNoName, style]}
     >
       <Text style={[styles.floatGlyph, hideName && styles.floatGlyphNoName]}>{reaction.emote}</Text>
       {!hideName && !!reaction.name && (
@@ -250,11 +247,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
-  floatItemSelf: {
-    backgroundColor: 'rgba(34, 139, 34, 0.7)',
-  },
-  // Team-mode allegiance tints (web .emoteFloatItem.teamMine/.teamOpp) —
-  // listed AFTER floatItemSelf so my own team-blue wins over the self green.
+  // Allegiance tints (web .emoteFloatItem.teamMine/.teamOpp). There is no
+  // longer a self style: own bubbles are ALWAYS blue, matching chat.
   floatItemTeamMine: {
     backgroundColor: 'rgba(59, 130, 246, 0.72)',
   },
