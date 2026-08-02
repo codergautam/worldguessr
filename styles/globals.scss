@@ -3831,13 +3831,8 @@ canvas.streetview.dragging {
     }
 }
 
-// No `transition: all` here. Same specificity as #miniMapArea.answerNotShown
-// but later in source, so while hovered — the exact moment the hover-expand
-// animates — it silently replaced the deliberately explicit property list
-// (see .answerNotShown) with `all`, making the browser diff every animatable
-// property on every style recalc of a container Leaflet restyles constantly.
-// The .answerNotShown list already carries the 250ms expand/collapse.
 #miniMapArea:hover {
+    transition: all 250ms ease;
     opacity: 100%;
 }
 
