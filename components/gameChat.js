@@ -79,6 +79,15 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   const lastTypingPingRef = useRef(0);
   const nextKeyRef = useRef(1);
   const listRef = useRef(null);
+  // Whether the reader is glued to the newest message. Updated on every list
+  // scroll (native and our own programmatic pins alike), consumed by the
+  // autoscroll effect below. 40px slack so sub-message wiggle still counts
+  // as "at bottom".
+  const atBottomRef = useRef(true);
+  const onListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  }, []);
   const [draft, setDraft] = useState('');
 
   useEffect(() => {
@@ -187,10 +196,26 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
     if (open) setUnread(0);
   }, [open, messages.length]);
 
-  // Pin the list to the newest message.
+  // (Re)opening the panel always lands at the newest message.
   useEffect(() => {
-    if (open && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [open, messages.length]);
+    if (open && listRef.current) {
+      atBottomRef.current = true;
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [open]);
+
+  // Pin the list to the newest message — but only when the reader is already
+  // at the bottom, or the message is their own; someone scrolled up reading
+  // history is never yanked down. Keyed on the LAST MESSAGE, not
+  // messages.length: at the MAX_MESSAGES cap the append slices one off the
+  // front so the length never changes, and a length-keyed effect went dead
+  // exactly in busy chats (the "stops autoscrolling" bug).
+  const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+  useEffect(() => {
+    const el = listRef.current;
+    if (!open || !el || !lastMsg) return;
+    if (atBottomRef.current || lastMsg.isSelf) el.scrollTop = el.scrollHeight;
+  }, [open, lastMsg]);
 
   // iOS Safari doesn't shrink the page for the software keyboard — it pans
   // the whole page up so the focused input stays visible (desired: that's
@@ -279,7 +304,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
             )}
             <button className="chatCloseBtn" type="button" aria-label={text('close')} onClick={() => setOpen(false)}>✕</button>
           </div>
-          <div className="chatMessages" ref={listRef}>
+          <div className="chatMessages" ref={listRef} onScroll={onListScroll}>
             {visible.map(m => (
               // Tint was stamped at RECEIVE time (see the subscribe handler)
               // and never changes afterwards — render-time team comparison is
