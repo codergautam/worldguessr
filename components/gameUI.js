@@ -17,9 +17,9 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
 import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
-// NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
-// unimported as the slot-lifecycle reference for the Playwire wrapper.
-// import Ad from "./bannerAdNitro";
+// NitroPay re-enabled Aug 2 as the revenue stopgap (Playwire swap parked on
+// branch playwire-v2 until their in-game unit + re-add fix land).
+import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
@@ -1388,7 +1388,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{/* TEMP (July 31 2026, user request): main-site in-game banner disabled — re-enable by uncommenting. Portal banners (CG/CMG/GD) below are untouched.
+{/* RE-ENABLED Aug 2 (was TEMP-disabled July 31): Nitro revived as the revenue
+    stopgap while the Playwire swap waits on branch playwire-v2. */}
 { !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
@@ -1397,7 +1398,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
-*/}
 
 { inCrazyGames && !singlePlayerRound?.done && !onboarding?.mode && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
@@ -1407,8 +1407,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{/* NitroPay removed (Playwire swap, Aug 2) — the CMG in-game banner ran on
-    Nitro units behind cmgAdsEnabled; dark until the CMG/Playwire decision:
 { inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
@@ -1416,7 +1414,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
     </div>
 )}
-*/}
 
 { inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>

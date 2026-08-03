@@ -49,13 +49,12 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// ── NitroPay REMOVED for the Playwire swap (Aug 2) ─────────────────────────
-// bannerAdNitro.js is kept, unimported, as the slot-lifecycle reference.
-// When wiring Playwire's RAMP loader here, PRESERVE the pattern below: the ad
-// stack loads on FIRST USER INTERACTION via requestIdleCallback (July perf
-// overhaul — keeps GPT/prebid/id-syncs off the initial load; Playwire's stock
-// eager <head> snippet would regress it).
-/*
+// ── NitroPay RE-ENABLED (Aug 2, revenue stopgap) ───────────────────────────
+// The Playwire swap lives on branch playwire-v2 (blocked on Playwire adding
+// the in-game unit + fixing their re-add stall). Until that ships, Nitro
+// earns. The ad stack loads on FIRST USER INTERACTION via requestIdleCallback
+// (July perf overhaul — keeps GPT/prebid/id-syncs off the initial load).
+
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
       const loadNitroAds = () => {
@@ -96,7 +95,6 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       return () => {
         removeInteractionListeners();
       };
-*/
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
     //<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
@@ -134,11 +132,7 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
-      // NitroPay REMOVED (Playwire swap, Aug 2). The CMG build's optional
-      // Nitro layer (behind the remote cmgopt.txt flag) is dark until a
-      // Playwire equivalent is wired — decide with CMG whether their build
-      // gets Playwire units at all.
-      /*
+      // Only load NitroPay if cmgopt flag is true
       let nitroScript = null;
       let unmounted = false;
       fetch('https://www.worldguessr.com/cmgopt.txt')
@@ -154,11 +148,14 @@ ads.js"></script>*/
           }
         })
         .catch(() => {});
-      */
 
       return () => {
+        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
+        if (nitroScript && nitroScript.parentNode) {
+          document.head.removeChild(nitroScript);
+        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {
