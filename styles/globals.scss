@@ -1992,18 +1992,19 @@ h1, h2, h3, span, label {
 .navbar .accountBtn,
 .navbar .friendBtn,
 .leagueBtn,
-// .nitro-ad-slot retired with NitroPay (Playwire swap, Aug 2) — give the
-// Playwire wrapper's slot the same hudEnter treatment when it lands.
-.daily-community-maps-btn {
+.daily-community-maps-btn,
+.playwire-ad-slot {
     animation: hudEnter 0.3s ease-out 0.12s backwards;
 }
 
-// NitroPay injected the creative iframe well after the slot mounted (ad stack
-// loads on first interaction) — the same late-fill fade will likely be wanted
-// for the Playwire slot:
-// .nitro-ad-slot iframe {
-//     animation: hudEnter 0.25s ease-out backwards;
-// }
+// The creative iframe lands well after the slot mounts (ad stack loads on
+// first interaction) — fade the fill in too instead of letting the creative
+// pop into the empty box. Also replays on every home return: the slot hides
+// via display:none off-home (never unmounts — see bannerAdPlaywire.js) and
+// a display round-trip restarts animations. Reads as an entrance — intended.
+.playwire-ad-slot iframe {
+    animation: hudEnter 0.25s ease-out backwards;
+}
 
 // Exit: the top-right HUD lives OUTSIDE .home__content, so the sidebar's
 // slide-out (.g2_slide_out) never touched it — it hard-popped at the screen

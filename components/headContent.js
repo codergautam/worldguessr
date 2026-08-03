@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import { getLangFromPath } from '@/components/useTranslations';
+import { loadRampScript } from '@/components/utils/playwire';
 
 // www is the canonical WorldGuessr host — every absolute social/search URL
 // must stay on it so previews and canonicals agree.
@@ -49,39 +50,27 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// ── NitroPay REMOVED for the Playwire swap (Aug 2) ─────────────────────────
-// bannerAdNitro.js is kept, unimported, as the slot-lifecycle reference.
-// When wiring Playwire's RAMP loader here, PRESERVE the pattern below: the ad
-// stack loads on FIRST USER INTERACTION via requestIdleCallback (July perf
-// overhaul — keeps GPT/prebid/id-syncs off the initial load; Playwire's stock
-// eager <head> snippet would regress it).
-/*
-window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
-
-      const loadNitroAds = () => {
-        if (document.querySelector('script[src*="nitropay.com"]')) return;
-        const script = document.createElement('script');
-        script.src = "https://s.nitropay.com/ads-2071.js";
-        script.async = true;
-        document.head.appendChild(script);
-      };
+// ── Playwire RAMP (NitroPay's replacement, Aug 2) ──────────────────────────
+// RAMP boots in passive mode (see utils/playwire.js): no auto units, no video
+// player — slots are declared explicitly by bannerAdPlaywire.js only.
 
       // Load the ad stack on the first real user interaction instead of at
-      // page load. New players see no ads during onboarding anyway, and
-      // returning players interact within moments (mousemove counts), so this
-      // costs ~no impressions — but it keeps the ad stack + everything it
-      // drags in (GPT, prebid, Confiant, Amazon, id syncs) entirely off the
-      // initial load. Idle-until-interaction visitors never fetch ads at all.
-      // requestIdleCallback keeps the fetch off the triggering interaction's
-      // own critical path (INP).
+      // page load (July perf overhaul). New players see no ads during
+      // onboarding anyway, and returning players interact within moments
+      // (mousemove counts), so this costs ~no impressions — but it keeps the
+      // ad stack + everything it drags in (GPT, prebid, id syncs) entirely
+      // off the initial load. Idle-until-interaction visitors never fetch ads
+      // at all. requestIdleCallback keeps the fetch off the triggering
+      // interaction's own critical path (INP). Playwire's stock eager <head>
+      // snippet would regress all of this — never "simplify" back to it.
       const INTERACTION_EVENTS = ['pointerdown', 'mousemove', 'touchstart', 'keydown', 'wheel'];
       const listenerOpts = { passive: true, capture: true };
       const onFirstInteraction = () => {
         removeInteractionListeners();
         if ('requestIdleCallback' in window) {
-          requestIdleCallback(loadNitroAds, { timeout: 1500 });
+          requestIdleCallback(loadRampScript, { timeout: 1500 });
         } else {
-          setTimeout(loadNitroAds, 200);
+          setTimeout(loadRampScript, 200);
         }
       };
       const removeInteractionListeners = () => {
@@ -96,7 +85,6 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       return () => {
         removeInteractionListeners();
       };
-*/
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
     //<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>

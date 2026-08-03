@@ -79,9 +79,10 @@ import StreetView from "./streetview/streetView";
 const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), { ssr: false });
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
-// NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
-// unimported as the slot-lifecycle reference for the Playwire wrapper.
-// import Ad from "./bannerAdNitro";
+// Playwire slot (NitroPay's replacement, Aug 2) — bannerAdNitro.js kept
+// unimported as the slot-lifecycle reference it was modeled on.
+import PlaywireAd from "./bannerAdPlaywire";
+import { playwirePageView } from "./utils/playwire";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
@@ -1870,6 +1871,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             page_location: window.location.origin + (screen === "home" ? "/" : `/${screen.toLowerCase()}`),
             page_title: `WorldGuessr - ${screen}`,
         });
+        // Playwire pageviews ride the same choke point so GA4 and RAMP agree
+        // on what a navigation is — but HOME ENTRIES ONLY: the account's
+        // corner_ad_video is still active config-side and pageviews can
+        // respawn it, so no ad-stack work may land mid-round (each PV also
+        // runs the video sweep). Registers the PV without spaNewPage, which
+        // would pull the dashboard's auto units onto the page wholesale. The
+        // initial load's PV is RAMP's own at script boot.
+        if (screen === "home") playwirePageView();
     }, [screen]);
 
     // game_start = a round is actually in front of the player. Every mode
@@ -4850,16 +4859,30 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* onboardingCompleted === true: a new user's first paint is
                     screen "home" during the A/B bootstrap — without this gate
                     the ad flashes before screen flips to onboarding. */}
-                {/* NitroPay removed (Playwire swap, Aug 2) — home menu banner slot.
-                    Rebuild with the Playwire wrapper using the same gate + sizes:
-                {screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
-                    <div className="home_ad">
-                        <Ad
-                            unit={"worldguessr_home_ad"}
-                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
+                {/* standard_iab_head1 is the account's only display unit and
+                    it sizes by DEVICE server-side: 300x250 desktop/tablet,
+                    320x50 mobile (the Aug 2 settings dump). The box mirrors
+                    that split on the same <600px breakpoint the scss uses —
+                    Nitro-era mobile parity. Edge: a desktop window squeezed
+                    under 600px still gets served 300x250 (UA-detected) into
+                    the short box; accepted, matches how rare it is. */}
+                {/* Mounted for the WHOLE session, hidden off-home via
+                    display:none — NOT gated on screen: RAMP can't survive a
+                    destroy→re-add cycle (the re-added tag never fetches; see
+                    bannerAdPlaywire.js), so the slot's DOM must stay alive
+                    across screens. Hidden = not viewable = the config's 30s
+                    inViewOnly auto-refresh pauses during gameplay for free,
+                    and hudEnter replays on re-show like any remount would. */}
+                {onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                    <div className="home_ad" style={screen === 'home' ? undefined : { display: 'none' }}>
+                        <PlaywireAd
+                            selectorId="pw-home-ad"
+                            units={width < 600
+                                ? [{ type: "standard_iab_head1", w: 320, h: 50 }]
+                                : [{ type: "standard_iab_head1", w: 300, h: 250 }]}
+                            showAdvertisementText={false} screenH={height} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
-                */}
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
                     <div className="home_ad">
                         <GameDistributionBanner
