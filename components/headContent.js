@@ -98,11 +98,13 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
       // Touch devices have no mousemove, so their first "interaction" is
       // usually the tap that LEAVES the home screen — meaning phones never
       // see the home ad at all under the pure gate. Touch-primary devices
-      // therefore also load on a settle timer: 3.5s after the load event
+      // therefore also load on a settle timer: 2s after the load event
       // (past the initial-load burst, within typical menu dwell), via idle
       // callback, executing from the preloaded cache. Desktop keeps the
       // pure gate — mousemove fires it effectively instantly anyway.
       // loadRampScript is idempotent, so gate + timer can't double-load.
+      // (2s, down from 3.5s, Aug 3: revenue concession — the only inventory
+      // still sacrificed is sub-2s bounces, which never monetize anyway.)
       let touchFallbackTimer = null;
       const scheduleTouchFallback = () => {
         touchFallbackTimer = setTimeout(() => {
@@ -111,7 +113,7 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
           } else {
             loadRampScript();
           }
-        }, 3500);
+        }, 2000);
       };
       const isTouchPrimary = window.matchMedia?.('(pointer: coarse)')?.matches;
       if (isTouchPrimary) {

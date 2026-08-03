@@ -7713,6 +7713,14 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   transform: translateX(-50%);
 }
 
+// The localhost debug placeholder has no Playwire label strip, so the -5px
+// compensation above would draw it 5px higher than the real creative sits
+// on prod — push the placeholder (and only the placeholder) back down so
+// dev matches what prod looks like.
+.topAdFixed .playwire-ad-slot.pw-debug {
+  margin-top: 10px;
+}
+
 @media screen and (max-width: 700px) {
     .topAdFixed {
         top: 50px;

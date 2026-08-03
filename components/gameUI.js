@@ -1391,8 +1391,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 {/* Main-site in-game banner — Playwire (head2 728x90 via the size map),
     same gates/lifecycle as the old Nitro slot: mounts with gameUI, unmounts
-    with it, spaAds re-inits per mount (bannerAdPlaywire.js). */}
-{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+    with it, spaAds re-inits per mount (bannerAdPlaywire.js).
+    Unlike the Nitro era, ONBOARDING shows it too (user call, Aug 3): the
+    !onboarding gate is gone; !onboarding?.completed still hides it on the
+    tutorial's completion screen, like !singlePlayerRound?.done does for SP
+    round-over. moreDown already handles the onboarding timer. */}
+{ !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <PlaywireAd
         selectorId="pw-game-ad"

@@ -112,7 +112,7 @@ function PlaywireAd({
 
   return (
     <div
-      className="playwire-ad-slot"
+      className={`playwire-ad-slot${isClient === "debug" ? " pw-debug" : ""}`}
       style={{
         position: "relative",
         display: "inline-block",
