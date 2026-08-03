@@ -20,6 +20,7 @@ import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
 // NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
 // unimported as the slot-lifecycle reference for the Playwire wrapper.
 // import Ad from "./bannerAdNitro";
+import PlaywireAd from "./bannerAdPlaywire";
 // import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
@@ -1388,16 +1389,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{/* TEMP (July 31 2026, user request): main-site in-game banner disabled — re-enable by uncommenting. Portal banners (CG/CMG/GD) below are untouched.
+{/* Main-site in-game banner — Playwire (head2 728x90 via the size map),
+    same gates/lifecycle as the old Nitro slot: mounts with gameUI, unmounts
+    with it, spaAds re-inits per mount (bannerAdPlaywire.js). */}
 { !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_gameui_ad"}
-      position="bottom-right"
-    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+      <PlaywireAd
+        selectorId="pw-game-ad"
+        showAdvertisementText={false} screenH={height} types={[[728,90]]} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
-*/}
 
 { inCrazyGames && !singlePlayerRound?.done && !onboarding?.mode && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>

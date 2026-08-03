@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import { getLangFromPath } from '@/components/useTranslations';
-import { loadRampScript } from '@/components/utils/playwire';
+import { loadRampScript, preloadRampScript } from '@/components/utils/playwire';
 
 // www is the canonical WorldGuessr host — every absolute social/search URL
 // must stay on it so previews and canonicals agree.
@@ -82,8 +82,48 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
         window.addEventListener(evt, onFirstInteraction, listenerOpts);
       }
 
+      // Warm the script bytes once the page has fully settled — a preload
+      // hint is network-only, so this keeps first-ad latency down without
+      // giving up the interaction gate (execution still waits for a user).
+      const schedulePreload = () => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(preloadRampScript, { timeout: 4000 });
+        } else {
+          setTimeout(preloadRampScript, 3000);
+        }
+      };
+      if (document.readyState === 'complete') schedulePreload();
+      else window.addEventListener('load', schedulePreload, { once: true });
+
+      // Touch devices have no mousemove, so their first "interaction" is
+      // usually the tap that LEAVES the home screen — meaning phones never
+      // see the home ad at all under the pure gate. Touch-primary devices
+      // therefore also load on a settle timer: 3.5s after the load event
+      // (past the initial-load burst, within typical menu dwell), via idle
+      // callback, executing from the preloaded cache. Desktop keeps the
+      // pure gate — mousemove fires it effectively instantly anyway.
+      // loadRampScript is idempotent, so gate + timer can't double-load.
+      let touchFallbackTimer = null;
+      const scheduleTouchFallback = () => {
+        touchFallbackTimer = setTimeout(() => {
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(loadRampScript, { timeout: 2000 });
+          } else {
+            loadRampScript();
+          }
+        }, 3500);
+      };
+      const isTouchPrimary = window.matchMedia?.('(pointer: coarse)')?.matches;
+      if (isTouchPrimary) {
+        if (document.readyState === 'complete') scheduleTouchFallback();
+        else window.addEventListener('load', scheduleTouchFallback, { once: true });
+      }
+
       return () => {
         removeInteractionListeners();
+        window.removeEventListener('load', schedulePreload);
+        window.removeEventListener('load', scheduleTouchFallback);
+        if (touchFallbackTimer) clearTimeout(touchFallbackTimer);
       };
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");

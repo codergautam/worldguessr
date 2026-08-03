@@ -26,6 +26,28 @@ export function rampQue(fn) {
   window.ramp.que.push(fn);
 }
 
+// Warm the ramp.js BYTES without executing anything: a preload hint is pure
+// network (off the main thread), so when the first interaction fires, the
+// script executes straight from cache instead of paying its fetch first.
+// Called from headContent after the load event + an idle callback — even
+// the download stays out of the initial load's network contention. This is
+// the sanctioned way to speed the first ad up; do NOT "improve" it by
+// executing earlier — the interaction gate is the potato protection.
+export function preloadRampScript() {
+  if (typeof document === "undefined") return;
+  if (
+    document.getElementById("ramp-preload") ||
+    document.getElementById(SCRIPT_ID)
+  )
+    return;
+  const link = document.createElement("link");
+  link.id = "ramp-preload";
+  link.rel = "preload";
+  link.as = "script";
+  link.href = `https://cdn.intergient.com/${RAMP_PUB_ID}/${RAMP_WEB_ID}/ramp.js`;
+  document.head.appendChild(link);
+}
+
 // Idempotent script injection. Only ever called from headContent.js's
 // first-interaction gate — NEVER eagerly (July perf overhaul: the ad stack
 // and everything it drags in stays off the initial load).
@@ -78,16 +100,6 @@ export function sweepVideoUnits() {
   });
 }
 
-// Register a SPA pageview WITHOUT touching ad units (PageOS.session
-// .newPageView never injects anything, unlike spaNewPage). Called from the
-// GA4 virtual page_view choke point in home.js — home-screen entries only,
-// so no ad-stack work ever lands mid-round (prior session's ruling). No-ops
-// harmlessly until the stack has loaded.
-export function playwirePageView() {
-  rampQue(() => {
-    try {
-      window.PageOS.session.newPageView();
-    } catch (e) {}
-  });
-  sweepVideoUnits();
-}
+// (Pageviews are registered by the ad slots themselves: each mount declares
+// its layout via spaAds({countPageView: true}) — bannerAdPlaywire.js. No
+// separate pageview call exists on purpose.)

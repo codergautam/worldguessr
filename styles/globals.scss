@@ -1992,16 +1992,21 @@ h1, h2, h3, span, label {
 .navbar .accountBtn,
 .navbar .friendBtn,
 .leagueBtn,
-.daily-community-maps-btn,
-.playwire-ad-slot {
+.daily-community-maps-btn {
     animation: hudEnter 0.3s ease-out 0.12s backwards;
 }
 
+// .playwire-ad-slot is deliberately NOT in the hudEnter list: the from-state
+// is opacity:0 for the 0.12s delay + fade, which is exactly when Playwire's
+// lazy-load viewability check samples a freshly re-initialized slot — an
+// invisible slot fails the check and the (lazy) unit never fetches. The slot
+// box appears instantly; the CREATIVE still fades via the iframe rule below,
+// which runs post-fetch and gates nothing.
+
 // The creative iframe lands well after the slot mounts (ad stack loads on
 // first interaction) — fade the fill in too instead of letting the creative
-// pop into the empty box. Also replays on every home return: the slot hides
-// via display:none off-home (never unmounts — see bannerAdPlaywire.js) and
-// a display round-trip restarts animations. Reads as an entrance — intended.
+// pop into the empty box. Replays on every remount (Nitro-style
+// mount/unmount lifecycle, bannerAdPlaywire.js) — reads as an entrance.
 .playwire-ad-slot iframe {
     animation: hudEnter 0.25s ease-out backwards;
 }
@@ -7699,7 +7704,10 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 .topAdFixed {
   position: fixed;
-  top: 5px;
+  // -5px, not 0: Playwire renders the tag 728x100 (their ~20px label strip
+  // rides on top of the 728x90 creative), so the box is pulled up to keep
+  // the visible creative hugging the viewport top.
+  top: -5px;
   z-index: 1001;
   left: 50%;
   transform: translateX(-50%);

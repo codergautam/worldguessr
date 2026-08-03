@@ -1,147 +1,121 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { rampQue, activeUnitIds } from "./utils/playwire";
+import { rampQue } from "./utils/playwire";
 import sendEvent from "./utils/sendEvent";
 
-// NO manual refresh timer here, on purpose: the account's unit config
-// already refreshes 30s / in-view-only / limit 100 (verified in the user's
-// ramp.settings dump, Aug 2) — the exact Nitro cadence. A triggerRefresh
-// interval on top would double-refresh. If the cadence ever looks wrong,
-// fix it with Playwire config-side, not here.
-//
-// NO destroy→re-add cycling, EVER (Aug 2, observed in #tychedebug):
-// re-adding a unit that was destroyed stalls inside pageos — the new tag is
-// created ("Create Tyche Tag") and then NOTHING follows (no price-floor
-// prediction, no Slot Request; first-load stacks show spaAddAds arming a
-// lazy-load spy whose handleViewable drives the fetch, and after a destroy
-// that spy never fires for the replacement element). The box just sits
-// blank. Consequences baked into this file and its call sites:
-//   - The slot must be mounted ONCE and HIDDEN (display:none) to "remove"
-//     it, not unmounted — hidden isn't viewable, so the config's inViewOnly
-//     refresh pauses off-screen for free (home.js does this per screen, and
-//     this file does it when the screen shrinks below the unit's fit rule).
-//   - The bound type is STICKY: once a unit type has been added it never
-//     re-keys, so a units array whose fitting type CHANGES with screen size
-//     is forbidden until Playwire fixes the re-add path — one type per slot
-//     per page life (multiple size variants of that type are fine).
-//   - The Nitro-era 10-min recycle (idle-tab leak insurance) is GONE — it
-//     was a destroy→re-add loop and would blank the ad 10 minutes in. Leak
-//     insurance is now the overnight idle-tab heap check in the go-live
-//     protocol; if Playwire leaks like Nitro did, take it up config-side.
-// Unmount teardown below still destroys — correct for a REAL exit (leaving
-// the page); just never follow it with another add in the same page life.
+// Playwire clone of bannerAdNitro's lifecycle: WE pick the creative size
+// client-side from viewport fit and mount/unmount per screen — RAMP's
+// device detection is not used. CK (Aug 3, second config): selector
+// targeting removed, selectorId is the only binding, and each size is its
+// own unit, all-devices:
+const UNIT_FOR_SIZE = {
+  "320x50": "standard_iab_head1",
+  "728x90": "standard_iab_head2",
+  "300x250": "standard_iab_cntr1",
+};
 
-// Largest candidate that fits, same fitting rule the Nitro slot used: width
-// within 90% of the screen, height within vertThresh of it. Later entries
-// win, so order candidates smallest → largest. null = nothing fits.
-function pickUnit(units, screenW, screenH, vertThresh) {
-  let pick = null;
-  for (const u of units) {
-    if (u.w <= screenW * 0.9 && u.h <= screenH * vertThresh) pick = u;
+// Hard-won rules from the Aug 2-3 integration saga — the "why" behind this
+// file's minimalism. Break them and ads go permanently blank:
+//
+// 1. NEVER call destroyUnits, and NEVER clear the container's innerHTML in
+//    cleanup. Each mount declares the full layout with spaAds; RAMP's own
+//    internal destroy+re-init handles whatever ran before. Manual teardown
+//    poisoned later re-inits of the destroyed unit (tag created, no fetch,
+//    blank forever).
+// 2. NO manual googletag/triggerRefresh calls — CK explicitly (Aug 3):
+//    manual refreshes "can cause issues", remove them. The units' Auto/30s
+//    refresh is config-side. If fetching or refreshing ever breaks again,
+//    it's a CONFIG problem — the Aug 3 stall's root cause was a lazyLoad
+//    rule on cntr1 that waited for a SCROLL event (a full-screen game never
+//    scrolls); CK removed it. Report to CK, do not re-add workarounds.
+// 3. Injection ids are per-MOUNT (`selectorId-<n>`): pageos can cache the
+//    container element it resolved for an id, and a remount reusing the id
+//    can land the new tag in the detached old div. Fresh ids force a fresh
+//    DOM query every time. Cheap, keep it.
+
+// Largest type that fits: width within 90% of the screen, height within
+// vertThresh of it. Later entries win — order sizes smallest → largest.
+function findAdType(screenW, screenH, types, vertThresh) {
+  let type = 0;
+  for (let i = 0; i < types.length; i++) {
+    if (types[i][0] <= screenW * 0.9 && types[i][1] <= screenH * vertThresh) {
+      type = i;
+    }
   }
-  return pick;
+
+  if (types[type][0] > screenW || types[type][1] > screenH * vertThresh)
+    return -1;
+
+  return type;
 }
 
-// Reusable Playwire slot. `units` maps a Playwire unit type to its pixel
-// sizes ([{ type: "standard_iab_head1", w: 300, h: 250 }]); `selectorId` is
-// the div id RAMP injects into — must be unique per mounted slot.
+let mountSeq = 0;
+
 function PlaywireAd({
-  units,
-  selectorId,
+  types,          // [[w,h], ...] — must all exist in UNIT_FOR_SIZE
+  selectorId,     // base for the per-mount injection id
+  vertThresh = 0.3,
   screenW,
   screenH,
-  vertThresh = 0.3,
   showAdvertisementText = true,
 }) {
   const [isClient, setIsClient] = useState(false); // false | true | "debug"
   const adDivRef = useRef(null);
-  // Last unit that fit. Once set it keeps the slot's DOM alive through
-  // "nothing fits" spells (window squeezed small): unmounting there would
-  // destroy the unit, and the later re-add stalls — see the header note.
-  // Idempotent render-time ref write, safe under concurrent re-renders.
-  const lastPickedRef = useRef(null);
+  const instanceIdRef = useRef(null);
+  if (instanceIdRef.current === null) {
+    instanceIdRef.current = `${selectorId}-${++mountSeq}`;
+  }
+  const instanceId = instanceIdRef.current;
 
   useEffect(() => {
-    // ?pwtest forces real injection on localhost (for wiring checks through
-    // a tunnel or against house ads without deploying).
+    // ?pwtest forces real injection on localhost (wiring checks through a
+    // tunnel / against house ads without deploying).
     const debug =
       window.location.hostname === "localhost" &&
       !window.location.search.includes("pwtest");
     setIsClient(debug ? "debug" : true);
   }, []);
 
-  const picked = pickUnit(units, screenW, screenH, vertThresh);
-  if (picked) lastPickedRef.current = picked;
-  // `sizing` is what the box renders at; `activeType` is what the effect
-  // binds — a STRING (fresh array literals from the parent never churn the
-  // slot) and STICKY (falls back to the last fit, so a no-fit resize never
-  // re-keys the effect into a destroy).
-  const sizing = picked || lastPickedRef.current;
-  const activeType = sizing ? sizing.type : null;
+  const typeIdx = findAdType(screenW, screenH, types, vertThresh);
+  const size = typeIdx === -1 ? null : types[typeIdx];
+  const unitType = size ? UNIT_FOR_SIZE[`${size[0]}x${size[1]}`] : null;
 
   useEffect(() => {
-    if (!activeType || !isClient || isClient === "debug") return;
+    if (!unitType || !isClient || isClient === "debug") return;
 
-    // The add runs through ramp.que, which can fire long after mount (the
-    // stack loads on first interaction). If the slot unmounted in the
-    // meantime, the stale callback must not inject into a container that no
-    // longer exists — and if the add never ran, the queued teardown below
-    // skips its destroy too.
+    // The call runs through ramp.que, which can fire long after mount (the
+    // stack loads on first interaction) — a slot that unmounted or resized
+    // to a different unit in the meantime must not declare a stale layout.
     let alive = true;
-    let added = false;
 
-    // NEVER destroy before adding (Aug 2 lesson): getUnits() lists
-    // CONFIG-REGISTERED units, not just units on the page (web_interstitial
-    // shows up without ever being added), so a "destroy stale first" pass
-    // fires on every mount and its async slot teardown races the fresh add —
-    // the tag div lands in the DOM but its GPT query never runs (no
-    // data-google-query-id, adFetchCount 0, blank box). The 100ms defer is
-    // the race insurance instead: anything just queued settles before this
-    // add, and a mount that dies young cancels the timer and never touches
-    // RAMP at all.
-    const addTimer = setTimeout(() => {
-      rampQue(() => {
-        if (!alive) return;
-        try {
-          window.ramp.spaAddAds([{ type: activeType, selectorId }]);
-          added = true;
-          sendEvent(`ad_request_${activeType}`);
-        } catch (e) {}
-      });
-    }, 100);
+    rampQue(() => {
+      if (!alive) return;
+      try {
+        // Declare the current ad layout: spaAds destroys whatever ran
+        // before and loads exactly this list. countPageView: a slot mount
+        // is this SPA's navigation signal, so Playwire's pageview counting
+        // rides the same event.
+        window.ramp.spaAds({
+          ads: [{ type: unitType, selectorId: instanceId }],
+          countPageView: true,
+        });
+        sendEvent(`ad_request_${size[0]}x${size[1]}_${unitType}`);
+      } catch (e) {}
+    });
 
     return () => {
+      // The flag and NOTHING else — see the header rules.
       alive = false;
-      clearTimeout(addTimer);
-      rampQue(() => {
-        if (!added) return;
-        try {
-          // CK's teardown recipe: match live ids by substring, not equality.
-          const ids = activeUnitIds(activeType);
-          if (ids.length) window.ramp.destroyUnits(ids);
-        } catch (e) {}
-      });
-      // destroyUnits removes RAMP's nodes; clear the container too so a
-      // fresh mount in some future page life starts from a clean div.
-      if (adDivRef.current) {
-        try {
-          adDivRef.current.innerHTML = "";
-        } catch (e) {}
-      }
     };
-  }, [activeType, selectorId, isClient]);
+  }, [unitType, instanceId, isClient]);
 
-  if (!isClient) return null;
-  // Nothing has EVER fit — nothing is bound, rendering nothing is safe.
-  if (!sizing) return null;
+  if (!size || !isClient) return null;
 
   return (
     <div
       className="playwire-ad-slot"
       style={{
         position: "relative",
-        // Doesn't fit right now → hide, never unmount (header note). Hidden
-        // isn't viewable, so the inViewOnly refresh pauses here too.
-        display: picked ? "inline-block" : "none",
+        display: "inline-block",
       }}
     >
       {showAdvertisementText && (
@@ -161,19 +135,13 @@ function PlaywireAd({
       <div
         style={{
           backgroundColor: `rgba(0,0,0,${isClient === "debug" ? 0.5 : 0})`,
-          height: sizing.h,
-          width: sizing.w,
+          height: size[1],
+          width: size[0],
           textAlign: "center",
           position: "relative",
         }}
-        id={selectorId}
+        id={instanceId}
         ref={adDivRef}
-        // The unit is selector-based in the RAMP config
-        // (selectorBasedIabUnits) — the data-pw-* markers are its native
-        // binding path, spaAddAds' selectorId the API one. Carry both so
-        // whichever path the config resolves through finds the container.
-        data-pw-desk={activeType}
-        data-pw-mobi={activeType}
       >
         {isClient === "debug" && (
           <div
@@ -189,9 +157,9 @@ function PlaywireAd({
           >
             <h3>Banner Ad Here (Playwire)</h3>
             <p style={{ fontSize: "0.8em" }}>
-              {sizing.w}x{sizing.h}
+              {size[0]}x{size[1]}
             </p>
-            <p style={{ fontSize: "0.6em" }}>Unit: {sizing.type}</p>
+            <p style={{ fontSize: "0.6em" }}>Unit: {unitType}</p>
           </div>
         )}
       </div>
@@ -199,11 +167,10 @@ function PlaywireAd({
   );
 }
 
-// home.js re-renders constantly during gameplay (it owns all game state) and
-// the slot sits in its tree, hidden, the whole time. Everything the slot
-// renders derives from these props, so a content-compare memo keeps the ad
-// subtree out of every gameplay commit. `units` is a fresh literal each
-// parent render — compare its entries, not its identity.
+// gameUI re-renders constantly during play (timers, HUD state) with this
+// slot in its tree; every prop is a scalar except `types`, a fresh array
+// literal each parent render — compare its entries, not its identity, so
+// the ad subtree drops out of every gameplay commit entirely.
 function propsEqual(a, b) {
   if (
     a.selectorId !== b.selectorId ||
@@ -213,14 +180,10 @@ function propsEqual(a, b) {
     a.showAdvertisementText !== b.showAdvertisementText
   )
     return false;
-  if (a.units === b.units) return true;
-  if (!a.units || !b.units || a.units.length !== b.units.length) return false;
-  for (let i = 0; i < a.units.length; i++) {
-    if (
-      a.units[i].type !== b.units[i].type ||
-      a.units[i].w !== b.units[i].w ||
-      a.units[i].h !== b.units[i].h
-    )
+  if (a.types === b.types) return true;
+  if (!a.types || !b.types || a.types.length !== b.types.length) return false;
+  for (let i = 0; i < a.types.length; i++) {
+    if (a.types[i][0] !== b.types[i][0] || a.types[i][1] !== b.types[i][1])
       return false;
   }
   return true;
