@@ -100,6 +100,15 @@ export function sweepVideoUnits() {
   });
 }
 
-// (Pageviews are registered by the ad slots themselves: each mount declares
-// its layout via spaAds({countPageView: true}) — bannerAdPlaywire.js. No
-// separate pageview call exists on purpose.)
+// Pageviews are registered by the ad slots themselves (bannerAdPlaywire.js),
+// but only ONCE per session: slot mounts happen on every screen hop, SP
+// round-over remount, and size-flipping resize — counting each would inflate
+// pageviews ~2x+ and tank reported RPM. The first spaAds call of the session
+// carries countPageView: true; every later one passes false (the layout
+// re-declare itself is unaffected).
+let pageViewCounted = false;
+export function shouldCountPageView() {
+  if (pageViewCounted) return false;
+  pageViewCounted = true;
+  return true;
+}

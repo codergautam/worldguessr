@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { rampQue } from "./utils/playwire";
+import { rampQue, shouldCountPageView } from "./utils/playwire";
 import sendEvent from "./utils/sendEvent";
 
 // Playwire clone of bannerAdNitro's lifecycle: WE pick the creative size
@@ -91,12 +91,15 @@ function PlaywireAd({
       if (!alive) return;
       try {
         // Declare the current ad layout: spaAds destroys whatever ran
-        // before and loads exactly this list. countPageView: a slot mount
-        // is this SPA's navigation signal, so Playwire's pageview counting
-        // rides the same event.
+        // before and loads exactly this list. countPageView only on the
+        // session's FIRST call — slot mounts fire on every screen hop /
+        // round remount / resize, and counting each would inflate
+        // pageviews (see shouldCountPageView in utils/playwire.js).
+        const countPageView = shouldCountPageView();
+        console.log(`[Playwire] spaAds called: ${unitType} -> #${instanceId} (countPageView: ${countPageView})`);
         window.ramp.spaAds({
           ads: [{ type: unitType, selectorId: instanceId }],
-          countPageView: true,
+          countPageView,
         });
         sendEvent(`ad_request_${size[0]}x${size[1]}_${unitType}`);
       } catch (e) {}
