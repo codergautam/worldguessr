@@ -39,3 +39,12 @@ next-env.d.ts
 .env
 public/cesium
 public/wiki
+
+.codex
+ios-crashes/
+mapgens/
+mobile/node_modules/
+mobile/.expo
+mobile/expo-env.d.ts
+embed/node_modules/
+.claude/scheduled_tasks.lock 
