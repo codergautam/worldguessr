@@ -8,7 +8,7 @@
 </a>
 
 
-A free and open-source version of the popular geography game inspired by GeoGuessr. This React based project aims to provide a fun and educational way to explore the world through Google Street View imagery.
+A free-to-play, source-available version of the popular geography game inspired by GeoGuessr. This React based project aims to provide a fun and educational way to explore the world through Google Street View imagery.
 
 ### Play now [here](https://worldguessr.com)!
 #### [Join the Discord community](https://discord.gg/yenVspFmkB)
@@ -18,7 +18,7 @@ A free and open-source version of the popular geography game inspired by GeoGues
 - **Random Street Views:** Experience a new location anywhere in the world on each game.
 - **Multiplayer Mode:** Challenge your friends or play against random opponents in real-time.
 - **Country Streaks:** Test your knowledge and see how many countries you can guess in a row.
-- **Free to run:** The project is open-source and free to run on your own server. Uses the [Google Maps Streetview Embed API](https://developers.google.com/streetview/web), which is completely free compared to the costly SDK used by GeoGuessr.
+- **Free to run:** The source code is available and free to self-host for noncommercial use (see [License](#license)). Uses the [Google Maps Streetview Embed API](https://developers.google.com/streetview/web), which is completely free compared to the costly SDK used by GeoGuessr.
 
 ## Acknowledgements
 
@@ -99,7 +99,7 @@ For detailed environment variable documentation, see [docs/environment-variables
 
 ## Contributing
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Contributions are what make this community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
 If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
 Don't forget to give the project a star! Thanks again!
