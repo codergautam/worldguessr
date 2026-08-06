@@ -27,11 +27,6 @@ const RLMapContainer = dynamic(
     // Grouped tile crossfade + moveend sync for updateWhenZooming=false.
     // Must register before fluid wheel so prepareGroupedTileLevel is patched in.
     import('@/lib/leafletGroupedTiles'),
-    // Single-canvas tile compositor: draws every tile into ONE surface with
-    // shared rounded edges, killing the white tile-seam hairlines at the
-    // root (per-tile re-raster + independent pixel snapping). Crisp at every
-    // scale — it redraws at the live fractional zoom each frame.
-    import('@/lib/leafletCanvasTileCompositor'),
     // Registers the fluidWheelZoom handler on L.Map before any map mounts.
     // Maps opt in per-container via the fluidWheelZoom prop.
     import('@/lib/leafletFluidZoom'),
