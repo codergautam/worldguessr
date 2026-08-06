@@ -559,12 +559,19 @@ const TileLayer = dynamic(
  * needs re-binding.
  */
 const ClickHandler = memo(function ClickHandler({
-  answerShown, multiplayerState, ws, setPinPoint,
+  answerShown, multiplayerState, ws, setPinPoint, pinPoint,
 }) {
-  const ref = useRef({ answerShown, multiplayerState, ws });
+  const ref = useRef({ answerShown, multiplayerState, ws, pinPoint });
   useEffect(() => {
-    ref.current = { answerShown, multiplayerState, ws };
-  }, [answerShown, multiplayerState, ws]);
+    ref.current = { answerShown, multiplayerState, ws, pinPoint };
+  }, [answerShown, multiplayerState, ws, pinPoint]);
+
+  // Double-tap zoom fires `click` for its taps BEFORE `dblclick`, so a
+  // mobile double-tap used to relocate the guess pin to wherever the user
+  // tapped to zoom. Remember the pin as it was before the tap burst and
+  // restore it the moment the dblclick arrives: double-tap = zoom only.
+  // (A placement delay would fix it "cleaner" but pin latency is sacred.)
+  const burstRef = useRef({ before: undefined, lastClickTs: 0 });
 
   // Decode ahead of the first click so pin placement and guess submission
   // have zero audio latency.
@@ -578,6 +585,11 @@ const ClickHandler = memo(function ClickHandler({
       if (shown) return;
       const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
       if (mp?.inGame && me?.final) return;
+
+      const now = Date.now();
+      const burst = burstRef.current;
+      if (now - burst.lastClickTs > 400) burst.before = ref.current.pinPoint ?? null;
+      burst.lastClickTs = now;
 
       playSfx('pin');
 
@@ -615,6 +627,31 @@ const ClickHandler = memo(function ClickHandler({
           round: mp.gameData?.curRound,
         }));
       }
+    },
+    dblclick() {
+      const { answerShown: shown, multiplayerState: mp, ws: socket } = ref.current;
+      if (shown) return;
+      const burst = burstRef.current;
+      // Only undo placements that belong to THIS double-tap's taps.
+      if (!burst.lastClickTs || Date.now() - burst.lastClickTs > 700) return;
+      const restore = burst.before;
+      burst.lastClickTs = 0;
+      if (restore === undefined) return;
+      setPinPoint(restore ?? null);
+      if (restore && mp?.inGame && mp.gameData?.state === "guess" && socket) {
+        const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
+        if (!me?.final) {
+          socket.send(JSON.stringify({
+            type: "place",
+            latLong: [restore.lat, restore.lng],
+            final: false,
+            round: mp.gameData?.curRound,
+          }));
+        }
+      }
+      // restore === null (no pin before the double-tap): the taps' server
+      // "place" can't be unsent — same as pre-fix behavior, and the user
+      // re-places in practice. Locally the pin is cleared.
     },
   });
   return null;
@@ -2004,6 +2041,7 @@ const MapComponent = ({
         multiplayerState={multiplayerState}
         ws={ws}
         setPinPoint={setPinPoint}
+        pinPoint={pinPoint}
       />
       <ExtentFitter
         extent={gameOptions?.extent}
@@ -2112,6 +2150,12 @@ const MapComponent = ({
         // the grouped-tile patch preloads only a briefly stable rounded target
         // while fingers remain down, avoiding both end-delay and per-frame churn.
         updateWhenZooming={false}
+        // Leaflet's mobile default (true) starts tile REQUESTS only after the
+        // drag ends — panning on phones felt like constantly waiting for
+        // tiles that hadn't even been asked for yet. false = desktop
+        // behavior everywhere: requests stream during the pan on a 200ms
+        // cadence, so imagery is usually decoded by the time it's revealed.
+        updateWhenIdle={false}
         // `lang` prop (mobile embed) drives the tile-label language deterministically;
         // web renders Map.js without it and falls back to the i18n's text("lang").
         // `scale` packs extra pixels into each 256 CSS tile — 4 on 3x phones so
