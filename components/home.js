@@ -4853,9 +4853,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* onboardingCompleted === true: a new user's first paint is
                     screen "home" during the A/B bootstrap — without this gate
                     the ad flashes before screen flips to onboarding. */}
-                {/* onboardingCompleted === true: a new user's first paint is
-                    screen "home" during the A/B bootstrap — without this gate
-                    the ad flashes before screen flips to onboarding. */}
                 {/* Home menu banner, Nitro-style mount/unmount lifecycle
                     (spaAds re-inits per mount — see bannerAdPlaywire.js).
                     Sizes picked client-side: 320x50 → head1, 300x250 → cntr1,
