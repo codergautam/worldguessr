@@ -559,12 +559,19 @@ const TileLayer = dynamic(
  * needs re-binding.
  */
 const ClickHandler = memo(function ClickHandler({
-  answerShown, multiplayerState, ws, setPinPoint,
+  answerShown, multiplayerState, ws, setPinPoint, pinPoint,
 }) {
-  const ref = useRef({ answerShown, multiplayerState, ws });
+  const ref = useRef({ answerShown, multiplayerState, ws, pinPoint });
   useEffect(() => {
-    ref.current = { answerShown, multiplayerState, ws };
-  }, [answerShown, multiplayerState, ws]);
+    ref.current = { answerShown, multiplayerState, ws, pinPoint };
+  }, [answerShown, multiplayerState, ws, pinPoint]);
+
+  // Double-tap zoom fires `click` for its taps BEFORE `dblclick`, so a
+  // mobile double-tap used to relocate the guess pin to wherever the user
+  // tapped to zoom. Remember the pin as it was before the tap burst and
+  // restore it the moment the dblclick arrives: double-tap = zoom only.
+  // (A placement delay would fix it "cleaner" but pin latency is sacred.)
+  const burstRef = useRef({ before: undefined, lastClickTs: 0 });
 
   // Decode ahead of the first click so pin placement and guess submission
   // have zero audio latency.
@@ -578,6 +585,11 @@ const ClickHandler = memo(function ClickHandler({
       if (shown) return;
       const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
       if (mp?.inGame && me?.final) return;
+
+      const now = Date.now();
+      const burst = burstRef.current;
+      if (now - burst.lastClickTs > 400) burst.before = ref.current.pinPoint ?? null;
+      burst.lastClickTs = now;
 
       playSfx('pin');
 
@@ -615,6 +627,31 @@ const ClickHandler = memo(function ClickHandler({
           round: mp.gameData?.curRound,
         }));
       }
+    },
+    dblclick() {
+      const { answerShown: shown, multiplayerState: mp, ws: socket } = ref.current;
+      if (shown) return;
+      const burst = burstRef.current;
+      // Only undo placements that belong to THIS double-tap's taps.
+      if (!burst.lastClickTs || Date.now() - burst.lastClickTs > 700) return;
+      const restore = burst.before;
+      burst.lastClickTs = 0;
+      if (restore === undefined) return;
+      setPinPoint(restore ?? null);
+      if (restore && mp?.inGame && mp.gameData?.state === "guess" && socket) {
+        const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
+        if (!me?.final) {
+          socket.send(JSON.stringify({
+            type: "place",
+            latLong: [restore.lat, restore.lng],
+            final: false,
+            round: mp.gameData?.curRound,
+          }));
+        }
+      }
+      // restore === null (no pin before the double-tap): the taps' server
+      // "place" can't be unsent — same as pre-fix behavior, and the user
+      // re-places in practice. Locally the pin is cleared.
     },
   });
   return null;
@@ -1502,7 +1539,214 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
       console.log('[__dumpMap]', JSON.stringify(out, null, 1));
       return out;
     };
-    return () => { try { delete window.__dumpMap; } catch {} };
+    // DEV-ONLY pin-offset forensics. Samples, per frame, where the pin's
+    // VISIBLE anchor renders vs where the canvas compositor's imagery puts
+    // that same latlng (the misregistration the eye sees) + which side left
+    // logical state + the animation flags. Console API: __pinProbe() /
+    // __pinProbeStop(). Phone-friendly overlay (no USB console needed):
+    // open any page with ?pinprobe=1 — a REC button + live readout + a
+    // copyable log appear on screen; sticky via sessionStorage so it
+    // survives in-app navigation into a game.
+    const sampleProbe = () => {
+      const comp = map._wgCompositor;
+      if (!comp || comp._drawnZoom == null) return null;
+      let pin = null;
+      map.eachLayer((l) => {
+        if (!pin && l instanceof L.Marker && l._icon) pin = l;
+      });
+      if (!pin) return null;
+      const cont = map.getContainer().getBoundingClientRect();
+      const ll = pin.getLatLng();
+      const cp = map.latLngToContainerPoint(ll);
+      const logicalX = cont.left + cp.x;
+      const logicalY = cont.top + cp.y;
+      const anchor = pin.options.icon?.options?.iconAnchor || [0, 0];
+      const ax = anchor.x ?? anchor[0] ?? 0;
+      const ay = anchor.y ?? anchor[1] ?? 0;
+      const ir = pin._icon.getBoundingClientRect();
+      const pinX = ir.left + ax;
+      const pinY = ir.top + ay;
+      // Canvas content position of the latlng in the drawn frame, mapped
+      // through the element's live rect (accounts for a CSS settle
+      // transition scaling the canvas).
+      const cnv = comp._canvas.getBoundingClientRect();
+      const p = map.project(ll, comp._drawnZoom);
+      const cx = p.x - comp._drawnPixelOrigin.x - comp._drawnOrigin.x;
+      const cy = p.y - comp._drawnPixelOrigin.y - comp._drawnOrigin.y;
+      const tileX = cnv.left + (cx / comp._lastW) * cnv.width;
+      const tileY = cnv.top + (cy / comp._lastH) * cnv.height;
+      // Discriminators: does the icon's VISUAL position match what Leaflet
+      // WROTE to it (mismatch = the icon element itself is being animated,
+      // CSS/WAAPI/whatever), and does the marker pane's visual match ITS
+      // written transform (mismatch = a pane-level animation carries the
+      // pin). parse translate3d/translate(x,y) from inline style.
+      const parseXY = (tr) => {
+        const m = /translate(?:3d)?\(\s*(-?[\d.]+)px[ ,]+(-?[\d.]+)px/.exec(tr || '');
+        return m ? { x: +m[1], y: +m[2] } : null;
+      };
+      const paneEl = map.getPane('markerPane');
+      const paneRect = paneEl.getBoundingClientRect();
+      const iconWritten = parseXY(pin._icon.style.transform);
+      const iconVisual = { x: ir.left - paneRect.left, y: ir.top - paneRect.top };
+      const iconLag = iconWritten
+        ? Math.hypot(iconWritten.x - iconVisual.x, iconWritten.y - iconVisual.y)
+        : -1;
+      const mapPaneWritten = parseXY(map._mapPane.style.transform);
+      const mapPaneRect = map._mapPane.getBoundingClientRect();
+      const cont2 = map.getContainer().getBoundingClientRect();
+      const mapPaneVisual = { x: mapPaneRect.left - cont2.left, y: mapPaneRect.top - cont2.top };
+      const paneLag = mapPaneWritten
+        ? Math.hypot(mapPaneWritten.x - mapPaneVisual.x, mapPaneWritten.y - mapPaneVisual.y)
+        : -1;
+      // What SHOULD the icon's inline translate be for the current camera
+      // (same math as Marker.update): latLngToLayerPoint rounded. Comparing
+      // against the RAW inline style string answers, unambiguously, whether
+      // Leaflet's per-zoom-event marker updates are landing at all.
+      const expectedPane = map.latLngToLayerPoint(ll).round();
+      // The un-foolable witness: every LIVE animation (CSS transition, CSS
+      // animation, WAAPI) on the icon and every ancestor up to the map
+      // container. Correct inline style + lagging visual = one of these is
+      // animating; this names the element and property outright.
+      let anims = '';
+      try {
+        let el = pin._icon;
+        const stop = map.getContainer().parentElement;
+        while (el && el !== stop && anims.length < 220) {
+          const list = el.getAnimations ? el.getAnimations() : [];
+          if (list.length) {
+            const tag = (typeof el.className === 'string' && el.className.split(' ')[0]) || el.tagName;
+            anims += `${tag}<${list.map((a) => a.transitionProperty || a.animationName || a.constructor.name).join('+')}>`;
+          }
+          el = el.parentElement;
+        }
+      } catch {}
+      return {
+        dvt: Math.hypot(pinX - tileX, pinY - tileY),
+        dx: pinX - tileX,
+        dy: pinY - tileY,
+        pinVsLogical: Math.hypot(pinX - logicalX, pinY - logicalY),
+        tilesVsLogical: Math.hypot(tileX - logicalX, tileY - logicalY),
+        iconLag,
+        paneLag,
+        wrote: iconWritten ? `${iconWritten.x},${iconWritten.y}` : '??',
+        want: `${expectedPane.x},${expectedPane.y}`,
+        anims: anims || 'none',
+        zoomEvents: map.__wgZoomCount || 0,
+        anim: !!map._animatingZoom,
+        zoom: map.getZoom(),
+        drawn: comp._drawnZoom,
+        zoomAnimCls: map._mapPane.classList.contains('leaflet-zoom-anim'),
+        slowSettle: map.getContainer().classList.contains('leaflet-slow-pinch-settle'),
+      };
+    };
+    // Count real 'zoom' dispatches so probe lines show whether marker
+    // updates had the OPPORTUNITY to run between samples.
+    map.__wgZoomCount = 0;
+    const zoomCounter = () => { map.__wgZoomCount = (map.__wgZoomCount || 0) + 1; };
+    map.on('zoom', zoomCounter);
+    const fmtSample = (s, t) => (
+      `t=${t.toFixed(0)}ms pinVsTiles=${s.dvt.toFixed(1)}px d=(${s.dx.toFixed(1)},${s.dy.toFixed(1)}) `
+      + `pinVsLogical=${s.pinVsLogical.toFixed(1)} tilesVsLogical=${s.tilesVsLogical.toFixed(1)} `
+      + `iconLag=${s.iconLag.toFixed(1)} wrote=(${s.wrote}) want=(${s.want}) anims=[${s.anims}] zoomEv=${s.zoomEvents} `
+      + `anim=${s.anim} zoom=${s.zoom.toFixed(3)} drawn=${s.drawn.toFixed(3)} `
+      + `zoomAnimCls=${s.zoomAnimCls} slowSettle=${s.slowSettle}`
+    );
+    window.__pinProbe = (onStop) => {
+      if (window.__pinProbeStop) window.__pinProbeStop();
+      const lines = [];
+      let raf = null;
+      const t0 = performance.now();
+      const tick = () => {
+        raf = requestAnimationFrame(tick);
+        try {
+          const s = sampleProbe();
+          if (s && s.dvt > 2 && lines.length < 400) {
+            lines.push(fmtSample(s, performance.now() - t0));
+          }
+        } catch {}
+      };
+      raf = requestAnimationFrame(tick);
+      window.__pinProbeStop = () => {
+        cancelAnimationFrame(raf);
+        delete window.__pinProbeStop;
+        const text = lines.length ? lines.join('\n') : 'no divergence >2px recorded';
+        console.log('[__pinProbe]\n' + text);
+        try { onStop?.(text); } catch {}
+        return lines;
+      };
+      console.log('[__pinProbe] recording... run __pinProbeStop() after the gesture');
+    };
+    // On-screen overlay for phones.
+    let overlay = null;
+    let liveRaf = null;
+    try {
+      const wantOverlay = /pinprobe/.test(window.location.search + window.location.hash)
+        || window.sessionStorage?.getItem('wgPinProbe') === '1';
+      if (wantOverlay) {
+        try { window.sessionStorage?.setItem('wgPinProbe', '1'); } catch {}
+        overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;'
+          + 'background:rgba(0,0,0,.85);color:#6f6;font:11px monospace;padding:6px;'
+          + 'border-radius:6px;max-width:74vw;pointer-events:auto;';
+        overlay.innerHTML = ''
+          + '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">'
+          + '<button type="button" data-pp="rec" style="font:12px monospace;padding:2px 8px">&#9679; rec</button>'
+          + '<button type="button" data-pp="copy" style="font:12px monospace;padding:2px 8px">copy</button>'
+          + '<button type="button" data-pp="x" style="font:12px monospace;padding:2px 8px">x</button>'
+          + '<span data-pp="live" style="min-width:60px">--</span>'
+          + '</div>'
+          + '<textarea data-pp="log" readonly style="width:72vw;height:24vh;background:#111;'
+          + 'color:#6f6;font:10px monospace;display:none"></textarea>';
+        document.body.appendChild(overlay);
+        const el = (k) => overlay.querySelector(`[data-pp="${k}"]`);
+        const liveTick = () => {
+          liveRaf = requestAnimationFrame(liveTick);
+          try {
+            const s = sampleProbe();
+            const live = el('live');
+            if (live) {
+              live.textContent = s ? `${s.dvt.toFixed(1)}px` : '--';
+              live.style.color = s && s.dvt > 2 ? '#f66' : '#6f6';
+            }
+          } catch {}
+        };
+        liveRaf = requestAnimationFrame(liveTick);
+        el('rec').addEventListener('click', () => {
+          const rec = el('rec');
+          if (window.__pinProbeStop) {
+            window.__pinProbeStop();
+            rec.textContent = '● rec';
+          } else {
+            el('log').style.display = 'none';
+            window.__pinProbe((text) => {
+              const log = el('log');
+              log.value = text;
+              log.style.display = 'block';
+            });
+            rec.textContent = '■ stop';
+          }
+        });
+        el('copy').addEventListener('click', () => {
+          const log = el('log');
+          log.style.display = 'block';
+          log.select();
+          try { document.execCommand('copy'); } catch {}
+          try { navigator.clipboard?.writeText(log.value); } catch {}
+        });
+        el('x').addEventListener('click', () => {
+          try { window.sessionStorage?.removeItem('wgPinProbe'); } catch {}
+          try { overlay.remove(); } catch {}
+          if (liveRaf) cancelAnimationFrame(liveRaf);
+        });
+      }
+    } catch {}
+    return () => {
+      try { window.__pinProbeStop?.(); } catch {}
+      if (liveRaf) { try { cancelAnimationFrame(liveRaf); } catch {} }
+      try { overlay?.remove(); } catch {}
+      try { map.off('zoom', zoomCounter); } catch {}
+      try { delete window.__dumpMap; delete window.__pinProbe; } catch {}
+    };
   }, [map]);
   return null;
 });
@@ -2004,6 +2248,7 @@ const MapComponent = ({
         multiplayerState={multiplayerState}
         ws={ws}
         setPinPoint={setPinPoint}
+        pinPoint={pinPoint}
       />
       <ExtentFitter
         extent={gameOptions?.extent}
@@ -2112,6 +2357,12 @@ const MapComponent = ({
         // the grouped-tile patch preloads only a briefly stable rounded target
         // while fingers remain down, avoiding both end-delay and per-frame churn.
         updateWhenZooming={false}
+        // Leaflet's mobile default (true) starts tile REQUESTS only after the
+        // drag ends — panning on phones felt like constantly waiting for
+        // tiles that hadn't even been asked for yet. false = desktop
+        // behavior everywhere: requests stream during the pan on a 200ms
+        // cadence, so imagery is usually decoded by the time it's revealed.
+        updateWhenIdle={false}
         // `lang` prop (mobile embed) drives the tile-label language deterministically;
         // web renders Map.js without it and falls back to the i18n's text("lang").
         // `scale` packs extra pixels into each 256 CSS tile — 4 on 3x phones so
