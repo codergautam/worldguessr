@@ -2,9 +2,9 @@ import { memo, useEffect, useRef, useState } from "react";
 import { rampQue, shouldCountPageView } from "./utils/playwire";
 import sendEvent from "./utils/sendEvent";
 
-// Playwire clone of bannerAdNitro's lifecycle: WE pick the creative size
-// client-side from viewport fit and mount/unmount per screen — RAMP's
-// device detection is not used. CK (Aug 3, second config): selector
+// Nitro-style slot lifecycle: WE pick the creative size client-side from
+// viewport fit and mount/unmount per screen — RAMP's device detection is
+// not used. CK (Aug 3, second config): selector
 // targeting removed, selectorId is the only binding, and each size is its
 // own unit, all-devices:
 const UNIT_FOR_SIZE = {

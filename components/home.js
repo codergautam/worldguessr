@@ -79,8 +79,6 @@ import StreetView from "./streetview/streetView";
 const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), { ssr: false });
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
-// Playwire slot (NitroPay's replacement, Aug 2) — bannerAdNitro.js kept
-// unimported as the slot-lifecycle reference it was modeled on.
 import PlaywireAd from "./bannerAdPlaywire";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
@@ -418,30 +416,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setSession(mainSession)
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
-
-    // NitroPay removed (Playwire swap, Aug 2) — was: pass email to NitroAds
-    // for ad targeting. Playwire has its own identity hooks; wire theirs here
-    // if/when wanted.
-    /*
-    useEffect(() => {
-        const email = session?.token?.email;
-        if (!email || typeof window === 'undefined' || !window.nitroAds || window.location.protocol !== 'https:') return;
-
-        (async () => {
-            try {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(email.toLowerCase().trim());
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                window.nitroAds.addUserToken(email, 'PLAIN');
-            } catch (e) {
-                // Silently fail - ad targeting is non-critical
-            }
-        })();
-    }, [session?.token?.email])
-    */
-
 
     useEffect(() => {
         const handlePageClose = () => {

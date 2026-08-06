@@ -17,11 +17,7 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
 import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
-// NitroPay removed for the Playwire swap (Aug 2) — bannerAdNitro.js kept
-// unimported as the slot-lifecycle reference for the Playwire wrapper.
-// import Ad from "./bannerAdNitro";
 import PlaywireAd from "./bannerAdPlaywire";
-// import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
@@ -445,7 +441,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
-  const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
 
   // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
   const inGetready = !!(
@@ -498,15 +493,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!inCoolMathGames) return;
-    fetch('https://www.worldguessr.com/cmgopt.txt')
-      .then(res => res.text())
-      .then(text => setCmgAdsEnabled(text.trim() === 'true'))
-      .catch(() => {});
-    // setCmgAdsEnabled(true);
-  }, [inCoolMathGames]);
 
   const isStartingDuel = !!(multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
   // Render-time leave edge (ref still holds the previous getready). That keeps
@@ -1412,16 +1398,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{/* NitroPay removed (Playwire swap, Aug 2) — the CMG in-game banner ran on
-    Nitro units behind cmgAdsEnabled; dark until the CMG/Playwire decision:
-{ inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
-    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_cmg_gameui_ad"}
-    showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
-    </div>
-)}
-*/}
+{/* No CMG in-game banner: the old slot ran Nitro units behind the remote
+    cmgopt.txt flag — removed with the Playwire swap (Aug 2), dark until the
+    CMG/Playwire decision. */}
 
 { inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
