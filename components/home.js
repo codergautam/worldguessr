@@ -6,6 +6,7 @@ import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
+import BgCityChip from "@/components/bgCityChip";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
 import shuffle from "@/utils/shuffle";
@@ -4644,22 +4645,23 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     has NOTHING else on screen (home UI + navbar are gated) — without the
                     spinner that window is a dead static image. */}
                 <div className={`loading-overlay ${(loading || mapSwitchMaskShown || newUserBooting) ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={asset('/street2.webp')}
-                        draggable={false}
-                        width={1920}
-                        height={1080}
-                        priority
-                        alt="Loading Background"
+                    {/* var(--bg-street2) = the daily background _document.js set
+                        pre-paint — reuses the already-preloaded image from cache.
+                        The old hardcoded street2 NextImage had `priority`, which
+                        made every visitor download BOTH street2 AND the daily
+                        image once the rotation shipped, and kept the loading
+                        screen on the stale art. */}
+                    <div
+                        aria-hidden="true"
                         style={{
-                            objectFit: "cover",
                             position: "absolute",
                             top: 0,
                             left: 0,
                             width: "100%",
                             height: "100%",
+                            background: `var(--bg-street2, url("${asset('/street2.webp')}")) center/cover no-repeat`,
                             opacity: 0.5,
                         }}
-                        sizes="100vw"
                     />
                     {/* Dark background behind the semi-transparent image to match home screen look */}
                     <div style={{
@@ -4733,6 +4735,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                     countryGuessrMode={countryGuessrMode}
                 />
+
+                {/* Daily background city chip — decorative, home screen only,
+                    suppressed during onboarding and on portal builds (the
+                    component itself no-ops there). */}
+                {screen === 'home' && onboardingCompleted === true && <BgCityChip />}
 
                 {/* Pending Name Change Banner */}
                 {session?.token?.pendingNameChange && screen === 'home' && !dismissedNameChangeBanner && (
