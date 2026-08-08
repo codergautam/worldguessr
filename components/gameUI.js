@@ -17,10 +17,7 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
 import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
-// NitroPay re-enabled Aug 2 as the revenue stopgap (Playwire swap parked on
-// branch playwire-v2 until their in-game unit + re-add fix land).
-import Ad from "./bannerAdNitro";
-// import Ad from "./bannerAdAdinplay";
+import PlaywireAd from "./bannerAdPlaywire";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
@@ -444,7 +441,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
-  const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
 
   // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
   const inGetready = !!(
@@ -497,15 +493,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!inCoolMathGames) return;
-    fetch('https://www.worldguessr.com/cmgopt.txt')
-      .then(res => res.text())
-      .then(text => setCmgAdsEnabled(text.trim() === 'true'))
-      .catch(() => {});
-    // setCmgAdsEnabled(true);
-  }, [inCoolMathGames]);
 
   const isStartingDuel = !!(multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
   // Render-time leave edge (ref still holds the previous getready). That keeps
@@ -1388,14 +1375,18 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{/* RE-ENABLED Aug 2 (was TEMP-disabled July 31): Nitro revived as the revenue
-    stopgap while the Playwire swap waits on branch playwire-v2. */}
-{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+{/* Main-site in-game banner — Playwire (head2 728x90 via the size map),
+    same gates/lifecycle as the old Nitro slot: mounts with gameUI, unmounts
+    with it, spaAds re-inits per mount (bannerAdPlaywire.js).
+    Unlike the Nitro era, ONBOARDING shows it too (user call, Aug 3): the
+    !onboarding gate is gone; !onboarding?.completed still hides it on the
+    tutorial's completion screen, like !singlePlayerRound?.done does for SP
+    round-over. moreDown already handles the onboarding timer. */}
+{ !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_gameui_ad"}
-      position="bottom-right"
-    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+      <PlaywireAd
+        selectorId="pw-game-ad"
+        showAdvertisementText={false} screenH={height} types={[[728,90]]} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
@@ -1407,13 +1398,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
-    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_cmg_gameui_ad"}
-    showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
-    </div>
-)}
+{/* No CMG in-game banner: the old slot ran Nitro units behind the remote
+    cmgopt.txt flag — removed with the Playwire swap (Aug 2), dark until the
+    CMG/Playwire decision. */}
 
 { inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>

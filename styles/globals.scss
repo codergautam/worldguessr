@@ -1992,17 +1992,22 @@ h1, h2, h3, span, label {
 .navbar .accountBtn,
 .navbar .friendBtn,
 .leagueBtn,
-.daily-community-maps-btn,
-// Restored Aug 2 with the Nitro revenue stopgap (Playwire swap parked on
-// branch playwire-v2 — that branch styles .playwire-ad-slot instead).
-.nitro-ad-slot {
+.daily-community-maps-btn {
     animation: hudEnter 0.3s ease-out 0.12s backwards;
 }
 
-// NitroPay injects the creative iframe well after the slot mounts (the ad
-// stack loads on first interaction) — fade the fill in too instead of
-// letting the creative pop into the empty box.
-.nitro-ad-slot iframe {
+// .playwire-ad-slot is deliberately NOT in the hudEnter list: the from-state
+// is opacity:0 for the 0.12s delay + fade, which is exactly when Playwire's
+// lazy-load viewability check samples a freshly re-initialized slot — an
+// invisible slot fails the check and the (lazy) unit never fetches. The slot
+// box appears instantly; the CREATIVE still fades via the iframe rule below,
+// which runs post-fetch and gates nothing.
+
+// The creative iframe lands well after the slot mounts (ad stack loads on
+// first interaction) — fade the fill in too instead of letting the creative
+// pop into the empty box. Replays on every remount (Nitro-style
+// mount/unmount lifecycle, bannerAdPlaywire.js) — reads as an entrance.
+.playwire-ad-slot iframe {
     animation: hudEnter 0.25s ease-out backwards;
 }
 
@@ -7699,10 +7704,21 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 .topAdFixed {
   position: fixed;
-  top: 5px;
+  // -5px, not 0: Playwire renders the tag 728x100 (their ~20px label strip
+  // rides on top of the 728x90 creative), so the box is pulled up to keep
+  // the visible creative hugging the viewport top.
+  top: -5px;
   z-index: 1001;
   left: 50%;
   transform: translateX(-50%);
+}
+
+// The localhost debug placeholder has no Playwire label strip, so the -5px
+// compensation above would draw it 5px higher than the real creative sits
+// on prod — push the placeholder (and only the placeholder) back down so
+// dev matches what prod looks like.
+.topAdFixed .playwire-ad-slot.pw-debug {
+  margin-top: 10px;
 }
 
 @media screen and (max-width: 700px) {
