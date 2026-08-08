@@ -355,7 +355,14 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
           rank: player.finalRank,
           // Team assignment ('a' | 'b') — drives team pin colors and the
           // team round breakdown, exactly like the live gameData shape.
-          team: player.team ?? null
+          team: player.team ?? null,
+          // Cosmetics. This rebuild is a PROJECTION of the saved game doc into
+          // the live gameData shape: a field left out here is simply absent
+          // downstream, with no error — the summary just renders a plain name
+          // and a default pin, which reads as "my glow does not work in
+          // history". Nulls are harmless when the saved doc predates the field.
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null
         })),
         duel: isDuel,
         // Wire names kept in sync with the live gameData: team2v2 = 2v2 HP

@@ -5,6 +5,7 @@ import CountryFlag from './utils/countryFlag';
 import { MdWifiOff } from 'react-icons/md';
 import { useTranslation } from '@/components/useTranslations';
 import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
+import { nameGlowProps, GLOW_DARK } from '@/components/utils/usernameWithFlag';
 
 const easeOutElastic = (t) => {
   const c4 = (2 * Math.PI) / 3;
@@ -21,6 +22,19 @@ const easeOutBack = (t) => {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
 
+// EVERY NAME BOX BELOW IS `wg-name-clip`, GLOW OR NO GLOW, and both halves of
+// that matter. It is the one truncation recipe (styles/nameGlow.css) replacing
+// the four-property inline object this file used to repeat three times — the
+// ellipsis has to live on the TEXT box, because on the flex CONTAINER around it
+// `text-overflow` is inert and the `overflow: hidden` just hard-clips a username
+// mid-character. And it carries the 34px of paint relief a halo needs, which is
+// why it goes on unconditionally: a box that changes shape the moment something
+// is equipped is how "buying a glow makes my name narrower" happens.
+//
+// So these call sites pass `ownBox: true` — the element already exists and owns
+// its own display; nameGlowProps only adds the animation, never a carrier.
+const nameClip = (glow) => `wg-name-clip ${glow?.className ?? ''}`.trim();
+
 // Team name block: one name per line. Teams are capped at 2 players, so the
 // stack never grows past two lines.
 // Flex column (NOT inline with block children): an inline .player-name keeps
@@ -28,7 +42,7 @@ const easeOutBack = (t) => {
 const stackStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', marginRight: 0, maxWidth: '100%', minWidth: 0 };
 const TeamNames = ({ names, dcLabel }) => {
   // Entries are { name, username, isMe, hasProfile, countryCode,
-  // disconnected } (plain strings tolerated for safety).
+  // disconnected, elo, nameGlow } (plain strings tolerated for safety).
   const entryOf = (n) => (typeof n === 'string' ? { name: n, countryCode: null } : n);
   return (
     // title: full names on hover — the truncated stack's only fallback.
@@ -41,11 +55,12 @@ const TeamNames = ({ names, dcLabel }) => {
           // Dim through the reconnect grace so the team reads short-handed.
           ...(entry.disconnected ? { opacity: 0.55 } : {}),
         };
+        // Dark HUD glass → the dark glow variant. Additive only: the fill
+        // stays whatever .player-name already paints.
+        const glow = nameGlowProps(entry.nameGlow, GLOW_DARK, { ownBox: true });
         const inner = (
           <>
-            {/* Ellipsis must live on the text box itself — it has no effect on a
-                flex parent, which just hard-clipped long names mid-character. */}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+            <span className={nameClip(glow)} style={glow?.style}>
               {entry.name}
             </span>
             {entry.countryCode && <CountryFlag countryCode={entry.countryCode} />}
@@ -80,8 +95,11 @@ const TeamNames = ({ names, dcLabel }) => {
   );
 };
 
-const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true }) => {
+const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true, nameGlow = null }) => {
   const { t: text } = useTranslation("common");
+  // 1v1 bars only — the 2v2 stack carries a glow PER ENTRY (names[i].nameGlow)
+  // because one bar shows two different players. Dark HUD → dark variant.
+  const glow = nameGlowProps(nameGlow, GLOW_DARK, { ownBox: true });
   const [isAnimating, setIsAnimating] = useState(false);
   const [damageIndicator, setDamageIndicator] = useState(null);
   const prevHealthRef = useRef(health);
@@ -235,10 +253,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
                 e.currentTarget.style.opacity = disconnected ? '0.55' : '1';
               }}
             >
-              {/* Same ellipsis-on-the-text-box trick as TeamNames — text-overflow
-                  is inert on the flex link itself, which hard-clipped long names
-                  mid-character and pushed the flag out of view. */}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
+              <span className={nameClip(glow)} style={glow?.style}>{name}</span>
               {countryCode && <CountryFlag countryCode={countryCode} marginRight="0" />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </Link>
@@ -246,7 +261,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
             // Also the guest-opponent fallback (no /user page → no link), so
             // it keeps the same disconnect furniture as the linked branch.
             <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', maxWidth: '100%', minWidth: 0, opacity: disconnected ? 0.55 : undefined }}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{name}</span>
+              <span className={nameClip(glow)} style={glow?.style}>{name}</span>
               {countryCode && <CountryFlag countryCode={countryCode} marginRight="0" />}
               {disconnected && <MdWifiOff className="hb-dc" title={text("disconnectedTag")} aria-label={text("disconnectedTag")} />}
             </span>
@@ -272,6 +287,11 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
 // were re-rendering (players.find results, getLeague, Link, flag) on every
 // tick for the whole match. Every prop is a primitive except `names` (2v2
 // team stacks), whose entries are rebuilt each render — compare by value.
+//
+// ⚠ ADDING A PER-PLAYER FIELD? It must be listed in BOTH comparators below.
+// Neither one errors on an unknown field — it is simply never compared, so the
+// bar keeps rendering the stale value forever and the change looks like "I
+// bought it and it does not show". nameGlow was exactly that trap.
 const namesEqual = (a, b) => {
   if (a === b) return true;
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
@@ -280,7 +300,8 @@ const namesEqual = (a, b) => {
     const y = typeof b[i] === 'string' ? { name: b[i] } : b[i];
     if (x.name !== y.name || x.username !== y.username || x.isMe !== y.isMe
       || x.hasProfile !== y.hasProfile || x.countryCode !== y.countryCode
-      || x.disconnected !== y.disconnected || x.elo !== y.elo) return false;
+      || x.disconnected !== y.disconnected || x.elo !== y.elo
+      || x.nameGlow !== y.nameGlow) return false;
   }
   return true;
 };
@@ -295,5 +316,6 @@ export default React.memo(HealthBar, (prev, next) =>
   prev.countryCode === next.countryCode &&
   prev.disconnected === next.disconnected &&
   prev.hasProfile === next.hasProfile &&
+  prev.nameGlow === next.nameGlow &&
   namesEqual(prev.names, next.names)
 );

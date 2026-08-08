@@ -37,6 +37,21 @@ export default async function handler(req, res) {
       daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
       recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
       countryCode: user.countryCode || null,
+      // Entitlements. Mobile's refreshAccount() reads this endpoint, so without
+      // them a purchase or an equip is invisible until the app is restarted.
+      // Only the EQUIPPED items are exposed, never the owned list — what a
+      // player has equipped is already rendered publicly next to their name;
+      // their full inventory is not.
+      // The 20s cache above is keyed `publicData_<id>` precisely so
+      // api/stampShop.js can clear it the moment either one changes.
+      stamps: user.stamps || 0,
+      cosmetics: {
+        equipped: {
+          background: user.cosmetics?.equipped?.background || null,
+          nameGlow: user.cosmetics?.equipped?.nameGlow || null,
+          markerSkin: user.cosmetics?.equipped?.markerSkin || null,
+        },
+      },
     };
 
     // Return the public data

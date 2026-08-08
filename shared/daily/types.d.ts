@@ -32,6 +32,13 @@ export interface DailyLeaderboardEntry {
   rank: number;
   username: string;
   score: number;
+  /**
+   * Equipped name-glow sku, resolved LIVE by api/dailyChallenge/leaderboard.js
+   * rather than frozen into DailyChallengeScore: the row is the day's result,
+   * the glow is who the player is today. Null for guest-claimed rows, which
+   * carry no userId to resolve against.
+   */
+  nameGlow?: string | null;
 }
 
 // Top-100 board behind the opt-in leaderboard modal/sheet. Pagination is

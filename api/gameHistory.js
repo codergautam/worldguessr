@@ -1,5 +1,43 @@
+import mongoose from 'mongoose';
 import Game from '../models/Game.js';
 import User from '../models/User.js';
+
+/**
+ * Equipped name glow for every account on a page of history, in ONE query.
+ *
+ * RESOLVED LIVE, NOT READ OFF THE GAME DOCUMENT. A Game is a frozen record of a
+ * match; a cosmetic is current identity. Baking the sku in at save time would
+ * mean a player's history showed the glow they wore last March — and it would
+ * need a migration to backfill anything before today, which is a lot of work to
+ * produce the wrong answer.
+ *
+ * ObjectId.isValid FILTER, not a raw $in. `players.accountId` is a plain string
+ * on the Game document (that is how the caller compares it), bots and guests
+ * store null, and one malformed legacy value in a page of fifty games would
+ * throw a CastError and take the whole history request down with it.
+ *
+ * Fails to an empty Map: no glows is what this page rendered yesterday, and a
+ * decoration must not be able to 500 a history request.
+ */
+async function glowsForGames(games) {
+  const ids = new Set();
+  for (const game of games) {
+    for (const p of (game.players || [])) {
+      if (p.accountId && mongoose.Types.ObjectId.isValid(p.accountId)) ids.add(String(p.accountId));
+    }
+  }
+  if (!ids.size) return new Map();
+  try {
+    const users = await User.find({ _id: { $in: [...ids] } })
+      .select('_id cosmetics.equipped.nameGlow')
+      .lean()
+      .maxTimeMS(2000);
+    return new Map(users.map((u) => [u._id.toString(), u.cosmetics?.equipped?.nameGlow || null]));
+  } catch (e) {
+    console.warn('[gameHistory] glow lookup failed (non-critical):', e.message);
+    return new Map();
+  }
+}
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -59,6 +97,10 @@ export default async function handler(req, res) {
     const hasNextPage = pageNum < totalPages;
     const hasPrevPage = pageNum > 1;
 
+    // One lookup for the whole page, before the synchronous format pass below.
+    const glowByAccountId = await glowsForGames(games);
+    const glowOf = (accountId) => (accountId ? glowByAccountId.get(String(accountId)) || null : null);
+
     // Format games for frontend
     const formattedGames = games.map(game => {
       // Find the user's player data  
@@ -82,7 +124,8 @@ export default async function handler(req, res) {
         const rosterEntry = (p) => ({
           username: p.username,
           accountId: p.accountId || null,
-          countryCode: p.countryCode ?? null
+          countryCode: p.countryCode ?? null,
+          nameGlow: glowOf(p.accountId)
         });
         teammates = game.players
           .filter(p => p.team === userPlayer.team && p.accountId !== user._id.toString())
@@ -150,6 +193,7 @@ export default async function handler(req, res) {
           username: opponentPlayer.username,
           accountId: opponentPlayer.accountId || null,
           countryCode: opponentPlayer.countryCode ?? null,
+          nameGlow: glowOf(opponentPlayer.accountId),
           totalPoints: opponentPlayer.totalPoints || 0,
           finalRank: opponentPlayer.finalRank || 2,
           elo: opponentPlayer.elo || null

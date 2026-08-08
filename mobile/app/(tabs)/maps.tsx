@@ -279,9 +279,9 @@ export default function MapsScreen() {
         ) : error ? (
           <View style={styles.centered}>
             <Ionicons name="cloud-offline" size={48} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.errorText}>{t('failedToLoadMaps', undefined, 'Failed to load maps')}</Text>
+            <Text style={styles.errorText}>{t('failedToLoadMaps')}</Text>
             <Pressable style={styles.retryBtn} onPress={() => fetchMapHome(true)}>
-              <Text style={styles.retryBtnText}>{t('retry', undefined, 'Retry')}</Text>
+              <Text style={styles.retryBtnText}>{t('retry')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -320,7 +320,7 @@ export default function MapsScreen() {
                   return (
                     <View style={styles.centered}>
                       <ActivityIndicator size="large" color="white" />
-                      <Text style={styles.loadingText}>{t('searching', undefined, 'Searching...')}</Text>
+                      <Text style={styles.loadingText}>{t('searching')}</Text>
                     </View>
                   );
                 }
@@ -331,7 +331,7 @@ export default function MapsScreen() {
                       <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
                       <Text style={styles.emptyTitle}>{t('noResultsFound')}</Text>
                       <Text style={styles.emptySubtext}>
-                        {t('tryAdjustingSearchTerms', undefined, 'Try adjusting your search terms')}
+                        {t('tryAdjustingSearchTerms')}
                       </Text>
                     </View>
                   );
@@ -350,7 +350,7 @@ export default function MapsScreen() {
                     )}
                     {hasCommunity && (
                       <MapSection
-                        title={t('searchResults', undefined, 'Search Results')}
+                        title={t('searchResults')}
                         maps={searchResults}
                         onMapPress={handleMapPress}
                         onHeartMap={secret ? handleHeartMap : undefined}
@@ -392,7 +392,7 @@ export default function MapsScreen() {
                 ) && (
                   <View style={styles.emptyState}>
                     <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.emptyTitle}>{t('noMapsAvailable', undefined, 'No maps available')}</Text>
+                    <Text style={styles.emptyTitle}>{t('noMapsAvailable')}</Text>
                   </View>
                 )}
               </>

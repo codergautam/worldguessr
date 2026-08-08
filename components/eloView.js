@@ -1,7 +1,12 @@
 import { useTranslation } from '@/components/useTranslations'
-import { getLeague, leagues } from "./utils/leagues";
+import { getLeague, getActiveLeagues, resolveLeague } from "./utils/leagues";
 import { useState } from "react";
 import XPGraph from "./XPGraph";
+
+export { resolveLeague };
+
+/** Legend is the only tier dark enough to need light text on its own colour. */
+const LEGEND_NAME = 'Legend';
 
 const statItemStyle = {
     background: 'rgba(255, 255, 255, 0.05)',
@@ -42,14 +47,20 @@ function StatTile({ label, value }) {
                  e.currentTarget.style.transform = 'translateY(0)';
              }}>
             <div style={statLabelStyle}>{label}</div>
-            <div style={statValueStyle}>{value}</div>
+            {/* s1-stat-value: tabular figures + min-width:0 so a 4-digit rating
+                sits in the tile instead of widening the auto-fit grid column.
+                See styles/season1Badges.css. */}
+            <div className="s1-stat-value" style={statValueStyle}>{value}</div>
         </div>
     );
 }
 
 export default function EloView({ eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
-    const userLeague = getLeague(eloData.elo);
+    // Server-provided league wins over the local cutoff table. api/eloRank.js
+    // returns the whole resolved object as `league`; older payloads have none
+    // and fall through to the bundled table. See resolveLeague above.
+    const userLeague = resolveLeague(eloData.elo, eloData.league);
     const [hoveredLeague, setHoveredLeague] = useState(null);
 
     const containerStyle = {
@@ -159,9 +170,15 @@ export default function EloView({ eloData, session, isPublic = false, username =
                 </h2>
 
                 <div style={leagueContainerStyle}>
-                    {Object.values(leagues).map((league) => {
+                    {/* getActiveLeagues(), never a hardcoded table: it returns the
+                        RatingConfig override when one is installed, else the v2
+                        table. Reading `leagues` directly here rendered the dead
+                        v1 tiers (0-1999 / 2000-4999 / …) against v2 ratings, so
+                        every player looked like a bottom-tier Trekker. */}
+                    {Object.values(getActiveLeagues()).map((league) => {
                         const isCurrentLeague = userLeague.name === league.name;
                         const eloNeeded = league.min;
+                        const isLegend = league.name === LEGEND_NAME;
 
                         return (
                             <div
@@ -182,23 +199,14 @@ export default function EloView({ eloData, session, isPublic = false, username =
                                     setHoveredLeague(null)
                                 }}
                             >
-                                {/* League Square with Shine Effect */}
-                                <div style={{
-                                    width: 'clamp(50px, 10vw, 80px)',
-                                    height: 'clamp(45px, 9vw, 70px)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: league.color,
-                                    color: 'black',
-                                    borderRadius: 'clamp(8px, 2vw, 15px)',
-                                    fontSize: 'clamp(25px, 6vw, 50px)',
-                                    fontWeight: 'bold',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    boxShadow: isCurrentLeague ? '0 0 20px rgba(255, 215, 0, 0.5)' : '0 4px 15px rgba(0, 0, 0, 0.3)',
-                                    border: isCurrentLeague ? '3px solid #ffd700' : '2px solid rgba(255, 255, 255, 0.2)'
-                                }}>
+                                {/* League Square with Shine Effect. Geometry and
+                                    the current/Legend treatments live in
+                                    styles/season1Badges.css; only the tier's own
+                                    colour stays inline, because it is data. */}
+                                <div
+                                    className={`s1-league-tile${isCurrentLeague ? ' s1-league-tile--current' : ''}${isLegend ? ' s1-league-tile--legend' : ''}`}
+                                    style={{ backgroundColor: league.color }}
+                                >
                                     {league.emoji}
                                     {/* Shiny Effect */}
                                     {isCurrentLeague && (
@@ -215,37 +223,28 @@ export default function EloView({ eloData, session, isPublic = false, username =
                                     )}
                                 </div>
 
-                                {/* League Name */}
+                                {/* League Name. Legend keeps its own crimson
+                                    accent when held — framing the top tier in
+                                    Voyager gold read as "you are a Voyager". */}
                                 <p style={{
                                     fontSize: 'clamp(12px, 3vw, 16px)',
                                     marginTop: 'clamp(6px, 1.5vw, 8px)',
-                                    color: isCurrentLeague ? '#ffd700' : '#e0e0e0',
+                                    color: isCurrentLeague ? (isLegend ? '#ff5670' : '#ffd700') : '#e0e0e0',
                                     fontWeight: isCurrentLeague ? 'bold' : '600',
-                                    textShadow: isCurrentLeague ? '0px 0px 8px #ffd700' : 'none'
+                                    textShadow: isCurrentLeague ? `0px 0px 8px ${isLegend ? '#dc143c' : '#ffd700'}` : 'none'
                                 }}>
                                     {league.name}
                                 </p>
 
-                                {/* ELO Badge */}
+                                {/* Threshold chip. Absolutely positioned and
+                                    pointer-events:none (see the CSS): at four
+                                    digits it is wider than the square it labels,
+                                    so it must never join the flex row. */}
                                 {eloNeeded > 0 && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: 'clamp(-20px, -4vw, -16px)',
-                                        left: '50%',
-                                        transform: 'translateX(-50%)',
-                                        backgroundColor: league.color,
-                                        color: 'black',
-                                        border: '2px solid black',
-                                        padding: 'clamp(3px, 1vw, 4px) clamp(6px, 2vw, 8px)',
-                                        borderRadius: 'clamp(8px, 2vw, 10px)',
-                                        fontSize: 'clamp(10px, 2.5vw, 12px)',
-                                        fontWeight: 'bold',
-                                        opacity: hoveredLeague === league.name ? 1 : 0,
-                                        transition: 'opacity 0.3s',
-                                        whiteSpace: 'nowrap',
-                                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
-                                    }}
-                                        className="elo-badge">
+                                    <div
+                                        className={`elo-badge s1-league-threshold${hoveredLeague === league.name ? ' s1-league-threshold--shown' : ''}${isLegend ? ' s1-league-threshold--legend' : ''}`}
+                                        style={{ backgroundColor: league.color }}
+                                    >
                                         {eloNeeded} ELO
                                     </div>
                                 )}

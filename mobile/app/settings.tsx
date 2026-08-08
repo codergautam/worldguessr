@@ -271,11 +271,11 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Multiplayer */}
-          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={4}>
+          <Section title={t('multiplayer')} icon="happy-outline" index={4}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('emoteReactions', undefined, 'Emote reactions')}
+                  {t('emoteReactions')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -299,7 +299,7 @@ export default function SettingsScreen() {
             <View style={[styles.row, styles.rowDivider]}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('multiplayerChat', undefined, 'In-game chat')}
+                  {t('multiplayerChat')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -323,11 +323,11 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Haptics */}
-          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={5}>
+          <Section title={t('haptics')} icon="phone-portrait-outline" index={5}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('hapticFeedback', undefined, 'Haptic feedback')}
+                  {t('hapticFeedback')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -391,7 +391,7 @@ export default function SettingsScreen() {
               <>
               <View style={[styles.row, styles.rowDivider, accountSettingsLocked && styles.rowLocked]}>
                 <View style={[styles.rowTextWrap, styles.rowLabelWithInfo]}>
-                  <Text style={styles.rowLabel}>{t('strictMatchmaking', undefined, 'Avoid lower skill duels')}</Text>
+                  <Text style={styles.rowLabel}>{t('strictMatchmaking')}</Text>
                   <Pressable hitSlop={8} onPress={() => setStrictInfoShown((v) => !v)}>
                     <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.55)" />
                   </Pressable>
@@ -411,7 +411,7 @@ export default function SettingsScreen() {
               {strictInfoShown && (
                 <View style={styles.infoCard}>
                   <Text style={styles.infoCardText}>
-                    {t('strictMatchmakingHint', undefined, 'Ranked duels will only match you with Voyager and Nomad players (5000+ ELO). Queue times may be longer.')}
+                    {t('strictMatchmakingHint')}
                   </Text>
                 </View>
               )}
@@ -420,22 +420,29 @@ export default function SettingsScreen() {
             </Section>
           )}
 
+          {/* NO SHOP SECTION HERE. The shop is reached from the Stamps button
+              beside the league pill on the home header (app/(tabs)/home.tsx),
+              which is where the balance already lives. The row that used to sit
+              here was a stopgap from before that button existed; a storefront
+              buried three taps deep inside Settings is a storefront nobody
+              opens. The route (/shop) is unchanged. */}
+
           {/* Danger Zone — account deletion (moved here from the account
               moderation tab; web parity: sits right under Account settings) */}
           {user?.accountId && (
-            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={7}>
+            <Section title={t('dangerZone')} icon="warning-outline" index={7}>
               <DangerZoneSection />
             </Section>
           )}
 
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={8}>
+          <Section title={t('about')} icon="shield-checkmark-outline" index={8}>
             <Pressable
               onPress={rate.open}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowLabel}>
-                {t('rateUs', undefined, 'Rate WorldGuessr')}
+                {t('rateUs')}
               </Text>
               <Ionicons name="star-outline" size={20} color={colors.textMuted} />
             </Pressable>
@@ -444,7 +451,7 @@ export default function SettingsScreen() {
               style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowLabel}>
-                {t('termsAndPrivacy', undefined, 'Terms & Privacy')}
+                {t('termsAndPrivacy')}
               </Text>
               <Ionicons name="open-outline" size={20} color={colors.textMuted} />
             </Pressable>

@@ -8,6 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, getLeague, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import PlayerName from '../PlayerName';
+import { GLOW_CLIP_RELIEF } from '../../shared/glowKeyframes';
 import type { MPPlayer } from '../../store/multiplayerStore';
 
 interface PlayerListProps {
@@ -108,13 +109,20 @@ export default function PlayerList({
         <MovedPulse active={!!highlightIds?.has(player.id)} />
         <View style={styles.playerLeft}>
           {mode !== 'lobby' && (
-            <Text style={[styles.rankText, dense && styles.rankTextBetween]}>{t('rankN', { rank: index + 1 }, '#{{rank}}')}</Text>
+            <Text style={[styles.rankText, dense && styles.rankTextBetween]}>{t('rankN', { rank: index + 1 })}</Text>
           )}
           <PlayerName
             name={player.username}
             countryCode={player.countryCode}
             flagSize={dense ? 16 : 18}
             gap={8}
+            glow={player.nameGlow}
+            // LIGHT-SURFACE SWITCH. `dense` (= betweenRounds) rows are WHITE
+            // cards with near-black text (playerRowBetween / playerNameBetween);
+            // a dark-surface glow is invisible on them and the light one reads
+            // as a smudge on the dark lobby rows. This flag is what keeps both
+            // legible — do not drop it when refactoring the row.
+            onLight={dense}
             textStyle={[
               styles.playerName,
               dense && styles.playerNameDense,
@@ -124,9 +132,6 @@ export default function PlayerList({
           >
             {player.host && (
               <Text style={styles.hostText}>({t('host')})</Text>
-            )}
-            {player.supporter && (
-              <Ionicons name="heart" size={12} color="#ff6b9d" />
             )}
             {/* League-colored "(elo)" like the duel HP bars; guests carry no
                 elo so it just skips (web partyLobby.js parity). */}
@@ -216,6 +221,9 @@ export default function PlayerList({
                 gap={6}
                 style={styles.memberNameWrap}
                 textStyle={styles.memberName}
+                glow={p.nameGlow}
+                // memberPill is also a white card (see styles.memberPill).
+                onLight
               />
               <Text style={styles.memberScore}>{(p.score ?? 0).toLocaleString()}</Text>
             </View>
@@ -314,6 +322,31 @@ const styles = StyleSheet.create({
     // and RN doesn't clip by default — without this they paint straight under
     // the kick/move buttons on narrow rows.
     overflow: 'hidden',
+    // ...but this box is exactly one line tall, so that same clip was shearing
+    // an equipped name glow flush with the letterforms — every colour reading as
+    // the same smudge. Padding buys paint area (RN clips at the padding box
+    // too); the equal negative margin hands it straight back to Yoga, so the
+    // row's height is unchanged.
+    //
+    // THE NUMBER IS NOW GLOW_CLIP_RELIEF, NOT A LOCAL 12. It was sized against
+    // PlayerName's 8px static textShadowRadius, and the animated tier
+    // (src/shared/glowKeyframes.ts) reaches 22-25px — so on the day the rig
+    // shipped, a hardcoded 12 would have gone straight back to shearing the
+    // three most expensive skus in the shop. The constant is shared with the
+    // table it is derived from, so the table cannot outgrow it silently.
+    //
+    // VERTICAL ONLY, and both reasons matter:
+    //  • Horizontally this is a `flex: 1` item, where the give-back depends on
+    //    Yoga flooring a flex basis of 0 at padding+border. It does, but the
+    //    row's badge positions are not worth staking on that; there is nothing
+    //    to gain either, since the rank label sits left of the name in every
+    //    mode but lobby.
+    //  • The RIGHT edge must not grow at all: it would un-hide the very badges
+    //    the `overflow` above exists to hide.
+    // The cross axis has no such ambiguity — the height is measured from
+    // content, so padding + equal negative margin cancel exactly.
+    paddingVertical: GLOW_CLIP_RELIEF,
+    marginVertical: -GLOW_CLIP_RELIEF,
   },
   rankText: {
     color: 'rgba(255, 255, 255, 0.55)',

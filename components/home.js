@@ -6,7 +6,6 @@ import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
-import BgCityChip from "@/components/bgCityChip";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
 import shuffle from "@/utils/shuffle";
@@ -53,6 +52,20 @@ const MapsModal = dynamic(() => import("@/components/maps/mapsModal"), { ssr: fa
 const DiscordModal = dynamic(() => import("@/components/discordModal"), { ssr: false });
 const WhatsNewModal = dynamic(() => import("@/components/ui/WhatsNewModal"), { ssr: false });
 const PendingNameChangeModal = dynamic(() => import("./pendingNameChangeModal"), { ssr: false });
+// Season 1 migration notice. ssr:false + dynamic so it costs the initial bundle
+// nothing: for all but one login per account the chunk is never fetched, and on
+// the login that does show it the component self-delays past first paint.
+const Season1NoticeModal = dynamic(() => import("@/components/season1NoticeModal"), { ssr: false });
+// The Stamps shop is its own surface (it used to be a tab in the account
+// modal). ssr:false + dynamic keeps the storefront, its previews and the
+// leaflet-backed marker pins entirely off the home screen's critical path — the
+// chunk is not fetched until somebody actually opens the shop.
+const ShopModal = dynamic(() => import("@/components/shop/ShopModal"), { ssr: false });
+import HudCorner from "@/components/ui/hudCorner";
+import PlayerCard from "@/components/ui/playerCard";
+import AdFreeChip from "@/components/ui/adFreeChip";
+import StampsTile from "@/components/shop/stampsTile";
+import AccountBtn from "@/components/ui/accountBtn";
 import EmoteReactions from "@/components/emoteReactions";
 import GameChat from "@/components/gameChat";
 import WelcomeOverlay from "@/components/welcomeOverlay";
@@ -83,6 +96,7 @@ const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), 
 // NitroPay re-enabled Aug 2 as the revenue stopgap (Playwire swap parked on
 // branch playwire-v2 until their in-game unit + re-add fix land).
 import Ad from "./bannerAdNitro";
+import useAdFree from "@/lib/adFree";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
@@ -164,7 +178,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
+    // A running ad-free pass. One hook, one source of truth (the session's
+    // adFreeUntil), shared with gameUI's in-game slot. See lib/adFree.js.
+    const adFree = useAdFree(session);
     const [accountModalOpen, setAccountModalOpen] = useState(false);
+    // Standalone Stamps shop. Its own flag, deliberately not a page key on the
+    // account modal — the two surfaces are independent and can never stack,
+    // because the shop only opens from the home screen.
+    const [shopModalOpen, setShopModalOpen] = useState(false);
     const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
@@ -227,7 +248,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [settingsModal, setSettingsModal] = useState(false)
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
-    const [merchModal, setMerchModal] = useState(false)
     // In-duel reload button normally sits at (10, 90) under the left HP bar.
     // A team duel stacks two name rows in the centered pill, and a long
     // teammate name can widen it far enough left to swallow the button —
@@ -329,11 +349,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [mapSwitchMaskShown]);
 
     useEffect(() => {
+        // Bounded: this only ever cleared itself if the CMP link showed up, so
+        // on every build where it never does (most of them) it woke the main
+        // thread every 2s for the whole life of the tab. The link is injected
+        // by the consent script during load, so 30 tries (~60s) is well past
+        // any point it could still appear.
+        let tries = 0;
         let hideInt = setInterval(() => {
-            if (document.getElementById("cmpPersistentLink")) {
-                document.getElementById("cmpPersistentLink").style.display = "none";
+            const el = document.getElementById("cmpPersistentLink");
+            if (el) {
+                el.style.display = "none";
                 clearInterval(hideInt);
+                return;
             }
+            if (++tries >= 30) clearInterval(hideInt);
         }, 2000);
 
         return () => clearInterval(hideInt);
@@ -467,7 +496,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const [config, setConfig] = useState(null);
     const [eloData, setEloData] = useState(null);
-    const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
 
     // Use session data for initial display only, then fetch fresh data when modal opens
     useEffect(() => {
@@ -516,34 +544,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 .catch(() => {}); // Keep existing data on error
         }
     }, [session?.token?.username, accountModalOpen])
-    useEffect(() => {
-        if (!eloData?.elo) return;
-
-        const interval = setInterval(() => {
-            setAnimatedEloDisplay((prev) => {
-                prev = parseInt(prev.toString().replace(/,/g, ""));
-                const diff = eloData.elo - prev;
-
-                // Settled: stop ticking entirely. This interval used to run at
-                // 10ms for the whole session (a main-thread wakeup 100x/sec
-                // through every game); the [eloData?.elo] dep re-arms it the
-                // next time the value actually changes.
-                if (diff === 0) {
-                    clearInterval(interval);
-                    return prev;
-                }
-
-                // Determine the step based on the difference
-                const step = Math.ceil(Math.abs(diff) / 10) || 1; // Minimum step is 1
-
-                // Smooth animation
-                if (diff > 0) return Math.min(prev + step, eloData.elo);
-                return Math.max(prev - step, eloData.elo);
-            });
-        }, 10);
-
-        return () => clearInterval(interval);
-    }, [eloData?.elo]);
+    // The rating count-up and its width reservation moved into PlayerCard,
+    // which now owns BOTH counters (rating and Stamps balance). They used to
+    // live in two files and the only thing keeping the twins in step was that
+    // each happened to call the same hook.
     // Warm the maps-modal chunk while the menu idles. It's next/dynamic
     // (ssr:false), so the first open otherwise pays the whole fetch+evaluate
     // inside the click — measured as a 2.3s EvaluateScript task on a
@@ -2523,7 +2527,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setSettingsModal(false);
                 setMapModal(false);
                 setFriendsModal(false);
-                setMerchModal(false);
                 setShowSuggestLoginModal(false);
                 setShowDiscordModal(false);
                 setSelectCountryModalShown(false);
@@ -2679,10 +2682,38 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             // Fresh consensus per match — a stale counter from a
                             // previous game must never render on this end screen
                             // (the server re-broadcasts the real one right after).
-                            playAgain2v2: null
+                            playAgain2v2: null,
+                            // Same rule, same reason: last match's receipt must
+                            // never be on screen with this match's verdict. The
+                            // new one lands moments later on its own message.
+                            stampsEarned: null
                         }
                     };
                 });
+            } else if (data.type === "stampsEarned") {
+                // The stamps receipt for the game that just ended. It rides its
+                // OWN message rather than duelEnd because the grants sit behind
+                // the game save (ws Game.js sendStampEarnings) — duelEnd must
+                // never wait on a DB write. `stampsPending` on duelEnd told the
+                // end screen to reserve the row; this fills it.
+                setMultiplayerState((prev) => {
+                    if (!prev.gameData) return prev;
+                    return {
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            stampsEarned: data
+                        }
+                    };
+                });
+                // The wallet total, straight from the server's post-grant read.
+                // Without this the navbar/shop balance stays at its pre-game
+                // value until something else refetches entitlements.
+                if (typeof data.balance === 'number') {
+                    setSession((prev) => (prev?.token
+                        ? { ...prev, token: { ...prev.token, stamps: data.balance } }
+                        : prev));
+                }
             } else if (data.type === "queueJoined") {
                 // Server confirms we're actually in the duel queue (sent for BOTH
                 // ranked and unranked). This is the ack the join watchdog waits on;
@@ -2758,6 +2789,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             }
                         };
                     })
+                } else if (data.action === "update") {
+                    // PARTIAL merge, never a replace. The server sends this when
+                    // someone equips a cosmetic mid-game (ws.js
+                    // /cosmetics-updated/) and deliberately ships only a `patch`
+                    // of the changed fields — a whole-object swap here would
+                    // stomp live roster state (score, latLong, final,
+                    // disconnected) with values that endpoint never knew.
+                    //
+                    // This branch did not exist, so the patch was parsed and
+                    // silently discarded: equipping a pin or glow during a match
+                    // changed nothing on anyone else's screen until a rejoin.
+                    const id = data.id;
+                    const patch = data.patch;
+                    if (id && patch) {
+                        setMultiplayerState((prev) => {
+                            if (!prev.gameData?.players) return prev;
+                            return {
+                                ...prev,
+                                gameData: {
+                                    ...prev.gameData,
+                                    players: prev.gameData.players.map((p) =>
+                                        p.id === id ? { ...p, ...patch } : p
+                                    )
+                                }
+                            };
+                        });
+                    }
                 }
             } else if (data.type === "place") {
                 // Interim teammate placements AND final placements (broadcast
@@ -3929,6 +3987,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // drops emotes in the staging room). In-game surfaces still gate on the
     // server's disableEmotes below.
     const emotesLive = multiplayerState?.inGame;
+    // The picker's roster, straight off the session token (api/stampShop.js
+    // entitlementFields ships both on every auth response, and useStampShop
+    // patches them into this same object the moment the shop writes). Guests
+    // have neither, which resolveEmoteBar reads as the free eight.
+    const myEmoteOrder = session?.token?.cosmetics?.emoteOrder;
+    const myOwnedCosmetics = session?.token?.cosmetics?.owned;
     const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
         subscribeMessages={subscribeMessages}
@@ -3936,12 +4000,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         inGame={emotesLive}
         myId={multiplayerState?.gameData?.myId ?? multiplayerState?.queueMyId}
         myTeam={myEmoteTeam}
+        emoteOrder={myEmoteOrder}
+        ownedCosmetics={myOwnedCosmetics}
         // Hide names only in 1v1 duels, where attribution is obvious (you or
         // the one opponent). 2v2 duels NEED the name + team color — with four
         // players an anonymous emote is unreadable.
         hideName={multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2}
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableEmotes])
+    />, [ws, subscribeMessages, multiplayerEmotesEnabled, emotesLive, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, myEmoteTeam, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableEmotes, myEmoteOrder, myOwnedCosmetics])
 
     // Chat audience mirrors the server gate: private games (parties, teamGame,
     // 2v2 staging) or matchmade 2v2 (team2v2, teammate-only server-side).
@@ -4495,6 +4561,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         (multiplayerState?.gameData?.maxPlayers ?? (multiplayerState?.gameData?.is2v2Lobby ? 2 : Infinity))
                 } sendInvite={sendInvite} options={options}
             />}
+            {/* The Stamps shop. Mounted ONLY while open, which is what tears the
+                ad-free countdown interval down on close — ShopModal plays its
+                own exit animation first and then calls back here to unmount. */}
+            {shopModalOpen && (
+                <ShopModal
+                    session={session}
+                    setSession={setSession}
+                    onClose={() => setShopModalOpen(false)}
+                />
+            )}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
             {/* The link-Google variant always wins over the periodic suggestion —
                 the two must never stack (also enforced at open time). Both stay
@@ -4510,6 +4586,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) { setLinkGoogleModalOpen(false); if (!inCrazyGames) joinAfterLoginRef.current = null; } }} variant={linkGoogleModal} inviterName={linkGoogleInviter} inCrazyGames={inCrazyGames} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
+            {/* Season 1 migration notice, once per account. The server decides
+                WHETHER (it omits eloNotice entirely once acked), this decides
+                WHEN. Home screen only, so it never lands mid-game or over the
+                onboarding flow, and behind the two forced modals (username,
+                pending name change) so it can never stack on top of a flow the
+                user has to complete. Gated on `username` rather than `secret`
+                because a brand-new account has no eloNotice anyway and the
+                username gate is what keeps SetUsernameModal alone on screen. */}
+            {screen === "home" && session?.token?.eloNotice && session?.token?.username
+                && !session?.token?.pendingNameChange && !pendingNameChangeModal && (
+                <Season1NoticeModal session={session} eloNotice={session.token.eloNotice} />
+            )}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
             {/* CoolMath explicitly opted out of chat; SchoolGuessr is the
                 school build. Both are compile-time flags, so the chat chunk
@@ -4533,7 +4621,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             )}
 
             {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
-            {/* Background street2 image is rendered via body::before in _document.js */}
+            {/* Site background image is rendered via body::before in _document.js */}
 
             {/* data-nosnippet: everything in here is game chrome, not prose —
                 Google was assembling search snippets out of it ("© Google
@@ -4645,12 +4733,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     has NOTHING else on screen (home UI + navbar are gated) — without the
                     spinner that window is a dead static image. */}
                 <div className={`loading-overlay ${(loading || mapSwitchMaskShown || newUserBooting) ? 'loading-overlay--visible' : ''}`}>
-                    {/* var(--bg-street2) = the daily background _document.js set
-                        pre-paint — reuses the already-preloaded image from cache.
-                        The old hardcoded street2 NextImage had `priority`, which
-                        made every visitor download BOTH street2 AND the daily
-                        image once the rotation shipped, and kept the loading
-                        screen on the stale art. */}
+                    {/* var(--site-bg) = the background _document.js declared and
+                        preloaded pre-paint, so this reuses the already-cached
+                        image and follows a purchased one. It used to be a
+                        hardcoded street2 NextImage with `priority`, which made
+                        every visitor download a second full-size hero image and
+                        kept the loading screen on art the menu was not using. */}
                     <div
                         aria-hidden="true"
                         style={{
@@ -4659,7 +4747,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             left: 0,
                             width: "100%",
                             height: "100%",
-                            background: `var(--bg-street2, url("${asset('/street2.webp')}")) center/cover no-repeat`,
+                            background: 'var(--site-bg) center/cover no-repeat',
                             opacity: 0.5,
                         }}
                     />
@@ -4735,11 +4823,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                     countryGuessrMode={countryGuessrMode}
                 />
-
-                {/* Daily background city chip — decorative, home screen only,
-                    suppressed during onboarding and on portal builds (the
-                    component itself no-ops there). */}
-                {screen === 'home' && onboardingCompleted === true && <BgCityChip />}
 
                 {/* Pending Name Change Banner */}
                 {session?.token?.pendingNameChange && screen === 'home' && !dismissedNameChangeBanner && (
@@ -4857,7 +4940,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     the ad flashes before screen flips to onboarding. */}
                 {/* Nitro home banner re-enabled Aug 2 (revenue stopgap; the
                     Playwire replacement for this slot lives on playwire-v2). */}
-                {screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                {/* !adFree: the bought pass. This slot had NO entitlement gate of
+                    any kind before it, which is why buying ad-free changed
+                    nothing on the home screen. lib/adFree.js reads the expiry off
+                    the session, so the purchase lands here on the same tick and
+                    the slot unmounts (creative and refresh timer torn down, not
+                    hidden). */}
+                {!adFree && screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
                         <Ad
                             unit={"worldguessr_home_ad"}
@@ -4892,31 +4981,82 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
 
-                {/* ELO/League button. mapModal hides via visibility, not
-                    unmount — same contract as the Community Maps button
-                    below: leagueBtn carries the shared hudEnter entrance,
-                    and unmounting while the modal this row opens is up
-                    replayed the slide-in on every modal close. */}
-                <div>
-                    {screen === "home" && session && session?.token?.secret && (
-                        <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
-                            style={{ backgroundColor: eloData?.league?.color, visibility: mapModal ? 'hidden' : 'visible' }}
-                        >
-                            {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
-                        </button>
-                    )}
-                </div>
+                {/* THE TOP-RIGHT CORNER — one flex column (styles/playerCard.css).
+                    It used to be five separately-fixed elements (username pill,
+                    friends icon, league chip, Stamps balance, Maps button) whose
+                    vertical stacking was a set of hand-tuned `top:` values that
+                    quoted each other in comments, plus a whole --below-login
+                    variant of the Maps button whose only job was dodging the
+                    taller login button above it. Stacking is computed now, so
+                    none of those numbers survive and nothing can overlap.
 
-                {/* Community Maps icon (moved out of left menu). mapModal
-                    hides via `covered` (visibility), not unmount — closing
-                    the modal it opens must not replay its entrance. */}
-                {screen === "home" && onboardingCompleted && !inPoki &&
-                    !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
-                    <DailyCommunityMapsButton
-                        onClick={() => setMapModal(true)}
-                        covered={!!mapModal}
-                        loggedOut={!session?.token?.secret}
-                    />
+                    ORDER IS PLAIN READING ORDER. The old row was row-reverse
+                    with a load-bearing DOM order because two siblings shared one
+                    fixed coordinate and each carried its own entrance animation.
+                    The column owns both now: the entrance is on .hudCorner
+                    itself, so a child mounting later (the Stamps flag arriving)
+                    cannot replay anything.
+
+                    Modals hide the column with visibility, never an unmount —
+                    ONE site, replacing the five places that contract used to be
+                    restated at. */}
+                {/* onboardingCompleted === true is the navbar's `shown` gate,
+                    restated: a brand-new user's FIRST PAINT is screen "home"
+                    while the A/B variant resolves, and this column no longer
+                    lives inside the navbar to inherit that guard. Without it the
+                    login button flashes in the corner for a frame before
+                    onboarding takes over. */}
+                {screen === "home" && onboardingCompleted === true && !HIDE_ACCOUNT_UI && (
+                    <HudCorner covered={accountModalOpen || mapModal}>
+                        {session?.token?.secret ? (
+                            <PlayerCard
+                                session={session}
+                                eloData={eloData}
+                                friendRequests={multiplayerState?.friendRequestCount || 0}
+                                onOpenProfile={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
+                                onOpenElo={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
+                                onOpenFriends={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
+                            />
+                        ) : (
+                            /* showAccBtn's ?app=true gate, restated: the WebView
+                               build has its own account UI. AccountBtn itself
+                               still returns null for CrazyGames/GD when signed
+                               out, and the column simply closes the gap. */
+                            !isApp && !multiplayerState?.inGame && (
+                                <AccountBtn
+                                    inCrazyGames={inCrazyGames}
+                                    inGameDistribution={inGameDistribution}
+                                    session={session}
+                                    navbarMode={false}
+                                    openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
+                                    loginQueued={loginQueued}
+                                    setLoginQueued={setLoginQueued}
+                                />
+                            )
+                        )}
+
+                        {/* The balance, as its own tile rather than a fourth
+                            cell inside the card. It renders nothing unless the
+                            server's kill switch is on and there is a session,
+                            so the column simply closes the gap. */}
+                        <StampsTile session={session} onOpen={() => setShopModalOpen(true)} />
+
+                        {/* The running ad-free pass, directly under the card
+                            that sold it. Renders nothing at all unless a pass is
+                            live, which is why it is unconditional here. See
+                            components/ui/adFreeChip.js: buying one used to be
+                            invisible the moment the shop closed. */}
+                        <AdFreeChip session={session} />
+
+                        {/* Community Maps. Not account chrome, and not a game
+                            mode — the picker is already reachable from the
+                            Singleplayer map chip — so it stays its own button
+                            and simply sits under the card. */}
+                        {onboardingCompleted && !inPoki &&
+                            !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
+                            <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
+                        )}
+                    </HudCorner>
                 )}
 
                 {/* Daily challenge screen (landing → game → results) */}
@@ -5095,7 +5235,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             !isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                             <CommunityBanner
                                 visible={screen === "home" && onboardingCompleted === true}
-                                covered={!!(mapModal || merchModal || friendsModal || accountModalOpen)}
+                                covered={!!(mapModal || friendsModal || accountModalOpen)}
                                 onVisitForum={openForum}
                                 text={text}
                             />
@@ -5107,7 +5247,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             ancestor, and re-rendering restarts animations).
                             covered = visibility-hidden under modals: same
                             screen, so closing a modal must NOT replay. */}
-                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true) ? "visible" : ""} ${(mapModal || merchModal || friendsModal || accountModalOpen) ? "covered" : ""}`}>
+                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true) ? "visible" : ""} ${(mapModal || friendsModal || accountModalOpen) ? "covered" : ""}`}>
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                                     <>

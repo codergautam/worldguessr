@@ -7,8 +7,16 @@ import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
 import { getLeague } from '../components/utils/leagues.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
+import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// The user lookup below is cached for 120s under an EXPLICIT key,
+// `crazyAuth_${crazyGamesId}`. The key is not decoration: a keyless .cache()
+// generates its own internal key, which nothing outside recachegoose can name,
+// and clearCache() then has nothing to target — a CrazyGames player's purchase
+// would stay invisible to them for the full 120 seconds. api/stampShop.js
+// clears exactly this key (see its cache-chain header). Keep the two in sync.
 
 // In-memory cache for CrazyGames public key (1 hour TTL)
 let cachedPublicKey = null;
@@ -42,6 +50,14 @@ async function getExtendedUserData(user, timings = {}) {
     canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
     daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
     recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
+    // Season 0 commemorative fields — same set and same reason as the identical
+    // block in api/googleAuth.js. A CrazyGames-linked veteran gets the same
+    // badges on their own profile as a Google-linked one. The query above is an
+    // unprojected findOne, so every column is already loaded.
+    seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
+    seasonPeakLeague: user.seasonPeakLeague || null,
+    season0Elo: user.elo_s0 ?? null,
+    ogAccount: user.ogAccount === true,
   };
 
   // eloRank data
@@ -64,7 +80,10 @@ async function getExtendedUserData(user, timings = {}) {
 
   timings.extendedData = Date.now() - startExtended;
 
-  return { ...publicData, ...eloData };
+  // Entitlements (stamps / cosmetics / adFreeUntil / stampsEnabled) ride along
+  // with the response that spreads this object. stampsEnabled is
+  // SERVER-delivered, never a client build constant.
+  return { ...publicData, ...eloData, ...entitlementFields(user) };
 }
 
 export default async function handler(req, res) {
@@ -131,7 +150,6 @@ export default async function handler(req, res) {
       email: user.email,
       staff: user.staff,
       canMakeClues: user.canMakeClues,
-      supporter: user.supporter,
       accountId: user._id,
       countryCode: user.countryCode || null,
       banned: user.banned || false,
@@ -203,7 +221,6 @@ export default async function handler(req, res) {
     email: newUser.email,
     staff: newUser.staff || false,
     canMakeClues: newUser.canMakeClues || false,
-    supporter: newUser.supporter || false,
     accountId: newUser._id,
     countryCode: null,
     banned: false,
@@ -226,6 +243,9 @@ export default async function handler(req, res) {
     duels_wins: 0,
     duels_losses: 0,
     duels_tied: 0,
-    win_rate: 0
+    win_rate: 0,
+    // Hand-built literal, spreads nothing: the entitlement defaults have to be
+    // added explicitly or a brand-new CG account gets no shop at all.
+    ...defaultEntitlementFields()
   });
 }

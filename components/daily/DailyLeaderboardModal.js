@@ -5,6 +5,7 @@ import config from '@/clientConfig';
 import { useTranslation } from '@/components/useTranslations';
 import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
 import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
+import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
 
 // Client-side pages over the single top-100 response — 100 rows of
 // {rank,username,score} is one small fetch; no point round-tripping per page.
@@ -17,13 +18,20 @@ function medal(rank) {
   return <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{rank}</span>;
 }
 
-function ProfileNameLink({ username, className }) {
+function ProfileNameLink({ username, className, nameGlow = null }) {
   if (!username) return null;
+  // Static, cached props: this modal paints ten rows at a time out of a
+  // hundred-row response, and a keyframed text-shadow per row is main-thread
+  // paint on a surface that exists to be scrolled. Dark modal → dark variant.
+  const glow = cachedNameGlowProps(nameGlow, undefined, { animated: false });
+  const label = glow
+    ? <span className={glow.className} style={glow.style}>{username}</span>
+    : username;
   // Plain text on the builds that can't carry a profile link: Poki hosts at a
   // nested per-deploy CDN path with no /user route so the tab would 404, and
   // GameDistribution forbids opening tabs at all.
   if (NO_PROFILE_LINKS) {
-    return <span className={className}>{username}</span>;
+    return <span className={className}>{label}</span>;
   }
   return (
     <Link
@@ -33,12 +41,12 @@ function ProfileNameLink({ username, className }) {
       className={className}
       onClick={(e) => e.stopPropagation()}
     >
-      {username}
+      {label}
     </Link>
   );
 }
 
-export default function DailyLeaderboardModal({ isOpen, onClose, date, userData = null, isLoggedIn, onSignIn }) {
+export default function DailyLeaderboardModal({ isOpen, onClose, date, userData = null, isLoggedIn, onSignIn, ownNameGlow = null }) {
   const { t: text } = useTranslation();
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(false);
@@ -95,7 +103,7 @@ export default function DailyLeaderboardModal({ isOpen, onClose, date, userData 
               <div key={entry.rank} className={`daily-leaderboard-row ${isMe ? 'self' : ''}`}>
                 <div className="rank-name-group">
                   <span className="rank">{medal(entry.rank)}</span>
-                  <ProfileNameLink username={entry.username} className="name daily-leaderboard-name-link" />
+                  <ProfileNameLink username={entry.username} nameGlow={entry.nameGlow} className="name daily-leaderboard-name-link" />
                 </div>
                 <span className="score">{entry.score.toLocaleString()}</span>
               </div>
@@ -127,7 +135,7 @@ export default function DailyLeaderboardModal({ isOpen, onClose, date, userData 
                     <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{userData.ownRank}</span>
                   </span>
                   {username
-                    ? <ProfileNameLink username={username} className="name daily-leaderboard-name-link" />
+                    ? <ProfileNameLink username={username} nameGlow={ownNameGlow} className="name daily-leaderboard-name-link" />
                     : <span className="name">{text('yourScore')}</span>}
                 </div>
                 <span className="score">{Number(userData?.ownScore || 0).toLocaleString()}</span>

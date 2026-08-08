@@ -215,11 +215,11 @@ export default function DailyScreen() {
       // game phase: a stray back-gesture / button would abandon the run, so
       // confirm first instead of dropping straight back to the landing screen.
       Alert.alert(
-        t('leaveGameTitle', undefined, 'Leave game?'),
-        t('leaveGameMessage', undefined, 'Your current game will be lost.'),
+        t('leaveGameTitle'),
+        t('leaveGameMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
-          { text: t('leaveGameConfirm', undefined, 'Leave'), style: 'destructive', onPress: () => setPhase('landing') },
+          { text: t('leaveGameConfirm'), style: 'destructive', onPress: () => setPhase('landing') },
         ],
       );
       return true;
@@ -476,7 +476,7 @@ export default function DailyScreen() {
           <View style={styles.loadError}>
             <Ionicons name="cloud-offline-outline" size={52} color={dailyColors.green} />
             <Text style={styles.loadErrorText}>
-              {t('dailyLocationsLoadFailed', undefined, "Couldn't load today's challenge. Please check your connection and try again.")}
+              {t('dailyLocationsLoadFailed')}
             </Text>
             <Pressable
               onPress={fetchLocations}

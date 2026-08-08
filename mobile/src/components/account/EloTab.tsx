@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
-import { getLeague, leagues } from '../../shared/user/leagues';
+import { getActiveLeagues, resolveLeague, type ServerLeague } from '../../shared/user/leagues';
 import { t } from '../../shared';
 import {
   GlassCard,
@@ -14,6 +14,13 @@ import {
 interface EloData {
   elo: number;
   rank: number;
+  /**
+   * The league as api/eloRank.js computed it (`getLeague(user.elo)` — the WHOLE
+   * object). PREFERRED over the local cutoff table: a seasonal re-anchor of the
+   * tiers then lands for everyone without a store release. Absent on older
+   * servers, in which case the local table answers.
+   */
+  league?: ServerLeague;
   duels_wins: number;
   duels_losses: number;
   duels_tied: number;
@@ -40,8 +47,11 @@ export default function EloTab({
 }: EloTabProps) {
   if (!eloData) return null;
 
-  const userLeague = getLeague(eloData.elo);
-  const leagueList = Object.values(leagues);
+  // The badge shows the CURRENT tier, so the server's answer wins here. The
+  // LADDER below is still the local table — it is a static reference chart of
+  // every tier, and the server only ever tells us about the one the user is in.
+  const userLeague = resolveLeague(eloData.elo, eloData.league);
+  const leagueList = Object.values(getActiveLeagues());
   const [pressedLeague, setPressedLeague] = useState<string | null>(null);
 
   return (
@@ -61,7 +71,7 @@ export default function EloTab({
               >
                 {showBadge && (
                   <View style={[localStyles.eloBadge, { backgroundColor: league.color }]}>
-                    <Text style={localStyles.eloBadgeText}>{league.min} {t('elo')}</Text>
+                    <Text style={localStyles.eloBadgeText}>{league.min}+ {t('elo')}</Text>
                   </View>
                 )}
                 <View

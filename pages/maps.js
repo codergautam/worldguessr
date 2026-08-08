@@ -43,7 +43,7 @@ export default function MapsPage({ }) {
                 <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
                 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
             </Head>
-            {/* body::before (street2.webp over black) supplies the backdrop —
+            {/* body::before (the site background over black) supplies the backdrop —
                 the same one the home screen and maps modal sit on. MapView
                 draws its own glass panel, so the page adds no shell of its
                 own: just the single scroll container (outer-only scroll, iOS). */}

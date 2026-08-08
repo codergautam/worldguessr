@@ -4,13 +4,19 @@ import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
 import '@/styles/daily.scss';
+import '@/styles/nameGlow.css';
+import '@/styles/shop.css';
+import '@/styles/playerCard.css';
+import '@/styles/season1Badges.css';
+import '@/styles/hallOfFame.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
-import { dailyBackgroundPath } from '@/lib/dailyBackground';
+import { DEFAULT_BACKGROUND_PATH, backgroundUrlForSku, rememberSiteBackground } from '@/lib/siteBackground';
+import { useSession } from '@/components/auth/auth';
 import installErrorTracking from '@/lib/errorTracking';
 import getPlatform from '@/components/utils/getPlatform';
 import { attachUiClickSounds } from '@/components/utils/audio';
@@ -39,32 +45,47 @@ const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
 
 function App({ Component, pageProps }) {
   const router = useRouter();
+  // Passive here: useSession only starts an auth fetch once window.cConfig
+  // exists, and cConfig is set by the page (home.js), never by _app — so this
+  // subscribes to the session rather than pulling one forward into the
+  // pre-interaction window.
+  const { data: session } = useSession();
+  // URL of the background this visitor actually PAID for, or null — the shared
+  // resolver in lib/siteBackground.js, which is also what the shop's equip and
+  // /user's per-profile background go through.
+  const equippedBackground = backgroundUrlForSku(session?.token?.cosmetics?.equipped?.background);
+  // components/auth/auth.js: `false` means the session is still resolving,
+  // `null` means genuinely signed out. The difference decides whether "no
+  // background equipped" is an answer or just the absence of one.
+  const sessionResolved = session !== false;
 
   useEffect(() => {
-    // Set CSS custom properties for background images that need basePath.
-    // dailyBackgroundPath rotates per UTC day; _document.js already set the
-    // identical value pre-paint, so this is a same-value re-assert plus the
-    // app-ready preload gate below waiting on the right image.
-    const streetBackground = asset(dailyBackgroundPath());
-    document.documentElement.style.setProperty('--bg-street2', `url("${streetBackground}")`);
-
-    // Prefetch TOMORROW's background at idle so the daily rotation never
-    // costs a cold LCP fetch: today's first visit finds the image already
-    // in HTTP cache from yesterday's session. Lowest-priority hint, deferred
-    // past the pre-interaction window (perf-overhaul rule); portals resolve
-    // every day to street2 so the guard makes this a no-op there.
-    const tomorrowBackground = asset(dailyBackgroundPath(Date.now() + 86400000));
-    if (tomorrowBackground !== streetBackground && typeof document !== 'undefined') {
-      const prefetchTomorrow = () => {
-        if (document.querySelector(`link[rel="prefetch"][href="${tomorrowBackground}"]`)) return;
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.as = 'image';
-        link.href = tomorrowBackground;
-        document.head.appendChild(link);
-      };
-      if ('requestIdleCallback' in window) requestIdleCallback(prefetchTomorrow, { timeout: 15000 });
-      else setTimeout(prefetchTomorrow, 8000);
+    // A PURCHASED background overrides the default. This is still the writer of
+    // record — the session decides — but it is no longer the first paint an
+    // owner sees: the pre-paint script in _document replays this device's last
+    // equipped background so the reload does not flash London first. See the
+    // cache contract in lib/siteBackground.js.
+    //
+    // REMOVING the property is not the same as writing the default URL into it,
+    // and the removal branch is why this is safe to run for everybody: it hands
+    // `--site-bg` back to the :root rule _document declared, so unequipping
+    // leaves exactly one owner of the value instead of a stale inline copy that
+    // would survive a future change to the default.
+    //
+    // IT ONLY REMOVES ONCE THE SESSION HAS RESOLVED. The first render of every
+    // page has no session yet, so an unconditional removal here would delete
+    // the pre-paint value and restore the exact flash this is meant to kill —
+    // just later, and only for the people who paid.
+    //
+    // backgroundUrlForSku already applied basePath; the default is a bare
+    // catalogue-style path and still needs it.
+    const backgroundPath = equippedBackground || asset(DEFAULT_BACKGROUND_PATH);
+    if (equippedBackground) {
+      document.documentElement.style.setProperty('--site-bg', `url("${backgroundPath}")`);
+      rememberSiteBackground(backgroundPath);
+    } else if (sessionResolved) {
+      document.documentElement.style.removeProperty('--site-bg');
+      rememberSiteBackground(null);
     }
 
     let cancelled = false;
@@ -76,7 +97,7 @@ function App({ Component, pageProps }) {
     backgroundImage.decoding = 'async';
     backgroundImage.onload = markAppReady;
     backgroundImage.onerror = markAppReady;
-    backgroundImage.src = streetBackground;
+    backgroundImage.src = backgroundPath;
 
     if (backgroundImage.complete) markAppReady();
 
@@ -85,7 +106,11 @@ function App({ Component, pageProps }) {
       backgroundImage.onload = null;
       backgroundImage.onerror = null;
     };
-  }, []);
+    // Both deps are plain primitives derived from the session, so this runs
+    // once for anonymous visitors and at most twice for a signed-in owner
+    // (default, then their image). `app-ready` is additive — the second pass
+    // re-adds a class the body already has, it never un-reveals the app.
+  }, [equippedBackground, sessionResolved]);
 
   // Field Web Vitals → GA4. CrUX shows failures (CLS especially) happening
   // mid-session where Lighthouse's load-only trace can't see them; the

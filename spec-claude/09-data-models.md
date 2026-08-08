@@ -34,7 +34,6 @@
   staff: Boolean,
   canMakeClues: Boolean,
   instant_accept_maps: Boolean,
-  supporter: Boolean,
 
   // Ban
   banned: Boolean,
@@ -239,8 +238,7 @@
     countryCode: String,
     currentValue: Number,
     delta: Number,
-    rank: Number,
-    supporter: Boolean
+    rank: Number
   }],
   createdAt: Date  // TTL: 30 days
 }

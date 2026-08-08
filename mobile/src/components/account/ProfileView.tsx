@@ -28,6 +28,17 @@ import CountrySelectorModal from './CountrySelectorModal';
 
 type TabKey = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
 
+// NO MIGRATION MARKER LIVES HERE ANY MORE.
+//
+// This file used to render a Season1MilestoneNote card under the chart, mirroring
+// the dashed gold rule the web chart drew in-canvas. Both existed for one reason:
+// the migration granted up to ~2.35M XP as a single UserStats row, so totalXp
+// leapt in one step and the chart had to explain itself.
+//
+// That XP grant was cut before it shipped, so there is no step left to explain.
+// Ratings never needed one either: api/userProgression.js converts pre-migration
+// points onto the v2 scale server-side, so the elo curve has no seam at all.
+
 interface Tab {
   key: TabKey;
   // Store the locale KEY (not a resolved string) so we can call t() at render
@@ -59,7 +70,6 @@ interface ProfileData {
   createdAt?: string;
   profileViews?: number;
   countryCode?: string;
-  supporter?: boolean;
   rank?: number;
   canChangeUsername?: boolean;
   daysUntilNameChange?: number;
@@ -72,11 +82,24 @@ interface ProfileData {
     ties: number;
     winRate: number;
   };
+  /**
+   * Equipped cosmetics, as api/publicProfile.js and api/publicAccount.js both
+   * return them. Only `nameGlow` is public — nothing else about an inventory
+   * leaves the server on this route.
+   */
+  cosmetics?: { equipped?: { nameGlow?: string | null } };
 }
 
 interface EloData {
   elo: number;
   rank: number;
+  /**
+   * Whole league object from api/eloRank.js. Declared here so it SURVIVES the
+   * hop into <EloTab>, which prefers it over the local cutoff table — the
+   * server already knows the tier for this rating, and trusting it means a
+   * seasonal re-anchor needs no store release.
+   */
+  league?: { name?: string; min?: number; max?: number; emoji?: string; color?: string; light?: string };
   duels_wins: number;
   duels_losses: number;
   duels_tied: number;
@@ -93,7 +116,6 @@ interface ProfileViewProps {
     totalXp?: number;
     totalGamesPlayed?: number;
     countryCode?: string;
-    supporter?: boolean;
     staff?: boolean;
     banned?: boolean;
     banType?: string;
@@ -186,7 +208,7 @@ export default function ProfileView({
         ]);
 
         if (account.status === 'rejected') {
-          setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
+          setError(t('failedToLoadProfile'));
           setLoading(false);
           return;
         }
@@ -199,7 +221,6 @@ export default function ProfileView({
           gamesLen: accountVal.gamesLen,
           createdAt: accountVal.createdAt,
           countryCode: accountVal.countryCode ?? user?.countryCode,
-          supporter: user?.supporter,
           canChangeUsername: accountVal.canChangeUsername,
           daysUntilNameChange: accountVal.daysUntilNameChange,
           recentChange: accountVal.recentChange,
@@ -251,7 +272,7 @@ export default function ProfileView({
         }
       }
     } catch (e) {
-      setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
+      setError(t('failedToLoadProfile'));
     } finally {
       setLoading(false);
     }
@@ -408,7 +429,7 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>{t('loadingProfile', undefined, 'Loading profile...')}</Text>
+              <Text style={styles.loadingText}>{t('loadingProfile')}</Text>
             </View>
           </View>
         )}
@@ -419,7 +440,7 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle}>{error}</Text>
-              <Text style={styles.errorSubtext}>{t('profileCouldNotLoad', undefined, 'The profile could not be loaded.')}</Text>
+              <Text style={styles.errorSubtext}>{t('profileCouldNotLoad')}</Text>
               <View style={styles.errorActions}>
                 <Pressable
                   style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.8 }]}
@@ -460,21 +481,14 @@ export default function ProfileView({
                 <PlayerName
                   name={profileData.username}
                   countryCode={profileData.countryCode}
+                  // ANIMATED: one name, on the screen a player links people to
+                  // when they want the thing they bought to be seen.
+                  glow={profileData.cosmetics?.equipped?.nameGlow}
                   flagSize={24}
                   gap={10}
                   numberOfLines={0}
                   textStyle={styles.usernameText}
                 />
-                {profileData.supporter && (
-                  <LinearGradient
-                    colors={['#ffd700', '#ffed4e']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.supporterBadge}
-                  >
-                    <Text style={styles.supporterText}>{t('supporter').toUpperCase()}</Text>
-                  </LinearGradient>
-                )}
                 {/* Share Profile Link */}
                 <Pressable
                   style={({ pressed }) => [styles.shareButton, pressed && { opacity: 0.7 }]}
@@ -670,16 +684,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
-  },
-  supporterBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-  },
-  supporterText: {
-    color: '#000',
-    fontSize: 11,
-    fontFamily: 'Lexend-Bold',
   },
   shareButton: {
     width: 32,

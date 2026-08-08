@@ -3,8 +3,12 @@ Standalone auth server — isolates login + signup endpoints (googleAuth, setNam
 so they keep working when the main API server is overloaded.
 */
 
-import { config } from 'dotenv';
-config();
+// FIRST IMPORT, AND IT MUST STAY FIRST — see the long note at the top of
+// ws/ws.js. The `config()`-in-the-body form this replaces looked correct (it sat
+// above every other import) but ESM hoists and evaluates ALL imports before the
+// first body statement, so api/googleAuth.js and friends were still loaded with
+// an unpopulated process.env.
+import 'dotenv/config';
 
 import mongoose from 'mongoose';
 import cachegoose from 'recachegoose';

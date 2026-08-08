@@ -145,6 +145,7 @@ function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
               flagSize={12}
               gap={4}
               textStyle={[styles.username, !isSelf && !!p.accountId && styles.usernameOpponent]}
+              glow={p.nameGlow}
             >
               {typeof p.elo === 'number' && (
                 <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>
@@ -305,6 +306,7 @@ function HealthBar({
       flagSize={14}
       textStyle={[styles.username, hasProfile && styles.usernameOpponent]}
       gap={5}
+      glow={player.nameGlow}
     >
       {player.elo !== undefined && (
         <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>

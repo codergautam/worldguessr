@@ -26,7 +26,7 @@
         rgba(0, 30, 15, 0.8) 50%,
         rgba(0, 0, 0, 0.9) 100%
     ),
-    var(--bg-street2);
+    var(--site-bg);
     background-size: cover;
     background-position: center;
     /* Changed from background-attachment: fixed to position: fixed */
@@ -55,6 +55,15 @@
     margin-bottom: 20px;
 }
 
+/* The `overflow: hidden; text-overflow: ellipsis` pair that used to live here is
+   gone for the same reason it left three rules in globals.scss: this element is
+   `display: flex` (set inline by accountModal.js), the ellipsis has therefore
+   never fired, and all the overflow did was shear an equipped name glow flush
+   with the letterforms — on the ONE surface a buyer opens to admire it. The
+   truncation moved onto the name's own span in accountModal.js as the shared
+   .wg-name-clip recipe, where the ellipsis is real and the clip edge sits 34px
+   out. That class is unconditional: a title that only truncates once its owner
+   equips something is a purchase that changes the layout. */
 .account-modal-title {
     font-size: clamp(2rem, 4vw, 3rem);
     font-weight: 600;
@@ -62,8 +71,6 @@
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .account-modal-close {
@@ -347,7 +354,7 @@
             rgba(0, 20, 10, 0.9) 50%,
             rgba(0, 0, 0, 0.95) 100%
         ),
-        var(--bg-street2);
+        var(--site-bg);
         background-size: cover;
         background-position: center;
     }

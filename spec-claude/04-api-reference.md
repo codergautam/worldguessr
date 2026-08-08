@@ -34,7 +34,6 @@ Primary auth endpoint for Google OAuth and session refresh.
   "email": "user@email.com",
   "staff": false,
   "canMakeClues": false,
-  "supporter": false,
   "accountId": "mongodb-id",
   "countryCode": "US",
   "banned": false,
@@ -88,7 +87,6 @@ Get current authenticated user's basic info.
   "username": "PlayerName",
   "email": "user@email.com",
   "countryCode": "US",
-  "supporter": false,
   "staff": false,
   "banned": false
 }
@@ -137,7 +135,6 @@ Get detailed public profile. Rate limit: 20 req/min per IP.
   "rank": 234,
   "league": { "name": "Explorer" },
   "duelStats": { "wins": 10, "losses": 5, "tied": 2, "winRate": 58.8 },
-  "supporter": false,
   "countryCode": "US"
 }
 ```
@@ -290,7 +287,6 @@ Get global leaderboard rankings.
       "elo": 8500,
       "eloToday": 200,
       "createdAt": "2024-01-01T00:00:00Z",
-      "supporter": true,
       "rank": 1
     }
   ],

@@ -34,6 +34,7 @@ import streetViewUrl from '../../src/utils/streetViewUrl';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
+import StampsEarnedDisplay from '../../src/components/multiplayer/StampsEarnedDisplay';
 import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
 import GameChat from '../../src/components/multiplayer/GameChat';
 import TeamScoreline from '../../src/components/multiplayer/TeamScoreline';
@@ -76,11 +77,13 @@ interface PlayerInfo {
   countryCode?: string;
   totalPoints: number;
   finalRank?: number;
-  elo?: { before?: number; after?: number; change?: number };
+  elo?: { before?: number; after?: number; change?: number; placement?: boolean };
   /** Team assignment in team games — from the FROZEN end roster, never live. */
   team?: 'a' | 'b';
   /** null for guests/bots — gates profile links + report eligibility. */
   accountId?: string | null;
+  /** Equipped name-glow sku off the roster. Rendered by <PlayerName glow>. */
+  nameGlow?: string | null;
 }
 
 interface MultiplayerInfo {
@@ -111,6 +114,8 @@ interface MultiplayerInfo {
 }
 
 interface DuelOpponent {
+  /** Roster key — the round view resolves the equipped glow through it. */
+  playerId: string;
   username: string;
   countryCode?: string;
   points: number;
@@ -243,6 +248,7 @@ function transformLiveRounds(history: LiveRoundHistoryEntry[], myId: string): Ro
     const duelOpponentEntry = Object.entries(round.players).find(([playerId]) => playerId !== effectiveMyId);
     const duelOpponent = duelOpponentEntry
       ? {
+          playerId: duelOpponentEntry[0],
           username: duelOpponentEntry[1].username,
           countryCode: duelOpponentEntry[1].countryCode,
           points: duelOpponentEntry[1].points ?? 0,
@@ -336,6 +342,15 @@ export default function GameResultsScreen() {
   const isHistoryView = fromHistory === 'true';
   const isLiveMultiplayer = mpParam === 'true';
   const secret = useAuthStore((s) => s.secret);
+  // SUBSCRIBED, not a getState() snapshot: the ws `elo` message that stamps the
+  // server's league can land AFTER this screen mounts, and a one-shot read would
+  // then paint the tier from the local cutoff table forever.
+  const myLeague = useAuthStore((s) => s.user?.league);
+  // The viewer's own pin sku. Opponents' skins ride on their guess entries
+  // inside `rounds`, but the viewer's own guess is drawn from each round's
+  // guessLat/guessLong, so in singleplayer (no players map) this is the only
+  // route their purchased pin has to the results map.
+  const myMarkerSkin = useAuthStore((s) => s.user?.cosmetics?.equipped?.markerSkin ?? null);
 
   // Parse the frozen duelEnd payload ONCE — three shapes ride the same
   // message (1v1 / team2v2 / teamGame) and several derivations below branch
@@ -367,6 +382,14 @@ export default function GameResultsScreen() {
   // state stay readable here.
   const mpHost = useMultiplayerStore((s) => s.gameData?.host);
   const mpState = useMultiplayerStore((s) => s.gameData?.state);
+
+  // Stamps receipt — SUBSCRIBED, for the same reason the league is: it lands
+  // after this screen mounts (the grants sit behind the game save), so a
+  // getState() snapshot taken at mount would be empty forever. The `pending`
+  // flag rides the FROZEN duelEnd, so the height is reserved from first paint
+  // even though the number is not there yet.
+  const stampsReceipt = useMultiplayerStore((s) => s.gameData?.stampsEarned);
+  const stampsPending = !!liveDuelEnd?.stampsPending;
   const isPartyHost = isPrivateParty && !!mpHost;
 
   // 2v2 Play-Again consensus counter — LIVE from the store (the session stays
@@ -409,7 +432,7 @@ export default function GameResultsScreen() {
     const fetchHistory = async () => {
       try {
         const secret = useAuthStore.getState().secret;
-        if (!secret) { setHistoryError(t('notAuthenticated', undefined, 'Not authenticated')); setHistoryLoading(false); return; }
+        if (!secret) { setHistoryError(t('notAuthenticated')); setHistoryLoading(false); return; }
         const data = await api.gameDetails(secret, gameId);
         const game = data.game as any;
         const myId: string = game.currentUserId;
@@ -469,6 +492,7 @@ export default function GameResultsScreen() {
             const oppAllGuess = (round.allGuesses || []).find((g: any) => g.playerId !== myId);
             const duelOpponent: DuelOpponent | undefined = oppAllGuess
               ? {
+                  playerId: oppAllGuess.playerId,
                   username: oppAllGuess.username,
                   countryCode: oppAllGuess.countryCode,
                   points: oppAllGuess.points ?? 0,
@@ -622,10 +646,19 @@ export default function GameResultsScreen() {
           // backfill from the params roster.
           totalPoints: p.score ?? players.find((lp: any) => lp.id === p.id)?.score ?? 0,
           elo: duelEnd && !isTeam && p.id === myId
-            ? { before: duelEnd.oldElo, after: duelEnd.newElo, change: duelEnd.newElo - duelEnd.oldElo }
+            ? {
+                before: duelEnd.oldElo,
+                after: duelEnd.newElo,
+                change: duelEnd.newElo - duelEnd.oldElo,
+                // Placement: this result SEEDED the rating (entry 500 -> seed)
+                // instead of transferring it. Absent on servers predating v2
+                // placements, so read it as a strict boolean.
+                placement: duelEnd.placement === true,
+              }
             : undefined,
           team: isTeam ? teamOf(p.id) : undefined,
           accountId: p.accountId ?? null,
+          nameGlow: p.nameGlow ?? null,
         })),
         myId,
         isDuel: !!duelEnd && !isTeam,
@@ -1036,14 +1069,14 @@ export default function GameResultsScreen() {
         Alert.alert(
           t('areYouSure'),
           isPartyHost
-            ? t('disbandPartyWarning', undefined, 'Disband the party? Everyone will be removed from the party.')
-            : t('leavePartyWarning', undefined, "Leave the party? You'll need the code to rejoin."),
+            ? t('disbandPartyWarning')
+            : t('leavePartyWarning'),
           [
             { text: t('cancel'), style: 'cancel' },
             {
               text: isPartyHost
-                ? t('disbandParty', undefined, 'Disband party')
-                : t('leaveParty', undefined, 'Leave party'),
+                ? t('disbandParty')
+                : t('leaveParty'),
               style: 'destructive',
               onPress: () => {
                 useMultiplayerStore.getState().leaveGame();
@@ -1220,7 +1253,7 @@ export default function GameResultsScreen() {
       // Inline, not a toast — the modal stays open and would occlude one.
       setReportFeedback([{
         type: 'error',
-        text: t('reportNeedMoreDetail', undefined, 'Please provide a more detailed description (at least 5 words)'),
+        text: t('reportNeedMoreDetail'),
       }]);
       return;
     }
@@ -1259,7 +1292,7 @@ export default function GameResultsScreen() {
             message:
               err instanceof Error && err.message
                 ? err.message
-                : t('reportSubmitFailed', undefined, 'Failed to submit report'),
+                : t('reportSubmitFailed'),
           });
         }
       }
@@ -1280,7 +1313,7 @@ export default function GameResultsScreen() {
           .join(', ');
         feedback.push({
           type: 'success',
-          text: t('reportSubmittedFor', { names }, 'Report submitted for {{names}}'),
+          text: t('reportSubmittedFor', { names }),
         });
         setReportTargets((prev) => prev.filter((id) => !succeeded.has(id)));
       }
@@ -1364,6 +1397,27 @@ export default function GameResultsScreen() {
               newElo={myEloData.after}
               winner={multiplayerInfo.isWinner}
               draw={multiplayerInfo.isDraw}
+              placement={myEloData.placement}
+              // Server-computed league beats the local cutoff table. The ws
+              // `elo` message stamps it into authStore right before this
+              // screen mounts, so it is the freshest tier we have.
+              serverLeague={myLeague}
+            />
+          )}
+          {/* Stamps receipt. Live from the store, NOT from the frozen route
+              params: it lands on its own ws message a beat after duelEnd (the
+              grants sit behind the game save), which is usually after this
+              screen has already been pushed. `pending` reserves its height
+              from the moment the server says one is coming, so the fill is a
+              fade rather than a shove on the buttons below.
+
+              History replays get nothing: the receipt is a live-game event and
+              the saved doc carries no ledger rows. */}
+          {!isHistoryView && (stampsPending || (stampsReceipt?.total ?? 0) > 0) && (
+            <StampsEarnedDisplay
+              total={stampsReceipt?.total}
+              lines={stampsReceipt?.lines}
+              pending={stampsPending}
             />
           )}
         </>
@@ -1554,7 +1608,7 @@ export default function GameResultsScreen() {
             && reportableOthers.length > 0 && (
             <Pressable onPress={openReportModal} style={styles.reportBtn}>
               <Ionicons name="flag-outline" size={14} color="#F44336" />
-              <Text style={styles.reportBtnText}>{t('report', undefined, 'Report')}</Text>
+              <Text style={styles.reportBtnText}>{t('report')}</Text>
             </Pressable>
           )}
         </View>
@@ -1605,12 +1659,23 @@ export default function GameResultsScreen() {
             <View style={styles.roundItemHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 }}>
                 {rank < 3 && <Ionicons name="trophy" size={16} color={trophyColors[rank]} />}
+                {/* RANK IS A SIBLING, NOT PART OF THE NAME. This used to render
+                    t('leaderboardPlayerRank') — "#3 Bob" as ONE translated
+                    string — which put the whole thing inside <PlayerName>'s
+                    <Text>, so an equipped glow would halo the rank number too.
+                    Split out using the EXISTING `rankN` key (PlayerList already
+                    uses it), so no new locale string is needed and
+                    `leaderboardPlayerRank` stays intact for its other callers. */}
+                <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
+                  {t('rankN', { rank: rank + 1 })}
+                </Text>
                 <PlayerName
-                  name={t('leaderboardPlayerRank', { rank: rank + 1, username: player.username })}
+                  name={player.username}
                   countryCode={player.countryCode}
                   flagSize={14}
                   gap={8}
                   textStyle={[styles.roundNumber, isMe && { color: '#4CAF50' }]}
+                  glow={player.nameGlow}
                 >
                   {isMe && <Text style={styles.teamBestYou}>({t('you')})</Text>}
                 </PlayerName>
@@ -1721,8 +1786,8 @@ export default function GameResultsScreen() {
             <View style={styles.reportTitleRow}>
               <Text style={[styles.modalTitle, { flex: 1, marginBottom: 0 }]} numberOfLines={2}>
                 {inPickerStep
-                  ? t('reportAPlayer', undefined, 'Report a player')
-                  : `${t('report', undefined, 'Report')} ${selectedNames || 'Player'}`}
+                  ? t('reportAPlayer')
+                  : `${t('report')} ${selectedNames || 'Player'}`}
               </Text>
               <Pressable onPress={closeReportModal} hitSlop={8} accessibilityLabel={t('cancel')}>
                 <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
@@ -1741,7 +1806,7 @@ export default function GameResultsScreen() {
                     account-less players (bots/guests have playerId null in
                     old history data — raw null keys would entangle rows). */}
                 <Text style={styles.modalWarning}>
-                  {t('reportWhoPrompt', undefined, 'Who are you reporting? Select one or more players.')}
+                  {t('reportWhoPrompt')}
                 </Text>
                 <View style={{ gap: 6, marginBottom: 12 }}>
                   {reportableOthers.map((opp, idx) => {
@@ -1772,6 +1837,7 @@ export default function GameResultsScreen() {
                             flagSize={12}
                             gap={6}
                             textStyle={[styles.reasonOptionText, selected && { color: '#fff' }]}
+                            glow={glowOf(opp.playerId)}
                           />
                           <View style={{ flex: 1 }} />
                           {relationship && <Text style={styles.reportRelationship}>{relationship}</Text>}
@@ -1794,7 +1860,7 @@ export default function GameResultsScreen() {
                 </Text>
 
                 {/* Reason (radio rows = mobile idiom for web's dropdown) */}
-                <Text style={styles.modalLabel}>{t('reportReasonLabel', undefined, 'Reason for Report *')}</Text>
+                <Text style={styles.modalLabel}>{t('reportReasonLabel')}</Text>
                 <View style={{ gap: 6, marginBottom: 12 }}>
                   {([
                     ['inappropriate_username', t('reportReasonInappropriateUsername')],
@@ -1814,20 +1880,20 @@ export default function GameResultsScreen() {
                 {/* Description — label + live word counter (web: "Need N more
                     words" under the floor, then "N/100 words"). */}
                 <View style={styles.reportLabelRow}>
-                  <Text style={styles.modalLabel}>{t('reportDescriptionShort', undefined, 'Description *')}</Text>
+                  <Text style={styles.modalLabel}>{t('reportDescriptionShort')}</Text>
                   <Text style={styles.wordCount}>
                     {wordCount > 4
-                      ? t('wordCountOfMax', { count: wordCount }, '{{count}}/100 words')
+                      ? t('wordCountOfMax', { count: wordCount })
                       : 5 - wordCount === 1
-                        ? t('wordCountNeedOne', undefined, 'Need 1 more word')
-                        : t('wordCountNeedMore', { count: 5 - wordCount }, 'Need {{count}} more words')}
+                        ? t('wordCountNeedOne')
+                        : t('wordCountNeedMore', { count: 5 - wordCount })}
                   </Text>
                 </View>
                 <TextInput
                   style={styles.reportInput}
                   multiline
                   numberOfLines={4}
-                  placeholder={t('reportDescriptionPlaceholder', undefined, 'Please describe the issue in detail...')}
+                  placeholder={t('reportDescriptionPlaceholder')}
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={reportDescription}
                   onChangeText={handleReportDescriptionChange}
@@ -1835,13 +1901,13 @@ export default function GameResultsScreen() {
                   editable={!reportSubmitting}
                 />
                 <Text style={styles.reportHint}>
-                  {t('reportDetailHint', undefined, 'Provide as much detail as possible. Minimum 5 words required.')}
+                  {t('reportDetailHint')}
                 </Text>
 
                 {/* Moderation note (web's orange callout) */}
                 <View style={styles.reportNoteBox}>
                   <Text style={styles.reportNoteText}>
-                    {t('reportModNote', undefined, 'Note: This report will be reviewed by moderators. Abuse of the reporting system may result in action against your account.')}
+                    {t('reportModNote')}
                   </Text>
                 </View>
 
@@ -1880,7 +1946,7 @@ export default function GameResultsScreen() {
                     disabled={reportTargets.length === 0}
                     style={[styles.modalSubmitBtn, reportTargets.length === 0 && { opacity: 0.5 }]}
                   >
-                    <Text style={styles.modalSubmitText}>{t('next', undefined, 'Next')}</Text>
+                    <Text style={styles.modalSubmitText}>{t('next')}</Text>
                   </Pressable>
                 </>
               ) : (
@@ -1891,7 +1957,7 @@ export default function GameResultsScreen() {
                     style={styles.modalCancelBtn}
                   >
                     <Text style={styles.modalCancelText}>
-                      {usePicker ? t('back', undefined, 'Back') : t('cancel')}
+                      {usePicker ? t('back') : t('cancel')}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -1919,6 +1985,24 @@ export default function GameResultsScreen() {
   // points from the guesses and falls back to the raw gap for damage. Null
   // myTeam → no columns (render neutrally, never guess sides).
   const isTeamResults = !!(multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame);
+
+  /**
+   * Equipped glow by playerId, off the frozen end roster.
+   *
+   * The per-ROUND shapes (PlayerMapGuess, DuelOpponent, the team-best entries)
+   * deliberately do not carry cosmetics — they are guess records, and widening
+   * three interfaces to copy one string into each of them is how a roster ends
+   * up with four disagreeing sources of truth. `multiplayerInfo.players` is
+   * already THE roster for this screen (team, accountId, elo all come from it),
+   * so the round views look the glow up there by id, same as everything else.
+   */
+  const glowById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const p of multiplayerInfo?.players ?? []) m.set(p.playerId, p.nameGlow ?? null);
+    return m;
+  }, [multiplayerInfo?.players]);
+  const glowOf = (playerId?: string | null) => (playerId ? glowById.get(playerId) ?? null : null);
+
   const roundTeamInfo = (round: RoundResult) => {
     const myTeam = multiplayerInfo?.myTeam;
     if (!isTeamResults || !myTeam) return null;
@@ -1949,7 +2033,7 @@ export default function GameResultsScreen() {
     // column — real username + flag, with an "(You)" suffix for self (web
     // parity; never swap the name out for "You"). Suppressed under average
     // scoring — no single guess counted there.
-    type BestGuesser = { name: string; countryCode?: string; isMe: boolean };
+    type BestGuesser = { name: string; countryCode?: string; isMe: boolean; nameGlow: string | null };
     const bestNames: { a: BestGuesser | null; b: BestGuesser | null } = { a: null, b: null };
     if (closestScoring && resultsTeams && round.allPlayerGuesses?.length) {
       const bestPts = { a: 0, b: 0 };
@@ -1961,6 +2045,7 @@ export default function GameResultsScreen() {
             name: g.username,
             countryCode: g.countryCode,
             isMe: g.playerId === multiplayerInfo?.myId,
+            nameGlow: glowOf(g.playerId),
           };
         }
       }
@@ -2067,6 +2152,7 @@ export default function GameResultsScreen() {
                         flagSize={11}
                         gap={4}
                         textStyle={styles.teamBestName}
+                        glow={teamInfo.mineBest.nameGlow}
                       >
                         {teamInfo.mineBest.isMe && (
                           <Text style={styles.teamBestYou}>({t('you')})</Text>
@@ -2078,7 +2164,7 @@ export default function GameResultsScreen() {
                     </Text>
                     {teamInfo.damage != null && teamInfo.damage > 0 && !teamInfo.wonRound && !teamInfo.tied && (
                       <Text style={styles.healthDamage}>
-                        {t('duelHealthDamage', { damage: teamInfo.damage }, '-{{damage}} ❤️')}
+                        {t('duelHealthDamage', { damage: teamInfo.damage })}
                         {teamInfo.multiplier != null && teamInfo.multiplier !== 1
                           ? `  ×${teamInfo.multiplier}`
                           : ''}
@@ -2086,7 +2172,7 @@ export default function GameResultsScreen() {
                     )}
                   </View>
 
-                  <Text style={styles.vsDivider}>{t('versus', undefined, 'VS')}</Text>
+                  <Text style={styles.vsDivider}>{t('versus')}</Text>
 
                   <View style={styles.duelPlayerCol}>
                     <Text style={styles.duelPlayerName}>{t('enemyTeam')}</Text>
@@ -2097,6 +2183,7 @@ export default function GameResultsScreen() {
                         flagSize={11}
                         gap={4}
                         textStyle={styles.teamBestName}
+                        glow={teamInfo.enemyBest.nameGlow}
                       >
                         {teamInfo.enemyBest.isMe && (
                           <Text style={styles.teamBestYou}>({t('you')})</Text>
@@ -2108,7 +2195,7 @@ export default function GameResultsScreen() {
                     </Text>
                     {teamInfo.damage != null && teamInfo.damage > 0 && teamInfo.wonRound && (
                       <Text style={styles.healthDamage}>
-                        {t('duelHealthDamage', { damage: teamInfo.damage }, '-{{damage}} ❤️')}
+                        {t('duelHealthDamage', { damage: teamInfo.damage })}
                         {teamInfo.multiplier != null && teamInfo.multiplier !== 1
                           ? `  ×${teamInfo.multiplier}`
                           : ''}
@@ -2128,6 +2215,9 @@ export default function GameResultsScreen() {
                       flagSize={12}
                       gap={4}
                       textStyle={styles.duelPlayerName}
+                      // "You" is still your name for glow purposes — the label
+                      // is swapped, the identity is not.
+                      glow={glowOf(multiplayerInfo?.myId)}
                     />
                     {round.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(round.points) }]}>
@@ -2135,17 +2225,17 @@ export default function GameResultsScreen() {
                       </Text>
                     ) : (
                       <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
-                        {t('noGuess', undefined, 'No guess')}
+                        {t('noGuess')}
                       </Text>
                     )}
                     {round.didGuess && duelOpp.didGuess && round.points < duelOpp.points && (
                       <Text style={styles.healthDamage}>
-                        {t('duelHealthDamage', { damage: duelOpp.points - round.points }, '-{{damage}} ❤️')}
+                        {t('duelHealthDamage', { damage: duelOpp.points - round.points })}
                       </Text>
                     )}
                   </View>
 
-                  <Text style={styles.vsDivider}>{t('versus', undefined, 'VS')}</Text>
+                  <Text style={styles.vsDivider}>{t('versus')}</Text>
 
                   <View style={styles.duelPlayerCol}>
                     <PlayerName
@@ -2154,6 +2244,7 @@ export default function GameResultsScreen() {
                       flagSize={12}
                       gap={4}
                       textStyle={styles.duelPlayerName}
+                      glow={glowOf(duelOpp.playerId)}
                     />
                     {duelOpp.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(duelOpp.points) }]}>
@@ -2161,12 +2252,12 @@ export default function GameResultsScreen() {
                       </Text>
                     ) : (
                       <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
-                        {t('noGuess', undefined, 'No guess')}
+                        {t('noGuess')}
                       </Text>
                     )}
                     {round.didGuess && duelOpp.didGuess && duelOpp.points < round.points && (
                       <Text style={styles.healthDamage}>
-                        {t('duelHealthDamage', { damage: round.points - duelOpp.points }, '-{{damage}} ❤️')}
+                        {t('duelHealthDamage', { damage: round.points - duelOpp.points })}
                       </Text>
                     )}
                   </View>
@@ -2238,6 +2329,7 @@ export default function GameResultsScreen() {
               isDuel={!!multiplayerInfo?.isDuel}
               teams={resultsTeams}
               myId={multiplayerInfo?.myId}
+              myMarkerSkin={myMarkerSkin}
               selectedPlayer={selectedPlayer}
             />
           </View>
@@ -2303,6 +2395,7 @@ export default function GameResultsScreen() {
         isDuel={!!multiplayerInfo?.isDuel}
         teams={resultsTeams}
         myId={multiplayerInfo?.myId}
+        myMarkerSkin={myMarkerSkin}
         selectedPlayer={selectedPlayer}
       />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>

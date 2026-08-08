@@ -1,0 +1,453 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * SEASON 1 / RATING V2 UI
+ *
+ * Everything the 100-1600 rating scale needed that did not already exist:
+ * the duel end-screen count-up flourish, the Legend tier treatment, the
+ * Season 0 peak + OG badges, and the leaderboard inactivity note.
+ *
+ * WHY IT IS ITS OWN FILE: styles/globals.scss is ~9,570 lines and the owner has
+ * forbidden growing it. Nothing here belongs there anyway — it is one feature's
+ * worth of chrome and it should be deletable in one `rm` when Season 1 ends.
+ *
+ * IMPORT ORDER MATTERS. This file must be imported AFTER '@/styles/duel.css' in
+ * pages/_app.js. `.elo-value` and `.elo-change` are OWNED by duel.css; the rules
+ * below are same-specificity overrides and only win by source order. If someone
+ * moves the import above duel.css the digits go back to jittering.
+ *
+ * TOKENS, NOT NEW VOCABULARY. Chrome here is the same stack the .timer pill and
+ * the g2 containers use — --gradLight over a dark underlay, --primaryTransparent
+ * base, 2px --primary border, 16px radius, the shared three-part box-shadow.
+ * No invented gradient cards.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+
+/* ═══ 1. DUEL END SCREEN: the rating count-up ══════════════════════════════ */
+
+.elo-value {
+    /* THE POINT OF THIS RULE. The count-up rewrites this text node ~40 times a
+       second; without a fixed digit advance every 1→0 or 4→1 transition changes
+       the string's width, which re-lays-out the flex row and shoves the ±N chip
+       sideways on nearly every frame. duel.css does not set it. */
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+    /* transform on an inline box is a no-op, and the flourish below is a
+       transform. Also gives the span a stable box for the digit swap. */
+    display: inline-block;
+}
+
+.elo-change {
+    font-variant-numeric: tabular-nums;
+    /* "+40" vs "-3": without a reserved lane the chip's own width change nudges
+       the row a second time, on top of the value's. */
+    min-width: 2.5ch;
+    text-align: left;
+}
+
+/* Delta colours. Replaces inline `green`/`red` (the CSS keywords: #008000 and
+   #ff0000, both poor on the .round-over-screen dark glass). #4ade80 is the same
+   positive green the Season 1 notice modal uses for its grant lines. */
+.elo-change--up {
+    color: #4ade80;
+}
+
+.elo-change--down {
+    color: #ff6b6b;
+}
+
+/* A zero transfer is neither a win nor a loss and must not be painted as one.
+   The old `eloChange >= 0` test coloured it green. */
+.elo-change--flat {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* The flourish that makes a ±1 read as deliberate motion.
+ *
+ * On the v2 scale a routine duel moves the number by a single digit, sometimes
+ * once. The digits alone cannot carry a one-second beat, so the VALUE animates:
+ * it arrives dim and slightly small, pops, and settles over exactly the same
+ * ELO_COUNT_MS the counter runs for. Transform + opacity only — this composites
+ * on the GPU and never touches layout, which matters because this is the
+ * between-rounds path, the hottest UI in the app.
+ *
+ * Class-gated (roundOverScreen.js flips `eloCounting`), so it cannot replay on a
+ * hide/show round trip the way an unconditional entrance animation would. */
+.elo-value--counting {
+    animation: eloCountPulse 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes eloCountPulse {
+    0% {
+        transform: scale(0.94);
+        opacity: 0.55;
+    }
+
+    22% {
+        transform: scale(1.06);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    /* The JS already snaps the number under reduced motion; kill the flourish
+       too rather than leaving a scale pop with no count behind it. */
+    .elo-value--counting {
+        animation: none;
+    }
+}
+
+
+/* ═══ 2. LEAGUE TIER STRIP (components/eloView.js) ═════════════════════════ */
+
+/* Legend (1800+, crimson #dc143c) starts EMPTY at migration — no account is
+   seeded above 1800, so on day one this tile is the only one nobody holds.
+   It has to read as "real, and out of reach" rather than as a rendering bug. */
+.s1-league-tile {
+    width: clamp(50px, 10vw, 80px);
+    height: clamp(45px, 9vw, 70px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: clamp(8px, 2vw, 15px);
+    font-size: clamp(25px, 6vw, 50px);
+    font-weight: bold;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    /* Emoji sit on the tier colour. Grey/bronze/gold/diamond are all light, so
+       black was fine; crimson is not, and the tile sets this per-tier inline. */
+    color: black;
+}
+
+.s1-league-tile--current {
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+/* Legend's own accent, so a Legend player is not framed in gold like a Voyager. */
+.s1-league-tile--legend {
+    color: white;
+}
+
+.s1-league-tile--legend.s1-league-tile--current {
+    border-color: #dc143c;
+    box-shadow: 0 0 22px rgba(220, 20, 60, 0.55);
+}
+
+/* Rating threshold chip that floats over a tier square on hover.
+ * `nowrap` + `translateX(-50%)` on a clamp(50px…80px) square means "1800" is
+ * already wider than the tile it labels. It cannot be allowed to grow the flex
+ * row (that reflows the whole strip on hover), so it is a pure overlay. */
+.s1-league-threshold {
+    position: absolute;
+    top: clamp(-20px, -4vw, -16px);
+    left: 50%;
+    transform: translateX(-50%);
+    color: black;
+    border: 2px solid black;
+    padding: clamp(3px, 1vw, 4px) clamp(6px, 2vw, 8px);
+    border-radius: clamp(8px, 2vw, 10px);
+    font-size: clamp(10px, 2.5vw, 12px);
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+    transition: opacity 0.3s;
+    /* Overlay, never a layout participant: it hangs above a square narrower
+       than itself and must not widen the row or eat the neighbour's hover. */
+    pointer-events: none;
+    z-index: 2;
+}
+
+.s1-league-threshold--shown {
+    opacity: 1;
+}
+
+/* globals.scss carries `div:hover .elo-badge { opacity: 1 }`, and the descendant
+   combinator matches on ANY ancestor div — so hovering the strip container
+   revealed EVERY tier's threshold at once, all five chips overlapping their
+   neighbours. Re-assert the closed state for the tiles React did not mark as
+   hovered. Specificity (0,2,1) beats the globals rule's (0,1,1); it cannot be
+   fixed at source because globals.scss is frozen. */
+div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
+    opacity: 0;
+}
+
+.s1-league-threshold--legend {
+    color: white;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* The rating number in the stats grid. 4 digits max on the v2 scale, but the
+   tile is a `minmax(150px, 1fr)` grid cell shared with "#1,234" ranks and
+   percentages — tabular figures keep the column from breathing as they load. */
+.s1-stat-value {
+    font-variant-numeric: tabular-nums;
+    /* clamp() font-size + a long value = the old overflow. Let it shrink into
+       the tile instead of pushing the grid. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+
+/* ═══ 3. SEASON 0 PEAK + OG BADGES (publicProfile / user) ══════════════════ */
+
+/* A TROPHY SHELF, NOT A CHANGELOG.
+ *
+ * These sit directly under the username on a public profile, so they are chips:
+ * icon, number, two-word caption. They previously carried a paragraph of
+ * migration prose each, which made a veteran's career high read as release
+ * notes. The long copy now lives in the `title` tooltip. */
+.s1-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    /* The public-profile header centres its h1; a left-aligned badge row under a
+       centred name reads as a misalignment bug. */
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
+}
+
+/* Gold-outlined dark glass. No --primary green: these are career marks, not
+   another green button, and the gold ties them to the peak number itself. */
+.s1-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 7px 16px 7px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    background: rgba(0, 0, 0, 0.32);
+    color: white;
+    /* Career marks are not controls: no hover lift, no pointer. The tooltip is
+       the only affordance and it needs no advertising. */
+    cursor: default;
+}
+
+.s1-badge__icon {
+    flex-shrink: 0;
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.s1-badge__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.s1-badge__value {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+    /* Peak and current rating are read as a pair; matched figure widths make
+       the comparison legible instead of ransom-note. */
+    font-variant-numeric: tabular-nums;
+    /* Peak is a trophy: gold, matching the Season 1 notice's peak number exactly
+       so the profile confirms the number the migration modal showed. */
+    color: #ffd700;
+    text-shadow: 0 0 16px rgba(255, 215, 0, 0.22);
+}
+
+/* THE CAPTION IS THE WHOLE SAFETY FEATURE. This number sits one tab from the
+   player's CURRENT rating and the two scales differ by ~12x. A veteran seeing
+   "20,000" against "1,247" with a vague caption reads it as a bug, a rollback,
+   or a theft. It says SEASON 0. Never shorten it to "Peak". */
+.s1-badge__label {
+    font-size: 0.62rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.s1-badge__league {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    padding: 1px 8px;
+    text-shadow: none;
+}
+
+.s1-badge--og {
+    position: relative;
+    border-color: rgba(255, 215, 0, 0.4);
+    background: rgba(255, 215, 0, 0.07);
+    /* Overrides the base `default`. This chip DOES hide something, and with no
+       cursor change nobody discovers the Season 0 card underneath it. */
+    cursor: help;
+    /* Keyboard route to the card. tabIndex is set in the JSX; without an outline
+       reset the focus ring would sit on a 999px pill and look broken. */
+    outline: none;
+}
+
+.s1-badge--og:focus-visible {
+    border-color: rgba(255, 215, 0, 0.85);
+}
+
+/* "OG" carries the same weight the peak number does — it is the badge, not a
+   tag stuck to a sentence. */
+.s1-badge__ogTag {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.12em;
+    color: #ffd700;
+    text-shadow: 0 0 16px rgba(255, 215, 0, 0.22);
+}
+
+/* ── The OG badge's Season 0 card ──────────────────────────────────────────
+ *
+ * DROPS DOWNWARD, ALWAYS. `.public-profile-content` is `overflow: hidden` and
+ * the badge row sits in the header, so anything opening upward is clipped in
+ * half. Below the chip it lands over the nav row, which is inside the box.
+ *
+ * `pointer-events: none` and no gap to the chip: the card is read while the
+ * chip is hovered and is never itself a hover target, so it cannot fight the
+ * nav buttons underneath it for clicks when closed OR open. */
+.s1-ogCard {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    /* The 6px lives in the transform, not in `top`: a real gap would break the
+       hover on the way down, and this way the open state animates through it. */
+    transform: translateX(-50%) translateY(0);
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 210px;
+    /* Backstop for a narrow viewport. The row is centred so the card normally
+       has room either side; this stops a long tier name clipping at the edge. */
+    max-width: min(280px, calc(100vw - 40px));
+    margin-top: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    background: rgba(8, 10, 9, 0.96);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+    text-align: left;
+    cursor: default;
+    /* visibility (not display) so the open state can transition. */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+}
+
+.s1-badge--og:hover .s1-ogCard,
+.s1-badge--og:focus-within .s1-ogCard {
+    opacity: 1;
+    visibility: visible;
+    /* translateX MUST be restated — a transform declaration replaces the whole
+       list, and dropping it here would slam the card 105px to the right. */
+    transform: translateX(-50%) translateY(4px);
+}
+
+.s1-ogCard__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.s1-ogCard__rowLabel {
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+}
+
+.s1-ogCard__rowValue {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    /* Final and peak are read as a pair down the right edge. */
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.s1-ogCard__note {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .s1-ogCard {
+        transition: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .s1-badges {
+        gap: 8px;
+    }
+
+    /* Still chips, just tighter. They must NOT go full-width here: two stacked
+       full-bleed bars under the name is the block layout this replaced. */
+    .s1-badge {
+        padding: 6px 13px 6px 11px;
+        gap: 8px;
+    }
+
+    .s1-badge__icon {
+        font-size: 1.15rem;
+    }
+
+    .s1-badge__value,
+    .s1-badge__ogTag {
+        font-size: 1.15rem;
+    }
+}
+
+
+/* ═══ 4. LEADERBOARD INACTIVITY NOTE (pages/leaderboard) ═══════════════════ */
+
+/* Explains the absence, in place, before anyone has to ask in Discord. Sits
+   under the tab row on the all-time ranked board only. */
+.s1-board-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 720px;
+    margin: 0 auto 14px;
+    padding: 9px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(0, 0, 0, 0.28);
+    color: rgba(255, 255, 255, 0.72);
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    text-align: left;
+}
+
+.s1-board-note__icon {
+    flex-shrink: 0;
+    line-height: 1.45;
+    opacity: 0.8;
+}

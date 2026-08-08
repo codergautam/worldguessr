@@ -1,0 +1,514 @@
+/* ===========================================================================
+ *  THE TOP-RIGHT CORNER.
+ *
+ *  Everything that used to be pinned there — the username pill, the friends
+ *  icon, the league chip, the Stamps balance, the Community Maps button — was
+ *  its own `position: fixed` element with its own hand-tuned `top:` and its own
+ *  media queries. Six elements, four files, three stylesheets, and the only
+ *  thing keeping them off each other was that the numbers happened to add up.
+ *  daily.scss even carried a whole `--below-login` variant of the Maps button
+ *  whose entire job was to dodge the taller login button above it.
+ *
+ *  It is now ONE flex column. Vertical stacking is computed, so every one of
+ *  those numbers is deleted rather than re-tuned, and nothing can overlap.
+ *
+ *  THE INSET IS THE OTHER HALF OF THE FIX. The home screen's other corners sit
+ *  at 50px (#g2_playerCount is bottom:50px right:50px, .home__content is
+ *  padding-top:50px / left:5vw) and this corner sat at 10px — five times
+ *  tighter than its diagonal opposite, which is exactly what "the top right
+ *  margin looks too low" was. One variable pair now owns it.
+ * ======================================================================== */
+
+/* ===========================================================================
+ *  THE SCALE — FLUID, NOT STEPPED.
+ *
+ *  Every one of these was a fixed value re-declared inside three media queries.
+ *  That is what made dragging the window across 1280px collapse the card by a
+ *  fifth in a single pixel: a breakpoint is a cliff, and the card is the only
+ *  thing on the screen big enough for the drop to be obvious.
+ *
+ *  Each token is now clamp(floor, <intercept> + <slope>vw, ceiling), solved so
+ *  the middle term hits the floor at a 360px viewport and the ceiling at 1920.
+ *  Between those the card grows a fraction of a pixel per pixel of window and
+ *  never jumps. THERE ARE NO SIZE BREAKPOINTS IN THIS FILE ANY MORE — if you
+ *  need a different size at some width, move the floor, the ceiling or the
+ *  slope. Do not add a media query back; that is the bug.
+ * ======================================================================== */
+
+:root {
+    /* 12px at 360 → 50px at 1920. The ceiling is #g2_playerCount's bottom-right
+       50px, so the two diagonal corners land on the same inset on a desktop
+       monitor — which is what the whole margin fix was about. */
+    --hudInsetX: clamp(12px, 3.2px + 2.44vw, 50px);
+    --hudInsetY: clamp(12px, 3.2px + 2.44vw, 50px);
+    --hudGap: clamp(6px, 4px + 0.32vw, 10px);
+
+    /* 8px → 14px */
+    --pcardPadY: clamp(0.5rem, 0.41rem + 0.39vw, 0.875rem);
+    /* 12px → 22px */
+    --pcardPadX: clamp(0.75rem, 0.61rem + 0.64vw, 1.375rem);
+    /* ONE SIZE FOR EVERY WORD ON THE CARD — 15px → 21px.
+       There used to be three: a big name, a bigger rating, a small tier. Three
+       sizes plus four facts is a poster, not a corner chip, and it read as
+       clutter at every width. WEIGHT AND DIMMING carry what is left of the
+       hierarchy — the rating is 700 white, the unit beside it is 400 at 72% —
+       which is enough when there are only two lines to separate. */
+    --pcardText: clamp(0.94rem, 0.85rem + 0.385vw, 1.31rem);
+    /* 18px → 26px. A touch above --pcardText, not a tier above it: the name is
+       the thing the card belongs to, so it leads, but by about 20% rather than
+       by the 60% that made this read as a poster.
+       Was 17px → 24px (a 14% lead) and the name did not read as the subject of
+       its own card. Solved on this file's rule — floor at a 360px viewport,
+       ceiling at 1920 — so it is still one continuous ramp with no breakpoint:
+       slope = (26-18)/15.6 = 0.51vw, intercept = 18 - 0.51*3.6 = 16.15px. */
+    --pcardName: clamp(1.125rem, 1.01rem + 0.51vw, 1.625rem);
+    --pcardCaret: clamp(0.7rem, 0.63rem + 0.26vw, 0.94rem);
+
+    /* The two small chips under the card (Stamps tile, Community Maps). */
+    --hudChipH: clamp(30px, 27.7px + 0.64vw, 40px);
+    --hudChipFont: clamp(0.75rem, 0.69rem + 0.26vw, 1rem);
+}
+
+.hudCorner {
+    position: fixed;
+    top: var(--hudInsetY);
+    right: var(--hudInsetX);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--hudGap);
+    /* .navbar's contract, restated: the column spans dead screen, so it must
+       not eat clicks meant for the street view behind it. Children opt back
+       in individually. */
+    pointer-events: none;
+}
+
+.hudCorner>* {
+    pointer-events: auto;
+}
+
+/* ===========================================================================
+ *  THE CARD
+ *
+ *  IT SAYS TWO THINGS. Who you are, then what you are rated:
+ *
+ *      Gautam 🇮🇳
+ *      🏆 1043 ELO
+ *
+ *  Everything else that was ever here has left. The BALANCE became its own tile
+ *  below. The TIER NAME ("Voyager") is gone — the badge already says it in one
+ *  glyph, and spelling it out put a fourth fact on a chip that lives in the
+ *  corner of a game. Both were defensible alone and cluttered together.
+ *
+ *  ONE TYPE SIZE, and that is deliberate rather than lazy. Three sizes on two
+ *  lines made the card read as a small poster; with this little content, weight
+ *  and dimming separate the rating from its unit perfectly well.
+ *
+ *  ONE FLUID SCALE. Every measurement is a clamp() custom property declared
+ *  once at the top of this file; the structure never changes and neither does
+ *  the size, discontinuously.
+ *
+ *  Skin is the .timer HUD pill's recipe restated (globals.scss ~1930):
+ *  --gradLight over --primaryTransparent, 2px --primary border, 16px radius,
+ *  lexend, the standard three-layer shadow, the standard text shadow.
+ *  globals.scss is not edited for this.
+ *
+ *  NO backdrop-filter and NO dark underlay. Both are prohibited on that pill in
+ *  its own comment block, both were reverted once, and --primaryTransparent is
+ *  already 85% opaque so neither buys legibility — the underlay only ever
+ *  turned a light HUD chip into a dark one.
+ * ======================================================================== */
+
+.pcard {
+    position: relative;
+}
+
+/* A ROW, not a column. The caret used to live inside row 1 and was therefore
+   centred against the NAME rather than against the card — it sat high and read
+   as crowding the text it happened to share a line with. It is a sibling of the
+   whole two-line block now, so `align-items: center` puts it on the card's
+   optical centre, and one gap holds it off the text instead of a row gap doing
+   it by accident. */
+.pcard__face {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+
+    margin: 0;
+    padding: var(--pcardPadY) var(--pcardPadX);
+    border: 2px solid var(--primary);
+    border-radius: 16px;
+    background: var(--gradLight);
+    background-color: var(--primaryTransparent);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .35),
+        0 4px 12px rgba(36, 87, 52, .3),
+        inset 0 1px 0 rgba(255, 255, 255, .15);
+
+    font-family: lexend;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, .3);
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .25s, box-shadow .25s;
+}
+
+.pcard__face:hover,
+.pcard__face--open {
+    background-color: var(--primary);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, .4),
+        0 4px 14px rgba(36, 87, 52, .45),
+        inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+
+.pcard__face:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .65);
+    outline-offset: 2px;
+}
+
+/* --- row 1: identity --------------------------------------------------- */
+
+/* The two lines. They share a left edge, and that edge is the only vertical
+   alignment on the card — which is why the rating is right-aligned inside its
+   reservation (below) rather than left: at rest the reservation is exactly the
+   number's width, so both edges land, and nothing after it can drift. */
+.pcard__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.pcard__name {
+    display: flex;
+    align-items: center;
+    /* em, so the flag sits the same distance from the name at every width. */
+    gap: .34em;
+    font-size: var(--pcardName);
+    font-weight: 600;
+    line-height: 1.28;
+    letter-spacing: .01em;
+    /* NO overflow:hidden here, ever. A glow is a text-shadow painted up to 32px
+       outside the letterforms, and a clip on any ancestor shears it flush with
+       them — the purchase then looks like it did nothing. If this row ever does
+       need to truncate, it takes .wg-glow-room with it (styles/nameGlow.css),
+       which buys the paint room back without moving the box. */
+}
+
+.pcard__caret {
+    flex-shrink: 0;
+    font-size: var(--pcardCaret);
+    color: rgba(255, 255, 255, .6);
+    transition: transform .2s ease;
+}
+
+.pcard__face--open .pcard__caret {
+    transform: rotate(180deg);
+}
+
+/* --- row 2: the rating, with the tier as its caption -------------------- */
+
+/* NO `gap` HERE, deliberately. A single flex gap spaces a text label and an
+   emoji identically, and they do not read that way: an emoji glyph carries its
+   own side bearings, so the same 7px looked visibly wider next to the badge
+   than next to the word. Each element buys its own space below, in em, tuned by
+   eye rather than by one number applied three times. */
+.pcard__stat {
+    display: flex;
+    align-items: baseline;
+    font-size: var(--pcardText);
+    line-height: 1.28;
+}
+
+/* The reservation is the FINAL rating's width, so the 0 -> 1043 count-up cannot
+   resize the card under itself: tabular figures make every digit exactly 1ch.
+   It sits on the DIGITS alone — the unit beside them is not tabular and must
+   not be inside the reservation. Left aligned: the number only ever grows, and
+   the unit to its right may not drift while it does. */
+/* THE WIDTH IS A HIDDEN COPY OF THE SETTLED RATING, not a `ch` count.
+   It was `min-width: <digits>ch`, and that is a guess dressed up as a
+   measurement: `ch` is the advance of the "0" glyph and takes no account of the
+   letter-spacing on this card, of the bold weight, or of the "..." placeholder
+   that renders before the rating arrives. So the reserved box and the real text
+   were never the same width, and line 2 sat at a different width from line 1.
+
+   This is the exact technique the Stamps tile already uses. The sizer holds the
+   box at the settled value's REAL rendered width for the whole count-up; the
+   live value is laid over it, right aligned, so it climbs into that box and
+   stays flush against "ELO". At rest the sizer and the live value are the same
+   string, so line 2's left edge lands on line 1's, exactly. */
+.pcard__eloValue {
+    position: relative;
+    font-weight: 700;
+}
+
+/* Occupies space, paints nothing. visibility, not opacity — the latter still
+   exposes the duplicate number to a screen reader. */
+.pcard__eloFinal {
+    visibility: hidden;
+}
+
+.pcard__eloLive {
+    position: absolute;
+    inset: 0;
+    text-align: right;
+}
+
+/* SAME SIZE AS THE NUMBER, one step down in weight and dimmed. It is the only
+   hierarchy left on this line and it is enough: a label does not need to be
+   smaller to read as a label. */
+.pcard__eloUnit {
+    /* A word space, near enough — it belongs to the number. */
+    margin-left: .34em;
+    font-weight: 400;
+    letter-spacing: .05em;
+    color: rgba(255, 255, 255, .72);
+}
+
+/* OPTICALLY CENTRED, NOT BASELINE-ALIGNED — the knob inherited verbatim from
+   the league chip this card replaces. An emoji is drawn centred in its own em
+   box, so its optical centre sits halfway between ascender and descender,
+   while the capitals beside it have no descender and therefore sit higher.
+   Share a baseline and any emoji reads low; the Legend crown is the one short,
+   flat glyph in the set, so it is the one that exposes it.
+
+   `position: relative` moves PAINT ONLY — the badge stays in the same text run,
+   so the card's line box and measured height are untouched. The offset is in em
+   so it tracks the font size at every breakpoint rather than being a pixel that
+   only holds at one. Nudge the number if it ever needs re-tuning; never add a
+   second mechanism.
+
+   NO COLOUR RULE HERE, and none is missing: the league's `light`/`color` only
+   ever tinted the tier NAME beside this glyph, and that name is gone. An emoji
+   is a colour bitmap — `color` never reached it. */
+
+/* ===========================================================================
+ *  THE STAMPS TILE
+ *
+ *  Geometry is the Community Maps button's, restated (daily.scss
+ *  .daily-community-maps-btn): same height, same 10px radius, same 1.4px
+ *  --primaryDark rim, same green. These two are the small chips under the card
+ *  and they must read as a pair — giving this one the card's heavier 2px/16px
+ *  recipe would make it a second card, which is the thing we just stopped
+ *  having.
+ * ======================================================================== */
+
+.stampsTile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+    height: var(--hudChipH);
+    padding: 0 14px;
+    border: 1.4px solid var(--primaryDark);
+    border-radius: 10px;
+    background: var(--gradGreenBtn);
+    background-color: var(--primaryTransparent);
+    color: white;
+    font-family: lexend;
+    font-size: var(--hudChipFont);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform .25s ease, box-shadow .25s ease, background-color .25s ease, filter .2s ease;
+}
+
+.stampsTile:hover {
+    background-color: var(--primary);
+    filter: brightness(1.12);
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+
+.stampsTile:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+.stampsTile__mark {
+    width: 1.05em;
+    height: 1.05em;
+    flex-shrink: 0;
+    color: #ffd700;
+}
+
+.stampsTile__value {
+    position: relative;
+}
+
+/* Occupies space, paints nothing. visibility, not opacity — the latter still
+   exposes the duplicate number to a screen reader. */
+.stampsTile__final {
+    visibility: hidden;
+}
+
+.stampsTile__live {
+    position: absolute;
+    inset: 0;
+    text-align: right;
+}
+
+/* ===========================================================================
+ *  THE AD-FREE CHIP
+ *
+ *  A running pass, said on the screen the buyer returns to. In the DOM only
+ *  while one is live (components/ui/adFreeChip.js), so the column simply closes
+ *  the gap the rest of the time.
+ *
+ *  SAME RECIPE AS THE CARD ABOVE IT, restated rather than shared: --gradLight
+ *  over --primaryTransparent, 2px --primary, the three-layer shadow. The shop
+ *  draws its own version of this chip as a gold pill (.wallet__adfree in
+ *  shop.css) and that is right THERE, inside a gold-and-black storefront. Here
+ *  it would be a fragment of another surface stuck to the bottom of the HUD, so
+ *  only the label keeps the gold — the way the Stamps mark does inside the card.
+ * ======================================================================== */
+
+.adFreeChip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 5px 13px;
+    border: 2px solid var(--primary);
+    border-radius: 999px;
+    background: var(--gradLight);
+    background-color: var(--primaryTransparent);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .35),
+        0 4px 12px rgba(36, 87, 52, .3),
+        inset 0 1px 0 rgba(255, 255, 255, .15);
+    font-family: lexend;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, .3);
+    white-space: nowrap;
+    /* hudCorner hands pointer events back to each child; this one gives them
+       straight back. It is a readout, and a dead box over the street view in
+       the busiest corner of the screen is worse than no readout. */
+    pointer-events: none;
+}
+
+.adFreeChip__label {
+    font-size: .62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: #ffd700;
+}
+
+.adFreeChip__time {
+    font-size: .8rem;
+    font-weight: 600;
+    /* The whole reason this rule exists: a 1Hz countdown in proportional digits
+       reflows its own pill twice a second. */
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+ *  THE MENU
+ *
+ *  A content panel, not HUD chrome, so it takes the near-opaque dark treatment
+ *  the rest of the app's cards use — the --gradLight glass is unreadable over
+ *  the street backdrop, and this one has to be read.
+ *
+ *  Its four rows are the four destinations accountModal.js already names in its
+ *  own navigationItems, with the same labels and the same emoji. It is a
+ *  shortcut into a screen that exists, not a new menu.
+ * ======================================================================== */
+
+.pcard__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 100%;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    background: linear-gradient(165deg, rgba(20, 32, 20, .97), rgba(9, 16, 9, .98));
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
+    animation: pcardMenuIn .14s ease-out;
+}
+
+@keyframes pcardMenuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.pcard__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: white;
+    font-family: lexend;
+    font-weight: 500;
+    font-size: .95rem;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .15s;
+}
+
+.pcard__item:hover {
+    background: rgba(255, 255, 255, .09);
+}
+
+.pcard__item:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, .5);
+    outline-offset: -2px;
+}
+
+/* Fixed cell so an emoji and the paintbrush line their labels up identically. */
+.pcard__itemIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25em;
+    font-size: 1.05em;
+    flex-shrink: 0;
+}
+
+/* (.pcard__itemMark sized the shop row's paintbrush. That row is deleted — the
+   Stamps tile under this card is the one door to the shop now — so the rule went
+   with it rather than being left behind for a `class` nothing renders. Every
+   remaining menu row carries an emoji, which .pcard__itemIcon above already
+   sizes.) */
+
+.pcard__badge {
+    margin-left: auto;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #b3261e;
+    color: white;
+    font-size: .75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* NO RESPONSIVE BLOCK DOWN HERE. Sizing is the --pcard and --hudChip custom
+   properties re-declared per breakpoint at the top of this file, so a
+   breakpoint changes NUMBERS and never selectors. The block that used to sit
+   here overrode the card's padding and font sizes directly, which is the second
+   sizing mechanism that made the first version step by a fifth at 1280px. */

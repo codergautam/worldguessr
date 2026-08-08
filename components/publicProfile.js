@@ -3,6 +3,167 @@ import AccountView from "./accountView";
 import EloView from "./eloView";
 import { useTranslation } from '@/components/useTranslations';
 import CountryFlag from './utils/countryFlag';
+import { nameGlowProps, GlowName } from './utils/usernameWithFlag';
+
+/**
+ * Translate with an English default — see the identical helper in
+ * pages/leaderboard/index.js for why. `t()` renders the KEY when a key is
+ * missing, and these strings ship ahead of their locale entries.
+ */
+const withFallback = (text, key, fallback) => {
+    const translated = text(key);
+    return translated === key ? fallback : translated;
+};
+
+/** One label/value line inside the OG badge's card. */
+function OgStat({ label, value }) {
+    return (
+        <span className="s1-ogCard__row">
+            <span className="s1-ogCard__rowLabel">{label}</span>
+            <span className="s1-ogCard__rowValue">{value}</span>
+        </span>
+    );
+}
+
+/**
+ * "Aug 2021" in the viewer's locale, or null for a missing/garbage date.
+ *
+ * Month + year, never a full timestamp: the join date on an OG profile is a
+ * badge of tenure, not a record, and the exact day is nobody's business.
+ */
+function formatJoinMonth(raw) {
+    if (!raw) return null;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
+/**
+ * CAREER PEAK + OG BADGES
+ *
+ * These are trophies. They read as a row of chips under the name — icon, big
+ * number, short caption — and nothing else. The paragraph that used to sit
+ * under each one turned a veteran's career high into release notes.
+ *
+ * WHAT CANNOT BE CUT IS THE CAPTION, whatever it currently says. `seasonPeakElo`
+ * is on the retired 0-20,000 scale, the live rating one tab away is on the
+ * 100-1,600 one, and the dead number is the ~12x bigger of the two. A player who
+ * reads "20,000" as a current rating concludes the site stole 18,400 points from
+ * them. The caption is the only thing that stops that, so it is never shortened
+ * to a bare "Peak" and the chip is never rendered without it. The long-form
+ * version survives as the `title` tooltip for whoever actually wants it.
+ *
+ * It used to say "Season 0 peak" and now says "Peak before ranked update": the
+ * internal season number meant nothing to a player who never read a changelog,
+ * and the ranked update is the event they actually lived through. The locale
+ * KEYS still carry the season0 name because that is what the DATA is; only the
+ * copy changed.
+ *
+ * The peak is rendered from `seasonPeakElo` ONLY. It is never derived from the
+ * current rating and never falls back to it: a fabricated peak on a profile is
+ * worse than no peak at all.
+ */
+function Season0Badges({ profileData, text }) {
+    // `> 0` and not just != null: the migration leaves `seasonPeakElo` null on
+    // accounts created after the flip, and those players have no Season 0 to
+    // show. A 0 would render a "Season 0 peak: 0" trophy, which is a lie.
+    const peakRaw = Number(profileData?.seasonPeakElo);
+    const hasPeak = Number.isFinite(peakRaw) && peakRaw > 0;
+    // Strict `=== true`. The field is a Boolean on the User doc, and anything
+    // looser hands the badge to every account whose payload merely carries the
+    // key (or a stray "false" string) — the badge is permanent and unearnable
+    // after migration, so a false positive can never be taken back gracefully.
+    const isOg = profileData?.ogAccount === true;
+    const peakLeague = typeof profileData?.seasonPeakLeague === 'string' && profileData.seasonPeakLeague.trim()
+        ? profileData.seasonPeakLeague
+        : null;
+
+    // Season 0 CLOSING rating (api/publicProfile.js `season0Elo`), which is a
+    // different and usually smaller number than the peak above. Same `> 0` test
+    // and the same reason: null on every account the migration never touched,
+    // and a "Final rating: 0" line would be a lie rather than an absence.
+    const finalRaw = Number(profileData?.season0Elo);
+    const hasFinal = Number.isFinite(finalRaw) && finalRaw > 0;
+    const joinedMonth = formatJoinMonth(profileData?.createdAt);
+
+    if (!hasPeak && !isOg) return null;
+
+    return (
+        <div className="s1-badges">
+            {hasPeak && (
+                <div
+                    className="s1-badge"
+                    title={withFallback(
+                        text,
+                        'season0PeakNote',
+                        'Career high before the ranked update. Not comparable to the rating you have now.'
+                    )}
+                >
+                    <span className="s1-badge__icon" aria-hidden="true">🏆</span>
+                    <span className="s1-badge__body">
+                        <span className="s1-badge__value">
+                            {Math.round(peakRaw).toLocaleString()}
+                            {peakLeague && <span className="s1-badge__league">{peakLeague}</span>}
+                        </span>
+                        <span className="s1-badge__label">
+                            {withFallback(text, 'season0PeakLabel', 'Peak before ranked update')}
+                        </span>
+                    </span>
+                </div>
+            )}
+
+            {isOg && (
+                /* tabIndex + :focus-within (see the CSS) so the card is not
+                   hover-only. No `title` here: a native tooltip would render on
+                   top of the card that replaced it. */
+                <div className="s1-badge s1-badge--og" tabIndex={0}>
+                    <span className="s1-badge__icon" aria-hidden="true">⭐</span>
+                    <span className="s1-badge__body">
+                        <span className="s1-badge__ogTag">OG</span>
+                        <span className="s1-badge__label">
+                            {withFallback(text, 'ogBadgeLabel', 'WorldGuessr veteran')}
+                        </span>
+                    </span>
+
+                    {/* NO TITLE. The card used to open with a gold "SEASON 0"
+                        eyebrow; the chip it hangs off already says OG and
+                        WorldGuessr veteran, and the closing note says when that
+                        was, so the eyebrow was a third way of saying the same
+                        thing. The rows start straight in. */}
+                    <span className="s1-ogCard">
+                        {joinedMonth && (
+                            <OgStat
+                                label={withFallback(text, 'ogCardJoined', 'Joined')}
+                                value={joinedMonth}
+                            />
+                        )}
+                        {hasFinal && (
+                            <OgStat
+                                label={withFallback(text, 'ogCardFinal', 'Final rating')}
+                                value={Math.round(finalRaw).toLocaleString()}
+                            />
+                        )}
+                        {hasPeak && (
+                            <OgStat
+                                label={withFallback(text, 'ogCardPeak', 'Peak rating')}
+                                value={Math.round(peakRaw).toLocaleString()}
+                            />
+                        )}
+                        {peakLeague && (
+                            <OgStat
+                                label={withFallback(text, 'ogCardPeakLeague', 'Peak league')}
+                                value={peakLeague}
+                            />
+                        )}
+                        <span className="s1-ogCard__note">
+                            {withFallback(text, 'ogBadgeNote', 'Played before ranked history was saved.')}
+                        </span>
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function PublicProfile({ profileData, eloData }) {
     const { t: text } = useTranslation("common");
@@ -20,7 +181,6 @@ export default function PublicProfile({ profileData, eloData }) {
                     <div className="profile-content">
                         <AccountView
                             accountData={profileData}
-                            supporter={profileData?.supporter}
                             eloData={eloData}
                             session={null}
                             isPublic={true}
@@ -46,16 +206,10 @@ export default function PublicProfile({ profileData, eloData }) {
         }
     };
 
-    const badgeStyle = {
-        marginLeft: '15px',
-        color: 'black',
-        fontSize: '0.7rem',
-        background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
-        padding: '4px 12px',
-        borderRadius: '15px',
-        fontWeight: 'bold',
-        textShadow: 'none'
-    };
+    // Dark profile chrome → the dark variant. api/publicProfile.js returns only
+    // the equipped nameGlow under `cosmetics`; nothing else about a stranger's
+    // inventory is public and nothing else is read here.
+    const headerGlow = nameGlowProps(profileData?.cosmetics?.equipped?.nameGlow);
 
     return (
         <div className="public-profile-container">
@@ -63,14 +217,19 @@ export default function PublicProfile({ profileData, eloData }) {
                 {/* Header */}
                 <div className="public-profile-header">
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {profileData?.username}
+                        {/* ANIMATED HERE. This is one name on a page nobody
+                            scrolls a hundred of — the exact opposite of the
+                            leaderboard, and the surface a player links people to
+                            when they want the thing they bought to be seen. */}
+                        <GlowName glow={headerGlow}>{profileData?.username}</GlowName>
                         {profileData?.countryCode && <CountryFlag countryCode={profileData.countryCode} style={{ fontSize: '0.9em' }} />}
-                        {profileData?.supporter && (
-                            <span style={badgeStyle}>
-                                SUPPORTER
-                            </span>
-                        )}
                     </h1>
+                    {/* In the header, not the ELO tab, and deliberately: these
+                        are career marks that belong to the identity. Keeping the
+                        dead pre-update number out of the tab that shows the live
+                        rating is also the cheapest way to stop the two being
+                        read as one ladder. */}
+                    <Season0Badges profileData={profileData} text={text} />
                 </div>
 
                 {/* Navigation */}

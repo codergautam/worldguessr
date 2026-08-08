@@ -12,9 +12,32 @@ import FriendsModal from "@/components/friendModal";
 import { FaLink, FaCheck } from "react-icons/fa";
 import CountryFlag from './utils/countryFlag';
 import { navigate } from '@/lib/basePath';
+import useStampShop from '@/components/shop/useStampShop';
+import StampsWallet from '@/components/shop/StampsWallet';
+import { nameGlowProps } from './utils/usernameWithFlag';
 
 export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
-    const { t: text } = useTranslation("common");
+    const { t: text, lang } = useTranslation("common");
+    // Stamps WALLET only. The storefront moved out of this modal entirely — it
+    // is its own surface now (components/shop/ShopModal.js), opened from the
+    // Stamps button beside the league button on the home screen. What stays
+    // here is the balance chip in the header, because "how many Stamps do I
+    // have" is account state and this is the account screen.
+    //
+    // FAIL CLOSED: shop.enabled is `session.token.stampsEnabled === true`
+    // (server-delivered, see api/stampShop.js entitlementFields). Until the env
+    // flag is flipped in prod this is falsy for everybody and the chip does not
+    // render at all.
+    const shop = useStampShop({ session, setSession });
+    // Read the equipped glow off the SHOP's entitlement block, not off
+    // accountData. Same reason the wallet chip does: `shop.cosmetics` is the
+    // optimistically-patched copy, so equipping in the storefront repaints this
+    // header on the click rather than after the round trip — and it is the
+    // identical object every other equipped cosmetic on this screen resolves
+    // from, so there is one source of truth instead of two that can disagree.
+    // ownBox: the title already has its own element and its own truncation
+    // (wg-name-clip below), so the glow adds motion and a shadow, nothing else.
+    const titleGlow = nameGlowProps(shop.cosmetics?.equipped?.nameGlow, undefined, { ownBox: true });
     const [accountData, setAccountData] = useState({});
     const [friends, setFriends] = useState([]);
     const [sentRequests, setSentRequests] = useState([]);
@@ -34,16 +57,6 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
     );
     const [copiedLink, setCopiedLink] = useState(false);
     const bodyRef = useRef(null);
-    const badgeStyle = {
-        marginLeft: '15px',
-        color: 'black',
-        fontSize: '0.7rem',
-        background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
-        padding: '4px 12px',
-        borderRadius: '15px',
-        fontWeight: 'bold',
-        textShadow: 'none'
-    };
 
     // Detect touch devices (mobile and iPad)
     useEffect(() => {
@@ -127,7 +140,6 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                         <AccountView
                             accountData={accountData}
                             setAccountData={setAccountData}
-                            supporter={session?.token?.supporter}
                             eloData={eloData}
                             session={session}
                             setSession={setSession}
@@ -247,7 +259,17 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
                                 <h1 className="account-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {accountData?.username || text("account")}
+                                    {/* The truncation that used to sit on .account-modal-title (where a
+                                        flex container made it inert) lives here, on the real text box,
+                                        and it is the shared wg-name-clip recipe so it carries the halo's
+                                        clip relief with it — unconditionally, so equipping a glow does
+                                        not change the box. Dark modal chrome → the dark variant. */}
+                                    <span
+                                        className={`wg-name-clip ${titleGlow?.className ?? ''}`.trim()}
+                                        style={titleGlow?.style}
+                                    >
+                                        {accountData?.username || text("account")}
+                                    </span>
                                     {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
                                     {accountData?.username && (
                                         <button
@@ -311,17 +333,42 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                             {copiedLink ? <FaCheck /> : <FaLink />}
                                         </button>
                                     )}
-                                    {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}
                                 </h1>
 
+                                {/* Wallet sits beside the close button, not in
+                                    the body: account state belongs in the header
+                                    of the account screen, and the header is the
+                                    one part of this modal that is on screen no
+                                    matter which tab is open. Grouped with the
+                                    close button so .account-modal-header's
+                                    space-between still puts the title left and
+                                    this cluster right (see styles/shop.css).
 
-                                <button
-                                    className="account-modal-close"
-                                    onClick={() => setAccountModalOpen(false)}
-                                    aria-label="Close"
-                                >
-                                    <span className="close-icon">✕</span>
-                                </button>
+                                    NO onOpenShop. The storefront is not a page
+                                    in this modal any more, and a link that had
+                                    to close this modal to open another one is
+                                    not a shortcut — the Stamps button on the
+                                    home screen is one tap from here either way.
+                                    The popover keeps its real job: saying where
+                                    Stamps come from. */}
+                                <div className="shop-header-actions">
+                                    {shop.enabled && (
+                                        <StampsWallet
+                                            stamps={shop.stamps}
+                                            adFreeMsLeft={shop.adFreeMsLeft}
+                                            text={text}
+                                            lang={lang}
+                                        />
+                                    )}
+
+                                    <button
+                                        className="account-modal-close"
+                                        onClick={() => setAccountModalOpen(false)}
+                                        aria-label="Close"
+                                    >
+                                        <span className="close-icon">✕</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Navigation */}

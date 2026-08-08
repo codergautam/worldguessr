@@ -30,6 +30,9 @@ import User from '../models/User.js';
 import { VALID_COUNTRY_CODES } from '../serverUtils/timezoneToCountry.js';
 import { getRandomPointInCountry } from '../components/randomLoc.server.js';
 import { players, games, playersInQueue } from '../serverUtils/states.js';
+import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { ENTRY_RATING } from '../components/utils/eloSystem.js';
+import { isPlacementEligible } from '../components/utils/placementGates.js';
 import borders from '../public/genBorders.json' with { type: "json" };
 
 // Toggles (env, read once at boot like every other ws.js switch):
@@ -77,7 +80,18 @@ export function makeBotUsername() {
 
 // Bots always sit at 800-1000 (ranked ruling; 2v2 reuses it for HUD display —
 // 2v2 itself is unranked so the number is cosmetic there).
+//
+// Under RATING_V2 the whole scale moves: a brand-new account enters at
+// ENTRY_RATING (500), so an 800 bot would be displayed as a favourite the new
+// player is about to lose to on the very first screen they ever see. Band it
+// tight around the entry rating instead. NEVER return 0 — Game.js's duel save
+// gate and the duelEnd payload both test `p1OldElo && p2OldElo`, so a falsy
+// bot rating voids the human's placement result.
+const BOT_ELO_V2_SPREAD = 30;
 export function makeBotElo() {
+  if (RATING_V2) {
+    return ENTRY_RATING - BOT_ELO_V2_SPREAD + Math.floor(Math.random() * (BOT_ELO_V2_SPREAD * 2 + 1));
+  }
   return 800 + Math.floor(Math.random() * 201);
 }
 
@@ -105,7 +119,10 @@ function makeBotCountryCode() {
 // Registers the bot in the global players map: sendAllPlayers/checkRemaining/
 // the disconnect-purge teammate scan all resolve roster ids through it, and a
 // missing entry reads as "player gone". tickBots() is the matching reaper.
-export function createBotPlayer() {
+// `throwGame` makes this bot guess the ANTIPODE of the round location every
+// round, scoring a hard 0 — the placement opponent. See throwGuess() below for
+// why a throw is routed through the normal guess path rather than skipped.
+export function createBotPlayer({ throwGame = false } = {}) {
   const bot = new Player(null, uuidv4(), 'bot'); // ws=null → Player.send() no-ops
   bot.isBot = true;
   bot.verified = true;
@@ -114,6 +131,7 @@ export function createBotPlayer() {
   bot.elo = makeBotElo();
   bot.countryCode = BOT_FLAGS_ENABLED ? makeBotCountryCode() : null;
   bot.teamSupport = true;
+  if (throwGame) bot.botThrow = true;
   players.set(bot.id, bot);
   return bot;
 }
@@ -126,14 +144,25 @@ export function createBotPlayer() {
 // pairing pass holds a duo out of human pairing while undefined (newbie duos
 // must never pair with humans — USER RULING July 22), and that hold must be
 // transient by construction.
+//
+// v2 ADDITION — placementPending, and note its fail direction is the OPPOSITE
+// of the bot flag's. botEligibility fails toward "veteran" so an unassessable
+// player is never stranded; placementPending fails toward "not pending"
+// because a placement OVERWRITES a rating outright, and we never place an
+// account we could not verify. undefined on both still means "read in flight".
 export async function refreshBotEligibility(player) {
-  if (!BOTS_ENABLED || !player?.accountId) return;
+  if (!player?.accountId) return;
+  // Under v2 this read is no longer optional even with bots switched off:
+  // chooseDuelPairs holds an unstamped (undefined) player out of pairing, so
+  // skipping it here would strand every account in the ranked queue forever.
+  if (!BOTS_ENABLED && !RATING_V2) return;
   try {
     const u = await User.findById(player.accountId)
-      .select('duels_wins duels_losses duels_tied team2v2_wins team2v2_losses team2v2_tied')
+      .select('duels_wins duels_losses duels_tied team2v2_wins team2v2_losses team2v2_tied ratedGames created_at lastRankedAt')
       .lean();
     if (!u) {
       player.botEligibility = { ranked: false, team: false };
+      player.placementPending = false;
       return;
     }
     // .lean() skips schema defaults — dormant docs report undefined, not 0.
@@ -141,8 +170,37 @@ export async function refreshBotEligibility(player) {
       const total = wins + losses + tied;
       return wins === 0 || wins / total <= maxWinrate;
     };
+
+    // A placement is owed to a post-migration account that has never earned a
+    // rating. `lastRankedAt` is the "already seeded" marker: applyPlacementSeed
+    // stamps it only when the seed write actually lands, and nothing else in a
+    // placement or a bot game writes it (both go through applyUnratedCounters,
+    // which is rated:false). Without it this gate never closes — a placement
+    // leaves ratedGames at 0 by design, so isPlacementEligible alone would
+    // re-issue a placement match on every single queue join, forever, and the
+    // player would never meet a human. A LOST/abandoned placement leaves
+    // lastRankedAt null and correctly re-gates into another one, which is the
+    // documented intent in Game.js's placement branch.
+    const placement = RATING_V2 && BOTS_ENABLED
+      && isPlacementEligible(u, MIGRATION_AT) && !u.lastRankedAt;
+    player.placementPending = placement;
+
+    // Ranked bot eligibility re-keys onto ratedGames under v2. The v1 rule
+    // reads duels_wins/losses/tied, and under v2 those counters also book
+    // UNRATED games (placements and bot duels go through applyUnratedCounters),
+    // so they stop describing ladder experience at all. ratedGames is the only
+    // honest "has played a real human ranked game" signal.
+    //
+    // And because bot games are unrated, ratedGames cannot advance inside a bot
+    // game — so any "eligible while ratedGames < N" rule for N > 0 would be a
+    // closed loop: bot, bot, bot, never a human. Under v2 the newbie carve-out
+    // therefore collapses into exactly one thing, the placement match. Once
+    // seeded, the player enters normal human matchmaking and the v2 rating
+    // window (not a bot) is what protects them from a mismatch.
     player.botEligibility = {
-      ranked: newbie(u.duels_wins || 0, u.duels_losses || 0, u.duels_tied || 0, 0.1),
+      ranked: RATING_V2
+        ? placement
+        : newbie(u.duels_wins || 0, u.duels_losses || 0, u.duels_tied || 0, 0.1),
       team: newbie(u.team2v2_wins || 0, u.team2v2_losses || 0, u.team2v2_tied || 0, 0.2),
     };
   } catch (e) {
@@ -150,6 +208,9 @@ export async function refreshBotEligibility(player) {
     // Fail toward humans: an unassessable player is treated as a veteran so
     // the pairing-pass hold can't strand them in queue.
     player.botEligibility = { ranked: false, team: false };
+    // Fail AWAY from placements: an unverifiable account never gets its rating
+    // overwritten by a seed.
+    player.placementPending = false;
   }
 }
 
@@ -177,6 +238,23 @@ export function botRandomGuess() {
     console.error('botRandomGuess failed', e?.message);
   }
   return [48.8566, 2.3522]; // near-unreachable fallback: dry land beats a crash
+}
+
+// Placement opponent's guess: the ANTIPODE of the round's location, which is
+// the single furthest point on Earth from it (~20,015 km). calcPoints is
+// 5000 * e^(-10 * dist / 20000), so that distance scores 0.22 and Math.round
+// takes it to exactly 0 — a deterministic zero every round, no luck involved.
+//
+// This is a real GUESS, not a skipped one, and that is the point: the round
+// only collapses early when every roster entry is `final`, so a bot that
+// simply never guessed would make every placement round run the full 20s
+// timer. Routed through Game.setGuess like any other guess.
+export function throwGuess(game) {
+  const loc = game?.locations?.[game.curRound - 1];
+  if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.long)) {
+    return botRandomGuess(); // no location to invert — never block the round
+  }
+  return [-loc.lat, loc.long > 0 ? loc.long - 180 : loc.long + 180];
 }
 
 // Reveal reactions: bots congratulate humans through the same 'emote'
@@ -324,7 +402,7 @@ export function tickBots() {
     }
 
     if (bot.botGuessAt && Date.now() >= bot.botGuessAt) {
-      game.setGuess(id, botRandomGuess(), true);
+      game.setGuess(id, bot.botThrow ? throwGuess(game) : botRandomGuess(), true);
     }
   }
 }

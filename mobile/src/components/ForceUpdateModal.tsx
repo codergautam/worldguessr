@@ -44,7 +44,7 @@ export default function ForceUpdateModal({ visible }: { visible: boolean }) {
         <Animated.View style={[styles.card, cardStyle]}>
           <Text style={styles.icon}>🚀</Text>
           <Text style={styles.title}>
-            {t('updateRequiredTitle', undefined, 'Update Required')}
+            {t('updateRequiredTitle')}
           </Text>
           <Text style={styles.message}>
             {t(
@@ -65,7 +65,7 @@ export default function ForceUpdateModal({ visible }: { visible: boolean }) {
               end={{ x: 0, y: 1 }}
             >
               <Text style={styles.primaryBtnText}>
-                {t('updateNow', undefined, 'Update Now')}
+                {t('updateNow')}
               </Text>
             </LinearGradient>
           </Pressable>

@@ -21,7 +21,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, getLeague, t, formatCompact } from '../../src/shared';
+import { colors, getLeague, resolveLeague, t, formatCompact } from '../../src/shared';
+import StampsTile from '../../src/components/home/StampsTile';
+import PlayerCard, {
+  playerCardMetrics,
+  CORNER_GAP,
+  type PlayerCardMetrics,
+} from '../../src/components/home/PlayerCard';
+import PlayerSheet from '../../src/components/home/PlayerSheet';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
@@ -29,7 +36,9 @@ import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
+import useCountUp from '../../src/hooks/useCountUp';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
+import Season1NoticeModal from '../../src/components/Season1NoticeModal';
 import PlayerName from '../../src/components/PlayerName';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
@@ -118,6 +127,158 @@ function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
  * entrance (web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child). */
 function MenuDivider() {
   return <View style={styles.divider} />;
+}
+
+/* The header pill row is GONE. `HeaderPills` laid out [Stamps] [ELO/league]
+   under a username button and a friends button — four controls in two rows,
+   three of which opened tabs of the same screen. All four are one PlayerCard
+   now (src/components/home/PlayerCard.tsx), which keeps every invariant that
+   block documented and enforces them in one place instead of across a row:
+
+     1. THE RESERVED HEIGHT. The header still renders a hidden clone to reserve
+        its own height, and the guest state still has to reserve the SAME height
+        or the menu jumps at login. The card does it with a `ghost` copy of
+        itself rather than a hand-matched spacer, so the two cannot drift.
+     2. NOTHING WAITS ON A SECOND ROUND TRIP — `stamps`, `stampsEnabled` and
+        `elo` all arrive in the auth response.
+     3. THE NUMBERS GROW LEFTWARD. The card is right-anchored and its numbers
+        column is right-aligned, so a balance gaining a digit extends into empty
+        space rather than shoving anything. */
+
+/**
+ * The top-right corner: the player card (or the login button) with the
+ * Community Maps button under it.
+ *
+ * ONE component, rendered TWICE — by the interactive absolute overlay and by
+ * the hidden in-flow clone that reserves the header's height. They must produce
+ * identical layout, so they share this code rather than two hand-copied JSX
+ * blocks that drift.
+ *
+ * MAPS SITS HERE, not in the menu below. It is not a game mode — the map picker
+ * is reachable from Singleplayer already — and it is not account chrome either,
+ * so it is neither a menu row nor a row inside the card. It is simply the next
+ * item in the corner, which is exactly where the web build puts it.
+ */
+function HeaderCorner({
+  variant,
+  cardMetrics,
+  loginMetrics,
+  username,
+  countryCode,
+  nameGlow,
+  elo,
+  league,
+  animatedElo,
+  showStamps,
+  stamps,
+  animatedStamps,
+  authLoading,
+  onCardPress,
+  onLogin,
+  onMapsPress,
+  onStampsPress,
+}: {
+  /** card = signed in · login = signed out · ghost = blank height reservation ·
+   *  none = awaiting username, the forced modal is covering the screen */
+  variant: 'card' | 'login' | 'ghost' | 'none';
+  cardMetrics: PlayerCardMetrics;
+  loginMetrics: { paddingHorizontal: number; paddingVertical: number; fontSize: number; lineHeight: number; gap: number };
+  username: string;
+  countryCode?: string | null;
+  nameGlow?: string | null;
+  elo: number | null;
+  league: ReturnType<typeof resolveLeague> | null;
+  animatedElo: number;
+  showStamps: boolean;
+  stamps: number;
+  animatedStamps: number;
+  authLoading: boolean;
+  onCardPress?: () => void;
+  onLogin?: () => void;
+  onMapsPress?: () => void;
+  onStampsPress?: () => void;
+}) {
+  const ghost = variant === 'ghost';
+  return (
+    <View style={styles.headerRight}>
+      {variant === 'login' ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.accountBtn,
+            {
+              paddingHorizontal: loginMetrics.paddingHorizontal,
+              paddingVertical: loginMetrics.paddingVertical,
+            },
+            pressed && styles.accountBtnPressed,
+            authLoading && styles.accountBtnDisabled,
+          ]}
+          onPress={onLogin}
+          disabled={authLoading}
+        >
+          <View style={[styles.accountBtnContent, { gap: loginMetrics.gap }]}>
+            {authLoading ? (
+              <>
+                <Text style={[styles.accountBtnText, { fontSize: loginMetrics.fontSize, lineHeight: loginMetrics.lineHeight }]}>
+                  {t('login')}
+                </Text>
+                <ActivityIndicator size="small" color={colors.white} />
+              </>
+            ) : (
+              <>
+                <Ionicons name="person-circle" size={16} color={colors.white} />
+                <Text style={[styles.accountBtnText, { fontSize: loginMetrics.fontSize, lineHeight: loginMetrics.lineHeight }]}>
+                  {t('login')}
+                </Text>
+              </>
+            )}
+          </View>
+        </Pressable>
+      ) : variant === 'none' ? null : (
+        <PlayerCard
+          metrics={cardMetrics}
+          username={username}
+          countryCode={countryCode}
+          nameGlow={nameGlow}
+          elo={elo}
+          league={league}
+          animatedElo={animatedElo}
+          onPress={onCardPress}
+          ghost={ghost}
+        />
+      )}
+
+      {/* The two small chips, side by side under the card: what you can spend,
+          and where to go. They share a height and a skin so they read as a pair
+          rather than as two more cards.
+
+          THE GHOST RENDERS THE STAMPS TILE TOO. The clone's whole job is to
+          reserve one header height for every auth state — if the tile only
+          appeared once the flag arrived, signing in would grow the header and
+          shove the menu down, which is exactly the jump the clone exists to
+          prevent. */}
+      <View style={styles.cornerChips}>
+        <StampsTile
+          visible={showStamps || ghost}
+          stamps={stamps}
+          animatedStamps={animatedStamps}
+          fontSize={cardMetrics.chipFontSize}
+          height={cardMetrics.chipHeight}
+          onPress={onStampsPress}
+          ghost={ghost}
+        />
+        <Pressable
+          style={({ pressed }) => [styles.mapsBtn, { height: cardMetrics.chipHeight }, pressed && styles.mapsBtnPressed]}
+          onPress={onMapsPress}
+          disabled={!onMapsPress}
+          accessibilityRole="button"
+          accessibilityLabel={t('communityMaps')}
+        >
+          <Ionicons name="map" size={cardMetrics.chipFontSize * 1.05} color={colors.white} />
+          <Text style={[styles.mapsBtnText, { fontSize: cardMetrics.chipFontSize }]}>{t('maps')}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 function OutlinedTitle({ children }: { children: string }) {
@@ -233,8 +394,8 @@ export default function HomeScreen() {
 
   // ELO data fetching & animation (matches web home.js:298-367)
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
-  const [animatedElo, setAnimatedElo] = useState(0);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
+  const [playerSheetOpen, setPlayerSheetOpen] = useState(false);
   // When a guest taps an account-gated mode (Ranked / 2v2), the sheet opens
   // with that mode's pitch instead of the generic sign-in copy.
   const [loginUpsell, setLoginUpsell] = useState<'2v2' | 'ranked' | null>(null);
@@ -288,7 +449,11 @@ export default function HomeScreen() {
       setEloData({
         elo: user.elo,
         rank: 0,
-        league: getLeague(user.elo),
+        // Server-computed league beats the local cutoff table (a seasonal
+        // re-anchor then needs no store release). authStore carries whatever
+        // the auth response / ws `elo` message last said; resolveLeague falls
+        // back to the local bucket when that is absent.
+        league: resolveLeague(user.elo, user.league),
       });
     }
 
@@ -299,7 +464,8 @@ export default function HomeScreen() {
           setEloData({
             elo: data.elo,
             rank: data.rank,
-            league: getLeague(data.elo),
+            // api/eloRank.js returns the WHOLE league object — prefer it.
+            league: resolveLeague(data.elo, data.league),
           });
         }
       })
@@ -315,32 +481,16 @@ export default function HomeScreen() {
     setEloData((prev) =>
       prev && prev.elo === user.elo
         ? prev
-        : { elo: user.elo, rank: prev?.rank ?? 0, league: getLeague(user.elo) },
+        : { elo: user.elo, rank: prev?.rank ?? 0, league: resolveLeague(user.elo, user.league) },
     );
   }, [isAuthenticated, user?.elo]);
 
-  // Animated ELO counter (matches web home.js:348-367)
-  useEffect(() => {
-    if (!eloData?.elo) return;
-
-    const interval = setInterval(() => {
-      setAnimatedElo((prev) => {
-        const diff = eloData.elo - prev;
-        const step = Math.ceil(Math.abs(diff) / 10) || 1;
-        if (diff > 0) return Math.min(prev + step, eloData.elo);
-        if (diff < 0) return Math.max(prev - step, eloData.elo);
-        return prev;
-      });
-    }, 10);
-
-    return () => clearInterval(interval);
-  }, [eloData?.elo]);
-
-  // Reset ELO state on logout
+  // Reset ELO state on logout. The counters rewind themselves once their
+  // targets go away (useCountUp), so there is nothing to reset here but the
+  // data.
   useEffect(() => {
     if (!isAuthenticated) {
       setEloData(null);
-      setAnimatedElo(0);
     }
   }, [isAuthenticated]);
 
@@ -372,23 +522,23 @@ export default function HomeScreen() {
   const handleRestoreAccount = useCallback(() => {
     if (!secret || restoringAccount) return;
     Alert.alert(
-      t('restoreAccount', undefined, 'Restore Account'),
-      t('restoreAccountConfirm', undefined, 'Cancel the scheduled deletion and keep your account?'),
+      t('restoreAccount'),
+      t('restoreAccountConfirm'),
       [
         { text: t('cancel'), style: 'cancel' },
         {
-          text: t('restoreAccount', undefined, 'Restore'),
+          text: t('restoreAccount'),
           onPress: async () => {
             try {
               setRestoringAccount(true);
               await api.cancelDeletion(secret);
               updateUser({ pendingDeletion: false, scheduledDeletionAt: undefined });
               Alert.alert(
-                t('accountRestoredTitle', undefined, 'Account Restored'),
-                t('accountRestoredBody', undefined, 'Your account is no longer scheduled for deletion.'),
+                t('accountRestoredTitle'),
+                t('accountRestoredBody'),
               );
             } catch (e: any) {
-              Alert.alert(t('error', undefined, 'Error'), e?.message || String(e));
+              Alert.alert(t('error'), e?.message || String(e));
             } finally {
               setRestoringAccount(false);
             }
@@ -408,6 +558,12 @@ export default function HomeScreen() {
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
   const gamePublic = useMultiplayerStore((s) => s.gameData?.public);
   const playerCount = useMultiplayerStore((s) => s.playerCount);
+  // Badge on the card's Friends menu row. The friends button used to be a
+  // permanent fixture of this corner; now that it is a row inside a sheet, a
+  // pending request has to announce itself from outside the sheet or it is
+  // invisible until you go looking. Already global here — web needed the ws
+  // message lifted into its provider to get the same integer.
+  const friendRequestCount = useMultiplayerStore((s) => s.receivedRequests.length);
   const connected = useMultiplayerStore((s) => s.connected);
   const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
   const nextGameType = useMultiplayerStore((s) => s.nextGameType);
@@ -552,7 +708,7 @@ export default function HomeScreen() {
     if (needsConnection && !connected) {
       Alert.alert(
         t('multiplayerNotConnected'),
-        t('notConnectedReopenApp', undefined, 'You are not connected to the server. Closing and re-opening the app can help.'),
+        t('notConnectedReopenApp'),
         [{ text: t('ok') }],
       );
       return;
@@ -628,54 +784,15 @@ export default function HomeScreen() {
     safeAreaWidth - onlineBadgeRight - onlineBadgeWidth <
       footerIconsRightEdge + spacing.md;
 
-  const headerActionMetrics =
+  const cardMetrics = playerCardMetrics(shortestSide);
+
+  // The login button keeps the metrics it always had; it is not a card.
+  const loginMetrics =
     shortestSide >= 768
-      ? {
-          accountPaddingHorizontal: spacing.xl,
-          accountPaddingVertical: spacing.md,
-          accountFontSize: 20,
-          accountLineHeight: 24,
-          accountGap: spacing.md,
-          friendSize: 44,
-          friendIconSize: 26,
-          rowGap: 8,
-          flagSize: 20,
-          leagueMarginTop: 8,
-          leaguePaddingHorizontal: 12,
-          leaguePaddingVertical: 7,
-          leagueFontSize: 15,
-        }
+      ? { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, fontSize: 20, lineHeight: 24, gap: spacing.md }
       : shortestSide >= 430
-        ? {
-            accountPaddingHorizontal: spacing.xl,
-            accountPaddingVertical: spacing.md,
-            accountFontSize: 18,
-            accountLineHeight: 22,
-            accountGap: spacing.sm,
-            friendSize: 40,
-            friendIconSize: 24,
-            rowGap: 7,
-            flagSize: 18,
-            leagueMarginTop: 7,
-            leaguePaddingHorizontal: 11,
-            leaguePaddingVertical: 6,
-            leagueFontSize: 14,
-          }
-        : {
-            accountPaddingHorizontal: spacing.lg,
-            accountPaddingVertical: spacing.sm,
-            accountFontSize: 17,
-            accountLineHeight: 20,
-            accountGap: spacing.sm,
-            friendSize: 36,
-            friendIconSize: 22,
-            rowGap: 6,
-            flagSize: 18,
-            leagueMarginTop: 6,
-            leaguePaddingHorizontal: 10,
-            leaguePaddingVertical: 5,
-            leagueFontSize: 13,
-          };
+        ? { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, fontSize: 18, lineHeight: 22, gap: spacing.sm }
+        : { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, fontSize: 17, lineHeight: 20, gap: spacing.sm };
 
   const loggedIn = isAuthenticated && !!user?.username;
   // Authenticated but hasn't picked a username yet — the forced SetUsernameModal
@@ -692,8 +809,23 @@ export default function HomeScreen() {
   const eloForLayout =
     eloData ??
     (loggedIn && user?.elo
-      ? { elo: user.elo, rank: 0, league: getLeague(user.elo) }
+      ? { elo: user.elo, rank: 0, league: resolveLeague(user.elo, user.league) }
       : null);
+
+  // Stamps button, sibling of the league pill. FAILS CLOSED: `stampsEnabled` is
+  // the server's kill switch and authStore coerces a missing field to false, so
+  // a server predating the shop renders no button at all rather than an entry
+  // into a screen whose every call 404s. Signed-out is covered twice over —
+  // `loggedIn` here, and there is no user object to read a balance from.
+  const showStampsBtn = loggedIn && user?.stampsEnabled === true;
+  const stampsBalance = user?.stamps ?? 0;
+
+  // Both pills count up from 0 on open, off the SAME hook so they cannot fall
+  // out of step. The rating targets eloForLayout (known the instant login
+  // resolves) rather than the async eloData, so the count starts on the frame
+  // the pill appears instead of waiting on a round trip.
+  const animatedElo = useCountUp(eloForLayout?.elo);
+  const animatedStamps = useCountUp(showStampsBtn ? stampsBalance : null);
 
   return (
     <View style={styles.container}>
@@ -731,124 +863,25 @@ export default function HomeScreen() {
           pointerEvents="box-none"
         >
           <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
-            <View style={styles.headerRight}>
-              {awaitingUsername ? null : loggedIn ? (
-                <>
-                  <View style={styles.loggedInRow}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.accountBtn,
-                        {
-                          paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
-                          paddingVertical: headerActionMetrics.accountPaddingVertical,
-                        },
-                        pressed && styles.accountBtnPressed,
-                      ]}
-                      onPress={() => router.navigate('/(tabs)/account')}
-                    >
-                      <PlayerName
-                        name={user.username}
-                        countryCode={user.countryCode}
-                        flagSize={headerActionMetrics.flagSize}
-                        gap={headerActionMetrics.accountGap}
-                        style={styles.accountBtnContent}
-                        textStyle={[
-                          styles.accountBtnText,
-                          {
-                            fontSize: headerActionMetrics.accountFontSize,
-                            lineHeight: headerActionMetrics.accountLineHeight,
-                          },
-                        ]}
-                      />
-                    </Pressable>
-
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.friendBtn,
-                        {
-                          width: headerActionMetrics.friendSize,
-                          height: headerActionMetrics.friendSize,
-                        },
-                        pressed && styles.friendBtnPressed,
-                      ]}
-                      onPress={() =>
-                        router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })
-                      }
-                    >
-                      <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
-                    </Pressable>
-                  </View>
-
-                  {eloForLayout && (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.leagueBtn,
-                        {
-                          marginTop: headerActionMetrics.leagueMarginTop,
-                          paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
-                          paddingVertical: headerActionMetrics.leaguePaddingVertical,
-                        },
-                        { backgroundColor: eloForLayout.league.color },
-                        pressed && styles.leagueBtnPressed,
-                      ]}
-                      onPress={() => router.navigate('/(tabs)/account')}
-                    >
-                      <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
-                      </Text>
-                    </Pressable>
-                  )}
-                </>
-              ) : (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.accountBtn,
-                    {
-                      paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
-                      paddingVertical: headerActionMetrics.accountPaddingVertical,
-                    },
-                    pressed && styles.accountBtnPressed,
-                    authLoading && styles.accountBtnDisabled,
-                  ]}
-                  onPress={handleLogin}
-                  disabled={authLoading}
-                >
-                  <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                    {authLoading ? (
-                      <>
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {t('login')}
-                        </Text>
-                        <ActivityIndicator size="small" color={colors.white} />
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="person-circle" size={16} color={colors.white} />
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {t('login')}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                </Pressable>
-              )}
-            </View>
+            <HeaderCorner
+              variant={awaitingUsername ? 'none' : loggedIn ? 'card' : 'login'}
+              cardMetrics={cardMetrics}
+              loginMetrics={loginMetrics}
+              username={user?.username ?? ''}
+              countryCode={user?.countryCode}
+              nameGlow={user?.cosmetics?.equipped?.nameGlow}
+              elo={eloForLayout?.elo ?? null}
+              league={eloForLayout?.league ?? null}
+              animatedElo={animatedElo}
+              showStamps={showStampsBtn}
+              stamps={stampsBalance}
+              animatedStamps={animatedStamps}
+              authLoading={authLoading}
+              onCardPress={() => setPlayerSheetOpen(true)}
+              onLogin={handleLogin}
+              onMapsPress={() => handleModePress('communityMaps')}
+              onStampsPress={() => router.push('/shop')}
+            />
           </View>
         </Animated.View>
 
@@ -875,145 +908,37 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
-            {/* Right side: account area */}
+            {/* THE MEASUREMENT CLONE. This hidden in-flow copy is what gives the
+                header its height; the visible corner is the absolute overlay
+                above. It renders the SAME HeaderCorner so the two cannot drift.
+
+                IT IS ALWAYS THE CARD VARIANT, signed in or not. The menu below
+                does not wait on auth, so the header has to reserve one height
+                for both states or the whole column jumps the moment the session
+                resolves. `ghost` is the card's own tree with the text blanked —
+                height-exact by construction, which the hand-matched
+                league-pill-sized spacer this replaces never quite was. */}
             <View
               style={[styles.headerRight, styles.headerRightPlaceholder]}
               pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
-              {loggedIn ? (
-                <>
-                  <View style={styles.loggedInRow}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.accountBtn,
-                        {
-                          paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
-                          paddingVertical: headerActionMetrics.accountPaddingVertical,
-                        },
-                        pressed && styles.accountBtnPressed,
-                      ]}
-                      onPress={() => router.navigate('/(tabs)/account')}
-                    >
-                      <PlayerName
-                        name={user.username}
-                        countryCode={user.countryCode}
-                        flagSize={headerActionMetrics.flagSize}
-                        gap={headerActionMetrics.accountGap}
-                        style={styles.accountBtnContent}
-                        textStyle={[
-                          styles.accountBtnText,
-                          {
-                            fontSize: headerActionMetrics.accountFontSize,
-                            lineHeight: headerActionMetrics.accountLineHeight,
-                          },
-                        ]}
-                      />
-                    </Pressable>
-
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.friendBtn,
-                        {
-                          width: headerActionMetrics.friendSize,
-                          height: headerActionMetrics.friendSize,
-                        },
-                        pressed && styles.friendBtnPressed,
-                      ]}
-                      onPress={() =>
-                        router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })
-                      }
-                    >
-                      <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
-                    </Pressable>
-                  </View>
-
-                  {eloForLayout && (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.leagueBtn,
-                        {
-                          marginTop: headerActionMetrics.leagueMarginTop,
-                          paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
-                          paddingVertical: headerActionMetrics.leaguePaddingVertical,
-                        },
-                        { backgroundColor: eloForLayout.league.color },
-                        pressed && styles.leagueBtnPressed,
-                      ]}
-                      onPress={() => router.navigate('/(tabs)/account')}
-                    >
-                      <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
-                      </Text>
-                    </Pressable>
-                  )}
-                </>
-              ) : (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.accountBtn,
-                    {
-                      paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
-                      paddingVertical: headerActionMetrics.accountPaddingVertical,
-                    },
-                    pressed && styles.accountBtnPressed,
-                    authLoading && styles.accountBtnDisabled,
-                  ]}
-                  onPress={handleLogin}
-                  disabled={authLoading}
-                >
-                  <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                    {authLoading ? (
-                      <>
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {t('login')}
-                        </Text>
-                        <ActivityIndicator size="small" color={colors.white} />
-                      </>
-                    ) : (
-                      <>
-                        <Ionicons name="person-circle" size={16} color={colors.white} />
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {t('login')}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                </Pressable>
-              )}
-              {/* League-pill-sized spacer: the menu no longer waits for auth
-                  before revealing, so the header must reserve the SAME height
-                  before and after login resolves — otherwise the pill row
-                  appearing would shove the already-visible menu downward. */}
-              {!loggedIn && (
-                <View
-                  style={{
-                    marginTop: headerActionMetrics.leagueMarginTop,
-                    paddingVertical: headerActionMetrics.leaguePaddingVertical,
-                  }}
-                >
-                  {/* Same text style as the real pill — font family changes
-                      line height, and this must reserve EXACTLY its height. */}
-                  <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}> </Text>
-                </View>
-              )}
+              <HeaderCorner
+                variant={loggedIn ? 'card' : 'ghost'}
+                cardMetrics={cardMetrics}
+                loginMetrics={loginMetrics}
+                username={user?.username ?? ''}
+                countryCode={user?.countryCode}
+                nameGlow={user?.cosmetics?.equipped?.nameGlow}
+                elo={eloForLayout?.elo ?? null}
+                league={eloForLayout?.league ?? null}
+                animatedElo={animatedElo}
+                showStamps={showStampsBtn}
+                stamps={stampsBalance}
+                animatedStamps={animatedStamps}
+                authLoading={authLoading}
+              />
             </View>
           </Animated.View>
 
@@ -1036,13 +961,13 @@ export default function HomeScreen() {
                 <View style={styles.modBannerTextWrap}>
                   <Text style={[styles.modBannerTitle, { color: '#f44336' }]} numberOfLines={2}>
                     {user?.scheduledDeletionAt
-                      ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() }, 'Your account is scheduled for deletion on {{date}}.')
-                      : t('accountScheduledForDeletionShort', undefined, 'Your account is scheduled for deletion.')}
+                      ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() })
+                      : t('accountScheduledForDeletionShort')}
                   </Text>
                   <Text style={styles.modBannerAction} numberOfLines={1}>
                     {restoringAccount
-                      ? t('loading', undefined, 'Loading…')
-                      : t('restoreAccount', undefined, 'Restore Account')}
+                      ? t('loading')
+                      : t('restoreAccount')}
                   </Text>
                 </View>
                 {restoringAccount ? (
@@ -1139,14 +1064,6 @@ export default function HomeScreen() {
               />
             </View>
 
-            <MenuDivider />
-
-            <View style={styles.menuGroup}>
-              <MenuButton
-                label={t('communityMaps')}
-                onPress={() => handleModePress('communityMaps')}
-              />
-            </View>
           </Animated.View>
 
           {/* Bottom Icons — rides the shared entrance wave. onLayout is safe
@@ -1314,7 +1231,7 @@ export default function HomeScreen() {
                 });
               }}
             >
-              <Text style={styles.modPopupDismissBtnText}>{t('dismiss', undefined, 'Dismiss')}</Text>
+              <Text style={styles.modPopupDismissBtnText}>{t('dismiss')}</Text>
             </Pressable>
           </Animated.View>
         </Animated.View>
@@ -1337,9 +1254,30 @@ export default function HomeScreen() {
           : undefined}
       />
 
+      {/* The player card's menu. Rows route into the account screen's own tabs
+          and the shop — no new destinations, just doors that used to be four
+          separate buttons in the corner. */}
+      <PlayerSheet
+        visible={playerSheetOpen}
+        onClose={() => setPlayerSheetOpen(false)}
+        showShop={showStampsBtn}
+        friendRequests={friendRequestCount}
+        onOpenElo={() => router.push({ pathname: '/(tabs)/account', params: { tab: 'elo' } })}
+        onOpenShop={() => router.push('/shop')}
+        onOpenProfile={() => router.navigate('/(tabs)/account')}
+        onOpenFriends={() => router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })}
+      />
+
       {/* What's New — auto-shows for logged-in users on version bump.
           Long-press the settings gear to preview it on demand (demo). */}
       <WhatsNewModal forceOpen={whatsNewDemo} onForceClose={() => setWhatsNewDemo(false)} />
+
+      {/* Season 1 migration notice, once per account. The SERVER decides whether
+          (it stops sending `eloNotice` after the ack); the component decides when
+          and self-delays past the app-open animation. Gated on `loggedIn` rather
+          than `isAuthenticated` so it can never stack on the forced
+          SetUsernameModal that covers the screen while a username is missing. */}
+      {loggedIn && <Season1NoticeModal />}
 
     </View>
   );
@@ -1384,8 +1322,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
+  // THE CORNER COLUMN: card (or login button), then Community Maps. The gap is
+  // the only vertical measurement left in this corner — everything used to be
+  // absolutely placed and hand-offset against whatever sat above it.
   headerRight: {
     alignItems: 'flex-end',
+    gap: CORNER_GAP,
   },
   headerRightPlaceholder: {
     opacity: 0,
@@ -1414,12 +1356,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: 'Lexend-Medium',
   },
-  // Logged-in top row: [Username] [Friends]
-  loggedInRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   // Account button
   accountBtn: {
     backgroundColor: 'rgba(36, 87, 52, 0.85)',
@@ -1444,37 +1380,42 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     lineHeight: 20,
   },
-  // Friends button - square, next to username (matches web .friendBtnFixed)
-  friendBtn: {
-    backgroundColor: 'rgba(36, 87, 52, 0.85)',
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
-    justifyContent: 'center',
+  // The web build's .daily-community-maps-btn, in native terms: same green,
+  // same 1.4px dark rim, same icon + label. It is a sibling of the card in the
+  // corner column, so it needs no coordinates of its own.
+  // The two chips under the card sit side by side, not stacked: they are the
+  // small stuff, and a third and fourth full-width row down the corner is how
+  // the clutter got here in the first place.
+  cornerChips: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: CORNER_GAP,
   },
-  friendBtnPressed: {
+  mapsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.4,
+    borderColor: colors.primaryDark,
+    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
+  },
+  mapsBtnPressed: {
     backgroundColor: colors.primary,
   },
-  // ELO/League button - below username row (matches web .leagueBtn)
-  leagueBtn: {
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: borderRadius.md,
-    alignSelf: 'flex-end',
-  },
-  leagueBtnPressed: {
-    opacity: 0.8,
-  },
-  leagueBtnText: {
+  mapsBtnText: {
     color: colors.white,
-    fontSize: 13,
     fontFamily: 'Lexend-Bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  // (Removed) friendBtn / pillRow / leagueBtn* / stampsBtn* — the four controls
+  // that used to live in this corner. Their layout invariants did NOT go with
+  // them; they moved into src/components/home/PlayerCard.tsx: tabular figures
+  // and a reserved width on both counters, one line box per row so the two
+  // columns align, and no border on the balance cell.
   // Menu
   menu: {
     flexGrow: 1,

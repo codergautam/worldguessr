@@ -1,14 +1,144 @@
 import { createUUID } from "../components/createUUID.js";
 import User from "../models/User.js";
+import StampLedger from "../models/StampLedger.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
 import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { RATING_V2 } from '../components/utils/ratingFlags.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
+import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// ENTITLEMENTS (stamps / cosmetics / adFreeUntil / stampsEnabled) TRAVEL WITH
+// EVERY AUTH RESPONSE. Two traps live in this file:
+//
+//  1. The .select() whitelists on the secret-login lookups. A field that is not
+//     named there is silently absent from the document — so the shop clears the
+//     userAuth_* cache after a purchase, the cache repopulates WITHOUT the new
+//     balance, and the whole feature does nothing with no error anywhere. Any
+//     new persisted field must be added to EVERY .select( string below.
+//
+//  2. The new-user response objects are hand-built literals that spread
+//     nothing, so they need defaultEntitlementFields() explicitly.
+//
+// stampsEnabled is delivered by the SERVER (see entitlementFields) and must
+// never become a client build constant: an app-store build cannot be re-flagged
+// when the kill switch is thrown.
+//
+// The Season 1 notice fields (elo_s0 seasonPeakElo seasonPeakLeague
+// eloNoticeSeenAt ogAccount) are here for exactly the reason documented in
+// trap 1 above: buildEloNotice reads all five off this document, and a field
+// missing from this whitelist reads as `undefined`, which makes the notice
+// silently never fire (elo_s0 == null) or fire forever (eloNoticeSeenAt == null).
+const AUTH_SELECT = "_id secret username email staff canMakeClues banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote scheduledDeletionAt timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied stamps cosmetics adFreeUntil elo_s0 seasonPeakElo seasonPeakLeague eloNoticeSeenAt ogAccount";
+
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0);
+
+/**
+ * How many Stamps the Season 1 migration paid this account. READ ONLY: every
+ * number here was already written by scripts/grantSeason1Compensation.js.
+ *
+ * The StampLedger is the declared source of truth for currency movement, and
+ * the grant script's keys are deterministic
+ * (`a:season1:<userId>:grinder|league|milestone:<tier>`), so an anchored prefix
+ * sum over APPLIED rows is exact. Rows still sitting at applied:false never
+ * moved the balance and must not be advertised.
+ *
+ * THE MIGRATION GRANTS NO XP, so there is nothing else to report. This function
+ * used to also derive an XP figure by diffing a `season1_grant` UserStats marker
+ * against the previous history row; both the grant and the marker are gone.
+ *
+ * Never throws: a ledger hiccup must not cost anyone their login. It costs the
+ * gift tile, which hides at 0.
+ */
+async function readSeason1Stamps(userId) {
+  const id = userId.toString();
+  try {
+    // Anchored regex so the unique idempotencyKey index is usable as a prefix
+    // scan. The id is a Mongo ObjectId hex string, but it is escaped anyway
+    // rather than trusting that at a query-building site.
+    const ledgerRows = await StampLedger.find({
+      userId,
+      applied: true,
+      idempotencyKey: new RegExp('^a:season1:' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':'),
+    }).select('delta').lean();
+
+    return num(
+      (ledgerRows || []).reduce((sum, row) => sum + (typeof row.delta === 'number' ? row.delta : 0), 0)
+    );
+  } catch (e) {
+    console.error('[googleAuth] season1 stamps read failed:', e.message);
+    return 0;
+  }
+}
+
+/**
+ * Season 1 migration notice payload, or null when the modal must not render.
+ *
+ * DISPLAY ONLY. The Stamps and the OG badge are applied EAGERLY by the migration
+ * script; readSeason1Stamps above reads the already-applied ledger total so the
+ * modal can show it. This path must NEVER grant or write anything.
+ *
+ * Three gates, all required:
+ *   1. RATING_V2 is on            - pre-flip, nobody sees a Season 1 anything.
+ *   2. elo_s0 is non-null         - only the migration stamps it, so this is the
+ *                                   proof the account existed before migration.
+ *                                   A post-migration signup has null here and
+ *                                   gets no notice, which is correct: they never
+ *                                   lost a number.
+ *   3. eloNoticeSeenAt is null    - the once-per-account latch (api/eloNoticeAck).
+ *   4. elo_s0 > 1000              - the account actually played ranked. 1000 is
+ *                                   the old default rating, and on the dev set
+ *                                   50,202 of 50,217 accounts sit on it exactly:
+ *                                   they never queued, never had a rating to
+ *                                   convert, and a modal announcing what
+ *                                   happened to "their" rating is noise. The
+ *                                   badges and grants still land for them; only
+ *                                   this screen is skipped.
+ *
+ * When any gate fails we return null and the caller OMITS the key entirely, so
+ * the client has nothing to render rather than an empty object to guard against.
+ */
+/**
+ * Old-scale rating an account must have EXCEEDED to be shown the notice. 1000
+ * was the starting rating, so `> 1000` means "played ranked and climbed".
+ * NOTE: this also skips the handful who played and finished BELOW 1000. That
+ * follows the rule as specified; widen to `!== 1000` if they should see it too.
+ */
+const ELO_NOTICE_MIN_S0 = 1000;
+
+async function buildEloNotice(user) {
+  if (!RATING_V2) return null;
+  if (user.elo_s0 === null || user.elo_s0 === undefined) return null;
+  if (!(Number(user.elo_s0) > ELO_NOTICE_MIN_S0)) return null;
+  if (user.eloNoticeSeenAt) return null;
+
+  // Peak is the real career high (section 9a) and is >= elo_s0 by construction.
+  // If the migration somehow left it null, fall back to the closing rating rather
+  // than rendering "Your Season 0 peak: null" on the most emotionally loaded
+  // surface in the update.
+  const oldElo = Math.round(user.elo_s0);
+  const peakElo = Math.round(
+    user.seasonPeakElo === null || user.seasonPeakElo === undefined ? user.elo_s0 : user.seasonPeakElo
+  );
+  const newElo = Math.round(user.elo || 1000);
+
+  const stampsGranted = await readSeason1Stamps(user._id);
+
+  return {
+    oldElo,
+    peakElo,
+    newElo,
+    // The tier for the NEW rating, resolved through the active (v2) table.
+    league: getLeague(newElo)?.name || null,
+    stampsGranted,
+    ogBadge: user.ogAccount === true,
+  };
+}
 
 /**
  * Refuse account creation for an identity that was permanently banned, or deleted
@@ -102,7 +232,6 @@ function buildAuthResponse(user, extendedData = {}) {
     email: user.email,
     staff: user.staff,
     canMakeClues: user.canMakeClues,
-    supporter: user.supporter,
     accountId: user._id,
     countryCode: user.countryCode || null,
     banned: user.banned,
@@ -113,6 +242,10 @@ function buildAuthResponse(user, extendedData = {}) {
     pendingNameChangePublicNote: user.pendingNameChangePublicNote || null,
     pendingDeletion: !!user.scheduledDeletionAt,
     scheduledDeletionAt: user.scheduledDeletionAt || null,
+    // Covers the Apple new-user path, whose extendedData is hand-built and
+    // carries no entitlements. For existing users the spread below re-supplies
+    // the same values from getExtendedUserData.
+    ...entitlementFields(user),
     ...extendedData,
   };
 }
@@ -178,6 +311,20 @@ async function getExtendedUserData(user, timings) {
     canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
     daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
     recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
+    // Season 0 commemorative fields, mirroring api/publicProfile.js.
+    //
+    // WITHOUT THESE the mobile Profile tab renders its OG and peak badges only
+    // when you are looking at SOMEONE ELSE — the own-profile payload is this
+    // object, and it carried none of them, so a veteran opening their own
+    // account saw no badge at all. AUTH_SELECT already pulls all four columns,
+    // so this costs nothing extra at the database.
+    //
+    // seasonPeakElo is on the RETIRED 0-20,000 scale and is never comparable to
+    // `elo` below. Every render site labels it Season 0 for that reason.
+    seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
+    seasonPeakLeague: user.seasonPeakLeague || null,
+    season0Elo: user.elo_s0 ?? null,
+    ogAccount: user.ogAccount === true,
   };
 
   // eloRank data
@@ -198,9 +345,24 @@ async function getExtendedUserData(user, timings) {
     win_rate: (user.duels_wins || 0) / ((user.duels_wins || 0) + (user.duels_losses || 0) + (user.duels_tied || 0)) || 0
   };
 
-  timings.extendedData = Date.now() - startExtended;
+  // Season 1 migration notice. Computed HERE rather than at each response site
+  // because this one function is spread into all five existing-user responses
+  // (apple / google id_token / secret / secret-retry / google oauth code) and
+  // none of the new-user literals — which is exactly the set of accounts that
+  // can ever have an elo_s0. Absent key when there is nothing to show, so the
+  // client renders nothing rather than guarding an empty object.
+  const eloNotice = await buildEloNotice(user);
 
-  return { ...publicData, ...eloData };
+  timings.extendedData = Date.now() - startExtended;
+  if (eloNotice) timings.eloNotice = true;
+
+  // Entitlements ride along with every response site that spreads this object.
+  return {
+    ...publicData,
+    ...eloData,
+    ...entitlementFields(user),
+    ...(eloNotice ? { eloNotice } : {}),
+  };
 }
 
 export default async function handler(req, res) {
@@ -384,7 +546,6 @@ export default async function handler(req, res) {
           email: email,
           staff: false,
           canMakeClues: false,
-          supporter: false,
           accountId: newUser._id,
           countryCode: signupCountryCode,
           banned: false,
@@ -406,7 +567,10 @@ export default async function handler(req, res) {
           duels_wins: 0,
           duels_losses: 0,
           duels_tied: 0,
-          win_rate: 0
+          win_rate: 0,
+          // This literal spreads nothing, so the entitlement defaults (and the
+          // server-delivered stampsEnabled flag) have to be added explicitly.
+          ...defaultEntitlementFields()
         });
       } else {
         timings.isNewUser = false;
@@ -430,7 +594,6 @@ export default async function handler(req, res) {
           email: checkedUser.email,
           staff: checkedUser.staff,
           canMakeClues: checkedUser.canMakeClues,
-          supporter: checkedUser.supporter,
           accountId: checkedUser._id,
           countryCode: checkedUser.countryCode || null,
           banned: checkedUser.banned,
@@ -465,7 +628,7 @@ export default async function handler(req, res) {
     const startUserLookup = Date.now();
     const userDb = await User.findOne({
       secret,
-    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote scheduledDeletionAt timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied").cache(120, `userAuth_${secret}`);
+    }).select(AUTH_SELECT).cache(120, `userAuth_${secret}`);
     timings.userLookup = Date.now() - startUserLookup;
     
     if (userDb) {
@@ -497,7 +660,6 @@ export default async function handler(req, res) {
         email: checkedUser.email,
         staff: checkedUser.staff,
         canMakeClues: checkedUser.canMakeClues,
-        supporter: checkedUser.supporter,
         accountId: checkedUser._id,
         countryCode: checkedUser.countryCode || null,
         // Ban info (public note only - internal reason never exposed)
@@ -520,7 +682,7 @@ export default async function handler(req, res) {
         const startRetry = Date.now();
         const userDb2 = await User.findOne({
           secret,
-        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote scheduledDeletionAt timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied");
+        }).select(AUTH_SELECT);
         timings.retryLookup = Date.now() - startRetry;
 
         if(userDb2) {
@@ -547,7 +709,6 @@ export default async function handler(req, res) {
             email: checkedUser2.email,
             staff: checkedUser2.staff,
             canMakeClues: checkedUser2.canMakeClues,
-            supporter: checkedUser2.supporter,
             accountId: checkedUser2._id,
             countryCode: checkedUser2.countryCode || null,
             banned: checkedUser2.banned,
@@ -655,7 +816,6 @@ export default async function handler(req, res) {
           email: email,
           staff: false,
           canMakeClues: false,
-          supporter: false,
           accountId: newUser._id,
           countryCode: signupCountryCode,
           banned: false,
@@ -678,7 +838,10 @@ export default async function handler(req, res) {
           duels_wins: 0,
           duels_losses: 0,
           duels_tied: 0,
-          win_rate: 0
+          win_rate: 0,
+          // This literal spreads nothing, so the entitlement defaults (and the
+          // server-delivered stampsEnabled flag) have to be added explicitly.
+          ...defaultEntitlementFields()
         };
       } else {
         timings.isNewUser = false;
@@ -706,7 +869,6 @@ export default async function handler(req, res) {
           email: checkedUser.email,
           staff: checkedUser.staff,
           canMakeClues: checkedUser.canMakeClues,
-          supporter: checkedUser.supporter,
           accountId: checkedUser._id,
           countryCode: checkedUser.countryCode || null,
           banned: checkedUser.banned,

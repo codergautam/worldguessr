@@ -176,6 +176,7 @@ export default function RootLayout() {
             <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
             <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen name="shop" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding/play" options={{ headerShown: false }} />
           </Stack>
           <ToastProvider />

@@ -1893,7 +1893,6 @@ export default function ModDashboard({ session }) {
                       </h3>
                       <div className={styles.userBadges}>
                         {targetUser.staff && <span className={styles.staffBadge}>STAFF</span>}
-                        {targetUser.supporter && <span className={styles.supporterBadge}>SUPPORTER</span>}
                         {targetUser.banned && (
                           <span className={styles.bannedBadge}>
                             {targetUser.banType === 'temporary' ? 'TEMP BANNED' : 'BANNED'}

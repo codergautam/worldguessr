@@ -21,6 +21,7 @@ import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
 // branch playwire-v2 until their in-game unit + re-add fix land).
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
+import useAdFree from "@/lib/adFree";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
@@ -30,8 +31,17 @@ import TeamScorebar from "./teamScorebar";
 import deriveTeamEndFallback from "./utils/teamDuelEndFallback";
 import getMyTeam from "./utils/getMyTeam";
 import { DUEL_INTRO_EXIT_MS } from "./utils/duelIntroTiming";
+import Countdown, { DIGIT_SLOT } from "./roundTimer";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
+
+// Module constants, not inline literals in JSX. A fresh array every render gave
+// the ad components a changing prop identity, which defeated React.memo on them
+// and made bannerAdNitro re-run JSON.stringify(types) for its dep array on every
+// single render of this component.
+const AD_TYPES_LEADERBOARD = [[728, 90]];
+const AD_TYPES_MOBILE_BANNER = [[320, 50]];
+const AD_TYPES_CG_RESPONSIVE = [[320, 50], [468, 60], [728, 90]];
 
 // Shared scaffold for the duel HP bars + 5s "VS" intro — one source for the
 // layout so intro tweaks can't drift between the 1v1 and team-duel blocks.
@@ -93,6 +103,10 @@ const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false 
 
 export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete, mapSwitchMaskShown }) {
   const { t: text } = useTranslation("common");
+  // A running ad-free pass, read straight off the session so a purchase made in
+  // the shop modal takes this slot down on the same tick it is charged. See
+  // lib/adFree.js; it lapses on its own when the pass runs out.
+  const adFree = useAdFree(session);
   const onboardingRevealStartedAt = useRef(0);
 
   function logOnboardingAdvance(event, details = {}) {
@@ -388,6 +402,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   if(window.matchMedia("(pointer: coarse)").matches) {
     isTouchScreen = true;
   }
+  // Touch that the layout deliberately does NOT switch on. Interactive TV
+  // panels (Newline and friends) and touchscreen laptops report a FINE primary
+  // pointer, because a mouse is paired — so they get the desktop layout, which
+  // is right for an 86" screen but wrong for a finger. Desktop expands the
+  // minimap on hover, and touch has no hover: the expand only ever landed by
+  // accident (emulated mouseenter) and the collapse never landed at all, since
+  // tapping Street View produces no emulated mouseleave. The map got stuck open
+  // with no way out. `any-pointer: coarse` is capability, not primary input, so
+  // it stays false for plain mice and never moves the layout gates above.
+  const isTouchCapable = window.matchMedia("(any-pointer: coarse)").matches;
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
   const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
@@ -429,12 +453,30 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     const t = setTimeout(finishHiddenMapReset, 1500);
     return () => clearTimeout(t);
   }, [mapResetting, finishHiddenMapReset]);
-  const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
+  // Coarse round-clock signals.
+  //
+  // The DISPLAYED digits are not here — they live in <Countdown>
+  // (components/roundTimer.js) and are written straight to the DOM, so the
+  // countdown costs zero React commits. What GameUI still needs is only the
+  // handful of gates below, and every one of them is a boolean that flips a
+  // couple of times per round instead of a number that changed 10x/sec and
+  // re-rendered this whole 1780-line component (plus EndBanner, the ad slot and
+  // every other unmemoized child) along with it.
+  //
+  // The one exception is getreadyCountdown: the between-rounds leaderboard fade
+  // (below) and the duel VS intro both key off sub-second values, so it stays a
+  // live number — but ONLY while state === 'getready', a 5s window with no pano
+  // movement. It is 0 the rest of the round.
+  const [mpFinal5, setMpFinal5] = useState(false);   // MP remaining in (0, 5]
+  const [mpOver120, setMpOver120] = useState(false); // MP remaining > 120 (no-timer sentinel gate)
+  const [getreadyCountdown, setGetreadyCountdown] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const leaderboardFadeInFrameRef = useRef(null);
-  const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
-  const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
+  const [obFinal5, setObFinal5] = useState(false);   // onboarding remaining in (0, 5]
+  const [obHasTime, setObHasTime] = useState(false); // onboarding remaining > 0
+  const [spFinal5, setSpFinal5] = useState(false);   // singleplayer remaining in (0, 5]
+  const [spHasTime, setSpHasTime] = useState(false); // singleplayer remaining > 0
   const [mapPinned, setMapPinned] = useState(false);
   const prevMultiplayerRoundStateRef = useRef({ state: null, round: null });
   // dist between guess & target
@@ -456,7 +498,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   // Once shown, stay shown until getready ends (don't depend on timer for hiding)
   useEffect(() => {
-    if (!inGetready || !(timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5)) return;
+    if (!inGetready || !(getreadyCountdown > 0 && getreadyCountdown < 5)) return;
     // Covers both fresh mounts and the recovery case where a rapid
     // getready→x→getready flip left the list mounted but faded out.
     if (showLeaderboard && leaderboardVisible) return;
@@ -475,7 +517,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         leaderboardFadeInFrameRef.current = null;
       });
     });
-  }, [inGetready, timeToNextMultiplayerEvt, showLeaderboard, leaderboardVisible]);
+  }, [inGetready, getreadyCountdown, showLeaderboard, leaderboardVisible]);
 
   useEffect(() => {
     if (!inGetready && showLeaderboard) {
@@ -536,7 +578,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // guess-phase nextEvtTime (~60s) on the same state change, and painting that
   // into the fading VS chrome reads as a glitch.
   const introCountdownRef = useRef(0);
-  if (isStartingDuel) introCountdownRef.current = timeToNextMultiplayerEvt;
+  // Whole seconds: the VS chrome counts 5 down to 1, and it used to paint the
+  // raw float ("4.7"). Ceil, not floor — a "starting in" number should never
+  // read 0 while the intro is still on screen.
+  if (isStartingDuel) introCountdownRef.current = Math.ceil(getreadyCountdown);
   const vsChromeCountdown = introCountdownRef.current;
 
   useEffect(() => {
@@ -557,24 +602,31 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // dep on it tore down and rebuilt this interval constantly (and reset its
   // phase). The only thing that should own an interval here is "am I in a game
   // at all".
-  const mpClockRef = useRef({ nextEvtTime: null, timeOffset: 0 });
+  const mpClockRef = useRef({ nextEvtTime: null, timeOffset: 0, inGetready: false });
   mpClockRef.current = {
     nextEvtTime: multiplayerState?.inGame ? (multiplayerState?.gameData?.nextEvtTime ?? null) : null,
     timeOffset,
+    inGetready: multiplayerState?.gameData?.state === 'getready',
   };
   const mpClockRunning = !!(multiplayerState?.inGame);
   useEffect(() => {
     if (!mpClockRunning) return;
     const interval = setInterval(() => {
-      const { nextEvtTime, timeOffset: offset } = mpClockRef.current;
+      const { nextEvtTime, timeOffset: offset, inGetready: getready } = mpClockRef.current;
       if (!nextEvtTime) return;
-      const next = Math.max(0, Math.floor(((nextEvtTime - Date.now()) - offset) / 100) / 10);
-      // Bail out when the tenth-of-a-second hasn't moved. Each accepted tick
-      // re-renders this whole component (timer, HP bars, EndBanner, ad slots,
-      // the Leaflet subtree before it was memoized) — a no-op setState paying
-      // that price 10x/sec is pure waste, and it stacked straight onto the
-      // answer reveal, the heaviest frames of the round.
-      setTimeToNextMultiplayerEvt((prev) => (prev === next ? prev : next));
+      // Ceil, matching <Countdown> — so `critical` flips on the frame the
+      // displayed number becomes 5.0, not ~100ms off it.
+      const next = Math.max(0, Math.ceil(((nextEvtTime - Date.now()) - offset) / 100) / 10);
+      // Every setter below takes an identical value on almost every fire, and
+      // React bails out of the re-render when the new state is Object.is-equal
+      // to the old — so this interval costs a few comparisons, not a commit.
+      // That is the whole point: the displayed digits went to <Countdown>, and
+      // what is left here only has to be correct, not fast.
+      setMpFinal5(next > 0 && next <= 5);
+      setMpOver120(next > 120);
+      // Sub-second only inside getready (5s, static screen). Parked at 0
+      // otherwise so the guess phase never re-renders GameUI from the clock.
+      setGetreadyCountdown(getready ? next : 0);
     }, 100);
     return () => clearInterval(interval);
   }, [mpClockRunning])
@@ -601,24 +653,36 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, [latLong]);
 
   useEffect(() => {
-    if(onboarding?.nextRoundTime) {
-      const interval = setInterval(() => {
-      const val = Math.max(0,Math.floor(((onboarding.nextRoundTime - Date.now())) / 100)/10)
-        setTimeToNextRound(val)
+    // No deadline means no countdown, so the flags this effect owns have to go
+    // back to false HERE. Clearing the interval does not clear them, and a
+    // stale `obHasTime` leaves the timer row rendering an empty digits span
+    // followed by a dangling separator once a guess zeroes nextRoundTime.
+    // Owning both edges in one effect is what keeps them from drifting; both
+    // setters bail on an unchanged value, so this costs nothing when idle.
+    if(!onboarding?.nextRoundTime) {
+      setObFinal5(false);
+      setObHasTime(false);
+      return;
+    }
+    const interval = setInterval(() => {
+      const val = Math.max(0,Math.ceil(((onboarding.nextRoundTime - Date.now())) / 100)/10)
+      // Booleans only — the digits are written by <Countdown>. Both setters
+      // bail out on an unchanged value, so this stays a no-op commit-wise.
+      setObFinal5(val > 0 && val <= 5)
+      setObHasTime(val > 0)
 
-        if(val === 0) {
-          setOnboarding((prev) => {
-            return {
-              ...prev,
-              nextRoundTime: Date.now() + (window.location.search.includes("crazygames") ? 60000 : 20000),
-            }
-          });
-        }
-      }, 100)
-
-      return () => {
-        clearInterval(interval)
+      if(val === 0) {
+        setOnboarding((prev) => {
+          return {
+            ...prev,
+            nextRoundTime: Date.now() + (window.location.search.includes("crazygames") ? 60000 : 20000),
+          }
+        });
       }
+    }, 100)
+
+    return () => {
+      clearInterval(interval)
     }
   }, [onboarding?.nextRoundTime])
 
@@ -638,7 +702,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     const modalOpen = gameOptionsModalShown || mapModal;
 
     if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || !roundStartTime || modalOpen) {
-      setSinglePlayerTimeLeft(0);
+      setSpFinal5(false);
+      setSpHasTime(false);
       if (modalOpen) modalWasOpenRef.current = true;
       if (loading) wasLoadingRef.current = true;
       return;
@@ -654,8 +719,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     const deadline = roundStartTime + gameOptions.timePerRound * 1000;
     singlePlayerTimerRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 100) / 10);
-      setSinglePlayerTimeLeft(remaining);
+      // Ceil: the round now times out AT the deadline. Floor reached 0 up to
+      // 99ms early, so every timed singleplayer round ended a fraction short.
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 100) / 10);
+      // Booleans only — the digits are written by <Countdown>. Kept at 100ms
+      // (rather than the adaptive schedule the display uses) because the
+      // remaining <= 0 branch below is a real side effect that has to fire at
+      // the deadline, not at the next display change.
+      setSpFinal5(remaining > 0 && remaining <= 5);
+      setSpHasTime(remaining > 0);
 
       if (remaining <= 0) {
         clearInterval(singlePlayerTimerRef.current);
@@ -957,28 +1029,32 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   // Guess + hint pair, shared by the desktop minimap and the mobile expanded
   // minimap — one source so the waiting-count logic can't drift between them.
+  // Derived ONCE per render, not once per call site. renderGuessHintBtns is
+  // invoked twice (desktop minimap + mobile expanded minimap), and all of this
+  // — players.find, players.reduce, getMyTeam, two filters and up to five i18n
+  // lookups — used to run on both.
+  const ghGd = multiplayerState?.gameData;
+  const ghPlayers = ghGd?.players;
+  const ghMyId = ghGd?.myId;
+  const iAmFinal = !!(multiplayerState?.inGame
+    && ghPlayers?.find(p => p.id === ghMyId)?.final);
+  // How many players haven't locked in yet ("Waiting for N players…").
+  const notFinalCount = ghPlayers?.reduce((acc, cur) => cur.final ? acc - 1 : acc, ghPlayers?.length ?? 0) ?? 0;
+
+  // Team modes: split the wait by allegiance — a teammate blocking the
+  // team's score is a different message than opponents taking their time.
+  // Long-gone teammates don't hold the label (mirrors holdsRounds).
+  const ghTeamMode = !!(ghGd?.team2v2 || ghGd?.teamGame);
+  const ghMyTeam = ghTeamMode ? getMyTeam(ghPlayers, ghMyId) : null;
+  const ghMates = ghMyTeam ? (ghPlayers || []).filter(p => p.id !== ghMyId && p.team === ghMyTeam) : [];
+  const matesWaiting = ghMates.filter(p => !p.final && !p.disconnected).length;
+  const waitingLabel = ghMyTeam == null
+    ? (notFinalCount > 0 ? `${text("waitingForPlayers", { p: notFinalCount })}...` : `${text("waiting")}...`)
+    : matesWaiting > 0
+      ? `${matesWaiting === 1 ? text("waitingForTeammate") : text("waitingForTeammates", { p: matesWaiting })}...`
+      : notFinalCount > 0 ? `${text("waitingForOpponents")}...` : `${text("waiting")}...`;
+
   function renderGuessHintBtns() {
-    const gd = multiplayerState?.gameData;
-    const players = gd?.players;
-    const myId = gd?.myId;
-    const iAmFinal = !!(multiplayerState?.inGame
-      && players?.find(p => p.id === myId)?.final);
-    // How many players haven't locked in yet ("Waiting for N players…").
-    const notFinalCount = players?.reduce((acc, cur) => cur.final ? acc - 1 : acc, players?.length ?? 0) ?? 0;
-
-    // Team modes: split the wait by allegiance — a teammate blocking the
-    // team's score is a different message than opponents taking their time.
-    // Long-gone teammates don't hold the label (mirrors holdsRounds).
-    const teamMode = !!(gd?.team2v2 || gd?.teamGame);
-    const myTeam = teamMode ? getMyTeam(players, myId) : null;
-    const mates = myTeam ? (players || []).filter(p => p.id !== myId && p.team === myTeam) : [];
-    const matesWaiting = mates.filter(p => !p.final && !p.disconnected).length;
-    const waitingLabel = myTeam == null
-      ? (notFinalCount > 0 ? `${text("waitingForPlayers", { p: notFinalCount })}...` : `${text("waiting")}...`)
-      : matesWaiting > 0
-        ? `${matesWaiting === 1 ? text("waitingForTeammate") : text("waitingForTeammates", { p: matesWaiting })}...`
-        : notFinalCount > 0 ? `${text("waitingForOpponents")}...` : `${text("waiting")}...`;
-
     return (
       <>
         {/* Outside multiplayer the press reveals instantly, so the guess
@@ -1052,7 +1128,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   // Last-5-seconds ticking, both round clocks: the multiplayer clock and the
   // singleplayer/daily optional timer (timePerRound game option — its
-  // interval zeroes singlePlayerTimeLeft whenever the round isn't live:
+  // interval clears spFinal5/spHasTime whenever the round isn't live:
   // modals, loading, reveal — so >0 alone means "clock running").
   // Deliberately NOT gated on pinPoint/final like the red 'critical' timer
   // style — a locked-in player still wants to hear the reveal closing in
@@ -1064,9 +1140,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const tickingWindow = !!(
     (multiplayerState?.inGame
       && multiplayerState?.gameData?.state === 'guess'
-      && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt <= 5)
-    || (!multiplayerState?.inGame
-      && singlePlayerTimeLeft > 0 && singlePlayerTimeLeft <= 5)
+      && mpFinal5)
+    || (!multiplayerState?.inGame && spFinal5)
   );
   useEffect(() => {
     if (!tickingWindow) return;
@@ -1182,7 +1257,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           }]
         }
       })
-      setTimeToNextRound(0)
+      // `nextRoundTime: 0` above IS the stop signal — it retires the interval
+      // and the <Countdown>, which is what the deleted setTimeToNextRound(0)
+      // used to do back when the remaining seconds lived in their own state.
     }
 
     if(singlePlayerRound) {
@@ -1378,6 +1455,47 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       mapResetting ||
       (!forceHideMiniMap && (!loading || onboardingActive || keepMapThroughRevealExit))
     );
+  // Touch collapse for the desktop layout (see isTouchCapable). mouseleave is
+  // the only thing that closes the expanded map there, and a finger never fires
+  // one — Leaflet and the pano both preventDefault their touch gestures, which
+  // kills the emulated mouse events that would have carried it. So a tap
+  // anywhere outside the map is the collapse. Capture phase, so it still lands
+  // when the tap target stops propagation. Mouse pointers are ignored: a real
+  // mouse already has mouseleave, and this would fight it on hybrid machines.
+  const desktopTouchMap = isTouchCapable && width > 600 && !isTouchScreen;
+  useEffect(() => {
+    if (!desktopTouchMap || !miniMapExpanded || mapPinned || showAnswerOnMap) return;
+    const collapse = () => {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    };
+    const onOutsidePointerDown = (e) => {
+      if (e.pointerType === 'mouse') return;
+      if (e.target?.closest?.('#miniMapArea')) return;
+      collapse();
+    };
+    // The Google pano is a cross-origin iframe, so a tap on it never becomes a
+    // pointerdown in this document — the one gesture most likely to mean "close
+    // the map" was also the only one we could not see. Focus moving INTO that
+    // iframe is the same gesture from the outside. Restricted to #streetview:
+    // an ad iframe taking focus on its own must not close the map. activeElement
+    // settles after blur dispatches, hence the task hop.
+    let blurTimer = null;
+    const onWindowBlur = () => {
+      blurTimer = setTimeout(() => {
+        const el = document.activeElement;
+        if (el?.tagName === 'IFRAME' && el.id === 'streetview') collapse();
+      }, 0);
+    };
+    document.addEventListener('pointerdown', onOutsidePointerDown, true);
+    window.addEventListener('blur', onWindowBlur);
+    return () => {
+      document.removeEventListener('pointerdown', onOutsidePointerDown, true);
+      window.removeEventListener('blur', onWindowBlur);
+      if (blurTimer) clearTimeout(blurTimer);
+    };
+  }, [desktopTouchMap, miniMapExpanded, mapPinned, showAnswerOnMap]);
+
   const mapCameraResetKey = multiplayerState?.inGame
     ? `mp:${multiplayerState?.gameData?.code || ''}:${multiplayerState?.gameData?.curRound || ''}:${multiplayerState?.gameData?.state || ''}`
     : onboarding
@@ -1389,13 +1507,20 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <div className="gameUI">
 
 {/* RE-ENABLED Aug 2 (was TEMP-disabled July 31): Nitro revived as the revenue
-    stopgap while the Playwire swap waits on branch playwire-v2. */}
-{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+    stopgap while the Playwire swap waits on branch playwire-v2.
+
+    !adFree IS THE PASS, AND IT UNMOUNTS THE SLOT RATHER THAN HIDING IT. That is
+    deliberate: bannerAdNitro's cleanup calls the NitroAd's own teardown and
+    clears the container, so the creative and its refresh timer are actually
+    gone. A `visibility: hidden` gate would leave an invisible ad refreshing
+    every 30s behind the game, which is a paid-for ad the player cannot see and
+    an impression we should not be counting. */}
+{ !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
       position="bottom-right"
-    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={AD_TYPES_LEADERBOARD} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
@@ -1403,15 +1528,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
       <CrazyGamesBanner
         id="cg-banner-gameui"
-        screenH={height} types={[[320,50],[468,60],[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
+        screenH={height} types={AD_TYPES_CG_RESPONSIVE} screenW={Math.max(400, width-350)} vertThresh={0.3} />
     </div>
 )}
 
-{ inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !adFree && inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_cmg_gameui_ad"}
-    showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
+    showAdvertisementText={false} screenH={height} types={AD_TYPES_MOBILE_BANNER} screenW={width} vertThresh={0.3} />
     </div>
 )}
 
@@ -1419,7 +1544,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <GameDistributionBanner
         id="gd-banner-gameui"
-        screenH={height} types={[[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
+        screenH={height} types={AD_TYPES_LEADERBOARD} screenW={Math.max(400, width-350)} vertThresh={0.3} />
     </div>
 )}
 
@@ -1433,13 +1558,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <DuelIntroBars isStartingDuel={isStartingDuel} vsExiting={vsExiting} countdown={vsChromeCountdown}
       leftBar={
         <HealthBar health={me?.score} maxHealth={5000} name={text("you")}
-          isStartingDuel={isStartingDuel} elo={me?.elo} countryCode={me?.countryCode} />
+          isStartingDuel={isStartingDuel} elo={me?.elo} countryCode={me?.countryCode}
+          nameGlow={me?.nameGlow} />
       }
       rightBar={
         <HealthBar health={opponent?.score} maxHealth={5000} name={opponent?.username}
           isStartingDuel={isStartingDuel} elo={opponent?.elo} countryCode={opponent?.countryCode}
           isOpponent={true} disconnected={!!opponent?.disconnected}
-          hasProfile={!!opponent?.accountId} />
+          hasProfile={!!opponent?.accountId} nameGlow={opponent?.nameGlow} />
       }
     />
   );
@@ -1470,6 +1596,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // League-colored "(elo)" suffix, same as the 1v1 bars. Guests have no elo
     // (null/undefined) so the suffix simply doesn't render for them.
     elo: typeof p.elo === 'number' ? p.elo : null,
+    // Equipped name glow (shop cosmetic). This factory is a PROJECTION: a
+    // field missing here never reaches the bar, and duelHealthbar's namesEqual
+    // never compares it either — two silent no-ops stacked. Both are wired.
+    nameGlow: p.nameGlow ?? null,
   });
   const myNames = players.filter(p => p.team === myTeam)
     .sort((a, b) => (b.id === myId) - (a.id === myId))
@@ -1531,6 +1661,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
       <div id="miniMapArea" onMouseEnter={() => {
         if(!loading || onboardingMapWhileLoading) setMiniMapExpanded(true)
+      }} onPointerDown={(e) => {
+        // Touch/pen on the desktop layout only — a mouse arrives through
+        // onMouseEnter above, and the mobile layout has its own Guess toggle.
+        // On the press itself, not the tap, so dragging to pan the collapsed
+        // map expands it too: Leaflet preventDefaults that gesture, so no
+        // emulated mouseenter ever follows it.
+        if(!desktopTouchMap || e.pointerType === 'mouse') return;
+        if(loading && !onboardingMapWhileLoading) return;
+        setMiniMapExpanded(true)
       }} onMouseLeave={() => {
         if(mapPinned || showAnswerOnMap) return;
         setMiniMapExpanded(false)
@@ -1607,12 +1746,29 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
          onCountryPress={submitCountryGuess}/>
       )}
 
-      {/* Duel timer — single line, old style */}
+      {/* Duel timer. Was a single-line sentence ("Round #1 / 5 - 47 seconds",
+          25 chars at full pill size, 27 in French) — centered, so it was the
+          widest thing competing with the corner HP bars, and it breathed
+          sideways all round because a centered pill moves BOTH edges when its
+          text length changes. Now the same .timer--two-line pill every other
+          multiplayer mode uses, with the duel hierarchy pushed hard in CSS:
+          the bars carry the real state here, so the round is a footnote and
+          the clock is the hero. */}
       {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        {multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120
-          ? text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
-          : text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
+      <span className={`timer duel timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${mpFinal5 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+        <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
+        <span className="timer__main-row">
+          {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)
+            ? <span className="timer__countdown">
+                <Countdown
+                  deadline={multiplayerState?.gameData?.nextEvtTime}
+                  timeOffset={timeOffset}
+                  template={`${DIGIT_SLOT}s`}
+                />
+              </span>
+            : null
+          }
+        </span>
       </span>
       )}
 
@@ -1626,11 +1782,17 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           top:100 on narrow screens, which is exactly where the centered
           stacked timer would land — CG keeps the right-anchored spot. */}
       {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
-      <span className={`timer timer--two-line ${multiplayerState?.gameData?.teamGame && !leaderboardVisible && !inCrazyGames ? 'timer--with-scorebar' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+      <span className={`timer timer--two-line ${multiplayerState?.gameData?.teamGame && !leaderboardVisible && !inCrazyGames ? 'timer--with-scorebar' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${mpFinal5 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
         <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
         <span className="timer__main-row">
-          {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
-            ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
+          {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)
+            ? <span className="timer__countdown">
+                <Countdown
+                  deadline={multiplayerState?.gameData?.nextEvtTime}
+                  timeOffset={timeOffset}
+                  template={`${DIGIT_SLOT}s`}
+                />
+              </span>
             : null
           }
         </span>
@@ -1642,7 +1804,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           && multiplayerState?.gameData?.host
           && multiplayerState?.gameData?.state === 'guess'
           && multiplayerState?.gameData?.timePerRound === 86400000
-          && timeToNextMultiplayerEvt > 120 && (
+          && mpOver120 && (
           <button
             className="timer__force-end"
             onClick={() => { try { ws.send(JSON.stringify({ type: 'forceEndRound' })); } catch (e) {} }}
@@ -1651,11 +1813,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       </span>
       )}
 
-      <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
+      <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${obFinal5 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
         <span className="timer__round-label">{onboarding ? text("tutorialRound", {round: onboarding.round, total: onboarding.locations?.length || 3}) : text("round", {r:onboarding?.round, mr: 5})}</span>
         <span className="timer__main-row">
-          {timeToNextRound
-            ? <><span className="timer__countdown">{timeToNextRound.toFixed(1)}s</span> &middot; </>
+          {obHasTime
+            ? <><span className="timer__countdown">
+                <Countdown deadline={onboarding?.nextRoundTime} template={`${DIGIT_SLOT}s`} />
+              </span> &middot; </>
             : null
           }
           <AnimatedCounter value={onboarding?.points || 0} showIncrement={false} /> {text("points")}
@@ -1664,11 +1828,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className={`timer timer--two-line shown ${dailyMode ? 'onTop' : ''} ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
+            <span className={`timer timer--two-line shown ${dailyMode ? 'onTop' : ''} ${spFinal5 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
               <span className="timer__round-label">{text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})}</span>
               <span className="timer__main-row">
-                {gameOptions.timePerRound > 0 && !showAnswer && singlePlayerTimeLeft > 0
-                  ? <><span className="timer__countdown">{singlePlayerTimeLeft.toFixed(1)}s</span> &middot; </>
+                {gameOptions.timePerRound > 0 && !showAnswer && spHasTime
+                  ? <><span className="timer__countdown">
+                      <Countdown deadline={roundStartTime ? roundStartTime + gameOptions.timePerRound * 1000 : null} template={`${DIGIT_SLOT}s`} />
+                    </span> &middot; </>
                   : null
                 }
                 <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
@@ -1679,7 +1845,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
           <BannerText text={
-            text("gameStartingIn", {t:timeToNextMultiplayerEvt})
+            text("gameStartingIn", {t:Math.ceil(getreadyCountdown)})
           } shown={true} />
         )}
 
@@ -1772,8 +1938,8 @@ singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={co
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} mapFadingOut={mapFadingOut} />
 
     {/* Critical timer screen warning effect */}
-    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown && !showAnswer && !pinPoint && multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess') ||
-      (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown && !showAnswer && !pinPoint && onboarding)) && (
+    {((mpFinal5 && multiplayerTimerShown && !showAnswer && !pinPoint && multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess') ||
+      (obFinal5 && onboardingTimerShown && !showAnswer && !pinPoint && onboarding)) && (
       <div className="screen-critical-warning" />
     )}
   </div>

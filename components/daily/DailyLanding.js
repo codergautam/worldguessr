@@ -10,7 +10,7 @@ import DailyLeaderboardModal from './DailyLeaderboardModal';
 import { derivePercentile } from '@/shared/daily/percentile';
 import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
 
-export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
+export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false, ownNameGlow = null }) {
   const { t: text } = useTranslation();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -191,6 +191,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
         date={today}
         userData={userData}
         isLoggedIn={isLoggedIn}
+        ownNameGlow={ownNameGlow}
         onSignIn={onSignIn ? () => { setShowLeaderboard(false); onSignIn(); } : undefined}
       />
     </div>

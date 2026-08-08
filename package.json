@@ -16,7 +16,9 @@
     "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
     "start-cron": "cross-env NODE_ENV=production node cron.js",
-    "heroku-postbuild": "cross-env  next build"
+    "heroku-postbuild": "cross-env  next build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -87,6 +89,7 @@
     "eslint-config-next": "14.2.1",
     "google-translate-free": "^2.4.5",
     "mapcheckr-cli": "^1.1.2",
-    "nodemon": "^3.1.3"
+    "nodemon": "^3.1.3",
+    "vitest": "^4.1.10"
   }
 }

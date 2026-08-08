@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
-import { getPinIcons } from '@/lib/markerIcons';
+import { getPinIcons, markerSkinIconKey } from '@/lib/markerIcons';
 import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag, FaCrown } from "react-icons/fa";
 import msToTime from "./msToTime";
@@ -11,8 +11,11 @@ import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
-import UsernameWithFlag from './utils/usernameWithFlag';
+import UsernameWithFlag, { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import GuessPinLabel from './utils/guessPinLabel';
+import StampMark from './shop/StampMark';
+import { STAMP_REASON_KEYS, mergeStampLines } from '@/shared/stamps/receipt';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
 import openInStreetView from './utils/openInStreetView';
@@ -28,6 +31,63 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((module) => module.TileLayer),
   { ssr: false }
 );
+
+/* ── DUEL RATING COUNT-UP (rating v2) ──────────────────────────────────────
+ *
+ * FIXED DURATION, NOT FIXED STEP SIZE. Every earlier version of this counter
+ * derived its cadence from the size of the swing, and every one of them broke
+ * when the scale changed:
+ *
+ *   v1 (original)  period = 1500 / |Δ|, stepping ±1 per tick. Tuned for the old
+ *                  inflating ladder where a duel moved 60-600 points. On the v2
+ *                  scale a Δ of 3 makes that a 500ms tick: the number LURCHES
+ *                  three times over a second and a half instead of counting.
+ *   v1 (patched)   a 33ms interval, linear. Killed the 100-renders/sec problem
+ *                  but still committed React state 30 times a second, which
+ *                  re-rendered this entire summary tree (map, pins, breakdown)
+ *                  through the heaviest window of the duel.
+ *
+ * This version is time-driven and magnitude-independent: ELO_COUNT_MS start to
+ * finish whether the swing is 1 or 300, eased, on requestAnimationFrame, and
+ * written straight to the DOM node through a ref — zero React commits per frame
+ * (only the two that flip the flourish class on and off).
+ *
+ * WHY TWO CURVES. Under v2 a routine transfer is ±1-40, so for a small swing
+ * there are only a handful of digit transitions available and the CURVE decides
+ * whether they read as motion. easeOutCubic front-loads: with Δ=1 the single
+ * change lands at ~20% (185ms) and the rest of the second is dead air — an
+ * instant snap with a pause after it. easeInOutCubic puts that change at the
+ * midpoint, and the CSS flourish (.elo-value--counting, styles/season1Badges.css)
+ * carries the deliberate motion around it. Big swings keep the classic
+ * front-loaded count-up they have always had.
+ */
+const ELO_COUNT_MS = 1000;
+/** Below this |Δ| the digits alone cannot carry the motion — see WHY TWO CURVES. */
+const ELO_SMALL_DELTA = 8;
+
+/* ── Stamps receipt ─────────────────────────────────────────────────────────
+ * Deliberately SHORTER than the rating count: the receipt arrives on its own ws
+ * message a beat after this screen paints (the grants sit behind the game save,
+ * ws/classes/Game.js sendStampEarnings), so its count starts late and must be
+ * finished well before the player reaches for Play Again. */
+const STAMPS_COUNT_MS = 650;
+
+/* Reason labels and the repeated-reason merge live in shared/stamps/receipt.js
+ * — mobile's results screen imports the SAME module through its @shared alias,
+ * so the two platforms cannot drift into showing different breakdowns for the
+ * same game. */
+const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
+const easeInOutCubic = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+
+const prefersReducedMotion = () => {
+  try {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch (e) {
+    return false;
+  }
+};
 
 // Component to handle map events and store map reference
 const MapEvents = ({ mapRef, onMapReady, history, onUserInteraction }) => {
@@ -119,14 +179,47 @@ const GameSummary = ({
   const src2IconRef = useRef(null);
   const srcBigIconRef = useRef(null);
   const src2BigIconRef = useRef(null);
+  const allIconsRef = useRef(null);
   const roundsContainerRef = useRef(null);
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const [pointsAnimating, setPointsAnimating] = useState(false);
-  const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
-  const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
+
+  // ── Rating count-up plumbing (see the header comment on ELO_COUNT_MS).
+  // `eloNode` is STATE, not a ref, deliberately: the animation must not be able
+  // to start before the span exists. This screen renders a placeholder branch
+  // while Leaflet loads, so a ref-only version would run its whole rAF loop into
+  // a null node and the count-up would simply never be seen. A callback ref
+  // re-runs the effect at the exact commit the node attaches.
+  const [eloNode, setEloNode] = useState(null);
+  // The value on screen. The JSX renders FROM this ref (never from state), so an
+  // unrelated re-render — a round click, mobileExpanded, a selectedPlayer change,
+  // all of which fire constantly on this screen — reconciles the span's text to
+  // the value the animation last wrote instead of snapping it back to a stale one.
+  const eloShownRef = useRef(typeof data?.oldElo === 'number' ? data.oldElo : 0);
+  const eloRafRef = useRef(0);
+  const [eloCounting, setEloCounting] = useState(false);
+
+  // ── Stamps receipt plumbing ───────────────────────────────────────────────
+  // Everything here keys off the receipt ARRIVING, never off mount: it lands on
+  // its own ws message after this screen is already painted. `stampsPending`
+  // (stamped onto duelEnd by the server for games that expect to pay) is what
+  // holds the row's height open in the meantime, so the fill is a fade, not a
+  // shove.
+  const stampsReceipt = multiplayerState?.gameData?.stampsEarned || null;
+  const stampsTotal = typeof stampsReceipt?.total === 'number' ? stampsReceipt.total : 0;
+  const stampsLines = useMemo(() => mergeStampLines(stampsReceipt?.lines), [stampsReceipt]);
+  const stampsPending = !!data?.stampsPending;
+  // Same callback-ref + write-to-the-DOM recipe as the rating counter above, for
+  // the same reason: this tree re-renders constantly (round clicks, mobile
+  // expand, player selection) and a state-driven counter would repaint the whole
+  // summary once per frame.
+  const [stampsNode, setStampsNode] = useState(null);
+  const stampsShownRef = useRef(0);
+  const stampsRafRef = useRef(0);
+  const [stampsCounting, setStampsCounting] = useState(false);
 
 
 
@@ -140,6 +233,10 @@ const GameSummary = ({
         src2IconRef.current = icons.src2;
         srcBigIconRef.current = icons.srcBig;
         src2BigIconRef.current = icons.src2Big;
+        // Keep the whole set: purchased pin skins are looked up by key
+        // (markerSkinIconKey) rather than having one ref per sku, same as
+        // components/Map.js does for the in-game map.
+        allIconsRef.current = icons;
         setLeafletReady(true);
       } else {
         setTimeout(checkLeaflet, 100);
@@ -189,37 +286,134 @@ const GameSummary = ({
     }
   }, [points, duel]);
 
-  // Animation for elo in duels
+  // Animation for elo in duels. Fixed duration, eased, rAF-driven, written
+  // straight to the DOM. See the ELO_COUNT_MS header comment for the why.
   useEffect(() => {
-    if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number" && !eloAnimationComplete) {
-      const { oldElo, newElo } = data;
-      // ±0 change: nothing to count. Without this bail the ±1 stepping below
-      // starts at oldElo, immediately steps PAST newElo and never equals it
-      // again — a 0ms interval re-rendering this whole summary forever.
-      if (oldElo === newElo) {
-        setAnimatedElo(newElo);
-        setEloAnimationComplete(true);
+    if (!eloNode || !duel || !data) return;
+    const oldElo = data.oldElo;
+    const newElo = data.newElo;
+    if (typeof oldElo !== 'number' || typeof newElo !== 'number') return;
+
+    const write = (v) => {
+      eloShownRef.current = v;
+      // textContent, not state: a per-frame setState here re-renders the whole
+      // summary (map + pins + breakdown) 60 times a second.
+      eloNode.textContent = String(v);
+    };
+
+    // KILL THE PREVIOUS LOOP BEFORE STARTING ONE. A fast round transition or a
+    // second duel on the same mount re-runs this effect, and two rAF loops
+    // writing the same node is exactly the leak class that has cost this
+    // codebase frames before. The cleanup below covers unmount; this covers the
+    // re-trigger, because React runs the cleanup of the PREVIOUS effect first
+    // and belt-and-braces is cheap.
+    if (eloRafRef.current) {
+      cancelAnimationFrame(eloRafRef.current);
+      eloRafRef.current = 0;
+    }
+
+    const delta = newElo - oldElo;
+    // ±0 change (a v2 draw between evenly matched players transfers nothing):
+    // there is nothing to count, so don't fake a count.
+    if (delta === 0 || prefersReducedMotion()) {
+      write(newElo);
+      setEloCounting(false);
+      return;
+    }
+
+    const ease = Math.abs(delta) < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
+    const start = performance.now();
+    let last = oldElo;
+    write(oldElo);
+    setEloCounting(true);
+
+    const step = (now) => {
+      const progress = Math.min((now - start) / ELO_COUNT_MS, 1);
+      const value = Math.round(oldElo + delta * ease(progress));
+      // Only touch the DOM when a digit actually changes. On the v2 scale most
+      // frames of a ±3 swing produce the same integer, so this skips ~57 of the
+      // 60 writes and the text node is left alone.
+      if (value !== last) {
+        last = value;
+        write(value);
+      }
+      if (progress < 1) {
+        eloRafRef.current = requestAnimationFrame(step);
         return;
       }
-      const duration = 1500;
-      const startTime = Date.now();
+      eloRafRef.current = 0;
+      write(newElo);
+      setEloCounting(false);
+    };
+    eloRafRef.current = requestAnimationFrame(step);
 
-      // Time-based at 30Hz. The old ±1-per-tick stepping made the interval
-      // period 1500/|Δelo| — a 150-elo swing meant a 10ms interval driving
-      // 100 re-renders/sec of this whole end screen, right through the
-      // heaviest window of the duel (the t=120-124s 93-dropped-frames zone).
-      const interval = setInterval(() => {
-        const progress = Math.min((Date.now() - startTime) / duration, 1);
-        setAnimatedElo(Math.round(oldElo + (newElo - oldElo) * progress));
-        if (progress >= 1) {
-          clearInterval(interval);
-          setEloAnimationComplete(true); // Mark animation as complete
-        }
-      }, 33);
+    return () => {
+      if (eloRafRef.current) {
+        cancelAnimationFrame(eloRafRef.current);
+        eloRafRef.current = 0;
+      }
+    };
+  }, [eloNode, duel, data?.oldElo, data?.newElo]); // Use specific properties instead of entire data object
 
-      return () => clearInterval(interval);
+  // Count the stamps receipt up from zero. Same rAF-to-the-DOM machinery as the
+  // rating counter; the differences are all consequences of it arriving late:
+  // it starts from 0 (there is no "before" balance to count from on this
+  // screen — the wallet is not what this row is about), and it runs for
+  // STAMPS_COUNT_MS rather than a full second.
+  useEffect(() => {
+    if (!stampsNode || !duel || !(stampsTotal > 0)) return;
+
+    const write = (v) => {
+      stampsShownRef.current = v;
+      stampsNode.textContent = `+${v}`;
+    };
+
+    // Kill any in-flight loop first — same rule as the rating counter.
+    if (stampsRafRef.current) {
+      cancelAnimationFrame(stampsRafRef.current);
+      stampsRafRef.current = 0;
     }
-  }, [duel, data?.oldElo, data?.newElo, eloAnimationComplete]); // Use specific properties instead of entire data object
+
+    if (prefersReducedMotion()) {
+      write(stampsTotal);
+      setStampsCounting(false);
+      return;
+    }
+
+    // A game pays 2-8 in the common case, so the count has only a handful of
+    // digit transitions to spend. easeInOutCubic puts them in the middle of the
+    // flourish for the small totals; a back-paid weekly quest (+25) or a ladder
+    // sweep is large enough for the classic front-loaded curve.
+    const ease = stampsTotal < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
+    const start = performance.now();
+    let last = 0;
+    write(0);
+    setStampsCounting(true);
+
+    const step = (now) => {
+      const progress = Math.min((now - start) / STAMPS_COUNT_MS, 1);
+      const value = Math.round(stampsTotal * ease(progress));
+      if (value !== last) {
+        last = value;
+        write(value);
+      }
+      if (progress < 1) {
+        stampsRafRef.current = requestAnimationFrame(step);
+        return;
+      }
+      stampsRafRef.current = 0;
+      write(stampsTotal);
+      setStampsCounting(false);
+    };
+    stampsRafRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (stampsRafRef.current) {
+        cancelAnimationFrame(stampsRafRef.current);
+        stampsRafRef.current = 0;
+      }
+    };
+  }, [stampsNode, duel, stampsTotal]);
 
   // Handle scroll to make header compact
   useEffect(() => {
@@ -456,6 +650,9 @@ const GameSummary = ({
                     username={player.username}
                     countryCode={player.countryCode}
                     isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                    // Dark overlay (.round-item sits on the summary's dark
+                    // glass) → the dark glow variant.
+                    nameGlow={glowOf[player.playerId]}
                   />
                   {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
                   {isReportedUser && <span style={{ color: '#f44336', fontStyle: 'italic', marginLeft: '4px' }}>(reported)</span>}
@@ -751,6 +948,32 @@ const GameSummary = ({
     : (multiplayerState?.gameData?.players || []);
   const teamOf = {};
   gamePlayers.forEach(p => { teamOf[p.id] = p.team; });
+  // Equipped name-glow sku by player id, read off the SAME roster the teams
+  // come from. Per-round guess entries (round.players[id]) are guess records —
+  // they carry username/points/lat/long and nothing cosmetic — so every glow on
+  // this screen resolves through here, never through the round data.
+  const glowOf = {};
+  gamePlayers.forEach(p => { if (p.nameGlow) glowOf[p.id] = p.nameGlow; });
+  // Equipped pin sku, resolved off the roster for exactly the same reason as
+  // the glow above. Without this the reveal map drew every guess with the stock
+  // src/src2 pins while the in-game map (Map.js) drew the purchased one, so a
+  // pin vanished the moment the round ended.
+  const skinOf = {};
+  gamePlayers.forEach(p => { if (p.markerSkin) skinOf[p.id] = p.markerSkin; });
+  // The VIEWER's own pin cannot come from the roster: singleplayer has no
+  // roster at all, so `gamePlayers` is empty and `myId` is undefined. The
+  // session is the only source that exists in every mode, which is exactly the
+  // priority Map.js uses (session first, roster entry as the backfill for the
+  // window before the session resolves).
+  const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
+    ?? skinOf[multiplayerState?.gameData?.myId]
+    ?? null;
+  // Same story for flags: the roster is the only place a country code is
+  // guaranteed to live on BOTH the live path and the history rebuild, so the
+  // pin labels resolve through here first and fall back to the round's own
+  // guess record (older saved games).
+  const countryOf = {};
+  gamePlayers.forEach(p => { if (p.countryCode) countryOf[p.id] = p.countryCode; });
   // No 'a' default on lookup miss: that silently INVERTS the Victory/Defeat
   // headline and every pin color for a team-b player whose id hasn't landed
   // in the roster yet. Null = neutral until the roster resolves.
@@ -845,6 +1068,26 @@ const GameSummary = ({
     );
   }
 
+  /* ── Permanent pin labels ───────────────────────────────────────────────
+   * Purchasable marker skins broke the old "blue pin = you, green pin = them"
+   * read on these maps — a skinned pin keeps its skin, not its team colour —
+   * so a HIGHLIGHTED round (or a player picked out of the scoreboard) names
+   * its pins instead. Never all rounds at once: a label per guess per round
+   * buries the pins under a wall of white boxes. Recipe lives in
+   * components/utils/guessPinLabel.js; the live map (Map.js) already labels
+   * the same way during the round reveal.
+   *
+   * Mod view inspects SOMEONE ELSE's perspective, so the "your guess" pin is
+   * really that player's — label it with their name + flag there.
+   */
+  const viewerId = multiplayerState?.gameData?.myId;
+  const myPinLabelProps = (round) => (options?.isModView
+    ? {
+        label: round?.players?.[viewerId]?.username || text("player"),
+        countryCode: countryOf[viewerId] || round?.players?.[viewerId]?.countryCode || null,
+      }
+    : { label: text("yourGuess"), countryCode: null });
+
   // Helper function to open report modal
   const handleReportUser = (accountId, username) => {
     setReportTarget({ accountId, username });
@@ -911,6 +1154,10 @@ const GameSummary = ({
         .map(p => ({
           accountId: p.accountId ?? null,
           username: p.username,
+          // PROJECTION, not a comparison: anything not copied here is gone by
+          // the time the modal renders the candidate. Cosmetics ride along so
+          // a glowing name still glows in the report picker.
+          nameGlow: p.nameGlow ?? null,
           relationshipLabel: p.team ? (p.team === mine ? text('yourTeam') : text('enemyTeam')) : null
         }));
     })();
@@ -981,6 +1228,10 @@ const GameSummary = ({
                 const showsPlayer = (playerId) => !selectedPlayer || playerId === selectedPlayer;
                 // Team games: each team's closest guesser gets the enlarged pin.
                 const bestIds = bestTeamGuesserIds(round);
+                // Name labels while a round or a player is highlighted — see
+                // myPinLabelProps above. Used to be team-games-only (identical
+                // pins on a team); marker skins made it necessary everywhere.
+                const showLabels = activeRound === index || !!selectedPlayer;
 
                 return (
                   <React.Fragment key={index}>
@@ -1026,23 +1277,17 @@ const GameSummary = ({
                       <>
                         <Marker
                           position={[round.guessLat, round.guessLong]}
-                          icon={bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current}
+                          icon={
+                            allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, bestIds?.has(multiplayerState?.gameData?.myId) ? 'Big' : 'Small')]
+                            || (bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current)
+                          }
                         >
-                          {/* Team games: teammates share identical pins, so a
-                              focused round shows permanent name labels (same
-                              affordance as the Map.js round reveal) instead of
-                              relying on click-popups to tell guesses apart. */}
-                          {isTeamGame && activeRound === index && (
-                            <Tooltip
-                              direction="top"
-                              offset={[0, bestIds?.has(multiplayerState?.gameData?.myId) ? -55 : -45]}
-                              opacity={1}
-                              permanent
-                            >
-                              <span style={{ color: 'black' }}>
-                                {options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}
-                              </span>
-                            </Tooltip>
+                          {showLabels && (
+                            <GuessPinLabel
+                              {...myPinLabelProps(round)}
+                              nameGlow={glowOf[viewerId]}
+                              big={!!bestIds?.has(viewerId)}
+                            />
                           )}
                           <Popup>
                             <div>
@@ -1087,21 +1332,23 @@ const GameSummary = ({
                               closest guesser renders enlarged. */}
                           <Marker
                             position={[player.lat, player.long]}
-                            icon={isMyTeammate(playerId)
-                              ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
-                              : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current)}
+                            icon={
+                              // Purchased skin wins over the team pin, matching
+                              // Map.js: the skin IS that player's identity, and
+                              // the pin label already says whose guess it is.
+                              allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], bestIds?.has(playerId) ? 'Big' : 'Small')]
+                              || (isMyTeammate(playerId)
+                                ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
+                                : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current))
+                            }
                           >
-                            {isTeamGame && activeRound === index && (
-                              <Tooltip
-                                direction="top"
-                                offset={[0, bestIds?.has(playerId) ? -55 : -45]}
-                                opacity={1}
-                                permanent
-                              >
-                                <span style={{ color: 'black' }}>
-                                  {player.username || text("opponent")}
-                                </span>
-                              </Tooltip>
+                            {showLabels && (
+                              <GuessPinLabel
+                                label={player.username || text("opponent")}
+                                countryCode={countryOf[playerId] || player.countryCode || null}
+                                nameGlow={glowOf[playerId]}
+                                big={!!bestIds?.has(playerId)}
+                              />
                             )}
                             <Popup>
                               <div>
@@ -1109,7 +1356,9 @@ const GameSummary = ({
                                   style={{
                                     cursor: 'default',
                                     textDecoration: 'none',
-                                    color: 'inherit'
+                                    color: 'inherit',
+                                    // Popup chrome is white too — LIGHT variant.
+                                    textShadow: nameGlowShadow(glowOf[playerId], GLOW_LIGHT) || undefined
                                   }}
                                 >
                                   {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
@@ -1167,14 +1416,83 @@ const GameSummary = ({
                 <div className="elo-container">
                   <span className="elo-title">{text("elo")}:</span>
                   <div className="elo-display">
-                    <span className="elo-value">{animatedElo}</span>
+                    {/* Renders from the REF, not from state — see eloShownRef.
+                        `setEloNode` is the stable useState setter used as a
+                        callback ref; an inline arrow here would detach and
+                        reattach the node on every render and restart the
+                        animation effect with it. */}
                     <span
-                      className="elo-change"
-                      style={{ color: eloChange >= 0 ? "green" : "red" }}
+                      ref={setEloNode}
+                      className={`elo-value${eloCounting ? ' elo-value--counting' : ''}`}
+                    >
+                      {eloShownRef.current}
+                    </span>
+                    {/* Colour by class, not inline style. The old inline
+                        `green`/`red` were the CSS keywords (#008000/#f00) —
+                        barely legible on the dark glass, and `>= 0` painted a
+                        zero transfer green as if it were a gain. v2 draws
+                        between evenly matched players really do transfer 0. */}
+                    <span
+                      className={`elo-change ${eloChange > 0 ? 'elo-change--up' : eloChange < 0 ? 'elo-change--down' : 'elo-change--flat'}`}
                     >
                       {eloChange > 0 ? `+${eloChange}` : eloChange}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* ── Stamps receipt ──────────────────────────────────────────
+                  Rendered as soon as the server says a receipt is COMING
+                  (`stampsPending` on duelEnd), empty, purely to hold its own
+                  height. The alternative is a 60px row materialising under the
+                  player's thumb half a second later and pushing Play Again
+                  down as they reach for it.
+
+                  The number itself only ever appears when the ledger actually
+                  applied something: sendStampEarnings does not send a receipt
+                  for zero, and this never renders a "+0". In the one place in
+                  the app where a player counts currency, an optimistic number
+                  is worse than no number. */}
+              {(stampsPending || stampsTotal > 0) && (
+                <div className={`stamps-earned ${stampsTotal > 0 ? 'stamps-earned--paid' : ''}`}>
+                  {stampsTotal > 0 && (
+                    <>
+                      <div className="stamps-earned__headline">
+                        <StampMark className="stamps-earned__mark" />
+                        {/* Renders from the REF (see stampsShownRef) so an
+                            unrelated re-render mid-count cannot snap the digits
+                            back to zero. */}
+                        <span
+                          ref={setStampsNode}
+                          className={`stamps-earned__value${stampsCounting ? ' stamps-earned__value--counting' : ''}`}
+                        >
+                          {`+${stampsShownRef.current}`}
+                        </span>
+                        <span className="stamps-earned__unit">{text("shopStampsUnit")}</span>
+                      </div>
+
+                      {stampsLines.length > 0 && (
+                        <div className="stamps-earned__lines">
+                          {stampsLines.map((line, i) => (
+                            <span
+                              className="stamps-earned__line"
+                              key={line.reason}
+                              // Staggered so the breakdown reads as a list being
+                              // itemised rather than a block appearing.
+                              style={{ animationDelay: `${260 + i * 80}ms` }}
+                            >
+                              {STAMP_REASON_KEYS[line.reason] && (
+                                <span className="stamps-earned__line-label">
+                                  {text(STAMP_REASON_KEYS[line.reason])}
+                                </span>
+                              )}
+                              <span className="stamps-earned__line-amount">+{line.amount}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1686,6 +2004,10 @@ const GameSummary = ({
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
+            // Name the pins only while a round or a player is highlighted —
+            // this map draws EVERY round at once, so labelling unconditionally
+            // would stack five rounds' worth of white boxes over the pins.
+            const showLabels = activeRound === index || !!selectedPlayer;
 
             return (
               <React.Fragment key={index}>
@@ -1726,8 +2048,17 @@ const GameSummary = ({
                   <>
                     <Marker
                       position={[round.guessLat, round.guessLong]}
-                      icon={srcIconRef.current}
+                      icon={
+                        allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, 'Small')]
+                        || srcIconRef.current
+                      }
                     >
+                      {showLabels && (
+                        <GuessPinLabel
+                          {...myPinLabelProps(round)}
+                          nameGlow={glowOf[viewerId]}
+                        />
+                      )}
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
                           <div className="popup-round">{text("roundNumber", {round: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
@@ -1778,15 +2109,27 @@ const GameSummary = ({
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
                           position={[player.lat, player.long]}
-                          icon={src2IconRef.current}
+                          icon={
+                            allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], 'Small')]
+                            || src2IconRef.current
+                          }
                         >
+                          {showLabels && (
+                            <GuessPinLabel
+                              label={player.username || text("opponent")}
+                              countryCode={countryOf[playerId] || player.countryCode || null}
+                              nameGlow={glowOf[playerId]}
+                            />
+                          )}
                           <Popup>
                             <div>
                               <strong
                                 style={{
                                   cursor:  'default',
                                   textDecoration:  'none',
-                                  color: 'inherit'
+                                  color: 'inherit',
+                                  // White popup chrome — LIGHT variant.
+                                  textShadow: nameGlowShadow(glowOf[playerId], GLOW_LIGHT) || undefined
                                 }}
                               >
                                 {player.username || text("opponent")}{isPlayerReported && ' (reported)'}

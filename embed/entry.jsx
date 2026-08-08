@@ -160,6 +160,7 @@ function ResultsEmbed({ state }) {
         rounds={state.rounds || []}
         activeRound={state.activeRound ?? null}
         myId={state.myId ?? null}
+        myMarkerSkin={state.myMarkerSkin ?? null}
         selectedPlayer={state.selectedPlayer ?? null}
         isDuel={!!state.isDuel}
         teams={state.teams ?? null}

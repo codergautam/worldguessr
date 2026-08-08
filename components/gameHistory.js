@@ -5,6 +5,24 @@ import { timeAgo } from '@/shared/time/timeAgo';
 import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
+import { cachedNameGlowProps } from './utils/usernameWithFlag';
+
+/**
+ * A name in the history list, wearing its owner's CURRENT glow.
+ *
+ * Current, not the one they wore during that match: api/gameHistory.js resolves
+ * the sku live by accountId rather than reading it off the frozen Game document,
+ * because a cosmetic is identity and a Game is a result.
+ *
+ * Static and cached — a page holds up to fifty games, several of which are 2v2
+ * rows with four names apiece. The glow is additive, so the cyan profile-link
+ * fill these names carry is untouched; only the halo is new.
+ */
+function HistoryName({ name, glow }) {
+  const props = cachedNameGlowProps(glow, undefined, { animated: false });
+  if (!props) return name;
+  return <span className={props.className} style={props.style}>{name}</span>;
+}
 
 export default function GameHistory({ session, onGameClick, targetUserId = null, targetUserData = null, page = null, setPage = null, selectable = false, selectedGameIds = [], onToggleGame = null }) {
   const { t: text } = useTranslation("common");
@@ -89,10 +107,10 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
           target="_blank"
           style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
         >
-          {p.username}
+          <HistoryName name={p.username} glow={p.nameGlow} />
         </Link>
       ) : (
-        <span>{p.username}</span>
+        <span><HistoryName name={p.username} glow={p.nameGlow} /></span>
       )}
       {p.countryCode && <CountryFlag countryCode={p.countryCode} style={{ fontSize: '0.9em' }} />}
     </span>
@@ -161,7 +179,6 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
             <span>Joined: {new Date(targetUserData.created_at).toLocaleDateString()}</span>
             {targetUserData.banned && <span style={{color: '#f44336', fontWeight: 'bold'}}>BANNED</span>}
             {targetUserData.staff && <span style={{color: '#2196f3', fontWeight: 'bold'}}>STAFF</span>}
-            {targetUserData.supporter && <span style={{color: '#ff9800', fontWeight: 'bold'}}>SUPPORTER</span>}
           </div>
         )}
         <span className={styles.totalGames}>
@@ -309,11 +326,11 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                                 target="_blank"
                                 style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
                               >
-                                {game.opponent.username}
+                                <HistoryName name={game.opponent.username} glow={game.opponent.nameGlow} />
                               </Link>
                             ) : (
                               // Account-less opponent (bot/guest): no profile page to link
-                              <span>{game.opponent.username}</span>
+                              <span><HistoryName name={game.opponent.username} glow={game.opponent.nameGlow} /></span>
                             )}
                             {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
                           </>

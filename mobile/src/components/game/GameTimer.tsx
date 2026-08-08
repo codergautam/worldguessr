@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, StyleSheet, Platform } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import Animated, {
@@ -70,6 +70,40 @@ const RM = ReduceMotion.Never;
 const SKIN_MS = 300; // matches web .timer `transition: all 0.3s`
 const BREATHE_MS = 500; // matches web `timerPulse 1s` (500ms each direction)
 
+// ── Display rule (user ruling Aug 6, web parity) ────────────────────────────
+// Whole seconds at 10 and above, tenths below:
+//   ... 12, 11, 10, 9.9, 9.8 ... 0.1, 0.0
+// Rounded UP, so the clock reads as a countdown: "1" means up to a second is
+// left, and 0.0 appears only once the time is genuinely gone.
+//
+// `displayValue` quantizes to WHAT IS ON SCREEN, not to raw tenths. That is
+// what keeps the cost down: above 10s the value only changes once a second, so
+// this component re-renders once a second even though the clock looks ten times
+// a second. Ticking at a flat 100ms (rather than sleeping to each boundary) is
+// deliberate — see the note in components/roundTimer.js.
+// "10" is the first value of the decimal phase, so it is on screen for 100ms
+// like every decimal value (remaining 9.9-10.0s); the integers above it each
+// get a full second. That is only safe because of TICK_MS below — see the note
+// there and in components/roundTimer.js. Driven by a 100ms interval instead,
+// "10" fails to appear at all in roughly 1 round in 4.
+function displayValue(msLeft: number): number {
+  const tenths = Math.max(0, Math.ceil(msLeft / 100) / 10);
+  return tenths >= 10 ? Math.ceil(tenths) : tenths;
+}
+
+function formatCountdown(value: number): string {
+  return value >= 10 ? String(Math.ceil(value)) : value.toFixed(1);
+}
+
+// Sampled at 30Hz, not at the 100ms rate the tenths actually change at. A timer
+// polled at exactly its own change rate drifts past boundaries and silently
+// drops values: MEASURED, a flat 100ms poll paints only ~69 of ~100 tenths
+// under light JS-thread load, 30Hz paints ~90. Web uses rAF for the same reason
+// (components/roundTimer.js); 30Hz is the RN equivalent already used elsewhere
+// in this app (AnimatedCounter, roundOverScreen tickers). State still only
+// changes when the DISPLAYED value changes, so this does not cost re-renders.
+const TICK_MS = 33;
+
 const IS_IOS = Platform.OS === 'ios';
 const NORMAL_BG = Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent;
 const NORMAL_BORDER = colors.primary;
@@ -78,7 +112,7 @@ const NORMAL_BORDER = colors.primary;
 const CRITICAL_BG = 'rgba(212, 92, 92, 0.92)';
 const CRITICAL_BORDER = 'rgba(255, 200, 200, 0.55)';
 
-export default function GameTimer({
+function GameTimer({
   timeRemaining: initialTime,
   onTimeUp,
   isPaused,
@@ -101,7 +135,7 @@ export default function GameTimer({
   // the duel variant would `undefined.toFixed(1)` and crash the whole tree.
   const [timeRemaining, setTimeRemaining] = useState<number>(() => {
     if (serverEndTime !== undefined && serverEndTime > 0) {
-      return Math.max(0, Math.floor((serverEndTime - Date.now() - timeOffset) / 100) / 10);
+      return displayValue(serverEndTime - Date.now() - timeOffset);
     }
     return initialTime ?? 0;
   });
@@ -122,48 +156,58 @@ export default function GameTimer({
     }
   }, [initialTime, roundKey, isServerDriven]);
 
+  // Live inputs read through refs, not deps (ported from web gameUI.js). Without
+  // this, `onTimeUp` changes identity every time the pin moves (its useCallback
+  // in app/game/[id].tsx depends on guessPosition), which tore down and rebuilt
+  // the clock — and reset its phase — mid-round on every map tap.
+  const onTimeUpRef = useRef(onTimeUp);
+  onTimeUpRef.current = onTimeUp;
+  const timeOffsetRef = useRef(timeOffset);
+  timeOffsetRef.current = timeOffset;
+
   // Server-driven timer: calculate remaining from serverEndTime
   useEffect(() => {
     if (!isServerDriven || !showTimer) return;
 
     const update = () => {
-      // Match web (gameUI.js): floor to tenths so the displayed value never
-      // rounds UP past the true remaining time (off-by-one at phase start).
-      const remaining = Math.max(
-        0,
-        Math.floor((serverEndTime - Date.now() - timeOffset) / 100) / 10,
-      );
-      setTimeRemaining(remaining);
-      if (remaining <= 0) {
-        onTimeUp();
-      }
+      const next = displayValue(serverEndTime - Date.now() - timeOffsetRef.current);
+      // Bail out when the DISPLAYED value hasn't moved. Above 10s that means
+      // one re-render per second out of ten ticks.
+      setTimeRemaining((prev) => (prev === next ? prev : next));
+      if (next <= 0) onTimeUpRef.current();
     };
 
     update();
-    const interval = setInterval(update, 100);
+    const interval = setInterval(update, TICK_MS);
     return () => clearInterval(interval);
-  }, [isServerDriven, serverEndTime, timeOffset, showTimer, onTimeUp]);
+  }, [isServerDriven, serverEndTime, showTimer]);
 
   // Local countdown timer — only when NOT server-driven
   useEffect(() => {
     if (isServerDriven) return;
     if (!showTimer || isPaused || timeRemaining <= 0) return;
 
-    const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        const next = Math.round((prev - 0.1) * 10) / 10;
-        if (next <= 0) {
-          clearInterval(interval);
-          // Defer onTimeUp to avoid setState during render
-          setTimeout(onTimeUp, 0);
-          return 0;
-        }
-        return next;
-      });
-    }, 100);
+    // Deadline-based, not `prev - 0.1`. The old decrementing clock accumulated
+    // every millisecond the JS thread was busy, so local rounds ran long. The
+    // deadline is re-anchored whenever this effect arms, which is exactly when
+    // a round starts or a pause ends.
+    const deadline = Date.now() + timeRemaining * 1000;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
-    return () => clearInterval(interval);
-  }, [isServerDriven, showTimer, isPaused, timeRemaining <= 0, onTimeUp]);
+    const update = () => {
+      const next = displayValue(deadline - Date.now());
+      setTimeRemaining((prev) => (prev === next ? prev : next));
+      if (next <= 0) {
+        if (interval) clearInterval(interval);
+        // Defer onTimeUp to avoid setState during render
+        setTimeout(() => onTimeUpRef.current(), 0);
+      }
+    };
+
+    interval = setInterval(update, TICK_MS);
+    return () => { if (interval) clearInterval(interval); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isServerDriven, showTimer, isPaused, timeRemaining <= 0, roundKey]);
 
   // Critical when <=5s — mirrors web's full guard set: time window, not paused
   // (web `!showAnswer`), state===guess (`criticalEnabled`), AND no guess yet
@@ -277,43 +321,68 @@ export default function GameTimer({
     color: interpolateColor(critical.value, [0, 1], [colors.white, '#fecaca']),
   }));
 
+  // Hoisted out of the render body: these were fresh object literals on every
+  // tick, so each countdown update re-diffed and re-uploaded the whole pill's
+  // props even though nothing about the layout had changed.
+  const duelTabletStyle = useMemo(
+    () => (isTablet ? { paddingHorizontal: sc(20), paddingVertical: sc(10), borderRadius: sc(16) } : null),
+    [isTablet, sc],
+  );
+  const defaultTabletStyle = useMemo(
+    () => (isTablet ? { paddingHorizontal: sc(20), paddingTop: sc(8), paddingBottom: sc(12), borderRadius: sc(16) } : null),
+    [isTablet, sc],
+  );
+  const duelRoundLabelStyle = useMemo(() => ({ fontSize: sc(fontSizes.xs) }), [sc]);
+  const duelCountdownStyle = useMemo(
+    () => ({ fontSize: sc(fontSizes['3xl']), minWidth: sc(64) }),
+    [sc],
+  );
+  const roundLabelStyle = useMemo(() => ({ fontSize: sc(fontSizes.xs) }), [sc]);
+  const mainRowStyle = useMemo(() => ({ fontSize: sc(fontSizes.md) }), [sc]);
+  const forceEndTextStyle = useMemo(() => ({ fontSize: sc(fontSizes.xs) }), [sc]);
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
+    // Above a minute there is no decimal to show — the tenths only appear in
+    // the last 10 seconds now, which is always inside the mins === 0 branch.
     if (mins > 0) {
-      return `${mins}:${Math.floor(secs).toString().padStart(2, '0')}.${Math.round((secs % 1) * 10)}`;
+      return `${mins}:${Math.floor(secs).toString().padStart(2, '0')}`;
     }
-    return secs.toFixed(1);
+    return formatCountdown(seconds);
   };
 
   // Duel: one compact line, no score. Mirrors web gameUI.js:1033-1037 — show the
   // round-only label for the "infinite round" sentinel, otherwise round + seconds.
   if (variant === 'duel') {
     return (
-      <Animated.View style={[styles.pill, styles.pillDuel, isTablet && { paddingHorizontal: sc(20), paddingVertical: sc(10), borderRadius: sc(16) }, pillAnimStyle]}>
+      <Animated.View style={[styles.pill, styles.pillDuel, duelTabletStyle, pillAnimStyle]}>
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
           pointerEvents="none"
         />
-        <Animated.Text style={[styles.duelText, { fontSize: sc(fontSizes.md) }, criticalTextStyle]}>
-          {isInfiniteRound
-            ? t('round', { r: currentRound, mr: totalRounds })
-            : t('roundTimer', { r: currentRound, mr: totalRounds, t: timeRemaining.toFixed(1) })}
-        </Animated.Text>
+        <Text style={[styles.duelRoundLabel, duelRoundLabelStyle]}>
+          {t('round', { r: currentRound, mr: totalRounds })}
+        </Text>
+        {!isInfiniteRound && (
+          <Animated.Text style={[styles.duelCountdown, duelCountdownStyle, criticalTextStyle]}>
+            {t('secondsShort', { secs: formatCountdown(timeRemaining) })}
+          </Animated.Text>
+        )}
       </Animated.View>
     );
   }
 
   return (
-    <Animated.View style={[styles.pill, isTablet && { paddingHorizontal: sc(20), paddingTop: sc(8), paddingBottom: sc(12), borderRadius: sc(16) }, pillAnimStyle]}>
+    <Animated.View style={[styles.pill, defaultTabletStyle, pillAnimStyle]}>
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
         pointerEvents="none"
       />
-      <Text style={[styles.roundLabel, { fontSize: sc(fontSizes.xs) }]}>
+      <Text style={[styles.roundLabel, roundLabelStyle]}>
         {t('round', { r: currentRound, mr: totalRounds })}
       </Text>
-      <Text style={[styles.mainRow, { fontSize: sc(fontSizes.md) }]}>
+      <Text style={[styles.mainRow, mainRowStyle]}>
         {shouldShowCountdown ? (
           <>
             <Animated.Text style={[styles.countdown, criticalTextStyle]}>
@@ -332,12 +401,17 @@ export default function GameTimer({
           onPress={onForceEndRound}
           style={({ pressed }) => [styles.forceEndBtn, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.forceEndText, { fontSize: sc(fontSizes.xs) }]}>{t('endRound')}</Text>
+          <Text style={[styles.forceEndText, forceEndTextStyle]}>{t('endRound')}</Text>
         </Pressable>
       )}
     </Animated.View>
   );
 }
+
+// The ticking state lives inside this component, so its props are already
+// stable during a round — memo just stops the host screen's own re-renders
+// (every websocket message) from rebuilding the pill for nothing.
+export default memo(GameTimer);
 
 const styles = StyleSheet.create({
   pill: {
@@ -369,12 +443,29 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
-  duelText: {
+  // Duel pill: two lines, matching web's .timer.duel .timer--two-line. It used
+  // to be one sentence ("Round #1 / 5 - 47 seconds") at fontSizes.md, which was
+  // ~200px wide — the exact number the DUEL_TIMER middle-gap gate in
+  // app/game/[id].tsx was sized around. Two lines put the clock front and
+  // centre and roughly halve the width. The bars carry the state in a duel, so
+  // the round line is deliberately pushed further back than the shared
+  // roundLabel style.
+  duelRoundLabel: {
     color: colors.white,
     fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.md,
-    letterSpacing: 0.3,
+    fontSize: fontSizes.xs,
+    opacity: 0.55,
+    letterSpacing: 0.6,
+  },
+  duelCountdown: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes['3xl'],
+    // tabular-nums + a minWidth floor: the pill is centred in the bar gap, so
+    // a width change from 100s -> 47s -> 9.9s would shift both edges at once.
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   roundLabel: {
     color: colors.white,

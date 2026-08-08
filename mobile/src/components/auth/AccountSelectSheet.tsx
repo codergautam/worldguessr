@@ -112,7 +112,7 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
       });
 
       if (!credential.identityToken) {
-        setError(t('appleNoSignInToken', undefined, 'Apple did not return a sign in token.'));
+        setError(t('appleNoSignInToken'));
         return;
       }
 
@@ -120,12 +120,12 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
       if (res.success) {
         onClose();
       } else {
-        setError(res.error || t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
+        setError(res.error || t('appleSignInFailed'));
       }
     } catch (e: any) {
       if (e?.code !== 'ERR_REQUEST_CANCELED') {
         console.error('Apple login error:', e);
-        setError(t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
+        setError(t('appleSignInFailed'));
       }
     } finally {
       setProviderLoading(null);
@@ -171,7 +171,7 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
         </Pressable>
         <Text style={styles.title}>{title ?? t('signIn')}</Text>
         <Text style={styles.subtitle} numberOfLines={2} adjustsFontSizeToFit>
-          {subtitle ?? t('signInSubtitle', undefined, 'Track your progress and compete with friends!')}
+          {subtitle ?? t('signInSubtitle')}
         </Text>
 
         {Platform.OS === 'ios' && appleAvailable && (
@@ -190,7 +190,7 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
             ) : (
               <>
                 <Ionicons name="logo-apple" size={22} color="#111" style={styles.appleIcon} />
-                <Text style={[styles.providerText, styles.appleText]}>{t('continueWithApple', undefined, 'Continue with Apple')}</Text>
+                <Text style={[styles.providerText, styles.appleText]}>{t('continueWithApple')}</Text>
               </>
             )}
           </Pressable>
@@ -211,7 +211,7 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
           ) : (
             <>
               <Ionicons name="logo-google" size={20} color={colors.white} />
-              <Text style={styles.providerText}>{t('continueWithGoogle', undefined, 'Continue with Google')}</Text>
+              <Text style={styles.providerText}>{t('continueWithGoogle')}</Text>
             </>
           )}
         </Pressable>

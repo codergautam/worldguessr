@@ -174,10 +174,28 @@ AppState.addEventListener('change', (state) => {
   }
 });
 
-/** Supporters never see ads — mirrors web gameUI.js:788 (!session?.token?.supporter).
- * Read lazily via getState() so it always reflects current login/logout state. */
-function isSupporter(): boolean {
-  return !!useAuthStore.getState().user?.supporter;
+/**
+ * Does the signed-in account hold a live Ad-Free Pass?
+ *
+ * Read through `getState()` at CALL TIME, never a hook: both call sites are
+ * plain functions outside React, and a snapshot captured at module load would
+ * freeze the pass at whatever it was when the bundle evaluated.
+ *
+ * FRESHNESS TRAP: `adFreeUntil` only changes when something writes it into
+ * authStore — an auth refetch, refreshAccount(), the ws `cosmetics` push, or
+ * the shop's own purchase response. The purchase path writes it back directly
+ * (see the shop screen) precisely so a pass bought mid-session suppresses the
+ * very next interstitial instead of waiting for a relaunch.
+ *
+ * An unparseable date yields an Invalid Date, whose every comparison is false —
+ * i.e. garbage in means ads stay ON, which is the correct fail-open direction
+ * for us and the honest one for the user (they can see the ad and complain,
+ * rather than silently losing a pass they paid for... which they cannot, since
+ * the server is the authority on expiry and a refresh restores the truth).
+ */
+function isAdFree(): boolean {
+  const u = useAuthStore.getState().user;
+  return !!u?.adFreeUntil && new Date(u.adFreeUntil) > new Date();
 }
 
 /** Game modes that are eligible for interstitials. */
@@ -197,12 +215,12 @@ const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
  */
 export function maybeShowGameInterstitial(context: AdGameContext): boolean {
   // Delegate to the awaitable path fire-and-forget: it carries the identical
-  // supporter/eligibility/cap gating PLUS the audio duck around the show
+  // ad-free/eligibility/cap gating PLUS the audio duck around the show
   // (web crazyMidgame parity) — a second show-path without the duck let
   // singleplayer interstitials play over full-volume game audio. Callers of
   // this variant ignore the return by design, so the fire-and-forget shape
   // is safe; the boolean now only reports "an attempt was dispatched".
-  if (isSupporter()) return false;
+  if (isAdFree()) return false;
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return false;
   void runGameInterstitial(context);
   return true;
@@ -222,7 +240,7 @@ export function maybeShowGameInterstitial(context: AdGameContext): boolean {
  * they're actually looking at the game.
  */
 export function runGameInterstitial(context: AdGameContext): Promise<void> {
-  if (isSupporter()) return Promise.resolve(); // supporters never see ads
+  if (isAdFree()) return Promise.resolve(); // ad-free pass holders never see ads
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return Promise.resolve();
 
   const now = Date.now();

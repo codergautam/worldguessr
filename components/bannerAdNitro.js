@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { memo, useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
 
@@ -24,7 +24,7 @@ function findAdType(screenW, screenH, types, vertThresh) {
   return type;
 }
 
-export default function Ad({
+function Ad({
   types,
   unit,
   vertThresh = 0.3,
@@ -192,3 +192,7 @@ export default function Ad({
     </div>
   );
 }
+// Memoized: with `types` now a module constant at every call site, all props
+// are primitives, so the ad slot no longer rebuilds on unrelated re-renders of
+// its parent (every websocket message during a multiplayer round).
+export default memo(Ad);

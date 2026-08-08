@@ -546,6 +546,11 @@ export default function DailyChallengeScreen({
         distribution={results?.distribution || null}
         userData={results?.user || landingBootstrap?.userData}
         isLoggedIn={!!session?.token?.secret}
+        // Read off the session rather than added to the daily results payload:
+        // the top-100 rows carry their own sku from the leaderboard endpoint,
+        // and the ONLY row that needs this is the viewer's own fallback row when
+        // they placed outside it. One prop beats a fourth API touching glows.
+        ownNameGlow={session?.token?.cosmetics?.equipped?.nameGlow || null}
         onStartChallenge={handleStart}
         onSignIn={HIDE_ACCOUNT_UI ? undefined : () => signIn()}
         animateEntrance={phase === 'landing' && landingEntranceActive}

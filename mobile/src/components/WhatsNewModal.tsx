@@ -216,10 +216,10 @@ export default function WhatsNewModal({ forceOpen, onForceClose }: Props) {
       <Pressable sfx="none" style={styles.overlay} onPress={handleClose}>
         <Animated.View style={[styles.card, cardStyle]}>
           <Pressable sfx="none" onPress={() => {}} style={styles.inner}>
-            <Text style={styles.title}>{t('whatsNew', undefined, "What's New!")}</Text>
+            <Text style={styles.title}>{t('whatsNew')}</Text>
             {!!latestEntry.date && (
               <Text style={styles.releaseLine}>
-                {t('versionReleasedOn', { version: latestEntry.version, date: latestEntry.date }, '{{version}} released on {{date}}')}
+                {t('versionReleasedOn', { version: latestEntry.version, date: latestEntry.date })}
               </Text>
             )}
 

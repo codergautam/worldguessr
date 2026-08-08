@@ -10,11 +10,15 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
+// FIRST IMPORT, AND IT MUST STAY FIRST — see the long note at the top of
+// ws/ws.js. `config()` called down here in the body ran AFTER every import in
+// this file had already been evaluated, so any module that reads process.env at
+// import time froze the wrong value. That exact bug disabled the whole stamps
+// economy in the ws process for its entire life. Side-effect import, ordered
+// first, is the only form that cannot regress.
+import 'dotenv/config';
 import fs from 'fs';
-import { config } from 'dotenv';
 const __dirname = import.meta.dirname;
-
-config();
 
 // Simple memory log, printed every 10s. Shows the split between JS heap and
 // off-heap (ext/buf), plus a per-tick delta. If heap grows but ext/buf don't,

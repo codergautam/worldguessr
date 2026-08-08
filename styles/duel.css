@@ -52,6 +52,145 @@
   font-weight: bold;
 }
 
+/* ── Stamps receipt ─────────────────────────────────────────────────────────
+ * The row under the rating on a ranked end screen: what the game paid, and why.
+ *
+ * IT RESERVES ITS OWN HEIGHT. The receipt lands on a ws message a beat after
+ * this screen paints (the grants sit behind the game save), so the empty
+ * wrapper is rendered the moment the server says one is coming
+ * (`stampsPending`) and `min-height` holds the gap open. Without it the row
+ * materialises under the player's thumb and shoves Play Again down as they
+ * reach. Same layout-stability rule as the profile graph's reserved height.
+ *
+ * NO CARD, NO GRADIENT. This is chrome inside an existing card, so it is a bare
+ * row like `.elo-container` and `.time-elapsed` beside it — a gradient panel
+ * here would read as a second, competing surface stapled into the header. The
+ * only colour is the gold of the currency mark, which is the same #ffd700 the
+ * wallet chip uses, because a currency that changes colour between screens
+ * stops being recognisable as one thing. */
+.stamps-earned {
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+/* Transform + opacity ONLY, so the fill composites on the GPU and never
+   re-lays-out the header it drops into. */
+.stamps-earned--paid {
+  animation: stampsReceiptIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stampsReceiptIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stamps-earned__headline {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.stamps-earned__mark {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: #ffd700;
+}
+
+.stamps-earned__value {
+  font-size: 1.55rem;
+  font-weight: bold;
+  color: #ffd700;
+  /* The count-up rewrites this every time a digit changes. Without a fixed
+     digit advance the centred row shuffles sideways on each write. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Class-gated (roundOverScreen flips `stampsCounting`) so it cannot replay on a
+   hide/show round trip the way an unconditional entrance animation would. */
+.stamps-earned__value--counting {
+  animation: stampsCountPulse 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stampsCountPulse {
+  0% {
+    transform: scale(0.92);
+  }
+
+  26% {
+    transform: scale(1.07);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.stamps-earned__unit {
+  font-size: 0.95rem;
+  color: #ccc;
+  letter-spacing: 0.02em;
+}
+
+.stamps-earned__lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem 0.55rem;
+}
+
+.stamps-earned__line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.62);
+  /* Inline `animation-delay` per line (set in the JSX) staggers these. */
+  animation: stampsLineIn 260ms ease-out both;
+}
+
+.stamps-earned__line-amount {
+  color: rgba(255, 215, 0, 0.85);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes stampsLineIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* The JS already snaps the number under reduced motion; kill the entrance and
+     the pulse too rather than leaving motion with no count behind it. */
+  .stamps-earned--paid,
+  .stamps-earned__value--counting,
+  .stamps-earned__line {
+    animation: none;
+  }
+}
+
 .time-elapsed {
   display: flex;
   align-items: center;
@@ -235,6 +374,31 @@
 
   .elo-change {
     font-size: 1.2rem;
+  }
+
+  /* The reserved height shrinks with the row, not independently of it: this
+     number and the type scale below have to move together or the gap held open
+     while the receipt is in flight stops matching what lands in it. */
+  .stamps-earned {
+    min-height: 48px;
+    margin: 0.15rem 0 0.5rem;
+  }
+
+  .stamps-earned__value {
+    font-size: 1.25rem;
+  }
+
+  .stamps-earned__mark {
+    width: 17px;
+    height: 17px;
+  }
+
+  .stamps-earned__unit {
+    font-size: 0.85rem;
+  }
+
+  .stamps-earned__line {
+    font-size: 0.72rem;
   }
 }
 

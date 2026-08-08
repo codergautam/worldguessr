@@ -111,7 +111,6 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                     connected={multiplayerState?.connected}
                     connecting={multiplayerState?.connecting}
                     shown={screen !== 'onboarding'}
-                    loggedOut={!session?.token?.secret && screen === 'home'}
                     onClick={!multiplayerState?.connected ? onConnectionError : undefined}
                 />
 
@@ -158,38 +157,25 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                         </button>
                     )}
 
-                    {/* visibility (not unmount) while a modal covers it: the
-                        entrance animation runs on mount, so unmount+remount
-                        replayed the slide every time the modal closed. A
-                        finished animation survives a visibility round-trip.
-                        HOME ONLY (July 24): the navbarMode pill that used to
-                        ride along on multiplayer sub-screens spent its life
-                        flashing green through queue/lobby entry and died at
-                        match found — every login-locked flow has its own gate
-                        modal, so it protected nothing. Onboarding keeps its
-                        dedicated instance below. */}
-                    {screen === "home" && !inGame && showAccBtn && !HIDE_ACCOUNT_UI && (
-                        <div style={{ display: 'contents', visibility: (accountModalOpen || mapModalOpen) ? 'hidden' : 'visible' }}>
-                        <AccountBtn
-                            inCrazyGames={inCrazyGames}
-                            inGameDistribution={inGameDistribution}
-                            session={session}
-                            navbarMode={false}
-                            openAccountModal={openAccountModal}
-                            loginQueued={loginQueued}
-                            setLoginQueued={setLoginQueued}
-                        />
-                        </div>
-                    )}
+                    {/* THE HOME ACCOUNT PILL AND THE HOME FRIENDS BUTTON ARE
+                        GONE FROM HERE. Both were `position: fixed` children of
+                        this flex row — laid out by their own hand-tuned
+                        coordinates, never by it — and both opened the same
+                        account modal the league chip already opened. On home
+                        they live in the PlayerCard now
+                        (components/ui/playerCard.js), which is a real flex
+                        column and cannot collide with its neighbours. Onboarding
+                        keeps its own AccountBtn instance below; that screen has
+                        no card.
 
-                    {/* Modal gates live on the visibility wrapper (same as
-                        AccountBtn above): unmounting replayed the entrance
-                        every time a modal closed. Screen/state gates stay as
-                        mount conditions — those transitions SHOULD replay. */}
-                    {session?.token?.secret && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
+                        The friends button survives HERE for the multiplayer
+                        sub-screens, where it has always been an ordinary
+                        in-flow child of .navbar__right — that is the only place
+                        this row's `gap: 10px` ever applied. */}
+                    {session?.token?.secret && screen !== "home" && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
                         <div style={{ display: 'contents', visibility: (accountModalOpen || gameOptionsModalShown || mapModalOpen || partyModalShown) ? 'hidden' : 'visible' }}>
-                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
-                            <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
+                        <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
+                            <FaUserFriends size={40} className="friendBtnIcon" />
                         </button>
                         </div>
                     )}

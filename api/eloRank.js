@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
-import { MIN_ELO } from '../components/utils/eloSystem.js';
+import { MIN_ELO, clampRating } from '../components/utils/eloSystem.js';
+import { RATING_V2 } from '../components/utils/ratingFlags.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { syncForumUser } from '../serverUtils/syncForumUser.js';
 
@@ -73,6 +74,7 @@ export default async function handler(req, res) {
       duels_wins: user.duels_wins,
       duels_losses: user.duels_losses,
       duels_tied: user.duels_tied,
+      ratedGames: user.ratedGames || 0,
       // `|| 0` guards the 0/0 -> NaN case (e.g. a user whose only ranked games
       // were all refunded), matching crazyAuth/googleAuth's win_rate guard.
       win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied) || 0,
@@ -88,22 +90,48 @@ export default async function handler(req, res) {
   }
 }
 
+/**
+ * The win/loss/tie (and rated-game) counters for one finished duel, as a $inc
+ * fragment. Pure and exported so the draw case can be asserted in a unit test.
+ *
+ * `draw` MUST be tested before `winner`: a draw is signalled as {draw:true}
+ * with no `winner` key at all, so reading `winner` first makes undefined falsy
+ * and books the draw as a LOSS as well as a tie (the bug this replaces).
+ */
+export function duelCounterIncs({ winner, draw, rated = true }) {
+  const ratedGames = rated ? 1 : 0;
+  if (draw) return { duels_wins: 0, duels_losses: 0, duels_tied: 1, ratedGames };
+  if (winner) return { duels_wins: 1, duels_losses: 0, duels_tied: 0, ratedGames };
+  return { duels_wins: 0, duels_losses: 1, duels_tied: 0, ratedGames };
+}
+
 export async function setElo(accountId, newElo, gameData) {
 
-  // gamedata -> {draw:true|false, winner: true|false}
+  // gamedata -> {draw:true|false, winner: true|false, rated: true|false}
   try {
 
     // Last line of defense: a stored elo of 0 (falsy) voids the ranked
     // gates in ws.js/Game.js, so the floor is enforced at the write itself.
-    newElo = Math.max(MIN_ELO, Math.round(newElo));
+    // v2 floors at RATING_FLOOR (100) rather than v1's MIN_ELO (1).
+    newElo = RATING_V2 ? clampRating(newElo) : Math.max(MIN_ELO, Math.round(newElo));
 
-    await User.updateOne({ _id: accountId }, { elo: newElo,
-      $inc: { duels_played: 1, duels_wins: gameData.winner ? 1 : 0, duels_losses: gameData.winner ? 0 : 1, duels_tied: gameData.draw ? 1 : 0,
+    // Bot games are unrated under v2, so the caller decides. Default rated.
+    const rated = gameData.rated ?? true;
+
+    const setFields = { elo: newElo };
+    // Only a rated game is ladder activity: the 14-day leaderboard inactivity
+    // rule must not be held open by unrated (bot) games.
+    if (rated) setFields.lastRankedAt = new Date();
+
+    await User.updateOne({ _id: accountId }, {
+      $set: setFields,
+      // `duels_played: 1` used to be inc'd here; the field is not in the User
+      // schema, so mongoose strict mode was already discarding it every write.
+      $inc: {
+        ...duelCounterIncs({ winner: gameData.winner, draw: gameData.draw, rated }),
         elo_today: newElo - gameData.oldElo,
-
-       }
-
-     });
+      }
+    });
 
     // If this game moved the player into a different league, push the new
     // league color (and byline) to the forum. League changes are rare, so this
@@ -117,4 +145,50 @@ export async function setElo(accountId, newElo, gameData) {
     console.error('Error setting elo:', error.message);
   }
 
+}
+
+/**
+ * Write a brand-new account's placement rating (see placementSeed()).
+ *
+ * Deliberately does NOT touch ratedGames: the K schedule starts at game 2, so
+ * a placement must leave the counter where it is.
+ *
+ * Returns true only if the seed actually landed.
+ */
+export async function applyPlacementSeed(accountId, seed, playerObj) {
+  try {
+    const rating = clampRating(seed);
+    // A NaN rating is falsy and would void every ranked gate downstream.
+    if (!Number.isFinite(rating)) {
+      console.error('Invalid placement seed:', seed, 'for account:', accountId);
+      return false;
+    }
+
+    // The `ratedGames: 0` in the FILTER is load-bearing: it makes the seed
+    // write a structural no-op against any account that has ever played a
+    // rated game, including a veteran who somehow reached a placement match.
+    // Legacy documents predating the field have no ratedGames at all and so
+    // match nothing either, which fails in the safe direction.
+    const result = await User.updateOne(
+      { _id: accountId, ratedGames: 0 },
+      { $set: { elo: rating, lastRankedAt: new Date() } }
+    );
+
+    const applied = (result?.matchedCount ?? result?.n ?? 0) > 0;
+
+    // Mirror into the live ws Player only once the DB accepted the seed: on a
+    // filtered-out account the write was a no-op and their real rating stands.
+    // Done by hand rather than via playerObj.setElo(), which would issue a
+    // second, UNGATED write and defeat the filter above.
+    if (applied && playerObj) {
+      playerObj.elo = rating;
+      playerObj.league = getLeague(rating).name;
+      playerObj.send?.({ type: 'elo', elo: rating, league: getLeague(rating) });
+    }
+
+    return applied;
+  } catch (error) {
+    console.error('Error applying placement seed:', error.message);
+    return false;
+  }
 }

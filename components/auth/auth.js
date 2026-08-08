@@ -4,7 +4,7 @@ import { fetchWithFallback } from "../utils/retryFetch";
 import { useState, useEffect } from "react";
 import { claimGuestProgressIfAny, resetClaimGuestProgressState } from "../../utils/claimGuestProgress";
 
-// secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
+// secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues
 let session = false;
 // null = not logged in
 // false = session loading/fetching

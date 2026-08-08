@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import CountryFlag from '@/components/utils/countryFlag';
 import { useTranslation } from '@/components/useTranslations';
+import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
 
 const MAX_MESSAGES = 100;
 const MAX_LEN = 200;
@@ -113,6 +114,12 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           senderId: data.id,
           name: data.name || '',
           countryCode: data.countryCode || null,
+          // Latched at receipt, exactly like `tint` above: a message keeps the
+          // presentation it arrived with for life. An equip made mid-game shows
+          // up on the sender's NEXT message, which is the honest reading — and
+          // it means a hundred-row log never re-renders because somebody
+          // visited the shop.
+          nameGlow: data.nameGlow || null,
           team: data.team || null,
           teamChat: !!data.teamChat,
           text: data.message,
@@ -305,13 +312,23 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
             <button className="chatCloseBtn" type="button" aria-label={text('close')} onClick={() => setOpen(false)}>✕</button>
           </div>
           <div className="chatMessages" ref={listRef} onScroll={onListScroll}>
-            {visible.map(m => (
+            {visible.map(m => {
+              // STATIC EVEN FOR THE ANIMATED SKUS. This log holds up to a
+              // hundred rows and a keyframed `text-shadow` is main-thread PAINT,
+              // so a busy 2v2 lobby would be repainting a hundred haloes a frame
+              // while the round is running. The static stack is the same colour
+              // and the same reach; it just stops moving. Cached props, so the
+              // rows share a handful of objects rather than minting one each.
+              // The halo clips at the edges of .chatMessages (it is a scroll
+              // container) — expected, and left alone rather than fought.
+              const glow = cachedNameGlowProps(m.nameGlow, undefined, { animated: false });
+              return (
               // Tint was stamped at RECEIVE time (see the subscribe handler)
               // and never changes afterwards — render-time team comparison is
               // what let state wipes repaint the whole log.
               <div key={m.key} className={`chatMsg ${m.tint || ''}`}>
                 <span className="chatMsgName">
-                  {m.name}
+                  {glow ? <span className={glow.className} style={glow.style}>{m.name}</span> : m.name}
                   {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
                   {m.teamChat && <span className="chatMsgTeamTag">{text('chatChannelTeam')}</span>}
                 </span>
@@ -327,7 +344,8 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="chatTypingLine">{typingLine}</div>
           <div className="chatInputRow">

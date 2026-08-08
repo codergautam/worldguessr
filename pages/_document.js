@@ -1,5 +1,5 @@
 import { Html, Head, Main, NextScript } from "next/document";
-import { DAILY_BACKGROUNDS, IS_PORTAL_BUILD } from "@/lib/dailyBackground";
+import { DEFAULT_BACKGROUND_LQIP, DEFAULT_BACKGROUND_PATH, IS_PORTAL_BUILD, PREPAINT_SITE_BG_SCRIPT } from "@/lib/siteBackground";
 
 // The language homepages export localized HTML, but a hardcoded lang="en"
 // told Google the Spanish/French/... pages were English — one more reason it
@@ -8,37 +8,32 @@ const PATH_LANGS = { "/es": "es", "/fr": "fr", "/de": "de", "/ru": "ru" };
 
 export default function Document({ pathname }) {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+  const backgroundUrl = `${basePath}${DEFAULT_BACKGROUND_PATH}`;
 
   return (
     <Html lang={PATH_LANGS[pathname] || "en"} translate="no" className="notranslate" style={{ backgroundColor: '#000000' }}>
       <Head>
         <meta name="google" content="notranslate" />
-        {IS_PORTAL_BUILD ? (
-          // Portal zips: keep the BAKED static ref — scripts/packageEmbed.mjs
-          // rewrites baked asset paths only; a runtime-computed URL would
-          // escape the rewrite and 404 inside the offline package.
-          <link rel="preload" href={`${basePath}/street2.webp`} as="image" type="image/webp" fetchpriority="high" />
-        ) : (
-          // Daily background (lib/dailyBackground.js): pick TODAY's image
-          // before first paint — sets the same --bg-street2 var every
-          // stylesheet already reads and injects the high-priority preload,
-          // so the swap is flash-free and LCP-neutral (still exactly one
-          // preloaded hero image; no-JS clients fall back to street2 via the
-          // var() default in the body::before rule below).
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-              (function(){
-                var imgs=${JSON.stringify(DAILY_BACKGROUNDS.map((b) => b.path))};
-                var u=${JSON.stringify(basePath)}+imgs[Math.floor(Date.now()/864e5)%imgs.length];
-                document.documentElement.style.setProperty('--bg-street2','url("'+u+'")');
-                var l=document.createElement('link');
-                l.rel='preload';l.as='image';l.type='image/webp';l.fetchPriority='high';l.href=u;
-                document.head.appendChild(l);
-              })();
-            `,
-            }}
-          />
+        {/* The site background (lib/siteBackground.js) is the LCP asset every
+            visitor downloads before first paint, so it is preloaded at high
+            priority and declared as a plain CSS var below — BAKED, not
+            computed. Baked matters twice: no script sits in front of first
+            paint, and scripts/packageEmbed.mjs rewrites baked asset refs when
+            it builds the offline portal zips, which a runtime-computed URL
+            would escape. A purchased background overrides the var after
+            hydration (pages/_app.js). */}
+        <link rel="preload" href={backgroundUrl} as="image" type="image/webp" fetchpriority="high" />
+
+        {/* An OWNER's purchased background, painted on the first frame instead
+            of after the auth round-trip that resolves it — see the cache
+            contract in lib/siteBackground.js. Sits here, ahead of the GA stub
+            below, because it is the only script on this page that first paint
+            waits for; it reads one localStorage key and returns for everyone
+            who has not bought a background, which is nearly everyone. The
+            preload above stays exactly as it was: the default is still the
+            baked, scanner-discovered LCP asset for every new visitor. */}
+        {!IS_PORTAL_BUILD && (
+          <script dangerouslySetInnerHTML={{ __html: PREPAINT_SITE_BG_SCRIPT }} />
         )}
 
         {/* Google Analytics */}
@@ -60,6 +55,10 @@ export default function Document({ pathname }) {
         />
         <style dangerouslySetInnerHTML={{
           __html: `
+            :root {
+              --site-bg: url("${backgroundUrl}");
+              --site-bg-lqip: url("${DEFAULT_BACKGROUND_LQIP}");
+            }
             html, body {
               background-color: #000000 !important;
               margin: 0;
@@ -72,7 +71,14 @@ export default function Document({ pathname }) {
               left: 0;
               width: 100%;
               height: 100%;
-              background: var(--bg-street2, url("${basePath}/street2.webp")) center/cover no-repeat;
+              /* TWO LAYERS, and the order is the feature: the real photograph
+                 sits on top, the inlined 152-byte placeholder underneath. The
+                 top layer paints nothing until the image arrives, so a first
+                 visit shows the scene's colours instantly instead of black,
+                 and the swap is invisible because both are center/cover and
+                 the photograph is opaque. See lib/siteBackground.js. */
+              background: var(--site-bg) center/cover no-repeat,
+                          var(--site-bg-lqip) center/cover no-repeat;
               opacity: 0.5;
               z-index: 0;
               pointer-events: none;

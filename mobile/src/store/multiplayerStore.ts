@@ -12,7 +12,7 @@
 import { create } from 'zustand';
 import { wsService } from '../services/websocket';
 import { useAuthStore } from './authStore';
-import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../shared/emotes';
+import { EMOTE_TTL_MS, EMOTE_COOLDOWN_MS, getEmote, byLegacyIndex } from '../shared/emotes';
 import { t } from '../shared/locale';
 import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../services/websocketConfig';
 
@@ -56,7 +56,6 @@ export interface MPPlayer {
   final: boolean;
   latLong?: [number, number] | null;
   elo?: number;
-  supporter?: boolean;
   host?: boolean;
   tag?: string;
   /** Team assignment in team modes (team parties / matchmade 2v2). */
@@ -67,6 +66,13 @@ export interface MPPlayer {
    * waiting lobbies, where departures remove the row instead.
    */
   disconnected?: boolean;
+  /** Server-computed league NAME for `elo`. Prefer it over the local table. */
+  league?: string | null;
+  // ── Cosmetics (ws Player.js getSendableState; patched by `player`/`update`) ──
+  /** Equipped name-glow sku, or null. Resolved to a colour at the render site. */
+  nameGlow?: string | null;
+  /** Equipped map-marker sku, or null. */
+  markerSkin?: string | null;
 }
 
 export interface MPLocation {
@@ -142,10 +148,24 @@ export interface DuelEnd1v1 {
   draw: boolean;
   newElo: number;
   oldElo: number;
+  /**
+   * Rating v2 placement: this game SEEDED the rating (from ENTRY_RATING to the
+   * single-player-derived seed) rather than transferring it. The results screen
+   * labels it and suppresses the "+N" delta, which would otherwise read as a
+   * ~300-point win bonus. Absent on servers predating v2 placements.
+   */
+  placement?: boolean;
   timeElapsed: number;
   /** Saved history doc id ('duel_<id>') — names the doc for the history view. */
   historyGameId?: string;
   opponent?: { accountId: string | null; username: string };
+  /**
+   * A stamps receipt is COMING for this game (see StampsEarned). An expectation,
+   * not a promise: absent when the economy is off, the opponent was a bot, or
+   * the game does not pay. The results screen reserves the receipt row's height
+   * on this alone, so a late arrival cannot shove the buttons.
+   */
+  stampsPending?: boolean;
 }
 
 export interface DuelEndTeam2v2 {
@@ -167,6 +187,8 @@ export interface DuelEndTeam2v2 {
    */
   autoPaired?: boolean;
   teamHostId?: string | null;
+  /** See DuelEnd1v1.stampsPending — matchmade 2v2 pays too. */
+  stampsPending?: boolean;
 }
 
 export interface DuelEndTeamGame {
@@ -181,6 +203,25 @@ export interface DuelEndTeamGame {
 }
 
 export type DuelEndData = DuelEnd1v1 | DuelEndTeam2v2 | DuelEndTeamGame;
+
+/**
+ * The stamps receipt for the game that just ended — what the ledger ACTUALLY
+ * applied, never the payout table's intent, so a replayed save reports nothing
+ * rather than paying the player twice on screen.
+ *
+ * It rides its own `type:'stampsEarned'` message and lands a beat AFTER duelEnd
+ * because the grants sit behind the game save (ws Game.js sendStampEarnings);
+ * duelEnd carries `stampsPending` so the results screen can reserve the row's
+ * height in the meantime instead of having it appear under the player's thumb.
+ */
+export interface StampsEarned {
+  /** The saved doc id the receipt belongs to — lets a stale one be dropped. */
+  gameId?: string;
+  total: number;
+  lines: { reason: string; amount: number }[];
+  /** Authoritative post-grant wallet balance. Absent if the re-read failed. */
+  balance?: number;
+}
 
 export interface GameData {
   state: 'waiting' | 'getready' | 'guess' | 'end';
@@ -213,6 +254,8 @@ export interface GameData {
   /** Guest-hosted party — emotes-only, chat surface hidden everywhere. */
   hostGuest?: boolean;
   duelEnd?: DuelEndData;
+  /** Stamps paid by this game. Arrives after duelEnd; see StampsEarned. */
+  stampsEarned?: StampsEarned;
   map?: string;
   // ── Team modes (wire contract: ws Game.js getInitialSendState/getSendableState) ──
   // `duel:true` trap: the server sets duel = duel || teamDuel, so every
@@ -262,12 +305,27 @@ export interface GameData {
 /** A floating in-game emote reaction (replaces chat). */
 export interface EmoteReaction {
   id: number;
-  emote: string; // the glyph (from EMOTES)
+  emote: string; // the resolved glyph (EMOTE_CATALOG entry, by id or legacy index)
+  /**
+   * The catalogue's effect id — 'ember' on the skull, null on everything else.
+   * Stamped here at receipt rather than looked up at render, like every other
+   * bit of a bubble's presentation: `def` is already resolved on this line, and
+   * a reaction outlives nothing it would need a second lookup for.
+   */
+  fx: string | null;
   name: string;
   countryCode: string | null;
   isSelf: boolean;
   /** Sender's team in team modes — drives mine/opponent allegiance coloring. */
   team: 'a' | 'b' | null;
+  /**
+   * Sender's equipped name-glow sku, stamped by the server onto the emote
+   * message itself (ws/ws.js). It rides the message rather than being looked up
+   * off the roster because every other bit of a bubble's presentation is
+   * latched here at receipt too — and a bubble outlives the roster entry when
+   * its sender leaves.
+   */
+  nameGlow: string | null;
 }
 
 /** A text chat message (parties + 2v2; the server scopes the audience). */
@@ -277,6 +335,13 @@ export interface ChatMessage {
   name: string;
   countryCode: string | null;
   team: 'a' | 'b' | null;
+  /**
+   * Sender's equipped name-glow sku, server-stamped onto the message. Latched
+   * for life exactly like `tint` below: a message keeps the presentation it
+   * arrived with, an equip made mid-game shows on the sender's NEXT message,
+   * and a hundred-row log never re-renders because somebody visited the shop.
+   */
+  nameGlow: string | null;
   /** True = sent on the team channel (badge it) — server-stamped. */
   teamChat: boolean;
   text: string;
@@ -318,19 +383,29 @@ export interface Friend {
   name: string;
   online: boolean;
   socketId?: string | null;
-  supporter?: boolean;
   /**
    * Epoch ms of the friend's last disconnect; null while online, when the
    * friend opted out (hideLastSeen), or on servers predating the field.
    */
   lastSeen?: number | null;
+  /**
+   * Equipped name-glow sku, refreshed on EVERY friends push by
+   * ws/classes/Player.js sendFriendsData — from the live Player for anyone
+   * online, from the lastSeen lookup that block already runs for anyone
+   * offline. Undefined on servers predating the field.
+   *
+   * Deliberately NOT gated by the friend's hideLastSeen setting: that hides
+   * PRESENCE, and a cosmetic is public on every board and profile in the app.
+   */
+  nameGlow?: string | null;
 }
 
 /** Outgoing or incoming friend request entry in the friends modal. */
 export interface FriendRequestEntry {
   id: string;
   name: string;
-  supporter?: boolean;
+  /** Latched at the sender's verify — these lists change only on send/answer. */
+  nameGlow?: string | null;
 }
 
 /**
@@ -544,7 +619,8 @@ interface MultiplayerState {
    * living member). Dead-game senders get restaged — never a dead click. */
   sendTeamDuelBack: () => void;
   setEnteringGameCode: (value: boolean) => void;
-  sendEmote: (index: number) => void;
+  /** Send an emote by its catalogue id (see shared/emotes.ts). */
+  sendEmote: (emoteId: string) => void;
   clearEmote: (id: number) => void;
   /** teamOnly: team-channel send (team contexts only; server falls back to the game type's legacy audience when absent). */
   sendChat: (text: string, teamOnly?: boolean) => void;
@@ -859,12 +935,20 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setEnteringGameCode: (value) => set({ enteringGameCode: value }),
 
   // Send an emote reaction (client-side throttle; server also enforces 1.5s).
-  sendEmote: (index) => {
-    if (index < 0 || index >= EMOTES.length) return;
+  //
+  // DUAL WIRE FORMAT: `emoteId` is the id-addressed value the server prefers and
+  // validates (catalogue membership + ownership); `emote` is the frozen legacy
+  // integer index, sent alongside so an older server that only understands
+  // indices still shows the free eight. A PAID emote has no legacy index and
+  // sends `emote: null` — such a server drops it, which is the correct
+  // degradation (nothing beats the wrong glyph).
+  sendEmote: (emoteId) => {
+    const def = getEmote(emoteId);
+    if (!def) return;
     const now = Date.now();
     if (now - lastEmoteSend < EMOTE_COOLDOWN_MS) return;
     lastEmoteSend = now;
-    wsService.send({ type: 'emote', emote: index });
+    wsService.send({ type: 'emote', emote: def.legacyIndex ?? null, emoteId: def.id });
   },
 
   clearEmote: (id) => set((s) => ({ emotes: s.emotes.filter((e) => e.id !== id) })),
@@ -1061,9 +1145,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── elo (home.js:1539-1554) ───────────────────────────
     if (data.type === 'elo') {
-      // Update authStore ELO (replaces web's setSession/setEloData)
+      // Update authStore ELO (replaces web's setSession/setEloData).
+      // `league` rides this message as the WHOLE league object (ws sends
+      // getLeague(rating)); keep it so every tier render can prefer the
+      // server's answer over the local cutoff table — a seasonal re-anchor then
+      // needs no store release. Absent on older servers, hence the ?? null.
       useAuthStore.getState().updateUser({
         elo: data.elo,
+        league: data.league ?? null,
       });
       return;
     }
@@ -1288,7 +1377,15 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           ...data,
           type: undefined, // Remove the message type field
           ...(enteringWaiting
-            ? { locations: [], roundHistory: [], duelEnd: undefined, playAgain2v2: null }
+            ? {
+              locations: [],
+              roundHistory: [],
+              duelEnd: undefined,
+              playAgain2v2: null,
+              // Travels with duelEnd: a receipt outliving its game would show
+              // last match's payout on the next one's results screen.
+              stampsEarned: undefined,
+            }
             : {}),
           players: mergedPlayers,
           // First `game` message of a session (prevGameData == null) decides: a
@@ -1322,8 +1419,36 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           // must never render on this end screen (the server re-broadcasts
           // the real one right after).
           playAgain2v2: null,
+          // Same rule, same reason: the previous match's receipt must never be
+          // on screen when this one's verdict is. The new one arrives moments
+          // later on its own message.
+          stampsEarned: undefined,
         },
       });
+      return;
+    }
+
+    // ── stampsEarned — the currency receipt for the game that just ended ───
+    // Deliberately its own message: the grants sit behind the game save, and
+    // duelEnd must never wait on a DB write to paint the results screen.
+    if (data.type === 'stampsEarned') {
+      if (!state.gameData) return;
+      set({
+        gameData: {
+          ...state.gameData,
+          stampsEarned: {
+            gameId: data.gameId,
+            total: data.total,
+            lines: Array.isArray(data.lines) ? data.lines : [],
+            ...(typeof data.balance === 'number' ? { balance: data.balance } : {}),
+          },
+        },
+      });
+      // The wallet total, from the server's post-grant read. Without this the
+      // shop balance stays at its pre-game value until the next auth refresh.
+      if (typeof data.balance === 'number') {
+        useAuthStore.getState().applyCosmetics({ stamps: data.balance });
+      }
       return;
     }
 
@@ -1422,7 +1547,49 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
             players: [...state.gameData.players, data.player],
           },
         });
+      } else if (data.action === 'update') {
+        // PARTIAL PATCH, MERGED BY ID — never a whole-player replace. The
+        // server sends this from /cosmetics-updated mid-round with only
+        // {nameGlow, markerSkin} in `patch`; assigning `data.player` (or
+        // spreading the message itself) would stomp the live roster fields
+        // this message knows nothing about — score, latLong, final,
+        // disconnected — and visibly rewind the scoreboard. Same merge shape
+        // as `type:'place'` below; keep them identical.
+        if (!data.patch || typeof data.patch !== 'object') return;
+        set({
+          gameData: {
+            ...state.gameData,
+            players: state.gameData.players.map((p) =>
+              p.id === data.id ? { ...p, ...data.patch } : p,
+            ),
+          },
+        });
       }
+      return;
+    }
+
+    // ── cosmetics — the BUYER's own push (ws.js /cosmetics-updated) ──────────
+    // Sent to the purchaser whether or not they are in a game, so it patches
+    // authStore rather than the roster. Two shapes are accepted on purpose: the
+    // ws endpoint currently sends the equipped slots FLAT ({nameGlow, markerSkin,
+    // owned}), while the shop/API path sends them nested under `equipped`.
+    // Reading both means neither side can silently no-op the other.
+    if (data.type === 'cosmetics') {
+      const equipped =
+        data.equipped && typeof data.equipped === 'object'
+          ? data.equipped
+          : {
+              ...(data.nameGlow !== undefined ? { nameGlow: data.nameGlow ?? null } : {}),
+              ...(data.markerSkin !== undefined ? { markerSkin: data.markerSkin ?? null } : {}),
+            };
+      useAuthStore.getState().applyCosmetics({
+        ...(Object.keys(equipped).length > 0 ? { equipped } : {}),
+        ...(Array.isArray(data.owned) ? { owned: data.owned } : {}),
+        ...(typeof data.stamps === 'number' ? { stamps: data.stamps } : {}),
+        // `adFreeUntil` rides this push so a pass bought on ANOTHER device
+        // suppresses interstitials here without waiting for a relaunch.
+        ...(data.adFreeUntil !== undefined ? { adFreeUntil: data.adFreeUntil ?? null } : {}),
+      });
       return;
     }
 
@@ -1620,16 +1787,24 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── emote — in-game reaction broadcast (ws.js:770; replaces chat) ──
     if (data.type === 'emote') {
-      if (!Number.isInteger(data.emote) || data.emote < 0 || data.emote >= EMOTES.length) return;
+      // emoteId WINS when present — it is the id-addressed value and the only
+      // one a paid emote has. The integer is the legacy fallback for servers /
+      // clients predating the catalogue. A paid emote broadcasts `emote: -1`
+      // precisely so an index-only receiver resolves nothing and renders
+      // nothing, so an unresolvable message is DROPPED, never guessed at.
+      const def = getEmote(data.emoteId) ?? byLegacyIndex(data.emote);
+      if (!def) return;
       const id = nextEmoteId++;
       set((s) => ({
         emotes: [
           ...s.emotes,
           {
             id,
-            emote: EMOTES[data.emote],
+            emote: def.glyph,
+            fx: def.fx ?? null,
             name: data.name || '',
             countryCode: data.countryCode || null,
+            nameGlow: data.nameGlow || null,
             // queueMyId fallback: during the 2v2 stage-2 window gameData is
             // null but the duo's staging-lobby emotes keep flowing — without
             // it self-coloring breaks on the queue screen.
@@ -1670,6 +1845,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         senderId: data.id,
         name: data.name || '',
         countryCode: data.countryCode || null,
+        nameGlow: data.nameGlow || null,
         team,
         teamChat: !!data.teamChat,
         text: data.message,

@@ -3,8 +3,13 @@ import { configDotenv } from 'dotenv';
 import User from './models/User.js';
 import UserStats from './models/UserStats.js';
 import DailyLeaderboard from './models/DailyLeaderboard.js';
+import CronState from './models/CronState.js';
+import StampLedger from './models/StampLedger.js';
+import StampQuests from './models/StampQuests.js';
 import UserStatsService from './components/utils/userStatsService.js';
 import { purgeUserCascade } from './serverUtils/purgeUserCascade.js';
+import { scheduleAligned, nextUtcMidnight, nextUtcMonday } from './serverUtils/scheduleAligned.js';
+import { dayKeyUTC, weekKeyUTC } from './serverUtils/stamps/periods.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
@@ -333,7 +338,7 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
     _id: { $in: userIds },
     banned: { $ne: true },
     pendingNameChange: { $ne: true }
-  }).select('_id username countryCode supporter').lean().maxTimeMS(30000);
+  }).select('_id username countryCode').lean().maxTimeMS(30000);
 
   // Create user lookup map
   const userMap = new Map();
@@ -354,8 +359,7 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
         delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
         currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
         rank: index + 1,
-        countryCode: user.countryCode || null,
-        supporter: user.supporter || false
+        countryCode: user.countryCode || null
       };
     });
 
@@ -429,6 +433,279 @@ const startAccountDeletionPurgeTimer = () => {
 };
 
 startAccountDeletionPurgeTimer();
+
+// ============================================================================
+// WALL-CLOCK ALIGNED JOBS (daily / weekly rollovers)
+//
+// Everything above this line is anchored to PROCESS START (setInterval from
+// boot). That is fine for "refresh a cache every N minutes" and completely
+// wrong for anything that must land ON a UTC boundary: a redeploy at 18:00
+// would move "midnight" to 18:00 forever. These jobs use scheduleAligned,
+// which recomputes the delay from the wall clock on every arm.
+//
+// FEATURE FLAGS ARE READ VIA DYNAMIC import() ON PURPOSE. Static `import`
+// bindings are evaluated BEFORE this module's body runs — i.e. before the
+// configDotenv() call near the top of this file has populated process.env.
+// A statically imported STAMPS_ENABLED / RATING_V2 would therefore snapshot
+// `undefined === 'true'` (false) for anything configured in .env, and every
+// gate below would silently stay off forever with no error to notice.
+// ============================================================================
+
+const { STAMPS_ENABLED } = await import('./serverUtils/stamps/config.js');
+const { RATING_V2 } = await import('./components/utils/ratingFlags.js');
+
+/**
+ * Arm one wall-clock-aligned job, with missed-boundary recovery.
+ *
+ * A pure timer only knows "did a tick fire". A cron process that was down,
+ * deploying or crash-looping across 00:00 UTC never sees that tick and skips
+ * the boundary FOREVER — the next tick is tomorrow's. CronState turns the
+ * question into "has this period been processed" by bookmarking the period key
+ * of the last successful run, which survives arbitrary downtime.
+ *
+ * The period key is derived at RUN time, not at arm time. That also absorbs a
+ * timer that fires a hair early (23:59:59.999): the key would still be the old
+ * period, so nothing is stamped for the new one, and scheduleAligned's 1s
+ * minimum delay re-arms it to fire again just after midnight with the right key.
+ *
+ * The bookmark is written only AFTER the work commits. Stamping first would
+ * turn a mid-run crash into a permanently skipped period.
+ *
+ * @param {string}   job    Stable CronState identifier.
+ * @param {Function} nextFn Boundary generator (nextUtcMidnight / nextUtcMonday).
+ * @param {Function} keyFn  Period key for a timestamp (dayKeyUTC / weekKeyUTC).
+ * @param {Function} run    async (periodKey) => void. Must be idempotent.
+ */
+const startAlignedJob = (job, nextFn, keyFn, run) => {
+  if (!dbEnabled) {
+    console.log(`[CRON:${job}] Skipped - database not connected`);
+    return;
+  }
+
+  const runAndStamp = async () => {
+    if (!dbEnabled) return;
+    const periodKey = keyFn(Date.now());
+    try {
+      await run(periodKey);
+      await CronState.updateOne(
+        { job },
+        { $set: { job, lastPeriodKey: periodKey, lastRunAt: new Date() } },
+        { upsert: true },
+      );
+    } catch (e) {
+      // Deliberately NOT stamped: the next boot re-detects this period as
+      // unprocessed and retries it. Never rethrown - this must not be able to
+      // take the process down.
+      console.error(`[CRON:${job}] Run failed for period ${periodKey}:`, e?.message || e);
+    }
+  };
+
+  // Boundary recovery runs async so a slow/failing CronState read can never
+  // block the schedule from arming below.
+  (async () => {
+    try {
+      const state = await CronState.findOne({ job }).lean();
+      const currentKey = keyFn(Date.now());
+      if (state?.lastPeriodKey === currentKey) return;
+      // No bookmark at all (first ever boot) also lands here and runs one pass.
+      // Safe: every job wired through here is idempotent, and the alternative -
+      // stamping without running - would silently swallow a real missed boundary
+      // on the very first deploy.
+      console.log(`[CRON:${job}] Missed boundary (last=${state?.lastPeriodKey || 'never'}, current=${currentKey}) - running recovery pass`);
+      await runAndStamp();
+    } catch (e) {
+      console.error(`[CRON:${job}] Boundary recovery check failed:`, e?.message || e);
+    }
+  })();
+
+  scheduleAligned(nextFn, runAndStamp, job);
+  console.log(`[CRON:${job}] Armed - next run at ${new Date(nextFn(Date.now())).toISOString()}`);
+};
+
+// ============================================================================
+// DAILY elo_today RESET (00:00 UTC)
+// elo_today is $inc'd on every ranked game and was reset NOWHERE, so the
+// "daily" ELO board has been showing lifetime drift since it shipped.
+//
+// Gated behind RATING_V2 rather than shipped bare: zeroing this changes what
+// the daily board MEANS, so it flips over together with the new ladder instead
+// of silently redefining the current one mid-season.
+// ============================================================================
+
+const resetEloToday = async () => {
+  // Unindexed predicate over ~2M docs, but it runs once a day and the $ne
+  // filter keeps the WRITE set to rows that actually drifted - adding an index
+  // on elo_today would be paid on every ranked game to save one daily scan.
+  const result = await User.updateMany({ elo_today: { $ne: 0 } }, { $set: { elo_today: 0 } });
+  console.log(`[CRON:eloTodayReset] Reset elo_today on ${result.modifiedCount || 0} user(s)`);
+};
+
+const startEloTodayResetTimer = () => {
+  if (!RATING_V2) {
+    console.log('[CRON:eloTodayReset] Disabled (RATING_V2 off) - not armed');
+    return;
+  }
+  startAlignedJob('eloTodayReset', nextUtcMidnight, dayKeyUTC, resetEloToday);
+};
+
+startEloTodayResetTimer();
+
+// ============================================================================
+// STAMPS PERIOD ROLLOVER (daily 00:00 UTC, weekly Monday 00:00 UTC)
+//
+// !!! DO NOT "FIX" THIS BY ADDING A PER-USER COUNTER RESET SWEEP !!!
+//
+// There is no reset. StampQuests period keys are derived from the wall clock at
+// GRANT time, so a new period is simply a new periodKey, which is a new
+// document with counters already at their defaults. The reset is IMPLICIT and
+// happens for free, per user, at that user's first write of the new period -
+// and only for users who actually play.
+//
+// Iterating users to zero counters would touch ~2M docs to accomplish exactly
+// nothing, and would instantly become the most expensive thing in this process.
+// Worse, it would be a correctness regression: a sweep that wrote into the
+// CURRENT period's docs (a late-firing pass, a missed-boundary recovery run)
+// would destroy live progress that the key-based model cannot lose.
+//
+// All these jobs do is set expiresAt on the docs of periods that are over, so
+// the TTL index on StampQuests reaps them. Nothing is recomputed, and payment
+// state is untouched: that lives exclusively in StampLedger's idempotencyKey.
+// ============================================================================
+
+const STAMP_QUESTS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // reap ~30 days after the period closes
+
+const expireStampQuests = async (periodType, currentKey) => {
+  const expiresAt = new Date(Date.now() + STAMP_QUESTS_TTL_MS);
+  // `expiresAt: null` (which also matches "field absent") is LOAD-BEARING.
+  // Without it, every nightly pass would push the TTL of every already-marked
+  // doc another 30 days into the future and the collection would never be
+  // reaped at all. Marking is one-way: once scheduled, a doc is left alone.
+  //
+  // Matching on `periodKey != currentKey` rather than on a computed "yesterday"
+  // also mops up stragglers from any period this job missed entirely.
+  const result = await StampQuests.updateMany(
+    { periodType, periodKey: { $ne: currentKey }, expiresAt: null },
+    { $set: { expiresAt } },
+  );
+  console.log(`[CRON:stamps${periodType === 'day' ? 'Daily' : 'Weekly'}Rollover] Scheduled ${result.modifiedCount || 0} closed '${periodType}' quest doc(s) for TTL reaping (current period ${currentKey})`);
+};
+
+const startStampsPeriodRolloverTimers = () => {
+  if (!STAMPS_ENABLED) {
+    console.log('[CRON:stampsRollover] Disabled (STAMPS_ENABLED off) - not armed');
+    return;
+  }
+  startAlignedJob('stampsDailyRollover', nextUtcMidnight, dayKeyUTC, (periodKey) =>
+    expireStampQuests('day', periodKey));
+  startAlignedJob('stampsWeeklyRollover', nextUtcMonday, weekKeyUTC, (periodKey) =>
+    expireStampQuests('week', periodKey));
+};
+
+startStampsPeriodRolloverTimers();
+
+// ============================================================================
+// STAMP LEDGER RECONCILIATION SWEEP (every 5 minutes)
+//
+// grantStamps writes the ledger row with applied:false FIRST and moves the
+// user's balance SECOND. That order is chosen so the only way to fail is
+// UNDER-payment: a crash between the two steps leaves a durable applied:false
+// row and an unpaid user. (The reverse order fails as a double-pay, which is
+// unrepairable - nothing records that the credit already happened.) This sweep
+// is the other half of that bargain: it is what actually repairs the
+// under-payment, so it is not optional infrastructure.
+//
+// Deliberately NOT calendar-aligned - it is a repair loop, not a boundary.
+//
+// CONCURRENCY: correctness here relies on cron.js remaining a SINGLE process.
+// Two cron processes could both read the same row before either claims it. The
+// claim is what saves it if that ever changes: the CAS below matches on the
+// EXACT claimedAt value that was observed, so of two racing claimers only one
+// can win and the loser skips the row. The claim is also a LEASE, not a
+// permanent flag - a crash between claiming and the $inc would otherwise strand
+// the row forever, so an expired claim (older than the timeout) is re-claimable
+// and the repair self-heals on a later pass.
+// ============================================================================
+
+const STAMP_RECONCILE_INTERVAL = 5 * 60 * 1000; // sweep cadence
+const STAMP_RECONCILE_MIN_AGE_MS = 60 * 1000;   // ignore rows a live grant may still be mid-flight on
+const STAMP_RECONCILE_CLAIM_TTL_MS = 5 * 60 * 1000; // a claim older than this is presumed crashed
+const STAMP_RECONCILE_BATCH = 500;              // cap per sweep; the next pass catches the rest
+
+const reconcileStampLedger = async () => {
+  if (!dbEnabled) return;
+  try {
+    const now = Date.now();
+    const rows = await StampLedger.find({
+      applied: false,
+      // Age gate: a row younger than this probably belongs to an in-flight
+      // grant that is about to apply it itself.
+      createdAt: { $lt: new Date(now - STAMP_RECONCILE_MIN_AGE_MS) },
+      $or: [
+        { claimedAt: null },
+        { claimedAt: { $lt: new Date(now - STAMP_RECONCILE_CLAIM_TTL_MS) } },
+      ],
+    }).limit(STAMP_RECONCILE_BATCH).lean();
+
+    if (rows.length === 0) return;
+    console.log(`[CRON:stampReconcile] ${rows.length} unapplied ledger row(s) to repair`);
+
+    let repaired = 0;
+    let contended = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      try {
+        // CAS on the observed claimedAt (null included). Losing this race means
+        // somebody else owns the row right now - skip it, do NOT apply.
+        const claimed = await StampLedger.findOneAndUpdate(
+          { _id: row._id, applied: false, claimedAt: row.claimedAt ?? null },
+          { $set: { claimedAt: new Date() } },
+          { new: true },
+        );
+        if (!claimed) {
+          contended++;
+          continue;
+        }
+
+        // Balance moves only AFTER the claim is won. delta is signed, so this
+        // repairs credits and debits alike.
+        await User.updateOne({ _id: row.userId }, { $inc: { stamps: row.delta } });
+        await StampLedger.updateOne(
+          { _id: row._id },
+          { $set: { applied: true, appliedAt: new Date() } },
+        );
+        repaired++;
+      } catch (e) {
+        // Per-row isolation: one bad row must not abort the sweep. It stays
+        // applied:false and its claim expires, so the next pass retries it.
+        failed++;
+        console.error(`[CRON:stampReconcile] Failed to repair ledger row ${row._id?.toString()}:`, e?.message || e);
+      }
+    }
+
+    console.log(`[CRON:stampReconcile] Repaired ${repaired}, skipped ${contended} claimed, ${failed} failed`);
+  } catch (e) {
+    console.error('[CRON:stampReconcile] Sweep failed:', e?.message || e);
+  }
+};
+
+const startStampLedgerReconcileTimer = () => {
+  if (!STAMPS_ENABLED) {
+    console.log('[CRON:stampReconcile] Disabled (STAMPS_ENABLED off) - not armed');
+    return;
+  }
+  if (!dbEnabled) {
+    console.log('[CRON:stampReconcile] Skipped - database not connected');
+    return;
+  }
+  console.log(`[CRON:stampReconcile] Timer started - sweeps every ${STAMP_RECONCILE_INTERVAL / 1000 / 60} minutes`);
+  // Run on startup: the most likely reason rows are stranded is the crash or
+  // redeploy that just happened.
+  reconcileStampLedger();
+  setInterval(reconcileStampLedger, STAMP_RECONCILE_INTERVAL);
+};
+
+startStampLedgerReconcileTimer();
 
 // ============================================================================
 // COUNTRY LOCATIONS SYSTEM - Uses pre-processed JSON files with embedded country codes

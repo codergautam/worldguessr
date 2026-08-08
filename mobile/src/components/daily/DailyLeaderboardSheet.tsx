@@ -18,6 +18,7 @@ import { t } from '../../shared/locale';
 import { api } from '../../services/api';
 import type { DailyLeaderboardEntry } from '@shared/daily/types';
 import { dailyColors } from './styles';
+import PlayerName from '../PlayerName';
 
 const PAGE_SIZE = 10;
 
@@ -47,7 +48,15 @@ function Row({ entry, isMe }: { entry: DailyLeaderboardEntry; isMe: boolean }) {
         ) : (
           <Text style={styles.rankNum}>#{entry.rank}</Text>
         )}
-        <Text style={styles.name} numberOfLines={1}>{entry.username}</Text>
+        {/* Static: a hundred rows in a scroll sheet — the same budget call the
+            leaderboard tab and the web daily modal make. */}
+        <PlayerName
+          name={entry.username}
+          textStyle={styles.name}
+          numberOfLines={1}
+          glow={entry.nameGlow}
+          animated={false}
+        />
       </View>
       <Text style={styles.score}>{entry.score.toLocaleString()}</Text>
     </View>

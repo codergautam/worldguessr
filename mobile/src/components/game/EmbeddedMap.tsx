@@ -58,6 +58,14 @@ interface Props {
    * keys (live session id / history accountId).
    */
   myId?: string | null;
+  /**
+   * The viewer's own equipped pin sku. Every OTHER player's skin rides on their
+   * guess entry inside `rounds`, but the viewer's own guess is drawn from each
+   * round's guessLat/guessLong rather than from round.players — so in
+   * singleplayer, where there is no players map at all, this prop is the only
+   * way their purchased pin reaches the embed.
+   */
+  myMarkerSkin?: string | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
 
@@ -110,6 +118,7 @@ export default function EmbeddedMap({
   isDuel,
   teams,
   myId,
+  myMarkerSkin,
   selectedPlayer,
   location,
   guessPosition,
@@ -172,6 +181,7 @@ export default function EmbeddedMap({
         rounds: rounds ?? [],
         activeRound: activeRound ?? null,
         myId: myId ?? '',
+        myMarkerSkin: myMarkerSkin ?? null,
         isDuel: !!isDuel,
         teams: teams ?? null,
         selectedPlayer: selectedPlayer ?? null,
@@ -223,6 +233,7 @@ export default function EmbeddedMap({
     isDuel,
     teams,
     myId,
+    myMarkerSkin,
     selectedPlayer,
   ]);
 

@@ -142,7 +142,7 @@ export default function GetReadyOverlay({
                 side="left"
               />
             ) : (
-              <PlayerColumn players={me ? [me] : []} label={t('you', undefined, 'You')} side="left" />
+              <PlayerColumn players={me ? [me] : []} label={t('you')} side="left" />
             )}
             <Reanimated.View
               entering={ZoomIn.delay(200).duration(380).reduceMotion(ReduceMotion.Never)}
@@ -211,6 +211,7 @@ function PlayerColumn({
           flagStyle={styles.flag}
           textStyle={styles.name}
           style={styles.nameRow}
+          glow={p.nameGlow}
         />
         {p.elo !== undefined && (
           <View style={styles.eloRow}>
@@ -234,12 +235,13 @@ function PlayerColumn({
           // Team rows: compact name + inline elo, stacked 1–2 per side.
           <View key={p.id} style={styles.nameRow}>
             <PlayerName
-              name={p.id === myId ? t('you', undefined, 'You') : p.username}
+              name={p.id === myId ? t('you') : p.username}
               countryCode={p.countryCode}
               flagSize={14}
               flagStyle={styles.flag}
               textStyle={styles.name}
               style={styles.nameRow}
+              glow={p.nameGlow}
             >
               {p.elo !== undefined && (
                 <Text style={[styles.eloText, styles.eloInline, { color: accent }]}>({p.elo})</Text>
@@ -304,14 +306,14 @@ function Countdown({
       style={styles.countdown}
       entering={FadeIn.delay(320).duration(420).reduceMotion(ReduceMotion.Never)}
     >
-      <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
+      <Text style={styles.getReady}>{t('getReady')}</Text>
 
       <View style={styles.track}>
         <Animated.View style={[styles.fill, { width: barWidth }]} />
       </View>
 
       <Text style={styles.roundText}>
-        {t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}
+        {t('round', { r: round, mr: totalRounds })}
         {generated < totalRounds
           ? `  ·  ${t(
               'loadingLocationsProgress',

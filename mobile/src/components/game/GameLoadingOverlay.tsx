@@ -102,7 +102,7 @@ export default function GameLoadingOverlay({
         {showCountdown ? (
           <MatchCountdown
             seconds={countdown as number}
-            label={t('getReady', undefined, 'Get Ready!')}
+            label={t('getReady')}
           />
         ) : error ? (
           <>

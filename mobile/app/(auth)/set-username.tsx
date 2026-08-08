@@ -35,11 +35,11 @@ export default function SetUsernameScreen() {
       if (result.success) {
         router.replace('/(tabs)/home');
       } else {
-        setError(result.error || t('error', undefined, 'An error occurred'));
+        setError(result.error || t('error'));
       }
     } catch (err) {
       console.error('Set username error:', err);
-      setError(t('unexpectedErrorOccurred', undefined, 'An unexpected error occurred'));
+      setError(t('unexpectedErrorOccurred'));
     }
   };
 
@@ -59,9 +59,9 @@ export default function SetUsernameScreen() {
             <Ionicons name="person-add" size={48} color={colors.primary} />
           </View>
 
-          <Text style={styles.title}>{t('chooseUsername', undefined, 'Choose a Username')}</Text>
+          <Text style={styles.title}>{t('chooseUsername')}</Text>
           <Text style={styles.subtitle}>
-            {t('usernameVisibleToOthers', undefined, 'This is how other players will see you')}
+            {t('usernameVisibleToOthers')}
           </Text>
 
           <View style={styles.inputContainer}>
@@ -97,7 +97,7 @@ export default function SetUsernameScreen() {
           )}
 
           <Text style={styles.hint}>
-            {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH }, '3-30 characters, letters, numbers, and underscores only')}
+            {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH })}
           </Text>
         </View>
 
@@ -114,7 +114,7 @@ export default function SetUsernameScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.submitButtonText}>{t('continue', undefined, 'Continue')}</Text>
+              <Text style={styles.submitButtonText}>{t('continue')}</Text>
             )}
           </Pressable>
         </View>

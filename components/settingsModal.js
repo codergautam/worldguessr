@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
-import { asset, navigate } from '@/lib/basePath';
-import { dailyBackgroundPath } from '@/lib/dailyBackground';
+import { navigate } from '@/lib/basePath';
 import { FaGithub } from "react-icons/fa";
 import { FaCircleInfo } from "react-icons/fa6";
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
@@ -167,7 +166,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset(dailyBackgroundPath())}")`,
+                // var(--site-bg), not a resolved path: it carries the basePath
+                // already and it reflects a purchased background (see
+                // lib/siteBackground.js), which a literal here would not.
+                background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), var(--site-bg)',
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -407,11 +409,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>{text("deleteAccountConfirmBody", { days: 30 })}</p>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>{text("deleteAccountLossList")}</p>
-                    {session?.token?.supporter && (
-                        <div style={{ padding: '12px', background: 'rgba(255, 152, 0, 0.12)', border: '1px solid rgba(255, 152, 0, 0.35)', borderRadius: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>
-                            {text("deleteAccountWarningSupporter")}
-                        </div>
-                    )}
                 </div>
             </ConfirmModal>
 

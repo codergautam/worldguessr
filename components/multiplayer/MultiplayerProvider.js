@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { signOut } from "@/components/auth/auth";
 import initWebsocket from "@/components/utils/initWebsocket";
 import clientConfig from "@/clientConfig";
@@ -19,6 +19,9 @@ export const initialMultiplayerState = {
   nextGameType: null,
   maxRetries: 50,
   currentRetry: 0,
+  // Pending received friend requests. Count only — see the "friends" branch in
+  // attachWsHandlers. Feeds the badge on the player card's Friends menu row.
+  friendRequestCount: 0,
   createOptions: {
     rounds: 5,
     timePerRound: 30,
@@ -272,6 +275,18 @@ export function MultiplayerProvider({ children }) {
         }
       } else if (data.type === "cnt") {
         setMultiplayerState((prev) => ({ ...prev, playerCount: data.c }));
+      } else if (data.type === "friends") {
+        // JUST THE COUNT, for the player card's Friends badge. The friends
+        // button used to sit in the corner permanently; it is a menu row now,
+        // so a pending request has to announce itself from outside the menu or
+        // it is invisible until you go looking.
+        //
+        // Deliberately NOT the arrays. components/friendModal.js subscribes to
+        // this same message for the full lists and owns every mutation on them;
+        // it needs the arrays, this needs one integer, and lifting its state up
+        // here to save that integer would mean rewiring a working modal.
+        const cnt = Array.isArray(data.receivedRequests) ? data.receivedRequests.length : 0;
+        setMultiplayerState((prev) => (prev.friendRequestCount === cnt ? prev : { ...prev, friendRequestCount: cnt }));
       } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -332,7 +347,10 @@ export function MultiplayerProvider({ children }) {
     };
   }
 
-  const value = {
+  // Memoized: this provider is mounted in _app.js above the entire app, so a
+  // fresh object here hands every consumer a new context value on every
+  // provider render and defeats any memo boundary that reads the context.
+  const value = useMemo(() => ({
     ws,
     setWs,
     multiplayerState,
@@ -340,7 +358,7 @@ export function MultiplayerProvider({ children }) {
     subscribeMessages,
     sendMessage,
     ensureConnected,
-  };
+  }), [ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, sendMessage, ensureConnected]);
 
   return <MultiplayerCtx.Provider value={value}>{children}</MultiplayerCtx.Provider>;
 }

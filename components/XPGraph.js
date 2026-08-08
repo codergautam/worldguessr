@@ -32,6 +32,21 @@ ChartJS.register(
 const progressionCache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// NO MIGRATION MARKER LIVES HERE ANY MORE.
+//
+// This file used to carry a hand-rolled chart.js plugin that drew a dashed gold
+// rule with a labelled chip at the Season 1 migration. It existed for exactly
+// one reason: the migration granted up to ~2.35M XP as a single UserStats row,
+// so totalXp leapt in one vertical step and the chart had to explain itself.
+//
+// That XP grant was cut before it shipped (see scripts/grantSeason1Compensation.js),
+// so there is no step left to explain. Ratings never needed one either:
+// api/userProgression.js converts pre-migration rating points onto the v2 scale
+// at READ time, so the elo curve crosses the migration with no seam at all.
+//
+// If a marker is ever wanted again, it needs a reason of its own. Do not
+// re-add this one on the assumption that the migration is still visible here.
+
 export default function XPGraph({ session, mode = 'xp', isPublic = false, username = null }) {
     const { t: text } = useTranslation("common");
     const [userStats, setUserStats] = useState([]);
@@ -41,6 +56,11 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     const [chartData, setChartData] = useState(null);
+    // Server flag: every rating in this payload is on the v2 100..1600 scale
+    // (api/userProgression.js converts pre-migration points at read time). False
+    // means untouched Season 0 data, which is what the sub-1000 rank rule below
+    // was written for.
+    const [ratingScaleV2, setRatingScaleV2] = useState(false);
 
     const fetchUserProgression = async () => {
         // For public profiles, use username; for private, use session accountId
@@ -53,8 +73,11 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
         // Check cache first
         const cached = progressionCache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            setRatingScaleV2(!!cached.data.ratingScaleV2);
             setUserStats(cached.data.progression);
-            calculateGraphData(cached.data.progression);
+            // Pass the flag explicitly: the setState above has not landed in this
+            // closure's `ratingScaleV2` yet.
+            calculateGraphData(cached.data.progression, !!cached.data.ratingScaleV2);
             setLoading(false);
             return;
         }
@@ -83,8 +106,9 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
                     timestamp: Date.now()
                 });
                 
+                setRatingScaleV2(!!data.ratingScaleV2);
                 setUserStats(data.progression);
-                calculateGraphData(data.progression);
+                calculateGraphData(data.progression, !!data.ratingScaleV2);
             } else {
                 console.error('Failed to fetch user progression', response.status);
                 const errorData = await response.text();
@@ -97,7 +121,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
         }
     };
 
-    const calculateGraphData = (stats) => {
+    const calculateGraphData = (stats, scaleV2 = ratingScaleV2) => {
         const dataPoints = [];
 
         // Filter stats based on date filter
@@ -161,9 +185,15 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
                         rankGain: stat.eloChange ? (stat.eloChange > 0 ? Math.abs(stat.rankImprovement || 0) : -(Math.abs(stat.rankImprovement || 0))) : 0
                     });
                 } else {
-                    // ELO Rank mode — skip points where elo < 1000. Sub-1000 ranks
-                    // explode (most users sit at 1000) and crush the y-axis scale.
-                    if ((stat.elo ?? 0) < 1000) return;
+                    // ELO Rank mode — on the SEASON 0 scale, skip points where elo
+                    // < 1000: that was the starting rating, most users sat exactly
+                    // there, and their ranks explode and crush the y-axis.
+                    //
+                    // On the v2 scale (100..1600) 1000 is mid-ladder, not a floor,
+                    // so the same rule would delete the entire history of every
+                    // player rated under 1000 and render "no data". Hence the
+                    // server's ratingScaleV2 flag instead of a hardcoded number.
+                    if (!scaleV2 && (stat.elo ?? 0) < 1000) return;
                     dataPoints.push({
                         x: date,
                         y: stat.eloRank,

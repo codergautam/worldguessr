@@ -2,12 +2,13 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, memo } fr
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
-import { getPinIcons } from '@/lib/markerIcons';
+import { getPinIcons, markerSkinIconKey, MARKER_SKIN_ICONS } from '@/lib/markerIcons';
 import calcPoints, { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
+import { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
@@ -1686,6 +1687,11 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
  */
 const PlayerLine = memo(function PlayerLine({
   playerId, displayName, countryCode, guess, dest, icon, polylineRenderer,
+  // Equipped name-glow sku. ⚠ A new per-player field has to be added in BOTH
+  // places — the prop list here AND the comparator at the bottom of this
+  // component. Miss the comparator and the pin renders once with whatever the
+  // field was on first mount and never updates again, with no error anywhere.
+  nameGlow = null,
   // Faded pins mark guesses still in motion (interim teammate placements).
   markerOpacity = 1,
 }) {
@@ -1707,7 +1713,12 @@ const PlayerLine = memo(function PlayerLine({
           permanent
           position={{ lat: guess[0], lng: guess[1] }}
         >
-          <span style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {/* Leaflet's tooltip chrome is WHITE and this text is forced black,
+              so the glow takes the LIGHT variant — the dark neon is invisible
+              here. Inline, never a class: this node is portalled outside the
+              React tree, and inside the mobile embed globals.scss does not
+              exist at all (embed/build.mjs bundles JS only). */}
+          <span style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px', textShadow: nameGlowShadow(nameGlow, GLOW_LIGHT) || undefined }}>
             {displayName}
             {countryCode && (
               <CountryFlag countryCode={countryCode} style={{ fontSize: '0.9em', marginRight: '0' }} />
@@ -1728,6 +1739,7 @@ const PlayerLine = memo(function PlayerLine({
   a.playerId === b.playerId &&
   a.displayName === b.displayName &&
   a.countryCode === b.countryCode &&
+  a.nameGlow === b.nameGlow &&
   a.guess[0] === b.guess[0] &&
   a.guess[1] === b.guess[1] &&
   a.dest?.lat === b.dest?.lat &&
@@ -1738,6 +1750,9 @@ const PlayerLine = memo(function PlayerLine({
 
 const MultiplayerLayer = memo(function MultiplayerLayer({
   players, myId, dest, srcIcon, polandballIcon, polylineRenderer, isCoolMath,
+  // The whole memoized icon set, so an equipped marker skin can be resolved by
+  // key (markerSkinIconKey) instead of needing one more prop per sku.
+  icons = null,
   // Team games: teammates render with YOUR (blue src) pin so the map reads
   // team-vs-team, and each team's closest guesser renders ENLARGED so the
   // counting guess pops out. Callers pass ids + the matching icons.
@@ -1757,15 +1772,23 @@ const MultiplayerLayer = memo(function MultiplayerLayer({
     const isTeammate = teammateIcon && teammateIds?.has?.(player.id);
     const base = isTeammate ? teammateIcon : srcIcon;
     const big = isTeammate ? bigTeammateIcon : bigSrcIcon;
+    const isBest = !!bestIds?.has?.(player.id);
+    // Pin priority: the hardcoded customPins.json entry (one legacy user —
+    // must not regress) beats everything, then the player's purchased skin,
+    // then the stock team pin. A skinned pin gives up the blue/green team
+    // colour by design: the skin IS that player's identity, and the permanent
+    // name label on the tooltip already says whose guess it is.
+    const skinIcon = icons?.[markerSkinIconKey(player.markerSkin, isBest ? 'Big' : 'Small')];
     const icon = customPins[displayName] === "polandball"
       ? polandballIcon
-      : (big && bestIds?.has?.(player.id) ? big : base);
+      : (skinIcon || (big && isBest ? big : base));
     return (
       <PlayerLine
         key={player.id}
         playerId={player.id}
         displayName={displayName}
         countryCode={player.countryCode}
+        nameGlow={player.nameGlow ?? null}
         guess={player.guess}
         dest={lineIds && !lineIds.has(player.id) ? null : dest}
         icon={icon}
@@ -1806,11 +1829,20 @@ function copyCountryGuessPin(countryGuessPin) {
   return { lat: countryGuessPin.lat, lng: countryGuessPin.lng };
 }
 
+// ⚠ This is a PROJECTION, not a comparator. The reveal renders from THIS
+// snapshot, not from the live roster, so a per-player field that is not copied
+// here is simply gone by the time a pin is drawn — no error, no warning, just
+// a plain pin and an unglowing tooltip on the one screen where a cosmetic is
+// most visible. Copy the field; do not merely remember to compare it.
 function copyMultiplayerAnswerPlayers(multiplayerState) {
   return (multiplayerState?.gameData?.players || []).map((player) => ({
     id: player.id,
     username: player.username,
     countryCode: player.countryCode,
+    // Cosmetics frozen with the pins for the same reason `team` is: the reveal
+    // must keep showing exactly what was on screen when the round ended.
+    nameGlow: player.nameGlow ?? null,
+    markerSkin: player.markerSkin ?? null,
     // Team frozen with the pins: a teammate disconnecting mid-reveal must not
     // flip their still-visible pin from teammate-blue to enemy-green.
     team: player.team ?? null,
@@ -1924,6 +1956,14 @@ const MapComponent = ({
   // prevents Marker children from seeing a "new icon" on every render.
   const icons = useMemo(() => {
     const shared = getPinIcons() || {};
+    // Shop marker skins are carried through under the EXACT key
+    // markerSkinIconKey() emits, so resolving a sku is a plain lookup and a
+    // new sku added to the catalogue needs no change here.
+    const skins = {};
+    Object.values(MARKER_SKIN_ICONS).forEach((k) => {
+      skins[`${k}Small`] = shared[`${k}Small`];
+      skins[`${k}Big`] = shared[`${k}Big`];
+    });
     return {
       dest: shared.destSmall,
       src: shared.srcSmall,
@@ -1931,11 +1971,27 @@ const MapComponent = ({
       srcBig: shared.srcBig,
       src2Big: shared.src2Big,
       polandball: shared.polandball,
+      ...skins,
     };
   }, []);
 
   const myUsername = session?.token?.username;
-  const myIconKey = customPins[myUsername] === "polandball" ? "polandball" : "src";
+  // MY equipped skin. The session is the primary source because it is the only
+  // one that exists outside multiplayer (singleplayer has no roster at all);
+  // the roster entry backfills for the window before the session resolves.
+  const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
+    ?? multiplayerState?.gameData?.players?.find((p) => p.id === multiplayerState?.gameData?.myId)?.markerSkin
+    ?? null;
+  // Same priority as MultiplayerLayer: customPins override > purchased skin >
+  // stock pin. Falls back whenever the skin's icon is missing (unknown sku, or
+  // Leaflet not loaded yet and getPinIcons() returned nothing).
+  const pinKeyFor = (skin, tier, fallbackKey) => {
+    if (customPins[myUsername] === "polandball") return "polandball";
+    const key = markerSkinIconKey(skin, tier);
+    return (key && icons[key]) ? key : fallbackKey;
+  };
+  const myIconKey = pinKeyFor(myMarkerSkin, 'Small', 'src');
+  const myBigIconKey = pinKeyFor(myMarkerSkin, 'Big', 'srcBig');
   const myIcon = icons[myIconKey];
 
   // Distance reporting: when reveal lands and we have both points, compute km.
@@ -2073,8 +2129,8 @@ const MapComponent = ({
         location={answerLocation}
         // Your pin enlarges too when YOU are your team's closest guesser
         // (custom polandball pins are already oversized — leave them be).
-        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && myIconKey !== 'polandball' && icons.srcBig
-          ? icons.srcBig
+        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && myIconKey !== 'polandball' && icons[myBigIconKey]
+          ? icons[myBigIconKey]
           : myIcon}
         polylineRenderer={canvasRenderer}
         // Best-guess team reveals: your line only draws if YOUR guess counted.
@@ -2106,6 +2162,7 @@ const MapComponent = ({
           bigSrcIcon={icons.src2Big}
           bigTeammateIcon={icons.srcBig}
           polandballIcon={icons.polandball}
+          icons={icons}
           polylineRenderer={canvasRenderer}
           isCoolMath={isCoolMath}
         />
@@ -2128,6 +2185,7 @@ const MapComponent = ({
             // This layer only ever contains teammates — blue, same as you.
             srcIcon={icons.src}
             polandballIcon={icons.polandball}
+            icons={icons}
             polylineRenderer={canvasRenderer}
             isCoolMath={isCoolMath}
             // A locked teammate pin is a commitment; a faded one is still

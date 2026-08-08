@@ -68,7 +68,7 @@ export default async function handler(req, res) {
       if (isObjectId) {
         // Search by account ID
         const userById = await User.findById(searchTerm)
-          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff created_at')
           .lean();
         if (userById) {
           currentNameMatches = [userById];
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         currentNameMatches = await User.find({
           email: { $regex: new RegExp(searchTerm, 'i') }
         })
-          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff created_at')
           .limit(10)
           .lean();
       } else {
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
         currentNameMatches = await User.find({
           username: { $regex: new RegExp(searchTerm, 'i') }
         })
-          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff created_at')
           .limit(10)
           .lean();
       }
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
       const pastNameUsers = await User.find({
         _id: { $in: pastNameAccountIds.filter(id => !currentMatchIds.includes(id)) }
       })
-        .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
+        .select('_id username totalXp elo banned banType pendingNameChange staff created_at')
         .limit(10)
         .lean();
 
@@ -239,7 +239,6 @@ export default async function handler(req, res) {
               banType: match.user.banType,
               pendingNameChange: match.user.pendingNameChange,
               staff: match.user.staff,
-              supporter: match.user.supporter,
               created_at: match.user.created_at,
               matchType: match.matchType,
               matchInfo: match.matchInfo
@@ -313,7 +312,6 @@ async function buildUserResponse(targetUser) {
       scheduledDeletionAt: targetUser.scheduledDeletionAt || null,
       deletionRequestedAt: targetUser.deletionRequestedAt || null,
       staff: targetUser.staff,
-      supporter: targetUser.supporter,
       reporterStats: targetUser.reporterStats || { helpfulReports: 0, unhelpfulReports: 0 }
     }
   };

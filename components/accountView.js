@@ -10,7 +10,7 @@ import CountrySelectorModal from "./countrySelectorModal";
 import CountryFlag from "./utils/countryFlag";
 import { fetchWithFallback } from "./utils/retryFetch";
 
-export default function AccountView({ accountData, setAccountData, supporter, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
+export default function AccountView({ accountData, setAccountData, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
     const [showCountrySelector, setShowCountrySelector] = useState(false);

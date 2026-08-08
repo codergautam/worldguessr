@@ -31,21 +31,38 @@ async function fetchLeaderboard(date) {
   // guards the narrow race where a fresh score lands between the scrub and
   // the ban write committing, plus users who entered pendingNameChange after
   // their score was written.
+  // ONE QUERY, TWO ANSWERS. This lookup already had to run for the moderation
+  // pass; equipped glows come out of the same documents, so the board learned to
+  // paint a purchase for the cost of two extra projected fields and no extra
+  // round trip. The $or moved out of the FILTER and into the read because the
+  // glow map needs every candidate, not just the blocked ones — the filter was
+  // never selective enough to matter (it is an _id $in over at most 130 ids).
   const candidateUserIds = candidates.map(c => c.userId).filter(Boolean);
-  const blockedIds = candidateUserIds.length
-    ? new Set(
-        (await User.find({
-          _id: { $in: candidateUserIds },
-          $or: [{ banned: true }, { pendingNameChange: true }],
-        }).select('_id').lean()).map(u => u._id.toString())
-      )
-    : new Set();
+  const candidateUsers = candidateUserIds.length
+    ? await User.find({ _id: { $in: candidateUserIds } })
+        .select('_id banned pendingNameChange cosmetics.equipped.nameGlow')
+        .lean()
+    : [];
+  const blockedIds = new Set(
+    candidateUsers.filter(u => u.banned || u.pendingNameChange).map(u => u._id.toString())
+  );
+  const glowById = new Map(
+    candidateUsers.map(u => [u._id.toString(), u.cosmetics?.equipped?.nameGlow || null])
+  );
 
   const payload = {
     leaderboard: candidates
       .filter(c => !blockedIds.has(c.userId?.toString()))
       .slice(0, LEADERBOARD_SIZE)
-      .map((e, i) => ({ rank: i + 1, username: e.username, score: e.score })),
+      .map((e, i) => ({
+        rank: i + 1,
+        username: e.username,
+        score: e.score,
+        // Live, not frozen into DailyChallengeScore: a daily row is the day's
+        // result, a glow is who you are today. Guest-claimed rows carry no
+        // userId and resolve to null, same as they always have.
+        nameGlow: glowById.get(e.userId?.toString()) || null,
+      })),
   };
 
   cache.set(date, { expiresAt: Date.now() + TTL_MS, payload });

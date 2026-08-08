@@ -152,6 +152,9 @@ interface PlayerGuessMarker {
   lat: number;
   lng: number;
   username: string;
+  /** Flag shown on the embed's pin label. Survives a mid-game leaver, whose
+   *  roster row is gone by the reveal but whose round record still has it. */
+  countryCode?: string;
   points?: number;
   color: string;
 }
@@ -178,6 +181,7 @@ function buildHistoryPlayerGuesses(history: RoundHistoryEntry | undefined): Play
       lat: player.lat!,
       lng: player.long!,
       username: player.username,
+      countryCode: player.countryCode,
       points: player.points,
       color: getPlayerColor(playerId),
     }));
@@ -191,6 +195,7 @@ function buildCurrentPlayerGuesses(players: MPPlayer[], actualLocation: Location
       lat: player.latLong![0],
       lng: player.latLong![1],
       username: player.username,
+      countryCode: player.countryCode,
       points: actualLocation
         ? calcPoints({
             lat: actualLocation.lat,
@@ -1191,7 +1196,7 @@ export default function GameScreen() {
         }
 
         if (!data.ready || !data.locations || data.locations.length === 0) {
-          throw new Error(t('noLocationsForMap', undefined, 'No locations available for this map'));
+          throw new Error(t('noLocationsForMap'));
         }
 
         const normalizedLocations = data.locations.map((loc: any) => ({
@@ -1251,7 +1256,7 @@ export default function GameScreen() {
           return;
         }
         console.error('Failed to fetch locations after all retries:', error);
-        setLoadError(error instanceof Error ? error.message : t('failedToLoadGame', undefined, 'Failed to load game'));
+        setLoadError(error instanceof Error ? error.message : t('failedToLoadGame'));
         setIsLoading(false);
       }
     }
@@ -1320,10 +1325,19 @@ export default function GameScreen() {
     () => new Map((gameData?.players ?? []).map((p) => [p.id, p])),
     [gameData?.players],
   );
+  // ⚠ This is a PROJECTION into the web's gameData.players shape, not a filter:
+  // a field left out here is simply ABSENT inside the embed, with no error. The
+  // pin labels (Map.js PlayerLine) render `countryCode` as a flag and
+  // `nameGlow`/`markerSkin` as the player's cosmetics — omitting them is why
+  // mobile pins showed a bare name with no flag while web showed both. Keep this
+  // list in step with Map.js copyMultiplayerAnswerPlayers.
   const revealGuessRows = (showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses)
     .map((p) => ({
       id: p.id,
       username: p.username,
+      countryCode: p.countryCode ?? rosterById.get(p.id)?.countryCode,
+      nameGlow: rosterById.get(p.id)?.nameGlow ?? null,
+      markerSkin: rosterById.get(p.id)?.markerSkin ?? null,
       guess: [p.lat, p.lng] as [number, number] | null,
       final: rosterById.get(p.id)?.final ?? true,
       team: rosterById.get(p.id)?.team,
@@ -1346,6 +1360,9 @@ export default function GameScreen() {
       .map((p) => ({
         id: p.id,
         username: p.username,
+        countryCode: p.countryCode,
+        nameGlow: p.nameGlow ?? null,
+        markerSkin: p.markerSkin ?? null,
         guess: null as [number, number] | null,
         final: true, // reveal = round locked; only pin-bearing rows ever fade
         team: p.team,
@@ -2023,13 +2040,13 @@ export default function GameScreen() {
     const isMatchmadeDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
     if (isMatchmadeDuel) {
       Alert.alert(
-        t('forfeitGameTitle', undefined, 'Forfeit game?'),
+        t('forfeitGameTitle'),
         gd?.team2v2
-          ? t('forfeit2v2Warning', undefined, 'Leaving now forfeits the match for your teammate and ends the game for all 4 players. Your team takes the loss.')
-          : t('forfeitGameMessage', undefined, 'Leaving now will count as a loss.'),
+          ? t('forfeit2v2Warning')
+          : t('forfeitGameMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
-          { text: t('forfeit', undefined, 'Forfeit'), style: 'destructive', onPress: doLeave },
+          { text: t('forfeit'), style: 'destructive', onPress: doLeave },
         ],
       );
       return;
@@ -2078,11 +2095,11 @@ export default function GameScreen() {
   useEffect(() => {
     const confirmLeave = (onLeave: () => void) => {
       Alert.alert(
-        t('leaveGameTitle', undefined, 'Leave game?'),
-        t('leaveGameMessage', undefined, 'Your current game will be lost.'),
+        t('leaveGameTitle'),
+        t('leaveGameMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
-          { text: t('leaveGameConfirm', undefined, 'Leave'), style: 'destructive', onPress: onLeave },
+          { text: t('leaveGameConfirm'), style: 'destructive', onPress: onLeave },
         ],
       );
     };
@@ -2394,7 +2411,7 @@ export default function GameScreen() {
               >
                 <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
                 <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
-                  {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove', undefined, 'No moving')}` : ''}
+                  {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove')}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
               </Pressable>
@@ -2746,6 +2763,12 @@ export default function GameScreen() {
                       : (gameData?.players ?? []).map((p) => ({
                           id: p.id,
                           username: p.username,
+                          // Cosmetics + flag ride along on the guess phase too:
+                          // team modes paint teammate pins live, and those pins
+                          // carry the same name label as the reveal.
+                          countryCode: p.countryCode,
+                          nameGlow: p.nameGlow ?? null,
+                          markerSkin: p.markerSkin ?? null,
                           guess: p.latLong ?? null,
                           final: !!p.final,
                           team: p.team,

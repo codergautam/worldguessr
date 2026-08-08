@@ -73,11 +73,11 @@ async function fetchApi<T>(
     // here — this is what the user now sees instead of a spinner that never stops.
     if (err instanceof TimeoutError) {
       throw new Error(
-        t('errorRequestTimedOut', undefined, 'Request timed out. Check your connection and try again.'),
+        t('errorRequestTimedOut'),
       );
     }
     throw new Error(
-      t('errorNetworkRequest', undefined, 'Network error. Check your connection and try again.'),
+      t('errorNetworkRequest'),
     );
   }
 
@@ -129,63 +129,205 @@ function getDeviceTimezone(): string | undefined {
   }
 }
 
+// ── Stamps shop ──────────────────────────────────────────────────────────────
+// Every action goes through ONE endpoint, POST /api/stampShop, discriminated by
+// `action`. Auth is the raw account secret in the body as `token`, same as every
+// other authenticated endpoint in this file.
+
+/** A catalogue entry as served by `action:'catalog'` (shared/shop/catalog.js). */
+export interface ShopItem {
+  sku: string;
+  type: 'background' | 'glow' | 'marker' | 'emote' | 'pass';
+  name: string;
+  price: number;
+  platforms: string[];
+  /**
+   * Glows only. TRUE MEANS MOBILE CANNOT RENDER THE ANIMATION: React Native's
+   * `textShadowRadius` is not animatable on the native driver, so an animated
+   * tier degrades to its STATIC glowDark/glowLight here. Never hide the item —
+   * degrading beats rendering blank.
+   */
+  animated?: boolean;
+  /** Glow colour on dark surfaces (HUD, menus, leaderboards). */
+  glowDark?: string;
+  /** Glow colour on LIGHT surfaces (white cards, map tooltips). */
+  glowLight?: string;
+  /** Pass items: how long the pass lasts. */
+  durationMs?: number;
+  /**
+   * How many times this sku has been bought, ever — the "1.2K bought" line under
+   * a card. ALWAYS A NUMBER from a current server (0 when nobody has), optional
+   * here only so an older API that predates the field does not type-error; an
+   * absent value renders exactly like a zero, which is nothing.
+   *
+   * It is a DENORMALISED counter behind a 5-minute server cache
+   * (models/ShopPurchaseCount.js), so treat it as a display figure and never as
+   * something to transact against. The buyer's own purchase is added locally —
+   * see bumpBuyCount() in app/shop.tsx.
+   */
+  purchases?: number;
+  /** Bundle items: the skus it grants. */
+  includes?: string[];
+  region?: string;
+  path?: string;
+}
+
+/** One emote as served by `action:'catalog'` (shared/emotes/catalog.js). */
+export interface ShopEmote {
+  id: string;
+  name: string;
+  glyph: string;
+  free: boolean;
+  sku: string | null;
+  legacyIndex: number | null;
+  owned: boolean;
+}
+
+export interface ShopCosmetics {
+  owned?: string[];
+  equipped?: { background?: string | null; nameGlow?: string | null; markerSkin?: string | null };
+  emoteOrder?: string[];
+}
+
+/**
+ * THE ENTITLEMENT BLOCK, EXACTLY AS THE SERVER SENDS IT.
+ *
+ * `owned`, `equipped` and `emoteOrder` live UNDER `cosmetics` — see
+ * entitlementFields() in api/stampShop.js, which builds this block once for
+ * every response that carries one. These interfaces used to declare `owned` and
+ * `equipped` at the TOP level, where the server has never put them, so every
+ * read of them was `undefined`: a purchase on this platform did not update the
+ * local inventory at all, and the card you had just bought went on showing its
+ * price until the app refetched the account. Nothing warned, because
+ * `Array.isArray(undefined)` is simply false and the patch was skipped.
+ */
+export interface ShopEntitlements {
+  stamps?: number;
+  cosmetics?: ShopCosmetics;
+  adFreeUntil?: string | null;
+  stampsEnabled?: boolean;
+}
+
+export interface ShopCatalogResponse extends ShopEntitlements {
+  items: ShopItem[];
+  /** The FULL emote table, free entries included — the shop's emote shelf. */
+  emotes?: ShopEmote[];
+  enabled?: boolean;
+}
+
+export interface ShopMutationResponse extends ShopEntitlements {
+  success?: boolean;
+  /** True when the server recognised this purchaseKey as an already-applied buy. */
+  duplicate?: boolean;
+  error?: string;
+  message?: string;
+}
+
+export interface StampBalanceResponse {
+  stamps?: number;
+  cosmetics?: {
+    owned?: string[];
+    equipped?: { background?: string | null; nameGlow?: string | null; markerSkin?: string | null };
+    emoteOrder?: string[];
+  };
+  adFreeUntil?: string | null;
+  stampsEnabled?: boolean;
+}
+
+export interface StampHistoryEntry {
+  amount: number;
+  reason?: string;
+  sku?: string;
+  createdAt?: string;
+}
+
+/**
+ * A v4-shaped UUID for the purchase idempotency key.
+ *
+ * Prefers a real CSPRNG when the runtime exposes one; Hermes ships neither
+ * `crypto.randomUUID` nor `getRandomValues` by default and this app carries no
+ * crypto dependency, so the Math.random path is the realistic one. That is
+ * FINE here and only here: this value is an idempotency token, not a secret or
+ * a capability — it is scoped to one authenticated account's purchase, and the
+ * server rejects an unknown key rather than trusting it. Do not reuse this
+ * helper for anything that must be unguessable.
+ */
+export function newPurchaseKey(): string {
+  const c: any = (globalThis as any).crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (typeof c?.getRandomValues === 'function') {
+    c.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Everything /api/googleAuth returns, for all three entry points (google,
+ * apple, restore-session — they are literally the same route). ONE declaration:
+ * these were three hand-copied literals, and a field missing from one of them
+ * was silently dropped for that sign-in path only.
+ */
+export interface AuthResponse {
+  secret: string;
+  username: string;
+  email?: string;
+  elo?: number;
+  /** Server-computed league for `elo`; prefer it over the local table. */
+  league?: string | { name?: string; min?: number; max?: number; emoji?: string; color?: string; light?: string } | null;
+  ratedGames?: number;
+  totalXp?: number;
+  totalGamesPlayed?: number;
+  countryCode?: string;
+  staff?: boolean;
+  needsUsername?: boolean;
+  accountId?: string;
+  error?: string;
+  banned?: boolean;
+  banType?: string;
+  banExpiresAt?: string;
+  banPublicNote?: string;
+  pendingNameChange?: boolean;
+  pendingNameChangePublicNote?: string;
+  canChangeUsername?: boolean;
+  daysUntilNameChange?: number;
+  recentChange?: boolean;
+  pendingDeletion?: boolean;
+  scheduledDeletionAt?: string;
+  // Stamps / shop — added with the shop wave.
+  stamps?: number;
+  cosmetics?: {
+    owned?: string[];
+    equipped?: { background?: string | null; nameGlow?: string | null; markerSkin?: string | null };
+    emoteOrder?: string[];
+  };
+  adFreeUntil?: string | null;
+  stampsEnabled?: boolean;
+}
+
+function stampShop<T>(body: Record<string, unknown>): Promise<T> {
+  return fetchApi<T>('/api/stampShop', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export const api = {
   // Auth
   googleAuth: async (idToken: string) => {
-    return fetchApi<{
-      secret: string;
-      username: string;
-      email?: string;
-      elo?: number;
-      totalXp?: number;
-      totalGamesPlayed?: number;
-      countryCode?: string;
-      staff?: boolean;
-      supporter?: boolean;
-      needsUsername?: boolean;
-      accountId?: string;
-      banned?: boolean;
-      banType?: string;
-      banExpiresAt?: string;
-      banPublicNote?: string;
-      pendingNameChange?: boolean;
-      pendingNameChangePublicNote?: string;
-      canChangeUsername?: boolean;
-      daysUntilNameChange?: number;
-      recentChange?: boolean;
-      pendingDeletion?: boolean;
-      scheduledDeletionAt?: string;
-    }>('/api/googleAuth', {
+    return fetchApi<AuthResponse>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken, tz: getDeviceTimezone() }),
     }, AUTH_URL);
   },
 
   appleAuth: async (identityToken: string) => {
-    return fetchApi<{
-      secret: string;
-      username: string;
-      email?: string;
-      elo?: number;
-      totalXp?: number;
-      totalGamesPlayed?: number;
-      countryCode?: string;
-      staff?: boolean;
-      supporter?: boolean;
-      needsUsername?: boolean;
-      accountId?: string;
-      banned?: boolean;
-      banType?: string;
-      banExpiresAt?: string;
-      banPublicNote?: string;
-      pendingNameChange?: boolean;
-      pendingNameChangePublicNote?: string;
-      canChangeUsername?: boolean;
-      daysUntilNameChange?: number;
-      recentChange?: boolean;
-      pendingDeletion?: boolean;
-      scheduledDeletionAt?: string;
-    }>('/api/googleAuth', {
+    return fetchApi<AuthResponse>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ apple_identity_token: identityToken, tz: getDeviceTimezone() }),
     }, AUTH_URL);
@@ -204,30 +346,7 @@ export const api = {
 
   // Restore session with stored secret (matches web auth.js flow)
   restoreSession: async (secret: string) => {
-    return fetchApi<{
-      secret: string;
-      username: string;
-      email?: string;
-      elo?: number;
-      totalXp?: number;
-      totalGamesPlayed?: number;
-      countryCode?: string;
-      staff?: boolean;
-      supporter?: boolean;
-      error?: string;
-      accountId?: string;
-      banned?: boolean;
-      banType?: string;
-      banExpiresAt?: string;
-      banPublicNote?: string;
-      pendingNameChange?: boolean;
-      pendingNameChangePublicNote?: string;
-      canChangeUsername?: boolean;
-      daysUntilNameChange?: number;
-      recentChange?: boolean;
-      pendingDeletion?: boolean;
-      scheduledDeletionAt?: string;
-    }>('/api/googleAuth', {
+    return fetchApi<AuthResponse>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ secret, tz: getDeviceTimezone() }),
     }, AUTH_URL);
@@ -298,7 +417,6 @@ export const api = {
       createdAt?: string;
       profileViews?: number;
       countryCode?: string;
-      supporter?: boolean;
       rank?: number;
       duelStats?: {
         wins: number;
@@ -313,6 +431,13 @@ export const api = {
     return fetchApi<{
       elo: number;
       rank: number;
+      /**
+       * The WHOLE league object as the server computed it (`getLeague(user.elo)`).
+       * Prefer it over the local cutoff table wherever the tier is rendered.
+       */
+      league?: { name?: string; min?: number; max?: number; emoji?: string; color?: string; light?: string };
+      /** Rated-game count — drives the v2 K-factor schedule. */
+      ratedGames?: number;
       duels_wins: number;
       duels_losses: number;
       duels_tied: number;
@@ -368,11 +493,19 @@ export const api = {
         elo?: number;
         totalXp?: number;
         countryCode?: string;
+        /** Equipped name-glow sku (api/leaderboard.js sendableUser). */
+        nameGlow?: string | null;
       }>;
       myRank?: number;
       myElo?: number;
       myXp?: number;
       myCountryCode?: string;
+      /**
+       * The VIEWER's own glow, for the "Your Rank" card. It cannot be read off
+       * `leaderboard` — the whole point of that card is that the viewer is
+       * usually not in the top 100.
+       */
+      myNameGlow?: string | null;
     }>(`/api/leaderboard?${params.toString()}`);
   },
 
@@ -648,6 +781,90 @@ export const api = {
         body: JSON.stringify({ secret, guestId }),
       });
     },
+  },
+
+  // ── Stamps shop ────────────────────────────────────────────────────────────
+
+  /**
+   * Storefront. `platform:'mobile'` is filtered SERVER-SIDE — backgrounds are
+   * web-only in v1, so nothing this app cannot render ever reaches the grid.
+   * The token is optional so a signed-out user can still browse.
+   */
+  getShopCatalog: async (secret?: string | null) => {
+    return stampShop<ShopCatalogResponse>({
+      action: 'catalog',
+      platform: 'mobile',
+      ...(secret ? { token: secret } : {}),
+    });
+  },
+
+  /**
+   * Buy one sku. THE CLIENT HALF OF THE IDEMPOTENCY CONTRACT LIVES HERE.
+   *
+   * `purchaseKey` is minted ONCE per button press by the caller and passed in.
+   * On a TIMEOUT we genuinely do not know whether the debit landed, so we retry
+   * with the SAME key — the server recognises it and returns the original
+   * result instead of charging twice. On a 4xx we know the server decided
+   * (insufficient stamps, already owned, unknown sku, bad token), so we NEVER
+   * retry: a retry there can only turn one clean rejection into two.
+   *
+   * The caller must NOT mint a fresh key to retry a failed purchase. That is
+   * exactly the double-charge this contract exists to prevent.
+   */
+  purchaseCosmetic: async (secret: string, sku: string, purchaseKey: string) => {
+    const body = { action: 'purchase', token: secret, sku, purchaseKey };
+    try {
+      return await stampShop<ShopMutationResponse>(body);
+    } catch (err) {
+      // ApiError = the server answered. Its verdict stands, retry or not.
+      if (err instanceof ApiError) throw err;
+      // No response at all (timeout / offline / DNS). fetchApi turns these into
+      // plain Errors. One retry on the SAME key resolves the ambiguity.
+      return await stampShop<ShopMutationResponse>(body);
+    }
+  },
+
+  /**
+   * Equip (or, with `sku: null`, unequip) a cosmetic slot. Idempotent by nature
+   * — it sets state rather than moving currency — so no purchase key.
+   */
+  equipCosmetic: async (
+    secret: string,
+    slot: 'nameGlow' | 'markerSkin' | 'background',
+    sku: string | null,
+  ) => {
+    return stampShop<ShopMutationResponse>({
+      action: 'equip',
+      token: secret,
+      slot,
+      sku,
+    });
+  },
+
+  /**
+   * Write the emote bar — the ORDERED list of emote ids the in-game picker
+   * renders. Same `equip` action, which takes a slot and/or an emoteOrder and
+   * needs at least one of them; this is the emoteOrder half, and it exists
+   * because this app had no way to send one at all. `[]` means "the stock bar".
+   *
+   * The server re-checks ownership and the length cap, so a client that gets
+   * either wrong is rejected rather than trusted. Build the list with
+   * toEmoteBarIds() (src/shared/emotes.ts) and it cannot be either.
+   */
+  equipEmoteOrder: async (secret: string, emoteOrder: string[]) => {
+    return stampShop<ShopMutationResponse>({
+      action: 'equip',
+      token: secret,
+      emoteOrder,
+    });
+  },
+
+  getStampBalance: async (secret: string) => {
+    return stampShop<StampBalanceResponse>({ action: 'balance', token: secret });
+  },
+
+  getStampHistory: async (secret: string) => {
+    return stampShop<{ history: StampHistoryEntry[] }>({ action: 'history', token: secret });
   },
 
   fetchMapLocations: async (mapSlug: string) => {
