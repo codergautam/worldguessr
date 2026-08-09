@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import { hasSeason0, season0RankOf } from '../shared/season0/rank.js';
 
 export const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -37,6 +38,19 @@ export default async function handler(req, res) {
       daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
       recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
       countryCode: user.countryCode || null,
+      // Season 0 commemorative fields, the same set api/publicProfile.js
+      // publishes. THIS endpoint is what mobile loads for your OWN profile
+      // (ProfileView calls publicAccount by id, publicProfile by username), so
+      // without them a veteran opening their own account is the one person who
+      // cannot see their own OG badge.
+      //
+      // seasonPeakElo is on the RETIRED 0-20,000 scale and is never comparable
+      // to the live rating. Every render site labels it Season 0 for that reason.
+      seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
+      seasonPeakLeague: user.seasonPeakLeague || null,
+      season0Elo: user.elo_s0 ?? null,
+      season0Rank: season0RankOf(user),
+      ogAccount: hasSeason0(user),
       // Entitlements. Mobile's refreshAccount() reads this endpoint, so without
       // them a purchase or an equip is invisible until the app is restarted.
       // Only the EQUIPPED items are exposed, never the owned list — what a

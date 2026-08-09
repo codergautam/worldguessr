@@ -193,6 +193,37 @@ export const resolveLeague = (elo, server) => {
   };
 };
 
+/**
+ * The rating floor the "avoid lower skill duels" (strict matchmaking) setting
+ * enforces: a strict player is never matched below this.
+ *
+ * RESOLVED FROM THE ACTIVE TABLE, NEVER TYPED. Every call site used to read
+ * `leagues.voyager.min` directly, which is 5,000 on the RETIRED Season 0 scale.
+ * A v2 rating tops out around 1,600, so after the migration that comparison was
+ * false for every account alive:
+ *
+ *   - the settings toggle was hidden from everybody, on web and on mobile;
+ *   - the queue entry was never stamped strict;
+ *   - and the server would have refused to turn it on anyway.
+ *
+ * The whole feature silently vanished from the product while its User field,
+ * its wire message and its (now wrong) "5000+ ELO" copy all kept shipping.
+ *
+ * Reading the ACTIVE table also means a seasonal re-anchor moves this with the
+ * tiers instead of stranding it, which is the same reason getLeague does it.
+ */
+export const STRICT_TIER_NAME = 'Voyager';
+
+export const getStrictFloor = () => {
+  const table = getActiveLeagues();
+  const tier = Object.values(table).find((l) => l.name === STRICT_TIER_NAME);
+  // A table without a Voyager tier is a config the strict setting cannot be
+  // expressed in. Infinity fails CLOSED — nobody is eligible, nobody is
+  // filtered — which is strictly better than a 0 that would silently turn the
+  // setting into "match me with anyone" for every player who has it enabled.
+  return typeof tier?.min === 'number' && Number.isFinite(tier.min) ? tier.min : Infinity;
+};
+
 export const getLeagueRange = (name) => {
   const table = getActiveLeagues();
   const league = Object.values(table).find(league => league.name === name);

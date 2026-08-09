@@ -35,6 +35,10 @@ export interface EmbedMapProps {
   stopCameraAnimations?: boolean;
   resetKey?: number;
   cameraCancelKey?: number;
+  /* NO `myNameGlow` HERE ANY MORE. It crossed this bridge for exactly one
+   * consumer — the "Your guess" pin label — and that label wears no glow: it is
+   * chrome, not a name (components/utils/guessPinLabel.js). Skins still travel
+   * (myMarkerSkin, EmbedResultsProps below) because a pin IS identity. */
   /** Drives the tile-label language (hl=) via useTranslation. */
   lang?: string;
 }
@@ -47,6 +51,17 @@ export interface EmbedResultsProps {
   rounds?: unknown[];
   activeRound?: number | null;
   myId?: string | null;
+  /** Highlighted player from the host's Final Scores list. */
+  selectedPlayer?: string | null;
+  /** Team games: playerId -> 'a' | 'b'. */
+  teams?: Record<string, "a" | "b"> | null;
+  /** THE CURRENT PLAYER'S OWN PIN SKIN, and it has to travel as a prop because
+   *  their guess is drawn off round.guessLat/Long rather than off a
+   *  round.players entry — there is nothing else on this screen to read it
+   *  from. Everyone else's rides on their own entry in `rounds[].players`.
+   *  There is no glow beside it: your own pin's label reads "Your guess" and a
+   *  glow dresses a NAME. Opponents' labels still glow, off `rounds[].players`. */
+  myMarkerSkin?: string | null;
   isDuel?: boolean;
   isCountryGuesser?: boolean;
   lang?: string;

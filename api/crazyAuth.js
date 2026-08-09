@@ -2,12 +2,14 @@ import jwt from "jsonwebtoken";
 const { verify } = jwt;
 import axios from "axios";
 import { createUUID } from "../components/createUUID.js";
-import User, { USERNAME_COLLATION } from "../models/User.js";
+import User, { USERNAME_COLLATION, STARTING_ELO } from "../models/User.js";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
 import { getLeague } from '../components/utils/leagues.js';
+import { STARTING_ELO as DEFAULT_ELO } from '../components/utils/ratingFlags.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
+import { hasSeason0, season0RankOf } from '../shared/season0/rank.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -57,21 +59,22 @@ async function getExtendedUserData(user, timings = {}) {
     seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
     seasonPeakLeague: user.seasonPeakLeague || null,
     season0Elo: user.elo_s0 ?? null,
-    ogAccount: user.ogAccount === true,
+    season0Rank: season0RankOf(user),
+    ogAccount: hasSeason0(user),
   };
 
   // eloRank data
   const startRank = Date.now();
   const rank = (await User.countDocuments({
-    elo: { $gt: user.elo || 1000 },
+    elo: { $gt: user.elo || DEFAULT_ELO },
     banned: false
   }).cache(2000)) + 1;
   timings.rankQuery = Date.now() - startRank;
 
   const eloData = {
-    elo: user.elo || 1000,
+    elo: user.elo || DEFAULT_ELO,
     rank,
-    league: getLeague(user.elo || 1000),
+    league: getLeague(user.elo || DEFAULT_ELO),
     duels_wins: user.duels_wins || 0,
     duels_losses: user.duels_losses || 0,
     duels_tied: user.duels_tied || 0,
@@ -207,9 +210,9 @@ export default async function handler(req, res) {
   timings.newUserCreate = Date.now() - startSave;
 
   // Default extended data for new users
-  // Rank = count of users with elo > 1000 (starting elo) + 1
+  // Rank = count of users with elo > the starting rating + 1
   const startRank = Date.now();
-  const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+  const usersAbove = await User.countDocuments({ elo: { $gt: STARTING_ELO }, banned: false }).cache(2000);
   timings.rankQuery = Date.now() - startRank;
 
   timings.total = Date.now() - startTotal;
@@ -237,9 +240,9 @@ export default async function handler(req, res) {
     canChangeUsername: true,
     daysUntilNameChange: 0,
     recentChange: false,
-    elo: 1000,
+    elo: STARTING_ELO,
     rank: usersAbove + 1,
-    league: getLeague(1000),
+    league: getLeague(STARTING_ELO),
     duels_wins: 0,
     duels_losses: 0,
     duels_tied: 0,

@@ -55,10 +55,13 @@
  *    one sentence. The chip still says which ones move, and now the cards show
  *    it as well. Web deleted its version of the same band for its own reasons.
  *
- *  - Backgrounds are filtered out SERVER-SIDE for `platform:'mobile'` (the app
- *    bundles its own background asset and never reads /backgrounds/*.webp), so
- *    there is no background section and no background preview. Do not add one
- *    without the server filter changing first.
+ *  - BACKGROUNDS SHIP HERE NOW. They were filtered out server-side for
+ *    `platform:'mobile'` for as long as the app bundled one static photograph
+ *    and could not read /backgrounds/*.webp — RN's iOS image pipeline does not
+ *    decode WebP, so the rows were correctly withheld rather than sold as an
+ *    image that would render as nothing. The app loads them over the network
+ *    through expo-image now (src/components/SiteBackground.tsx), the catalogue
+ *    row says ['web', 'mobile'], and this screen has the section to match.
  *
  *  - One `purchaseKey` per BUTTON PRESS, minted here and held across retries.
  *    api.purchaseCosmetic retries a timeout with the same key and never retries
@@ -92,7 +95,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  ImageBackground,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   ScrollView,
@@ -100,6 +102,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import SiteBackground from '../src/components/SiteBackground';
 import { Pressable } from '../src/components/ui/SfxPressable';
 import Animated, { FadeIn, FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -125,23 +128,47 @@ import {
   toEmoteBarIds,
 } from '../src/shared/emotes';
 import PlayerName from '../src/components/PlayerName';
+import CountryFlag from '../src/components/CountryFlag';
 import EmoteWheel from '../src/components/shop/EmoteWheel';
 import EmberGlow from '../src/components/shop/EmberGlow';
+import StampMark, { STAMP_VALUE_SIZE } from '../src/components/shop/StampMark';
+// Aliased: this file already imports React Native's Image for the bundled pin
+// and stock-background art, and only the city photographs need expo-image's
+// WebP decoding and disk cache.
+import { Image as ExpoImage } from 'expo-image';
+import { backgroundUrlForSku } from '../src/services/siteBackground';
 
-type Category = 'glow' | 'emote' | 'pass' | 'marker';
+/** The photograph everybody starts with, and the placeholder under every city. */
+const STOCK_BACKGROUND = require('../assets/street2.jpg');
+
+type Category = 'glow' | 'emote' | 'pass' | 'marker' | 'background';
 
 /**
- * Section order. Web's order verbatim (components/shop/stampShopClient.js) with
- * `background` dropped, because backgrounds never reach this client — the same
- * shop in the same order on both platforms, which is the whole point of a
- * parity surface.
+ * Section order. Web's order verbatim (components/shop/stampShopClient.js) —
+ * the same shop in the same order on both platforms, which is the whole point
+ * of a parity surface.
+ *
+ * SORTED BY WHO SEES THE ITEM: a pin drops on everyone's map, a glow follows
+ * your name into a duel, a background is yours alone. `background` used to be
+ * missing from this list because the server filtered the rows out for
+ * platform:'mobile'; it does not any more (see the platform note in
+ * shared/shop/catalog.js), so the shelves finally match.
  */
-const CATEGORY_ORDER: Category[] = ['glow', 'marker', 'emote', 'pass'];
+const CATEGORY_ORDER: Category[] = ['marker', 'glow', 'background', 'emote', 'pass'];
+
+/**
+ * The equippable slots, as one name. Mirrors api.equipCosmetic's own union —
+ * this union was written out longhand in four places and `background` had to be
+ * added to every one of them, which is three chances to have a shelf whose
+ * cards cannot equip.
+ */
+type EquipSlot = 'nameGlow' | 'markerSkin' | 'background';
 
 /** Which equip slot a category writes, or null for items that are not equipped. */
-const SLOT_FOR_CATEGORY: Record<Category, 'nameGlow' | 'markerSkin' | null> = {
+const SLOT_FOR_CATEGORY: Record<Category, EquipSlot | null> = {
   glow: 'nameGlow',
   marker: 'markerSkin',
+  background: 'background',
   // Emotes write an ARRANGEMENT (cosmetics.emoteOrder), not a slot — see
   // EmoteWheel. Owning one is what lets you put it on the wheel; the wheel is
   // what the in-game picker renders.
@@ -334,8 +361,9 @@ export default function ShopScreen() {
     (items ?? []).forEach((item) => {
       const type = item.type as Category;
       // Anything this build has no section for is dropped rather than rendered
-      // into a heading that does not exist (backgrounds are already filtered
-      // server-side; a future category would arrive here first).
+      // into a heading that does not exist. Nothing hits this today — every
+      // catalogue type has a shelf now that backgrounds do — so it is the
+      // landing spot for a category added server-side before the app knows it.
       if (!CATEGORY_ORDER.includes(type)) return;
       // Emotes are rebuilt wholesale below, off the full table. Dropping the
       // price-list copies here is what stops each paid emote getting two cards.
@@ -672,7 +700,7 @@ export default function ShopScreen() {
    */
   const handleEquip = useCallback(
     async (
-      slot: 'nameGlow' | 'markerSkin' | null,
+      slot: EquipSlot | null,
       sku: string | null,
       busyKey: string,
     ) => {
@@ -720,7 +748,7 @@ export default function ShopScreen() {
    * the identical string for the identical reason.
    */
   const equipDefault = useCallback(
-    (slot: 'nameGlow' | 'markerSkin') => {
+    (slot: EquipSlot) => {
       // Already the baseline. The button is disabled in that state; this is the
       // belt to its braces, so a stray press can never spend a write saying
       // "null" to a slot that is already null. Web guards the same way.
@@ -732,17 +760,13 @@ export default function ShopScreen() {
 
   return (
     <View style={styles.root}>
-      <ImageBackground
-        source={require('../assets/street2.jpg')}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      >
+      <SiteBackground style={StyleSheet.absoluteFill}>
         <LinearGradient
           colors={['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)']}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </ImageBackground>
+      </SiteBackground>
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <Animated.View
@@ -766,9 +790,9 @@ export default function ShopScreen() {
             accessible
             accessibilityLabel={t('shopStampsBalance', { count: stamps })}
           >
-            {/* The minted seal — the one currency mark, shared with the home
-                header and with the web build's SVG path. */}
-            <Ionicons name="disc" size={15} color="#FDE047" />
+            {/* The stamp artwork — the one currency mark, shared with the home
+                header and with the web build. */}
+            <StampMark />
             <Text style={styles.walletValue}>{stamps.toLocaleString()}</Text>
           </View>
         </Animated.View>
@@ -951,6 +975,24 @@ export default function ShopScreen() {
                         // would test `undefined` and put a price on something
                         // everybody already has.
                         const key = item.sku ?? `emote:${item.emoteId}`;
+                        // A background's product is a photograph, so it gets a
+                        // card built around one. Everything else shares the
+                        // glyph/pin/number row.
+                        if (section.type === 'background') {
+                          return (
+                            <BackgroundCard
+                              key={key}
+                              item={item}
+                              owned={!!item.sku && owned.has(item.sku)}
+                              equipped={equipped.background === item.sku}
+                              affordable={stamps >= item.price}
+                              busy={busySku === key}
+                              disabled={!secret || (!!busySku && busySku !== key)}
+                              onBuy={() => handleBuy(item)}
+                              onEquip={(unequip) => equipItem(item, unequip)}
+                            />
+                          );
+                        }
                         return (
                           <ShopCard
                             key={key}
@@ -992,6 +1034,8 @@ function categoryLabel(c: Category): string {
       return t('shopCategoryEmotes');
     case 'marker':
       return t('shopCategoryPins');
+    case 'background':
+      return t('shopCategoryBackgrounds');
     case 'pass':
       return t('shopCategoryPasses');
   }
@@ -1043,6 +1087,12 @@ function categoryDesc(c: Category): string {
         'shopCategoryPinsDesc',
         undefined,
         "The marker that drops where you guess, on your map and everyone else's.",
+      );
+    case 'background':
+      return t(
+        'shopCategoryBackgroundsDesc',
+        undefined,
+        'The photo behind every menu. Swap it whenever you like.',
       );
     // Also platform-specific: there are no banner ads in the app, only AdMob
     // interstitials, so a pass is worth materially less here than on web and the
@@ -1158,8 +1208,12 @@ function CardAction({
         <ActivityIndicator size="small" color={colors.white} />
       ) : (
         <>
-          <Ionicons name="disc" size={14} color="#FDE047" />
-          <Text style={styles.actionText}>{item.price.toLocaleString()}</Text>
+          <StampMark />
+          {/* priceText, not actionText: this is a stamps FIGURE and it is sized
+              against the mark beside it. The word labels on the other variants
+              of this button (Owned, Equip, Sign in) stay at actionText. Web
+              scopes it the same way, on .shopCard__btn--buy. */}
+          <Text style={styles.priceText}>{item.price.toLocaleString()}</Text>
         </>
       )}
     </Pressable>
@@ -1205,7 +1259,7 @@ function GlowSection({
   locked: boolean;
   onBuy: (item: ShelfItem) => void;
   onEquip: (item: ShelfItem, unequip: boolean) => void;
-  onEquipDefault: (slot: 'nameGlow' | 'markerSkin') => void;
+  onEquipDefault: (slot: EquipSlot) => void;
 }) {
   // A COPY, then sorted: sorting `items` in place would reorder the caller's
   // memoised `sections` array. The sku filter is what proves to the compiler
@@ -1422,6 +1476,52 @@ function DefaultCard({
   onEquip: () => void;
 }) {
   const isGlow = kind === 'glow';
+  const isBackground = kind === 'background';
+
+  // THE STOCK BACKGROUND IS A PLACE AND IT SAYS SO. It is a photograph of
+  // Trafalgar Square at dusk (lib/siteBackground.js), sitting in a grid of ten
+  // named, flagged cities — calling it "Default" made the one city everybody
+  // already owns the only card that would not tell you where it was. The other
+  // two baselines keep the locale label, because there is no city behind "no
+  // glow" or "the stock pin". Same two literals as web's DEFAULT_ITEMS, and
+  // deliberately untranslated for the same reason: it is a proper noun in a
+  // shelf of proper nouns.
+  if (isBackground) {
+    return (
+      <View style={[styles.bgCard, equipped && styles.cardEquipped]}>
+        <Image source={STOCK_BACKGROUND} style={styles.bgThumb} resizeMode="cover" />
+        <View style={styles.cardBottom}>
+          <View style={styles.cardTitleWrap}>
+            <View style={styles.bgNameRow}>
+              <Text style={styles.cardName} numberOfLines={1}>London</Text>
+              <CountryFlag countryCode="gb" size={11} />
+            </View>
+            <Text style={styles.cardNote} numberOfLines={1}>{t('shopDefaultName')}</Text>
+          </View>
+          <View style={styles.cardActionWrap}>
+            <Pressable
+              onPress={onEquip}
+              disabled={disabled || busy || equipped}
+              style={({ pressed }) => [
+                styles.actionBtn,
+                equipped ? styles.actionBtnEquipped : styles.actionBtnOwned,
+                (disabled || busy) && !equipped && styles.actionBtnDisabled,
+                pressed && styles.actionBtnPressed,
+              ]}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.actionText}>
+                  {equipped ? t('shopEquipped') : t('shopEquip')}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[isGlow ? styles.glowCard : styles.card, equipped && styles.cardEquipped]}>
@@ -1482,6 +1582,89 @@ function DefaultCard({
               </Text>
             )}
           </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * A city. THE PHOTOGRAPH IS THE PITCH, which is why this is its own card shape
+ * rather than a row in ShopCard: a background is the only thing on this shelf
+ * whose entire product is an image, and a 22px thumbnail beside a name would be
+ * selling a picture nobody can see. Same reasoning as the glow stages above.
+ *
+ * THE IMAGE IS THE REAL FILE, over the network, at the same URL the menu will
+ * paint (src/services/siteBackground.ts). Bundling ten preview thumbnails would
+ * be 2.5MB in the download and a second set of art to keep in sync with the
+ * first. expo-image caches to disk, so scrolling the shelf twice costs one
+ * fetch — and it is the same cache the equip then reads from, so buying a
+ * background you have already looked at paints instantly.
+ */
+function BackgroundCard({
+  item,
+  owned,
+  equipped,
+  affordable,
+  busy,
+  disabled,
+  onBuy,
+  onEquip,
+}: {
+  item: ShelfItem;
+  owned: boolean;
+  equipped: boolean;
+  affordable: boolean;
+  busy: boolean;
+  disabled: boolean;
+  onBuy: () => void;
+  onEquip: (unequip: boolean) => void;
+}) {
+  const url = item.sku ? backgroundUrlForSku(item.sku) : null;
+
+  return (
+    <View style={[styles.bgCard, equipped && styles.cardEquipped]}>
+      {url ? (
+        <ExpoImage
+          source={{ uri: url }}
+          style={styles.bgThumb}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          // The stock photo holds the frame while a city downloads, so a slow
+          // connection scrolls past ten filled cards rather than ten holes.
+          placeholder={STOCK_BACKGROUND}
+          placeholderContentFit="cover"
+          transition={0}
+        />
+      ) : (
+        // A sku with no catalogue path (shipped to the server before this
+        // build). It still has to be buyable, so it gets the frame it would
+        // have had rather than a collapsed card.
+        <Image source={STOCK_BACKGROUND} style={styles.bgThumb} resizeMode="cover" />
+      )}
+
+      <View style={styles.cardBottom}>
+        <View style={styles.cardTitleWrap}>
+          <View style={styles.bgNameRow}>
+            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            {/* THE FLAG IS AN IMAGE, NEVER AN EMOJI — flagcdn through
+                CountryFlag, the same one every username on the site draws.
+                Backgrounds are the only shelf carrying `cc`. */}
+            {item.cc ? <CountryFlag countryCode={item.cc} size={11} /> : null}
+          </View>
+          <BuyCount item={item} />
+        </View>
+        <View style={styles.cardActionWrap}>
+          <CardAction
+            item={item}
+            owned={owned}
+            equipped={equipped}
+            affordable={affordable}
+            busy={busy}
+            disabled={disabled}
+            onBuy={onBuy}
+            onEquip={onEquip}
+          />
         </View>
       </View>
     </View>
@@ -1656,7 +1839,7 @@ const styles = StyleSheet.create({
   },
   walletValue: {
     fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.sm,
+    fontSize: STAMP_VALUE_SIZE,
     color: '#FDE047',
     fontVariant: ['tabular-nums'],
   },
@@ -1866,6 +2049,37 @@ const styles = StyleSheet.create({
     width: 22,
     height: 33,
   },
+  // A CITY, AT THE SHAPE IT WILL BE SEEN IN. Same plate as `card` — one quiet
+  // dark tile, one green frame when equipped — but wider, because two 168s plus
+  // a gutter do not fit a 390px phone, so backgrounds land one per row and the
+  // photograph gets the full width to be a photograph in.
+  bgCard: {
+    flexGrow: 1,
+    minWidth: 260,
+    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  // 16:9-ish, which is the crop the menu itself shows on a landscape tablet and
+  // close enough to what a phone shows that the card is not advertising a
+  // different picture. `overflow: hidden` keeps the image inside the radius.
+  bgThumb: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#05070A',
+    overflow: 'hidden',
+  },
+  // Name and flag on one baseline. The flag never shrinks the name off the row:
+  // the name takes the slack and ellipsises, the flag is 11px of fixed width.
+  bgNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   // THE STAGE. One plate, a fixed height, and the name row owns all of it now
   // that the white check strip is gone. 172 -> 88: the strip was 38 of that
   // plus a 12 gap plus 38 of paddings, and what is left still centres a 32px
@@ -1997,5 +2211,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.sm,
     color: colors.white,
+  },
+  priceText: {
+    fontFamily: 'Lexend-Bold',
+    fontSize: STAMP_VALUE_SIZE,
+    color: colors.white,
+    fontVariant: ['tabular-nums'],
   },
 });

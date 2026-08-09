@@ -452,3 +452,112 @@ describe('readPairWins / bumpPairWins (fake store)', () => {
     expect(await bumpPairWins(makeFakeStore(), DAY, null, 'B')).toBe(0);
   });
 });
+
+// ===========================================================================
+// STRICT MATCHMAKING
+// ===========================================================================
+// "Avoid lower skill duels": a Voyager+ player opts out of ever being matched
+// below the Voyager line. On by default.
+//
+// It shipped DEAD. Every gate compared a v2 rating (ceiling ~1600) against
+// `leagues.voyager.min`, which is 5,000 on the retired Season 0 scale, so the
+// condition was false for every account alive: the toggle was hidden on both
+// clients, the queue entry was never stamped, the server would have refused it
+// anyway, and chooseDuelPairs did not read the flag at all. The User field, the
+// wire message and the "5000+ ELO" copy all kept shipping.
+//
+// The floor is INJECTED (opts.strictFloor) rather than imported, so this module
+// stays pure and a seasonal re-anchor moves the floor with the tier table.
+const FLOOR = 945; // leaguesV2.voyagerV2.min
+
+describe('chooseDuelPairs — strict matchmaking', () => {
+  it('refuses a sub-floor candidate for a strict anchor', () => {
+    const strict = entry({ id: 'strict', rating: 1000, strict: true });
+    const low = entry({ id: 'low', rating: 900 }); // inside the 150 window, below the floor
+
+    const pairs = chooseDuelPairs([strict, low], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toEqual([]);
+  });
+
+  it('is symmetric: the answer cannot depend on who is the anchor this tick', () => {
+    // Anchors are taken longest-wait-first, so swap the waits to swap the roles.
+    const a = chooseDuelPairs(
+      [entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 30000 }),
+       entry({ id: 'low', rating: 900 })],
+      { now: NOW, strictFloor: FLOOR });
+    const b = chooseDuelPairs(
+      [entry({ id: 'strict', rating: 1000, strict: true }),
+       entry({ id: 'low', rating: 900, queueTime: NOW - 30000 })],
+      { now: NOW, strictFloor: FLOOR });
+
+    expect(a).toEqual([]);
+    expect(b).toEqual([]);
+  });
+
+  it('still pairs a strict player with someone at or above the floor', () => {
+    const strict = entry({ id: 'strict', rating: 1000, strict: true });
+    const ok = entry({ id: 'ok', rating: FLOOR });
+
+    const pairs = chooseDuelPairs([strict, ok], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toHaveLength(1);
+    expect(new Set([pairs[0].a.id, pairs[0].b.id])).toEqual(new Set(['strict', 'ok']));
+  });
+
+  it('pairs two strict players with each other normally', () => {
+    const a = entry({ id: 'a', rating: 1200, strict: true });
+    const b = entry({ id: 'b', rating: 1180, strict: true });
+
+    const pairs = chooseDuelPairs([a, b], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toHaveLength(1);
+  });
+
+  it('leaves non-strict players free to meet anyone', () => {
+    const high = entry({ id: 'high', rating: 1000 });
+    const low = entry({ id: 'low', rating: 900 });
+
+    const pairs = chooseDuelPairs([high, low], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toHaveLength(1);
+  });
+
+  it('does NOT let a blocked candidate steal the closest-rating slot', () => {
+    // This is why the strict check sits BEFORE the bestDiff comparison. `near`
+    // is the closest by rating but is below the floor; `far` is legal. A check
+    // placed after the comparison would pick `near`, fail, and pair nobody.
+    const strict = entry({ id: 'strict', rating: 1000, strict: true });
+    const near = entry({ id: 'near', rating: 944 });  // 56 away, one under the floor
+    const far = entry({ id: 'far', rating: 1100 });   // 100 away, legal
+
+    const pairs = chooseDuelPairs([strict, near, far], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toHaveLength(1);
+    expect(new Set([pairs[0].a.id, pairs[0].b.id])).toEqual(new Set(['strict', 'far']));
+  });
+
+  it('is NOT waived by a long wait, unlike the rematch rule', () => {
+    // Rematch prevention has a 60s escape hatch because it is a system-imposed
+    // restriction. Strict is an explicit opt-in, so quietly overriding it after
+    // a minute would be the opposite of what the player asked for. The uncapped
+    // widening is what eventually finds them someone above the floor.
+    const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 600000 });
+    const low = entry({ id: 'low', rating: 500, queueTime: NOW - 600000 });
+
+    const pairs = chooseDuelPairs([strict, low], { now: NOW, strictFloor: FLOOR });
+    expect(pairs).toEqual([]);
+  });
+
+  it('is inert when no floor is supplied, so a caller that knows nothing about it is unaffected', () => {
+    const strict = entry({ id: 'strict', rating: 1000, strict: true });
+    const low = entry({ id: 'low', rating: 900 });
+
+    expect(chooseDuelPairs([strict, low], { now: NOW })).toHaveLength(1);
+    expect(chooseDuelPairs([strict, low], { now: NOW, strictFloor: 0 })).toHaveLength(1);
+    expect(chooseDuelPairs([strict, low], { now: NOW, strictFloor: NaN })).toHaveLength(1);
+  });
+
+  it('a strict player at the very bottom of the pool still matches upward', () => {
+    // Someone sitting exactly ON the floor is not blocked by their own setting.
+    const strict = entry({ id: 'strict', rating: FLOOR, strict: true });
+    const above = entry({ id: 'above', rating: FLOOR + 60 });
+
+    expect(chooseDuelPairs([strict, above], { now: NOW, strictFloor: FLOOR })).toHaveLength(1);
+  });
+});

@@ -1,7 +1,7 @@
 // CoolMath, Poki and GameDistribution embeds ship with no account system at
-// all: the navbar login button is hidden, OAuth can't escape their iframe
-// anyway, and all three partners forbid funnelling players to an off-platform
-// signup.
+// all: the navbar login button is hidden and OAuth can't escape their iframe
+// anyway. The one sanctioned way out is a new tab to the main site, and only
+// on CoolMath — see ACCOUNT_SITE_URL below.
 //
 // GD is the strictest of the three and the reason it joined this list. Its
 // build is the one that sets `ux_mode: "redirect"`, so a sign-in there
@@ -17,6 +17,30 @@ export const HIDE_ACCOUNT_UI =
   process.env.NEXT_PUBLIC_COOLMATH === "true" ||
   process.env.NEXT_PUBLIC_POKI === "true" ||
   process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
+
+// ...with one hand-off exception. CoolMath is the only no-account build that
+// can still send a player somewhere useful: it iframes worldguessr.com, and
+// unlike GD it doesn't forbid leaving its page (see NO_EXTERNAL_LINKS in
+// ./externalLinks). So the daily streak CTA isn't hidden there — it opens the
+// main site in a new tab, where signing in actually works. Null on every other
+// build, so those keep the plain HIDE_ACCOUNT_UI behaviour. Same one-constant
+// rule: surfaces read this, they never re-derive the platform.
+export const ACCOUNT_SITE_URL =
+  process.env.NEXT_PUBLIC_COOLMATH === "true" ? "https://www.worldguessr.com" : null;
+
+// Anchor click, NOT window.open: a gesture-driven <a target="_blank"> isn't
+// popup-blocked inside the CMG iframe, whereas window.open there can be (and
+// is patched out entirely on the GD build).
+export function openAccountSite() {
+  if (!ACCOUNT_SITE_URL || typeof document === "undefined") return;
+  const a = document.createElement("a");
+  a.href = ACCOUNT_SITE_URL;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 // The ws server sends its gate messages as English sentences that double as
 // locale keys ("sentence-as-key", so old clients still show something). Those

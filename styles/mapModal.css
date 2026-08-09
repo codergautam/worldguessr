@@ -751,13 +751,18 @@
   white-space: nowrap;
 }
 
-/* Username — shrinks and ellipses before the location count is touched. */
+/* Username — shrinks and ellipses before the location count is touched.
+   The `overflow: hidden; text-overflow: ellipsis` pair that used to live here
+   is gone, for the reason it left .account-modal-title: this element is
+   `display: inline-flex`, so the ellipsis has never fired (text-overflow needs
+   a block container), and all the overflow did was shear the creator's equipped
+   name glow flush with the letterforms. The truncation moved onto the name's
+   own span in mapTile.js as the shared .wg-name-clip recipe, where the ellipsis
+   is real and the clip edge sits 34px out. */
 .map-tile__author .map-tile__username {
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

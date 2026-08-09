@@ -56,11 +56,15 @@ import { assertReason } from './reasons.js';
 //                                  document must still satisfy when it lands
 // @returns {Promise<{applied:boolean, duplicate:boolean, insufficient:boolean, balance:number|null, disabled?:boolean}>}
 export async function grantStamps(userId, delta, reason, idempotencyKey, meta = {}, opts = {}) {
-  // 1. VALIDATE — and let it throw. Checked before the kill switch on purpose:
-  //    STAMPS_ENABLED is off in development, so short-circuiting first would
-  //    hide an unregistered reason (or a wrong sign / oversized amount) until
-  //    the day it ships to production and silently mints currency. A loud
-  //    crash on the first call is the cheap version of that discovery.
+  // 1. VALIDATE — and let it throw. Checked before the kill switch on purpose,
+  //    so that a disabled process still rejects an unregistered reason (or a
+  //    wrong sign / oversized amount) instead of returning a clean-looking
+  //    { disabled: true } and deferring the crash to whenever the switch comes
+  //    back on. A loud crash on the first call is the cheap version of that
+  //    discovery. This mattered more when STAMPS_ENABLED defaulted OFF and so
+  //    was off across all of development; it now defaults ON
+  //    (serverUtils/stamps/config.js) and the window has narrowed to an
+  //    explicitly killed process, but the ordering is still the right one.
   assertReason(reason, delta);
 
   // 2. Kill switch. No DB contact whatsoever.

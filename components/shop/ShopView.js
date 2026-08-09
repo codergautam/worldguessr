@@ -206,13 +206,9 @@ function fmt(value, lang) {
   }
 }
 
-/** Small inline stamp mark for price rows. Matches the wallet's currency mark. */
 // The currency mark is shared, not redrawn here: this file used to carry its
 // own dotted-square version that shop.css then had to paint over to match the
 // wallet. One drawing, imported everywhere. See components/shop/StampMark.js.
-function PriceMark({ className = 'shopCard__mark' }) {
-  return <StampMark className={className} />;
-}
 
 /* --------------------------------------------------------------------------
  *  THE RAIL: wallet, running pass, section list.
@@ -412,7 +408,7 @@ const ShopRail = memo(function ShopRail({
           tabIndex={0}
           aria-describedby={WALLET_HOW_ID}
         >
-          <PriceMark className="shopWallet__mark" />
+          <StampMark />
           <span className="shopWallet__figures">
             {/* THE DIGITS ARE WRITTEN BY THE rAF LOOP, NOT RE-RENDERED. The
                 JSX child below is the true balance and stays the source of
@@ -443,10 +439,10 @@ const ShopRail = memo(function ShopRail({
               where anyone is standing when they wonder why the figure is not
               going up.
 
-              THE SAME TWO STRINGS THAT POPOVER USES — shopStampsHowTitle and
-              shopStampsHowBody. Not a second wording of the same rule: the day
-              Stamps start dropping from anything else, there is one sentence to
-              change and it is already shared with components/shop/StampsWallet.js.
+              THAT POPOVER IS NOW GONE (the account chip opens this screen
+              instead), so shopStampsHowTitle / shopStampsHowBody are read here
+              and nowhere else. Which is where the sentence belonged: on the
+              balance you are watching not go up.
 
               CSS-only reveal (see .shopWallet__how in shop.css). No state, no
               listener, no re-render — this rail's balance is written by a rAF
@@ -683,7 +679,7 @@ const ShopCard = memo(function ShopCard({
             comparing across cards. Unaffordable is carried entirely by the
             chrome now: the button drops its green and stops taking presses
             (see .shopCard__btn--buy:disabled in styles/shop.css). */}
-        <PriceMark />
+        <StampMark />
         {fmt(item.price, lang)}
         {/* The sale, said once and said here: the number you pay, with the
             number you would have paid struck through beside it. */}

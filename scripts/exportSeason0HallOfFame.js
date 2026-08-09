@@ -10,6 +10,15 @@
  * capable of showing a DIFFERENT answer tomorrow. It cannot change, so it is a
  * file.
  *
+ * TWO FILES, ONE SCAN
+ * -------------------
+ * The same pass also writes shared/season0/rankTable.js: a rating -> rank
+ * lookup covering EVERY eligible account, not just the top N. That is what the
+ * OG badge on a profile reads to say "finished #431". Building it here rather
+ * than in its own script is the point — one scan, one eligibility rule, one tie
+ * rule, so a top-1000 player's profile rank and their row on this board are the
+ * same number by construction and can never drift apart.
+ *
  * WHY THIS EXISTS
  * ---------------
  * At migration every rating is rescaled: a 20,000 becomes ~1,600
@@ -74,13 +83,20 @@
  *
  * Usage (from project root):
  *   node scripts/exportSeason0HallOfFame.js                  (dry run — full scan, reports, writes nothing)
- *   node scripts/exportSeason0HallOfFame.js --apply          (write public/season0-hall-of-fame.json)
+ *   node scripts/exportSeason0HallOfFame.js --apply          (write both output files)
  *   node scripts/exportSeason0HallOfFame.js --limit 50000    (smoke test over the first 50k users)
  *
+ * BOTH output files are source-controlled artefacts: run this against the live
+ * database, then COMMIT AND DEPLOY the two files. The rank table is a module the
+ * API imports, so it takes effect on the next deploy, not the moment the script
+ * finishes.
+ *
  * Flags:
- *   --apply             Required to write the output file. Default is a dry run.
- *   --out <path>        Output path. Default: public/season0-hall-of-fame.json
- *   --top N             Board size. Default 1000.
+ *   --apply             Required to write the output files. Default is a dry run.
+ *   --out <path>        Board output path. Default: public/season0-hall-of-fame.json
+ *   --rank-out <path>   Rank table output path. Default: shared/season0/rankTable.js
+ *   --top N             Board size. Default 1000. Does NOT affect the rank table,
+ *                       which always covers every eligible account.
  *   --limit N           Scan only the first N users by _id ascending. TESTING
  *                       ONLY — the board is INCOMPLETE and is stamped
  *                       partial:true. Same --limit semantics as
@@ -88,7 +104,7 @@
  *   --batch N           Read batch size. Default 100000.
  *   --pause-ms N        Pause between batches. Default 250.
  *   --force             Allow a partial (--limit) run to overwrite an existing
- *                       complete board. Refused by default.
+ *                       complete board (and rank table). Refused by default.
  *   --allow-partial-migration
  *                       Proceed when most accounts still have a null elo_s0.
  *                       Staging only.
@@ -101,8 +117,10 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import User from '../models/User.js';
 import { leagues } from '../components/utils/leagues.js';
+import { buildRankTable } from '../shared/season0/rank.js';
 
 const DEFAULT_OUT = path.join('public', 'season0-hall-of-fame.json');
+const DEFAULT_RANK_OUT = path.join('shared', 'season0', 'rankTable.js');
 const DEFAULT_TOP = 1000;
 const DEFAULT_BATCH = 100000;
 const DEFAULT_PAUSE_MS = 250;
@@ -284,6 +302,78 @@ export function assignRanks(sorted) {
 }
 
 /* ------------------------------------------------------------------ *
+ * The rank table module
+ * ------------------------------------------------------------------ */
+
+/**
+ * Schema version of shared/season0/rankTable.js. Bump if the exported shape
+ * changes; shared/season0/rank.js reads `ranks` and nothing else, so a bump
+ * only matters the day that stops being true.
+ */
+export const RANK_TABLE_SCHEMA_VERSION = 1;
+
+/**
+ * Render the generated module. Source text, not JSON: api/* is loaded by
+ * server.js as plain Node ESM, where importing JSON needs import attributes
+ * that differ by Node version. See shared/season0/rankTable.js for the rest.
+ *
+ * `ranks` is emitted 10 pairs to a line. A single 60 KB line would be a diff
+ * nobody can read, and this file lands in code review like any other.
+ */
+export function renderRankTableModule({ ranks, eligibleAccounts, partial, generatedAt }) {
+  const entries = Object.entries(ranks);
+  const lines = [];
+  for (let i = 0; i < entries.length; i += 10) {
+    lines.push('    ' + entries.slice(i, i + 10).map(([rating, rank]) => `${rating}: ${rank},`).join(' '));
+  }
+  const body = lines.length ? `\n${lines.join('\n')}\n  ` : '';
+
+  return `/**
+ * GENERATED FILE — DO NOT EDIT BY HAND.
+ *
+ * The frozen Season 0 closing ladder, collapsed to a rating -> rank lookup.
+ * Written by:
+ *
+ *     node scripts/exportSeason0HallOfFame.js --apply
+ *
+ * ...which produces this file and public/season0-hall-of-fame.json from the SAME
+ * scan, so the rank on a player's profile and their row on the Hall of Fame page
+ * can never disagree.
+ *
+ * WHY A TABLE AND NOT A LIVE COUNT
+ * --------------------------------
+ * "Rank #431 on the day the ranked update landed" is a historical fact. A
+ * countDocuments({ elo_s0: { $gt: x } }) at request time would answer it
+ * differently every month as accounts are banned or deleted, would need a new
+ * index on a 2M-document collection, and would disagree with the Hall of Fame
+ * (which excludes banned / pending-rename / unnamed accounts as of migration
+ * day). It cannot change, so it is a file — same reasoning as the board itself.
+ *
+ * A .js module rather than JSON because api/* is loaded by server.js as plain
+ * Node ESM, where importing JSON needs import attributes that vary by Node
+ * version. This just imports.
+ */
+
+export const SEASON0_RANK_TABLE = {
+  schemaVersion: ${RANK_TABLE_SCHEMA_VERSION},
+  /** ISO timestamp of the export, or null while the table is still empty. */
+  generatedAt: ${generatedAt ? JSON.stringify(generatedAt) : 'null'},
+  /** Accounts counted into the ranking (the Hall of Fame's eligible population). */
+  eligibleAccounts: ${eligibleAccounts},
+  /** True when generated by a --limit smoke run. Never true in a shipped table. */
+  partial: ${partial === true},
+  /**
+   * Rounded closing rating (elo_s0) -> competition rank. Equal ratings share a
+   * rank and the next distinct rating skips: 1, 2, 2, 4.
+   */
+  ranks: {${body}},
+};
+
+export default SEASON0_RANK_TABLE;
+`;
+}
+
+/* ------------------------------------------------------------------ *
  * Batching
  * ------------------------------------------------------------------ */
 
@@ -316,6 +406,7 @@ async function* idBatches({ batchSize, limit }) {
 export async function run({
   apply = false,
   out = DEFAULT_OUT,
+  rankOut = DEFAULT_RANK_OUT,
   top = DEFAULT_TOP,
   limit = null,
   batchSize = DEFAULT_BATCH,
@@ -398,6 +489,10 @@ export async function run({
   console.log(`[hof] batch size ${batchSize}, pause ${pauseMs}ms\n`);
 
   const board = new TopN(top);
+  // Rating -> how many eligible accounts finished there. The whole rank table
+  // comes out of this one Map, which is why the table costs a few thousand
+  // integers of memory instead of a second pass over 2M documents.
+  const ratingCounts = new Map();
   let scanned = 0;
   let eligible = 0;
   let skippedNoSnapshot = 0;
@@ -442,11 +537,16 @@ export async function run({
       }
 
       eligible++;
+      const rating = Math.round(Number(u.elo_s0));
+      // Counted AFTER every exclusion above, so the rank table ranks exactly the
+      // population the board ranks. Anything else and a profile would claim a
+      // place among players the Hall of Fame says are not there.
+      ratingCounts.set(rating, (ratingCounts.get(rating) || 0) + 1);
       const games = careerRankedGames(u);
       board.offer({
         id: String(u._id),
         username: u.username,
-        elo_s0: Math.round(Number(u.elo_s0)),
+        elo_s0: rating,
         games,
         // House formula, same as api/crazyAuth.js and serverUtils/eloRefunds.js:
         // wins over ALL career games, ties included in the denominator.
@@ -463,6 +563,33 @@ export async function run({
 
   const ranked = assignRanks(board.toArray()).map(({ id, ...row }) => row);
   const cutoffRating = ranked.length ? ranked[ranked.length - 1].elo_s0 : null;
+
+  // The full-ladder rank lookup. Same population, same tie rule as assignRanks
+  // above: rank(r) = 1 + accounts rated above r, so equal ratings share the
+  // better rank and the next distinct rating skips.
+  const rankTable = buildRankTable(ratingCounts);
+
+  // The two artefacts must agree on every row they both cover. They are built
+  // from the same numbers by two different code paths (a sorted top-N vs a
+  // histogram), so if those ever diverge this is where it shows up — before the
+  // files are written, not after a player notices their profile and the board
+  // disagree about where they finished.
+  for (const row of ranked) {
+    const fromTable = rankTable.ranks[String(row.elo_s0)];
+    if (fromTable !== row.rank) {
+      throw new Error(
+        `RANK MISMATCH at elo_s0=${row.elo_s0}: the board says #${row.rank}, the rank table says ` +
+        `#${fromTable === undefined ? 'missing' : fromTable}.\n` +
+        'Refusing to write either file — a profile and the Hall of Fame must never ' +
+        'quote different finishing places for the same player.'
+      );
+    }
+  }
+  if (rankTable.eligibleAccounts !== eligible) {
+    throw new Error(
+      `RANK TABLE COUNT MISMATCH: ${rankTable.eligibleAccounts} accounts in the table, ${eligible} eligible in the scan.`
+    );
+  }
 
   /* ---- PAYLOAD ---------------------------------------------------------- */
   const payload = {
@@ -550,10 +677,12 @@ export async function run({
   }
   console.log(`\nelapsed: ${elapsed}s`);
 
+  console.log(`\nrank table          : ${rankTable.distinctRatings} distinct ratings over ${rankTable.eligibleAccounts} accounts`);
+
   if (!apply) {
-    console.log(`\nDRY RUN — nothing written. Re-run with --apply to write ${out}.`);
+    console.log(`\nDRY RUN — nothing written. Re-run with --apply to write ${out} and ${rankOut}.`);
     console.log('=================================');
-    return { ...payload, players: undefined, written: false, outPath };
+    return { ...payload, players: undefined, written: false, outPath, rankTable };
   }
 
   await fs.mkdir(path.dirname(outPath), { recursive: true });
@@ -563,14 +692,41 @@ export async function run({
   const { size } = await fs.stat(outPath);
   console.log(`\nWrote ${outPath} (${(size / 1024).toFixed(1)} KB, ${ranked.length} players).`);
   console.log('Serve it from public/. The page reads it directly — no API, no database read.');
+
+  // The rank table follows the SAME partial rule as the board: a --limit run
+  // produces a table that would tell most of the player base they finished
+  // higher than they did, which is worse than telling them nothing.
+  const rankOutPath = path.resolve(process.cwd(), rankOut);
+  if (partial && !force) {
+    console.log(`\nSKIPPED ${rankOutPath} — this run is PARTIAL (--limit). Pass --force to write it anyway.`);
+    console.log('=================================');
+    return { ...payload, players: undefined, written: true, outPath, rankOutPath: null, rankTable };
+  }
+
+  await fs.mkdir(path.dirname(rankOutPath), { recursive: true });
+  await fs.writeFile(
+    rankOutPath,
+    renderRankTableModule({
+      ranks: rankTable.ranks,
+      eligibleAccounts: rankTable.eligibleAccounts,
+      partial,
+      generatedAt: payload.generated_at,
+    }),
+    'utf8'
+  );
+  const rankSize = (await fs.stat(rankOutPath)).size;
+  console.log(`Wrote ${rankOutPath} (${(rankSize / 1024).toFixed(1)} KB, ${rankTable.distinctRatings} ratings).`);
+  console.log('COMMIT AND DEPLOY BOTH FILES. The rank table is imported by api/publicProfile.js,');
+  console.log('so profiles keep showing no rank until a build ships it.');
   console.log('=================================');
 
-  return { ...payload, players: undefined, written: true, outPath };
+  return { ...payload, players: undefined, written: true, outPath, rankOutPath, rankTable };
 }
 
 async function main() {
   const apply = process.argv.includes('--apply');
   const out = flagValue('--out', DEFAULT_OUT);
+  const rankOut = flagValue('--rank-out', DEFAULT_RANK_OUT);
 
   const topRaw = flagValue('--top', null);
   const top = topRaw === null ? DEFAULT_TOP : Number(topRaw);
@@ -604,13 +760,14 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Connecting to MongoDB...${apply ? ' (APPLY MODE — will write the output FILE; Mongo stays read-only)' : ' (dry run — no file written)'}`);
+  console.log(`Connecting to MongoDB...${apply ? ' (APPLY MODE — will write the output FILES; Mongo stays read-only)' : ' (dry run — no file written)'}`);
   await mongoose.connect(mongoUri);
   console.log('Connected!\n');
   try {
     await run({
       apply,
       out,
+      rankOut,
       top,
       limit,
       batchSize,

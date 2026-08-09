@@ -2,7 +2,9 @@ import { StyleSheet, Text, View, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable } from '../ui/SfxPressable';
 import PlayerName from '../PlayerName';
+import { STAMP_MARK_SIZE } from '../shop/StampMark';
 import { colors, resolveLeague, t } from '../../shared';
+import { useHomeAccent } from '../../store/siteBackgroundStore';
 
 /* ===========================================================================
  *  THE PLAYER CARD — the top-right corner of the home screen.
@@ -10,7 +12,7 @@ import { colors, resolveLeague, t } from '../../shared';
  *  IT SAYS TWO THINGS. Who you are, then what you are rated:
  *
  *      Gautam 🇮🇳         ⌄
- *      1043 ELO 🏆
+ *      1043 ELO 🏆       <- digits tinted with the tier's colour
  *
  *  Everything else that was ever here has left. The BALANCE became its own tile
  *  below (rendered by home.tsx). The TIER NAME ("Voyager") is gone — the badge
@@ -65,14 +67,15 @@ export interface PlayerCardMetrics {
   /** Gap between the two-line block and the caret. */
   caretGap: number;
   caretSize: number;
-  /** The two small chips under the card (Stamps tile, Community Maps). */
+  /** The stamps tile under the card. Community Maps left for the footer. */
   chipHeight: number;
-  chipFontSize: number;
 }
 
 export const CORNER_GAP = 8;
 /** Vertical space between the card's two lines. */
 const LINE_GAP = 2;
+/** The stamps tile, every breakpoint: the currency mark plus 4px either side. */
+const CHIP_H = STAMP_MARK_SIZE + 8;
 
 /**
  * ONE table, three breakpoints, NUMBERS ONLY — the card is the same component
@@ -85,6 +88,17 @@ const LINE_GAP = 2;
  *
  * (Web sizes this fluidly with clamp() because a browser window is dragged;
  * a device's width is fixed for the session, so a step here is never seen.)
+ *
+ * ONE EXCEPTION TO "NUMBERS ONLY": chipHeight. The stamps tile carries the
+ * currency mark, which is one fixed size on every surface and on both platforms
+ * (STAMP_MARK_SIZE), so the chip that holds it cannot be 32px on a small phone
+ * — the mark would hang out of its own button.
+ *
+ * (Removed) chipFontSize. It was the pair's LABEL size, and pointing it at the
+ * mark as well is what dragged the word "Maps" up to 28px — which is what sent
+ * that button to the footer. With Maps gone the stamps tile is the only chip
+ * left and it sizes its own balance (STAMP_VALUE_SIZE in StampsTile.tsx), so
+ * nothing read this any more.
  */
 export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
   if (shortestSide >= 768) {
@@ -98,8 +112,7 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
       flagSize: 19,
       caretGap: 18,
       caretSize: 16,
-      chipHeight: 40,
-      chipFontSize: 15,
+      chipHeight: CHIP_H,
     };
   }
   if (shortestSide >= 430) {
@@ -113,8 +126,7 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
       flagSize: 16,
       caretGap: 15,
       caretSize: 15,
-      chipHeight: 36,
-      chipFontSize: 14,
+      chipHeight: CHIP_H,
     };
   }
   return {
@@ -127,8 +139,7 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
     flagSize: 15,
     caretGap: 13,
     caretSize: 13,
-    chipHeight: 32,
-    chipFontSize: 13,
+    chipHeight: CHIP_H,
   };
 }
 
@@ -138,8 +149,8 @@ export function playerCardHeight(m: PlayerCardMetrics): number {
 }
 
 /**
- * How far down the home screen's top-right corner reaches: the card, then ONE
- * row holding both chips side by side. WsIndicator reads this so it can sit
+ * How far down the home screen's top-right corner reaches: the card, then the
+ * stamps tile's row beneath it. WsIndicator reads this so it can sit
  * below the corner instead of guessing with the hardcoded `insets.top + 100` it
  * used to carry.
  */
@@ -182,6 +193,23 @@ export default function PlayerCard({
     fontSize: metrics.textFontSize,
     lineHeight: metrics.textLineHeight,
   };
+  // THE DIGITS CARRY THE TIER'S COLOUR, the badge beside them repeats it as a
+  // glyph — one fact said two ways on purpose. The colour is what reads at a
+  // glance; the emoji is what stays legible to anyone who cannot separate
+  // bronze from gold. Web does exactly this in components/ui/playerCard.js.
+  //
+  // `light` FIRST, then `color`: Trekker's base is #808080, a grey barely
+  // brighter than the shadow under it. `light` is that tier's readable variant
+  // and no other tier defines one, so this is a one-tier fix costing nothing.
+  const leagueColor = ghost ? null : (league?.light ?? league?.color ?? null);
+  const eloTint = leagueColor ? { color: leagueColor } : null;
+  // THIS CARD FOLLOWS THE EQUIPPED BACKGROUND; GameTimer DOES NOT. The two
+  // share a recipe and nothing else — the timer is in-game chrome and stays
+  // WorldGuessr green, which is exactly why the recipe was restated in each
+  // file rather than shared from one. Do not "fix" that duplication by pulling
+  // this skin back into a common style; it would drag the accent into the
+  // middle of a round.
+  const accent = useHomeAccent();
 
   return (
     <Pressable
@@ -191,8 +219,11 @@ export default function PlayerCard({
           paddingHorizontal: metrics.paddingHorizontal,
           paddingVertical: metrics.paddingVertical,
           gap: metrics.caretGap,
+          borderColor: accent.primary,
+          backgroundColor: pressed && !ghost
+            ? accent.primary
+            : Platform.OS === 'android' ? accent.androidFlat : accent.primaryTransparent,
         },
-        pressed && !ghost && styles.cardPressed,
       ]}
       onPress={ghost ? undefined : onPress}
       disabled={ghost}
@@ -235,7 +266,7 @@ export default function PlayerCard({
             >
               {ghost || elo === null ? ' ' : Math.round(elo)}
             </Text>
-            <Text style={[styles.elo, statText, styles.eloLive]} numberOfLines={1}>
+            <Text style={[styles.elo, statText, eloTint, styles.eloLive]} numberOfLines={1}>
               {ghost || elo === null ? ' ' : animatedElo}
             </Text>
           </View>
@@ -247,8 +278,13 @@ export default function PlayerCard({
               {t('elo')}
             </Text>
           )}
+          {/* 0.2, SMALLER than the unit's 0.34, and not a typo: an emoji is
+              drawn inside its own em box with side bearings, so that padding is
+              already in the glyph and an identical margin reads visibly wider
+              beside the badge than beside a word. Web uses the same ratio
+              (.pcard__leagueEmoji, styles/playerCard.css). */}
           {!ghost && league && (
-            <Text style={[styles.badge, statText, { marginLeft: metrics.textFontSize * 0.5 }]}>
+            <Text style={[styles.badge, statText, { marginLeft: metrics.textFontSize * 0.2 }]}>
               {league.emoji}
             </Text>
           )}
@@ -270,13 +306,12 @@ const styles = StyleSheet.create({
   //
   // A ROW: the two-line block, then the caret. `alignItems: center` is what puts
   // the caret on the card's optical centre instead of on line 1's.
+  // Border and fill come from useHomeAccent at the call site above.
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -286,9 +321,6 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 8 },
     }),
-  },
-  cardPressed: {
-    backgroundColor: colors.primary,
   },
   // The two lines share a left edge, and that edge is the card's only vertical
   // alignment — which is why the rating is right-aligned inside its reservation.

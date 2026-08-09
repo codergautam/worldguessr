@@ -1,4 +1,4 @@
-import User, { USERNAME_COLLATION } from '../models/User.js';
+import User, { USERNAME_COLLATION, STARTING_ELO } from '../models/User.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
 import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
@@ -122,7 +122,7 @@ function sendableUser(user) {
     totalXp: user.totalXp ?? user.xpGained ?? 0,
     createdAt: user.created_at,
     gamesLen: user.totalGamesPlayed ?? 0,
-    elo: user.elo ?? 1000,
+    elo: user.elo ?? STARTING_ELO,
     eloToday: user.elo_today ?? 0,
   };
 }

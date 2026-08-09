@@ -23,6 +23,7 @@ import { dayKeyUTC, weekKeyUTC } from "../../serverUtils/stamps/periods.js";
 import { grantStamps } from "../../serverUtils/stamps/grantStamps.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
+import { sampleDistinct } from "../../shared/locations/repeatGuard.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
 // ---- Stamps payout table (game-finish earns) --------------------------------
@@ -39,16 +40,11 @@ const STAMP_WEEKLY_QUESTS = [
   { key: 'days4',  reason: 'weekly_days4',  reward: 15, met: (d) => (d?.daysPlayed?.length || 0) >= 4 },
 ];
 
-// Sample `count` distinct locations from the pool. Tops up with duplicates only
-// if the pool itself has fewer than `count` entries (e.g. the ws boot fallback
-// pool before the first /allCountries.json fetch lands).
-function pickDistinctLocations(pool, count) {
-  const picks = shuffle(pool).slice(0, count);
-  while (picks.length < count && pool.length > 0) {
-    picks.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
-  return picks;
-}
+// Locations for a match come from sampleDistinct: distinct within the match,
+// and outside `this.seenIds` (the participants' recent spots) where the caller
+// supplies one. It is O(count), which matters because the public branch below
+// calls it up to 50 times per match hunting for continent spread; the helper it
+// replaced shuffled a full copy of the 2,000-entry pool on every one of those.
 
 export default class Game {
   constructor(id, {
@@ -57,6 +53,10 @@ export default class Game {
     rounds = 5,
     allLocations = null,
     duel = false,
+    // Set of location ids the participants have seen in recent matches, so a
+    // duel does not re-serve a spot either side just played. Duels only: the
+    // caller builds it from the Player rings (ws.js seenUnion).
+    seenIds = null,
     teamDuel = false,   // two teams 'a'/'b' with shared HP (implies duel)
     is2v2Lobby = false, // private staging lobby for the 2v2 queue (never plays)
     maxPlayers,         // optional override; defaults: lobby→2, teamDuel→4, else 200
@@ -128,6 +128,8 @@ export default class Game {
       this.nm = false;
       this.npz = false;
     }
+
+    this.seenIds = seenIds;
 
     if(allLocations) this.generateLocations(allLocations);
   }
@@ -1381,7 +1383,7 @@ export default class Game {
       let bestContinentCount = 0;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const candidate = pickDistinctLocations(allLocations, this.rounds);
+        const candidate = sampleDistinct(allLocations, this.rounds, this.seenIds);
         const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
         if (continents.size >= MIN_CONTINENTS) {
           bestPick = candidate;
@@ -1401,8 +1403,9 @@ export default class Game {
         })
       }
     } else {
-      // Duels: random sample, no repeats within a game
-      for (const loc of pickDistinctLocations(allLocations, this.rounds)) {
+      // Duels: random sample, no repeats within a game and none from either
+      // player's recent matches
+      for (const loc of sampleDistinct(allLocations, this.rounds, this.seenIds)) {
         this.locations.push(loc);
         this.sendAllPlayers({
           type: 'generating',
@@ -2194,7 +2197,13 @@ export default class Game {
       rounds: this.buildRoundDocs(participants),
       players: playerSummaries,
       result,
-      multiplayer
+      multiplayer,
+      // Stamped here rather than at the one ranked-duel call site so it can
+      // never be forgotten by a future save path. `!!` because isPlacement is
+      // only ever SET on a placement (ws.js leaves it undefined otherwise) and
+      // the schema wants a real boolean. See models/Game.js for why the saved
+      // row has to carry this at all.
+      placement: !!this.isPlacement
     });
     await gameDoc.save();
 
@@ -2463,7 +2472,12 @@ export default class Game {
         totalXp: xp,
         averageTimePerRound: this.calculateAverageTime(data.id),
         finalRank: winner?.tag === tag ? 1 : (draw ? 1 : 2),
-        elo: { before: oldElo, after: newElo, change: newElo ? (newElo - oldElo) : 0 }
+        elo: { before: oldElo, after: newElo, change: newElo ? (newElo - oldElo) : 0 },
+        // Stamped at match creation by ws.js (createRankedDuelGame). Absent on
+        // a game restored from a gamestate save, which is why it defaults to
+        // null rather than 0 — "we don't know" and "matched instantly" are very
+        // different facts to the ETA validation this field exists for.
+        queueWaitMs: this.queueWaitMs?.[tag] ?? null
       });
 
       await this.persistGame({

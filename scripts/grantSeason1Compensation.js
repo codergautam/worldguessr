@@ -72,12 +72,16 @@
  *   for. A key that computes to 0 is never written at all, so that case stays
  *   recoverable.
  *
- *   grantStamps SHORT-CIRCUITS when STAMPS_ENABLED !== 'true' and returns
+ *   grantStamps SHORT-CIRCUITS when the stamps kill switch is off and returns
  *   { disabled: true } WITHOUT touching the database — no row, no key burned. So
  *   a run with the kill switch off pays badges only and can be repeated in full
  *   once it is on. It still aborts by default, because that is near-certainly an
  *   operator mistake rather than an intent; --allow-stamps-disabled is the
  *   escape hatch for a badge-only pass.
+ *
+ *   The switch DEFAULTS ON (serverUtils/stamps/config.js) — an absent
+ *   STAMPS_ENABLED is fine and is what production runs. The only way to trip
+ *   this abort is an explicit STAMPS_ENABLED=false in the environment.
  *
  * THE ogAccount FIELD MUST EXIST IN models/User.js FIRST
  * -----------------------------------------------------
@@ -95,8 +99,9 @@
  *
  * REQUIRES
  * --------
- *   MONGODB env var (dotenv/.env is loaded).
- *   STAMPS_ENABLED=true.
+ *   MONGODB env var (dotenv/.env is loaded). That is the ONLY variable this
+ *     script needs — the stamps switch and the rating flags all have correct
+ *     defaults, so a bare production environment runs this correctly.
  *   scripts/migrateRatingV2.js already applied (elo_s0 and seasonPeakElo set on
  *   every in-scope account).
  *   ogAccount declared on the User schema.
@@ -416,12 +421,15 @@ export async function run({
   if (!stampsEnabled) {
     if (apply && !allowStampsDisabled) {
       throw new Error(
-        'STAMPS_ENABLED is not "true", so grantStamps() would short-circuit and pay NO stamps.\n' +
+        'The stamps kill switch is OFF, so grantStamps() would short-circuit and pay NO stamps.\n' +
+        '\n' +
+        'That switch defaults ON, so something in this environment set STAMPS_ENABLED=false\n' +
+        'explicitly — check .env and the shell before assuming it is a config gap.\n' +
         '\n' +
         'This run would write OG badges and nothing else. No ledger rows means no idempotency\n' +
         'keys are burned, so re-running with the switch on afterwards would still pay everyone\n' +
         'in full — but silently grant-less runs are almost always a mistake.\n' +
-        'Set STAMPS_ENABLED=true and re-run, or pass --allow-stamps-disabled for a\n' +
+        'Remove the STAMPS_ENABLED=false and re-run, or pass --allow-stamps-disabled for a\n' +
         'badge-only pass.'
       );
     }

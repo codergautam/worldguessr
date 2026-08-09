@@ -114,6 +114,12 @@ export default function ResultsMap({
   // it from round.players[myId] when present; this prop is what covers
   // singleplayer, where there is no players map at all.
   myMarkerSkin = null,
+  // NO `myNameGlow` COUNTERPART, and the asymmetry with myMarkerSkin above is
+  // the point. A skin dresses your PIN, which is identity — you have to be able
+  // to pick yours out of five. A glow dresses a NAME, and your own pin's label
+  // is not a name: it reads "Your guess". So opponents' labels glow off their
+  // round.players entry and yours never does. This prop existed for one render
+  // and was deleted with it.
   // Highlighted player from the Final Scores list. When set, only that player's
   // guesses render (the current player's always do, separately), so the two can
   // be compared; selecting yourself matches no opponent, hiding them all. Unset
@@ -417,9 +423,15 @@ export default function ResultsMap({
                   <Marker
                     position={[round.guessLat, round.guessLong]}
                     icon={
+                      // Tier MUST match the stock pin on the fallback line
+                      // below, or a skinned pin renders a different size than
+                      // everyone else's. This map draws the FULL-size pins
+                      // (icons.src / icons.dest, 30x49), so the base tier is
+                      // '' — 'Small' is the 25x41 set only components/Map.js
+                      // uses, where every pin is small.
                       allIconsRef.current?.[markerSkinIconKey(
                         round.players?.[myId]?.markerSkin ?? myMarkerSkin,
-                        bestIds?.has(myId) ? 'Big' : 'Small'
+                        bestIds?.has(myId) ? 'Big' : ''
                       )]
                       || (bestIds?.has(myId) ? srcBigIconRef.current : srcIconRef.current)
                     }
@@ -427,6 +439,8 @@ export default function ResultsMap({
                     {showLabels && (
                       <GuessPinLabel
                         label={text("yourGuess")}
+                        // No nameGlow: this label is a UI string, not a name.
+                        // See the prop list at the top of this file.
                         big={!!bestIds?.has(myId)}
                       />
                     )}
@@ -472,7 +486,7 @@ export default function ResultsMap({
                       position={[player.lat, player.long]}
                       icon={
                         // Purchased skin wins over the team pin, matching Map.js.
-                        allIconsRef.current?.[markerSkinIconKey(player.markerSkin, bestIds?.has(playerId) ? 'Big' : 'Small')]
+                        allIconsRef.current?.[markerSkinIconKey(player.markerSkin, bestIds?.has(playerId) ? 'Big' : '')]
                         || (isMyTeammate(playerId)
                           ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
                           : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current))

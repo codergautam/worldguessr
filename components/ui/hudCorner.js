@@ -21,7 +21,7 @@ import { useCallback, useEffect, useRef } from 'react';
  *  The variable is cleared on unmount: off the home screen there is no column,
  *  and a stale height would push the badge down over nothing.
  * ======================================================================== */
-export default function HudCorner({ covered, children }) {
+export default function HudCorner({ covered, tight, children }) {
   const elRef = useRef(null);
 
   const publish = useCallback((h) => {
@@ -49,7 +49,7 @@ export default function HudCorner({ covered, children }) {
   return (
     <div
       ref={setRef}
-      className="hudCorner"
+      className={`hudCorner ${tight ? 'hudCorner--tight' : ''}`}
       // Modals cover this with visibility, never an unmount: the entrance is a
       // CSS animation on this element, and an unmount would replay it every
       // time a modal closed over the home screen.

@@ -58,18 +58,6 @@ const resolvePlugin = {
   },
 };
 
-// JSON imported with `with { type: "module" }` (customPins) — load as a JS module
-// so esbuild's import-attribute check doesn't reject it.
-const jsonModulePlugin = {
-  name: 'json-as-module',
-  setup(b) {
-    b.onLoad({ filter: /customPins\.json$/ }, (args) => ({
-      contents: 'export default ' + fs.readFileSync(args.path, 'utf8'),
-      loader: 'js',
-    }));
-  },
-};
-
 // One esbuild config shared by both bundles — only the entry differs.
 async function buildBundle({ entry, head = '', out, exportName }) {
   const result = await esbuild.build({
@@ -109,7 +97,7 @@ async function buildBundle({ entry, head = '', out, exportName }) {
       '.mp3': 'dataurl',
       '.css': 'text',
     },
-    plugins: [resolvePlugin, jsonModulePlugin],
+    plugins: [resolvePlugin],
     logLevel: 'info',
   });
 

@@ -4,7 +4,6 @@ import L from 'leaflet';
 import destUrl from '@/public/dest.png';
 import srcUrl from '@/public/src.png';
 import src2Url from '@/public/src2.png';
-import polandballUrl from '@/public/polandball.png';
 import goldPinUrl from '@/public/pins/gold.png';
 
 // Drop-in replacement for @/lib/markerIcons in the standalone embed. Mirrors the
@@ -54,7 +53,6 @@ export function getPinIcons() {
     // omitting them broke the best guesser's pin down to Leaflet's default.
     srcBig: mk(srcUrl, [36, 59], [18, 59], [1, -34]),
     src2Big: mk(src2Url, [36, 59], [18, 59], [1, -34]),
-    polandball: mk(polandballUrl, [50, 82], [25, 41], [1, 5]),
   };
   Object.entries(SKIN_URLS).forEach(([key, url]) => {
     _icons[key] = mk(url, [30, 49], [15, 49], [1, -34]);

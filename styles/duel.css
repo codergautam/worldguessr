@@ -65,11 +65,16 @@
  * NO CARD, NO GRADIENT. This is chrome inside an existing card, so it is a bare
  * row like `.elo-container` and `.time-elapsed` beside it — a gradient panel
  * here would read as a second, competing surface stapled into the header. The
- * only colour is the gold of the currency mark, which is the same #ffd700 the
- * wallet chip uses, because a currency that changes colour between screens
- * stops being recognisable as one thing. */
+ * only colour is the gold of the amount, the same #ffd700 the wallet chip uses,
+ * because a currency that changes colour between screens stops being
+ * recognisable as one thing. (The mark beside it is the stamp artwork, which
+ * carries its own colour — see components/shop/StampMark.js.) */
 .stamps-earned {
-  min-height: 58px;
+  /* Derived, not a constant: the mark is the tallest thing in the headline now
+     (--stampMarkSize, styles/shop.css), so a hardcoded reservation would go
+     stale the moment that token moves and the row would jump under the player's
+     thumb again. +31 is the breakdown line plus the gap under the headline. */
+  min-height: calc(var(--stampMarkSize) + 31px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -102,15 +107,12 @@
   gap: 0.45rem;
 }
 
-.stamps-earned__mark {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  color: #ffd700;
-}
+/* No .stamps-earned__mark. The currency mark is one size everywhere
+   (--stampMarkSize, styles/shop.css); this row's job is to RESERVE for it, see
+   .stamps-earned's min-height above. */
 
 .stamps-earned__value {
-  font-size: 1.55rem;
+  font-size: var(--stampValueSize);
   font-weight: bold;
   color: #ffd700;
   /* The count-up rewrites this every time a digit changes. Without a fixed
@@ -139,27 +141,72 @@
 }
 
 .stamps-earned__unit {
-  font-size: 0.95rem;
+  font-size: var(--stampUnitSize);
   color: #ccc;
   letter-spacing: 0.02em;
 }
 
+/* ── The breakdown, revealed on hover ───────────────────────────────────────
+ * WHAT THE ROW IS FOR IS THE NUMBER. The per-reason chips underneath were shown
+ * permanently and turned a one-line fact ("this game paid you 8") into an
+ * invoice sitting between the rating and the Play Again button. They are a
+ * detail, so they are now a detail you ask for: hover on a pointer, tap on
+ * touch (roundOverScreen flips .stamps-earned--open, because there is no
+ * :hover on a phone and a hover-only affordance is an affordance half the
+ * players do not have).
+ *
+ * IT MUST NOT MOVE A PIXEL, WHICH IS WHY ONLY `opacity` CHANGES. The chips stay
+ * in flow and keep their space whether you can see them or not. Collapsing them
+ * — height, display, a popover, anything — puts a layout change under the
+ * player's thumb at exactly the moment they are reaching for Play Again, which
+ * is the same failure `min-height` at the top of this block exists to prevent.
+ * The row already reserves this height while the receipt is in flight; it keeps
+ * reserving it afterwards, and the reveal is pure paint.
+ *
+ * `cursor: help` rather than `pointer`: nothing is navigated and nothing is
+ * submitted — the gesture surfaces an explanation of a number already on
+ * screen, which is exactly what that cursor means. */
 .stamps-earned__lines {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 0.3rem 0.55rem;
+  opacity: 0;
+  transition: opacity 160ms ease;
 }
 
+/* Pointer devices only. Without the query, a tap on a phone leaves the row
+   stuck in :hover afterwards (mobile browsers latch it until you tap
+   elsewhere), which fights the explicit --open toggle. */
+@media (hover: hover) {
+
+  .stamps-earned:hover .stamps-earned__lines {
+    opacity: 1;
+  }
+}
+
+.stamps-earned--open .stamps-earned__lines,
+.stamps-earned:focus-visible .stamps-earned__lines {
+  opacity: 1;
+}
+
+/* Only once there is something to reveal — roundOverScreen withholds the
+   role/tabindex on a pending row, so this matches the same condition. */
+.stamps-earned[role="button"] {
+  cursor: help;
+}
+
+/* The breakdown chips carry stamps figures too, so they scale with the rest —
+   but just under the unit label, because this row is the DETAIL you ask for and
+   the headline is the fact. Sizing them off the same token is what keeps that
+   relationship fixed when the token moves. */
 .stamps-earned__line {
   display: inline-flex;
   align-items: baseline;
   gap: 0.3rem;
-  font-size: 0.8rem;
+  font-size: calc(var(--stampUnitSize) * 0.95);
   color: rgba(255, 255, 255, 0.62);
-  /* Inline `animation-delay` per line (set in the JSX) staggers these. */
-  animation: stampsLineIn 260ms ease-out both;
 }
 
 .stamps-earned__line-amount {
@@ -168,26 +215,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-@keyframes stampsLineIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
 
   /* The JS already snaps the number under reduced motion; kill the entrance and
-     the pulse too rather than leaving motion with no count behind it. */
+     the pulse too rather than leaving motion with no count behind it. The
+     breakdown's fade goes with them — it is a 160ms opacity transition, which
+     is the cheapest kind of motion there is, but "reduce" means reduce and the
+     reveal still works, it just arrives instantly. */
   .stamps-earned--paid,
-  .stamps-earned__value--counting,
-  .stamps-earned__line {
+  .stamps-earned__value--counting {
     animation: none;
+  }
+
+  .stamps-earned__lines {
+    transition: none;
   }
 }
 
@@ -376,29 +417,15 @@
     font-size: 1.2rem;
   }
 
-  /* The reserved height shrinks with the row, not independently of it: this
-     number and the type scale below have to move together or the gap held open
-     while the receipt is in flight stops matching what lands in it. */
+  /* ONLY THE MARGINS COME OFF AT THIS WIDTH NOW. The three type overrides that
+     used to live here (value 1.25rem, unit 0.85rem, line 0.72rem) are deleted:
+     every one of them is sized off the currency mark, the mark is the same size
+     on a phone as on a desktop, and shrinking the digits under an unshrunk mark
+     is exactly the mismatch this whole pass was fixing. The reservation stays
+     derived, so it still cannot drift from what lands in it. */
   .stamps-earned {
-    min-height: 48px;
+    min-height: calc(var(--stampMarkSize) + 25px);
     margin: 0.15rem 0 0.5rem;
-  }
-
-  .stamps-earned__value {
-    font-size: 1.25rem;
-  }
-
-  .stamps-earned__mark {
-    width: 17px;
-    height: 17px;
-  }
-
-  .stamps-earned__unit {
-    font-size: 0.85rem;
-  }
-
-  .stamps-earned__line {
-    font-size: 0.72rem;
   }
 }
 

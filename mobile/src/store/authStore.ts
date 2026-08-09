@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { User, type UserCosmeticsEquipped } from '../shared';
+import { User, STARTING_ELO, type UserCosmeticsEquipped } from '../shared';
 import { api, ApiError } from '../services/api';
 import { wsService } from '../services/websocket';
 import { useMultiplayerStore } from './multiplayerStore';
@@ -25,7 +25,7 @@ function userFromAuthResponse(response: any): User {
     accountId: response.accountId,
     username: response.username || '',
     email: response.email,
-    elo: response.elo ?? 1000,
+    elo: response.elo ?? STARTING_ELO,
     league: response.league ?? null,
     ratedGames: response.ratedGames,
     totalXp: response.totalXp ?? 0,

@@ -23,7 +23,8 @@ import { STOCK_PIN_KEY } from './markerPins';
  *
  *  So there is now exactly ONE stage per preview and it is black, and the stage
  *  is dressed as the place the glow actually lives: the same 135deg black ->
- *  green-black wash the account modal and the wallet popover already paint,
+ *  green-black wash the account modal already paints (the wallet popover, the
+ *  other surface this was matched to, has since been deleted),
  *  under the .timer HUD's inset top highlight, with a centre vignette so the
  *  darkest pixels are the ones directly behind the name. Nothing invented, no
  *  glassmorphism, no gradient card that belongs to some other app.

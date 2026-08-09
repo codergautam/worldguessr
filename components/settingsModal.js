@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Modal } from "react-responsive-modal";
+import NextImage from "next/image";
 import { useTranslation } from '@/components/useTranslations';
-import { navigate } from '@/lib/basePath';
+import { asset, navigate } from '@/lib/basePath';
+import sendEvent from "@/components/utils/sendEvent";
 import { FaGithub } from "react-icons/fa";
 import { FaCircleInfo } from "react-icons/fa6";
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
@@ -25,7 +27,7 @@ function SectionHeader({ label, color, first }) {
     );
 }
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, isApp, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
     const { t: text } = useTranslation("common");
 
     // ── Account settings ─────────────────────────────────────────────────
@@ -384,6 +386,18 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
                             <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
                         </a>
+                        {/* CoolMathGames backlink, moved here from the home footer row.
+                            It keeps its OWN gates rather than riding this block's: the
+                            webview app (?app=true) and SchoolGuessr hide it, and both
+                            are irrelevant to GitHub / Terms beside it. The logo is a
+                            `fill` image, which anchors to the nearest positioned
+                            ancestor — .home__squarebtn supplies the position:relative,
+                            so that class must stay on the button. */}
+                        {!isApp && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                            <a href="https://www.coolmathgames.com/0-worldguessr" target="_blank" rel="noreferrer" onClick={() => sendEvent("coolmathgames_backlink_click")}>
+                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames" title="Coolmath Games" style={{ width: '50px', height: '50px', padding: '0' }}><NextImage.default src={asset('/cmlogo.png')} draggable={false} fill sizes="50px" alt="Coolmath Games Logo" className="home__squarebtnicon" /></button>
+                            </a>
+                        )}
                     </div>
                 )}
             </div>

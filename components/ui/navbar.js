@@ -19,6 +19,12 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
     // unhides the street view iframe this button reloads (lat/long 0 = the
     // pre-game placeholder, falsy on purpose).
     const spRoundUp = !!(latLong?.lat && latLong?.long);
+    // The matchmaking queue screen is up: any queue EXCEPT 2v2 stage 1, which
+    // renders inside the lobby card rather than as its own screen (mirrors
+    // multiplayerHome.js's queueMode). Used to withhold the friends button —
+    // see its gate below.
+    const inQueueScreen = !!multiplayerState?.gameQueued
+        && !(multiplayerState.gameQueued === '2v2' && multiplayerState.queueStage === 'teammate');
     // Context decides MOUNTING (which screens/states have a reloadable SV at
     // all); loading and the between-rounds latLong gap only DISABLE — they
     // recur every round, and unmounting on them replayed the entrance
@@ -171,8 +177,19 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                         The friends button survives HERE for the multiplayer
                         sub-screens, where it has always been an ordinary
                         in-flow child of .navbar__right — that is the only place
-                        this row's `gap: 10px` ever applied. */}
-                    {session?.token?.secret && screen !== "home" && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
+                        this row's `gap: 10px` ever applied.
+
+                        NOT ON THE MATCHMAKING QUEUE (inQueueScreen). This gate
+                        is allow-by-default — every screen that isn't named
+                        below gets the button — so the queue inherited it by
+                        omission, never by decision. There is nothing to do with
+                        a friend there: a matchmade 1v1 has no seat to invite
+                        anyone into. It earns its place in a PARTY or 2v2 lobby,
+                        where filling a seat is the whole job, and 2v2 stage-1
+                        keeps it for exactly that reason. Stats while queueing
+                        are covered by the PlayerCard, which home.js now mounts
+                        on this screen. */}
+                    {session?.token?.secret && !inQueueScreen && screen !== "home" && screen !== "onboarding" && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
                         <div style={{ display: 'contents', visibility: (accountModalOpen || gameOptionsModalShown || mapModalOpen || partyModalShown) ? 'hidden' : 'visible' }}>
                         <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
                             <FaUserFriends size={40} className="friendBtnIcon" />

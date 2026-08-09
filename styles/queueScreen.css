@@ -1,0 +1,432 @@
+/* ===========================================================================
+ *  THE QUEUE SCREEN
+ *
+ *  Ranked, unranked and 2v2-stage-2 matchmaking.
+ *
+ *  WHY THIS FILE EXISTS. The web queue used to be a `BannerText`, whose outer
+ *  div sets `flexDirection: column` and never sets `display: flex`. So it was
+ *  `display: block`, the flex direction was inert, and its two <span> children
+ *  laid out INLINE, on one line. Every attempt to fix the queue layout from
+ *  inside that component was fighting a container that silently ignored the one
+ *  property it looked like it was using.
+ *
+ *  ── HOW THIS SCREEN GOT ITS LOOK (three owner rulings, in order) ──────────
+ *  Draft 1 was rejected as "very AI generated with all the rounded corners and
+ *  pills and outlines": three `border-radius: 9999px` chips filled
+ *  `rgba(255,255,255,0.08)` with `1px solid rgba(255,255,255,0.12)` borders,
+ *  on a near-opaque black wash. All four of those are gone and stay gone —
+ *  a 1px translucent-WHITE hairline in particular is the single biggest
+ *  "someone else's app" tell (shop redesign ruling).
+ *
+ *  Draft 2 rebuilt the plates on the `.timer` HUD recipe: `var(--gradLight)`
+ *  over `--primaryTransparent`, framed `2px solid var(--primary)`. That is the
+ *  documented house recipe and it was still rejected, twice and specifically:
+ *  "remove the green backgrounds ... make it more neutral", then "still has
+ *  green outlines/borders i dont like that".
+ *
+ *  >>> SO, FOR THIS SCREEN ONLY: NO GREEN FILL AND NO GREEN FRAME. <<<
+ *  Do not "restore the .timer recipe" here on the grounds that new chrome
+ *  should match existing chrome. That rule is real and it was applied, and the
+ *  owner overrode it for this surface. The plates are a flat neutral fill
+ *  (--wgq-surface) with NO border at all; separation comes from the fill's
+ *  contrast and a neutral drop shadow. Fewer outlines was the point.
+ *
+ *  Identity now comes from MOTION AND ACCENT, not from a frame: the mode colour
+ *  lives in the sonar rings, the eyebrow, and the bloom under the timer. That
+ *  is also what carries "fun and playful" (ruling 3) — the liveliest thing in
+ *  the column is the running clock, not another box.
+ *
+ *  Still binding from the shop ruling: FLAT surfaces, never a gradient. And
+ *  derive, never invent — --wgq-surface is the site's own panel colour, and the
+ *  three MODE accents are the values mobile/app/queue.tsx already uses
+ *  (#e91e63/shield being the 2v2 identity the history badge uses).
+ *
+ *  ── WHAT globals.scss DOES TO THIS SCREEN ────────────────────────────────
+ *   - `.g2_slide_in > *` puts nav_slide_in on EVERY direct child of
+ *     .multiplayerHome. Overridden below, the way .join-party-container does.
+ *   - `.multiplayerHome` centres its children with align-items, so a
+ *     normal-flow child shrinks to content and a full-bleed veil is impossible.
+ *     Sidestepped with position:fixed, same as .join-party-container.
+ *   - The desktop-short media query (min-width:800px, max-height:450px) pads
+ *     .multiplayerHome. It cannot reach a fixed child, so sizing here is
+ *     self-sufficient — hence clamp() on every dimension.
+ *
+ *  NO backdrop-filter anywhere (the .timer / .g2_container ruling: Firefox
+ *  re-blurs it per frame). NO `pulse` or `spin` by name — `pulse` is declared
+ *  TWICE in globals.scss with different bodies and `spin` exists in six files.
+ * ======================================================================== */
+
+.wgQueue {
+  /* fixed, not a flex child: see the header note on .multiplayerHome */
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: lexend, sans-serif;
+
+  /* Explicit rather than inherited. .multiplayerHome.inGame already sets this
+     while queueing (gameData is undefined, so its !["waiting"].includes(...)
+     test is true), but nothing here should depend on that quirk holding. */
+  pointer-events: none;
+
+  /* MODE ACCENT — the one place a non-token colour is allowed, because it is
+     the mode's identity and it is shared verbatim with mobile. Used for the
+     sonar rings and the eyebrow, and nothing else: one accent, two uses.
+     (There was a second `--wgq-glow` token beside this one. Its only readers
+     were the radar core's coloured shadow and the stopwatch bloom; both are now
+     neutral, so it is gone rather than left declared and unread.) */
+  --wgq-accent: #4ade80;
+
+  /* The plate fill. NEUTRAL, deliberately: `.timer`'s own recipe puts
+     --gradLight over --primaryTransparent (rgba(36,87,52,.85)), which is a
+     strongly green plate, and on this screen — where the mode accent is already
+     doing the colour work in the rings and the eyebrow — that read as too much
+     green. This is the site's panel colour instead, derived the way the shop
+     tokens were: accountModal paints its surface as rgba(0,30,15) over black.
+     LIGHT, not near-opaque: the first pass at this was rgba(6,22,14,0.86) and
+     the owner called it "really dark stuff". At ~0.5 the photo still reads
+     through the plate, which is the whole reason the veil was lightened too —
+     a queue screen should feel like it is sitting ON the game, not covering it.
+     FLAT, no gradient — the shop ruling ("never put a gradient on a surface"). */
+  --wgq-surface: rgba(14, 34, 23, 0.52);
+
+  /* Sizes as one fluid formula each, no media-query ladder. svh not dvh:
+     .multiplayerHome is already 100svh, and a dvh radar would resize with the
+     browser chrome inside a frame that didn't. Real floors, not bare min():
+     this app embeds in CrazyGames / GameDistribution / Poki iframes, where an
+     unbounded min() collapses to nothing in a short frame. */
+  --wgq-radar: clamp(132px, min(30svh, 58vw), 268px);
+  --wgq-title: clamp(1.7rem, 1.6vw + 1.4svh, 3rem);
+}
+
+/* Ranked is RED (user ruling Aug 9), and the red is the one this codebase
+   already calls "the ranked red": `.g2_nav_text.ranked:hover` in globals.scss,
+   the colour the home menu's Ranked Duel row turns on hover. Derived, not
+   invented — same rule that took 2v2's accent from its history badge. The gold
+   it replaces was never a ranked identity anywhere else on the site.
+   With the ranked eyebrow gone, this now paints the sonar rings and nothing
+   else, which is exactly what "the ranked pulse is red" means. */
+.wgQueue--publicDuel   { --wgq-accent: #ff474c; }
+.wgQueue--unrankedDuel { --wgq-accent: #4ade80; }
+.wgQueue--2v2          { --wgq-accent: #f06292; }
+
+/* Beat `.g2_slide_in > *` (specificity 0,1,0 — the universal selector counts
+   for nothing), so one extra class wins regardless of stylesheet order. A
+   full-viewport veil sliding in edge-on looks wrong, which is exactly why
+   .join-party-container opts out of the same rule. */
+.g2_slide_in > .wgQueue {
+  animation: wgQueueIn 0.32s ease-out both;
+}
+
+@keyframes wgQueueIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* The SAME veil .join-party-container uses. The first draft stacked a
+   0.72→0.96 near-black gradient here, which blacked out --site-bg entirely and
+   read as a void — the plate below carries its own contrast and does not need
+   the page darkened underneath it. */
+.wgQueue__veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+/* --- layout ------------------------------------------------------------- */
+
+/* Plain flex, deliberately. The first draft used grid-template-areas so the
+   eyebrow could sit above the radar in portrait and inside the info column in
+   landscape — a change of PARENT, which flex order cannot express. But that
+   arrangement also forced the radar to span four grid rows, and a spanning item
+   distributes its height across them: in landscape the eyebrow/title/data/timer
+   were pushed apart to fill 268px instead of sitting as a tight stack. That
+   spreading is what read as "not properly aligned".
+   The eyebrow now sits directly above the title in BOTH orientations, which is
+   the standard eyebrow→headline pair anyway, removes the reparenting, and makes
+   the whole screen two flex boxes that cannot mis-align. */
+.wgQueue__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(20px, 3.4svh, 38px);
+  padding: clamp(16px, 4vw, 40px);
+  /* 900px was too tight and it showed on the longest headline. At 1920 the
+     title computes to ~46px, and "Finding an opponent" (or worse, the French
+     "Recherche d'un adversaire") needs ~500-630px — but 900 minus 80 of padding
+     minus the 268 radar minus the 60 gap left under 500. The headline wrapped
+     while most of the screen sat empty. */
+  max-width: min(94vw, 1180px);
+}
+
+.wgQueue__info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 1.6svh, 18px);
+  min-width: 0;
+}
+
+@media (orientation: landscape) {
+  .wgQueue__stage {
+    flex-direction: row;
+    /* align-items:center is the whole alignment contract in this orientation:
+       the radar and the text block centre against each other, whichever is
+       taller, with no row-distribution to go wrong. */
+    align-items: center;
+    gap: clamp(26px, 4vw, 60px);
+  }
+
+  .wgQueue__info {
+    align-items: flex-start;
+    text-align: left;
+    /* Take the remaining row, don't size to the widest child. With min-width:0
+       above it can still shrink on a narrow landscape phone. */
+    flex: 1 1 auto;
+  }
+}
+
+/* --- radar -------------------------------------------------------------- */
+
+.wgQueue__radar {
+  position: relative;
+  /* px fallback on every read: a custom property is only validated at
+     substitution time, so an unsupported unit inside it fails HERE, not at the
+     declaration. The literal keeps the box sane if that ever happens. */
+  width: var(--wgq-radar, 200px);
+  height: var(--wgq-radar, 200px);
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.wgQueue__ring {
+  /* inset:0 + margin:auto is what actually centres these. `place-items:center`
+     on the parent does not reach them: they are out of flow, and an absolutely
+     positioned child of a grid container with no inset resolves to the start of
+     the padding box, not the centre. */
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(var(--wgq-radar, 200px) * 0.62);
+  height: calc(var(--wgq-radar, 200px) * 0.62);
+  border: 2px solid var(--wgq-accent);
+  border-radius: 50%;
+  /* NEGATIVE delays, so all three rings are already mid-flight on the first
+     painted frame. Positive delays would leave the screen empty for 1.7s at
+     exactly the moment the player is looking for reassurance. */
+  animation: wgQueueSonar 2600ms cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+.wgQueue__ring:nth-child(2) { animation-delay: -870ms; }
+.wgQueue__ring:nth-child(3) { animation-delay: -1740ms; }
+
+/* The opacity peak is at 5%, NOT the 15% the React Native source appears to
+   say. RN interpolates opacity against EASED PROGRESS, and ease-out-cubic
+   reaches 0.15 progress about 5% of the way through in wall-clock time. CSS
+   keyframe percentages are wall-clock, so a literal 15% would put the flash
+   ~3x too late and read visibly mushier than mobile. */
+@keyframes wgQueueSonar {
+  0%   { transform: scale(0.4);  opacity: 0; }
+  5%   { opacity: 0.55; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* The core is HOUSE chrome, not mode chrome: the .timer plate rounded off. The
+   mode accent lives in the rings that radiate from it and in the eyebrow — one
+   accent, used twice, rather than tinting every surface on screen. */
+.wgQueue__core {
+  position: relative;
+  width: calc(var(--wgq-radar, 200px) * 0.44);
+  height: calc(var(--wgq-radar, 200px) * 0.44);
+  border-radius: 50%;
+  background: var(--wgq-surface);
+  /* No frame. See the header: the green outline was rejected outright, and a
+     white hairline would be the worse of the two options. The disc reads
+     because it is darker than the veil and the rings orbit its edge. */
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+}
+
+.wgQueue__compass {
+  width: calc(var(--wgq-radar, 200px) * 0.26);
+  height: calc(var(--wgq-radar, 200px) * 0.26);
+  /* The webp animates itself — no CSS drives it. */
+}
+
+/* --- eyebrow + title ---------------------------------------------------- */
+
+/* The mode identity, as TYPE rather than as a filled pill. Same information,
+   none of the chrome. */
+.wgQueue__mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wgq-accent);
+  font-size: clamp(0.72rem, 0.9vw, 0.85rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  line-height: 1;
+}
+
+.wgQueue__modeIcon {
+  font-size: 1.15em;
+  flex: none;
+  /* Sits on the cap-height of the tracked label rather than the baseline —
+     without this the glyph rides high next to uppercase text. */
+  transform: translateY(-0.02em);
+}
+
+.wgQueue__title {
+  margin: 0;
+  font-size: var(--wgq-title, 2rem);
+  /* 600, not 700: the weight .timer, .join-party-title and .party-lobby__title
+     all use. A heavier headline here would not match any other screen. */
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  /* NO `text-wrap: balance`. Balance exists to even out a heading that already
+     spans several lines — which is the opposite of what this one wants. When
+     the container was too tight it turned a near-fitting headline into two
+     stubby even lines ("Finding an" / "opponent") and made the wasted width
+     look deliberate. This headline is short and should hold one line wherever
+     it fits; `pretty` only cleans up the last line if it genuinely has to wrap.
+     NOT `white-space: nowrap` either — the French string is 25 characters and
+     would overflow a narrow landscape phone rather than wrap. */
+  text-wrap: pretty;
+}
+
+/* --- the data plate ----------------------------------------------------- */
+
+/* ONE plate, on the .timer recipe, holding every value. The first draft made
+   each value its own rounded pill with a white hairline; this is the same
+   information inside the game's existing HUD surface. */
+.wgQueue__data {
+  display: flex;
+  align-items: stretch;
+  background: var(--wgq-surface);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.wgQueue__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px clamp(14px, 1.6vw, 20px);
+  min-width: 0;
+  /* border-box so the max-width reveal below can start at a true zero rather
+     than at the horizontal padding. */
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+
+  /* THE TYPICAL-WAIT CELL ARRIVES LATE — the server's first ETA push is up to
+     5s after the join — so it lands into an already-drawn plate and used to
+     just snap into existence, widening the plate in one frame. It expands now.
+     max-width, not width: width has no animatable "auto", and the ceiling only
+     has to clear the real content for the growth to look continuous.
+
+     FILL IS `backwards`, NEVER `both`/`forwards` (house rule, learned twice in
+     one day per the HUD-styling notes): a forwards fill would pin max-width:
+     22rem at animation priority forever, silently capping a cell whose content
+     later grew past it. Backwards gives the pre-delay frame and then hands the
+     element back to its own CSS. */
+  animation: wgQueueCellIn 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+@keyframes wgQueueCellIn {
+  from { opacity: 0; max-width: 0; transform: translateX(-8px); }
+  to   { opacity: 1; max-width: 22rem; transform: translateX(0); }
+}
+
+/* A SEAM, not an outline: a shade darker than the fill, so it reads as the
+   plate being segmented rather than as another border drawn on top of it. Only
+   exists when there are two cells to divide. */
+.wgQueue__cell + .wgQueue__cell {
+  border-left: 1px solid rgba(0, 0, 0, 0.45);
+}
+
+.wgQueue__cellLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.66);
+  white-space: nowrap;
+}
+
+.wgQueue__cellValue {
+  font-size: clamp(0.95rem, 1.1vw, 1.1rem);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A MODELLED estimate reads dimmer and lighter than a measured one. That
+   difference is load-bearing, not decorative: it is what stops a guess from a
+   hardcoded table wearing the confidence of an observed median — the bug that
+   put "Usually ~15s" on a player's very first game. */
+.wgQueue__cellValue--rough {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 500;
+}
+
+/* --- elapsed ------------------------------------------------------------ */
+
+/* THE HERO. This was a 0.88rem muted footnote and it was the wrong call: the
+   clock is the only thing on screen that is actually moving, it is the answer
+   to the question the player is asking, and a scoreboard-sized numeral is the
+   playful read. No plate — it needs no container to carry that size.
+   Tabular figures are mandatory: proportional digits make the whole number
+   jitter sideways every second. */
+.wgQueue__elapsed {
+  /* CALIBRATION, because both ends were wrong once: 0.88rem read as a footnote
+     and nobody looked at it; clamp(2.4rem … 4.2rem) put a ~67px scoreboard
+     numeral on a 1080p screen and the owner's words were "HUGE!!! I DIDNT MEAN
+     THAT HUGE"; the correction to ~26px was then trimmed once more. This lands
+     around 20px on 1080p — clearly bigger than the original footnote and the
+     liveliest thing in the column, comfortably under the title. WEB ONLY: the
+     mobile equivalent in queue.tsx sits at its own scale for a hand-held. */
+  display: inline-flex;
+  align-items: center;
+  /* em, so the glyph tracks the digits at every clamp step */
+  gap: 0.34em;
+  font-size: clamp(1.25rem, 0.5vw + 0.85svh, 1.7rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  /* NO accent bloom. It was a 12px glow in the mode colour under the digits, to
+     tie the two together; it read as a smudge rather than an accent and is gone
+     (it was the last reader of the `--wgq-glow` token, which went with it). What remains is the plain dark drop shadow every other line on
+     this screen carries, which is legibility over a photo, not decoration. */
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Dimmer than the digits and slightly under their cap height: it labels the
+   number, it is not part of it. Sized in em so it scales with the clamp. */
+.wgQueue__elapsedIcon {
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.6);
+  flex: none;
+}
+
+/* --- motion ------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .wgQueue__ring { animation: none; opacity: 0.2; }
+  .wgQueue__cell { animation: none; }
+  .g2_slide_in > .wgQueue { animation: none; }
+}

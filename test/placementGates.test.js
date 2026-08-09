@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isPlacementEligible, backfillRatedGames } from '../components/utils/placementGates.js';
+import { isPlacementEligible, backfillRatedGames, RATED_GAMES_BACKFILL_CAP } from '../components/utils/placementGates.js';
+import { kFactor, K_VET, K_MID_UNTIL } from '../components/utils/eloSystem.js';
 
 // ===========================================================================
 // WHY THIS FILE EXISTS
@@ -37,18 +38,51 @@ const AFTER = new Date('2026-09-02T09:30:00.000Z');
 
 describe('backfillRatedGames', () => {
   const user = (wins, losses = 0, tied = 0) => ({ duels_wins: wins, duels_losses: losses, duels_tied: tied });
+  const CAP = RATED_GAMES_BACKFILL_CAP;
 
-  it('sums the historical duel counters', () => {
+  it('sums the historical duel counters below the cap', () => {
     expect(backfillRatedGames(user(0, 0, 0))).toBe(0);
     expect(backfillRatedGames(user(1, 0, 0))).toBe(1);
-    expect(backfillRatedGames(user(40, 20, 9))).toBe(69);
-    expect(backfillRatedGames(user(40, 20, 10))).toBe(70);
+    expect(backfillRatedGames(user(5, 4, 3))).toBe(12);
+    expect(backfillRatedGames(user(CAP - 1, 0, 0))).toBe(CAP - 1);
+    expect(backfillRatedGames(user(CAP, 0, 0))).toBe(CAP);
   });
 
-  it('caps at 70 so a legacy veteran lands in the K_VET bucket', () => {
-    expect(backfillRatedGames(user(71, 0, 0))).toBe(70);
-    expect(backfillRatedGames(user(5000, 0, 0))).toBe(70);
-    expect(backfillRatedGames(user(3000, 1500, 500))).toBe(70);
+  it('caps a legacy veteran at the settling-window value', () => {
+    expect(backfillRatedGames(user(CAP + 1, 0, 0))).toBe(CAP);
+    expect(backfillRatedGames(user(5000, 0, 0))).toBe(CAP);
+    expect(backfillRatedGames(user(3000, 1500, 500))).toBe(CAP);
+  });
+
+  // THE CAP IS A K DIAL. It decides how many post-migration games a veteran
+  // spends at K_NEW before stepping down, and therefore how fast a ladder that
+  // currently ranks PLAY TIME (rho 0.897) re-sorts into one that ranks skill.
+  // Pinned as an explicit table so moving it is a deliberate act with a visible
+  // diff, not an accident.
+  it('walks the boundary cleanly at 0, 1, cap-1, cap, cap+1 and a grinder', () => {
+    const table = [[0, 0], [1, 1], [CAP - 1, CAP - 1], [CAP, CAP], [CAP + 1, CAP], [5000, CAP]];
+    for (const [career, expected] of table) {
+      expect(backfillRatedGames(user(career, 0, 0))).toBe(expected);
+    }
+  });
+
+  // THE SAFETY PROPERTY, and the reason the cap may never be lowered to 0.
+  // ratedGames === 0 is what marks an account as needing placements, and a
+  // placement OVERWRITES the rating with a 500-800 seed. Every account with any
+  // ranked history must therefore backfill to a non-zero value.
+  it('never returns 0 for an account with any career game at all', () => {
+    for (const career of [1, 2, 7, CAP - 1, CAP, CAP + 1, 500, 5000]) {
+      expect(backfillRatedGames(user(career, 0, 0))).toBeGreaterThan(0);
+    }
+    // ...and only a genuinely gameless account returns 0.
+    expect(backfillRatedGames(user(0, 0, 0))).toBe(0);
+  });
+
+  it('puts a capped veteran in K_MID or faster, never straight to K_VET', () => {
+    // The cap exists to buy a settling window. If it ever lands at or above
+    // K_MID_UNTIL the veteran starts at K_VET and the window is gone.
+    expect(kFactor(RATED_GAMES_BACKFILL_CAP)).toBeGreaterThan(K_VET);
+    expect(RATED_GAMES_BACKFILL_CAP).toBeLessThan(K_MID_UNTIL);
   });
 
   it('treats missing counters as 0 rather than NaN', () => {
@@ -59,14 +93,17 @@ describe('backfillRatedGames', () => {
   });
 
   it('is idempotent — re-running the migration cannot inflate the count', () => {
-    const doc = { duels_wins: 30, duels_losses: 20, duels_tied: 5 };
+    // Deliberately BELOW the cap, so this exercises the summing path rather
+    // than being saved by min(). The capped case is the next test.
+    const doc = { duels_wins: 5, duels_losses: 4, duels_tied: 3 };
     const first = backfillRatedGames(doc);
     doc.ratedGames = first; // what the migration writes
     const second = backfillRatedGames(doc);
     doc.ratedGames = second;
     const third = backfillRatedGames(doc);
 
-    expect(first).toBe(55);
+    expect(first).toBe(12);
+    expect(first).toBeLessThan(RATED_GAMES_BACKFILL_CAP);
     expect(second).toBe(first);
     expect(third).toBe(first);
   });
@@ -75,8 +112,8 @@ describe('backfillRatedGames', () => {
     const doc = { duels_wins: 4000, duels_losses: 3000, duels_tied: 100 };
     const first = backfillRatedGames(doc);
     doc.ratedGames = first;
-    expect(first).toBe(70);
-    expect(backfillRatedGames(doc)).toBe(70);
+    expect(first).toBe(RATED_GAMES_BACKFILL_CAP);
+    expect(backfillRatedGames(doc)).toBe(RATED_GAMES_BACKFILL_CAP);
   });
 });
 
@@ -88,7 +125,7 @@ describe('isPlacementEligible', () => {
   });
 
   it('rejects an old account that already has rated games', () => {
-    expect(isPlacementEligible({ ratedGames: 70, created_at: BEFORE }, MIGRATION)).toBe(false);
+    expect(isPlacementEligible({ ratedGames: RATED_GAMES_BACKFILL_CAP, created_at: BEFORE }, MIGRATION)).toBe(false);
   });
 
   it('accepts a genuinely new account with no rated games', () => {
@@ -147,7 +184,7 @@ describe('isPlacementEligible', () => {
     const veteran = { duels_wins: 900, duels_losses: 800, duels_tied: 40, created_at: BEFORE };
     veteran.ratedGames = backfillRatedGames(veteran);
 
-    expect(veteran.ratedGames).toBe(70);
+    expect(veteran.ratedGames).toBe(RATED_GAMES_BACKFILL_CAP);
     expect(isPlacementEligible(veteran, MIGRATION)).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IS_PORTAL_BUILD, backgroundUrlForSku, rememberSiteBackground } from '@/lib/siteBackground';
+import { DEFAULT_BACKGROUND_PATH, IS_PORTAL_BUILD, accentForSku, backgroundUrlForSku, paintSiteBackground } from '@/lib/siteBackground';
+import { asset } from '@/lib/basePath';
 import { parseAdFreeUntil, useAdFreeCountdown } from '@/lib/adFree';
 import {
   entitlementsFrom,
@@ -64,21 +65,16 @@ function patchSessionCache(entitlements) {
 /**
  * Repaint the site background for a background equip, right now.
  *
- * pages/_app.js owns this custom property and derives it from the AUTH MODULE's
- * session — which our setSession patch does not touch, so _app's effect will
- * not re-run and will not fight us. This is the same write _app makes, executed
- * early so "equip" means the menu changes under you rather than on the next
- * reload. Portal builds stay pinned to the baked asset
- * (scripts/packageEmbed.mjs rewrites baked refs only), exactly as _app has it.
+ * pages/_app.js derives the same property from the AUTH MODULE's session —
+ * which our setSession patch does not touch, so _app's effect will not re-run
+ * and will not fight us. Calling it here is what makes "equip" mean the menu
+ * changes under your cursor rather than on the next reload. Portal builds stay
+ * pinned to the baked asset (scripts/packageEmbed.mjs rewrites baked refs
+ * only), exactly as _app has it.
  *
- * UNEQUIPPING REMOVES THE PROPERTY, it does not write the default URL into it:
- * _document declares `--site-bg` on :root, so removal is what hands the value
- * back to the one place that owns it (see lib/siteBackground.js).
- *
- * The same call records the choice for the pre-paint script, so the equip
- * survives the next reload's first frame instead of flashing the default while
- * auth resolves. Recording it HERE as well as in _app is what makes "equip,
- * refresh" correct even if the user never lets the session settle.
+ * The crossfade, the removal-not-overwrite rule for an unequip, and recording
+ * the choice for the pre-paint script all live inside paintSiteBackground()
+ * now, so this function is only responsible for deciding WHAT to paint.
  */
 function applyBackground(sku) {
   // The portal guard stays HERE as well as inside the resolver: those builds
@@ -86,9 +82,22 @@ function applyBackground(sku) {
   // null" would otherwise be indistinguishable from an unequip and clear both.
   if (IS_PORTAL_BUILD || typeof document === 'undefined') return;
   const url = backgroundUrlForSku(sku);
-  if (url) document.documentElement.style.setProperty('--site-bg', `url("${url}")`);
-  else document.documentElement.style.removeProperty('--site-bg');
-  rememberSiteBackground(url);
+  // Resolved independently of the URL, not derived from it: a background whose
+  // catalogue row has no accent yet must still paint its photograph, and it
+  // reaches here as "url yes, accent no" rather than as a failure.
+  const accent = accentForSku(sku);
+  // ONE WRITER, SHARED WITH pages/_app.js. This used to be a hand-copy of the
+  // same three lines, which is why equipping cut to the new photograph while
+  // signing in dissolved to it — the crossfade was added to one copy. Same call
+  // now, so an equip under the user's cursor gets the same dissolve.
+  //
+  // An unequip resolves to a null URL, and the default it hands back to is
+  // baked into _document rather than named here — paintSiteBackground takes
+  // `equipped: false` and removes the inline property, which is what keeps the
+  // :root rule the one owner of the default. The path it dissolves TO in that
+  // case is read from the same place the resting layer already reads.
+  if (url) paintSiteBackground(url, true, accent);
+  else paintSiteBackground(asset(DEFAULT_BACKGROUND_PATH), false, null);
 }
 
 export default function useStampShop({ session, setSession }) {

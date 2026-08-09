@@ -44,8 +44,8 @@ export const EMOTE_CATALOG = [
   { id: 'heart',  name: 'Heart',    glyph: '❤️', free: false, sku: 'emote_heart',  legacyIndex: null },
   { id: 'clap',   name: 'Applause', glyph: '👏', free: false, sku: 'emote_clap',   legacyIndex: null },
   { id: 'cry',    name: 'Tears',    glyph: '😭', free: false, sku: 'emote_cry',    legacyIndex: null },
-  // THE ONE THAT COSTS A GRIND. 1000 Stamps against a ladder that tops out at
-  // 150, so it has to be worth crossing a room for: `fx` gives it the cursed
+  // THE TOP OF THE SHELF. 200 Stamps against a ladder that otherwise tops out
+  // at 150, so it has to be worth crossing a room for: `fx` gives it the cursed
   // ember burn nothing else in the game has. Price lives in
   // shared/shop/catalog.js; the look lives here, because it is the same look
   // in the shop, on the wheel and mid-duel.

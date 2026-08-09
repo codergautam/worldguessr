@@ -12,6 +12,13 @@ export default function BannerText({shown, text, hideCompass, subText, position}
         left: "50%",
         transform: "translate(-50%, -50%)",
         pointerEvents: 'none',
+        // display:flex was MISSING here for years, which made flexDirection
+        // inert: the div was display:block and any second child <span> laid out
+        // inline, on one line. Every surviving caller now passes only `text`,
+        // so this has no visible effect today — but it closes the footgun, and
+        // it makes the component behave the way its own styles already claimed.
+        display: 'flex',
+        alignItems: 'center',
         flexDirection: 'column'
       }}
     >

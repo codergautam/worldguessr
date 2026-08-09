@@ -3,6 +3,10 @@
 // no imports and no process, because that purity is the only reason its
 // transfer arithmetic can be unit tested (and diffed against v1) at all.
 //
+// This file may import eloSystem (pure, importless) but NOTHING may import this
+// file from eloSystem, or that purity is gone.
+import { ENTRY_RATING, Ra0 } from './eloSystem.js';
+//
 // RATING_V2            switches ranked writes onto the v2 transfer model.
 //                      ON UNCONDITIONALLY as of the Aug 7 2026 migration — the
 //                      rollout flag is spent. It is no longer read from the env,
@@ -40,3 +44,28 @@ export const RATING_V2 = true;
 //                      overwrites a migrated rating with a 500-800 seed. Too
 //                      late merely delays placements for genuinely new accounts.
 export const MIGRATION_AT = new Date('2026-08-07T21:36:00.000Z');
+
+// STARTING_ELO      Where a brand-new account's rating starts, and the value
+//                   every "this rating is missing, use the default" fallback in
+//                   the codebase must resolve to.
+//
+//                   IT LIVES HERE BECAUSE IT WAS TYPED AS A LITERAL IN ~15
+//                   PLACES AND ALL OF THEM WERE WRONG AFTER THE MIGRATION.
+//                   `1000` was correct on the Season 0 scale. On v2 it sits
+//                   inside VOYAGER (945-1269), above the median of 800 and
+//                   above roughly 85% of the ladder. Two consequences, both
+//                   shipped:
+//
+//                     - a new account was created at 1000, then its placement
+//                       seeded it somewhere in 500..800 — ALWAYS lower. So the
+//                       first ranked game a player ever plays, which the
+//                       throwing placement bot guarantees they win, rendered as
+//                       a rating drop and a demotion out of gold.
+//                     - every `user.elo || 1000` fallback silently invented a
+//                       Voyager-grade rating for an account whose rating failed
+//                       to load, on profiles, leaderboards and stats history.
+//
+//                   Both scales are named, never typed, so this can never drift
+//                   from the engine again. Anything that needs "the default
+//                   rating" imports this.
+export const STARTING_ELO = RATING_V2 ? ENTRY_RATING : Ra0;

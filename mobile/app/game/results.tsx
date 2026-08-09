@@ -351,6 +351,10 @@ export default function GameResultsScreen() {
   // guessLat/guessLong, so in singleplayer (no players map) this is the only
   // route their purchased pin has to the results map.
   const myMarkerSkin = useAuthStore((s) => s.user?.cosmetics?.equipped?.markerSkin ?? null);
+  // NO GLOW COUNTERPART: the "Your guess" label on the results map wears none.
+  // A glow says whose pin this is, and your own label does not name anybody —
+  // it says "Your guess". Opponents' labels still glow off their own
+  // rounds[].players entry, which crosses the bridge inside the payload.
 
   // Parse the frozen duelEnd payload ONCE — three shapes ride the same
   // message (1v1 / team2v2 / teamGame) and several derivations below branch
@@ -425,6 +429,14 @@ export default function GameResultsScreen() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyData, setHistoryData] = useState<{ score: number; rounds: RoundResult[] } | null>(null);
   const [historyMode, setHistoryMode] = useState<string | null>(null);
+  // What the game paid, for a game opened from HISTORY. The live path gets this
+  // pushed over the socket; api/gameDetails rebuilds the same shape from the
+  // stamps ledger (serverUtils/stamps/gameReceipt.js), which is why replaying an
+  // old game now shows the receipt it showed on the night.
+  const [historyStamps, setHistoryStamps] = useState<{
+    total: number;
+    lines: Array<{ reason: string; amount: number }>;
+  } | null>(null);
   const [multiplayerInfo, setMultiplayerInfo] = useState<MultiplayerInfo | null>(null);
 
   useEffect(() => {
@@ -522,6 +534,9 @@ export default function GameResultsScreen() {
 
         const total = transformedRounds.reduce((sum, r) => sum + r.points, 0);
         setHistoryData({ score: total, rounds: transformedRounds });
+        // null on a server older than the ledger rebuild, and on any game that
+        // genuinely paid nothing — both render no row, never a "+0".
+        setHistoryStamps(game.stampsEarned ?? null);
 
         // Build per-player round data for drill-down
         const roundData: Record<string, PlayerRoundData[]> = {};
@@ -562,6 +577,12 @@ export default function GameResultsScreen() {
               elo: p.elo,
               team: p.team === 'a' || p.team === 'b' ? p.team : undefined,
               accountId: p.accountId ?? null,
+              // The LIVE path stamps this from the duelEnd roster; this one
+              // never did, so every name in a game opened from history rendered
+              // plain while the same game's live end screen glowed. The server
+              // joins it live off the account (serverUtils/userCosmetics.js) —
+              // ?? null keeps a pre-join server from producing `undefined`.
+              nameGlow: p.nameGlow ?? null,
             })),
             myId,
             isDuel,
@@ -763,8 +784,33 @@ export default function GameResultsScreen() {
     }
   }, [rounds, historyData, isLiveMultiplayer, liveMyIdParam]);
 
+  /**
+   * Equipped glow by playerId, off the frozen end roster.
+   *
+   * The per-ROUND shapes (PlayerMapGuess, DuelOpponent, the team-best entries)
+   * deliberately do not carry cosmetics — they are guess records, and widening
+   * three interfaces to copy one string into each of them is how a roster ends
+   * up with four disagreeing sources of truth. `multiplayerInfo.players` is
+   * already THE roster for this screen (team, accountId, elo all come from it),
+   * so the round views look the glow up there by id, same as everything else.
+   */
+  const glowById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const p of multiplayerInfo?.players ?? []) m.set(p.playerId, p.nameGlow ?? null);
+    return m;
+  }, [multiplayerInfo?.players]);
+  const glowOf = (playerId?: string | null) => (playerId ? glowById.get(playerId) ?? null : null);
+
   // Web finalHistory shape for the results embed (components/ResultsMap.js): my
   // guess = guessLat/guessLong; players = opponents (which already exclude me).
+  //
+  // `nameGlow` IS THE ONE COSMETIC THAT HAS TO BE COPIED IN HERE, and it is the
+  // exception the glowById comment above describes rather than a contradiction
+  // of it. The embed is a WebView: it cannot reach into this component's roster,
+  // so anything the pin labels need has to cross the bridge inside `rounds`.
+  // Web's own ResultsMap reads exactly this field off exactly this entry
+  // (`player.nameGlow`), so leaving it out was the whole reason opponents'
+  // names glowed on the site and not in the app.
   const resultsRounds = useMemo(
     () =>
       parsedRounds.map((r) => ({
@@ -782,16 +828,24 @@ export default function GameResultsScreen() {
               points: o.points,
               username: o.username,
               countryCode: o.countryCode,
+              nameGlow: glowById.get(o.playerId) ?? null,
             };
             return acc;
           },
           {} as Record<
             string,
-            { lat: number; long: number; points: number; username: string; countryCode?: string }
+            {
+              lat: number;
+              long: number;
+              points: number;
+              username: string;
+              countryCode?: string;
+              nameGlow: string | null;
+            }
           >,
         ),
       })),
-    [parsedRounds],
+    [parsedRounds, glowById],
   );
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
   const resultMode = mode ?? historyMode;
@@ -1404,20 +1458,28 @@ export default function GameResultsScreen() {
               serverLeague={myLeague}
             />
           )}
-          {/* Stamps receipt. Live from the store, NOT from the frozen route
+          {/* Stamps receipt. LIVE from the store, NOT from the frozen route
               params: it lands on its own ws message a beat after duelEnd (the
               grants sit behind the game save), which is usually after this
               screen has already been pushed. `pending` reserves its height
               from the moment the server says one is coming, so the fill is a
               fade rather than a shove on the buttons below.
 
-              History replays get nothing: the receipt is a live-game event and
-              the saved doc carries no ledger rows. */}
-          {!isHistoryView && (stampsPending || (stampsReceipt?.total ?? 0) > 0) && (
+              HISTORY replays read the same shape off api/gameDetails, which
+              rebuilds it from the stamps ledger. This used to render nothing at
+              all there — "the game paid me and opening it later shows no sign
+              of it" — on the reasoning that the saved doc carries no ledger
+              rows, which was true of the GAME doc and beside the point: the
+              ledger itself is permanent and keyed by game. `pending` is a live
+              concept only; a history receipt is either already here or was
+              never paid. */}
+          {(isHistoryView
+            ? (historyStamps?.total ?? 0) > 0
+            : (stampsPending || (stampsReceipt?.total ?? 0) > 0)) && (
             <StampsEarnedDisplay
-              total={stampsReceipt?.total}
-              lines={stampsReceipt?.lines}
-              pending={stampsPending}
+              total={isHistoryView ? historyStamps?.total : stampsReceipt?.total}
+              lines={isHistoryView ? historyStamps?.lines : stampsReceipt?.lines}
+              pending={!isHistoryView && stampsPending}
             />
           )}
         </>
@@ -1985,23 +2047,6 @@ export default function GameResultsScreen() {
   // points from the guesses and falls back to the raw gap for damage. Null
   // myTeam → no columns (render neutrally, never guess sides).
   const isTeamResults = !!(multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame);
-
-  /**
-   * Equipped glow by playerId, off the frozen end roster.
-   *
-   * The per-ROUND shapes (PlayerMapGuess, DuelOpponent, the team-best entries)
-   * deliberately do not carry cosmetics — they are guess records, and widening
-   * three interfaces to copy one string into each of them is how a roster ends
-   * up with four disagreeing sources of truth. `multiplayerInfo.players` is
-   * already THE roster for this screen (team, accountId, elo all come from it),
-   * so the round views look the glow up there by id, same as everything else.
-   */
-  const glowById = useMemo(() => {
-    const m = new Map<string, string | null>();
-    for (const p of multiplayerInfo?.players ?? []) m.set(p.playerId, p.nameGlow ?? null);
-    return m;
-  }, [multiplayerInfo?.players]);
-  const glowOf = (playerId?: string | null) => (playerId ? glowById.get(playerId) ?? null : null);
 
   const roundTeamInfo = (round: RoundResult) => {
     const myTeam = multiplayerInfo?.myTeam;

@@ -1,5 +1,5 @@
 import { createUUID } from "../components/createUUID.js";
-import User from "../models/User.js";
+import User, { STARTING_ELO } from "../models/User.js";
 import StampLedger from "../models/StampLedger.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
@@ -7,7 +7,8 @@ import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
-import { RATING_V2 } from '../components/utils/ratingFlags.js';
+import { RATING_V2, STARTING_ELO as DEFAULT_ELO } from '../components/utils/ratingFlags.js';
+import { hasSeason0, season0RankOf } from '../shared/season0/rank.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
 
@@ -125,7 +126,7 @@ async function buildEloNotice(user) {
   const peakElo = Math.round(
     user.seasonPeakElo === null || user.seasonPeakElo === undefined ? user.elo_s0 : user.seasonPeakElo
   );
-  const newElo = Math.round(user.elo || 1000);
+  const newElo = Math.round(user.elo || DEFAULT_ELO);
 
   const stampsGranted = await readSeason1Stamps(user._id);
 
@@ -136,7 +137,13 @@ async function buildEloNotice(user) {
     // The tier for the NEW rating, resolved through the active (v2) table.
     league: getLeague(newElo)?.name || null,
     stampsGranted,
-    ogBadge: user.ogAccount === true,
+    // Same predicate the profile badge uses (shared/season0/rank.js), not the
+    // `ogAccount` stamp alone: the badge belongs to everyone who was here for
+    // Season 0. Every account that reaches this line has an elo_s0 above 1000,
+    // so in practice this is true for everyone who sees the notice — which is
+    // the point. Two surfaces showing the same badge must never disagree about
+    // who has earned it.
+    ogBadge: hasSeason0(user),
   };
 }
 
@@ -324,21 +331,22 @@ async function getExtendedUserData(user, timings) {
     seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
     seasonPeakLeague: user.seasonPeakLeague || null,
     season0Elo: user.elo_s0 ?? null,
-    ogAccount: user.ogAccount === true,
+    season0Rank: season0RankOf(user),
+    ogAccount: hasSeason0(user),
   };
 
   // eloRank data
   const startRank = Date.now();
   const rank = (await User.countDocuments({
-    elo: { $gt: user.elo || 1000 },
+    elo: { $gt: user.elo || DEFAULT_ELO },
     banned: false
   }).cache(2000)) + 1;
   timings.rankQuery = Date.now() - startRank;
 
   const eloData = {
-    elo: user.elo || 1000,
+    elo: user.elo || DEFAULT_ELO,
     rank,
-    league: getLeague(user.elo || 1000),
+    league: getLeague(user.elo || DEFAULT_ELO),
     duels_wins: user.duels_wins || 0,
     duels_losses: user.duels_losses || 0,
     duels_tied: user.duels_tied || 0,
@@ -429,7 +437,7 @@ export default async function handler(req, res) {
         await newUser.save();
 
         const startRank = Date.now();
-        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        const usersAbove = await User.countDocuments({ elo: { $gt: STARTING_ELO }, banned: false }).cache(2000);
         timings.rankQuery = Date.now() - startRank;
         timings.total = Date.now() - startTotal;
         console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
@@ -442,9 +450,9 @@ export default async function handler(req, res) {
             canChangeUsername: true,
             daysUntilNameChange: 0,
             recentChange: false,
-            elo: 1000,
+            elo: STARTING_ELO,
             rank: usersAbove + 1,
-            league: getLeague(1000),
+            league: getLeague(STARTING_ELO),
             duels_wins: 0,
             duels_losses: 0,
             duels_tied: 0,
@@ -535,7 +543,7 @@ export default async function handler(req, res) {
         timings.newUserCreate = Date.now() - startNewUser;
 
         const startRank = Date.now();
-        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        const usersAbove = await User.countDocuments({ elo: { $gt: STARTING_ELO }, banned: false }).cache(2000);
         timings.rankQuery = Date.now() - startRank;
 
         timings.total = Date.now() - startTotal;
@@ -561,9 +569,9 @@ export default async function handler(req, res) {
           canChangeUsername: true,
           daysUntilNameChange: 0,
           recentChange: false,
-          elo: 1000,
+          elo: STARTING_ELO,
           rank: usersAbove + 1,
-          league: getLeague(1000),
+          league: getLeague(STARTING_ELO),
           duels_wins: 0,
           duels_losses: 0,
           duels_tied: 0,
@@ -805,9 +813,9 @@ export default async function handler(req, res) {
         timings.newUserCreate = Date.now() - startNewUser;
 
         // Default extended data for new users
-        // Rank = count of users with elo > 1000 (starting elo) + 1
+        // Rank = count of users with elo > the starting rating + 1
         const startRank = Date.now();
-        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        const usersAbove = await User.countDocuments({ elo: { $gt: STARTING_ELO }, banned: false }).cache(2000);
         timings.rankQuery = Date.now() - startRank;
 
         output = {
@@ -832,9 +840,9 @@ export default async function handler(req, res) {
           canChangeUsername: true,
           daysUntilNameChange: 0,
           recentChange: false,
-          elo: 1000,
+          elo: STARTING_ELO,
           rank: usersAbove + 1,
-          league: getLeague(1000),
+          league: getLeague(STARTING_ELO),
           duels_wins: 0,
           duels_losses: 0,
           duels_tied: 0,

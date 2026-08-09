@@ -25,7 +25,7 @@ export interface EmoteDef {
   legacyIndex: number | null;
   /**
    * Effect id, mirroring `fx` in shared/emotes/catalog.js. Present on the skull
-   * and nothing else: it is what the top of the price ladder (1000 Stamps) is
+   * and nothing else: it is what the top of the price ladder (200 Stamps) is
    * selling.
    *
    * NOT DRAWN ON THIS CLIENT YET. Web renders it as a CSS class

@@ -22,9 +22,12 @@
 // Reintroducing one means bringing back the multi-grant purchase path in
 // api/stampShop.js too, and pricing it BELOW the sum of its parts.
 //
-// Backgrounds are ['web'] for v1: the mobile app bundles its own static
-// background asset and does not read /backgrounds/*.webp at all, so selling a
-// path it cannot load would be selling nothing.
+// Backgrounds are ['web', 'mobile']. They WERE web-only, because the app
+// bundled one static background and could not read /backgrounds/*.webp — RN's
+// iOS image pipeline does not even decode WebP. The app now loads them over
+// the network through expo-image (mobile/src/components/SiteBackground.tsx),
+// so the shelf is the same on both platforms. Anything that reverts the array
+// on this row has to also delete the mobile shop section that renders it.
 //
 // Emote entries here are the STOREFRONT half only. Their glyphs live in
 // shared/emotes/catalog.js, keyed by the same sku, so the two never drift.
@@ -72,21 +75,73 @@ const MARKER_PRICE = 200;
 // is exactly the bug countryFlag.js was written to avoid. It must survive
 // api/stampShop.js's response whitelist to reach the card; a row that adds a
 // city without a `cc` renders nameless-of-nowhere rather than crashing.
+//
+// `accent` IS THE SECOND PIECE OF METADATA THAT EARNS ITS ROW, and it exists
+// because the site is green and half of these photographs are not. A dark
+// purple New York under WorldGuessr's green menu wash read as a broken skin
+// rather than a purchase. Every background therefore carries the palette the
+// HOME SCREEN ONLY recolours itself to; the rest of the site and all of the
+// in-game UI stay green, because the photo is the only thing that changed
+// there and green is still the brand.
+//
+// THREE TONES, IN THE EXACT RELATIONSHIP THE GREEN ALREADY HAS, so a city is
+// a drop-in swap for the house palette rather than a second theming model:
+//
+//   deep     #112b18 in green -> --primaryDark, the 1.4px rims on the chips
+//   wash     #144119 in green -> --r/--g/--b, the big diagonal menu gradient
+//   surface  #245734 in green -> --primary + --primaryTransparent + the card
+//                                shadows, i.e. every filled button face
+//
+// Read them in that order and they always get lighter. A row that inverts
+// that ordering will render a menu whose borders glow brighter than its
+// buttons, which is the one way to get this visibly wrong.
+//
+// NO ROW IS REQUIRED TO HAVE ONE. lib/siteBackground.js resolves a missing or
+// malformed accent to null and the CSS falls back to green through var()
+// defaults, which is also why the default London background needs no entry
+// here: green IS its accent. Same reason a new city can ship its photo first
+// and get its colours in a follow-up without shipping a broken shelf.
+//
+// These are eyeballed against each photograph, not sampled from it. Sampling
+// was considered and is worse: the dominant colour of a dusk cityscape is
+// almost always a muddy grey-brown, and every value would have needed
+// overriding by hand anyway.
 const BACKGROUNDS = [
-  { sku: 'bg_sf',        name: 'San Francisco',  cc: 'us', path: '/backgrounds/bg-sf.webp' },
-  { sku: 'bg_paris',     name: 'Paris',          cc: 'fr', path: '/backgrounds/bg-paris.webp' },
-  { sku: 'bg_rome',      name: 'Rome',           cc: 'it', path: '/backgrounds/bg-rome.webp' },
-  { sku: 'bg_prague',    name: 'Prague',         cc: 'cz', path: '/backgrounds/bg-prague.webp' },
-  { sku: 'bg_tokyo',     name: 'Tokyo',          cc: 'jp', path: '/backgrounds/bg-tokyo.webp' },
-  { sku: 'bg_seoul',     name: 'Seoul',          cc: 'kr', path: '/backgrounds/bg-seoul.webp' },
-  { sku: 'bg_singapore', name: 'Singapore',      cc: 'sg', path: '/backgrounds/bg-singapore.webp' },
-  { sku: 'bg_newyork',   name: 'New York',       cc: 'us', path: '/backgrounds/bg-newyork.webp' },
-  { sku: 'bg_rio',       name: 'Rio de Janeiro', cc: 'br', path: '/backgrounds/bg-rio.webp' },
-  { sku: 'bg_agra',      name: 'Agra',           cc: 'in', path: '/backgrounds/bg-agra.webp' },
-].map((b) => ({ ...b, type: 'background', price: b.price ?? BACKGROUND_PRICE, platforms: ['web'] }));
+  // SAN FRANCISCO IS THE ONE LIGHT ROW, and it is deliberately the brightest
+  // palette on this shelf: hue 200 (cerulean, not the navy Paris/Rio sit at and
+  // not the teal Singapore does), lifted a full step past every neighbour so it
+  // reads as light blue rather than as another dark-blue city. It replaced a
+  // warm brown sampled off the bridge at golden hour.
+  //
+  // IT IS AS LIGHT AS THIS SLOT GOES. `wash` paints the menu column at FULL
+  // opacity and `surface` fills every button face, both under white text, so
+  // the ceiling here is contrast and not taste: these land at 8.0:1 and 5.0:1
+  // against white (the green stock menu is 11.7:1 and 8.4:1). Lifting either
+  // further starts failing WCAG AA on the menu the player reads every session.
+  { sku: 'bg_sf',        name: 'San Francisco',  cc: 'us', path: '/backgrounds/bg-sf.webp',        accent: { deep: '#133a4d', wash: '#1d5674', surface: '#2b769c' } },
+  { sku: 'bg_paris',     name: 'Paris',          cc: 'fr', path: '/backgrounds/bg-paris.webp',     accent: { deep: '#101a33', wash: '#1b2d57', surface: '#28417d' } },
+  { sku: 'bg_rome',      name: 'Rome',           cc: 'it', path: '/backgrounds/bg-rome.webp',      accent: { deep: '#2b2009', wash: '#4a3810', surface: '#6b521b' } },
+  { sku: 'bg_prague',    name: 'Prague',         cc: 'cz', path: '/backgrounds/bg-prague.webp',    accent: { deep: '#0c2229', wash: '#123a45', surface: '#1b5463' } },
+  { sku: 'bg_tokyo',     name: 'Tokyo',          cc: 'jp', path: '/backgrounds/bg-tokyo.webp',     accent: { deep: '#2a0b1c', wash: '#4a1330', surface: '#6b1f47' } },
+  { sku: 'bg_seoul',     name: 'Seoul',          cc: 'kr', path: '/backgrounds/bg-seoul.webp',     accent: { deep: '#0d1e2b', wash: '#153348', surface: '#1f4a68' } },
+  { sku: 'bg_singapore', name: 'Singapore',      cc: 'sg', path: '/backgrounds/bg-singapore.webp', accent: { deep: '#07262a', wash: '#0c4148', surface: '#135e68' } },
+  { sku: 'bg_newyork',   name: 'New York',       cc: 'us', path: '/backgrounds/bg-newyork.webp',   accent: { deep: '#170f2e', wash: '#251a4d', surface: '#3b2a6e' } },
+  { sku: 'bg_rio',       name: 'Rio de Janeiro', cc: 'br', path: '/backgrounds/bg-rio.webp',       accent: { deep: '#0a1e33', wash: '#113356', surface: '#1a4a7d' } },
+  { sku: 'bg_agra',      name: 'Agra',           cc: 'in', path: '/backgrounds/bg-agra.webp',      accent: { deep: '#2b1219', wash: '#4a212c', surface: '#6b3241' } },
+].map((b) => ({ ...b, type: 'background', price: b.price ?? BACKGROUND_PRICE, platforms: ['web', 'mobile'] }));
 
-// Name glows paint a text-shadow behind a username. Each carries TWO hex
-// values and both are required: the username renders on the dark HUD AND
+// Name glows paint a text-shadow behind a username.
+//
+// EVERY GLOW NAME IS ONE WORD. "Living Flame", "Prism Cycle" and "Comet Orbit"
+// were renamed to Blaze, Prism and Comet: a two-word name on this shelf is the
+// sku describing its own animation ("the flame that lives", "the prism that
+// cycles"), and the card already shows the animation. The statics were always
+// one word (Ice, Rose, Amethyst, Gold), so the animated tier reading like a
+// product tagline is what made the shelf read as two different shops. A rename
+// is display-only — the sku strings are what ownership is keyed on and they do
+// NOT change with the name, which is why glow_ember_flame is sold as Blaze.
+//
+// Each carries TWO hex values and both are required: the username renders on the dark HUD AND
 // inside a Leaflet tooltip, which is a white surface with black text. One
 // colour cannot serve both — a neon that reads on black turns invisible on
 // white, and a deep tone that reads on white disappears into the HUD.
@@ -103,8 +158,8 @@ const BACKGROUNDS = [
 //
 // SEVEN GLOWS. It was fourteen, then nine, and AZURE and AURORA PULSE were cut
 // on sight ("they look bad"). Neither deletion moved a floor, which is the one
-// thing worth recording here: the tightest pair on both columns is still Living
-// Flame vs Gold at 27.2 degrees dark and 27.0 light, exactly where it was with
+// thing worth recording here: the tightest pair on both columns is still Blaze
+// vs Gold at 27.2 degrees dark and 27.0 light, exactly where it was with
 // nine, because orange and yellow are neighbours on the wheel and no amount of
 // catalogue space changes that. The runner-up is Comet vs Amethyst at 27.5, also
 // unchanged. What the two cuts bought is a hole: Prism at 114 now has open wheel
@@ -114,18 +169,18 @@ const BACKGROUNDS = [
 // is no pair left to relieve — the survivors are already at the floor a
 // seven-hue palette can reach, and moving a value now would only walk it out of
 // the hue window its NAME allows (Ice cannot be green, Gold cannot be lime,
-// Flame cannot be red). Re-run it when a sku is ADDED.
+// Blaze cannot be red). Re-run it when a sku is ADDED.
 //
 // Where the surviving values came from, all of them inside those name windows:
 //
-//   Living Flame  dark+light  36 -> 26 deg   amber -> true orange, which is
+//   Blaze         dark+light  36 -> 26 deg   amber -> true orange, which is
 //                                            also where its own animation
 //                                            already spends most of its loop
 //   Gold          dark+light  50 -> 53 deg   golden yellow, and 53 is the top of
 //                                            the window: #FFDF00 "golden yellow"
 //                                            is 52.5 and anything past ~55 is
 //                                            lemon, not gold
-//   Comet Orbit   light      238 -> 246 deg  now the same hue as its own dark
+//   Comet         light      238 -> 246 deg  now the same hue as its own dark
 //   Amethyst      dark+light 271/264 -> 274  likewise. The two columns agreeing
 //                                            on a hue is a bonus, not the goal.
 //
@@ -155,9 +210,11 @@ const byPriceAsc = (a, b) => a.price - b.price;
 
 // EMBER, MINT and CRIMSON WERE DELETED, not repriced or renamed. A flat halo in
 // a hue an animated sku already owns is the cheapest possible version of that
-// sku sitting next to it on the same shelf — ember's orange is the Living
-// Flame's resting colour, and mint and crimson are both frames of the Prism
-// Cycle sweep. Their sku strings are gone from this repo on purpose — a grep for
+// sku sitting next to it on the same shelf — ember's orange is Blaze's resting
+// colour, and mint and crimson are both frames of the Prism sweep. (Ember's
+// NAME is free again and was deliberately not reused: glow_ember_flame is sold
+// as Blaze, so no live sku wears a retired sku's name.) Their sku strings are
+// gone from this repo on purpose — a grep for
 // any of the three returns nothing, which is how anyone asking "is it really
 // gone?" gets a straight answer.
 //
@@ -216,7 +273,7 @@ const GLOWS = [...SOLID_GLOWS].sort(byPriceAsc);
 //
 // Priced as a ladder and merged into the one glow shelf at the bottom of this
 // file, so the section reads bottom rung to flex without a break: four statics
-// at 500, then 2,500 -> 3,000, with Comet Orbit the top of the whole shop.
+// at 500, then 2,500 -> 3,000, with Comet the top of the whole shop.
 //
 // SIX SKUS HAVE BEEN DELETED FROM THIS BAND OVER TIME, NONE OF THEM REPRICED.
 //
@@ -234,11 +291,11 @@ const GLOWS = [...SOLID_GLOWS].sort(byPriceAsc);
 //   more Stamps.
 //
 //   "Spectrum Nova" (3,500) went with the whole gradient tier. It was the same
-//   two ingredients as Prism Cycle — a hue ladder plus a breathing radius —
+//   two ingredients as Prism — a hue ladder plus a breathing radius —
 //   separated only by the SIZE of two numbers (180 degrees of offset against
 //   120, four blooms per lap against three). That is a different AMOUNT, not a
 //   different IDEA, which is exactly the test Sonar Ping and Shockwave failed.
-//   Prism Cycle inherits the job and was sped up and hardened to do it.
+//   Prism inherits the job and was sped up and hardened to do it.
 //
 //   "Aurora Pulse" (1,500) was cut on sight — the owner looked at it and it
 //   looked bad. It was the entry rung of this band and the only breath in it, so
@@ -252,7 +309,7 @@ const GLOWS = [...SOLID_GLOWS].sort(byPriceAsc);
 // six deleted sku strings are gone from this repo on purpose: a grep for any of
 // them returns nothing.
 const ANIMATED_GLOWS = [
-  { sku: 'glow_ember_flame',     name: 'Living Flame', price: 2500, glowDark: '#FF7D1A', glowLight: '#DC6409' },
+  { sku: 'glow_ember_flame',     name: 'Blaze', price: 2500, glowDark: '#FF7D1A', glowLight: '#DC6409' },
   // Was #F0ABFC (fuchsia-300). That is a pastel, and the pastel is what the
   // mobile app and every reduced-motion user got — a white smear where the
   // 2,500-Stamp spectrum should be. The animation on web was never the problem;
@@ -265,12 +322,12 @@ const ANIMATED_GLOWS = [
   // agreement: green on dark, green on light. That freedom is why it is the one
   // row the brute-force spread below never had to move — it was already sitting
   // in the widest hole either column had.
-  { sku: 'glow_cycle_prism',     name: 'Prism Cycle',  price: 2500, glowDark: '#1AFF00', glowLight: '#40D214' },
+  { sku: 'glow_cycle_prism',     name: 'Prism', price: 2500, glowDark: '#1AFF00', glowLight: '#40D214' },
   // THE TOP OF THE SHOP, now that Spectrum Nova is gone. Nothing about it
   // changed: it was always the sku that moves in a way nothing else in the app
   // moves (a spark on an orbit, not a bloom), which is precisely why it is the
   // one that survived the cull of the "same idea, bigger number" skus.
-  { sku: 'glow_orbit_comet',     name: 'Comet Orbit',  price: 3000, glowDark: '#6D5BFF', glowLight: '#4531F6' },
+  { sku: 'glow_orbit_comet',     name: 'Comet', price: 3000, glowDark: '#6D5BFF', glowLight: '#4531F6' },
 ].map((g) => ({ ...g, type: 'glow', platforms: ['web', 'mobile'], animated: true }))
   .sort(byPriceAsc);
 
@@ -294,14 +351,16 @@ const EMOTES = [
   { sku: 'emote_crown',  name: 'Crown',      price: 125 },
   { sku: 'emote_rocket', name: 'Rocket',     price: 125 },
   { sku: 'emote_goat',   name: 'GOAT',       price: 150 },
-  // THE CHASE ITEM, and it is deliberately off the end of the ladder: nearly
-  // seven times the next most expensive emote, so it is a thing you save for
-  // rather than a thing you pick up. It is the only sku in the shop carrying an
-  // `fx` (see shared/emotes/catalog.js) — the burn is what a shelf full of
-  // 50-Stamp faces is being asked to make you want, and a price that high with
-  // nothing to show for it is just a bad deal. Last in the list because the
-  // catalogue ships sorted ascending by price and this has to close the shelf.
-  { sku: 'emote_skull',  name: 'Skull',      price: 1000 },
+  // THE TOP OF THE SHELF. It was 1000, a chase item off the end of the ladder,
+  // and it was repriced to 200: still the most expensive emote and still a save-
+  // up rather than an impulse, but reachable in a session instead of a season.
+  // It is the only sku in the shop carrying an `fx` (see
+  // shared/emotes/catalog.js) — the burn is what a shelf full of 50-Stamp faces
+  // is being asked to make you want, and it is what keeps the gap over the
+  // 150-Stamp rung below feeling earned now that the gap is small. Last in the
+  // list because the catalogue ships sorted ascending by price and this has to
+  // close the shelf.
+  { sku: 'emote_skull',  name: 'Skull',      price: 200 },
 ].map((e) => ({ ...e, type: 'emote', platforms: ['web', 'mobile'] }));
 
 const PASSES = [
@@ -315,8 +374,14 @@ const PASSES = [
   },
 ];
 
+// THE ARRAY IS GROUPED IN SHELF ORDER — pins, glows, backgrounds, emotes,
+// passes — but it is not what PUTS the shelves in that order: both storefronts
+// group by `type` and walk CATEGORY_ORDER (components/shop/stampShopClient.js,
+// which carries the reasoning). What this array decides is the order WITHIN a
+// shelf. It is grouped to match anyway, because a catalogue that reads in a
+// different order from the page it feeds is a trap for the next person.
 export const SHOP_CATALOG = [
-  ...BACKGROUNDS,
+  ...MARKERS,
   // ONE GLOW SHELF, CHEAPEST FIRST, ANIMATED OR NOT. Both storefronts render a
   // category in catalogue order, so this sort IS the shelf order — in the DOM,
   // not just visually, which is what keeps the tab order and the screen-reader
@@ -333,7 +398,7 @@ export const SHOP_CATALOG = [
   // order their own array wrote: the five statics stay in the hue order set out
   // above rather than being shuffled into an arbitrary one.
   ...[...GLOWS, ...ANIMATED_GLOWS].sort(byPriceAsc),
-  ...MARKERS,
+  ...BACKGROUNDS,
   ...EMOTES,
   ...PASSES,
 ];

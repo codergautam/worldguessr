@@ -21,38 +21,50 @@
  * `+0` here could only come from this component inventing one. In the single
  * place in the app where a player counts currency, an optimistic number is
  * worse than no number.
+ *
+ * THE BREAKDOWN IS TAP-REVEALED, which is this platform's half of web's hover
+ * (styles/duel.css `.stamps-earned__lines`). What the row is for is the NUMBER;
+ * the per-reason chips turned a one-line fact into an invoice wedged between the
+ * rating and the Play Again button. Only OPACITY moves — the chips keep their
+ * space either way, because collapsing them would shift the buttons underneath
+ * at exactly the moment a thumb is travelling toward them, which is the same
+ * failure RESERVED_HEIGHT exists to prevent.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import StampMark, { STAMP_MARK_SIZE, STAMP_VALUE_SIZE, STAMP_UNIT_SIZE } from '../shop/StampMark';
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import { t } from '../../shared/locale';
-import { spacing, fontSizes } from '../../styles/theme';
+import { spacing } from '../../styles/theme';
 // The SAME module web's roundOverScreen imports (Metro @shared alias -> repo
 // root /shared). Reason labels and the repeated-reason merge are shared code on
 // purpose: two platforms showing different breakdowns for one game is the drift
 // this prevents.
 import { STAMP_REASON_KEYS, mergeStampLines, type StampReceiptLine } from '@shared/stamps/receipt';
 
-/** The currency gold. Deliberately a literal and not a theme token: it must
- *  match web's `.stamps-earned__mark` (#ffd700) exactly, and a currency that
- *  drifts in colour between platforms stops reading as one currency. */
+/** The currency gold, used by the AMOUNT (the mark carries its own colour now).
+ *  Deliberately a literal and not a theme token: it must match web's
+ *  `.stamps-earned__value` (#ffd700) exactly, and a currency that drifts in
+ *  colour between platforms stops reading as one currency. */
 const STAMP_GOLD = '#ffd700';
 
 /**
  * Height held open while the receipt is in flight. Must stay in step with what
  * the filled row actually measures — a reservation that does not match its fill
- * trades one layout jump for a smaller one.
+ * trades one layout jump for a smaller one. Derived from the mark rather than
+ * hardcoded: the mark is the tallest thing in the headline, so a constant here
+ * would go stale the moment that size moves and the row would start jumping
+ * under the player's thumb again. +31 is the breakdown line plus its gap.
+ * Web's `.stamps-earned` min-height is the same arithmetic.
  */
-const RESERVED_HEIGHT = 58;
+const RESERVED_HEIGHT = STAMP_MARK_SIZE + 31;
 
 /** Shorter than the rating count-up (1000ms): this starts later and must be
  *  finished before the player reaches for Play Again. */
@@ -135,59 +147,83 @@ export default function StampsEarnedDisplay({
     transform: [{ translateY: (1 - enter.value) * 6 }],
   }));
 
+  // The breakdown reveal. Latched OPEN on tap and shut again on the next one;
+  // it does not auto-close, because a detail you asked for should stay until you
+  // are done with it.
+  const [open, setOpen] = useState(false);
+  const reveal = useSharedValue(0);
+  useEffect(() => {
+    reveal.value = withTiming(open ? 1 : 0, { duration: 160, easing: Easing.out(Easing.cubic) });
+    return () => {
+      cancelAnimation(reveal);
+    };
+  }, [open, reveal]);
+  // OPACITY ONLY. No height, no translate, no layout prop of any kind — see the
+  // header. The chips are laid out and measured whether or not they can be seen.
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
+
+  // A new receipt (rematch) starts closed: the previous game's breakdown being
+  // already open over this game's number is worse than no memory at all.
+  useEffect(() => {
+    setOpen(false);
+  }, [total]);
+
   // The reservation: same height, nothing in it. Rendering null instead is what
   // causes the jump this component exists to avoid.
   if (!paid) {
     return pending ? <View style={styles.reserved} /> : null;
   }
 
+  const hasBreakdown = merged.length > 0;
+
   return (
     <Animated.View style={[styles.container, enterStyle]}>
-      <View style={styles.headline}>
-        {/* Ionicons `disc` IS the web mark: components/shop/StampMark.js draws
-            that exact glyph as a path so the currency looks identical on both
-            platforms without a new asset on either. */}
-        <Ionicons name="disc" size={20} color={STAMP_GOLD} />
+      {/* Pressable only when there is something to reveal — a control that does
+          nothing still eats the tap and still reports itself to a screen
+          reader. Hit slop rather than padding, so widening the target cannot
+          grow the row it sits in. */}
+      <Pressable
+        onPress={hasBreakdown ? () => setOpen((v) => !v) : undefined}
+        disabled={!hasBreakdown}
+        hitSlop={hasBreakdown ? 10 : undefined}
+        accessibilityRole={hasBreakdown ? 'button' : undefined}
+        accessibilityState={hasBreakdown ? { expanded: open } : undefined}
+        style={styles.headline}
+      >
+        {/* The stamp artwork, the same file and the same size the web receipt
+            shows (components/shop/StampMark.js), so a player who plays on both
+            does not see two different currencies. */}
+        <StampMark />
         <Text style={styles.value}>+{shown}</Text>
         <Text style={styles.unit}>{t('shopStampsUnit')}</Text>
-      </View>
+      </Pressable>
 
-      {merged.length > 0 && (
-        <View style={styles.lines}>
-          {merged.map((line, index) => (
-            <StampBreakdownLine key={line.reason} line={line} index={index} />
+      {hasBreakdown && (
+        <Animated.View style={[styles.lines, revealStyle]}>
+          {merged.map((line) => (
+            <StampBreakdownLine key={line.reason} line={line} />
           ))}
-        </View>
+        </Animated.View>
       )}
     </Animated.View>
   );
 }
 
-/** One breakdown chip, staggered so the list reads as being itemised. */
-function StampBreakdownLine({ line, index }: { line: StampLine; index: number }) {
-  const enter = useSharedValue(0);
-  useEffect(() => {
-    enter.value = withDelay(
-      260 + index * 80,
-      withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
-    );
-    return () => {
-      cancelAnimation(enter);
-    };
-  }, [enter, index]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: enter.value,
-    transform: [{ translateY: (1 - enter.value) * 4 }],
-  }));
-
+/**
+ * One breakdown chip.
+ *
+ * PLAIN VIEWS, NOT Animated ones. The per-chip entrance stagger this used to run
+ * belonged to the reveal it no longer has — the group fades in on a tap now, and
+ * a stagger on top of that reads as the UI being slow rather than as a list
+ * being itemised. One shared opacity on the parent replaces N Reanimated nodes.
+ */
+function StampBreakdownLine({ line }: { line: StampLine }) {
   const labelKey = STAMP_REASON_KEYS[line.reason];
-
   return (
-    <Animated.View style={[styles.line, style]}>
+    <View style={styles.line}>
       {!!labelKey && <Text style={styles.lineLabel}>{t(labelKey)}</Text>}
       <Text style={styles.lineAmount}>+{line.amount}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -209,7 +245,7 @@ const styles = StyleSheet.create({
   },
   value: {
     color: STAMP_GOLD,
-    fontSize: fontSizes.xl,
+    fontSize: STAMP_VALUE_SIZE,
     fontFamily: 'Lexend-Bold',
     // The count-up rewrites this on every digit change; without a fixed digit
     // advance the centred row shuffles sideways. Web sets the same thing.
@@ -217,7 +253,7 @@ const styles = StyleSheet.create({
   },
   unit: {
     color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: fontSizes.sm,
+    fontSize: STAMP_UNIT_SIZE,
     fontFamily: 'Lexend-Regular',
   },
   lines: {
@@ -232,14 +268,17 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 4,
   },
+  // The breakdown chips carry stamps figures too, so they scale with the rest —
+  // but just under the unit label, because this row is the DETAIL you ask for
+  // and the headline is the fact. Web uses the same fraction.
   lineLabel: {
     color: 'rgba(255, 255, 255, 0.62)',
-    fontSize: fontSizes.xs,
+    fontSize: Math.round(STAMP_UNIT_SIZE * 0.95),
     fontFamily: 'Lexend-Regular',
   },
   lineAmount: {
     color: 'rgba(255, 215, 0, 0.85)',
-    fontSize: fontSizes.xs,
+    fontSize: Math.round(STAMP_UNIT_SIZE * 0.95),
     fontFamily: 'Lexend-SemiBold',
     fontVariant: ['tabular-nums'],
   },

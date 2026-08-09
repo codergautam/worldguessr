@@ -113,6 +113,9 @@ export default function DailyChallengeScreen({
   // sign-in BUTTONS (landing, results, leaderboard modal). The copy AROUND
   // those buttons ("Sign in to save your streak") is a separate gate inside
   // each component — it used to render happily with the button gone.
+  // CoolMath is the exception: DailyLanding keeps that prompt and swaps the
+  // button for a new tab to worldguessr.com (ACCOUNT_SITE_URL in accountUi).
+  // That branch is intentional, don't re-gate it on HIDE_ACCOUNT_UI.
   const today = getClientLocalDate();
   const { locationData, locationError, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
 

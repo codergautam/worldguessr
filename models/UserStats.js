@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
 
 const userStatsSchema = new mongoose.Schema({
   // User identification
@@ -32,7 +33,7 @@ const userStatsSchema = new mongoose.Schema({
     type: Number, 
     required: true,
     min: 0,
-    default: 1000 // Standard starting ELO
+    default: STARTING_ELO // whichever ladder is live; see ratingFlags.js
   },
   eloRank: { 
     type: Number, 

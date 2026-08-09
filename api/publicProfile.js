@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { season0RankOf, hasSeason0 } from '../shared/season0/rank.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
 
@@ -150,7 +152,7 @@ export default async function handler(req, res) {
       memberSince: memberSince,
       lastLogin: user.lastLogin || user.created_at,
       profileViews: profileViews,
-      elo: user.elo || 1000,
+      elo: user.elo || STARTING_ELO,
       rank: rank,
       league: {
         name: league.name,
@@ -171,7 +173,17 @@ export default async function handler(req, res) {
       // from the same retired era) has been public since migration. Null on
       // every account the migration never touched.
       season0Elo: user.elo_s0 ?? null,
-      ogAccount: user.ogAccount === true,
+      // Where this account finished on the closing Season 0 ladder, from the
+      // frozen table (shared/season0/rankTable.js) — never a live count, so it
+      // is the same number today and in two years, and the same number the Hall
+      // of Fame prints. Ties share the better rank.
+      season0Rank: season0RankOf(user),
+      // THE OG BADGE, resolved here and nowhere else. It is no longer the
+      // `ogAccount` stamp alone (created before 2025-08-01) — every account that
+      // was here for Season 0 gets it, and `elo_s0` is what records that. Web
+      // and mobile both read this one boolean, so they cannot drift apart over
+      // who counts as a veteran. See shared/season0/rank.js.
+      ogAccount: hasSeason0(user),
       duelStats: {
         wins: user.duels_wins || 0,
         losses: user.duels_losses || 0,

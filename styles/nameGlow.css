@@ -29,12 +29,12 @@
    strobes, and both were deleted in turn because they were the same motion as
    each other — an expanding ring, once as a linear flight and once as a double
    thump. "Spectrum Nova" (3,500) went the same way: a hue ladder plus a
-   breathing radius, i.e. the Prism Cycle with two of its numbers turned up (180
+   breathing radius, i.e. Prism with two of its numbers turned up (180
    degrees of core-to-bloom offset instead of 120, four blooms a lap instead of
    three). Standing next to the 2,500 item it did not look like a different
    thing, it looked like the same thing with a bigger price, and two skus a
    shopper cannot tell apart do not make a ladder — they make the dearer one look
-   like a con. Prism Cycle inherited the job and was sped up and hardened to do
+   like a con. Prism inherited the job and was sped up and hardened to do
    it properly, which is the honest version of what Nova was there for.
 
    What is left is four unrelated motions: a breath, a fire, a spectrum sweep and
@@ -52,10 +52,28 @@
       whatever the static halo was already painting.
 
    2. LIGHT KEYFRAMES DELIBERATELY DO NOT CARRY IT. nameGlowShadow(sku,'light')
-      is `0 0 2px c, 0 0 5px cCC, 0 0 11px c66, 0 0 18px c33` and ends there on
+      is `0 0 2px c, 0 0 3.5px c8C, 0 0 6px c2E, 0 0 9px c12` and ends there on
       purpose — the light surface draws DARK text, where a black drop shadow is
       dirt, not legibility. Adding one here would be a regression, not belt and
       braces.
+
+   2b. THE WHOLE LIGHT TIER IS QUIETER THAN THE DARK ONE, AND BY MORE THAN YOU
+      WOULD GUESS — IT HAS NOW BEEN PULLED IN TWICE OFF THE SAME REPORT. Round
+      one took ~30% of the reach and half the outer alpha ("the glows are too
+      strong on white, like on pins"); round two took another ~25-30% of the
+      reach off the WIDE layers, because the pin tooltips were still the
+      surface where it showed. Cumulatively every light variant is now roughly
+      HALF the reach it shipped with. A dark HUD name floats on a big sheet of
+      glass and a halo has room to bloom into it; the light surfaces are SMALL
+      and WHITE — a Leaflet guess-pin tooltip is about 90x22px of chrome — so a
+      halo tuned to the dark side's amplitude does not read as a halo there at
+      all, it reads as the label leaking. Judge a light keyframe inside a pin
+      tooltip, never on a shop card, and never against its own dark twin.
+
+      AND IF IT IS EVER REPORTED LOUD AGAIN, TAKE IT OUT OF THE OUTERMOST
+      RADIUS BEFORE THE ALPHA. Dropping alpha on a wide layer leaves a wash of
+      the same SIZE and only makes it fainter, and a faint wash as big as the
+      tooltip still reads as leakage. Radius first, then alpha to match.
 
    3. LAYER COUNT IS CONSTANT INSIDE ONE @keyframes BLOCK. Shadow lists only
       interpolate componentwise when they are the same length; a keyframe that
@@ -255,7 +273,7 @@
 
 
 /* ===========================================================================
- *  LIVING FLAME — glow_ember_flame, 1,800
+ *  BLAZE — glow_ember_flame, 2,500
  *  Motion signature: a warm halo breathing unevenly, THROWING SPARKS. Small
  *  bright points appear at varying offsets around the name, rise, curl sideways
  *  and burn out before they reach the top of their travel. Nothing else in the
@@ -349,7 +367,7 @@
  *
  *  THE 0%/100% CORE IS THE SKU'S CATALOGUE COLOUR, NOT AN INDEPENDENT CHOICE.
  *  It moved amber -> true orange (#FFA31A -> #FF7D1A dark, #DC7309 -> #DC6409
- *  light) when the palette was re-spread across nine glows: Living Flame and
+ *  light) when the palette was re-spread across nine glows: Blaze and
  *  Gold were the tightest pair on BOTH columns and orange had further to give
  *  than yellow did. That anchor is UNTOUCHED by the spark rework — the fallback
  *  a mobile client and a reduced-motion user get is the same hex it was. If
@@ -440,36 +458,48 @@
    10.5px of reach against dark's 13.
 
    Layer order matches dark: core, carrier, spark P, spark Q, wide falloff. NO
-   BLACK LAYER (rule 2). The widest layer is 15px against this side's 20px
-   ceiling — down from 18px, and the carrier is 6-9px, down from 6-10px. THAT
-   TRIM IS WHERE THE SPARKS WERE PAID FOR, and the alpha went up to cover it:
-   the carrier now runs CC-ED where it ran C4-E6 and the falloff 61-7A where it
-   ran 3D-59. Rule 5's advice, applied: when you need room, take it out of REACH
-   and put it back as CONTRAST. */
+   BLACK LAYER (rule 2). The widest layer is 7px and the carrier is 3.5-5.5px —
+   both pulled in TWICE with the whole light tier when the halos were reported as
+   too strong on white, the second time because the pin tooltips were still where
+   it showed. The sparks kept every number they had, both times: the trim came out
+   of the two layers that wash, which is the same rule 5b budget move the sparks
+   were originally PAID for out of. */
 .wg-nameglow--flame.wg-nameglow--light {
     animation-name: wgNameGlowFlameLight;
 }
 
 /* FIVE LAYERS: core, carrier, spark P, spark Q, wide falloff. Same LOW / PEAK /
    HIGH / RESET flight as dark, one lit stop apiece. P is lit at 9% and 60%,
-   Q at 34%, and 75-100% is the quiet beat. */
+   Q at 34%, and 75-100% is the quiet beat.
+
+   PULLED IN TWICE WITH THE REST OF THE LIGHT TIER (see the block comment on
+   nameGlowShadow's light branch): the carrier runs 3.5-5.5px at 80-95 where it
+   shipped at 6-9px at CC-ED, and the wide falloff 4-7px at 1D-25 where it
+   shipped at 8-15px at 61-7A. Half the reach it launched with, and the second
+   pass is the one that made it sit inside a guess-pin tooltip instead of across
+   it. THE CORE AND THE SPARKS ARE UNTOUCHED, BOTH TIMES — the core because a
+   translucent innermost ring is how every sku turns into the same grey rim on
+   white (rule 3b), and the sparks because they are 1.5-2px points, i.e. the
+   one part of this halo that was never the thing bleeding across the card.
+   Trimming them would have cost the sku its identity and bought nothing: a
+   1.5px point does not reach past the chrome no matter what its alpha is. */
 @keyframes wgNameGlowFlameLight {
-    0%      { text-shadow: 0 0 2px #DC6409, 0 0 7px #DC6409D1, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 10px #F6453163; }
-    9%      { text-shadow: 0 0 3px #DC8809, 0 0 6px #DC8809E0, 3.5px -3px 1.5px #C2410C, -1.5px 2px 1.5px #A8380A00, 0 0 8px #F652316B; }
-    23%     { text-shadow: 0 0 2px #F0660A, 0 0 9px #F0660ACC, 2.5px -8px 2px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 13px #F63F317A; }
-    34%     { text-shadow: 0 0 2px #DCA409, 0 0 6px #DCA409ED, -4px 2px 1.5px #B23A0B00, -2.5px -3px 1.5px #A8380A, 0 0 9px #F65F3161; }
-    50%     { text-shadow: 0 0 2px #DC7D09, 0 0 8px #DC7D09E0, -4px 2px 1.5px #B23A0B00, -1.5px -8px 2px #A8380A00, 0 0 12px #F64C3173; }
-    60%     { text-shadow: 0 0 3px #E66D0A, 0 0 6px #E66D0AD1, -5px -3.5px 1.5px #B23A0B, -1.5px 2px 1.5px #A8380A00, 0 0 9px #F642316B; }
+    0%      { text-shadow: 0 0 2px #DC6409, 0 0 4px #DC640982, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 5px #F645311E; }
+    9%      { text-shadow: 0 0 3px #DC8809, 0 0 3.5px #DC88098C, 3.5px -3px 1.5px #C2410C, -1.5px 2px 1.5px #A8380A00, 0 0 4px #F6523120; }
+    23%     { text-shadow: 0 0 2px #F0660A, 0 0 5.5px #F0660A80, 2.5px -8px 2px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 6.5px #F63F3125; }
+    34%     { text-shadow: 0 0 2px #DCA409, 0 0 3.5px #DCA40995, -4px 2px 1.5px #B23A0B00, -2.5px -3px 1.5px #A8380A, 0 0 4.5px #F65F311D; }
+    50%     { text-shadow: 0 0 2px #DC7D09, 0 0 4.5px #DC7D098C, -4px 2px 1.5px #B23A0B00, -1.5px -8px 2px #A8380A00, 0 0 6px #F64C3122; }
+    60%     { text-shadow: 0 0 3px #E66D0A, 0 0 3.5px #E66D0A82, -5px -3.5px 1.5px #B23A0B, -1.5px 2px 1.5px #A8380A00, 0 0 4.5px #F6423120; }
     /* the quiet beat starts here: both sparks sit at alpha 00 until the loop turns */
-    75%     { text-shadow: 0 0 2px #DC9609, 0 0 9px #DC9609ED, -3.5px -8.5px 2px #B23A0B00, -1.5px 2px 1.5px #A8380A00, 0 0 11px #F6593168; }
-    86%     { text-shadow: 0 0 3px #E6730A, 0 0 7px #E6730AE0, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 15px #F64A3175; }
+    75%     { text-shadow: 0 0 2px #DC9609, 0 0 5.5px #DC960995, -3.5px -8.5px 2px #B23A0B00, -1.5px 2px 1.5px #A8380A00, 0 0 5.5px #F659311F; }
+    86%     { text-shadow: 0 0 3px #E6730A, 0 0 4px #E6730A8C, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 7px #F64A3123; }
     /* byte-identical to 0% */
-    100%    { text-shadow: 0 0 2px #DC6409, 0 0 7px #DC6409D1, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 10px #F6453163; }
+    100%    { text-shadow: 0 0 2px #DC6409, 0 0 4px #DC640982, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 5px #F645311E; }
 }
 
 
 /* ===========================================================================
- *  PRISM CYCLE — glow_cycle_prism, 2,500
+ *  PRISM — glow_cycle_prism, 2,500
  *  Motion signature: the whole colour wheel, walked once every 4.4s by TWO hues
  *  held a third of a turn apart, while the halo breathes 14px <-> 32px three
  *  times over the same loop.
@@ -568,40 +598,55 @@
    THE SPEED-UP IS SHARED; THE PUNCH-UP IS NOT, AND THAT IS DELIBERATE. Both
    variants run the same 4.4s lap, because a sku that cycles at two different
    rates depending on which surface it lands on is two skus. But the dark
-   variant's new reach (32px peak) would be a wash over black glyphs here, so
-   the outer layer stays capped at 20px exactly as before and this side takes
-   its lift where a white card can absorb it: the core widens 2 -> 4px, the
-   middle layer climbs C4 -> F7 (was CC -> E6) and the outer trough drops to 38
-   (was 40) so the breath has somewhere to come FROM. Scaling the dark numbers
-   down by a constant would have given a 21px bloom at 73 alpha and a light
-   variant nobody can read — the two surfaces need different amounts, not the
-   same amount at different sizes.
-   The 120-degree offset between core and bloom SURVIVES on both. It is the
-   item, not a flourish. */
+   variant's reach (32px peak) would be a wash over black glyphs here, so this
+   side takes its lift where a white card can absorb it: the core widens
+   2 -> 4px and stays FULLY OPAQUE at every stop, which is where the hue
+   actually lives on this surface.
+
+   THE BLOOM CAME IN TWICE, AND THIS WAS THE LOUDEST THING IN THE LIGHT TIER
+   BOTH TIMES. It shipped at 10/15/20px at 38/5E/85 — a 20px halo at 52% alpha,
+   on a white guess-pin tooltip barely bigger than the name itself, which is
+   what "the glows are too strong on white" was mostly describing. It went to
+   6.5/10/13px at 19/2A/3C, and that was STILL the thing you noticed on a pin,
+   because 13px around a ~22px-tall tooltip is a bloom the size of the chrome
+   itself. It is now 4.5/7/9px at 12/1E/2B, with the middle layer following it
+   down each time (6/9/12px at C4/E0/F7, then 4.5/6.5/8.5px at 8D/A1/B2, now
+   3.5/5/6.5px at 78/8A/9C).
+   THE BREATH IS UNTOUCHED IN SHAPE THROUGH ALL OF IT — trough to peak is still
+   a doubling of radius and a 2.4x of alpha — so the sku still visibly swells
+   three times a lap; it just does it inside a box the chrome can hold. That is
+   the whole trick of trimming an animated sku: keep the RATIOS between the
+   stops and the motion survives intact, shrink the absolute numbers and the
+   only thing lost is the wash. Scaling the dark numbers down by a constant was
+   never the answer in either direction: the two surfaces need different
+   amounts, not the same amount at different sizes.
+   The core keeps its 2/3/4px and its full opacity, untouched by both passes
+   (rule 3b), and the 120-degree offset between core and bloom SURVIVES on both
+   surfaces. It is the item, not a flourish. */
 .wg-nameglow--cycle.wg-nameglow--light {
     animation-name: wgNameGlowCycleLight;
 }
 
 @keyframes wgNameGlowCycleLight {
-    0%      { text-shadow: 0 0 2px #F631C5, 0 0 6px #F631C5C4, 0 0 10px #9CC52038; }
-    8.33%   { text-shadow: 0 0 3px #F63163, 0 0 9px #F63163E0, 0 0 15px #43D2145E; }
-    16.66%  { text-shadow: 0 0 4px #F65F2C, 0 0 12px #F65F2CF7, 0 0 20px #12D34385; }
-    25%     { text-shadow: 0 0 3px #DCA809, 0 0 9px #DCA809E0, 0 0 15px #17CFA15E; }
-    33.33%  { text-shadow: 0 0 2px #9CC520, 0 0 6px #9CC520C4, 0 0 10px #09A8DC38; }
-    41.66%  { text-shadow: 0 0 3px #43D214, 0 0 9px #43D214E0, 0 0 15px #3163F65E; }
-    50%     { text-shadow: 0 0 4px #12D343, 0 0 12px #12D343F7, 0 0 20px #6331F685; }
-    58.33%  { text-shadow: 0 0 3px #17CFA1, 0 0 9px #17CFA1E0, 0 0 15px #C531F65E; }
-    66.66%  { text-shadow: 0 0 2px #09A8DC, 0 0 6px #09A8DCC4, 0 0 10px #F631C538; }
-    75%     { text-shadow: 0 0 3px #3163F6, 0 0 9px #3163F6E0, 0 0 15px #F631635E; }
-    83.33%  { text-shadow: 0 0 4px #6331F6, 0 0 12px #6331F6F7, 0 0 20px #F65F2C85; }
-    91.66%  { text-shadow: 0 0 3px #C531F6, 0 0 9px #C531F6E0, 0 0 15px #DCA8095E; }
+    0%      { text-shadow: 0 0 2px #F631C5, 0 0 3.5px #F631C578, 0 0 4.5px #9CC52012; }
+    8.33%   { text-shadow: 0 0 3px #F63163, 0 0 5px #F631638A, 0 0 7px #43D2141E; }
+    16.66%  { text-shadow: 0 0 4px #F65F2C, 0 0 6.5px #F65F2C9C, 0 0 9px #12D3432B; }
+    25%     { text-shadow: 0 0 3px #DCA809, 0 0 5px #DCA8098A, 0 0 7px #17CFA11E; }
+    33.33%  { text-shadow: 0 0 2px #9CC520, 0 0 3.5px #9CC52078, 0 0 4.5px #09A8DC12; }
+    41.66%  { text-shadow: 0 0 3px #43D214, 0 0 5px #43D2148A, 0 0 7px #3163F61E; }
+    50%     { text-shadow: 0 0 4px #12D343, 0 0 6.5px #12D3439C, 0 0 9px #6331F62B; }
+    58.33%  { text-shadow: 0 0 3px #17CFA1, 0 0 5px #17CFA18A, 0 0 7px #C531F61E; }
+    66.66%  { text-shadow: 0 0 2px #09A8DC, 0 0 3.5px #09A8DC78, 0 0 4.5px #F631C512; }
+    75%     { text-shadow: 0 0 3px #3163F6, 0 0 5px #3163F68A, 0 0 7px #F631631E; }
+    83.33%  { text-shadow: 0 0 4px #6331F6, 0 0 6.5px #6331F69C, 0 0 9px #F65F2C2B; }
+    91.66%  { text-shadow: 0 0 3px #C531F6, 0 0 5px #C531F68A, 0 0 7px #DCA8091E; }
     /* identical to 0%: the wheel has turned exactly once, with no seam */
-    100%    { text-shadow: 0 0 2px #F631C5, 0 0 6px #F631C5C4, 0 0 10px #9CC52038; }
+    100%    { text-shadow: 0 0 2px #F631C5, 0 0 3.5px #F631C578, 0 0 4.5px #9CC52012; }
 }
 
 
 /* ===========================================================================
- *  COMET ORBIT — glow_orbit_comet, 3,000
+ *  COMET — glow_orbit_comet, 3,000
  *  Motion signature: a bright, tight point of light ORBITS the name while a
  *  soft indigo halo stays centred and still. Nothing else in the app moves
  *  like this.
@@ -662,16 +707,26 @@
     animation-name: wgNameGlowOrbitLight;
 }
 
+/* THE ORBITING POINT HAS KEPT EVERY NUMBER IT HAD THROUGH BOTH PULLS-IN of the
+   light tier, and it is the only sku where that is true. A 2px layer at 5px of
+   travel is not a wash — it is the ITEM, and the whole read of this sku is one
+   small hard point going round a name. What came in, twice, is the two layers
+   that were painting AREA: the trail 7px -> 5px -> 4px at 80 -> 5C -> 4A, and
+   the still halo 12px -> 10px -> 8px at 40 -> 30 -> 24. The comet was already
+   the quietest thing in the light tier, so it is also the smallest correction
+   both times — and now that the still halo is 8px it is genuinely a rim around
+   the glyphs, which is what leaves the travelling point as the only thing on
+   this surface with any size to it. That is the sku working as designed. */
 @keyframes wgNameGlowOrbitLight {
-    0%      { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 7px #4531F680, 0 0 12px #4531F640; }
-    12.5%   { text-shadow: 3.5px 3.5px 2px #4531F6, 4px 0 7px #4531F680, 0 0 12px #4531F640; }
-    25%     { text-shadow: 0 5px 2px #4531F6, 2.8px 2.8px 7px #4531F680, 0 0 12px #4531F640; }
-    37.5%   { text-shadow: -3.5px 3.5px 2px #4531F6, 0 4px 7px #4531F680, 0 0 12px #4531F640; }
-    50%     { text-shadow: -5px 0 2px #4531F6, -2.8px 2.8px 7px #4531F680, 0 0 12px #4531F640; }
-    62.5%   { text-shadow: -3.5px -3.5px 2px #4531F6, -4px 0 7px #4531F680, 0 0 12px #4531F640; }
-    75%     { text-shadow: 0 -5px 2px #4531F6, -2.8px -2.8px 7px #4531F680, 0 0 12px #4531F640; }
-    87.5%   { text-shadow: 3.5px -3.5px 2px #4531F6, 0 -4px 7px #4531F680, 0 0 12px #4531F640; }
-    100%    { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 7px #4531F680, 0 0 12px #4531F640; }
+    0%      { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    12.5%   { text-shadow: 3.5px 3.5px 2px #4531F6, 4px 0 4px #4531F64A, 0 0 8px #4531F624; }
+    25%     { text-shadow: 0 5px 2px #4531F6, 2.8px 2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    37.5%   { text-shadow: -3.5px 3.5px 2px #4531F6, 0 4px 4px #4531F64A, 0 0 8px #4531F624; }
+    50%     { text-shadow: -5px 0 2px #4531F6, -2.8px 2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    62.5%   { text-shadow: -3.5px -3.5px 2px #4531F6, -4px 0 4px #4531F64A, 0 0 8px #4531F624; }
+    75%     { text-shadow: 0 -5px 2px #4531F6, -2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    87.5%   { text-shadow: 3.5px -3.5px 2px #4531F6, 0 -4px 4px #4531F64A, 0 0 8px #4531F624; }
+    100%    { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
 }
 
 

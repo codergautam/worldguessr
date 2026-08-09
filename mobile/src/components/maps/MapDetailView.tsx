@@ -17,6 +17,7 @@ import { nameFromCode } from '../../shared/data/countryHelpers';
 import StreetViewWebView from '../game/StreetViewWebView';
 import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
+import PlayerName from '../PlayerName';
 
 function formatNumber(n: number): string {
   if (!n || isNaN(n)) return '0';
@@ -280,10 +281,24 @@ export default function MapDetailView({
           ))}
           {mapData.created_by && (
             <View style={styles.authorRow}>
-              <Text style={styles.authorText}>
-                {t('createdByLabel')} <Text style={styles.authorName}>{mapData.created_by}</Text>
-                {mapData.created_at ? ` ${mapData.created_at} ${t('ago')}` : ''}
-              </Text>
+              {/* A ROW OF REAL NODES, not one <Text> with a nested <Text>: the
+                  halo is absolutely positioned copies of the name drawn
+                  underneath it, and nested inline text has no box to hang them
+                  on. One name on the screen and nothing virtualised, so this
+                  one keeps the motion it was sold — unlike the tiles. */}
+              <View style={styles.authorLine}>
+                <Text style={styles.authorText}>{t('createdByLabel')}</Text>
+                <PlayerName
+                  name={mapData.created_by}
+                  glow={mapData.created_by_glow}
+                  gap={0}
+                  textStyle={[styles.authorText, styles.authorName]}
+                  numberOfLines={1}
+                />
+                {mapData.created_at ? (
+                  <Text style={styles.authorText}>{`${mapData.created_at} ${t('ago')}`}</Text>
+                ) : null}
+              </View>
             </View>
           )}
         </View>
@@ -478,6 +493,15 @@ export const mapDetailStyles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  // Carries the word spacing the single <Text> used to get for free from its
+  // literal spaces. Wrapping so a long username still pushes "3 days ago" onto
+  // a second line instead of squeezing itself.
+  authorLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 5,
   },
   authorText: {
     fontSize: 14,

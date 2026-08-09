@@ -8,6 +8,7 @@ import config from '@/clientConfig';
 import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import { asset, navigate, stripBase, localePath } from '@/lib/basePath';
+import { GlowName, nameGlowProps, GLOW_DARK } from '@/components/utils/usernameWithFlag';
 
 export default function MapPage({ }) {
   const router = useRouter();
@@ -464,7 +465,21 @@ export default function MapPage({ }) {
               <h2>About this map</h2>
               {mapData.description_long.split('\n').map((line, index) => <p key={index}>{line}</p>)}
               <p className={styles.mapAuthor}>
-                Created by <strong>{mapData.created_by}</strong>
+                {/* ONE name on the page and nothing virtualised, so this one
+                    keeps the motion it was sold — unlike the tiles in the grid.
+                    Dark page chrome, and .mapAuthor never clips, so the boxless
+                    carrier is all this needs.
+
+                    THE <strong> GOES INSIDE THE CARRIER, NOT AROUND IT. globals.scss
+                    styles bare `span` with `font-weight: 500`, and that rule beats
+                    an inherited bold — so a glow span wrapped around the <strong>
+                    would UNBOLD this name the day its creator equipped something,
+                    which is exactly the "buying a glow changed my layout" class of
+                    bug. Nested this way the <strong> keeps its own weight and the
+                    halo reaches it by inheritance, because text-shadow inherits. */}
+                Created by <GlowName glow={nameGlowProps(mapData.created_by_glow, GLOW_DARK)}>
+                  <strong>{mapData.created_by}</strong>
+                </GlowName>
                 {mapData.created_at && (
                   ` ${mapData.created_at} ago`
                 )}

@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { FaHeart, FaTrash, FaUser, FaMapMarkerAlt } from "react-icons/fa";
 import formatNumber from "../utils/fmtNumber";
 import { FaPencil } from "react-icons/fa6";
+import { cachedNameGlowProps, GLOW_DARK } from "../utils/usernameWithFlag";
 
 function MapTile({
     onPencilClick,
@@ -32,6 +33,15 @@ function MapTile({
         ? bgImage.replace(/^url\(\s*["']?/, '').replace(/["']?\s*\)$/, '')
         : (country ? `https://flagcdn.com/h240/${country?.toLowerCase()}.png` : "");
     const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
+
+    // The creator's equipped glow. STATIC (`animated: false`): a section
+    // expands to 100 tiles and there are five sections, so an animated
+    // text-shadow here is hundreds of main-thread repaints a frame — the same
+    // rule the leaderboard and the chat log follow. `cached` because this runs
+    // per tile per render and a fresh style object each time would defeat the
+    // memo() this component is wrapped in. `ownBox` because the name below has
+    // its own element for the ellipsis.
+    const authorGlow = cachedNameGlowProps(map.created_by_glow, GLOW_DARK, { animated: false, ownBox: true });
 
     // Define escapeRegExp outside of highlightMatch so it exists before being called
     const escapeRegExp = (string) => {
@@ -255,7 +265,19 @@ function MapTile({
                                 <span className="map-tile__username">
                                     {map.accepted && <>&nbsp;•&nbsp;</>}
                                     <FaUser size={12} />
-                                    &nbsp;{highlightMatch(map.created_by_name, searchTerm)}
+                                    &nbsp;
+                                    {/* The truncation that used to sit on .map-tile__username (where an
+                                        inline-flex container made the ellipsis inert and the overflow did
+                                        nothing but shear an equipped glow flush with the letterforms)
+                                        lives here, on the real text box, as the shared wg-name-clip
+                                        recipe. UNCONDITIONAL: a creator's name must not get a different
+                                        box the day they equip something. */}
+                                    <span
+                                        className={`wg-name-clip ${authorGlow?.className ?? ''}`.trim()}
+                                        style={authorGlow?.style}
+                                    >
+                                        {highlightMatch(map.created_by_name, searchTerm)}
+                                    </span>
                                 </span>
                             )}
                         </div>

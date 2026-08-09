@@ -491,6 +491,29 @@ interface MultiplayerState {
   // Queue
   gameQueued: GameQueuedType;
   publicDuelRange: [number, number] | null;
+  /**
+   * The SERVER's queue-join instant (absolute ms), off the `queueJoined` ack.
+   * The queue screen derives its elapsed timer from this rather than counting
+   * up locally: React Native suspends JS timers when the app backgrounds, so a
+   * counter silently under-reports with no state to recover from.
+   */
+  queuedAt: number | null;
+  /**
+   * How long this rating band's queue USUALLY takes IN TOTAL, from the moment
+   * you joined — not a remaining time and not a countdown. The server latches
+   * it for the session. Ranked 1v1 only.
+   *
+   * `rough` means the number came from a MODELLED prior rather than observed
+   * waits, and it carries a coarse `tier` instead of a figure. It must be
+   * rendered in vague wording and neutral styling — a guess may never wear the
+   * confidence of a measurement.
+   */
+  queueEta: {
+    state: 'ok' | 'long' | 'rough' | 'unknown';
+    value: number | null;
+    unit: 'sec' | 'min' | null;
+    tier: 'short' | 'mid' | 'long' | null;
+  } | null;
   nextGameQueued: boolean;
   nextGameType: 'ranked' | 'unranked' | null;
   // 2v2 matchmaking state that must SURVIVE the stage-2 gameData wipe —
@@ -679,6 +702,13 @@ const gameInitialState = {
   error: null as string | null,
   gameQueued: false as GameQueuedType,
   publicDuelRange: null as [number, number] | null,
+  queuedAt: null as number | null,
+  queueEta: null as {
+    state: 'ok' | 'long' | 'rough' | 'unknown';
+    value: number | null;
+    unit: 'sec' | 'min' | null;
+    tier: 'short' | 'mid' | 'long' | null;
+  } | null,
   nextGameQueued: false,
   nextGameType: null as 'ranked' | 'unranked' | null,
   // 2v2 matchmaking state (survives the stage-2 gameData wipe, but is still
@@ -716,6 +746,11 @@ const gameInitialState = {
 export const queueTeardownState = {
   gameQueued: gameInitialState.gameQueued,
   publicDuelRange: gameInitialState.publicDuelRange,
+  // queuedAt in particular MUST be here: it is an absolute timestamp, so a
+  // stranded one doesn't read as stale, it reads as a queue that started
+  // minutes ago — the next queue screen would open at "4:12".
+  queuedAt: gameInitialState.queuedAt,
+  queueEta: gameInitialState.queueEta,
   queueStage: gameInitialState.queueStage,
   queueMyId: gameInitialState.queueMyId,
   lobbyIntent: gameInitialState.lobbyIntent,
@@ -805,7 +840,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   joinQueue: (type) => {
     clearQueueConfirmTimer();
     wsService.send({ type });
-    set({ gameQueued: type, publicDuelRange: null });
+    // queuedAt stays null until the server's ack lands — the timer must run on
+    // the server's join instant, not on when we happened to tap the button.
+    set({ gameQueued: type, publicDuelRange: null, queuedAt: null, queueEta: null });
     queueConfirmTimer = setTimeout(() => {
       queueConfirmTimer = null;
       const s = get();
@@ -1507,6 +1544,29 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // to tell "queued, waiting for a match" apart from "server never queued me".
     if (data.type === 'queueJoined') {
       clearQueueConfirmTimer();
+      // The server's join instant drives the elapsed timer. Fall back to our
+      // own clock only for a server predating this field.
+      set({
+        queuedAt: typeof data.queuedAt === 'number'
+          ? data.queuedAt
+          : Date.now() + wsService.timeOffset,
+      });
+      return;
+    }
+
+    // ── queueEta — how long this band's queue USUALLY takes, in total ──────
+    // Not a countdown and not "time remaining": see the field's doc comment.
+    // Server-latched, so this normally fires once per queue session and then
+    // only again if the state flips.
+    if (data.type === 'queueEta') {
+      set({
+        queueEta: {
+          state: data.state,
+          value: data.value ?? null,
+          unit: data.unit ?? null,
+          tier: data.tier ?? null,
+        },
+      });
       return;
     }
 

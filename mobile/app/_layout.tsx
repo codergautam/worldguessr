@@ -16,6 +16,7 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
+import { hydrateSiteBackground } from '../src/store/siteBackgroundStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useSettingsStore } from '../src/store/settingsStore';
 import { initSoundSystem } from '../src/services/sound';
@@ -52,7 +53,13 @@ SplashScreen.preventAutoHideAsync();
 // this fade runs, so app-open reads as one continuous reveal.
 SplashScreen.setOptions({ duration: 400, fade: true });
 
-// Preload all runtime image assets during startup
+// Preload all runtime image assets during startup.
+//
+// The stock background only. A PURCHASED background is a network fetch and is
+// deliberately NOT in this list: it is warmed in the background by
+// hydrateSiteBackground() below, and gating the splash on it would hold the app
+// closed behind somebody's hotel wifi. Until it lands, SiteBackground paints
+// this file — which is why it stays bundled even for owners.
 const imageAssets = [
   require('../assets/street2.jpg'),
 ];
@@ -97,6 +104,12 @@ export default function RootLayout() {
     useOnboardingStore.getState().loadFlag();
     useSettingsStore.getState().loadSettings();
     useReviewPromptStore.getState().load();
+    // Replays this device's last equipped background so an owner's first frame
+    // is their own city rather than the stock one, and starts tracking the
+    // session so the answer is corrected the moment auth resolves. NOT awaited
+    // and NOT gated on: it decides which photograph is prettier, never whether
+    // the app opens.
+    hydrateSiteBackground();
   }, []);
 
   // Initialize native services (ads, analytics)

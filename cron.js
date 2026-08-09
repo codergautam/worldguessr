@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { configDotenv } from 'dotenv';
 import User from './models/User.js';
+import { STARTING_ELO } from './components/utils/ratingFlags.js';
 import UserStats from './models/UserStats.js';
 import DailyLeaderboard from './models/DailyLeaderboard.js';
 import CronState from './models/CronState.js';
@@ -10,6 +11,15 @@ import UserStatsService from './components/utils/userStatsService.js';
 import { purgeUserCascade } from './serverUtils/purgeUserCascade.js';
 import { scheduleAligned, nextUtcMidnight, nextUtcMonday } from './serverUtils/scheduleAligned.js';
 import { dayKeyUTC, weekKeyUTC } from './serverUtils/stamps/periods.js';
+// Timers go through safeInterval so one throwing job cannot take the whole cron
+// process down and silently stop every OTHER job with it. See ws/safeTimers.js.
+import { safeInterval } from './ws/safeTimers.js';
+// Both feature flags are plain constants with no env read and no imports of
+// their own, so import order cannot affect them. They were dynamically imported
+// below the configDotenv() call while STAMPS_ENABLED still read the env; that is
+// no longer true of either one. See serverUtils/stamps/config.js.
+import { STAMPS_ENABLED } from './serverUtils/stamps/config.js';
+import { RATING_V2 } from './components/utils/ratingFlags.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
@@ -125,7 +135,7 @@ const updateAllUserStats = async () => {
         timestamp: new Date(),
         totalXp: user.totalXp || 0,
         xpRank: xpRankMap.get(user._id.toString()),
-        elo: user.elo || 1000,
+        elo: user.elo || STARTING_ELO,
         eloRank: eloRankMap.get(user._id.toString()),
         triggerEvent: 'weekly_update',
         gameId: null
@@ -374,7 +384,7 @@ const startDailyLeaderboardTimer = () => {
   computeDailyLeaderboards();
 
   // Then run every 15 minutes
-  setInterval(computeDailyLeaderboards, LEADERBOARD_UPDATE_INTERVAL);
+  safeInterval('dailyLeaderboards', LEADERBOARD_UPDATE_INTERVAL, computeDailyLeaderboards);
 };
 
 // Start the timer
@@ -429,7 +439,7 @@ const startAccountDeletionPurgeTimer = () => {
   console.log('[PURGE] Account-deletion purge timer started - runs on startup, then daily');
   // Run on startup so a redeploy near a due time still catches overdue purges.
   purgeScheduledDeletions();
-  setInterval(purgeScheduledDeletions, DELETION_PURGE_INTERVAL);
+  safeInterval('deletionPurge', DELETION_PURGE_INTERVAL, purgeScheduledDeletions);
 };
 
 startAccountDeletionPurgeTimer();
@@ -443,16 +453,15 @@ startAccountDeletionPurgeTimer();
 // would move "midnight" to 18:00 forever. These jobs use scheduleAligned,
 // which recomputes the delay from the wall clock on every arm.
 //
-// FEATURE FLAGS ARE READ VIA DYNAMIC import() ON PURPOSE. Static `import`
-// bindings are evaluated BEFORE this module's body runs — i.e. before the
-// configDotenv() call near the top of this file has populated process.env.
-// A statically imported STAMPS_ENABLED / RATING_V2 would therefore snapshot
-// `undefined === 'true'` (false) for anything configured in .env, and every
-// gate below would silently stay off forever with no error to notice.
+// The STAMPS_ENABLED / RATING_V2 gates below are STATIC imports at the top of
+// this file. They used to be dynamic `await import()`s placed here, because a
+// static binding is evaluated BEFORE this module's body — i.e. before
+// configDotenv() runs — so anything reading process.env at import time froze the
+// wrong value. Neither flag reads the env any more, so that trap is gone with
+// them. The rule still applies to any NEW env-reading module: import it
+// dynamically, below configDotenv(), or better, give it a default that is
+// correct when the variable is absent.
 // ============================================================================
-
-const { STAMPS_ENABLED } = await import('./serverUtils/stamps/config.js');
-const { RATING_V2 } = await import('./components/utils/ratingFlags.js');
 
 /**
  * Arm one wall-clock-aligned job, with missed-boundary recovery.
@@ -702,7 +711,7 @@ const startStampLedgerReconcileTimer = () => {
   // Run on startup: the most likely reason rows are stranded is the crash or
   // redeploy that just happened.
   reconcileStampLedger();
-  setInterval(reconcileStampLedger, STAMP_RECONCILE_INTERVAL);
+  safeInterval('stampReconcile', STAMP_RECONCILE_INTERVAL, reconcileStampLedger);
 };
 
 startStampLedgerReconcileTimer();
@@ -848,7 +857,7 @@ initializeCountryPools();
 const startCountryLocationShuffler = () => {
   console.log(`[SHUFFLER] Started - refreshing every ${SHUFFLE_INTERVAL / 1000}s`);
 
-  setInterval(() => {
+  safeInterval('countryShuffle', SHUFFLE_INTERVAL, () => {
     const startTime = Date.now();
 
     // Occasionally reshuffle entire pools for variety (every 10 intervals)
@@ -864,7 +873,7 @@ const startCountryLocationShuffler = () => {
 
     const duration = Date.now() - startTime;
     console.log(`[SHUFFLER] Refreshed country locations in ${duration}ms`);
-  }, SHUFFLE_INTERVAL);
+  });
 };
 
 startCountryLocationShuffler();
@@ -928,9 +937,9 @@ const startAllCountriesCacheUpdater = () => {
   updateAllCountriesCache();
 
   // Set up recurring updates every 60 seconds
-  setInterval(() => {
+  safeInterval('allCountriesCache', 60 * 1000, () => {
     updateAllCountriesCache();
-  }, 60 * 1000);
+  });
 
   console.log('[CACHE] AllCountries cache updater started - updates every 60 seconds');
 };

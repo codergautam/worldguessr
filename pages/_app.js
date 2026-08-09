@@ -9,13 +9,14 @@ import '@/styles/shop.css';
 import '@/styles/playerCard.css';
 import '@/styles/season1Badges.css';
 import '@/styles/hallOfFame.css';
+import '@/styles/queueScreen.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
-import { DEFAULT_BACKGROUND_PATH, backgroundUrlForSku, rememberSiteBackground } from '@/lib/siteBackground';
+import { DEFAULT_BACKGROUND_PATH, accentForSku, backgroundUrlForSku, paintSiteBackground } from '@/lib/siteBackground';
 import { useSession } from '@/components/auth/auth';
 import installErrorTracking from '@/lib/errorTracking';
 import getPlatform from '@/components/utils/getPlatform';
@@ -53,64 +54,91 @@ function App({ Component, pageProps }) {
   // URL of the background this visitor actually PAID for, or null — the shared
   // resolver in lib/siteBackground.js, which is also what the shop's equip and
   // /user's per-profile background go through.
-  const equippedBackground = backgroundUrlForSku(session?.token?.cosmetics?.equipped?.background);
+  //
+  // The sku is kept alongside the URL because the accent is resolved from it
+  // too, and an accent object cannot be an effect dependency (new identity
+  // every render). The sku is a plain string and changes exactly when the URL
+  // does.
+  const equippedBackgroundSku = session?.token?.cosmetics?.equipped?.background || null;
+  const equippedBackground = backgroundUrlForSku(equippedBackgroundSku);
   // components/auth/auth.js: `false` means the session is still resolving,
   // `null` means genuinely signed out. The difference decides whether "no
   // background equipped" is an answer or just the absence of one.
   const sessionResolved = session !== false;
 
   useEffect(() => {
-    // A PURCHASED background overrides the default. This is still the writer of
-    // record — the session decides — but it is no longer the first paint an
-    // owner sees: the pre-paint script in _document replays this device's last
-    // equipped background so the reload does not flash London first. See the
-    // cache contract in lib/siteBackground.js.
+    // A PURCHASED background overrides the default, and THE SESSION IS THE
+    // WRITER OF RECORD — but not the first paint an owner sees. The pre-paint
+    // script in _document replays this device's last equipped background so a
+    // reload does not flash London first; this only confirms or corrects it.
     //
-    // REMOVING the property is not the same as writing the default URL into it,
-    // and the removal branch is why this is safe to run for everybody: it hands
-    // `--site-bg` back to the :root rule _document declared, so unequipping
-    // leaves exactly one owner of the value instead of a stale inline copy that
-    // would survive a future change to the default.
-    //
-    // IT ONLY REMOVES ONCE THE SESSION HAS RESOLVED. The first render of every
-    // page has no session yet, so an unconditional removal here would delete
-    // the pre-paint value and restore the exact flash this is meant to kill —
-    // just later, and only for the people who paid.
+    // How the property is written, when it dissolves rather than cuts, why an
+    // unequip REMOVES it instead of writing the default URL into it, and where
+    // the accent lands in all that, are all one decision and they live in one
+    // place: paintSiteBackground() in lib/siteBackground.js, which the shop's
+    // equip calls too. This file's whole remaining job is deciding WHICH
+    // background, and holding off until the file is actually loadable.
     //
     // backgroundUrlForSku already applied basePath; the default is a bare
     // catalogue-style path and still needs it.
     const backgroundPath = equippedBackground || asset(DEFAULT_BACKGROUND_PATH);
-    if (equippedBackground) {
-      document.documentElement.style.setProperty('--site-bg', `url("${backgroundPath}")`);
-      rememberSiteBackground(backgroundPath);
-    } else if (sessionResolved) {
-      document.documentElement.style.removeProperty('--site-bg');
-      rememberSiteBackground(null);
-    }
+    const accent = accentForSku(equippedBackgroundSku);
 
     let cancelled = false;
     const markAppReady = () => {
       if (!cancelled) document.body?.classList.add('app-ready');
     };
 
+    // THE SWAP WAITS FOR THE IMAGE, and the crossfade is what happens after.
+    // Starting the dissolve the moment the session resolves would fade in a
+    // layer pointed at a file the browser has not fetched yet — it would paint
+    // nothing, so the "new" picture would arrive part-way through its own
+    // fade. Preloading first is what makes the dissolve a dissolve.
+    //
+    // Waiting costs an owner nothing on a normal load: the pre-paint script in
+    // _document already put their city up before React existed, a cached image
+    // reports `complete` synchronously, and paintSiteBackground() does not
+    // animate when the target already matches what is painted. What it buys is
+    // the FIRST sign-in on a device, where there is no cached answer.
+    //
+    // IT ONLY HANDS BACK TO THE DEFAULT ONCE THE SESSION HAS RESOLVED. The
+    // first render of every page has no session yet, so running this
+    // unconditionally would dissolve a paying owner's background away to the
+    // stock one and back every single load.
+    const settle = () => {
+      if (cancelled) return;
+      if (equippedBackground || sessionResolved) {
+        paintSiteBackground(backgroundPath, !!equippedBackground, accent);
+      }
+      markAppReady();
+    };
+
+    // An image that never resolves either way leaves the pre-paint value
+    // standing, which is the safe direction: a stale correct background beats a
+    // broken one.
     const backgroundImage = new window.Image();
     backgroundImage.decoding = 'async';
-    backgroundImage.onload = markAppReady;
-    backgroundImage.onerror = markAppReady;
+    backgroundImage.onload = settle;
+    backgroundImage.onerror = settle;
     backgroundImage.src = backgroundPath;
 
-    if (backgroundImage.complete) markAppReady();
+    if (backgroundImage.complete) settle();
 
     return () => {
       cancelled = true;
       backgroundImage.onload = null;
       backgroundImage.onerror = null;
     };
-    // Both deps are plain primitives derived from the session, so this runs
+    // All three deps are plain primitives derived from the session, so this runs
     // once for anonymous visitors and at most twice for a signed-in owner
     // (default, then their image). `app-ready` is additive — the second pass
     // re-adds a class the body already has, it never un-reveals the app.
-  }, [equippedBackground, sessionResolved]);
+    //
+    // A CLIENT-SIDE SIGN-IN RE-RUNS THIS, which it did not used to: the session
+    // it reads is the shared store in components/auth/auth.js, and until
+    // publishSession() existed a fresh sign-in only ever reached home.js's local
+    // copy. That is why an owner had to refresh before their background appeared.
+  }, [equippedBackground, equippedBackgroundSku, sessionResolved]);
 
   // Field Web Vitals → GA4. CrUX shows failures (CLS especially) happening
   // mid-session where Lighthouse's load-only trace can't see them; the

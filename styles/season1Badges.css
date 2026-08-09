@@ -197,14 +197,19 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
 }
 
 
-/* ═══ 3. SEASON 0 PEAK + OG BADGES (publicProfile / user) ══════════════════ */
+/* ═══ 3. OG BADGE (publicProfile / user) ══════════════════════════════════ */
 
-/* A TROPHY SHELF, NOT A CHANGELOG.
+/* A TROPHY, NOT A CHANGELOG.
  *
- * These sit directly under the username on a public profile, so they are chips:
- * icon, number, two-word caption. They previously carried a paragraph of
- * migration prose each, which made a veteran's career high read as release
- * notes. The long copy now lives in the `title` tooltip. */
+ * It sits directly under the username on a public profile, so it is a chip:
+ * icon, two letters, two-word caption. It used to carry a paragraph of
+ * migration prose, which made a veteran's career read as release notes. The
+ * detail now lives in the card below (.s1-ogCard).
+ *
+ * `.s1-badges` stays a flex ROW even though there is one chip in it: the row
+ * centres under the h1 and is where a second badge would go. A career-peak chip
+ * used to sit beside this one and was cut as a duplicate of the card's "Peak
+ * rating" row — see components/publicProfile.js before adding anything back. */
 .s1-badges {
     display: flex;
     flex-wrap: wrap;
@@ -217,8 +222,8 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
-/* Gold-outlined dark glass. No --primary green: these are career marks, not
-   another green button, and the gold ties them to the peak number itself. */
+/* Gold-outlined dark glass. No --primary green: this is a career mark, not
+   another green button, and the gold ties it to the Season 0 numbers it hides. */
 .s1-badge {
     display: flex;
     align-items: center;
@@ -247,27 +252,9 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     min-width: 0;
 }
 
-.s1-badge__value {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 1.35rem;
-    font-weight: 600;
-    line-height: 1.15;
-    letter-spacing: 0.02em;
-    /* Peak and current rating are read as a pair; matched figure widths make
-       the comparison legible instead of ransom-note. */
-    font-variant-numeric: tabular-nums;
-    /* Peak is a trophy: gold, matching the Season 1 notice's peak number exactly
-       so the profile confirms the number the migration modal showed. */
-    color: #ffd700;
-    text-shadow: 0 0 16px rgba(255, 215, 0, 0.22);
-}
-
-/* THE CAPTION IS THE WHOLE SAFETY FEATURE. This number sits one tab from the
-   player's CURRENT rating and the two scales differ by ~12x. A veteran seeing
-   "20,000" against "1,247" with a vague caption reads it as a bug, a rollback,
-   or a theft. It says SEASON 0. Never shorten it to "Peak". */
+/* The caption under "OG". Small, quiet, and never dropped: the chip's own word
+   is two letters, and "WorldGuessr veteran" is the only thing on the closed
+   badge that says what those two letters mean. */
 .s1-badge__label {
     font-size: 0.62rem;
     font-weight: 500;
@@ -275,19 +262,6 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     letter-spacing: 0.1em;
     white-space: nowrap;
     color: rgba(255, 255, 255, 0.55);
-}
-
-.s1-badge__league {
-    flex-shrink: 0;
-    font-size: 0.68rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    color: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 999px;
-    padding: 1px 8px;
-    text-shadow: none;
 }
 
 .s1-badge--og {
@@ -418,7 +392,6 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
         font-size: 1.15rem;
     }
 
-    .s1-badge__value,
     .s1-badge__ogTag {
         font-size: 1.15rem;
     }

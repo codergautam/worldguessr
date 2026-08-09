@@ -7,9 +7,9 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -221,11 +221,7 @@ export default function MapsScreen() {
   return (
     <View style={styles.container}>
       {/* Background */}
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <LinearGradient
         colors={[
           'rgba(0, 0, 0, 0.9)',

@@ -69,6 +69,12 @@ interface Props {
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
 
+  /* NO `myNameGlow` COUNTERPART, deliberately. It used to cross this bridge on
+   * both routes to dress the "Your guess" pin label; that label wears no glow,
+   * because a glow says WHOSE pin this is and your own label says "Your guess",
+   * not a name. Opponents' labels still glow — their sku rides on their entry
+   * in `rounds[].players`, which is inside the payload already. */
+
   // ── live map (route='map') ──────────────────────────────────────────────
   /** The answer/panorama location ({lat,long}); drives reveal + hint. */
   location?: { lat: number; long: number } | null;

@@ -16,7 +16,7 @@ import useStampShop from '@/components/shop/useStampShop';
 import StampsWallet from '@/components/shop/StampsWallet';
 import { nameGlowProps } from './utils/usernameWithFlag';
 
-export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop }) {
     const { t: text, lang } = useTranslation("common");
     // Stamps WALLET only. The storefront moved out of this modal entirely — it
     // is its own surface now (components/shop/ShopModal.js), opened from the
@@ -344,13 +344,15 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                     space-between still puts the title left and
                                     this cluster right (see styles/shop.css).
 
-                                    NO onOpenShop. The storefront is not a page
-                                    in this modal any more, and a link that had
-                                    to close this modal to open another one is
-                                    not a shortcut — the Stamps button on the
-                                    home screen is one tap from here either way.
-                                    The popover keeps its real job: saying where
-                                    Stamps come from. */}
+                                    THE CHIP OPENS THE STOREFRONT (user ruling
+                                    Aug 9), reversing the note that used to sit
+                                    here arguing it should not: pressing a
+                                    balance and getting a paragraph instead of
+                                    the place that spends it is a dead end, and
+                                    "the home screen has a Stamps button" is no
+                                    answer to someone already standing on their
+                                    balance. home.js closes this modal as it
+                                    opens the shop — the two never stack. */}
                                 <div className="shop-header-actions">
                                     {shop.enabled && (
                                         <StampsWallet
@@ -358,6 +360,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                             adFreeMsLeft={shop.adFreeMsLeft}
                                             text={text}
                                             lang={lang}
+                                            onOpenShop={onOpenShop}
                                         />
                                     )}
 

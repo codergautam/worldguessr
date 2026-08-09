@@ -14,7 +14,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ImageBackground,
   ActivityIndicator,
   Alert,
   Animated,
@@ -24,6 +23,7 @@ import {
   Share,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import ReAnimated, {
   Easing as ReEasing,
   FadeIn,
@@ -440,12 +440,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[

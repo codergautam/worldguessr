@@ -1,43 +1,12 @@
-import mongoose from 'mongoose';
 import Game from '../models/Game.js';
 import User from '../models/User.js';
-
-/**
- * Equipped name glow for every account on a page of history, in ONE query.
- *
- * RESOLVED LIVE, NOT READ OFF THE GAME DOCUMENT. A Game is a frozen record of a
- * match; a cosmetic is current identity. Baking the sku in at save time would
- * mean a player's history showed the glow they wore last March — and it would
- * need a migration to backfill anything before today, which is a lot of work to
- * produce the wrong answer.
- *
- * ObjectId.isValid FILTER, not a raw $in. `players.accountId` is a plain string
- * on the Game document (that is how the caller compares it), bots and guests
- * store null, and one malformed legacy value in a page of fifty games would
- * throw a CastError and take the whole history request down with it.
- *
- * Fails to an empty Map: no glows is what this page rendered yesterday, and a
- * decoration must not be able to 500 a history request.
- */
-async function glowsForGames(games) {
-  const ids = new Set();
-  for (const game of games) {
-    for (const p of (game.players || [])) {
-      if (p.accountId && mongoose.Types.ObjectId.isValid(p.accountId)) ids.add(String(p.accountId));
-    }
-  }
-  if (!ids.size) return new Map();
-  try {
-    const users = await User.find({ _id: { $in: [...ids] } })
-      .select('_id cosmetics.equipped.nameGlow')
-      .lean()
-      .maxTimeMS(2000);
-    return new Map(users.map((u) => [u._id.toString(), u.cosmetics?.equipped?.nameGlow || null]));
-  } catch (e) {
-    console.warn('[gameHistory] glow lookup failed (non-critical):', e.message);
-    return new Map();
-  }
-}
+// THE one live-cosmetics join, shared with api/gameDetails.js and
+// api/mod/gameDetails.js. It used to live here privately, which is precisely
+// why the two DETAIL endpoints never got it: this list glowed, opening a row
+// from it did not, and nothing anywhere said the two were the same fact. The
+// whole rationale (live vs frozen, the ObjectId.isValid filter, fail-open)
+// lives in serverUtils/userCosmetics.js.
+import { cosmeticsForGames, cosmeticsReader } from '../serverUtils/userCosmetics.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -98,8 +67,8 @@ export default async function handler(req, res) {
     const hasPrevPage = pageNum > 1;
 
     // One lookup for the whole page, before the synchronous format pass below.
-    const glowByAccountId = await glowsForGames(games);
-    const glowOf = (accountId) => (accountId ? glowByAccountId.get(String(accountId)) || null : null);
+    const cosmeticsOf = cosmeticsReader(await cosmeticsForGames(games));
+    const glowOf = (accountId) => cosmeticsOf(accountId).nameGlow;
 
     // Format games for frontend
     const formattedGames = games.map(game => {

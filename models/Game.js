@@ -81,7 +81,17 @@ const playerSummarySchema = new mongoose.Schema({
     before: { type: Number, default: null },
     after: { type: Number, default: null },
     change: { type: Number, default: null }
-  }
+  },
+
+  // How long this player sat in the ranked queue before this match, in ms.
+  // Ranked duels only; null everywhere else, and null for any game that was
+  // restored from a gamestate save mid-match (the value is stamped at match
+  // creation and does not survive a ws restart).
+  //
+  // This is the ground truth for the queue-ETA feature: ws/queueEta.js predicts
+  // from an in-memory rolling window, and this field is the only way to check
+  // afterwards whether those predictions matched what players actually got.
+  queueWaitMs: { type: Number, default: null }
 }, { _id: false });
 
 const gameSchema = new mongoose.Schema({
@@ -147,6 +157,20 @@ const gameSchema = new mongoose.Schema({
     hostPlayerId: { type: String, default: null },
     maxPlayers: { type: Number, default: 100 }
   },
+
+  // Was this ranked duel a rating-v2 PLACEMENT match (a new account's one
+  // seeding game against a deliberately-throwing bot)?
+  //
+  // WHY THE SAVED GAME HAS TO KNOW. A placement does not TRANSFER rating, it
+  // SEEDS it: the player's rating is overwritten with placementSeed(), which is
+  // a pure function of their own round scores. So `elo.change` on this doc is
+  // not a duel result and must not be read as one. Without this flag the row is
+  // indistinguishable from an ordinary game in history, and every surface that
+  // renders `change` shows a placement as a win or a loss that never happened.
+  //
+  // Defaults false, so every pre-existing document reads correctly as "not a
+  // placement" with no backfill.
+  placement: { type: Boolean, default: false },
 
   // Version and metadata
   gameVersion: { type: String, default: '1.0' }, // for future compatibility

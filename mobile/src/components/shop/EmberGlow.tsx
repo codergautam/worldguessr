@@ -12,7 +12,7 @@ import Animated, {
 /* ===========================================================================
  *  THE EMBER — `fx: 'ember'` from src/shared/emotes.ts, drawn on this platform.
  *
- *  ONE EMOTE HAS ONE, and that is the point: the skull costs 1000 Stamps against
+ *  ONE EMOTE HAS ONE, and that is the point: the skull costs 200 Stamps against
  *  a ladder that otherwise stops at 150, so it has to look like the top of the
  *  ladder wherever it appears. Every surface that draws that glyph mounts this
  *  behind it — the shop's wheel cell, the shop's shelf card, the in-game picker

@@ -46,6 +46,13 @@ export default class Player {
     this.disconnected = false;
     this.disconnectTime =0;
 
+    // Location ids served to this player in recent duels, oldest first (see
+    // shared/locations/repeatGuard.js). Capped at SERVER_CAP = 10 matches,
+    // measured at ~1.1KB per player, and it dies with the Player. The
+    // matchmaker unions both sides' rings so back-to-back duels cannot land on
+    // the same spot. In memory only: nothing about it is persisted or sent.
+    this.recentLocs = [];
+
     // Server-driven duel bot (ws stays null). Gates the tickBots lifecycle
     // sweep + guess driver, and exempts them from human-only paths
     // (player counts, restart-recovery reconnect bookkeeping).
@@ -141,6 +148,33 @@ export default class Player {
     newElo = RATING_V2 ? clampRating(newElo) : Math.max(MIN_ELO, Math.round(newElo));
     this.elo = newElo;
     this.league = getLeague(newElo).name;
+
+    // MIRROR THE DB $inc, OR THE K SCHEDULE NEVER STEPS.
+    //
+    // api/eloRank.js setElo() increments `ratedGames` on the document for every
+    // rated game. Nothing was incrementing it HERE, and here is what the
+    // matchmaker actually reads: ws.js stampRatingV2() takes its K inputs from
+    // `p1.ratedGames` / `p2.ratedGames` on these in-memory Player objects,
+    // precisely so pairing costs no database round trip.
+    //
+    // The field was only ever written at verify() and on the reconnect refresh,
+    // so it was pinned to its login value for the whole session. A player
+    // sitting at 29 rated games who played 100 in one sitting played ALL of
+    // them at K_NEW (40) instead of stepping to K_MID at 31 and K_VET at 101 —
+    // four times the intended volatility, for as long as the socket stayed up.
+    // Migrated veterans backfilled to 70 never reached K_VET without
+    // reconnecting.
+    //
+    // Zero-sum was never at risk (pairK hands both sides the same K), but the
+    // taper is the entire point of the schedule.
+    //
+    // Placements and bot games do NOT come through here — they book counters
+    // via Game.applyUnratedCounters() with rated:false — so this matches the
+    // `rated` default in api/eloRank.js: rated unless the caller says otherwise.
+    if (RATING_V2 && (gameData?.rated ?? true)) {
+      this.ratedGames = (Number(this.ratedGames) || 0) + 1;
+    }
+
     setElo(this.accountId, newElo, gameData);
 
     this.send({

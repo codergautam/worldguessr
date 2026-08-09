@@ -1,5 +1,7 @@
 import Game from '../models/Game.js';
 import User from '../models/User.js';
+import { cosmeticsForGames, cosmeticsReader } from '../serverUtils/userCosmetics.js';
+import { stampReceiptForGame } from '../serverUtils/stamps/gameReceipt.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -38,6 +40,15 @@ export default async function handler(req, res) {
     if (!game) {
       return res.status(404).json({ message: 'Game not found or access denied' });
     }
+
+    // One lookup for the whole roster, before the synchronous format pass.
+    const cosmeticsOf = cosmeticsReader(await cosmeticsForGames([game]));
+
+    // What this game paid the VIEWER, rebuilt from the ledger. Scoped to the
+    // requester on purpose even for mods: a receipt is one player's wallet, not
+    // part of the match record, and there is no screen that shows someone
+    // else's. Null when nothing was paid — the row then does not render at all.
+    const stampsEarned = await stampReceiptForGame(user._id.toString(), game.gameId);
 
     // Format the game data for roundOverScreen
     const formattedGame = {
@@ -113,11 +124,23 @@ export default async function handler(req, res) {
         finalRank: player.finalRank,
         // Team assignment for team modes ('a' | 'b'); null on solo modes.
         team: player.team ?? null,
-        elo: player.elo
+        elo: player.elo,
+        // Equipped cosmetics, joined live (see cosmeticsForGame). Without these
+        // two fields historicalGameView's projection into the live gameData
+        // shape read `player.nameGlow ?? null` off something that was never
+        // sent, so EVERY name in a game opened from history rendered plain and
+        // every pin rendered stock — while the history LIST beside it, which
+        // does its own join, glowed correctly.
+        ...cosmeticsOf(player.accountId)
       })),
 
       // Game result
       result: game.result,
+
+      // What the game paid the requesting player, in the SAME shape the live
+      // `stampsEarned` socket message carries ({ total, lines }) so the summary
+      // renders history and live from one code path. Null = nothing paid.
+      stampsEarned,
 
       // Multiplayer info
       multiplayer: game.multiplayer,

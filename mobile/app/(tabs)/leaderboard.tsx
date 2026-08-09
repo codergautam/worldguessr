@@ -6,8 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -225,11 +225,7 @@ export default function LeaderboardScreen() {
   return (
     <View style={styles.container}>
       {/* Background Image */}
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
 
       {/* Dark overlay matching web: rgba(0,0,0,0.9) → rgba(20,26,57,0.8) → rgba(0,0,0,0.9) */}
       <LinearGradient

@@ -305,15 +305,32 @@ export function slotBusyKey(slot) {
   return `slot:${slot}`;
 }
 
-/** Tab order. Anything with no items in it is dropped before render. */
-export const CATEGORY_ORDER = ['background', 'glow', 'marker', 'emote', 'pass'];
+/**
+ * Tab order. Anything with no items in it is dropped before render.
+ *
+ * PINS, THEN GLOWS, THEN BACKGROUNDS — sorted by WHO SEES IT, not by price. A
+ * pin is what every other player watches land on the map; a glow follows your
+ * name into every duel, lobby and leaderboard; a background dresses YOUR OWN
+ * menu and nobody else's. Backgrounds used to open the page because they are
+ * the biggest picture on it, which is a layout argument, and it put the one
+ * category that never appears in a match in front of the two that do.
+ *
+ * IT IS DELIBERATELY NOT PRICE ORDER (backgrounds are 100, pins 200, glows
+ * 500), so do not "fix" it into one. Price sorts the cards INSIDE a shelf; what
+ * the thing is worth showing off sorts the shelves.
+ *
+ * This list is section order on BOTH storefronts: mobile/app/shop.tsx mirrors it
+ * minus 'background' (that client never receives backgrounds). Keep them in step
+ * — the same shop in the same order on both platforms is the whole point.
+ */
+export const CATEGORY_ORDER = ['marker', 'glow', 'background', 'emote', 'pass'];
 
 export const CATEGORY_LABEL_KEY = {
-  background: 'shopCategoryBackgrounds',
-  glow: 'shopCategoryGlows',
   // The catalogue type stays 'marker' (it is on the wire and in the DB); only
   // the shelf label is "Pins".
   marker: 'shopCategoryPins',
+  glow: 'shopCategoryGlows',
+  background: 'shopCategoryBackgrounds',
   emote: 'shopCategoryEmotes',
   pass: 'shopCategoryPasses',
 };
@@ -334,9 +351,9 @@ export const CATEGORY_LABEL_KEY = {
  * One line each. If one ever needs two, the shelf is misnamed.
  */
 export const CATEGORY_DESC_KEY = {
-  background: 'shopCategoryBackgroundsDesc',
-  glow: 'shopCategoryGlowsDesc',
   marker: 'shopCategoryPinsDesc',
+  glow: 'shopCategoryGlowsDesc',
+  background: 'shopCategoryBackgroundsDesc',
   emote: 'shopCategoryEmotesDesc',
   pass: 'shopCategoryPassesDesc',
 };

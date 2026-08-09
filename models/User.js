@@ -1,4 +1,9 @@
 import mongoose from 'mongoose';
+// Re-exported so the many callers that already import User do not each need a
+// second import for the one constant they use beside it. The definition and the
+// reasoning live in components/utils/ratingFlags.js.
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
+export { STARTING_ELO };
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -214,9 +219,15 @@ const userSchema = new mongoose.Schema({
   },
   elo: {
     type: Number,
-    default: 1000,
+    default: STARTING_ELO,
     // 0 is falsy and voids the ranked elo/save gates (ws.js, Game.js);
     // every write path clamps to >= 1, this backstops document validation.
+    //
+    // Deliberately still 1 and NOT the v2 RATING_FLOOR (100): mongoose runs
+    // this validator on document saves, and tightening it would start
+    // rejecting saves of any legacy doc that predates the migration rather
+    // than fixing it. The real v2 floor is enforced at every write path by
+    // clampRating().
     min: 1,
   },
   elo_today: {

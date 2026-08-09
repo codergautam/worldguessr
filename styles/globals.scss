@@ -141,10 +141,32 @@
     line-gap-override: 0%;
 }
 
-:root {
-    --r: 20;
-    --g: 65;
-    --b: 25;
+/* ===========================================================================
+ *  EVERY GRADIENT THAT IS BUILT OUT OF --r/--g/--b, AS A MIXIN.
+ *
+ *  THIS IS A MIXIN AND NOT A PLAIN :root BLOCK BECAUSE OF ONE CSS RULE, and
+ *  getting it wrong produces a half-recoloured menu rather than an error:
+ *  var() inside a custom property is substituted at the element where the
+ *  property is DECLARED, not where it is finally used. Declared on :root,
+ *  --gradTopBase is resolved there, against :root's --r/--g/--b, and every
+ *  descendant inherits the finished green string. Overriding --r further down
+ *  the tree does not reach back and change it.
+ *
+ *  So any scope that wants a different base colour has to RE-DECLARE the whole
+ *  derived chain on itself. This mixin is that chain, included in both places
+ *  so the two can never drift — see .home__content/.hudCorner below.
+ *
+ *  Anything that does NOT read a base colour stays out: --gradRed, --gradBlue
+ *  and --darkTransparent are fixed, and re-emitting them per scope would be
+ *  bytes bought for nothing.
+ *
+ *  TWO BASES, NOT ONE, because the palette has always had two. --r/--g/--b is
+ *  the deep wash the big gradients are cut from; --surfChannels is the lighter
+ *  tone every filled button face and card shadow uses. They are held as bare
+ *  channel lists rather than colours for the same reason: rgba() needs numbers
+ *  to make a per-stop alpha out of them, and a hex cannot be reopened.
+ * ======================================================================== */
+@mixin wg-theme-derived {
     --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.612) 50%, rgba(255,255,255,0) 100%;
     --gradTopBase: rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%;
     --grad1: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
@@ -155,14 +177,66 @@
     --gradDouble: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 15%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(var(--r), var(--g), var(--b), 0.6) 85%, rgba(var(--r), var(--g), var(--b), 1) 100%);
     --gradLight: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.52) 0%, rgba(var(--r), var(--g), var(--b), 0.28) 57%, rgba(255,255,255,0) 100%);
     --gradFull: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.72) 0%, rgba(var(--r), var(--g), var(--b), 0.38) 57%, rgba(var(--r), var(--g), var(--b), 0.3) 100%);
-    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
-    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
     --gradGreenBtn: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 57%, rgba(255, 255, 255, 0) 100%);
 
-    --primary: #245734;
+    --primary: rgb(var(--surfChannels));
+    --primaryTransparent: rgba(var(--surfChannels), 0.85);
+}
+
+:root {
+    /* THE TWO BASE TONES STAY LITERAL GREEN HERE and must never be rewritten
+       to read --acc*. The accent properties are declared on :root too (that is
+       the only place the pre-paint script can reach before any element
+       exists), so wiring them in at this level would repaint the entire site —
+       shop, modals, leaderboard, the in-game HUD — off a menu cosmetic. The
+       opt-in happens one block down, and nowhere else. */
+    --r: 20;
+    --g: 65;
+    --b: 25;
+    --surfChannels: 36, 87, 52;
     --primaryDark: #112b18;
-    --primaryTransparent: rgb(36, 87, 52, 0.85);
+    @include wg-theme-derived;
+
+    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
+    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
     --darkTransparent: rgb(0, 0, 0, 0.4);
+}
+
+/* ===========================================================================
+ *  THE HOME SCREEN WEARS ITS BACKGROUND'S COLOURS. Nothing else does.
+ *
+ *  A player who buys the New York background gets a dark purple photograph,
+ *  and the green menu wash on top of it read as a broken skin rather than a
+ *  purchase. Each background therefore carries a three-tone palette
+ *  (shared/shop/catalog.js), lib/siteBackground.js writes it to <html> as the
+ *  --accWashR/G/B, --accSurfR/G/B and --accDeep properties, and these two
+ *  containers are the ONLY things in the codebase that read them.
+ *
+ *  WHY THESE TWO SELECTORS AND NOT `main.home`: .home exists for the whole
+ *  session — it wraps the Street View pano and every screen of the game — so
+ *  scoping there would drag the tint straight into gameplay. .home__content is
+ *  rendered only while screen === "home" (components/home.js) and .hudCorner
+ *  only on home and the matchmaking queue (components/ui/hudCorner.js), which
+ *  is the queue sitting on the same photograph and is correct rather than a
+ *  leak. Between them they contain every green pixel on the menu.
+ *
+ *  THE FALLBACKS ARE THE GREEN VALUES VERBATIM, which is what makes this free:
+ *  with nothing equipped — very nearly every visitor — this block computes to
+ *  exactly what :root already said, and an unequip needs no reset rules.
+ *
+ *  Deliberately NOT retinted, because they are status and not chrome: the
+ *  ranked red, the 2v2 pink, the daily streak pill, the singleplayer hover,
+ *  and the WS connection dot (which is a child of .navbar, so this scope
+ *  structurally cannot reach it even though it looks like part of the corner).
+ * ======================================================================== */
+.home__content,
+.hudCorner {
+    --r: var(--accWashR, 20);
+    --g: var(--accWashG, 65);
+    --b: var(--accWashB, 25);
+    --surfChannels: var(--accSurfR, 36), var(--accSurfG, 87), var(--accSurfB, 52);
+    --primaryDark: var(--accDeep, #112b18);
+    @include wg-theme-derived;
 }
 
 
@@ -1382,8 +1456,14 @@ html {
         background-color 0.25s ease;
 }
 
+/* WAS a hardcoded #2c6a3f, which is --primary times 1.22 and nothing else.
+   Spelt as a brightness filter instead of a second colour so the hover follows
+   whatever palette the home screen is wearing — a literal here stayed green
+   under a purple button. Same idiom as .stampsTile:hover, which already
+   brightens rather than reskins. */
 .accountBtn:not(.loggedIn):hover {
-    background: #2c6a3f;
+    background: var(--primary);
+    filter: brightness(1.22);
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
     transform: translateY(-1px) scale(1.02);
 }
@@ -1396,7 +1476,7 @@ html {
 .accountBtn:not(.loggedIn):focus-visible {
     outline: none;
     box-shadow:
-        0 0 0 3px rgba(36, 87, 52, 0.55),
+        0 0 0 3px rgba(var(--surfChannels), 0.55),
         0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
@@ -1948,11 +2028,12 @@ h1, h2, h3, span, label {
 // .timer is deliberately NOT here: its shown flag round-trips at round
 // boundaries and the entrance replayed every time (see .timer above).
 // .hudCorner is ONE entry for the whole top-right column — the card, the login
-// button and the Maps button enter together because their container does. It
+// button and the stamps tile enter together because their container does. It
 // replaces four separate entries (.navbar .accountBtn, the fixed .friendBtn,
-// .leagueBtn, .daily-community-maps-btn), two of which never actually ran this
-// animation: .leagueBtn's own `animation: bounce` was declared later in this
-// file and won, so the corner visibly disagreed with itself on every open.
+// .leagueBtn, and the Maps button that has since moved to the footer), two of
+// which never actually ran this animation: .leagueBtn's own `animation: bounce`
+// was declared later in this file and won, so the corner visibly disagreed with
+// itself on every open.
 .navbar .navBtn,
 .navbar .friendBtn,
 .hudCorner,
@@ -4991,8 +5072,8 @@ canvas.streetview.dragging {
  *  shadows give the tight core and the loose bloom, and they compose with the
  *  existing drop-shadow on .emoteFloatGlyph rather than fighting it.
  *
- *  EMBER: the skull, the one thing in the shop that costs a real grind (1000
- *  Stamps against a ladder that stops at 150). Cursed-fire orange breathing into
+ *  EMBER: the skull, the top of the emote shelf (200 Stamps against a ladder
+ *  that otherwise stops at 150). Cursed-fire orange breathing into
  *  red, plus a slow rise-and-fall, so it is unmistakably not one of the
  *  50-Stamp faces beside it. Composited properties only (filter and transform),
  *  because in game there can be several of these on screen over a live pano. */

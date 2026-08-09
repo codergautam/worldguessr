@@ -17,11 +17,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   Animated,
   Easing,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -120,12 +120,7 @@ export default function PartyCreateScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[

@@ -18,9 +18,9 @@
  *
  *  A cross-fade between two fixed layers reads as MOVEMENT, and which movement
  *  depends on what differs between them:
- *    different OFFSET  -> the light travels          (Comet Orbit)
- *    different COLOUR  -> the hue sweeps             (Prism Cycle)
- *    different RADIUS  -> the halo breathes          (Living Flame)
+ *    different OFFSET  -> the light travels          (Comet)
+ *    different COLOUR  -> the hue sweeps             (Prism)
+ *    different RADIUS  -> the halo breathes          (Blaze)
  *
  *  RULES CARRIED OVER FROM THE WEB FILE, because they are about the eye and not
  *  about CSS:
@@ -50,6 +50,21 @@
  *      for the dark HUD is invisible on the white between-rounds cards, and the
  *      mid-band tone that reads there looks like dirt on black. Every sku below
  *      ships both.
+ *
+ *   5b. AND IT IS ITS OWN AMPLITUDE, MUCH QUIETER THAN THE DARK ONE — PULLED IN
+ *      TWICE, OFF THE SAME REPORT. Round one took roughly 30% of the radius and
+ *      a third of the peak opacity ("the glows are too strong on white, like on
+ *      pins"); round two took another ~25% off the wide layers, because the
+ *      guess-pin tooltips were still where it showed. Cumulatively every light
+ *      table is about HALF the radius it shipped with. A dark HUD name floats on
+ *      a big sheet of glass a halo can bloom into; the light surfaces are SMALL
+ *      white cards, so a halo carrying the dark side's amplitude stops reading
+ *      as a halo and starts reading as the name leaking. The trim always comes
+ *      out of the WIDE washing layers — never out of a spark, a point or a core,
+ *      which are the small dense marks that make one sku tell apart from
+ *      another. Judge a light table on a between-rounds card, never next to its
+ *      dark twin. And when it is still too loud, take the RADIUS down before the
+ *      opacity: a fainter wash of the same size is still a wash of that size.
  *
  *  WHEN A SKU'S COLOURS CHANGE IN shared/shop/catalog.js, they change here and
  *  in src/shared/cosmetics.ts in the same commit. Three tables, one fact.
@@ -91,7 +106,7 @@ export interface GlowAnim {
 const MAX_LAYERS = 8;
 
 /* ---------------------------------------------------------------------------
- *  COMET ORBIT — glow_orbit_comet, 3,000
+ *  COMET — glow_orbit_comet, 3,000
  *
  *  A bright, tight point of light travels around the name while a soft indigo
  *  halo stays centred and still. Nothing else in the app moves like this, which
@@ -150,19 +165,22 @@ const ORBIT_DARK: GlowAnim = {
 // On white, a near-white point is nothing at all, so the travelling light is the
 // sku's own indigo tightened to 2px — it reads as a point beside dark glyphs
 // rather than as a bruise. Same six-step walk, same window. The halo pulls in to
-// 12px because a light surface has no bloom to fight: the halo is DARKER than
+// 10px because a light surface has no bloom to fight: the halo is DARKER than
 // the card, so it is legible at a radius where a dark-surface glow is still
 // building, and going wider is how a halo turns into a smudge over black text.
+// THE ORBITING POINTS KEPT EVERY NUMBER through BOTH times the light tier came
+// down (rule 5b); only the still halo moved, 12px/0.25 -> 10px/0.19 -> 8px/0.14.
+// A 2px point is the item, not the wash.
 const ORBIT_LIGHT: GlowAnim = {
   durationMs: 4800,
   layers: [
-    { color: '#4531F6', radius: 12, dx: 0, dy: 0, at: 0, window: 1, peak: 0.25, always: true },
+    { color: '#4531F6', radius: 8, dx: 0, dy: 0, at: 0, window: 1, peak: 0.14, always: true },
     ...orbitPoints('#4531F6', 2, 1),
   ],
 };
 
 /* ---------------------------------------------------------------------------
- *  PRISM CYCLE — glow_cycle_prism, 2,500
+ *  PRISM — glow_cycle_prism, 2,500
  *
  *  The whole colour wheel, walked once every 4.4s.
  *
@@ -217,18 +235,24 @@ const PRISM_DARK: GlowAnim = {
 // Lightness is not what makes a colour visible against white; CHROMA is, and
 // chroma is what a colour loses on its way to black. Radii pull in for the same
 // reason the comet's do.
+// 4.5/7.5 AT 0.46, DOWN FROM 6/10 AT 0.62, ITSELF DOWN FROM 8/15 AT 0.9 (rule
+// 5b). This was the loudest sku in the light tier on both platforms — a wide,
+// near-opaque bloom on a white card — and it stayed the loudest after the first
+// trim, which is why it got a second. The BREATH is what survives both:
+// tight-to-wide is still a 1.67x radius swing, so the halo pumps four times a
+// lap exactly as before. It just does it inside the card instead of across it.
 const PRISM_LIGHT: GlowAnim = {
   durationMs: 4400,
   layers: hueWheel(
     ['#F631C5', '#F63163', '#F65F2C', '#DCA809', '#9CC520', '#12D343', '#09A8DC', '#6331F6'],
-    8,
-    15,
-    0.9,
+    4.5,
+    7.5,
+    0.46,
   ),
 };
 
 /* ---------------------------------------------------------------------------
- *  LIVING FLAME — glow_ember_flame, 2,500
+ *  BLAZE — glow_ember_flame, 2,500
  *
  *  A warm halo breathing unevenly, throwing sparks. The upward bias is the
  *  entire difference between "a fire" and "a name with twinkles on it", so both
@@ -271,12 +295,17 @@ const FLAME_DARK: GlowAnim = {
 // Mid-band orange and gold rather than the deep end of those hues: the light
 // palette used to be three browns a few degrees apart at partial opacity over a
 // white card, which is a fire you can only find by being told it is there.
+// THE BREATH CAME IN TWICE, THE SPARKS NEVER DID (rule 5b): 4/7.5/5px at
+// 0.42/0.46/0.38, down from 5/10/6.5px at 0.55/0.6/0.5, itself down from
+// 7/15/9px at 0.8/0.9/0.75. A spark is 1.5-2px and off-centre, so it was never
+// part of what read as "too strong on white" — the wide warm wash was, and it
+// took two passes to get that wash inside the card.
 const FLAME_LIGHT: GlowAnim = {
   durationMs: 4600,
   layers: [
-    { color: '#DC6409', radius: 7, dx: 0, dy: 0, at: 0, window: 0.55, peak: 0.8 },
-    { color: '#DCA409', radius: 15, dx: 0, dy: 0, at: 0.27, window: 0.55, peak: 0.9 },
-    { color: '#F0660A', radius: 9, dx: 0, dy: 0, at: 0.62, window: 0.55, peak: 0.75 },
+    { color: '#DC6409', radius: 4, dx: 0, dy: 0, at: 0, window: 0.55, peak: 0.42 },
+    { color: '#DCA409', radius: 7.5, dx: 0, dy: 0, at: 0.27, window: 0.55, peak: 0.46 },
+    { color: '#F0660A', radius: 5, dx: 0, dy: 0, at: 0.62, window: 0.55, peak: 0.38 },
     { color: '#C2410C', radius: 1.5, dx: 3.5, dy: -6, at: 0.15, window: 0.22, peak: 1 },
     { color: '#A8380A', radius: 2, dx: -4.5, dy: -5, at: 0.55, window: 0.22, peak: 1 },
   ],

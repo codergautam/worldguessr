@@ -90,20 +90,45 @@ export function nameGlowShadow(sku, surface = GLOW_DARK) {
   // right against the letterform and the wider translucent layers carry it
   // outward from something that is already unambiguously coloured.
   //
-  // The light stack is the SAME FOUR LAYERS, shorter: 18px of total reach
-  // against the dark stack's 24, and alphas that fall away faster (CC/66/33
-  // against E6/80/40). A light surface needs less reach because it has no
-  // bloom to fight — the halo is darker than the card, so it is legible at a
-  // radius where a dark-surface glow would still be building. Going wider here
-  // is how a halo turns into a smudge over black text. Both numbers stay well
-  // under the 32px painted-radius contract styles/nameGlow.css documents.
+  // The light stack is the SAME FOUR LAYERS, much shorter: 9px of total reach
+  // against the dark stack's 24, and alphas that fall away far faster
+  // (8C/2E/12 against E6/80/40). A light surface needs less reach because it
+  // has no bloom to fight — the halo is DARKER than the card, so it is legible
+  // at a radius where a dark-surface glow would still be building. Going wider
+  // here is how a halo turns into a smudge over black text. Both numbers stay
+  // well under the 32px painted-radius contract styles/nameGlow.css documents.
+  //
+  // IT HAS NOW BEEN PULLED IN TWICE, OFF THE SAME REPORT, AND THE SECOND PASS IS
+  // THE INTERESTING ONE. It started at 5/11/18px at CC/66/33, came to
+  // 4/8/13px at A6/40/1A ("the glows are too strong on white, like on pins"),
+  // and is now 3.5/6/9px at 8C/2E/12 because that was still too strong on the
+  // one surface that matters most. THE JUDGING SURFACE IS THE SMALLEST ONE: a
+  // Leaflet guess-pin tooltip is a ~90x22px white box, so any layer whose radius
+  // approaches the box's own half-height stops being a halo around the label and
+  // becomes the label bleeding out past every edge of the chrome — and three of
+  // those on one results map is fog rather than four names. 9px of reach on a
+  // ~13px cap-height name is a rim that hugs the glyphs; 13px was not.
+  //
+  // THE LESSON, IF THIS EVER READS TOO STRONG AGAIN: the number that offends is
+  // the OUTERMOST radius, not the alpha ladder. Halving alpha on a wide layer
+  // leaves a wash of the same SIZE, just fainter, and a faint wash the size of
+  // the tooltip still reads as leakage. Pull the radius in first, then take the
+  // alpha down to match.
+  //
+  // THE FIX CAME OUT OF THE WIDE LAYERS AND NOT THE CORE, which is rule 3b in
+  // styles/nameGlow.css and is the whole reason this still looks like nine
+  // different items. The 2px innermost ring stays FULLY OPAQUE: it is what pins
+  // the hue against the letterform, and the moment it goes translucent over a
+  // white card every sku resolves toward the card and turns into the same grey
+  // rim. Softening a light halo means less REACH and less alpha further out,
+  // never a paler edge.
   //
   // The light branch emits NO black legibility layer: light surfaces draw dark
   // text, where a black drop shadow is dirt rather than legibility. The dark
   // branch's trailing `0 2px 4px rgba(0,0,0,0.85)` is the shadow `.player-name`
   // already carries, restated because text-shadow does not merge.
   return surface === GLOW_LIGHT
-    ? `0 0 2px ${c}, 0 0 5px ${c}CC, 0 0 11px ${c}66, 0 0 18px ${c}33`
+    ? `0 0 2px ${c}, 0 0 3.5px ${c}8C, 0 0 6px ${c}2E, 0 0 9px ${c}12`
     : `0 0 2px ${c}, 0 0 6px ${c}E6, 0 0 14px ${c}80, 0 0 24px ${c}40, 0 2px 4px rgba(0,0,0,0.85)`;
 }
 

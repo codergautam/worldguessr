@@ -454,9 +454,10 @@ async function handleCatalog(res, user, platform) {
   const owned = new Set(user?.cosmetics?.owned || []);
 
   const items = SHOP_CATALOG
-    // PLATFORM FILTER: backgrounds are ['web'] for v1 because the mobile app
-    // bundles a static background and never reads /backgrounds/*.webp. Showing
-    // mobile an image it cannot render is selling nothing.
+    // PLATFORM FILTER. Every category ships to both storefronts today —
+    // backgrounds were the last web-only row and joined mobile once the app
+    // could load a remote WebP. The filter stays because the rule it enforces
+    // has not changed: a client must never be sold an asset it cannot render.
     .filter((item) => (item.platforms || []).includes(platform))
     .filter((item) => {
       const override = overrides.get(item.sku);
@@ -482,6 +483,11 @@ async function handleCatalog(res, user, platform) {
         // here never reaches either storefront — which is how `region` used to
         // look present and render nothing.
         cc: item.cc ?? null,
+        // Backgrounds only: the three-tone palette the home screen recolours
+        // itself to. Sent whole rather than flattened because both clients
+        // read it by name (deep/wash/surface), and mobile has no catalogue of
+        // its own to fall back on for a shelf it is rendering live.
+        accent: item.accent ?? null,
         animated: item.animated ?? null,
         glowDark: item.glowDark ?? null,
         glowLight: item.glowLight ?? null,

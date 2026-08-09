@@ -70,11 +70,54 @@
  *  container breathe.
  * ======================================================================== */
 
+/* THE CURRENCY MARK, EVERY SURFACE, ONE SIZE.
+ *
+ * <StampMark> (components/shop/StampMark.js) is public/stamp.png. There is no
+ * per-surface sizing class any more and there should not be one again: five of
+ * them existed (18px wallet chip, 30px shop rail, 14px price row, 1.05em home
+ * tile, 20px receipt, each with its own media-query variant), which is five
+ * numbers to re-tune every time the mark is judged too small — and it was
+ * judged too small twice.
+ *
+ * ONE TOKEN IS THE WHOLE CONTROL. --stampMarkSize is the size the shop rail
+ * wallet already shipped at, adopted as the floor everywhere because that is
+ * the size the mark reads at: it is a little illustration with an outline, a
+ * perforated border and three strokes inside it, not an abstract glyph, and
+ * below roughly this it stops being a picture of anything. Surfaces that used
+ * to be smaller GREW to hold it rather than shrinking the mark back down —
+ * .stampsTile's height in playerCard.css and .stamps-earned's reservation in
+ * duel.css both derive from this number, so changing it here moves them
+ * together.
+ *
+ * object-fit because the art is 300x349, not square: the box is square so the
+ * mark occupies the same footprint whatever the artwork is later replaced by,
+ * and contain is what stops that box squashing it. */
+/* THE DIGITS ARE PART OF THE MARK, so they are derived from it and never set by
+ * hand. A balance beside a 45px stamp at the 13px the price row used to run at
+ * does not read as "45 stamps", it reads as a stamp with a footnote — every
+ * number that sits next to this mark was tuned against the old ring glyph and
+ * every one of them was left behind when the mark grew. Ratios, so there is
+ * still ONE number to turn: 0.62 puts the digits' cap height at roughly the
+ * stamp's inner panel, and the unit label ("STAMPS", "ELO"-style chrome) sits
+ * at 0.36 so it stays subordinate to the figure it labels. */
+:root {
+    --stampMarkSize: 45px;
+    --stampValueSize: calc(var(--stampMarkSize) * 0.62);
+    --stampUnitSize: calc(var(--stampMarkSize) * 0.36);
+}
+
+.stampMark {
+    width: var(--stampMarkSize);
+    height: var(--stampMarkSize);
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
 /* THE PALETTE, AND IT IS THE WHOLE PALETTE.
  *
- * On :root rather than on .shop because the wallet chip and its popover render
- * inside the ACCOUNT modal, a completely different subtree — one shop, one set
- * of surfaces, wherever a piece of it happens to be mounted.
+ * On :root rather than on .shop because the wallet chip renders inside the
+ * ACCOUNT modal, a completely different subtree — one shop, one set of
+ * surfaces, wherever a piece of it happens to be mounted.
  *
  * The ladder is deliberate and the gaps are even: each step is ~11 sRGB units,
  * which at this end of the curve is a difference you can see on a phone in
@@ -127,7 +170,9 @@
  *  WALLET
  * ----------------------------------------------------------------------- */
 .wallet {
-    position: relative;
+    /* No `position: relative`. It was here to be the popover's containing
+       block; both remaining children (the chip and the ad-free pill) are
+       ordinary flex items. */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -156,26 +201,20 @@
     transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
-.wallet__chip:hover,
-.wallet__chip--open {
+/* `.wallet__chip--open` went with the popover — the chip has no open state to
+   paint any more, it is a link to the storefront. */
+.wallet__chip:hover {
     border-color: #4ade80;
     transform: translateY(-1px);
 }
 
-.wallet__mark {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    color: #ffd700;
-}
-
 .wallet__value {
-    font-size: 1.05rem;
+    font-size: var(--stampValueSize);
     font-variant-numeric: tabular-nums;
 }
 
 .wallet__unit {
-    font-size: 0.72rem;
+    font-size: var(--stampUnitSize);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -218,52 +257,14 @@
     font-variant-numeric: tabular-nums;
 }
 
-.wallet__popover {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    width: min(300px, 78vw);
-    padding: 14px 16px;
-    /* Raised, flat and OPAQUE — it is a thing that pops up over other chrome,
-       so it has to be a surface. It used to be the same 135deg green-black wash
-       the account modal behind it was already painting, which is a gradient on
-       a gradient at two different scales: the popover read as a smudge on the
-       modal rather than as a panel above it. */
-    background: var(--shopRaise);
-    border: 1px solid var(--shopLine);
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
-    /* .account-modal-close claims z-index 1000; the popover has to clear it. */
-    z-index: 1001;
-    text-align: left;
-}
-
-.wallet__popoverTitle {
-    margin: 0 0 6px 0;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #fff;
-}
-
-.wallet__popoverBody {
-    margin: 0;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: rgba(255, 255, 255, 0.72);
-}
-
-.wallet__popoverLink {
-    margin-top: 10px;
-    padding: 0;
-    background: none;
-    border: none;
-    color: #4ade80;
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: underline;
-}
+/* (Removed) THE WALLET POPOVER — `.wallet__popover`, its title, body and the
+ * "open the shop" link inside it. The chip now opens the storefront directly
+ * (user ruling Aug 9), so there was no trigger left for any of it.
+ *
+ * Nothing was lost with it: the "ranked duels only" explanation it existed to
+ * give is on the storefront's own balance pill (`.shopWallet__how` below),
+ * reading the SAME two strings — which is precisely the surface the chip now
+ * takes you to. */
 
 /* (Removed) THE HOME HUD ROW and the Stamps home button.
  *
@@ -294,20 +295,39 @@
 
    `:has()` and not a body class, because it has to be EXACTLY this modal: the
    expensive-purchase confirmation is itself a ui/Modal rendered inside this
-   one, and a body-level flag would blow that little dialog up to 1100px too.
+   one, and a body-level flag would blow that little dialog up to 1800px too.
    The child combinators make the match structural — the outer card is the only
    one whose .modal-content directly contains .shop.
 
    Specificity is 0-3-0, which clears ui/Modal's own styled-jsx rules (0-2-0)
    without !important and without depending on injection order. Where :has() is
    unsupported the shop simply renders in the stock 500px card: narrower, fully
-   usable, never broken. */
+   usable, never broken.
+
+   1100px -> 1800px: ON A 1080p DESKTOP THE SHOP WAS USING 58% OF THE WINDOW and
+   the rest was dimmed page. The cap is not a taste number, it is a column count:
+   1800 leaves the goods track ~1520px, which is SIX glow cards across (their
+   230px minimum plus a 10px gutter) against three at 1100. The shelves were
+   already elastic — .shop__grid is auto-fill/minmax and the browser picks the
+   count — so nothing below this line needed touching; the grid was simply being
+   handed a third of the screen to fill.
+
+   `100%` is the second term and it is what makes this safe: the modal is
+   width:100% inside a padded .modal-backdrop, so the cap resolves against the
+   window and cannot outgrow it. Do not swap it for a vw unit — a vw includes the
+   scrollbar's width, and on mobile it measures a viewport the browser chrome is
+   still moving, which is the same trap the max-height above avoids.
+
+   THERE IS STILL A CAP, on purpose. Uncapped, an ultrawide gets a shelf ten
+   cards across and a name-glow preview stretched to twice the width of the name
+   it is previewing. If this needs to go wider, raise the number here — it is the
+   only place the storefront's width is decided. */
 .modal-backdrop .modal:has(>.modal-content>.shop) {
-    max-width: min(1100px, 100%);
+    max-width: min(1800px, 100%);
     max-height: min(90vh, 100%);
     /* THE PLATE. ui/Modal paints a 135deg black -> green-black -> black wash at
        0.9-0.95 alpha, which is right for a 500px dialog holding a sentence and
-       wrong for a 1100px stage holding forty-five products: at this size the
+       wrong for an 1800px stage holding forty-five products: at this size the
        ramp is visibly a ramp, the site photograph glows through the middle of
        it, and every card then had to fight that moving ground for contrast.
        Flat and opaque. The backdrop already dims the page to 25%; the panel's
@@ -354,7 +374,7 @@
  *  the same time and could not be either: the balance, which is the number you
  *  check against every price on the page, was 1.1rem of plain text competing
  *  for a line with five buttons, and on any narrow modal the two collided and
- *  wrapped. Meanwhile the widest storefront on the site spent its entire 1100px
+ *  wrapped. Meanwhile the widest storefront on the site spent its entire width
  *  on a single column of cards.
  *
  *  So the two jobs are two objects now, in a column of their own beside the
@@ -453,13 +473,6 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
-.shopWallet__mark {
-    width: 30px;
-    height: 30px;
-    flex-shrink: 0;
-    color: #ffd700;
-}
-
 /* The figure leads and the word sits under it. Side by side, the unit competed
    with the digits for the same line and the number had to shrink to fit. */
 .shopWallet__figures {
@@ -469,7 +482,7 @@
 }
 
 .shopWallet__value {
-    font-size: 1.55rem;
+    font-size: var(--stampValueSize);
     font-weight: 700;
     line-height: 1.08;
     /* The whole reason: this counts DOWN after a purchase, one digit at a time.
@@ -478,15 +491,16 @@
 }
 
 .shopWallet__unit {
-    font-size: 0.62rem;
+    font-size: var(--stampUnitSize);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.11em;
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* WHERE STAMPS COME FROM, on hover over the balance. Same two strings the
-   account modal's wallet popover uses (ShopView.js) — one rule, one wording.
+/* WHERE STAMPS COME FROM, on hover over the balance. This is now the ONLY
+   place that sentence appears — the account modal's wallet popover, the other
+   reader of these two strings, was deleted when its chip became a link here.
 
    CSS-ONLY, and that is the point: no state, no listener, no re-render. The
    balance in this pill is written straight to textContent by a rAF loop during a
@@ -1511,20 +1525,17 @@
 .shopCard__was {
     color: rgba(255, 255, 255, 0.55);
     font-weight: 500;
-    font-size: 0.76rem;
+    /* The old price is a stamps figure too, but a SUBORDINATE one: it rides at
+       the unit label's size so it cannot compete with the number you actually
+       pay, sitting right beside it. */
+    font-size: var(--stampUnitSize);
 }
 
-.shopCard__mark {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-}
-
-/* The CSS restatement of the currency mark that used to live here is gone.
-   Every surface now renders the same <StampMark> component
-   (components/shop/StampMark.js), so there is one drawing and nothing to keep
-   in sync. Do not reintroduce a background-image seal here: sizing the <svg>
-   box is all this stylesheet should ever do for the mark. */
+/* No .shopCard__mark, and no CSS restatement of the currency mark either. Every
+   surface renders the same <StampMark> at the same --stampMarkSize (see the top
+   of this file), so there is one drawing, one size, and nothing to keep in
+   sync. Do not reintroduce a per-surface size class or a background-image seal
+   here. */
 
 .shopCard__ownedTag {
     font-size: 0.8rem;
@@ -1692,9 +1703,15 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* THE PRICE IS A STAMPS FIGURE, so it is sized like every other stamps figure
+   (--stampValueSize) rather than like the button label it shares a class with.
+   Buy is the only .shopCard__btn variant carrying a mark — Equip, Owned and the
+   sign-in stub are words, and words stay at the button's own 0.82rem. */
 .shopCard__btn--buy {
     background: var(--gradGreenBtn);
     border: 2px solid var(--primary);
+    font-size: var(--stampValueSize);
+    font-weight: 700;
 }
 
 /* The background HAS to be restated on hover. `.shopCard__btn:hover:not(:disabled)`
@@ -1880,9 +1897,10 @@
    grey smudge no matter how carefully the palette was tuned.
 
    The ellipsis stays: a username long enough to reach the plate edge is rare
-   (a static card is ~219px of text room at the 1100px modal and ~184px at the
-   tightest point of the six-column range, against ~133px for the 11-character
-   sample name) but it must degrade to "Averylongname…" rather than to a glyph
+   (a static card is ~197px of text room at the 1800px modal — the column count
+   grows with the width, so a wider modal makes cards slightly NARROWER, not
+   wider — and ~184px at the tightest point of the range, against ~133px for the
+   11-character sample name) but it must degrade to "Averylongname…" rather than to a glyph
    cut in half.
 
    THE RELIEF ALSO CAPS THE VERTICAL. 34+34 of padding around a 25px line box is
@@ -2103,14 +2121,9 @@
         border-radius: 14px;
     }
 
-    .shopWallet__mark {
-        width: 22px;
-        height: 22px;
-    }
-
-    .shopWallet__value {
-        font-size: 1.15rem;
-    }
+    /* No .shopWallet__value override: the balance is sized off the mark
+       (--stampValueSize) and the mark does not shrink on a phone, so shrinking
+       the digits under it would just unbalance the pair. */
 
     /* Hidden, not removed: the balance still has to be spoken with its unit. */
     .shopWallet__unit {
@@ -2258,10 +2271,10 @@
         padding: 6px 11px;
     }
 
-    .wallet__value {
-        font-size: 0.95rem;
-    }
-
+    /* The balance does NOT shrink here any more — it is sized off the mark
+       (--stampValueSize) and the mark is one size on every screen. Dropping the
+       unit is still right: "STAMPS" is the first thing worth losing when the
+       header runs out of room, and the aria-label still speaks it. */
     .wallet__unit {
         display: none;
     }

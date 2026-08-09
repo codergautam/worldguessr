@@ -1,7 +1,7 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaBook } from "react-icons/fa";
+import { FaDiscord, FaBook, FaMapMarkedAlt } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
-import { useSession } from "@/components/auth/auth";
+import { publishSession, useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
@@ -27,7 +27,6 @@ import getMyTeam from "@/components/utils/getMyTeam";
 import { DUEL_PANO_ENTER_MS } from "@/components/utils/duelIntroTiming";
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
-import NextImage from "next/image";
 import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
@@ -74,7 +73,6 @@ import AlertModal from "@/components/ui/AlertModal";
 import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import CommunityBanner from '@/components/communityBanner';
-import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
@@ -83,6 +81,8 @@ import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
 import gameStorage from "@/components/utils/localStorage";
+import { markSeenLoc, seenLocs } from "@/components/utils/seenLocations";
+import { isOfficialMapSlug, orderByFreshness } from "@/shared/locations/repeatGuard.js";
 import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -144,30 +144,12 @@ const DUEL_END_EXIT_REVEAL_MS = 160;
 // mobile WS_QUEUE_CONFIRM_TIMEOUT_MS.)
 const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
 
-// Official-country-map repeat guard: /countryLocations responses sit in the
-// CDN/browser cache, so back-to-back games can receive the identical location
-// array. Remember the spots a player actually saw (per country, across
-// sessions) and filter them out of the next fetch. Ring-buffered so old spots
-// eventually come back around.
-const SEEN_COUNTRY_LOCS_CAP = 300;
-// Never filter the array below this: enough for a full game plus the
-// duplicate-latLong while-loop guard. If filtering would go under it, the
-// ring has swallowed the pool — reset it instead of starving the picker.
-const SEEN_COUNTRY_LOCS_MIN_POOL = 20;
-const seenLocsKey = (country) => `seenLocs_${country}`;
-function getSeenCountryLocs(country) {
-    try {
-        return JSON.parse(gameStorage.getItem(seenLocsKey(country))) || [];
-    } catch (e) {
-        return [];
-    }
-}
-function markSeenCountryLoc(country, loc) {
-    const key = `${loc.lat},${loc.long}`;
-    const seen = getSeenCountryLocs(country).filter((k) => k !== key);
-    seen.push(key);
-    gameStorage.setItem(seenLocsKey(country), JSON.stringify(seen.slice(-SEEN_COUNTRY_LOCS_CAP)));
-}
+// Repeat guard, official maps only (World + official country maps). Location
+// responses sit in the CDN/browser cache, so back-to-back games can receive the
+// identical array; the fetched pool is therefore ordered against the spots this
+// player has already seen (see components/utils/seenLocations.js) and every
+// pick site walks that order from the front. Same rule on mobile, same helper.
+const isOfficialMap = (opts) => isOfficialMapSlug(opts?.location);
 
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
@@ -390,6 +372,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         // GA4 recommended names; a fresh account has no
                         // username yet (SetUsernameModal gates on the same).
                         sendEvent(data.username ? "login" : "sign_up", { method: "google" });
+                        // BOTH, and the shared one is not optional. The local
+                        // state below only feeds THIS page; publishSession is
+                        // what tells every other subscriber (pages/_app.js owns
+                        // `--site-bg` off it, so without this an owner keeps the
+                        // stock background until they refresh).
+                        publishSession(data);
                         setSession({ token: data })
                         window.localStorage.setItem("wg_secret", data.secret)
                     } else if (data.error) {
@@ -608,6 +596,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }).then((data) => {
                         if (data.secret && data.username) {
                             // Store full auth data including extended fields (elo, rank, etc.)
+                            // Shared store too — CrazyGames players buy
+                            // backgrounds like everyone else, and useSession()
+                            // never verifies on this path (no wg_secret is
+                            // stored), so this call is the ONLY thing that can
+                            // tell pages/_app.js the session exists.
+                            publishSession(data);
                             setSession({ token: data })
                             // verify the ws
                             window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform(), teamSupport: true });
@@ -1167,6 +1161,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 ).then((res) => res.json()).then((data) => {
                     if (data.secret) {
                         sendEvent(data.username ? "login" : "sign_up", { method: "google" });
+                        // Shared store first, same as the popup flow above.
+                        publishSession(data);
                         setSession({ token: data });
                         window.localStorage.setItem("wg_secret", data.secret);
                     } else if (data.error) {
@@ -2067,7 +2063,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // No ack: the server never queued us. Drop us (a no-op server-side if it
             // never had us), leave the searching screen, and surface the failure.
             try { ws?.send(JSON.stringify({ type: "leaveQueue" })); } catch (e) {}
-            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null }));
+            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null, queuedAt: null, queueEta: null }));
             setScreen("home");
             toast(text("queueJoinFailed") || "Couldn't join the queue. Please try again.", { type: 'error', theme: "dark" });
         }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
@@ -2101,7 +2097,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 ...prev,
                 gameQueued: "publicDuel",
                 nextGameType: undefined,
-                nextGameQueued: false
+                nextGameQueued: false,
+                // Cleared, not stamped: the SERVER's queuedAt arrives on the
+                // queueJoined ack a moment later and is the only value the
+                // timer may run on. Guessing one here would start the clock
+                // before the join is even acknowledged.
+                queuedAt: null,
+                queueEta: null
             }))
             sendEvent("multiplayer_request_ranked_duel")
             ws.send(JSON.stringify({ type: "publicDuel" }))
@@ -2117,7 +2119,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 gameQueued: "unrankedDuel",
                 nextGameType: undefined,
                 nextGameQueued: false,
-                publicDuelRange: null
+                publicDuelRange: null,
+                queuedAt: null,
+                queueEta: null
             }))
             sendEvent("multiplayer_request_unranked_duel")
             ws.send(JSON.stringify({ type: "unrankedDuel" }))
@@ -2640,6 +2644,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         ...prev,
                         gameQueued: false,
                         queueStage: null,
+                        queuedAt: null,
+                        queueEta: null,
                         inGame: true,
                         gameData: {
                             ...prev.gameData,
@@ -2720,6 +2726,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // without it there's no way to tell "queued, waiting" apart from
                 // "server never queued me".
                 clearQueueConfirmWatchdog();
+                // The SERVER's join instant. The elapsed timer is derived from
+                // it on every render against timeOffset rather than counted up
+                // locally, so a throttled background tab can't lose seconds.
+                // Falls back to our own clock only for a server predating this.
+                setMultiplayerState((prev) => ({
+                    ...prev,
+                    queuedAt: typeof data.queuedAt === "number" ? data.queuedAt : Date.now() + timeOffset
+                }));
             } else if (data.type === "enter2v2Queue") {
                 // Server moved us into 2v2 matchmaking — from a lobby's Find
                 // Match, or an auto-requeue after a pre-game cancel.
@@ -2752,6 +2766,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setMultiplayerState((prev) => ({
                     ...prev,
                     publicDuelRange: data.range
+                }))
+            } else if (data.type === "queueEta") {
+                // How long this rating band's queue USUALLY takes, in total,
+                // from the moment you joined — not a countdown. The server
+                // latches it for the session, so it lands once and then only
+                // ever flips state. Ranked only.
+                setMultiplayerState((prev) => ({
+                    ...prev,
+                    queueEta: {
+                        state: data.state,
+                        value: data.value ?? null,
+                        unit: data.unit ?? null,
+                        tier: data.tier ?? null
+                    }
                 }))
             } else if (data.type === "maxDist") {
                 const maxDist = data.maxDist;
@@ -3598,7 +3626,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setMultiplayerState((prev) => {
                 return {
                     ...prev,
-                    gameQueued: false
+                    gameQueued: false,
+                    // publicDuelRange was already leaking here before the queue
+                    // screen existed — the next queue painted the previous
+                    // one's ELO range for a frame. Clear the whole queue slice.
+                    publicDuelRange: null,
+                    queuedAt: null,
+                    queueEta: null
                 }
             });
             setScreen("home")
@@ -3779,57 +3813,50 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             }
                         }
 
-                        // Official country maps: drop spots this player saw in
-                        // recent games — a CDN-cached response would otherwise
-                        // re-serve the exact same array they just played.
-                        if (gameOptions.countryMap && gameOptions.official) {
-                            const seen = new Set(getSeenCountryLocs(gameOptions.countryMap));
-                            if (seen.size > 0) {
-                                const fresh = data.locations.filter((l) => !seen.has(`${l.lat},${l.long}`));
-                                if (fresh.length >= SEEN_COUNTRY_LOCS_MIN_POOL) {
-                                    data.locations = fresh;
-                                } else {
-                                    gameStorage.removeItem(seenLocsKey(gameOptions.countryMap));
-                                }
+                        // Official maps: order the response so spots this player
+                        // has never seen come first, then the ones they saw
+                        // longest ago. Ordering instead of filtering means a
+                        // small pool (Cyprus serves 796 spots) degrades to
+                        // least-recently-seen rather than starving, so a
+                        // player's history never has to be wiped to make room.
+                        const official = isOfficialMap(gameOptions);
+                        const pool = official
+                            ? orderByFreshness(data.locations, seenLocs())
+                            : shuffle(data.locations);
+
+                        // Invariant from here down: allLocsArray holds only
+                        // spots not yet played this session. Every pick site
+                        // removes what it takes, so nothing is handed out twice
+                        // and the walk never has to refetch mid-game.
+                        let idx = official ? 0 : Math.floor(Math.random() * pool.length);
+                        if (!official && pool.length > 1) {
+                            // Community maps pick at random, so the spot in play
+                            // can be re-rolled. Bounded, unlike the old loop: a
+                            // one-location map used to spin here forever.
+                            for (let tries = 0; tries < 20 && latLong &&
+                                pool[idx].lat === latLong.lat && pool[idx].long === latLong.long; tries++) {
+                                idx = Math.floor(Math.random() * pool.length);
                             }
                         }
 
-                        // Fisher-Yates shuffle (unbiased)
-                        for (let i = data.locations.length - 1; i > 0; i--) {
-                            const j = Math.floor(Math.random() * (i + 1));
-                            [data.locations[i], data.locations[j]] = [data.locations[j], data.locations[i]];
-                        }
+                        setAllLocsArray(pool.filter((l, i) => i !== idx));
+                        setLatLong(pool[idx]);
 
+                        if (data.name) {
 
-                        setAllLocsArray(data.locations)
+                            // calculate extent - simple bounding box [minLng, minLat, maxLng, maxLat]
+                            const lngs = data.locations.map(l => l.long);
+                            const lats = data.locations.map(l => l.lat);
+                            const extent = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
 
-                        if (gameOptions.location === "all") {
-                            const loc = data.locations[0]
-                            setLatLong(loc)
-                        } else {
-                            let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+                            setGameOptions((prev) => ({
+                                ...prev,
+                                communityMapName: data.name,
+                                official: data.official ?? false,
+                                maxDist: data.maxDist ?? 20000,
+                                extent: extent
+                            }))
 
-                            while (latLong && loc.lat === latLong.lat && loc.long === latLong.long) {
-                                loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-                            }
-
-                            setLatLong(loc)
-                            if (data.name) {
-
-                                // calculate extent - simple bounding box [minLng, minLat, maxLng, maxLat]
-                                const lngs = data.locations.map(l => l.long);
-                                const lats = data.locations.map(l => l.lat);
-                                const extent = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
-
-                                setGameOptions((prev) => ({
-                                    ...prev,
-                                    communityMapName: data.name,
-                                    official: data.official ?? false,
-                                    maxDist: data.maxDist ?? 20000,
-                                    extent: extent
-                                }))
-
-                            }
                         }
 
                     } else {
@@ -3850,55 +3877,47 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             if (ignoreCache || allLocsArray.length === 0) {
                 fetchMethod()
-            } else if (allLocsArray.length > 0) {
-                const locIndex = (latLong && latLong.lat != null && latLong.long != null)
-                    ? allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long)
-                    : -1;
-                if ((locIndex === -1) || allLocsArray.length === 1) {
-                    // No prior location (or only one left) — pick directly from the preloaded array
-                    // to avoid an unnecessary refetch.
-                    if (!latLong || latLong.lat == null || latLong.long == null) {
-                        setAllLocsArray((prev) => {
-                            if (!isCurrentLocationLoad()) return prev;
-                            if (!prev || prev.length === 0) return prev;
-                            const loc = gameOptions.location === "all"
-                                ? prev[0]
-                                : prev[Math.floor(Math.random() * prev.length)];
-                            setLatLong(loc);
-                            return prev.filter((l) => l.lat !== loc.lat || l.long !== loc.long);
-                        });
-                    } else {
-                        fetchMethod()
-                    }
-                } else {
-                    // prevent repeats: remove the prev location from the array (for both all and community maps)
-                    setAllLocsArray((prev) => {
-                        if (!isCurrentLocationLoad()) return prev;
-                        const newArr = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
-
-                        // Pick next location
-                        const loc = gameOptions.location === "all"
-                            ? newArr[0]  // World map: take first from shuffled remaining
-                            : newArr[Math.floor(Math.random() * newArr.length)];  // Community: random
-
-                        setLatLong(loc);
-                        return newArr;
-                    })
-                }
-
+            } else {
+                // Walk the pool. It only ever holds unplayed spots, so the next
+                // round is just "take one and remove it" — no lookup of the
+                // current location, and no refetch while spots remain.
+                //
+                // The old code looked latLong up in the pool and refetched when
+                // it was missing, which the reveal preloader guaranteed by
+                // removing it. That refetch put every spot already played this
+                // game back into the pool: the actual source of "I got dropped
+                // in the same place twice in one game".
+                setAllLocsArray((prev) => {
+                    if (!isCurrentLocationLoad()) return prev;
+                    if (!prev || prev.length === 0) return prev;
+                    const idx = isOfficialMap(gameOptions) ? 0 : Math.floor(Math.random() * prev.length);
+                    setLatLong(prev[idx]);
+                    return prev.filter((l, i) => i !== idx);
+                });
             }
         }
 
     }
 
-    // Every location a player actually receives on an official country map is
-    // remembered (one latLong choke-point — covers every pick site: fetch,
-    // cached-walk, reserve-during-reveal) so the next /countryLocations fetch
-    // can filter it out. See getSeenCountryLocs.
+    // Every location a player actually lands on, on any official map, is
+    // remembered here. One latLong choke-point covers every pick site: fetch,
+    // cached-walk, reserve-during-reveal, countryGuesser rotate, and
+    // multiplayer rounds pushed by the ws server. One shared ring, so a spot
+    // from a ranked duel will not come back in the next singleplayer game
+    // either. See components/utils/seenLocations.js.
     useEffect(() => {
         if (!latLong || latLong.lat == null || latLong.long == null) return;
-        if (!gameOptions.countryMap || !gameOptions.official) return;
-        markSeenCountryLoc(gameOptions.countryMap, latLong);
+        // clearLocation() parks latLong at the null island on the way back to
+        // the menu. That is not a round.
+        if (latLong.lat === 0 && latLong.long === 0) return;
+
+        if (screen === "multiplayer") {
+            // gameData.map is the server's this.location: "all", a country
+            // code, or a community slug.
+            if (!isOfficialMapSlug(multiplayerState?.gameData?.map)) return;
+        } else if (!isOfficialMap(gameOptions)) return;
+
+        markSeenLoc(latLong);
     }, [latLong]);
 
     // Generate country/continent options when location or submode changes in country guesser mode.
@@ -3932,13 +3951,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setShowCountryButtons(false);
             setAllLocsArray((prev) => {
                 if (!prev || prev.length === 0) return prev;
-                const remaining = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
-                if (remaining.length === 0) return prev;
-                const next = gameOptions.location === "all"
-                    ? remaining[0]
-                    : remaining[Math.floor(Math.random() * remaining.length)];
-                setLatLong(next);
-                return remaining;
+                const idx = isOfficialMap(gameOptions) ? 0 : Math.floor(Math.random() * prev.length);
+                setLatLong(prev[idx]);
+                return prev.filter((l, i) => i !== idx);
             });
             return;
         }
@@ -3986,6 +4001,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // disableEmotes flag is unreadable and the FAB would show dead (server
     // drops emotes in the staging room). In-game surfaces still gate on the
     // server's disableEmotes below.
+    // ── THE TOP-RIGHT COLUMN'S TWO HOMES ──────────────────────────────────
+    // It is the home screen's chrome, and it is ALSO on the matchmaking queue —
+    // waiting for a match is dead time the player is already staring at, and
+    // their rating and tier are what they want to look at while the clock runs.
+    //
+    // But ONLY the card travels. On the queue the column deliberately drops the
+    // Stamps tile, the ad-free chip and the Community Maps button: the shop and
+    // the maps picker are whole screens, and opening one mid-queue means the
+    // match lands behind a modal. USER RULING — "it shouldnt be possible to see
+    // maps page or stamps shop while waiting for queue in ranked".
+    //
+    // The queue term mirrors multiplayerHome.js's queueMode: 2v2 stage 1 is
+    // excluded because it renders inside the lobby card, which has its own
+    // roster and its own corner.
+    const hudCornerOnHome = screen === "home" && onboardingCompleted === true;
+    const hudCornerOnQueue = screen === "multiplayer" && !!multiplayerState?.gameQueued
+        && !(multiplayerState.gameQueued === '2v2' && multiplayerState.queueStage === 'teammate');
+
     const emotesLive = multiplayerState?.inGame;
     // The picker's roster, straight off the session token (api/stampShop.js
     // entitlementFields ships both on every auth response, and useStampShop
@@ -4413,30 +4446,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (cancelled) return;
             if (reservedNextLocRef.current) return;
 
-            const pool = allLocsArrayRef.current || [];
-            const remaining = (latLong?.lat != null && latLong?.long != null)
-                ? pool.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long)
-                : pool.slice();
+            // The pool holds unplayed spots only, so the round in play is
+            // already out of it: reserve one and drop just that one.
+            const remaining = allLocsArrayRef.current || [];
 
             const take = (loc) => {
                 if (cancelled || !loc) return;
                 reservedNextLocRef.current = loc;
-                // Drop both the reserved next AND the round that just ended, so
-                // the ended spot can't reappear after we promote the reservation.
-                const endedLat = latLong?.lat;
-                const endedLong = latLong?.long;
                 setAllLocsArray((prev) =>
-                    (prev || []).filter((l) => {
-                        if (l.lat === loc.lat && l.long === loc.long) return false;
-                        if (endedLat != null && l.lat === endedLat && l.long === endedLong) return false;
-                        return true;
-                    })
+                    (prev || []).filter((l) => l.lat !== loc.lat || l.long !== loc.long)
                 );
                 beginSpPanoPreload(loc, `sp:${loc.lat},${loc.long}`);
             };
 
             if (remaining.length > 0) {
-                const loc = gameOptions.location === "all"
+                const loc = isOfficialMap(gameOptions)
                     ? remaining[0]
                     : remaining[Math.floor(Math.random() * remaining.length)];
                 take(loc);
@@ -4560,6 +4584,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     && (multiplayerState?.gameData?.players?.length ?? 0) <
                         (multiplayerState?.gameData?.maxPlayers ?? (multiplayerState?.gameData?.is2v2Lobby ? 2 : Infinity))
                 } sendInvite={sendInvite} options={options}
+                // The wallet chip in the account header. Close first, then
+                // open: ShopModal is a sibling modal, not a page inside this
+                // one, and two react-responsive-modals open at once would
+                // stack scroll locks and backdrops.
+                onOpenShop={() => { setAccountModalOpen(false); setShopModalOpen(true); }}
             />}
             {/* The Stamps shop. Mounted ONLY while open, which is what tears the
                 ad-free countdown interval down on close — ShopModal plays its
@@ -5006,8 +5035,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     lives inside the navbar to inherit that guard. Without it the
                     login button flashes in the corner for a frame before
                     onboarding takes over. */}
-                {screen === "home" && onboardingCompleted === true && !HIDE_ACCOUNT_UI && (
-                    <HudCorner covered={accountModalOpen || mapModal}>
+                {/* ALSO ON THE MATCHMAKING QUEUE, not just home. Waiting for a
+                    match is dead time the player is already staring at, and the
+                    card is where their rating, tier and Stamps live — so it is
+                    the natural thing to look at while the clock runs. It also
+                    replaces the bare friends icon the navbar used to show here
+                    (see the gate in components/ui/navbar.js): that button had
+                    nothing to do in a matchmade 1v1, and the card's menu already
+                    contains Friends for anyone who wants it.
+                    The queue term mirrors multiplayerHome.js's queueMode — 2v2
+                    stage 1 is excluded because it renders inside the lobby card,
+                    which has its own roster and its own corner. */}
+                {(hudCornerOnHome || hudCornerOnQueue) && !HIDE_ACCOUNT_UI && (
+                    <HudCorner covered={accountModalOpen || mapModal} tight={hudCornerOnQueue}>
                         {session?.token?.secret ? (
                             <PlayerCard
                                 session={session}
@@ -5015,7 +5055,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                 friendRequests={multiplayerState?.friendRequestCount || 0}
                                 onOpenProfile={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                                 onOpenElo={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
-                                onOpenFriends={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
                             />
                         ) : (
                             /* showAccBtn's ?app=true gate, restated: the WebView
@@ -5038,24 +5077,25 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         {/* The balance, as its own tile rather than a fourth
                             cell inside the card. It renders nothing unless the
                             server's kill switch is on and there is a session,
-                            so the column simply closes the gap. */}
-                        <StampsTile session={session} onOpen={() => setShopModalOpen(true)} />
+                            so the column simply closes the gap.
+
+                            HOME ONLY — see hudCornerOnQueue. */}
+                        {hudCornerOnHome && <StampsTile session={session} onOpen={() => setShopModalOpen(true)} />}
 
                         {/* The running ad-free pass, directly under the card
                             that sold it. Renders nothing at all unless a pass is
                             live, which is why it is unconditional here. See
                             components/ui/adFreeChip.js: buying one used to be
                             invisible the moment the shop closed. */}
-                        <AdFreeChip session={session} />
+                        {hudCornerOnHome && <AdFreeChip session={session} />}
 
-                        {/* Community Maps. Not account chrome, and not a game
-                            mode — the picker is already reachable from the
-                            Singleplayer map chip — so it stays its own button
-                            and simply sits under the card. */}
-                        {onboardingCompleted && !inPoki &&
-                            !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
-                            <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
-                        )}
+                        {/* Community Maps LEFT THIS COLUMN — it is a footer
+                            button now. It was never account chrome and never a
+                            game mode; it sat here only because this is where
+                            loose buttons had accumulated, and pairing it with
+                            the stamps tile meant its label had to track a type
+                            size chosen for a currency balance. See .footer_btns
+                            below. */}
                     </HudCorner>
                 )}
 
@@ -5256,9 +5296,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                         )}
 
                                         <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                        {!inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
-                                            <Link target="_blank" href={"https://www.coolmathgames.com/0-worldguessr"} onClick={() => sendEvent("coolmathgames_backlink_click")}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames"><NextImage.default src={asset('/cmlogo.png')} draggable={false} fill sizes="50px" alt="Coolmath Games Logo" className="home__squarebtnicon" /></button></Link>
-                                        )}
+                                        {/* The CoolMathGames backlink used to sit here. It moved
+                                            into the settings footer (settingsModal.js) beside
+                                            GitHub / Terms — it is a credit link, not a thing
+                                            players reach for mid-session, and this row is for
+                                            buttons they do. */}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
@@ -5268,6 +5310,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                     <Link href={"/leaderboard"}>
                                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button>
                                     </Link>
+                                )}
+
+                                {/* COMMUNITY MAPS, and it is ICON-ONLY HERE ON
+                                    PURPOSE. It used to be a labelled pill under
+                                    the player card; .footer_btns forces
+                                    aspect-ratio: 1/1 on its buttons, so a pill
+                                    with a word in it cannot live in this row
+                                    without fighting the rule that makes the row
+                                    a row. The label survives as the aria-label
+                                    and the tooltip, exactly like every other
+                                    button beside it.
+
+                                    Its own gates, not the social block's: those
+                                    hide for the app and CrazyGames, and the map
+                                    picker is wanted in both. */}
+                                {onboardingCompleted && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH
+                                    && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
+                                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label={text("communityMaps")} title={text("communityMaps")} onClick={() => setMapModal(true)}><FaMapMarkedAlt className="home__squarebtnicon" /></button>
                                 )}
 
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
@@ -5354,7 +5414,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     showTimerOption={screen === "singleplayer" || screen === "countryGuesser"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} isApp={isApp} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
 
                 <Modal
                     isOpen={leaveConfirmOpen}
@@ -5521,6 +5581,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         selectCountryModalShown={selectCountryModalShown}
                         setSelectCountryModalShown={setSelectCountryModalShown}
                         inCrazyGames={inCrazyGames}
+                        timeOffset={timeOffset}
                         openFriends={() => { setAccountModalPage('list'); setAccountModalOpen(true); }}
                     />
                 </div>}

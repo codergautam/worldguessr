@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   Animated,
   Easing,
   ScrollView,
@@ -15,6 +14,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,7 @@ import PlayerCard, {
 } from '../../src/components/home/PlayerCard';
 import PlayerSheet from '../../src/components/home/PlayerSheet';
 import { useAuthStore } from '../../src/store/authStore';
+import { useHomeAccent } from '../../src/store/siteBackgroundStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
@@ -175,7 +176,6 @@ function HeaderCorner({
   authLoading,
   onCardPress,
   onLogin,
-  onMapsPress,
   onStampsPress,
 }: {
   /** card = signed in · login = signed out · ghost = blank height reservation ·
@@ -195,21 +195,23 @@ function HeaderCorner({
   authLoading: boolean;
   onCardPress?: () => void;
   onLogin?: () => void;
-  onMapsPress?: () => void;
   onStampsPress?: () => void;
 }) {
   const ghost = variant === 'ghost';
+  // The equipped background's palette, or WorldGuessr green. See useHomeAccent
+  // for why this corner and the menu are the only things that follow it.
+  const accent = useHomeAccent();
   return (
     <View style={styles.headerRight}>
       {variant === 'login' ? (
         <Pressable
           style={({ pressed }) => [
             styles.accountBtn,
+            { backgroundColor: pressed ? accent.primary : accent.primaryTransparent },
             {
               paddingHorizontal: loginMetrics.paddingHorizontal,
               paddingVertical: loginMetrics.paddingVertical,
             },
-            pressed && styles.accountBtnPressed,
             authLoading && styles.accountBtnDisabled,
           ]}
           onPress={onLogin}
@@ -247,9 +249,10 @@ function HeaderCorner({
         />
       )}
 
-      {/* The two small chips, side by side under the card: what you can spend,
-          and where to go. They share a height and a skin so they read as a pair
-          rather than as two more cards.
+      {/* ONE chip under the card now: what you can spend. Community Maps used
+          to sit beside it and is a footer icon button instead — it was never
+          account chrome, and pairing it with the balance meant its label had to
+          track a type size chosen for a currency figure.
 
           THE GHOST RENDERS THE STAMPS TILE TOO. The clone's whole job is to
           reserve one header height for every auth state — if the tile only
@@ -261,21 +264,10 @@ function HeaderCorner({
           visible={showStamps || ghost}
           stamps={stamps}
           animatedStamps={animatedStamps}
-          fontSize={cardMetrics.chipFontSize}
           height={cardMetrics.chipHeight}
           onPress={onStampsPress}
           ghost={ghost}
         />
-        <Pressable
-          style={({ pressed }) => [styles.mapsBtn, { height: cardMetrics.chipHeight }, pressed && styles.mapsBtnPressed]}
-          onPress={onMapsPress}
-          disabled={!onMapsPress}
-          accessibilityRole="button"
-          accessibilityLabel={t('communityMaps')}
-        >
-          <Ionicons name="map" size={cardMetrics.chipFontSize * 1.05} color={colors.white} />
-          <Text style={[styles.mapsBtnText, { fontSize: cardMetrics.chipFontSize }]}>{t('maps')}</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -388,6 +380,10 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
   const updateUser = useAuthStore((s) => s.updateUser);
+  // The equipped background's palette, or WorldGuessr green when nothing is
+  // equipped — which is very nearly everybody, and renders identically to what
+  // this screen hardcoded before the accent existed.
+  const accent = useHomeAccent();
 
   // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
   const dailyStatus = useDailyMenuStatus(secret ?? null);
@@ -830,21 +826,16 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.backgroundImage, { transform: [{ scale: bgScale }] }]}>
-        <ImageBackground
-          source={require('../../assets/street2.jpg')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-        />
+        <SiteBackground style={StyleSheet.absoluteFill}/>
       </Animated.View>
       <View style={styles.darkOverlay} />
+      {/* THE WASH IS THE BACKGROUND'S OWN COLOUR. Green over the stock London
+          photograph; dark purple over New York, ochre over Rome, and so on.
+          This gradient sitting green on top of a purple photograph is the whole
+          reason the accent exists — it read as a broken skin rather than as
+          something somebody had bought. */}
       <LinearGradient
-        colors={[
-          'rgba(20, 65, 25, 0.95)',
-          'rgba(20, 65, 25, 0.8)',
-          'rgba(20, 65, 25, 0.5)',
-          'rgba(20, 65, 25, 0.2)',
-          'transparent',
-        ]}
+        colors={accent.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradientOverlay}
@@ -879,7 +870,6 @@ export default function HomeScreen() {
               authLoading={authLoading}
               onCardPress={() => setPlayerSheetOpen(true)}
               onLogin={handleLogin}
-              onMapsPress={() => handleModePress('communityMaps')}
               onStampsPress={() => router.push('/shop')}
             />
           </View>
@@ -1087,14 +1077,37 @@ export default function HomeScreen() {
             >
               <Ionicons name="logo-youtube" size={24} color="rgba(255,255,255,0.95)" />
             </Pressable>
+            {/* COMMUNITY MAPS, and it is ICON-ONLY HERE ON PURPOSE. It used to
+                be a labelled pill under the player card; this row is square
+                icon buttons, and a pill with a word in it would break the one
+                thing that makes the row read as a row. The label survives as
+                the accessibility label, exactly like every button beside it.
+                Web moved it to .footer_btns the same way. */}
             <Pressable
-              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: pressed ? accent.chromePressed : accent.chrome },
+              ]}
+              onPress={() => handleModePress('communityMaps')}
+              accessibilityRole="button"
+              accessibilityLabel={t('communityMaps')}
+            >
+              <Ionicons name="map" size={24} color="rgba(255,255,255,0.85)" />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: pressed ? accent.chromePressed : accent.chrome },
+              ]}
               onPress={() => router.navigate('/(tabs)/leaderboard')}
             >
               <Ionicons name="trophy" size={24} color="rgba(255,255,255,0.85)" />
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+              style={({ pressed }) => [
+                styles.iconButton,
+                { backgroundColor: pressed ? accent.chromePressed : accent.chrome },
+              ]}
               onPress={() => router.push('/settings')}
               onLongPress={() => setWhatsNewDemo(true)}
               delayLongPress={500}
@@ -1356,15 +1369,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: 'Lexend-Medium',
   },
-  // Account button
+  // Account button.
+  //
+  // NO backgroundColor HERE, and no pressed variant either: both come from
+  // useHomeAccent at the call site, because this corner wears the equipped
+  // background's colour. A literal left in this sheet would win on nothing and
+  // simply be the green that shows for one frame if the accent ever failed to
+  // resolve — a second source of truth for a colour that already has one.
   accountBtn: {
-    backgroundColor: 'rgba(36, 87, 52, 0.85)',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-  },
-  accountBtnPressed: {
-    backgroundColor: 'rgba(36, 87, 52, 1)',
   },
   accountBtnDisabled: {
     opacity: 0.7,
@@ -1380,37 +1395,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     lineHeight: 20,
   },
-  // The web build's .daily-community-maps-btn, in native terms: same green,
-  // same 1.4px dark rim, same icon + label. It is a sibling of the card in the
-  // corner column, so it needs no coordinates of its own.
-  // The two chips under the card sit side by side, not stacked: they are the
-  // small stuff, and a third and fourth full-width row down the corner is how
-  // the clutter got here in the first place.
+  // The row under the card. It held two chips side by side and holds one now:
+  // Community Maps became a footer icon button (see the bottomIcons row), which
+  // is where a button that is neither account chrome nor a game mode belongs.
+  // Kept as a row rather than collapsed into the tile — the corner is a column
+  // of full-width rows and this line is deliberately the small stuff.
   cornerChips: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: CORNER_GAP,
   },
-  mapsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1.4,
-    borderColor: colors.primaryDark,
-    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
-  },
-  mapsBtnPressed: {
-    backgroundColor: colors.primary,
-  },
-  mapsBtnText: {
-    color: colors.white,
-    fontFamily: 'Lexend-Bold',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
+  // (Removed) mapsBtn / mapsBtnText, with the pill they styled. The footer row
+  // styles its own buttons, so there is nothing left to keep in sync with web's
+  // deleted .daily-community-maps-btn.
   // (Removed) friendBtn / pillRow / leagueBtn* / stampsBtn* — the four controls
   // that used to live in this corner. Their layout invariants did NOT go with
   // them; they moved into src/components/home/PlayerCard.tsx: tabular figures
@@ -1461,11 +1458,13 @@ const styles = StyleSheet.create({
   bottomIconsLandscape: {
     paddingBottom: spacing.md,
   },
+  // Fill comes from useHomeAccent at the call site. Discord and YouTube keep
+  // their own brand colours below and override it — those two are not house
+  // chrome, they are logos, and a purple YouTube button would be nonsense.
   iconButton: {
     width: 50,
     height: FOOTER_ICON_HEIGHT,
     borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(20, 65, 25, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -1473,9 +1472,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 7,
     elevation: 8,
-  },
-  iconButtonPressed: {
-    backgroundColor: 'rgba(20, 65, 25, 0.75)',
   },
   iconButtonDiscord: {
     backgroundColor: '#738adb',

@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { FaChevronDown } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 import CountryFlag from '../utils/countryFlag';
 import { nameGlowProps, GlowName } from '../utils/usernameWithFlag';
@@ -23,14 +21,27 @@ import useCountUp from '../utils/useCountUp';
  *  all restating each other, which is what makes a status card read as
  *  machine-generated.
  *
- *  THE TIER NAME IS THE ONLY NEW INFORMATION. The old chip showed the league
- *  emoji alone; "Gold II" was a thing you could only learn by opening a modal.
- *  It fills row 2's left cell, which is what stops the card looking lopsided.
+ *  THE TIER IS SAID TWICE ON ROW 2, AND THAT IS THE POINT: the digits take the
+ *  tier's colour and the badge after "ELO" repeats it as a glyph. The colour is
+ *  what carries across a glance at the corner of the screen; the emoji is what
+ *  keeps it readable for anyone who cannot separate bronze from gold. Spelling
+ *  the tier out in words as well ("Voyager") was tried and removed — that is a
+ *  fourth fact on a chip that lives in the corner of a game.
  *
- *  ONE PRESS TARGET. The whole card opens the menu. Splitting the Stamps cell
- *  back out into its own button (to keep the shop one click away) is a contained
- *  change if it ever needs making — but a card with three invisible hit regions
- *  is the clutter we just deleted, in a smaller box.
+ *  NO DROPDOWN. The card used to open a three-item popover (ELO / Profile /
+ *  Friends). It is now two direct targets, by owner ruling:
+ *      anywhere on the card  ->  Profile
+ *      the rating line       ->  ELO
+ *  and Friends is deliberately NOT one click from here — it lives inside the
+ *  profile modal's own nav, which is one press further and where it belongs.
+ *  A menu that existed to route to three places the account modal already lists
+ *  was a second navigation for the same rooms.
+ *
+ *  TWO REAL BUTTONS, NOT ONE DIV WITH TWO HANDLERS. A stretched `.pcard__hit`
+ *  covers the card and the rating line is a button layered above it — the same
+ *  shape the shop's owned-emote tiles use. Nesting a <button> inside a <button>
+ *  is invalid HTML and collapses to one control for a keyboard or a screen
+ *  reader, so the hit target has to be a sibling rather than a parent.
  *
  *  SKIN = THE .timer RECIPE, restated (globals.scss ~1930). --gradLight over
  *  --primaryTransparent, 2px --primary border, 16px radius, lexend 600, the
@@ -42,7 +53,8 @@ import useCountUp from '../utils/useCountUp';
  * @param {object}   session       auth session; every gate reads off session.token
  * @param {object}   eloData       {elo, rank, league} — home.js owns the state
  * @param {number}   friendRequests pending received friend requests, for the badge
- * @param {Function} onOpenProfile / onOpenElo / onOpenFriends
+ * @param {Function} onOpenProfile  whole-card press
+ * @param {Function} onOpenElo      the rating line only
  */
 export default function PlayerCard({
   session,
@@ -50,35 +62,10 @@ export default function PlayerCard({
   friendRequests = 0,
   onOpenProfile,
   onOpenElo,
-  onOpenFriends,
 }) {
   const { t: text } = useTranslation('common');
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
 
-  const close = useCallback(() => setOpen(false), []);
-
-  // Dismiss on an outside press or Escape. Same mechanics as the account
-  // modal's Stamps wallet (components/shop/StampsWallet.js) — that is this
-  // codebase's one popover pattern and there is no reason for a second.
-  // Listeners exist ONLY while open, so a closed card costs nothing.
-  useEffect(() => {
-    if (!open) return undefined;
-    const onPointerDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) close();
-    };
-    const onKeyDown = (e) => { if (e.key === 'Escape') close(); };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown, { passive: true });
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open, close]);
-
-  // The rating counts up from 0 on open. The Stamps balance does the same off
+  // The rating counts up from 0 on mount. The Stamps balance does the same off
   // the same hook, one tile down (components/shop/stampsTile.js) — they are
   // separate surfaces now but they share useCountUp, so they still cannot
   // disagree on cadence.
@@ -92,12 +79,25 @@ export default function PlayerCard({
   // on the next reload.
   const glow = nameGlowProps(session?.token?.cosmetics?.equipped?.nameGlow);
   // NULL UNTIL THE RATING IS KNOWN, deliberately. getLeague() has to return a
-  // tier for any input, so resolveLeague(undefined) yields the LOWEST one —
-  // which the old chip could get away with because it only ever drew the emoji,
-  // and which this card cannot, because it draws the tier by name. Rendering it
-  // eagerly would flash "Trekker" at a Legend for the frame before eloData is
-  // seeded off the session.
+  // tier for any input, so resolveLeague(undefined) yields the LOWEST one.
+  // Rendering it eagerly would show a Legend a grey boot and grey digits for the
+  // frame before eloData is seeded off the session — and the digits are the same
+  // element the count-up runs on, so that frame would read as a whole recolour.
   const league = eloData ? resolveLeague(eloData.elo, eloData.league) : null;
+  // `light` FIRST, then `color` — the same resolution duelHealthbar.js and
+  // partyLobby.js use to tint a name by tier, and for the same reason: Trekker's
+  // base colour is #808080, which is a grey barely brighter than the shadow it
+  // sits on. `light` is that tier's readable variant. Every other tier only
+  // defines `color`, so this is a one-tier fix that costs nothing elsewhere.
+  const leagueColor = league ? (league.light ?? league.color ?? null) : null;
+  // ON THE SPAN THAT PAINTS THE DIGITS, NOT ON ITS PARENT — and that is not a
+  // style choice. globals.scss:1761 is `h1, h2, h3, span, label { color: white }`,
+  // an element rule that matches EVERY span in the app. A colour set on
+  // .pcard__eloValue is therefore never inherited by .pcard__eloLive inside it:
+  // the child matches that global rule directly, and a direct match always beats
+  // an inherited value regardless of the parent's specificity. Only a declaration
+  // ON the child wins, and inline is the one that always does.
+  const eloTint = leagueColor ? { color: leagueColor } : undefined;
 
   /* THE STAMPS KILL-SWITCH GATE LIVED HERE and went with the menu row it gated
      (see the menu below). components/shop/stampsTile.js does the same
@@ -110,17 +110,19 @@ export default function PlayerCard({
   // matters is what this font actually paints, letter-spacing and all.
   const eloFinal = typeof eloData?.elo === 'number' ? Math.round(eloData.elo) : '';
 
-  const go = (fn) => () => { close(); fn?.(); };
-
   return (
-    <div className="pcard" ref={rootRef}>
-      <button
-        type="button"
-        className={`pcard__face ${open ? 'pcard__face--open' : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
+    <div className="pcard">
+      <div className="pcard__face">
+        {/* The card-wide target, underneath everything. Empty and labelled
+            rather than wrapping the content, so the rating button below can be
+            a sibling instead of an illegal nested <button>. */}
+        <button
+          type="button"
+          className="pcard__hit"
+          onClick={() => onOpenProfile?.()}
+          aria-label={text('profile')}
+        />
+
         <span className="pcard__body">
           {/* Line 1 — who the card belongs to. */}
           <span className="pcard__name">
@@ -134,53 +136,62 @@ export default function PlayerCard({
               LAST so the line starts on a digit: leading with the emoji pushed
               the visible start of this line right by its side bearing and the
               two lines stopped sharing a left edge. Weight is the hierarchy —
-              700 on the digits, 400 and dimmed on the unit. */}
-          <span className="pcard__stat">
+              700 on the digits, 400 and dimmed on the unit.
+
+              THE DIGITS CARRY THE TIER'S COLOUR and the badge repeats it as a
+              glyph. That is one fact said two ways on purpose: the colour is
+              what you read at a glance across the corner of the screen, the
+              emoji is what makes it legible to anyone who cannot tell #cd7f32
+              from #ffd700. The unit stays dimmed white — tinting it too would
+              turn the whole line one colour and lose the weight hierarchy. */}
+          {/* The one exception to "the card opens Profile": the rating line
+              routes to the ELO page instead. It sits above .pcard__hit in the
+              stacking order, so a press here never reaches it — no
+              stopPropagation needed, because they are siblings and the click
+              simply lands on whichever is on top. */}
+          <button
+            type="button"
+            className="pcard__stat pcard__statBtn"
+            onClick={() => onOpenElo?.()}
+            aria-label={text('ELO')}
+          >
             {/* Before the rating arrives there is nothing to reserve against,
                 so the placeholder is just the placeholder — no sizer, no
                 overlay, and no box pretending to be four digits wide. */}
             {!eloData ? (
               <span className="pcard__eloValue">...</span>
             ) : (
+              // Inline, not a class: the palette is seasonal and the server can
+              // re-anchor it at runtime (see resolveLeague), so a stylesheet
+              // full of per-tier classes would need a deploy to stay honest.
+              // The sizer is `visibility: hidden` and paints nothing, so it does
+              // not need the tint — only the live copy is ever seen.
               <span className="pcard__eloValue">
                 <span className="pcard__eloFinal" aria-hidden="true">{eloFinal}</span>
-                <span className="pcard__eloLive">{animatedElo}</span>
+                <span className="pcard__eloLive" style={eloTint}>{animatedElo}</span>
               </span>
             )}
             <span className="pcard__eloUnit">{text('ELO')}</span>
-          </span>
+            {league && (
+              <span className="pcard__leagueEmoji" title={league.name} aria-label={league.name} role="img">
+                {league.emoji}
+              </span>
+            )}
+          </button>
         </span>
 
-        <FaChevronDown className="pcard__caret" aria-hidden="true" />
-      </button>
+        {/* Pending friend requests, as a SIGN and not a door — it is
+            pointer-transparent, so pressing it opens Profile like the rest of
+            the card, and Friends is reachable from that modal's nav. Dropping
+            it with the menu would have made incoming requests silently
+            invisible on this screen.
+            A child of the FACE, not the body: the body is inset by the card's
+            padding, and a corner badge has to anchor to the card. */}
+        {friendRequests > 0 && (
+          <span className="pcard__badge" aria-label={text('friendsText')}>{friendRequests}</span>
+        )}
+      </div>
 
-      {open && (
-        // The destinations accountModal.js already names in its own nav
-        // (navigationItems) — same labels, same emoji, so this reads as a
-        // shortcut into a screen that exists rather than a new invented menu.
-        <div className="pcard__menu" role="menu">
-          <button type="button" className="pcard__item" role="menuitem" onClick={go(onOpenElo)}>
-            <span className="pcard__itemIcon" aria-hidden="true">🏆</span>
-            {text('ELO')}
-          </button>
-          {/* THE SHOP ROW IS GONE, and it is not coming back to this menu. It
-              was here when the card was the only chrome that could advertise
-              the currency; the Stamps tile now sits directly under this card
-              (components/shop/stampsTile.js) and opens the same modal in one
-              press instead of two. A door and a second door to the same room,
-              a few pixels apart, is the clutter this card was built to delete.
-              The paintbrush glyph and its .pcard__itemMark rule went with it. */}
-          <button type="button" className="pcard__item" role="menuitem" onClick={go(onOpenProfile)}>
-            <span className="pcard__itemIcon" aria-hidden="true">👤</span>
-            {text('profile')}
-          </button>
-          <button type="button" className="pcard__item" role="menuitem" onClick={go(onOpenFriends)}>
-            <span className="pcard__itemIcon" aria-hidden="true">👥</span>
-            {text('friendsText')}
-            {friendRequests > 0 && <span className="pcard__badge">{friendRequests}</span>}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

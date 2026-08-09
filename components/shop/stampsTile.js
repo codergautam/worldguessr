@@ -16,12 +16,12 @@ import StampMark from './StampMark';
  *  balance was always for — a currency readout you cannot click through to is
  *  just a number.
  *
- *  SKIN = THE COMMUNITY MAPS BUTTON'S, restated (daily.scss
- *  .daily-community-maps-btn). These two are the small chips under the card and
- *  they have to read as a pair; giving this one the card's heavier 2px/16px
- *  recipe would make it a second card. daily.scss is not edited for this —
- *  every matching declaration is restated against our own class, the same way
- *  the old Stamps button restated the league chip's.
+ *  IT IS THE ONLY CHIP UNDER THE CARD NOW. Community Maps used to sit beside it
+ *  and moved to the footer, taking .daily-community-maps-btn with it. The skin
+ *  this tile inherited from that button stays — 10px radius, 1.4px rim, the
+ *  flat green — because the alternative is the card's heavier 2px/16px recipe,
+ *  which would make this a second card in a corner just cut down to one. See
+ *  .stampsTile in styles/playerCard.css.
  *
  *  FAIL CLOSED, TWICE, IN THIS ORDER:
  *    1. `stampsEnabled` must be EXACTLY the boolean true. It is server
@@ -73,7 +73,7 @@ export default function StampsTile({ session, onOpen }) {
       title={text('shopOpen')}
       aria-label={text('shopOpenWithBalance', { count: balance })}
     >
-      <StampMark className="stampsTile__mark" />
+      <StampMark />
       {/* The hidden copy is the SIZER: it holds the box at the settled
           balance's width for the whole count-up, so 0 -> "7" -> "740" ->
           "1,240" never resizes the tile under itself. A ch reservation cannot

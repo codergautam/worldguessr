@@ -364,6 +364,13 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
           nameGlow: player.nameGlow ?? null,
           markerSkin: player.markerSkin ?? null
         })),
+        // The stamps receipt, in the SAME slot the live end screen reads it
+        // from (roundOverScreen `multiplayerState.gameData.stampsEarned`). Live
+        // it arrives on its own ws message; here the endpoint rebuilt it from
+        // the ledger. One renderer, two sources — which is why the row needs no
+        // history-specific branch. Absent on a pre-rebuild server → undefined →
+        // the row simply does not render, exactly as it did before.
+        stampsEarned: fullGameData.stampsEarned ?? null,
         duel: isDuel,
         // Wire names kept in sync with the live gameData: team2v2 = 2v2 HP
         // model, teamGame = cumulative party team mode.

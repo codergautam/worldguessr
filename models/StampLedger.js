@@ -82,6 +82,13 @@ stampLedgerSchema.index({ idempotencyKey: 1 }, { unique: true });
 stampLedgerSchema.index({ userId: 1, createdAt: -1 });
 // Filtered history / per-source audits ("all ranked_win grants for this user").
 stampLedgerSchema.index({ userId: 1, reason: 1, createdAt: -1 });
+// "What did this ONE game pay me" — the receipt rebuilt when a player opens a
+// finished game from their history (serverUtils/stamps/gameReceipt.js). Without
+// it that lookup rides the {userId, createdAt} index and then filters every row
+// the account has ever accumulated, on a collection documented above as growing
+// forever. Sparse: only earn rows carry meta.gameId, spends and admin grants
+// have no game and do not belong in this index.
+stampLedgerSchema.index({ userId: 1, 'meta.gameId': 1 }, { sparse: true });
 // Repair sweeper: find stranded applied:false rows oldest-first.
 stampLedgerSchema.index({ applied: 1, createdAt: 1 });
 

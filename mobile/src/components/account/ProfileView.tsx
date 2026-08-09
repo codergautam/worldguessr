@@ -7,16 +7,16 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  ImageBackground,
   Share,
   Platform,
 } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';
-import { t } from '../../shared';
+import { t, STARTING_ELO } from '../../shared';
 import { ProgressionEntry } from './shared';
 import PlayerName from '../PlayerName';
 import ProfileTab from './ProfileTab';
@@ -88,6 +88,16 @@ interface ProfileData {
    * leaves the server on this route.
    */
   cosmetics?: { equipped?: { nameGlow?: string | null } };
+  /**
+   * Season 0 record, feeding the OG badge in <ProfileTab> (see the prop docs
+   * there). Both fetch paths carry them: the public one passes the payload
+   * straight through, the own-profile one maps them by hand.
+   */
+  seasonPeakElo?: number | null;
+  seasonPeakLeague?: string | null;
+  season0Elo?: number | null;
+  season0Rank?: number | null;
+  ogAccount?: boolean;
 }
 
 interface EloData {
@@ -216,7 +226,7 @@ export default function ProfileView({
         const accountVal = account.value;
         setProfileData({
           username: accountVal.username,
-          elo: user?.elo ?? 1000,
+          elo: user?.elo ?? STARTING_ELO,
           totalXp: accountVal.totalXp,
           gamesLen: accountVal.gamesLen,
           createdAt: accountVal.createdAt,
@@ -226,13 +236,22 @@ export default function ProfileView({
           recentChange: accountVal.recentChange,
           pendingNameChange: user?.pendingNameChange,
           pendingNameChangePublicNote: user?.pendingNameChangePublicNote,
+          // Season 0 record. This mapping is hand-written field by field, so a
+          // field the API adds is invisible here until it is listed — which is
+          // exactly how a veteran ended up being the one person who could not
+          // see their own OG badge. api/publicAccount.js carries all four.
+          seasonPeakElo: accountVal.seasonPeakElo,
+          seasonPeakLeague: accountVal.seasonPeakLeague,
+          season0Elo: accountVal.season0Elo,
+          season0Rank: accountVal.season0Rank,
+          ogAccount: accountVal.ogAccount,
         });
 
         if (elo.status === 'fulfilled') {
           setEloData(elo.value);
         } else {
           setEloData({
-            elo: user?.elo || 1000,
+            elo: user?.elo || STARTING_ELO,
             rank: 0,
             duels_wins: 0,
             duels_losses: 0,
@@ -262,7 +281,7 @@ export default function ProfileView({
           setEloData(elo.value);
         } else {
           setEloData({
-            elo: profileVal.elo || 1000,
+            elo: profileVal.elo || STARTING_ELO,
             rank: profileVal.rank || 0,
             duels_wins: profileVal.duelStats?.wins || 0,
             duels_losses: profileVal.duelStats?.losses || 0,
@@ -399,11 +418,7 @@ export default function ProfileView({
   return (
     <View style={styles.container}>
       {/* Background Image */}
-      <ImageBackground
-        source={require('../../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
 
       {/* Dark overlay keeps the street2 backdrop subtle, matching the rest of the app */}
       <LinearGradient

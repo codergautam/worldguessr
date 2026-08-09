@@ -19,6 +19,7 @@ import {
   placementSeed,
   calculateTransfer,
 } from '../components/utils/eloSystem.js';
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
 
 // Rating v2 is the ladder's mint. Every assertion below exists because the
 // corresponding mistake silently prints or burns rating in production, and the
@@ -376,5 +377,53 @@ describe('calculateTransfer — integrality', () => {
       expect(Number.isInteger(r.deltaA)).toBe(true);
       expect(Number.isInteger(r.deltaB)).toBe(true);
     }
+  });
+});
+
+// ===========================================================================
+// THE PLACEMENT MUST NEVER BE A DEMOTION
+// ===========================================================================
+// This shipped broken and it was the first thing a new player ever saw.
+//
+// models/User.js defaulted `elo` to a hardcoded 1000. Correct on the Season 0
+// scale, wrong on v2, where 1000 sits inside VOYAGER (945-1269). Since
+// placementSeed() returns 500..800 — ALWAYS below 1000 — the very first ranked
+// game a player plays, which the throwing placement bot guarantees they WIN,
+// rendered as a red rating loss on web, a downward count and a badge demotion on
+// mobile, and was persisted to game history as a defeat.
+//
+// The invariant that catches it: a placement seed applied to an account sitting
+// at the starting rating can never move that rating DOWN.
+describe('placement seeding vs the starting rating — the demotion regression', () => {
+  it('STARTING_ELO equals ENTRY_RATING, not the retired 1000', () => {
+    expect(STARTING_ELO).toBe(ENTRY_RATING);
+    expect(STARTING_ELO).not.toBe(1000);
+  });
+
+  it('never seeds BELOW the rating a new account starts at, at any round score', () => {
+    // 0 through a perfect 5000 average, plus the garbage inputs.
+    for (let avg = 0; avg <= 5000; avg += 50) {
+      expect(placementSeed(avg)).toBeGreaterThanOrEqual(STARTING_ELO);
+    }
+    for (const junk of [null, undefined, NaN, -1, 'nonsense']) {
+      expect(placementSeed(junk)).toBeGreaterThanOrEqual(STARTING_ELO);
+    }
+  });
+
+  it('a perfect placement is the biggest possible GAIN, never a loss', () => {
+    const delta = placementSeed(5000) - STARTING_ELO;
+    expect(delta).toBe(SEED_MAX - ENTRY_RATING); // +300
+    expect(delta).toBeGreaterThan(0);
+  });
+
+  it('a near-zero placement earns nothing rather than costing something', () => {
+    // "Nothing is guaranteed" is the design: a bad game leaves you where you
+    // started. It must not leave you WORSE than you started.
+    expect(placementSeed(0) - STARTING_ELO).toBe(0);
+  });
+
+  it('the seed range sits entirely at or above the entry rating', () => {
+    expect(SEED_BASE).toBe(ENTRY_RATING);
+    expect(SEED_MAX).toBeGreaterThan(SEED_BASE);
   });
 });

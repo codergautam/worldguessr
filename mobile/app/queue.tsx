@@ -14,24 +14,30 @@ import {
   Animated,
   Easing,
   Image,
-  ImageBackground,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../src/components/SiteBackground';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useNavigation } from 'expo-router';
 import { colors, t } from '../src/shared';
-import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
+import { spacing, fontSizes } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplayerStore';
 import { useSettingsStore } from '../src/store/settingsStore';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
 import GameChat from '../src/components/multiplayer/GameChat';
+
+// Plate fill for the core and the data strip. Neutral by ruling (see
+// styles/queueScreen.css's header): the site's own panel colour — accountModal
+// paints its surface as rgba(0,30,15) over black — darkened, NOT the strongly
+// green --primaryTransparent the .timer recipe uses.
+const SURFACE = 'rgba(14, 34, 23, 0.52)';
 
 const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
 
@@ -81,6 +87,33 @@ function PulseRings({ accent, size }: { accent: string; size: number }) {
   );
 }
 
+/** One cell of the data plate, fading and sliding in on mount. */
+function QueueCell({ divided, children }: { divided: boolean; children: React.ReactNode }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [v]);
+  return (
+    <Animated.View
+      style={[
+        styles.dataCell,
+        divided && styles.dataCellDivided,
+        {
+          opacity: v,
+          transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -98,14 +131,43 @@ export default function QueueScreen() {
   // just dims the button while the server round-trips the lobby restore.
   const [cancelling, setCancelling] = useState(false);
 
-  const [elapsed, setElapsed] = useState(0);
+  // The interval is a RE-RENDER PUMP, not the clock. This used to be a
+  // `setElapsed(e => e + 1)` counter, which silently under-reports: React
+  // Native suspends JS timers while the app is backgrounded, so a minute spent
+  // in another app simply never got counted and there was no state to recover
+  // it from. The value is now DERIVED from the server's join instant on every
+  // render, which is immune to that, to a screen remount, and to clock skew.
+  const queuedAt = useMultiplayerStore((s) => s.queuedAt);
+  const queueEta = useMultiplayerStore((s) => s.queueEta);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
+  const elapsed = queuedAt
+    ? Math.max(0, Math.floor((Date.now() + wsService.timeOffset - queuedAt) / 1000))
+    : 0;
   const mm = Math.floor(elapsed / 60);
   const ss = elapsed % 60;
   const elapsedStr = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
+
+  // How long this queue USUALLY takes in total, from the moment you joined —
+  // not a countdown, and deliberately static (the server latches it for the
+  // session). Ranked 1v1 only; 'unknown' renders nothing, because no data is a
+  // reason to say nothing rather than to invent a number.
+  //
+  // 'rough' is a MODELLED estimate, not an observed one. It gets vague wording
+  // and the neutral chip style — a guess from a hardcoded table may never wear
+  // the visual confidence of a measured median.
+  const ROUGH_KEYS = { short: 'queueEtaRoughShort', mid: 'queueEtaRoughMid', long: 'queueEtaRoughLong' } as const;
+  const etaRough = queueEta?.state === 'rough' && !!queueEta.tier;
+  const etaStr = queueEta?.state === 'long'
+    ? t('queueEtaLong')
+    : etaRough
+      ? t(ROUGH_KEYS[queueEta!.tier as keyof typeof ROUGH_KEYS])
+      : queueEta?.state === 'ok' && queueEta.value !== null
+        ? t(queueEta.unit === 'min' ? 'queueEtaMinutes' : 'queueEtaSeconds', { v: queueEta.value })
+        : null;
 
   // Radar scales to the shorter axis so it never crowds the rest of the screen.
   // Landscape is height-bound; portrait stays comfortably under the ceiling.
@@ -119,6 +181,14 @@ export default function QueueScreen() {
   const titleSize = isLandscape
     ? Math.min(34, Math.max(22, height * 0.085))
     : Math.min(40, Math.max(26, width * 0.085));
+
+  // Sized off the same axis as the title so the two scale together. CALIBRATED,
+  // because both ends were wrong once: 14px read as a footnote nobody looked at,
+  // and the first correction put a scoreboard numeral on screen ("HUGE!!! I
+  // DIDNT MEAN THAT HUGE"). Web's equivalent is clamp(1.5rem, .7vw+1.1svh, 2.1rem).
+  const clockSize = isLandscape
+    ? Math.min(32, Math.max(22, height * 0.075))
+    : Math.min(34, Math.max(24, width * 0.075));
 
   // Single exit path. Idempotent — caller can race state updates without double-popping.
   const exitBack = () => {
@@ -216,28 +286,36 @@ export default function QueueScreen() {
   const isRanked = gameQueued === 'publicDuel';
   const theme = isRanked
     ? {
-        accent: '#fbbf24',
-        glow: '#f59e0b',
-        gradient: ['#fbbf24', '#f59e0b'] as const,
+        // RED, and specifically globals.scss's "ranked red" (#ff474c, the home
+        // menu's Ranked Duel hover) — user ruling Aug 9, shared verbatim with
+        // styles/queueScreen.css. With the eyebrow gone below this is the sonar
+        // rings only. Unranked green and 2v2 pink are untouched.
+        accent: '#ff474c',
         icon: 'trophy' as const,
-        label: t('rankedDuel'),
+        // NO EYEBROW ON RANKED (user ruling Aug 9, mirrors
+        // components/queueScreen.js): "RANKED DUEL" over "Finding an opponent"
+        // over an ELO range said the same thing three times. The ELO plate
+        // already identifies the mode. Unranked and 2v2 keep theirs — they have
+        // no plate to identify them.
+        label: null,
+        // Per-mode headline, mirroring components/queueScreen.js: a matchmade
+        // 1v1 is one named person, not a generic "game".
+        title: t('findingOpponent'),
       }
     : is2v2
       ? {
           // The 2v2 identity color/glyph everywhere else (web gameHistory.js
           // badge: shield, #e91e63) — don't invent a second one.
           accent: '#f06292',
-          glow: '#e91e63',
-          gradient: ['#f06292', '#c2185b'] as const,
           icon: 'shield' as const,
           label: t('twovtwo'),
+          title: t('findingMatch'),
         }
       : {
           accent: '#4ade80',
-          glow: '#22c55e',
-          gradient: ['#4ade80', '#16a34a'] as const,
           icon: 'flash' as const,
           label: t('unrankedDuel'),
+          title: t('findingGame'),
         };
 
   // Shared building blocks — composed differently per orientation below.
@@ -251,8 +329,6 @@ export default function QueueScreen() {
             width: coreSize,
             height: coreSize,
             borderRadius: coreSize / 2,
-            borderColor: theme.accent,
-            shadowColor: theme.glow,
           },
         ]}
       >
@@ -264,17 +340,16 @@ export default function QueueScreen() {
     </View>
   );
 
-  const pillEl = (
-    <LinearGradient
-      colors={theme.gradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.modePill}
-    >
-      <Ionicons name={theme.icon} size={15} color="#1a1205" />
-      <Text style={styles.modePillText}>{theme.label.toUpperCase()}</Text>
-    </LinearGradient>
-  );
+  // The mode identity as TYPE, not as a filled gradient pill. Web's queue
+  // screen was rejected for looking "AI generated with all the rounded corners
+  // and pills and outlines"; this is the same information with none of the
+  // chrome, and it keeps the two platforms identical.
+  const pillEl = theme.label ? (
+    <View style={styles.modeRow}>
+      <Ionicons name={theme.icon} size={14} color={theme.accent} />
+      <Text style={[styles.modeText, { color: theme.accent }]}>{theme.label.toUpperCase()}</Text>
+    </View>
+  ) : null;
 
   const titleEl = (
     <Text
@@ -282,38 +357,49 @@ export default function QueueScreen() {
       numberOfLines={isLandscape ? 2 : 1}
       adjustsFontSizeToFit
     >
-      {t('findingGame')}
+      {theme.title}...
     </Text>
   );
 
-  const eloEl =
-    isRanked && publicDuelRange ? (
-      <View style={styles.eloChip}>
-        <Ionicons name="podium-outline" size={15} color={theme.accent} />
-        <Text style={styles.eloLabel}>{t('eloRange')}</Text>
-        <Text style={[styles.eloValue, { color: theme.accent }]}>
-          {publicDuelRange[0]} – {publicDuelRange[1]}
-        </Text>
-      </View>
-    ) : null;
+  // ONE plate holding every value, on the .timer HUD recipe (--gradLight over
+  // --primaryTransparent, 2px --primary, 16px radius). Mirrors web exactly.
+  // The divider between cells is the house frame colour and only renders when
+  // there are two cells to divide.
+  const cells = [
+    isRanked && publicDuelRange
+      ? { key: 'elo', label: t('eloRange'), value: `${publicDuelRange[0]} – ${publicDuelRange[1]}`, rough: false }
+      : null,
+    etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
+  ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
+
+  const dataEl = cells.length ? (
+    <View style={styles.dataPlate}>
+      {cells.map((c, i) => (
+        // The typical-wait cell arrives LATE (the server's first ETA push is up
+        // to 5s after the join), so without this it snapped into an
+        // already-drawn plate. Mirrors web's wgQueueCellIn. Layout width is not
+        // animated here — RN width animation on a flex row is finicky and the
+        // fade+slide reads as the same reveal.
+        <QueueCell key={c.key} divided={i > 0}>
+          <Text style={styles.dataLabel}>{c.label.toUpperCase()}</Text>
+          <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
+        </QueueCell>
+      ))}
+    </View>
+  ) : null;
 
   const timerEl = (
     <View style={styles.timerRow}>
-      <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
-      <Text style={styles.timerText}>{elapsedStr}</Text>
+      <Ionicons name="time-outline" size={clockSize * 0.62} color="rgba(255,255,255,0.6)" />
+      <Text style={[styles.timerText, { fontSize: clockSize }]}>{elapsedStr}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <LinearGradient
-        colors={['rgba(6, 16, 10, 0.72)', 'rgba(6, 16, 10, 0.86)', 'rgba(6, 16, 10, 0.96)']}
+        colors={['rgba(6, 16, 10, 0.5)', 'rgba(6, 16, 10, 0.62)', 'rgba(6, 16, 10, 0.74)']}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -334,7 +420,7 @@ export default function QueueScreen() {
           <View style={[styles.infoLandscape, { maxWidth: width * 0.46 }]}>
             {pillEl}
             {titleEl}
-            {eloEl}
+            {dataEl}
             {timerEl}
           </View>
         </View>
@@ -344,7 +430,7 @@ export default function QueueScreen() {
           <View style={styles.radarSpacer}>{radarEl}</View>
           <View style={styles.infoPortrait}>
             {titleEl}
-            {eloEl}
+            {dataEl}
             {timerEl}
           </View>
         </View>
@@ -404,32 +490,35 @@ const styles = StyleSheet.create({
   radarSpacer: {
     marginVertical: spacing['3xl'],
   },
-  modePill: {
+  modeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: borderRadius.full,
+    gap: 7,
   },
-  modePillText: {
-    color: '#1a1205',
+  modeText: {
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-Bold',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.55)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   radar: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // NEUTRAL and UNFRAMED — see styles/queueScreen.css's header for the two
+  // owner rulings behind this ("remove the green backgrounds", then "still has
+  // green outlines/borders i dont like that"). The mode accent lives only in
+  // the rings that orbit this disc, the eyebrow, and the bloom under the timer.
   radarCore: {
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderWidth: 1.5,
+    backgroundColor: SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOpacity: 0.7,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 10,
   },
   title: {
@@ -437,35 +526,62 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     flexShrink: 1,
   },
-  eloChip: {
+  // Flat neutral fill, no frame. Separation comes from the fill's contrast
+  // against the veil plus a neutral drop shadow — fewer outlines was the point.
+  dataPlate: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'stretch',
+    backgroundColor: SURFACE,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  dataCell: {
+    gap: 3,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 10,
   },
-  eloLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: fontSizes.sm,
+  // A SEAM, not an outline: a shade darker than the fill, so it reads as the
+  // plate being segmented rather than another border drawn on top of it.
+  dataCellDivided: {
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  dataLabel: {
+    color: 'rgba(255, 255, 255, 0.66)',
+    fontSize: 10,
     fontFamily: 'Lexend-Medium',
+    letterSpacing: 1.4,
   },
-  eloValue: {
+  dataValue: {
+    color: colors.white,
     fontSize: fontSizes.sm,
     fontFamily: 'Lexend-Bold',
+    fontVariant: ['tabular-nums'],
+  },
+  // A MODELLED estimate reads dimmer and lighter than a measured one. That
+  // difference is load-bearing: it is what stops a guess from a hardcoded table
+  // wearing the confidence of an observed median.
+  dataValueRough: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontFamily: 'Lexend-Medium',
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
+  // THE HERO, matching web. This was a muted 14px footnote; the clock is the
+  // only thing on screen actually moving and it is the answer to the question
+  // the player is asking, so it gets scoreboard size. Tabular figures are
+  // mandatory — proportional digits jitter the whole number every second.
   timerText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
+    color: colors.white,
+    fontFamily: 'Lexend-Bold',
     fontVariant: ['tabular-nums'],
   },
 });

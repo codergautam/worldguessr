@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Navbar from '@/components/ui/navbar';
 import PublicProfile from '@/components/publicProfile';
 import config from '@/clientConfig';
+import { STARTING_ELO } from '@/components/utils/ratingFlags';
 import { backgroundUrlForSku } from '@/lib/siteBackground';
 import { useTranslation } from '@/components/useTranslations';
 
@@ -119,7 +120,7 @@ export default function UserProfilePage() {
         // ELO data is optional, continue without it
         console.warn('Failed to fetch ELO data:', eloResponse.status);
         eloDataToSet = {
-          elo: profile.elo || 1000,
+          elo: profile.elo || STARTING_ELO,
           rank: profile.rank || 0,
           duels_wins: profile.duelStats?.wins || 0,
           duels_losses: profile.duelStats?.losses || 0,
@@ -133,7 +134,7 @@ export default function UserProfilePage() {
         } catch (parseError) {
           console.warn('Error parsing ELO response, using fallback:', parseError);
           eloDataToSet = {
-            elo: profile.elo || 1000,
+            elo: profile.elo || STARTING_ELO,
             rank: profile.rank || 0,
             duels_wins: profile.duelStats?.wins || 0,
             duels_losses: profile.duelStats?.losses || 0,
@@ -175,7 +176,10 @@ export default function UserProfilePage() {
         seasonPeakElo: firstNumber(profile.seasonPeakElo, profile.season0?.peakElo, eloDataToSet?.seasonPeakElo),
         seasonPeakLeague: firstString(profile.seasonPeakLeague, profile.season0?.peakLeague, eloDataToSet?.seasonPeakLeague),
         // `=== true` on every source: the badge is permanent, so nothing but a
-        // real boolean true may grant it.
+        // real boolean true may grant it. WHO QUALIFIES is not decided here —
+        // api/publicProfile.js resolves it (shared/season0/rank.js `hasSeason0`,
+        // every account that was here for Season 0) and publishes one boolean.
+        // This only picks whichever payload carried it.
         ogAccount: profile.ogAccount === true || eloDataToSet?.ogAccount === true,
       });
       setEloData(eloDataToSet);

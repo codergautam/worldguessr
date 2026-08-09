@@ -11,7 +11,7 @@ import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
-import UsernameWithFlag, { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
+import UsernameWithFlag, { GlowName, nameGlowProps, nameGlowShadow, GLOW_DARK, GLOW_LIGHT } from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
 import GuessPinLabel from './utils/guessPinLabel';
 import StampMark from './shop/StampMark';
@@ -220,6 +220,13 @@ const GameSummary = ({
   const stampsShownRef = useRef(0);
   const stampsRafRef = useRef(0);
   const [stampsCounting, setStampsCounting] = useState(false);
+  // The per-reason breakdown is HOVER-REVEALED (styles/duel.css). What the
+  // player wants at a glance is the number; the itemisation is a detail, and
+  // four grey chips permanently under the headline made a one-line fact look
+  // like an invoice. `:hover` covers pointers; this state is the TOUCH half —
+  // there is no hover on a phone, so tapping the row toggles it. Both paths end
+  // at the same class, and neither changes the row's height (see the CSS).
+  const [stampsBreakdownOpen, setStampsBreakdownOpen] = useState(false);
 
 
 
@@ -968,6 +975,14 @@ const GameSummary = ({
   const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
     ?? skinOf[multiplayerState?.gameData?.myId]
     ?? null;
+  // And the VIEWER's own glow, for the same reason and in the same order — in
+  // singleplayer the roster is empty and `myId` is undefined, so the session is
+  // the only source that exists in every mode. It dresses YOUR NAME on this
+  // screen's dark summary rows. It does NOT dress the "Your guess" pin label,
+  // which wears no glow at all: myPinLabelProps below has the rule and the why.
+  const myNameGlow = session?.token?.cosmetics?.equipped?.nameGlow
+    ?? glowOf[multiplayerState?.gameData?.myId]
+    ?? null;
   // Same story for flags: the roster is the only place a country code is
   // guaranteed to live on BOTH the live path and the history rebuild, so the
   // pin labels resolve through here first and fall back to the round's own
@@ -1079,14 +1094,24 @@ const GameSummary = ({
    *
    * Mod view inspects SOMEONE ELSE's perspective, so the "your guess" pin is
    * really that player's — label it with their name + flag there.
+   *
+   * AND THAT IS THE ONE CASE WHERE THIS LABEL WEARS A GLOW. The rule is that a
+   * glow follows a NAME: it says whose pin this is. In mod view the label IS a
+   * name (the inspected player's), so it glows exactly like every opponent pin
+   * on the map. Everywhere else the label reads "Your guess" — chrome, not
+   * identity, on your own pin, which you already know is yours — so it gets
+   * nothing. Both branches are decided HERE, together, because the two used to
+   * be decided in different places and that is precisely how the "Your guess"
+   * halo got in.
    */
   const viewerId = multiplayerState?.gameData?.myId;
   const myPinLabelProps = (round) => (options?.isModView
     ? {
         label: round?.players?.[viewerId]?.username || text("player"),
         countryCode: countryOf[viewerId] || round?.players?.[viewerId]?.countryCode || null,
+        nameGlow: glowOf[viewerId] ?? round?.players?.[viewerId]?.nameGlow ?? null,
       }
-    : { label: text("yourGuess"), countryCode: null });
+    : { label: text("yourGuess"), countryCode: null, nameGlow: null });
 
   // Helper function to open report modal
   const handleReportUser = (accountId, username) => {
@@ -1278,14 +1303,13 @@ const GameSummary = ({
                         <Marker
                           position={[round.guessLat, round.guessLong]}
                           icon={
-                            allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, bestIds?.has(multiplayerState?.gameData?.myId) ? 'Big' : 'Small')]
+                            allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, bestIds?.has(multiplayerState?.gameData?.myId) ? 'Big' : '')]
                             || (bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current)
                           }
                         >
                           {showLabels && (
                             <GuessPinLabel
                               {...myPinLabelProps(round)}
-                              nameGlow={glowOf[viewerId]}
                               big={!!bestIds?.has(viewerId)}
                             />
                           )}
@@ -1336,7 +1360,7 @@ const GameSummary = ({
                               // Purchased skin wins over the team pin, matching
                               // Map.js: the skin IS that player's identity, and
                               // the pin label already says whose guess it is.
-                              allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], bestIds?.has(playerId) ? 'Big' : 'Small')]
+                              allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], bestIds?.has(playerId) ? 'Big' : '')]
                               || (isMyTeammate(playerId)
                                 ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
                                 : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current))
@@ -1454,11 +1478,33 @@ const GameSummary = ({
                   the app where a player counts currency, an optimistic number
                   is worse than no number. */}
               {(stampsPending || stampsTotal > 0) && (
-                <div className={`stamps-earned ${stampsTotal > 0 ? 'stamps-earned--paid' : ''}`}>
+                <div
+                  className={[
+                    'stamps-earned',
+                    stampsTotal > 0 ? 'stamps-earned--paid' : '',
+                    stampsBreakdownOpen ? 'stamps-earned--open' : '',
+                  ].filter(Boolean).join(' ')}
+                  // Touch (and keyboard, via the button role) toggle for the
+                  // hover-revealed breakdown. Only interactive once there is
+                  // something to reveal — a pending row has no lines yet, and a
+                  // control that does nothing is worse than no control.
+                  {...(stampsLines.length > 0 ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-expanded': stampsBreakdownOpen,
+                    onClick: () => setStampsBreakdownOpen((v) => !v),
+                    onKeyDown: (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setStampsBreakdownOpen((v) => !v);
+                      }
+                    },
+                  } : {})}
+                >
                   {stampsTotal > 0 && (
                     <>
                       <div className="stamps-earned__headline">
-                        <StampMark className="stamps-earned__mark" />
+                        <StampMark />
                         {/* Renders from the REF (see stampsShownRef) so an
                             unrelated re-render mid-count cannot snap the digits
                             back to zero. */}
@@ -1472,15 +1518,23 @@ const GameSummary = ({
                       </div>
 
                       {stampsLines.length > 0 && (
+                        // ALWAYS RENDERED, ALWAYS IN FLOW — only its opacity
+                        // moves. The per-line entrance stagger that used to be
+                        // here (an inline animationDelay per chip) is gone with
+                        // the reveal it belonged to: it made sense while the
+                        // breakdown arrived as part of the results choreography,
+                        // and on a hover it reads as the UI being slow.
+                        //
+                        // No aria-hidden: this is a DENSITY decision, not an
+                        // information one. The breakdown stays in the
+                        // accessibility tree at all times — hiding it from a
+                        // screen reader because a sighted user has not hovered
+                        // yet would make the currency less legible to the people
+                        // who can least afford that, and `:hover` is not a state
+                        // React knows about anyway.
                         <div className="stamps-earned__lines">
-                          {stampsLines.map((line, i) => (
-                            <span
-                              className="stamps-earned__line"
-                              key={line.reason}
-                              // Staggered so the breakdown reads as a list being
-                              // itemised rather than a block appearing.
-                              style={{ animationDelay: `${260 + i * 80}ms` }}
-                            >
+                          {stampsLines.map((line) => (
+                            <span className="stamps-earned__line" key={line.reason}>
                               {STAMP_REASON_KEYS[line.reason] && (
                                 <span className="stamps-earned__line-label">
                                   {text(STAMP_REASON_KEYS[line.reason])}
@@ -1683,9 +1737,24 @@ const GameSummary = ({
                       <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{label}</span>
                       {bestPlayer && (
                         <span style={{ fontSize: '0.8em', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {bestPlayer.username}
-                          </span>
+                          {/* wg-name-clip UNCONDITIONALLY — glow or not. It is
+                              the surface's truncation recipe (the identical
+                              three inline properties that used to be here) plus
+                              the halo's clip relief, and applying it either way
+                              is what keeps buying a glow from changing this box.
+                              ownBox: this span IS the element, so the boxless
+                              carrier is dropped and only the paint arrives. */}
+                          {(() => {
+                            const g = nameGlowProps(glowOf[bestPlayer.id], GLOW_DARK, { ownBox: true });
+                            return (
+                              <span
+                                className={g?.className ? `wg-name-clip ${g.className}` : 'wg-name-clip'}
+                                style={g?.style}
+                              >
+                                {bestPlayer.username}
+                              </span>
+                            );
+                          })()}
                           {bestPlayer.countryCode && <CountryFlag countryCode={bestPlayer.countryCode} style={{ fontSize: '1em' }} />}
                           {bestPlayer.id === myId && !options?.isModView && <span style={{ fontStyle: 'italic', opacity: 0.7 }}>({text("you")})</span>}
                         </span>
@@ -1882,7 +1951,19 @@ const GameSummary = ({
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                               <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                {/* THE BOXLESS CARRIER HERE, not wg-name-clip.
+                                    This span is display:flex, where
+                                    text-overflow is inert anyway, so there is
+                                    no truncation to own — and GlowName's
+                                    display:contents wrapper leaves the text as
+                                    the same anonymous flex item it already was,
+                                    so the row's `gap` does not start firing on
+                                    people who bought a glow. "You" is still YOUR
+                                    name for glow purposes; the label being a
+                                    pronoun does not change whose row it is. */}
+                                <GlowName glow={nameGlowProps(myNameGlow, GLOW_DARK)}>
+                                  {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                </GlowName>
                                 {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
@@ -1915,7 +1996,9 @@ const GameSummary = ({
                                 }}
 
                               >
-                                {opponentData?.username || text("opponent")}
+                                <GlowName glow={nameGlowProps(glowOf[opponentId], GLOW_DARK)}>
+                                  {opponentData?.username || text("opponent")}
+                                </GlowName>
                                 {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {isOpponentReported && ' (reported)'}
                               </span>
@@ -2049,14 +2132,13 @@ const GameSummary = ({
                     <Marker
                       position={[round.guessLat, round.guessLong]}
                       icon={
-                        allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, 'Small')]
+                        allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, '')]
                         || srcIconRef.current
                       }
                     >
                       {showLabels && (
                         <GuessPinLabel
                           {...myPinLabelProps(round)}
-                          nameGlow={glowOf[viewerId]}
                         />
                       )}
                       <Popup className="map-marker-popup">
@@ -2110,7 +2192,7 @@ const GameSummary = ({
                         <Marker
                           position={[player.lat, player.long]}
                           icon={
-                            allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], 'Small')]
+                            allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], '')]
                             || src2IconRef.current
                           }
                         >

@@ -94,6 +94,17 @@ export const RATING_FLOOR = 100;
 // Where a brand-new account starts before placements have run.
 export const ENTRY_RATING = 500;
 
+// The value every "this rating is missing, use the default" fallback must
+// resolve to. Mirrors STARTING_ELO in components/utils/ratingFlags.js.
+//
+// It exists because `?? 1000` was typed by hand across both platforms. That was
+// correct on the Season 0 scale and badly wrong on v2, where 1000 sits inside
+// VOYAGER (945-1269) — above the median of 800 and above roughly 85% of the
+// ladder. So an account whose rating failed to load was silently painted as a
+// gold-badge Voyager. The server is on v2 unconditionally, so this is a plain
+// constant here rather than a flag read.
+export const STARTING_ELO = ENTRY_RATING;
+
 // Placement seeding from single-player skill: base + slope * avg round points,
 // capped so a perfect scorer still enters below the real ladder's top.
 export const SEED_BASE = 500, SEED_SLOPE = 0.06, SEED_MAX = 800;

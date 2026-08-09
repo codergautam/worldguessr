@@ -64,9 +64,31 @@
     --pcardName: clamp(1.125rem, 1.01rem + 0.51vw, 1.625rem);
     --pcardCaret: clamp(0.7rem, 0.63rem + 0.26vw, 0.94rem);
 
-    /* The two small chips under the card (Stamps tile, Community Maps). */
-    --hudChipH: clamp(30px, 27.7px + 0.64vw, 40px);
-    --hudChipFont: clamp(0.75rem, 0.69rem + 0.26vw, 1rem);
+    /* (Removed) --hudChipH and --hudChipFont. They existed because two chips
+       sat under the card and had to read as a pair; Community Maps is a footer
+       button now, so the stamps tile is the only chip left and a shared token
+       with one consumer is just a number in another file. Both live on
+       .stampsTile itself, and both are derived from the currency mark it
+       carries rather than from the viewport — see that rule below. */
+}
+
+/* On the MATCHMAKING QUEUE the column pulls in toward the corner. On home the
+   50px ceiling is deliberate — it matches #g2_playerCount's bottom-right inset
+   so the two diagonal corners land together — but the queue screen has a big
+   centred composition in the middle of the viewport, and the card reads as
+   floating oddly far into it at that inset. Halving it puts the card in the
+   corner where it belongs while the eye is on the radar.
+
+   Safe to sit this high: .navbar is `pointer-events: none` with its children
+   opting back in, and the queue withholds the friends button that used to
+   occupy the navbar's right side (see components/ui/navbar.js), so nothing is
+   above the card to collide with or to swallow its presses.
+
+   Overrides the TOKENS, not top/right — the tokens are this file's one sizing
+   knob and a rule that set the coordinates directly would drift from them. */
+.hudCorner--tight {
+    --hudInsetX: clamp(8px, 2px + 1.1vw, 22px);
+    --hudInsetY: clamp(8px, 2px + 1.1vw, 22px);
 }
 
 .hudCorner {
@@ -94,7 +116,7 @@
  *  IT SAYS TWO THINGS. Who you are, then what you are rated:
  *
  *      Gautam 🇮🇳
- *      🏆 1043 ELO
+ *      1043 ELO 🏆      <- digits tinted with the tier's colour
  *
  *  Everything else that was ever here has left. The BALANCE became its own tile
  *  below. The TIER NAME ("Voyager") is gone — the badge already says it in one
@@ -131,6 +153,9 @@
    optical centre, and one gap holds it off the text instead of a row gap doing
    it by accident. */
 .pcard__face {
+    /* Positioning context for .pcard__hit. The face used to BE the button;
+       it is a plain container now and the hit target stretches inside it. */
+    position: relative;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -143,7 +168,7 @@
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
     box-shadow: 0 8px 32px rgba(0, 0, 0, .35),
-        0 4px 12px rgba(36, 87, 52, .3),
+        0 4px 12px rgba(var(--surfChannels), .3),
         inset 0 1px 0 rgba(255, 255, 255, .15);
 
     font-family: lexend;
@@ -156,15 +181,34 @@
     transition: background-color .25s, box-shadow .25s;
 }
 
-.pcard__face:hover,
-.pcard__face--open {
+/* Hover/focus are driven by the CHILD button now — :has() so the whole card
+   still lights up, which is the honest signal given the whole card is pressable.
+   The rating button gets its own treatment further down rather than lighting
+   the card, because it goes somewhere else. */
+.pcard__face:has(.pcard__hit:hover),
+.pcard__face:has(.pcard__hit:focus-visible) {
     background-color: var(--primary);
     box-shadow: 0 10px 34px rgba(0, 0, 0, .4),
-        0 4px 14px rgba(36, 87, 52, .45),
+        0 4px 14px rgba(var(--surfChannels), .45),
         inset 0 1px 0 rgba(255, 255, 255, .18);
 }
 
-.pcard__face:focus-visible {
+/* The card-wide press target. Stretched and empty, UNDER the content: a
+   <button> wrapping the rating <button> would be invalid HTML and would
+   collapse to a single control for keyboards and screen readers. */
+.pcard__hit {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: inherit;
+    background: transparent;
+    cursor: pointer;
+}
+
+.pcard__hit:focus-visible {
     outline: 2px solid rgba(255, 255, 255, .65);
     outline-offset: 2px;
 }
@@ -176,6 +220,13 @@
    reservation (below) rather than left: at rest the reservation is exactly the
    number's width, so both edges land, and nothing after it can drift. */
 .pcard__body {
+    /* Above the stretched button so text is never dimmed by it, but
+       transparent to pointers so a press on the NAME still opens Profile.
+       Only the rating button opts back in. */
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+
     flex: 1;
     min-width: 0;
     display: flex;
@@ -200,17 +251,6 @@
        which buys the paint room back without moving the box. */
 }
 
-.pcard__caret {
-    flex-shrink: 0;
-    font-size: var(--pcardCaret);
-    color: rgba(255, 255, 255, .6);
-    transition: transform .2s ease;
-}
-
-.pcard__face--open .pcard__caret {
-    transform: rotate(180deg);
-}
-
 /* --- row 2: the rating, with the tier as its caption -------------------- */
 
 /* NO `gap` HERE, deliberately. A single flex gap spaces a text label and an
@@ -223,6 +263,64 @@
     align-items: baseline;
     font-size: var(--pcardText);
     line-height: 1.28;
+}
+
+/* The rating line, as its own destination. Deliberately NOT styled as a button:
+   it is a line of text inside a card, and boxing it would be exactly the pill
+   clutter this card was built to delete. */
+.pcard__statBtn {
+    pointer-events: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* THE HOVER UNDERLINE GOES ON .pcard__eloLive, NOT ON THIS BUTTON, and that is
+   not a preference — a decoration set on the button cannot draw correctly here,
+   for three separate reasons at once:
+
+     1. .pcard__stat is `display: flex`. A text-decoration on a flex container
+        is drawn per flex ITEM, so you get three disconnected underlines with
+        gaps where the flex gaps are, not one line under the value.
+     2. The visible digits (.pcard__eloLive) are `position: absolute`. An
+        out-of-flow descendant does NOT inherit an ancestor's text decoration —
+        so the one thing you are pointing at is the one thing that stays
+        undecorated, while the `visibility: hidden` sizer's box gets a line.
+     3. The tier badge is a flex item too, and an underlined emoji is its own
+        small horror.
+
+   On the live span it is one continuous rule under exactly the digits. During
+   the count-up that span is narrower than its reservation and right-aligned, so
+   the line is short for about a second and then settles — which is honest,
+   because it is tracking the number that is actually painted. */
+.pcard__eloLive {
+    text-decoration: underline solid transparent 2px;
+    text-underline-offset: .2em;
+    transition: text-decoration-color .16s;
+}
+
+.pcard__statBtn:hover .pcard__eloLive,
+.pcard__statBtn:focus-visible .pcard__eloLive {
+    text-decoration-color: currentColor;
+}
+
+/* The unit comes up to full white alongside it. The digits carry an INLINE tier
+   colour (see playerCard.js — the palette is seasonal, so it cannot be a class),
+   and inline styles beat any rule here, so the number itself cannot brighten.
+   The unit is the part of this line that CAN answer the hover. */
+.pcard__statBtn:hover .pcard__eloUnit,
+.pcard__statBtn:focus-visible .pcard__eloUnit {
+    color: #fff;
+}
+
+.pcard__statBtn:focus-visible {
+    outline: none;
 }
 
 /* The reservation is the FINAL rating's width, so the 0 -> 1043 count-up cannot
@@ -268,6 +366,8 @@
     font-weight: 400;
     letter-spacing: .05em;
     color: rgba(255, 255, 255, .72);
+    /* matches the underline's fade so the two halves of the hover land together */
+    transition: color .16s;
 }
 
 /* OPTICALLY CENTRED, NOT BASELINE-ALIGNED — the knob inherited verbatim from
@@ -283,19 +383,42 @@
    only holds at one. Nudge the number if it ever needs re-tuning; never add a
    second mechanism.
 
-   NO COLOUR RULE HERE, and none is missing: the league's `light`/`color` only
-   ever tinted the tier NAME beside this glyph, and that name is gone. An emoji
-   is a colour bitmap — `color` never reached it. */
+   THE OFFSET IS NEGATIVE. This raises the glyph; it is not a nudge whose sign
+   you can pick by taste. The emoji reads LOW against "ELO" — three capitals with
+   no descender, whose optical centre sits half a cap-height above the baseline —
+   so the correction is upward. -0.08em is the value tuned on the league chip
+   this card replaces (globals.scss ~7945). A positive value doubles the fault.
+
+   NO COLOUR RULE HERE, and none is missing. An emoji is a colour bitmap, so
+   `color` never reaches it; the league's `light`/`color` is painted on the
+   DIGITS instead (inline, from playerCard.js — the palette is seasonal and
+   server-overridable, so it cannot live in a stylesheet). */
+.pcard__leagueEmoji {
+    /* SMALLER than the unit's .34em, and that is not a typo. An emoji glyph is
+       drawn inside its own em box with side bearings either side — that padding
+       is already in the glyph, so an identical margin reads visibly WIDER next
+       to the badge than it does next to a word. The gap you set is not the gap
+       you see. This is the whole reason .pcard__stat has no flex `gap`: one
+       number cannot space a word and a glyph the same. */
+    margin-left: .2em;
+    position: relative;
+    top: -.08em;
+}
 
 /* ===========================================================================
- *  THE STAMPS TILE
+ *  THE STAMPS TILE — now the only chip under the card.
  *
- *  Geometry is the Community Maps button's, restated (daily.scss
- *  .daily-community-maps-btn): same height, same 10px radius, same 1.4px
- *  --primaryDark rim, same green. These two are the small chips under the card
- *  and they must read as a pair — giving this one the card's heavier 2px/16px
- *  recipe would make it a second card, which is the thing we just stopped
- *  having.
+ *  It kept the Community Maps button's skin after that button moved to the
+ *  footer: 10px radius, 1.4px --primaryDark rim, the flat green. Deliberately
+ *  NOT the card's heavier 2px/16px recipe, which would make this a second card
+ *  in a corner that was just cut down to one.
+ *
+ *  ITS BOX IS THE CURRENCY MARK'S, and both numbers below say so. The tile
+ *  carries a fixed 45px stamp, so a height that ramped 30px→40px with the
+ *  viewport could not hold it at the floor, and a label size that ramped
+ *  12px→16px read as a caption on a picture. Both are derived from
+ *  --stampMarkSize (styles/shop.css) instead, which is why there is no longer a
+ *  --hudChipH/--hudChipFont pair: the chip this shared them with is gone.
  * ======================================================================== */
 
 .stampsTile {
@@ -304,7 +427,8 @@
     justify-content: center;
     gap: 8px;
     margin: 0;
-    height: var(--hudChipH);
+    /* +8 is the breathing room either side of the mark. */
+    height: calc(var(--stampMarkSize) + 8px);
     padding: 0 14px;
     border: 1.4px solid var(--primaryDark);
     border-radius: 10px;
@@ -312,7 +436,7 @@
     background-color: var(--primaryTransparent);
     color: white;
     font-family: lexend;
-    font-size: var(--hudChipFont);
+    font-size: var(--stampValueSize);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: .01em;
@@ -335,12 +459,9 @@
     outline-offset: 2px;
 }
 
-.stampsTile__mark {
-    width: 1.05em;
-    height: 1.05em;
-    flex-shrink: 0;
-    color: #ffd700;
-}
+/* No .stampsTile__mark. The mark is one size on every surface
+   (--stampMarkSize, styles/shop.css) and the TILE is what grew to hold it —
+   see .stampsTile's height above. */
 
 .stampsTile__value {
     position: relative;
@@ -383,7 +504,7 @@
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
     box-shadow: 0 8px 32px rgba(0, 0, 0, .35),
-        0 4px 12px rgba(36, 87, 52, .3),
+        0 4px 12px rgba(var(--surfChannels), .3),
         inset 0 1px 0 rgba(255, 255, 255, .15);
     font-family: lexend;
     color: white;
@@ -423,81 +544,21 @@
  *  shortcut into a screen that exists, not a new menu.
  * ======================================================================== */
 
-.pcard__menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 100%;
-    z-index: 1001;
-    display: flex;
-    flex-direction: column;
-    padding: 6px;
-    border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 14px;
-    background: linear-gradient(165deg, rgba(20, 32, 20, .97), rgba(9, 16, 9, .98));
-    box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
-    animation: pcardMenuIn .14s ease-out;
-}
+/* (.pcard__menu, its pcardMenuIn keyframes, .pcard__item and .pcard__itemIcon
+   are DELETED. The card no longer opens a popover — the whole card goes to
+   Profile and the rating line goes to ELO. See components/ui/playerCard.js.) */
 
-@keyframes pcardMenuIn {
-    from {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.pcard__item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    margin: 0;
-    padding: 9px 12px;
-    border: none;
-    border-radius: 9px;
-    background: transparent;
-    color: white;
-    font-family: lexend;
-    font-weight: 500;
-    font-size: .95rem;
-    text-align: left;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background-color .15s;
-}
-
-.pcard__item:hover {
-    background: rgba(255, 255, 255, .09);
-}
-
-.pcard__item:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, .5);
-    outline-offset: -2px;
-}
-
-/* Fixed cell so an emoji and the paintbrush line their labels up identically. */
-.pcard__itemIcon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25em;
-    font-size: 1.05em;
-    flex-shrink: 0;
-}
-
-/* (.pcard__itemMark sized the shop row's paintbrush. That row is deleted — the
-   Stamps tile under this card is the one door to the shop now — so the rule went
-   with it rather than being left behind for a `class` nothing renders. Every
-   remaining menu row carries an emoji, which .pcard__itemIcon above already
-   sizes.) */
-
+/* Pending friend requests. A SIGN, not a door: pointer-transparent, so a press
+   lands on .pcard__hit underneath and opens Profile like the rest of the card.
+   Anchored to .pcard__face (not .pcard__body, which is inset by the card's
+   padding) and absolutely positioned, so it cannot add width to a card whose
+   two lines share a carefully held left edge. */
 .pcard__badge {
-    margin-left: auto;
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    z-index: 2;
+    pointer-events: none;
     padding: 1px 7px;
     border-radius: 999px;
     background: #b3261e;

@@ -1,5 +1,5 @@
-// Cosmetic sku -> renderable values. Hand-maintained mirror of the GLOWS and
-// MARKERS blocks in shared/shop/catalog.js.
+// Cosmetic sku -> renderable values. Hand-maintained mirror of the BACKGROUNDS,
+// GLOWS and MARKERS blocks in shared/shop/catalog.js.
 //
 // WHY THIS IS LOCAL AND NOT FETCHED: the multiplayer roster carries only the
 // SKU (ws Player.js `nameGlow`), and it arrives on the websocket the instant a
@@ -7,6 +7,60 @@
 // a local table an opponent's glow could not be painted at all until the
 // storefront happened to load. The shop screen still prefers the server's
 // catalogue for PRICES and the item list; only the colours live here.
+
+/**
+ * A purchasable site background: the photograph, and the palette the HOME
+ * SCREEN recolours itself to while it is equipped.
+ *
+ * WHY THIS TABLE IS LOCAL, same argument as the glows below: the equipped sku
+ * arrives on the auth payload and is read from the store on the very first
+ * frame of the home screen, long before (and independently of) any shop HTTP
+ * call. Fetching the catalogue to find out which image to paint would mean a
+ * green menu and the stock photograph on every cold start.
+ *
+ * MIRROR OF shared/shop/catalog.js — same skus, same paths, same hex values.
+ * Change it there and change it HERE IN THE SAME COMMIT. A mismatch is not a
+ * cosmetic bug: it is the app painting a different city from the one the buyer
+ * paid for.
+ */
+export interface BackgroundDef {
+  sku: string;
+  name: string;
+  /** Site-relative path. The origin is bolted on in src/services/siteBackground.ts. */
+  path: string;
+  /** Darkest tone: the 1.4px rims on the corner chips. */
+  deep: string;
+  /** Mid tone: the big top-to-bottom wash behind the menu. */
+  wash: string;
+  /** Lightest tone: every filled button face. */
+  surface: string;
+}
+
+const BACKGROUND_LIST: BackgroundDef[] = [
+  // The one light row — cerulean, and the brightest palette on the shelf on
+  // purpose. See the long note on this sku in shared/shop/catalog.js for why it
+  // goes no lighter than this.
+  { sku: 'bg_sf',        name: 'San Francisco',  path: '/backgrounds/bg-sf.webp',        deep: '#133a4d', wash: '#1d5674', surface: '#2b769c' },
+  { sku: 'bg_paris',     name: 'Paris',          path: '/backgrounds/bg-paris.webp',     deep: '#101a33', wash: '#1b2d57', surface: '#28417d' },
+  { sku: 'bg_rome',      name: 'Rome',           path: '/backgrounds/bg-rome.webp',      deep: '#2b2009', wash: '#4a3810', surface: '#6b521b' },
+  { sku: 'bg_prague',    name: 'Prague',         path: '/backgrounds/bg-prague.webp',    deep: '#0c2229', wash: '#123a45', surface: '#1b5463' },
+  { sku: 'bg_tokyo',     name: 'Tokyo',          path: '/backgrounds/bg-tokyo.webp',     deep: '#2a0b1c', wash: '#4a1330', surface: '#6b1f47' },
+  { sku: 'bg_seoul',     name: 'Seoul',          path: '/backgrounds/bg-seoul.webp',     deep: '#0d1e2b', wash: '#153348', surface: '#1f4a68' },
+  { sku: 'bg_singapore', name: 'Singapore',      path: '/backgrounds/bg-singapore.webp', deep: '#07262a', wash: '#0c4148', surface: '#135e68' },
+  { sku: 'bg_newyork',   name: 'New York',       path: '/backgrounds/bg-newyork.webp',   deep: '#170f2e', wash: '#251a4d', surface: '#3b2a6e' },
+  { sku: 'bg_rio',       name: 'Rio de Janeiro', path: '/backgrounds/bg-rio.webp',       deep: '#0a1e33', wash: '#113356', surface: '#1a4a7d' },
+  { sku: 'bg_agra',      name: 'Agra',           path: '/backgrounds/bg-agra.webp',      deep: '#2b1219', wash: '#4a212c', surface: '#6b3241' },
+];
+
+const BACKGROUNDS_BY_SKU = new Map(BACKGROUND_LIST.map((b) => [b.sku, b]));
+
+export const BACKGROUNDS: readonly BackgroundDef[] = BACKGROUND_LIST;
+
+/** Definition for a background sku, or null. Never throws — fed off the wire. */
+export function getBackground(sku: string | null | undefined): BackgroundDef | null {
+  if (typeof sku !== 'string' || !sku) return null;
+  return BACKGROUNDS_BY_SKU.get(sku) ?? null;
+}
 
 export interface GlowDef {
   sku: string;
@@ -55,7 +109,9 @@ const GLOW_LIST: GlowDef[] = [
   //
   // These three rows are a byte-for-byte mirror of ANIMATED_GLOWS in
   // shared/shop/catalog.js: same skus, same price order, same hex values, same
-  // `animated` flag. They have drifted before. When a glow is added, changed or
+  // names, same `animated` flag. EVERY GLOW NAME IS ONE WORD — "Living Flame",
+  // "Prism Cycle" and "Comet Orbit" became Blaze, Prism and Comet, and the skus
+  // did not move with them, because ownership is keyed on the sku. They have drifted before. When a glow is added, changed or
   // repriced there, change it HERE IN THE SAME COMMIT — a mismatch is not a
   // cosmetic bug, it is the app painting a different colour from the one the
   // buyer saw in the web shop for an item they already own.
@@ -71,7 +127,7 @@ const GLOW_LIST: GlowDef[] = [
   // not read from across a card); "Sonar Ping" and "Shockwave" were the same
   // expanding-ring motion as each other, which is worse — a shopper could not
   // tell them apart, so the ladder between them meant nothing; "Spectrum Nova"
-  // was Prism Cycle with two numbers turned up, which is the same failure one
+  // was Prism with two numbers turned up, which is the same failure one
   // tier higher; and "Aurora Pulse" (1,500, the entry rung and the only breath)
   // was cut on sight. The tier now opens at 2,500.
   //
@@ -82,15 +138,15 @@ const GLOW_LIST: GlowDef[] = [
   // textShadow per Text: one colour, one radius), so with the skus gone the flag
   // described nothing and was deleted rather than left reading `false` on every
   // row forever.
-  { sku: 'glow_ember_flame',     name: 'Living Flame', dark: '#FF7D1A', light: '#DC6409', animated: true },
+  { sku: 'glow_ember_flame',     name: 'Blaze', dark: '#FF7D1A', light: '#DC6409', animated: true },
   // #F0ABFC -> #FF3BD4 alongside the web catalogue: the old value was a pastel,
   // and a pastel is precisely what a still fallback cannot afford.
   // Its LIGHT value later moved magenta -> green, again alongside the web
   // catalogue, where the reasoning lives: the spectrum sweep makes this the one
   // sku whose resting hue is free.
-  { sku: 'glow_cycle_prism',     name: 'Prism Cycle',  dark: '#1AFF00', light: '#40D214', animated: true },
+  { sku: 'glow_cycle_prism',     name: 'Prism', dark: '#1AFF00', light: '#40D214', animated: true },
   // The top of the shop now that Spectrum Nova is gone.
-  { sku: 'glow_orbit_comet',     name: 'Comet Orbit',  dark: '#6D5BFF', light: '#4531F6', animated: true },
+  { sku: 'glow_orbit_comet',     name: 'Comet', dark: '#6D5BFF', light: '#4531F6', animated: true },
 ];
 
 const GLOWS_BY_SKU = new Map(GLOW_LIST.map((g) => [g.sku, g]));

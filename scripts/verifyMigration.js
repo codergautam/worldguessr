@@ -20,11 +20,12 @@
  *                     Each one is a veteran who is placement-eligible and whose
  *                     migrated rating gets bulldozed by a 500-800 seed on their
  *                     next queue.
- *   5b PLACEMENT-B    zero users with ratedGames > 70. The backfill caps at 70;
- *                     anything above means something other than the backfill
- *                     wrote the field.
- *   5c PLACEMENT-C    the top 100 by elo_s0 all sit at exactly 70. The most
+ *   5b PLACEMENT-B    zero users above the backfill cap. Anything above means
+ *                     something other than the backfill wrote the field.
+ *   5c PLACEMENT-C    the top 100 by elo_s0 all sit at exactly the cap. The most
  *                     valuable accounts on the ladder, spot-checked by hand.
+ *                     They all have thousands of career duels, so min() pins
+ *                     every one of them to the cap exactly.
  *   6  PEAK           zero users with seasonPeakElo < elo_s0. Impossible by
  *                     construction (the migration stamps max(peak, elo_s0)), so
  *                     a hit means the peak-table lookup silently missed and fell
@@ -60,9 +61,15 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import User from '../models/User.js';
 import { RATING_FLOOR } from '../components/utils/eloSystem.js';
+import { RATED_GAMES_BACKFILL_CAP } from '../components/utils/placementGates.js';
 
 const RATING_CEIL = 1600;
-const RATED_GAMES_CAP = 70; // must match backfillRatedGames' cap
+// IMPORTED, never retyped. This used to be a hand-copied 70 with a comment
+// saying it must match backfillRatedGames — which is exactly the arrangement
+// that silently breaks the moment the cap is tuned, and the cap IS a tuning
+// knob (it sets how fast the migrated ladder re-sorts). Gates 5b and 5c below
+// are the ones that would have gone quietly wrong.
+const RATED_GAMES_CAP = RATED_GAMES_BACKFILL_CAP;
 const TOP_N = 100;
 
 /**

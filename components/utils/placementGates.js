@@ -69,13 +69,48 @@ export function isPlacementEligible(user, migrationAt) {
 
 /**
  * Historical rated-game count for a pre-migration account, from its duel
- * counters. Capped at 70 so a legacy veteran lands in the K_VET bucket without
- * claiming a game count the v2 season never actually saw. Missing counters
- * count as 0.
+ * counters. Missing counters count as 0.
+ *
+ * THE CAP IS A K-FACTOR DIAL, NOT A GAME COUNT. It decides how fast the
+ * migrated ladder is allowed to re-sort itself, and it is the only knob that
+ * does.
+ *
+ * Migrated ratings are ORDER-PRESERVING, not honest. The analysis behind the
+ * migration is explicit that Season 0 elo ranked play TIME, not skill
+ * (Spearman rho 0.897 against career duel count), so day one is a faithful copy
+ * of a ladder that does not rank players. Zero-sum play is what sorts it, and
+ * how fast it sorts is exactly K.
+ *
+ * The cap was 70, which put every veteran in K_MID (20) for 30 games and then
+ * K_VET (10) forever. Measured against a player parked 400 points below their
+ * true level, that takes 32 games to correct half the error and over 120 to
+ * correct 90% of it. The median player plays about 33 ranked duels A YEAR, so
+ * the median player never finished settling at all — and low-volume players are
+ * precisely the ones whose migrated rating carries the least information.
+ *
+ * At 15 the same player gets ~15 games at K_NEW (40), then ~70 at K_MID, then
+ * settles at K_VET. Half the error is gone in 16 games instead of 32, and 90%
+ * in 76 instead of never, which lands the bulk of the re-sort inside the 14-day
+ * post-migration monitoring window where it can actually be watched.
+ *
+ * WHY NOT HIGHER STILL: K is bought with noise. Measured steady-state rating
+ * noise is sd 30 at K=10, 43 at K=20 and 60 at K=40. The Explorer band is only
+ * 130 points wide, so a PERMANENT K=40 would have players flickering across
+ * tier lines forever. This is a settling window, not a new baseline, and
+ * K_VET stays where it is.
+ *
+ * WHY NOT ZERO: the cap must stay >= 1. Any account with at least one career
+ * game must backfill to a non-zero `ratedGames`, because that is gate 2 of the
+ * placement guard above — a 0 here plus a bad `created_at` read is how a
+ * veteran's migrated rating gets bulldozed by a 500-800 placement seed.
+ *
+ * scripts/verifyMigration.js has its own RATED_GAMES_CAP that MUST match this.
  */
+export const RATED_GAMES_BACKFILL_CAP = 15;
+
 export function backfillRatedGames(user) {
   const wins = user?.duels_wins | 0;
   const losses = user?.duels_losses | 0;
   const tied = user?.duels_tied | 0;
-  return Math.min(wins + losses + tied, 70);
+  return Math.min(wins + losses + tied, RATED_GAMES_BACKFILL_CAP);
 }

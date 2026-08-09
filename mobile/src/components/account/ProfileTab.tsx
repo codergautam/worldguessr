@@ -49,12 +49,25 @@ interface ProfileTabProps {
     seasonPeakLeague?: string | null;
     /**
      * CLOSING rating on the old scale (`elo_s0`), shown in the OG badge's card.
-     * A different and usually smaller number than seasonPeakElo. Absent on the
-     * own-profile payload, which is why every row of that card renders
-     * independently rather than as one block.
+     * A different and usually smaller number than seasonPeakElo. Every row of
+     * that card renders independently, so a payload missing one field drops that
+     * row rather than the card.
      */
     season0Elo?: number | null;
-    /** Permanent pre-2025-08-01 tenure badge. Only ever `true` grants it. */
+    /**
+     * Closing PLACE on the Season 0 ladder, from the frozen rank table the
+     * server owns (shared/season0/rankTable.js). Null until that table has been
+     * exported, and null for accounts the Hall of Fame excludes. Never derived
+     * from the live rank — that ranks a different ladder.
+     */
+    season0Rank?: number | null;
+    /**
+     * The OG badge. Resolved SERVER-SIDE (api/publicProfile.js, from
+     * shared/season0/rank.js) and true for every account that was here for
+     * Season 0, not just the ones the compensation script stamped. Only ever
+     * `true` grants it; the widening happens on the server so this screen and
+     * the web profile cannot drift apart over who counts as a veteran.
+     */
     ogAccount?: boolean;
   } | null;
   isOwnProfile: boolean;
@@ -108,32 +121,39 @@ export default function ProfileTab({
 
   const gamesCount = profileData.gamesLen ?? profileData.gamesPlayed ?? 0;
 
-  // ── SEASON 0 PEAK + OG.
+  // ── THE OG BADGE.
+  //
+  // ONE CHIP, and everything else on the card under it. A second chip used to
+  // print the career peak as a big gold number while the card three rows down
+  // already said "Peak rating" — one fact in two places on one screen. The chip
+  // went; put anything new in a card row. Mirrors components/publicProfile.js on
+  // web — keep the two in step.
   //
   // THE LABELLING IS THE FEATURE. `seasonPeakElo` is on the retired 0-20,000
   // scale; the live rating one tab away is on the 100-1,600 one. A player who
   // reads the big dead number as their current rating concludes we took 18,400
-  // points off them. So the caption names the event the player actually lived
-  // through ("Peak before ranked update") rather than an internal season number
-  // nobody outside a changelog has ever seen. Mirrors the web badges in
-  // components/publicProfile.js — keep the two in step.
+  // points off them. Inside the card the row labels plus the closing note carry
+  // that, and there is no tooltip on a phone to fall back on, so no Season 0
+  // number is ever rendered here without words around it.
   //
   // `> 0`, not `!= null`: post-migration signups have null here and a 0 would
-  // render a "Season 0 peak: 0" trophy, which is a lie. The peak is NEVER
-  // derived from the current rating.
+  // render a "Peak rating: 0" row, which is a lie. Nothing is EVER derived from
+  // the current rating.
   const peakRaw = Number(profileData.seasonPeakElo);
   const hasSeasonPeak = Number.isFinite(peakRaw) && peakRaw > 0;
   const seasonPeakLeague =
     typeof profileData.seasonPeakLeague === 'string' && profileData.seasonPeakLeague.trim()
       ? profileData.seasonPeakLeague
       : null;
-  // Strict `=== true`. The badge is permanent and unearnable after migration, so
-  // a false positive can never be walked back gracefully.
+  // Strict `=== true`, and the server decides who gets it — see the prop docs.
   const isOg = profileData.ogAccount === true;
   // Season 0 CLOSING rating. Same `> 0` test as the peak and the same reason: a
   // "Final rating: 0" row would be a lie rather than an absence.
   const finalRaw = Number(profileData.season0Elo);
   const hasSeason0Final = Number.isFinite(finalRaw) && finalRaw > 0;
+  // Closing place on that ladder. Same test, same reason.
+  const rankRaw = Number(profileData.season0Rank);
+  const hasSeason0Rank = Number.isFinite(rankRaw) && rankRaw > 0;
   // Month + year only. The join date on an OG profile is a badge of tenure, not
   // a record, and the exact day is nobody's business.
   const joinedDate = profileData.createdAt ? new Date(profileData.createdAt) : null;
@@ -243,54 +263,34 @@ export default function ProfileTab({
           </View>
         )}
 
-        {/* Trophy chips, below the live statRows and visually apart from them:
-            the statRows are all current-season numbers, and dropping a
+        {/* The trophy chip, below the live statRows and visually apart from
+            them: the statRows are all current-season numbers, and dropping a
             dead-scale 20,000 into that list is exactly the confusion this is
-            built to prevent. There is no hover here, so the caption is the ONLY
-            thing separating the two scales and it is never dropped. */}
-        {(hasSeasonPeak || isOg) && (
+            built to prevent. */}
+        {isOg && (
           <View style={styles.badgeRow}>
-            {hasSeasonPeak && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeIcon}>🏆</Text>
-                <View style={styles.badgeBody}>
-                  <View style={styles.badgeValueRow}>
-                    <Text style={styles.badgeValue}>{Math.round(peakRaw).toLocaleString()}</Text>
-                    {seasonPeakLeague && (
-                      <Text style={styles.badgeLeague}>{seasonPeakLeague}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.badgeLabel}>
-                    {t('season0PeakLabel').toUpperCase()}
-                  </Text>
-                </View>
+            {/* There is no hover on a phone, so the web's hover card becomes a
+                tap toggle. Same content, same order — see .s1-ogCard in
+                styles/season1Badges.css. */}
+            <Pressable
+              style={[styles.badge, styles.badgeOg, ogCardOpen && styles.badgeOgOpen]}
+              onPress={() => setOgCardOpen((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: ogCardOpen }}
+            >
+              <Text style={styles.badgeIcon}>⭐</Text>
+              <View style={styles.badgeBody}>
+                <Text style={styles.badgeOgTag}>OG</Text>
+                <Text style={styles.badgeLabel}>
+                  {t('ogBadgeLabel').toUpperCase()}
+                </Text>
               </View>
-            )}
-
-            {isOg && (
-              // There is no hover on a phone, so the web's hover card becomes a
-              // tap toggle. Same content, same order — see .s1-ogCard in
-              // styles/season1Badges.css.
-              <Pressable
-                style={[styles.badge, styles.badgeOg, ogCardOpen && styles.badgeOgOpen]}
-                onPress={() => setOgCardOpen((v) => !v)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: ogCardOpen }}
-              >
-                <Text style={styles.badgeIcon}>⭐</Text>
-                <View style={styles.badgeBody}>
-                  <Text style={styles.badgeOgTag}>OG</Text>
-                  <Text style={styles.badgeLabel}>
-                    {t('ogBadgeLabel').toUpperCase()}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={ogCardOpen ? 'chevron-up' : 'chevron-down'}
-                  size={13}
-                  color="rgba(255, 215, 0, 0.7)"
-                />
-              </Pressable>
-            )}
+              <Ionicons
+                name={ogCardOpen ? 'chevron-up' : 'chevron-down'}
+                size={13}
+                color="rgba(255, 215, 0, 0.7)"
+              />
+            </Pressable>
           </View>
         )}
 
@@ -313,6 +313,15 @@ export default function ProfileTab({
                 <Text style={styles.ogCardRowValue}>{Math.round(finalRaw).toLocaleString()}</Text>
               </View>
             )}
+            {/* Where that rating finished on the closing ladder. The "#" is what
+                makes it read as a place rather than yet another rating on a
+                scale nobody remembers. */}
+            {hasSeason0Rank && (
+              <View style={styles.ogCardRow}>
+                <Text style={styles.ogCardRowLabel}>{t('ogCardRank')}</Text>
+                <Text style={styles.ogCardRowValue}>#{Math.round(rankRaw).toLocaleString()}</Text>
+              </View>
+            )}
             {hasSeasonPeak && (
               <View style={styles.ogCardRow}>
                 <Text style={styles.ogCardRowLabel}>{t('ogCardPeak')}</Text>
@@ -327,6 +336,12 @@ export default function ProfileTab({
                 <Text style={styles.ogCardRowValue}>{seasonPeakLeague}</Text>
               </View>
             )}
+            {/* WHAT THE BADGE MEANS, in one line: the account predates the
+                ranked update. NOT "played before ranked history was saved",
+                which is what this used to say and which stopped being true the
+                day the badge widened — most OG accounts never played a ranked
+                game. Tenure is the claim, and the Joined row above is the
+                evidence. */}
             <Text style={styles.ogCardNote}>
               {t('ogBadgeNote')}
             </Text>
@@ -596,9 +611,10 @@ export default function ProfileTab({
 }
 
 const styles = StyleSheet.create({
-  // Season 0 peak + OG chips. Mirrors .s1-badge in styles/season1Badges.css —
-  // keep the two in step. Gold-outlined dark glass pills, never full-bleed
-  // cards: two stacked bars of migration prose is what these replaced.
+  // The OG chip. Mirrors .s1-badge in styles/season1Badges.css — keep the two in
+  // step. A gold-outlined dark glass pill, never a full-bleed card: a stacked
+  // bar of migration prose is what it replaced. badgeRow stays a wrapping row
+  // even with one chip in it, which is where a second badge would go.
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -673,42 +689,16 @@ const styles = StyleSheet.create({
   badgeBody: {
     gap: 1,
   },
-  badgeValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  badgeValue: {
-    color: '#ffd700',
-    fontSize: 20,
-    lineHeight: 25,
-    fontFamily: 'Lexend-SemiBold',
-    // Matched figure widths: peak and current rating are read as a pair.
-    fontVariant: ['tabular-nums'],
-  },
-  badgeLeague: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 11,
-    fontFamily: 'Lexend-Medium',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 999,
-    paddingVertical: 1,
-    paddingHorizontal: 8,
-    overflow: 'hidden',
-  },
-  // THE CAPTION IS THE WHOLE SAFETY FEATURE, and on mobile there is no tooltip
-  // behind it. "20,000" against a live "1,247" with a vague caption reads as a
-  // rollback or a theft. It says SEASON 0. Never shorten it to "Peak".
+  // The caption under "OG". The chip's own word is two letters, and this is the
+  // only thing on the closed badge that says what those two letters mean.
   badgeLabel: {
     color: 'rgba(255, 255, 255, 0.55)',
     fontSize: 9,
     letterSpacing: 1,
     fontFamily: 'Lexend-Medium',
   },
-  // "OG" carries the same weight the peak number does. It is the badge itself,
-  // not a tag stuck to a sentence.
+  // "OG" is the badge itself, not a tag stuck to a sentence, so it carries the
+  // weight a headline number would.
   badgeOgTag: {
     color: '#ffd700',
     fontSize: 17,

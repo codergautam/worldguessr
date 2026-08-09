@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ImageBackground,
   Linking,
   ScrollView,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import SiteBackground from '../src/components/SiteBackground';
 import { Pressable } from '../src/components/ui/SfxPressable';
 import Animated, { FadeInDown, FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -147,17 +147,13 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.root}>
-      <ImageBackground
-        source={require('../assets/street2.jpg')}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      >
+      <SiteBackground style={StyleSheet.absoluteFill}>
         <LinearGradient
           colors={['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)']}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </ImageBackground>
+      </SiteBackground>
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         {/* Header */}

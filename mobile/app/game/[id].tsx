@@ -47,6 +47,10 @@ import EmbeddedMap from '../../src/components/game/EmbeddedMap';
 import GameSurface, { GameSurfaceHandle, getExpandedMapHeight, useMapRowHudClearance } from '../../src/components/game/GameSurface';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
+import { isOfficialMapSlug, orderByFreshness } from '@shared/locations/repeatGuard';
+import { hydrateSeenLocs, markSeenLoc, seenLocs } from '../../src/services/seenLocations';
+import { clearPool, fillPool, takeRounds, type PoolMeta } from '../../src/services/locationPool';
+import { shuffle } from '../../src/shared/data/countryHelpers';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal, { SvMode } from '../../src/components/game/MapSelectorModal';
@@ -451,9 +455,11 @@ export default function GameScreen() {
   const [loadNonce, setLoadNonce] = useState(0);
   const handleRetryLoad = useCallback(() => {
     setLoadError(null);
+    // A retry means the pool in memory is suspect (or the fetch that would have
+    // filled it failed): start clean.
+    clearPool();
     setLoadNonce((n) => n + 1);
   }, []);
-  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const roundStartTimeRef = useRef<number>(Date.now());
 
   // Track whether we already sent a guess this round (multiplayer). The UI lock
@@ -1168,6 +1174,23 @@ export default function GameScreen() {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
+    // Shared tail for both paths below: the rounds this game will play.
+    function applyRounds(locs: any[], meta: PoolMeta) {
+      setCurrentMapName(meta.name);
+      setGameState((prev) => ({
+        ...prev,
+        locations: locs,
+        maxDist: meta.maxDist,
+        extent: meta.extent,
+      }));
+      setHintShown(false);
+      setHintsUsed(0);
+      setIsLoading(false);
+      roundStartTimeRef.current = Date.now();
+      // Track map play (matches web behavior — skip default "all" map)
+      if (currentMapSlug !== 'all') api.trackMapPlay(currentMapSlug);
+    }
+
     async function fetchLocations(attempt = 1) {
       try {
         setIsLoading(true);
@@ -1175,10 +1198,25 @@ export default function GameScreen() {
 
         let data: any;
         const mapSlug = currentMapSlug;
+        const totalRounds = gameState.totalRounds;
 
+        // The ring has to be in memory before the pool can be ordered against
+        // it. Resolves instantly after the first game.
+        await hydrateSeenLocs();
+
+        // Walk what is left of the last fetch before going back to the network.
+        // Those spots are already ordered and already unplayed, and inside the
+        // CDN window a refetch would hand back the identical array anyway.
+        const cached = takeRounds(mapSlug, totalRounds);
+        if (cached) {
+          applyRounds(cached.locs, cached.meta);
+          return;
+        }
+
+        let mapName = mapSlug;
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
-          setCurrentMapName(t('world'));
+          mapName = t('world');
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
           // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
@@ -1187,12 +1225,12 @@ export default function GameScreen() {
             getCountryMaxDists(),
           ]);
           const countryEntry = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
-          setCurrentMapName(countryEntry?.name || mapSlug);
+          mapName = countryEntry?.name || mapSlug;
           // Attach maxDist so it's picked up below
           data.maxDist = countryMaxDists[mapSlug] ?? DEFAULT_GAME_OPTIONS.maxDist;
         } else {
           data = await api.fetchMapLocations(mapSlug);
-          setCurrentMapName((data as any).name || mapSlug);
+          mapName = (data as any).name || mapSlug;
         }
 
         if (!data.ready || !data.locations || data.locations.length === 0) {
@@ -1208,9 +1246,13 @@ export default function GameScreen() {
           pitch: loc.pitch,
         }));
 
-        const shuffled = [...normalizedLocations].sort(() => Math.random() - 0.5);
-        const totalRounds = gameState.totalRounds;
-        const selectedLocations = shuffled.slice(0, totalRounds);
+        // Official maps: spots this player has never seen come first, then the
+        // ones they saw longest ago. Community maps keep a plain shuffle (and
+        // it is a real Fisher-Yates now: `.sort(() => Math.random() - 0.5)` is
+        // not a uniform shuffle, it mostly leaves entries near where they were).
+        const ordered = isOfficialMapSlug(mapSlug)
+          ? orderByFreshness(normalizedLocations, seenLocs())
+          : shuffle(normalizedLocations);
 
         // Compute extent based on map type
         let extent: Extent = null;
@@ -1233,22 +1275,15 @@ export default function GameScreen() {
           ];
         }
 
-        setAllLocations(shuffled);
-        setGameState((prev) => ({
-          ...prev,
-          locations: selectedLocations,
+        const meta: PoolMeta = {
           maxDist: data.maxDist ?? DEFAULT_GAME_OPTIONS.maxDist,
           extent,
-        }));
-        setHintShown(false);
-        setHintsUsed(0);
-        setIsLoading(false);
-        roundStartTimeRef.current = Date.now();
-
-        // Track map play (matches web behavior — skip default "all" map)
-        if (mapSlug !== 'all') {
-          api.trackMapPlay(mapSlug);
-        }
+          name: mapName,
+        };
+        fillPool(mapSlug, ordered, meta);
+        // Everything the pool can serve is taken off the front; a map too small
+        // for a full game (community maps can be) just plays what it has.
+        applyRounds(takeRounds(mapSlug, totalRounds)?.locs ?? ordered.slice(0, totalRounds), meta);
       } catch (error) {
         if (attempt < MAX_RETRIES) {
           console.warn(`Failed to fetch locations (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
@@ -1271,6 +1306,18 @@ export default function GameScreen() {
   // (curRound overshoots to rounds+1); on an early end it does not (see below).
   const effectiveRoundIndex = Math.min(gameState.currentRound, gameState.totalRounds) - 1;
   const currentLocation = gameState.locations[Math.max(0, effectiveRoundIndex)];
+
+  // Every spot the player actually lands on, on an official map, goes into the
+  // shared ring so the next fetch orders around it. One choke-point, same as
+  // web's latLong effect, so it covers singleplayer rounds and multiplayer
+  // rounds pushed by the server alike. Multiplayer reads the server's map slug;
+  // the route never carries one.
+  useEffect(() => {
+    if (!currentLocation || currentLocation.lat == null || currentLocation.long == null) return;
+    const slug = isMultiplayer ? gameData?.map : currentMapSlug;
+    if (!isOfficialMapSlug(slug)) return;
+    markSeenLoc(currentLocation);
+  }, [currentLocation?.lat, currentLocation?.long]);
 
   // Both MP reveals — the between-rounds answer card AND the final reveal — show the round
   // that was just PLAYED, which is always curRound-1: the server bumps curRound exactly

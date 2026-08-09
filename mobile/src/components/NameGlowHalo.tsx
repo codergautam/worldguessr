@@ -87,10 +87,14 @@ interface NameGlowHaloProps {
    */
   animated?: boolean;
   /**
-   * Static-halo blur radius in px. The default suits in-game name sizes
-   * (13-18px). Raise it ONLY where the name is set at display size — the shop's
-   * preview stages — because a halo tuned for 14px text is an invisible rim
-   * around 24px text, which is how ten colours end up looking like one smudge.
+   * Static-halo blur radius in px, on the DARK surface. The default suits
+   * in-game name sizes (13-18px). Raise it ONLY where the name is set at display
+   * size — the shop's preview stages — because a halo tuned for 14px text is an
+   * invisible rim around 24px text, which is how ten colours end up looking like
+   * one smudge.
+   *
+   * `onLight` scales this down by LIGHT_STATIC_SCALE; a caller passes the dark
+   * number and gets the right light one for free.
    */
   radius?: number;
   /**
@@ -103,6 +107,33 @@ interface NameGlowHaloProps {
 }
 
 const NO_OFFSET = { width: 0, height: 0 } as const;
+
+/**
+ * What the static halo's radius is multiplied by on a LIGHT surface.
+ *
+ * A React Native <Text> takes exactly ONE shadow — one colour at full alpha,
+ * one radius — where web layers four with a falloff, so the radius is the only
+ * knob this tier has and it has to carry the whole surface difference on its
+ * own. The dark side is a big sheet of glass a halo can bloom into; the light
+ * side is a small white card with dark text on it, and at the same radius the
+ * identical halo stops reading as a halo and starts reading as the name
+ * leaking. Web pulled its light stack's reach in from 18px to 13px for exactly
+ * this ("the glows are too strong on white, like on pins") and then from 13px
+ * to 9px when that was still too strong on a guess-pin tooltip; 0.45 is those
+ * two corrections expressed through the one number available here, and it lands
+ * the default at ~3.6px against the dark tier's 8.
+ *
+ * DO NOT "RESTORE" THIS BY EYE ON A DARK SCREENSHOT. 3.6px looks like almost
+ * nothing next to the dark tier's 8px, and that comparison is the trap rule 5b
+ * exists to stop: the number is right when it is right on a white card, where
+ * the halo is DARKER than what it sits on and needs a fraction of the reach to
+ * be seen at all.
+ *
+ * It multiplies whatever the caller asked for rather than replacing it, so a
+ * surface that raises `radius` because its text is set larger keeps that
+ * intent — the two are independent facts about the same halo.
+ */
+const LIGHT_STATIC_SCALE = 0.45;
 
 /**
  * One fixed shadow, fading in and out of the lap.
@@ -208,7 +239,11 @@ function NameGlowHalo({
           style={[
             StyleSheet.absoluteFill,
             textStyle,
-            { textShadowColor: color, textShadowOffset: NO_OFFSET, textShadowRadius: radius },
+            {
+              textShadowColor: color,
+              textShadowOffset: NO_OFFSET,
+              textShadowRadius: onLight ? radius * LIGHT_STATIC_SCALE : radius,
+            },
           ]}
           numberOfLines={numberOfLines}
           accessible={false}

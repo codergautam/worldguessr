@@ -11,7 +11,7 @@
 // tests pass a fake. Nothing in this file touches mongoose.
 //
 // Callers hand in plain queue entries, shaped:
-//   { id, rating, guest, queueTime, accountId,
+//   { id, rating, guest, queueTime, accountId, strict,
 //     placementPending, botEligible, lastOpponentId, lastOpponentAt }
 
 import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
@@ -76,6 +76,29 @@ function wasRecentOpponent(entry, candidate, now, waiverMs) {
 }
 
 /**
+ * Would pairing these two violate either side's strict-matchmaking opt-in?
+ *
+ * Strict means "never match me below the Voyager line". Checked BOTH ways for
+ * the same reason the rematch block is: pairing is symmetric, so which player
+ * happens to be the anchor on a given tick must not change the answer.
+ *
+ * In practice only one direction can fire, because a queue entry is only ever
+ * stamped strict when the player is themselves at or above the floor — but
+ * relying on the caller to have got that right is exactly how this feature broke
+ * the first time.
+ *
+ * `strictFloor` is INJECTED rather than imported: this module stays pure (one
+ * import, no league table, no config) so it can be unit tested, and the floor is
+ * a seasonal value the server resolves from the active tier table.
+ */
+function strictBlocks(a, b, strictFloor) {
+  if (!Number.isFinite(strictFloor) || strictFloor <= 0) return false;
+  if (a?.strict && ratingOf(b) < strictFloor) return true;
+  if (b?.strict && ratingOf(a) < strictFloor) return true;
+  return false;
+}
+
+/**
  * Pick ranked 1v1 pairs by CLOSEST rating instead of first fit.
  *
  * Anchors are taken oldest-wait-first, and each anchor takes the compatible
@@ -94,6 +117,9 @@ export function chooseDuelPairs(entries, opts = {}) {
   const now = Number.isFinite(opts.now) ? opts.now : Date.now();
   const waiverMs = Number.isFinite(opts.rematchWaiverMs) ? opts.rematchWaiverMs : DEFAULT_REMATCH_WAIVER_MS;
   const allowRematch = opts.allowRematch === true;
+  // 0 (the default) disables strict entirely, which is what a caller that does
+  // not know about the setting should get.
+  const strictFloor = Number.isFinite(opts.strictFloor) ? opts.strictFloor : 0;
 
   // Carve-outs, mirroring ws.js:2237-2244:
   //  - botEligible === true → newbies always get a bot, never a human.
@@ -149,6 +175,15 @@ export function chooseDuelPairs(entries, opts = {}) {
         if (wasRecentOpponent(anchor, candidate, now, waiverMs)) continue;
         if (wasRecentOpponent(candidate, anchor, now, waiverMs)) continue;
       }
+
+      // Strict matchmaking. DELIBERATELY BEFORE the closest-rating comparison
+      // below: a rejected candidate must never be able to win the bestDiff slot
+      // and knock out a legal opponent. Also NOT waived by wait time — unlike
+      // the rematch rule, this is an explicit opt-in and quietly overriding it
+      // after a minute would be the opposite of what the player asked for. The
+      // uncapped widening in windowFor() is what eventually finds them someone
+      // ABOVE the floor.
+      if (strictBlocks(anchor, candidate, strictFloor)) continue;
 
       // Strictly-smaller only: `ordered` is longest-wait-first, so an equal gap
       // keeps the earlier (longer-waiting) candidate.

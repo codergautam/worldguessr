@@ -8,13 +8,18 @@
 // any module that reads process.env at import time froze the WRONG value for
 // the life of the process.
 //
-// It cost the entire stamps economy. serverUtils/stamps/config.js does
+// It cost the entire stamps economy. serverUtils/stamps/config.js used to do
 // `export const STAMPS_ENABLED = process.env.STAMPS_ENABLED === 'true'` at
 // import time, Game.js imports it, so STAMPS_ENABLED was permanently false in
 // this process even with STAMPS_ENABLED=true in .env — grantGameStamps returned
 // on its first line for every game ever played. Zero game_base rows existed in
-// the database. cron.js dodges the same trap with a dynamic
-// `await import('./serverUtils/stamps/config.js')`; this file did not.
+// the database.
+//
+// That flag now DEFAULTS ON and only an explicit "false" disables it, so the
+// same mistiming would fail loud-and-open instead of silent-and-off. Do not
+// read that as the trap being fixed: it is one flag that stopped being
+// vulnerable. MONGODB, MAINTENANCE_SECRET and every other env read below still
+// depend entirely on this line running first.
 //
 // Anything env-gated imported below inherits this fix for free. Do not convert
 // this back to the function form.
@@ -33,7 +38,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange, leagues } from '../components/utils/leagues.js';
+import { getLeagueRange, leagues, getStrictFloor } from '../components/utils/leagues.js';
 import calculateOutcomes, {
   ENTRY_RATING, calculateTransfer, pairK
 } from '../components/utils/eloSystem.js';
@@ -43,12 +48,22 @@ import {
   recordDodge, dodgeRemaining, sweepDodges,
   decayMultiplier, readPairWins, bumpPairWins
 } from './matchmakingV2.js';
+import {
+  createEtaStore, recordSample, sweepSamples, estimateWait, bootstrapEstimate,
+  nextShownEta, snapshotStore, restoreStore, QUERY_PLAN
+} from './queueEta.js';
+// EVERY timer in this file goes through safeInterval. An uncaught throw in a
+// timer callback reaches the uncaughtException handler below, which exits the
+// process and ends the game for every connected player. See ws/safeTimers.js.
+import { safeInterval } from './safeTimers.js';
+import QueueEtaSnapshot from '../models/QueueEtaSnapshot.js';
 import PairWins from '../models/PairWins.js';
 import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
 import { getEmote, byLegacyIndex } from '../shared/emotes/catalog.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
+import { SERVER_CAP, locKey, pushSeenLoc, sampleDistinct } from '../shared/locations/repeatGuard.js';
 import {
   BOTS_ENABLED, BOTS_INSTANT,
   createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
@@ -90,28 +105,61 @@ function normalizeArbLoc(r) {
   return loc;
 }
 
-function pick5RandomArb() {
-  const rand = new Set();
-  while(rand.size < 5) {
-    rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
+// Cross-match repeat guard for duels. Every Player carries a ring of the
+// location ids they were recently served (Player.recentLocs); a match picks
+// around the union of its participants' rings, then stamps back what it picked.
+//
+// Duels only, 1v1 and 2v2. Public FFA and party rooms seat up to 200 players,
+// where a union of everyone's history is both enormous and meaningless, and
+// their within-match distinctness is already guaranteed.
+function seenUnion(players) {
+  const seen = new Set();
+  for (const p of players) {
+    for (const id of p?.recentLocs || []) seen.add(id);
   }
-  return [...rand].map(normalizeArbLoc);
+  return seen;
+}
+
+function stampSeen(players, locations) {
+  if (!locations || locations.length === 0) return;
+  for (const p of players) {
+    if (!p) continue;
+    if (!p.recentLocs) p.recentLocs = [];
+    for (const loc of locations) pushSeenLoc(p.recentLocs, loc, SERVER_CAP);
+  }
+}
+
+function pick5RandomArb(seenIds) {
+  return sampleDistinct(arbitraryWorld, 5, seenIds).map(normalizeArbLoc);
 }
 
 // 2v2 team duels: each round draws 50/50 from the standard world pool and the
 // arbitrary pool (the harder map high-elo 1v1 duels play on). A coin flip per
 // round rather than a pool merge, so the mix holds regardless of pool sizes.
-function pick5WorldArbMix(worldPool) {
-  const seen = new Set();
+// Dedupe is by location id, not object identity. The old Set-of-objects could
+// not see that world-main and world-arbitrary share 510 coordinates as separate
+// objects, so one match could serve the same spot from both pools.
+function pick5WorldArbMix(worldPool, seenIds) {
+  const seen = seenIds instanceof Set ? seenIds : new Set();
+  const taken = new Set();
   const locs = [];
-  while (locs.length < 5) {
-    const fromArb = Math.random() < 0.5;
-    const pool = fromArb ? arbitraryWorld : worldPool;
-    const r = pool[Math.floor(Math.random() * pool.length)];
-    if (seen.has(r)) continue;
-    seen.add(r);
-    locs.push(fromArb ? normalizeArbLoc(r) : r);
+  // Pass 0 avoids what these players just had, pass 1 accepts anything.
+  for (let pass = 0; pass < 2 && locs.length < 5; pass++) {
+    const skipSeen = pass === 0 && seen.size > 0;
+    for (let tries = 0; locs.length < 5 && tries < 200; tries++) {
+      const fromArb = Math.random() < 0.5;
+      const pool = fromArb ? arbitraryWorld : worldPool;
+      const r = pool[Math.floor(Math.random() * pool.length)];
+      const key = locKey(r);
+      if (taken.has(key)) continue;
+      if (skipSeen && seen.has(key)) continue;
+      taken.add(key);
+      locs.push(fromArb ? normalizeArbLoc(r) : r);
+    }
   }
+  // Unreachable with a 260k arbitrary pool, but never hand back a short round
+  // list: the old loop would have spun forever here instead.
+  while (locs.length < 5) locs.push(normalizeArbLoc(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]));
   return locs;
 }
 
@@ -142,6 +190,55 @@ const ALLOW_REMATCH = process.env.ALLOW_REMATCH === 'true';
 // skipped punishment. Only written under RATING_V2; with the flag off the map
 // stays empty and nothing reads it, so queue behaviour is untouched.
 const dodgeCooldowns = new Map();
+
+// ── QUEUE WAIT TELEMETRY (see ws/queueEta.js) ─────────────────────────────
+// Observed ranked-1v1 waits, bucketed by rating, feeding the estimate the
+// client shows while queued. In-memory, snapshotted to Mongo every 5 minutes —
+// a cold start costs the sparse high bands DAYS, not minutes, and those are the
+// only bands where an estimate is interesting.
+const etaStore = createEtaStore();
+const ETA_MAX_AGE_MS = QUERY_PLAN[QUERY_PLAN.length - 1].ageMs;
+
+// socketId -> the SAME queue-entry object currently held in playersInQueue.
+//
+// WHY A WATCH MAP AND NOT HOOKS ON EVERY EXIT. The queue has nine of them
+// (leaveQueue, the three party/invite cancels, two close paths, the disconnect
+// purge, and the pairing race). Instrumenting each is silently fragile: miss
+// one — today, or when someone adds a tenth — and the sample set skews toward
+// FAST matches, which is the one bias this estimator cannot survive, because it
+// would make the queue look quicker than it is precisely when people are giving
+// up. Sweeping for liveness is correct by construction for exits that don't
+// exist yet.
+const queueWatch = new Map();
+
+/**
+ * File a queue session that ended without a match as a CENSORED sample: the
+ * player waited at least this long, but we never learned what a match would
+ * have cost them. kmCurve knows the difference; counting these as matches is
+ * exactly the bias that makes an estimator lie.
+ */
+function reapQueueWatch(id, now) {
+  const watched = queueWatch.get(id);
+  if (!watched) return;
+  // Session identity is queueTime, not object identity. The v2 widening pass
+  // mutates the entry in place, but v1's REPLACES it (`{ ...queueData, ... }`),
+  // and reading a replaced-but-alive entry as an abandonment would inject a
+  // false censored sample every time that player's window widened.
+  const live = playersInQueue.get(id);
+  if (live && (live === watched || live.queueTime === watched.queueTime)) return;
+  queueWatch.delete(id);
+  if (!Number.isFinite(watched.rating)) return;   // unrated/guest entry, no band
+  recordSample(etaStore, {
+    rating: watched.rating,
+    waitMs: Math.max(0, now - watched.queueTime),
+    at: now,
+    censored: true,
+    // Strict and non-strict are separate populations in the estimator: a strict
+    // player's pool is a subset of a non-strict player's at the same rating, so
+    // blending them quotes strict players a wait they will never see.
+    strict: !!watched.strict
+  });
+}
 const dodgeKeyFor = (player) => player?.accountId || player?.id || null;
 
 // Under v2 the arbitrary (hard) world map is gated on a v2-scale rating, not
@@ -201,10 +298,15 @@ function ownsEmote(player, emoteDef) {
 // rating window instead of a league band. Floored at 0 because the client
 // treats the pair as a display range; the real pairing test is the symmetric
 // window inside chooseDuelPairs.
-function rangeForRatingV2(rating, waitedMs) {
+function rangeForRatingV2(rating, waitedMs, strict = false) {
   const r = Number.isFinite(rating) ? rating : ENTRY_RATING;
   const half = windowFor(waitedMs);
-  return [Math.max(0, Math.round(r - half)), Math.round(r + half)];
+  // A strict player's lower bound is the Voyager floor, not r - half: pairing
+  // will not go below it, so showing a band that reaches into Trekker would be
+  // advertising opponents this queue can never produce.
+  const floor = strict ? getStrictFloor() : 0;
+  const lo = Math.max(0, Number.isFinite(floor) ? floor : 0, Math.round(r - half));
+  return [lo, Math.round(r + half)];
 }
 
 /**
@@ -315,7 +417,7 @@ const generateMainLocations = async () => {
 };
 
 setTimeout(generateMainLocations, 2000);
-setInterval(generateMainLocations, 1000 * 10);
+safeInterval('locations', 1000 * 10, generateMainLocations);
 
 // helpers
 function joinGameByCode(code, onFull, onInvalid, onSuccess) {
@@ -377,6 +479,22 @@ if (!process.env.MONGODB) {
       console.log(error);
       dbEnabled = false;
     }
+  }
+}
+
+// Restore the queue-wait samples a previous process collected. Best-effort by
+// design: restoreStore() turns null, garbage or a partial doc into an empty
+// store, and an empty store just means the ETA falls back to its modelled prior
+// until live samples arrive. This may never be able to stop the server booting.
+if (dbEnabled) {
+  try {
+    const snap = await QueueEtaSnapshot.findOne({ key: 'ranked1v1' }).lean();
+    const restored = restoreStore(snap?.data, Date.now(), ETA_MAX_AGE_MS);
+    for (const [idx, ring] of restored.buckets) etaStore.buckets.set(idx, ring);
+    const n = [...etaStore.buckets.values()].reduce((sum, r) => sum + r.items.length, 0);
+    console.log(`[queueEta] restored ${n} wait samples across ${etaStore.buckets.size} rating buckets`);
+  } catch (e) {
+    console.error('[queueEta] snapshot restore failed, starting cold:', e?.message || e);
   }
 }
 function log(...args) {
@@ -475,8 +593,19 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  // LOG ONLY. This deliberately does NOT call stop().
+  //
+  // stop() serialises EVERY game and EVERY player and does a SYNCHRONOUS
+  // fs.writeFileSync. An unhandled rejection is not a shutdown — this file is
+  // full of fire-and-forget promises (stamp grants, pair-decay reads, forum
+  // sync), so a database blip can fire this handler repeatedly while the server
+  // is perfectly healthy. Dumping full state on each one blocks the event loop
+  // for every connected player, over and over, and clobbers the restart-recovery
+  // file with mid-session state that nothing is going to restore from.
+  //
+  // The gamestate dump belongs to the real shutdown paths only: SIGTERM, SIGINT
+  // and uncaughtException, all above.
   console.error('Unhandled rejection', reason, promise, currentDate());
-  stop('unhandledRejection');
 });
 // uWebSockets.js
 let app = uws.App({
@@ -800,9 +929,9 @@ const bannedIps = new Set();
 const ipConnectionCount = new Map();
 const ipDuelRequestsLast10 = new Map();
 
-setInterval(() => {
+safeInterval('ipDuelReqReset', 10000, () => {
   ipDuelRequestsLast10.clear();
-}, 10000);
+});
 
 function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat) {
           // maxDist no longer required-> can be pulled from community map
@@ -988,7 +1117,12 @@ app.ws('/wg', {
         // actually registered. Without this the unranked queue sent nothing back
         // and the client would spin on the matchmaking screen forever if the join
         // was dropped (e.g. socket hiccup) or silently rejected.
-        player.send({ type: 'queueJoined', ranked: false });
+        //
+        // queuedAt is the SERVER's join instant. Both clients render the
+        // elapsed timer from it against their existing clock offset, so nobody
+        // keeps a client-side queue-start timestamp that a remount or a
+        // backgrounded JS timer can silently corrupt.
+        player.send({ type: 'queueJoined', ranked: false, queuedAt: queueDetails.queueTime });
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
           const ipOctets = player.ip.split('.').slice(0, 3).join('.');
@@ -1072,8 +1206,9 @@ app.ws('/wg', {
           }
           playersInQueue.set(player.id, queueDetails);
           // No league => no publicDuelRange below, so this is the only join ack
-          // the client gets for this case.
-          player.send({ type: 'queueJoined', ranked: true });
+          // the client gets for this case. No rating either, so no ETA — but
+          // the elapsed timer still works off queuedAt.
+          player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
 
         } else {
           // v2 queues on a RATING WINDOW, not a league band: the entry carries
@@ -1081,8 +1216,12 @@ app.ws('/wg', {
           // windowFor(waited) on every tick of the matchmaking loop. The
           // league range is still what the client is sent as publicDuelRange
           // so old bundles keep rendering something sensible.
+          // Resolved BEFORE the range: a strict player's displayed band is
+          // floored at the Voyager line, so the range depends on this.
+          const strictQueue = !!(player.strictMatchmaking && player.elo >= getStrictFloor());
+
           const range = RATING_V2
-            ? rangeForRatingV2(player.elo, 0)
+            ? rangeForRatingV2(player.elo, 0, strictQueue)
             : getLeagueRange(player.league);
 
 
@@ -1096,21 +1235,31 @@ app.ws('/wg', {
           // v2 only: the authoritative value the matchmaker pairs on. Kept
           // separate from `elo` so nothing v1 accidentally reads it.
           ...(RATING_V2 ? { rating: player.elo, window: windowFor(0) } : {}),
-          // Voyager+ opt-in: the 10s widening below floors at the Voyager
-          // minimum instead of 0, so this player only ever meets Voyagers and
-          // Nomads. Eligibility re-checked here (not just at settings time)
+          // Voyager+ opt-in: this player is never matched below the Voyager
+          // line. Eligibility is re-checked HERE and not just at settings time,
           // so a derank quietly returns them to the normal pool.
           //
-          // UNDER v2 THIS FIELD IS IGNORED — the rating window is the whole
-          // protection now, and a hard 5000 floor on top of it would only
-          // shrink an already-thin pool. The User field and the settings UI
-          // keep writing it verbatim so flipping RATING_V2 off restores v1
-          // behaviour exactly; nothing in the v2 pairing or backfill paths
-          // reads it. This silently changes what a user-facing toggle does,
-          // so it is stated here rather than left to be discovered.
-          strict: !!(player.strictMatchmaking && player.elo >= leagues.voyager.min)
+          // THE FLOOR MUST COME FROM getStrictFloor(), NOT `leagues.voyager.min`.
+          // That constant is 5,000 on the retired Season 0 scale, and a v2
+          // rating tops out near 1,600 — so this expression was false for every
+          // account on the ladder and the entry was never stamped strict. The
+          // setting was dead end to end (hidden in both clients, rejected by the
+          // server, ignored by the matchmaker) while its User field and its
+          // "5000+ ELO" copy kept shipping.
+          //
+          // Under v2 the flag is enforced inside chooseDuelPairs from the very
+          // first tick, not only at widening: the window is a symmetric +/-150
+          // around your rating, so a 945-rated strict player reaches down into
+          // Trekker immediately without it.
+          strict: strictQueue
         }
+        // Flush any previous session BEFORE overwriting the map entry: a leave
+        // and rejoin inside the same 500ms tick would otherwise drop a censored
+        // sample silently, and fast bailers are the one population the
+        // estimator cannot afford to lose.
+        reapQueueWatch(player.id, Date.now());
         playersInQueue.set(player.id, queueDetails);
+        queueWatch.set(player.id, queueDetails);
 
         // send the range to the player
         player.send({
@@ -1119,7 +1268,7 @@ app.ws('/wg', {
         });
         // Uniform join ack across all queue branches (publicDuelRange alone is
         // ELO-display info; queueJoined is the canonical "you're queued" signal).
-        player.send({ type: 'queueJoined', ranked: true });
+        player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
       }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
@@ -1710,7 +1859,7 @@ app.ws('/wg', {
       // could otherwise park itself in a pool it doesn't belong to. OFF is
       // always allowed (deranked players must be able to clear it).
       if (json.type === "setStrictMatchmaking" && typeof json.strict === 'boolean' && player.accountId) {
-        if (json.strict && (!player.elo || player.elo < leagues.voyager.min)) {
+        if (json.strict && (!player.elo || player.elo < getStrictFloor())) {
           player.sendFriendData(); // snap the optimistic client back
           return;
         }
@@ -2552,7 +2701,7 @@ try {
 
 
   // update player count
-  setInterval(() => {
+  safeInterval('beat5s', 5000, () => {
 
     // v2 dodge cooldowns: drop entries older than the 1h memory window. Safe
     // on any cadence — the longest cooldown (2m) is far shorter than the
@@ -2561,18 +2710,75 @@ try {
     // whole map and nothing depends on it being current to the tick.
     if (RATING_V2) sweepDodges(dodgeCooldowns);
 
+    // ── QUEUE ETA PUSH ────────────────────────────────────────────────────
+    // Rides the existing 5s beat rather than adding a timer. Iterates
+    // playersInQueue (a handful of entries) instead of players (potentially
+    // thousands), and Player.send already no-ops on a dead socket.
+    //
+    // The value is the TOTAL typical wait for this player's rating band — not
+    // a countdown — and it is LATCHED for the queue session by nextShownEta.
+    {
+      const now = Date.now();
+      sweepSamples(etaStore, now, ETA_MAX_AGE_MS);
+      for (const [id, q] of playersInQueue) {
+        // Per-player guard: an estimate is a nicety, a queue is not. One
+        // malformed sample ring must never cost the rest of the queue their ETA.
+        try {
+        if (q.duel !== true) continue;
+        if (!Number.isFinite(q.rating)) continue; // guest/unrated: timer only, no ETA
+        const player = players.get(id);
+        if (!player || player.gameId) continue;
+
+        // Live data first; the modelled prior only fills the gap it leaves.
+        // bootstrapEstimate stamps `modelled: true`, which is what makes
+        // nextShownEta downgrade the wording to a vague band — a number this
+        // server invented must never be phrased like one it measured.
+        let est = estimateWait(etaStore, { rating: q.rating, now, strict: !!q.strict });
+        if (est.status !== 'ok') est = bootstrapEstimate(q.rating, !!q.strict);
+
+        const shown = nextShownEta(q.etaShown, est, now - q.queueTime);
+        const changed = !q.etaShown
+          || q.etaShown.state !== shown.state
+          || q.etaShown.seconds !== shown.seconds
+          || q.etaShown.tier !== shown.tier;
+        q.etaShown = shown;
+        if (!changed) continue; // same as last beat — don't spam the client
+
+        player.send({
+          type: 'queueEta',
+          state: shown.state,
+          value: shown.value,
+          unit: shown.unit,
+          seconds: shown.seconds,
+          // Only set when state is 'rough': 'short' | 'mid' | 'long'.
+          tier: shown.tier
+        });
+        } catch (e) {
+          console.error('[tick:beat5s] queueEta push threw for', id, e?.stack || e);
+        }
+      }
+    }
+
     const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
-      if (player.verified && !player.gameId) {
+      // Per-player guard: this is a broadcast, so a throw on ONE socket used to
+      // cost every player after it in the map their count update AND their time
+      // sync. The time sync is what verifyLiveness keys off, so a single bad
+      // socket could get healthy players marked dead.
+      try {
+        if (player.verified && !player.gameId) {
+          player.send({
+            type: 'cnt',
+            c: activePlayerCount
+          });
+        }
         player.send({
-          type: 'cnt',
-          c: activePlayerCount
+          type: 't',
+          t: Date.now()
         });
+      } catch (e) {
+        console.error('[tick:beat5s] broadcast threw for', player?.id, e?.stack || e);
       }
-      player.send({
-        type: 't',
-        t: Date.now()
-      });
     }
 
     if(maintenanceMode) {
@@ -2590,7 +2796,7 @@ try {
       console.log('Unstarted games', unstartedGames);
 
     }
-  }, 5000);
+  });
 
   function findDuelPairs(duelQueue) {
     const pairs = [];
@@ -2706,6 +2912,10 @@ try {
         queueTime: q.queueTime,
         accountId: p.accountId || null,
         placementPending: guest ? false : p.placementPending,
+        // Strict matchmaking opt-in, stamped at queue join. Guests can never be
+        // strict: they have no account to hold the setting and no rating to
+        // clear the floor with.
+        strict: guest ? false : !!q.strict,
         botEligible: BOTS_ENABLED && !BOTS_INSTANT && !!p.accountId
           && p.botEligibility?.ranked === true,
         lastOpponentId: p.accountId ? (lastDuelOpponent.get(p.accountId) || null) : null,
@@ -2920,7 +3130,7 @@ try {
   //     isPlacement BEFORE isBotGame so the placement branch wins.
   function createRankedDuelGame(p1, p2, { isBotGame = false, isPlacement = false } = {}) {
     const gameId = uuidv4();
-    const game = new Game(gameId, { public: true, allLocations, duel: true });
+    const game = new Game(gameId, { public: true, allLocations, duel: true, seenIds: seenUnion([p1, p2]) });
     if (isBotGame) game.isBotGame = true;
     // Only ever stamped under v2 — Game.js's placement branch is itself
     // RATING_V2-gated, and leaving the field off entirely with the flag down
@@ -2930,6 +3140,33 @@ try {
 
     game.addPlayer(p1, undefined, "p1");
     game.addPlayer(p2, undefined, "p2");
+
+    // ── QUEUE WAIT TELEMETRY ────────────────────────────────────────────
+    // MUST run before the deletes below: the entries are still live here, so
+    // queueTime is the exact join instant. This is the only construction path
+    // for ranked 1v1, so hooking it covers the human pairing pass, the newbie
+    // bot backfill and the placement match in one place.
+    //
+    // Bot and placement matches are NOT recorded. They resolve within a tick
+    // or two by construction, so feeding them in would drag every low-band
+    // estimate toward zero and quote a wait no human pairing can deliver. The
+    // watch entry is dropped either way, or the reaper would file a completed
+    // match as an abandonment.
+    const matchedAt = Date.now();
+    const queueWaits = {};
+    for (const [tag, p] of [['p1', p1], ['p2', p2]]) {
+      const q = playersInQueue.get(p.id);
+      queueWatch.delete(p.id);
+      if (!q || q.duel !== true) continue;
+      queueWaits[tag] = matchedAt - q.queueTime;
+      if (isBotGame || isPlacement) continue;
+      if (!Number.isFinite(q.rating)) continue; // unrated/guest entry, no band
+      recordSample(etaStore, { rating: q.rating, waitMs: queueWaits[tag], at: matchedAt, censored: false, strict: !!q.strict });
+    }
+    // Rides onto the saved game doc so the estimate can be checked against
+    // what players actually experienced (models/Game.js playerSummarySchema).
+    game.queueWaitMs = queueWaits;
+
     playersInQueue.delete(p1.id);
     playersInQueue.delete(p2.id);
 
@@ -2988,7 +3225,7 @@ try {
       // v2 scale: see ARB_MAP_MIN_RATING_V2. Never true for a bot game (bots
       // sit at ENTRY_RATING ± 30).
       if (p1.elo > ARB_MAP_MIN_RATING_V2 && p2.elo > ARB_MAP_MIN_RATING_V2) {
-        game.locations = pick5RandomArb();
+        game.locations = pick5RandomArb(game.seenIds);
       }
     } else if (p1.elo && p2.elo) {
       // calculate elo change if p1 wins,loses,draws
@@ -3021,7 +3258,7 @@ try {
       // Both high-elo → the harder arbitrary world map (structurally never
       // true for bot games: bots sit at 800-1000).
       if(p1.elo > 2000 && p2.elo > 2000) {
-        game.locations = pick5RandomArb();
+        game.locations = pick5RandomArb(game.seenIds);
       }
     }
 
@@ -3029,6 +3266,10 @@ try {
       p1: p1.id,
       p2: p2.id
     }
+
+    // Remember what this match served so the next duel for either player picks
+    // around it. Read after any arbitrary-map override above, never before.
+    stampSeen([p1, p2], game.locations);
 
     game.start();
     return game;
@@ -3056,15 +3297,17 @@ try {
     }
 
     const gameId = uuidv4();
+    const roster = [...rosterA, ...rosterB];
     // public=true (loop manages lifecycle like a public duel), teamDuel=true.
-    const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+    const game = new Game(gameId, { public: true, allLocations, teamDuel: true, seenIds: seenUnion(roster) });
     // Comms XOR (user ruling): 2v2 has chat, so emotes are off — matchmade
     // games have no host to choose. FFA/1v1 keep emotes (no chat there).
     game.disableEmotes = true;
     // Matchmade 2v2s play a world + arbitrary-map mix (same override
     // pattern as the high-elo 1v1 path — constructor generation of the
     // "all" pool is synchronous, so replacing here is safe).
-    game.locations = pick5WorldArbMix(allLocations);
+    game.locations = pick5WorldArbMix(allLocations, game.seenIds);
+    stampSeen(roster, game.locations);
     if (isBotGame) game.isBotGame = true;
     game.autoPairedTeams = autoPairedTeams;
     game.teamHostIds = teamHostIds;
@@ -3079,7 +3322,11 @@ try {
   }
 
   // queue handler
-  setInterval(() => {
+  //
+  // Guarded at the timer AND inside every loop below. The outer guard keeps the
+  // process alive; the inner ones keep one bad player from costing everyone
+  // else their pass. See safeInterval's header for why both layers exist.
+  safeInterval('queue', 500, () => {
 
     // Duel bots: drive scheduled guesses, tear down bot-only ended games,
     // reap bots whose game is gone.
@@ -3407,11 +3654,31 @@ try {
       // v2 pairs by CLOSEST rating inside a symmetric, time-widening window
       // (ws/matchmakingV2.js). v1's first-fit league-band pass below is kept
       // intact and byte-for-byte, so RATING_V2=false is today's behaviour.
-      const pairs = RATING_V2
-        ? chooseDuelPairs(buildDuelEntriesV2(), { now: Date.now(), allowRematch: ALLOW_REMATCH })
-            .map(({ a, b }) => [a.id, b.id])
-        : findDuelPairs(playersInQueue);
+      // Degrade to "no pairs this tick" rather than skipping the rest of the
+      // tick: the widen loop and the bot backfill below are what keep a queued
+      // player's UI moving and what serves placements, and neither depends on
+      // this having succeeded.
+      let pairs = [];
+      try {
+        pairs = RATING_V2
+          ? chooseDuelPairs(buildDuelEntriesV2(), {
+              now: Date.now(),
+              allowRematch: ALLOW_REMATCH,
+              // Resolved per tick from the ACTIVE tier table, so a seasonal
+              // re-anchor moves the strict floor with the leagues instead of
+              // stranding it on a stale number.
+              strictFloor: getStrictFloor()
+            })
+              .map(({ a, b }) => [a.id, b.id])
+          : findDuelPairs(playersInQueue);
+      } catch (e) {
+        console.error('[tick:queue] pair selection threw, no pairs this tick:', e?.stack || e);
+      }
       for(const pair of pairs) {
+        // Per-pair guard: createRankedDuelGame constructs a Game, seats both
+        // rosters, stamps the rating transfers and calls start(). A throw on one
+        // pair must not cost every other pair the matchmaker just solved for.
+        try {
         const [id1, id2] = pair;
         const p1 = players.get(id1);
         const p2 = players.get(id2);
@@ -3426,6 +3693,9 @@ try {
         }
 
         createRankedDuelGame(p1, p2);
+        } catch (e) {
+          console.error('[tick:queue] pairing threw for', pair, e?.stack || e);
+        }
       }
 
       if (RATING_V2) {
@@ -3442,6 +3712,10 @@ try {
         // join handler.
         const now = Date.now();
         for (const [playerId, queueData] of playersInQueue) {
+          // The `if (!player) continue` below was the ONE hand-patched instance
+          // of this bug class. The try/catch generalises it: any throw in here,
+          // not just a vanished player, is now one player's problem.
+          try {
           const player = players.get(playerId);
           // Same vanish guard as v1: a .send() on a missing player throws and
           // would kill the widen pass for everyone else still queued.
@@ -3450,13 +3724,16 @@ try {
           const half = windowFor(now - queueData.queueTime);
           if (half === queueData.window) continue; // unchanged — don't spam the client
           queueData.window = half;
-          const range = rangeForRatingV2(queueData.rating, now - queueData.queueTime);
+          const range = rangeForRatingV2(queueData.rating, now - queueData.queueTime, queueData.strict);
           queueData.min = range[0];
           queueData.max = range[1];
           player.send({
             type: 'publicDuelRange',
             range
           });
+          } catch (e) {
+            console.error('[tick:queue] v2 widen threw for', playerId, e?.stack || e);
+          }
         }
       } else {
       // remaining players in queue check if wait was longer than 10 seconds, in that case set their elo range to infinity
@@ -3469,6 +3746,7 @@ try {
       // which made the rematch block permanent and could starve a two-player
       // pool).
       for(const playerId of playersInQueue) {
+        try {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
         // The player can vanish between the pairing pass above and this loop
@@ -3486,6 +3764,9 @@ try {
             range: [widenedMin, 20000]
           });
         }
+        } catch (e) {
+          console.error('[tick:queue] v1 widen threw for', playerId?.[0], e?.stack || e);
+        }
       }
       }
 
@@ -3496,6 +3777,14 @@ try {
       // eligible player each tick, not just pairing leftovers.
       if (BOTS_ENABLED) {
         for (const [playerId, queueData] of playersInQueue) {
+          // HIGHEST-BLAST-RADIUS GUARD IN THE TICK. This branch CONSTRUCTS
+          // games: createBotPlayer builds a Player, createRankedDuelGame builds
+          // a Game, seats two rosters, stamps rating transfers and calls
+          // start(). A throw anywhere in that chain used to abandon the backfill
+          // pass for every other queued player, and reach the process-level
+          // handler that exits. One player's bad state must cost that player a
+          // tick, nothing more.
+          try {
           if (!queueData.duel) continue;
           const player = players.get(playerId);
 
@@ -3531,12 +3820,20 @@ try {
           console.log('[BOTS] ranked backfill:', bot.username, 'vs', player.username || player.id);
 
           createRankedDuelGame(player, bot, { isBotGame: true });
+          } catch (e) {
+            console.error('[tick:queue] bot backfill threw for', playerId, e?.stack || e);
+          }
         }
       }
     }
 
     // loop through disconnected players and remove them if they have been disconnected for more than 30 seconds
     for(const [accountId, playerId] of disconnectedPlayers) {
+      // Per-entry guard: this calls game.removePlayer(), which can end and
+      // resolve a whole duel (rating writes, results broadcast, save). One
+      // dropout whose teardown throws must not strand every other disconnected
+      // player in the map forever.
+      try {
       const player = players.get(playerId);
       if(!player) {
         disconnectedPlayers.delete(accountId);
@@ -3584,15 +3881,52 @@ try {
         playersInQueue.delete(playerId);
         players.delete(playerId);
       }
+      } catch (e) {
+        console.error('[tick:queue] disconnect purge threw for', accountId, e?.stack || e);
+      }
     }
 
-  }, 500);
+    // Censored-sample reaper. LAST in the tick on purpose: it runs after the
+    // pairing pass (so matched players are already out of the watch) and after
+    // the disconnect purge above (so entries killed this tick are caught this
+    // tick, not next). ±500ms accuracy on an abandonment is far better than the
+    // alternative of instrumenting nine separate exit paths.
+    {
+      const reapNow = Date.now();
+      for (const id of [...queueWatch.keys()]) {
+        try {
+          reapQueueWatch(id, reapNow);
+        } catch (e) {
+          console.error('[tick:queue] reapQueueWatch threw for', id, e?.stack || e);
+        }
+      }
+    }
+
+  });
 
 
 
+
+  // Persist the queue-wait samples so a deploy doesn't blank the ETA for the
+  // sparse high bands (they take days to refill, not minutes — see
+  // models/QueueEtaSnapshot.js).
+  //
+  // 5 MINUTES, NOT 10 SECONDS like Memsave below: this doc is ~100x larger and
+  // losing a few minutes of samples costs nothing measurable. And deliberately
+  // NOT in stop() — that handler is synchronous and SIGTERM calls
+  // process.exit(0) on the next line, so an async write there could never land.
+  if (dbEnabled) {
+    safeInterval('etaSnapshot', 5 * 60 * 1000, () => {
+      QueueEtaSnapshot.updateOne(
+        { key: 'ranked1v1' },
+        { $set: { key: 'ranked1v1', data: snapshotStore(etaStore, Date.now()), updatedAt: new Date() } },
+        { upsert: true }
+      ).catch((e) => console.error('[queueEta] snapshot write failed:', e?.message || e));
+    });
+  }
 
   if(!dev && dbEnabled) {
-    setInterval(() => {
+    safeInterval('memsave', 10000, () => {
 
       const memUsage = process.memoryUsage().heapUsed;
       const gameCnt = games.size;
@@ -3607,11 +3941,11 @@ try {
       });
       mem.save().then(() => [
       ])
-    }, 10000);
+    });
   }
 
 
-  setInterval(() => {
+  safeInterval('statsLog', 10000, () => {
     // log player count, game count, memory usage
     let memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;
@@ -3619,4 +3953,4 @@ try {
 
      memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
-  }, 10000)
+  })

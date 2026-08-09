@@ -29,6 +29,9 @@ export interface MapItem {
   slug: string;
   name: string;
   created_by_name?: string;
+  /** Creator's equipped name-glow sku (sendableMap.created_by_glow). The SKU,
+   *  not a colour — PlayerName owns sku -> paint, same as everywhere else. */
+  created_by_glow?: string | null;
   plays: number;
   hearts: number;
   hearted?: boolean;
@@ -170,6 +173,22 @@ export interface ShopItem {
   includes?: string[];
   region?: string;
   path?: string;
+  /**
+   * Backgrounds only: the ISO 3166-1 alpha-2 code the card draws its flag from.
+   * A country CODE and not a flag emoji, because CountryFlag renders the same
+   * flagcdn image every username in the app already uses.
+   */
+  cc?: string | null;
+  /**
+   * Backgrounds only: the three-tone palette the home screen recolours to.
+   *
+   * NOTHING ON THIS CLIENT READS IT off the wire — src/shared/cosmetics.ts
+   * mirrors the same values locally, because the home screen needs them on the
+   * first frame and the shop catalogue is an HTTP call it has not made. It is
+   * declared so the field is visible where the response is described rather
+   * than looking like something the server forgot to send.
+   */
+  accent?: { deep: string; wash: string; surface: string } | null;
 }
 
 /** One emote as served by `action:'catalog'` (shared/emotes/catalog.js). */
@@ -396,6 +415,14 @@ export const api = {
       daysUntilNameChange: number;
       recentChange: boolean;
       countryCode?: string;
+      // Season 0 record, mirroring api/publicProfile.js. This is the OWN-profile
+      // payload, so without these the OG badge shows on everyone's profile
+      // except your own.
+      seasonPeakElo?: number | null;
+      seasonPeakLeague?: string | null;
+      season0Elo?: number | null;
+      season0Rank?: number | null;
+      ogAccount?: boolean;
     }>('/api/publicAccount', {
       method: 'POST',
       body: JSON.stringify({ id: accountId }),
@@ -424,6 +451,14 @@ export const api = {
         ties: number;
         winRate: number;
       };
+      // Season 0 record behind the OG badge. `season0Rank` is the closing place
+      // on the old ladder, from the server's frozen rank table — never a live
+      // count and never comparable to `rank` above, which ranks Season 1.
+      seasonPeakElo?: number | null;
+      seasonPeakLeague?: string | null;
+      season0Elo?: number | null;
+      season0Rank?: number | null;
+      ogAccount?: boolean;
     }>(`/api/publicProfile?${query}`);
   },
 
@@ -621,6 +656,12 @@ export const api = {
           elo?: { before?: number; after?: number; change?: number };
           /** Team assignment in team modes ('a' | 'b'); null on solo modes. */
           team?: 'a' | 'b' | null;
+          /** Equipped cosmetics, joined LIVE off the account by the endpoint
+           *  (serverUtils/userCosmetics.js) — a Game is a result, a glow is
+           *  identity, so these are what the player wears NOW, not what the
+           *  save froze. Absent on responses from a server older than that. */
+          nameGlow?: string | null;
+          markerSkin?: string | null;
         }>;
         result: {
           maxPossiblePoints: number;
@@ -628,6 +669,14 @@ export const api = {
           winningTeam?: 'a' | 'b' | null;
           teamScores?: { a: number | null; b: number | null };
         };
+        /** What this game paid the REQUESTING player, rebuilt from the stamps
+         *  ledger — the same { total, lines } shape the live `stampsEarned`
+         *  socket message carries. null when nothing was paid; absent on a
+         *  server older than the rebuild. */
+        stampsEarned?: {
+          total: number;
+          lines: Array<{ reason: string; amount: number }>;
+        } | null;
         currentUserId: string;
       };
     }>('/api/gameDetails', {

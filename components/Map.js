@@ -5,10 +5,10 @@ import { useTranslation } from '@/components/useTranslations';
 import { getPinIcons, markerSkinIconKey, MARKER_SKIN_ICONS } from '@/lib/markerIcons';
 import calcPoints, { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
-import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
 import { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
+import { guessPinLabelNode } from './utils/guessPinLabel';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
@@ -1596,6 +1596,12 @@ const DestMarker = memo(function DestMarker({ location, icon }) {
   a.location?.long === b.location?.long
 );
 
+// NO GLOW ON THIS LABEL, DELIBERATELY. Opponents' labels are NAMES and carry
+// the owner's glow off their roster entry (PlayerLine below); this one says
+// "Your guess", which is chrome, not identity — there is nobody to identify on
+// your own pin. It briefly wore the viewer's sku, threaded all the way in from
+// the session and across the mobile bridge, and it was the loudest thing on the
+// map for the least information. See components/utils/guessPinLabel.js.
 const YourGuessLayer = memo(function YourGuessLayer({
   pinPoint, location, icon, polylineRenderer, showLine, tooltipText,
 }) {
@@ -1611,25 +1617,30 @@ const YourGuessLayer = memo(function YourGuessLayer({
     return [[pinLat, pinLng], [locationLat, locationLng]];
   }, [showLine, pinLat, pinLng, locationLat, locationLng]);
 
+  // A NODE, not a string: Leaflet renders string content through innerHTML and
+  // an element is appended as-is, so nothing here can ever become a markup
+  // path. Recreated only when the text changes — see guessPinLabelNode.
+  const tooltipContent = useMemo(() => guessPinLabelNode(tooltipText), [tooltipText]);
+
   if (!pinPoint) return null;
   return (
     <>
       <Marker position={pinPoint} icon={icon}>
-        {/* Text goes in via Leaflet's `content` option, NOT React children:
+        {/* Content goes in via Leaflet's `content` option, NOT React children:
             react-leaflet portals children into the tooltip only after it has
             opened and been positioned, so the first paint centers an EMPTY
             box — the text then lands half a width to the right until a
             post-paint update() re-centers it. `content` is measured before
             the first _setPosition, so frame 1 is correct. Keyed on the text
             because react-leaflet never syncs option changes to a live
-            instance. */}
+            instance — a fresh node with a stale key is never shown. */}
         <Tooltip
           key={tooltipText}
           direction="top"
           offset={[0, -45]}
           opacity={1}
           permanent
-          content={tooltipText}
+          content={tooltipContent}
           position={{ lat: pinPoint.lat, lng: pinPoint.lng }}
         />
       </Marker>
@@ -1655,6 +1666,11 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
     ];
   }, [guessLat, guessLng, locationLat, locationLng]);
 
+  // Same node-not-string content as YourGuessLayer, and for the same reason:
+  // this is the country/continent mode's version of your own guess label. No
+  // glow here either — same label, same rule.
+  const tooltipContent = useMemo(() => guessPinLabelNode(tooltipText), [tooltipText]);
+
   if (!countryGuessPin || !location) return null;
   return (
     <>
@@ -1670,7 +1686,7 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
           offset={[0, -45]}
           opacity={1}
           permanent
-          content={tooltipText}
+          content={tooltipContent}
           position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}
         />
       </Marker>
@@ -1749,7 +1765,7 @@ const PlayerLine = memo(function PlayerLine({
 );
 
 const MultiplayerLayer = memo(function MultiplayerLayer({
-  players, myId, dest, srcIcon, polandballIcon, polylineRenderer, isCoolMath,
+  players, myId, dest, srcIcon, polylineRenderer, isCoolMath,
   // The whole memoized icon set, so an equipped marker skin can be resolved by
   // key (markerSkinIconKey) instead of needing one more prop per sku.
   icons = null,
@@ -1773,15 +1789,12 @@ const MultiplayerLayer = memo(function MultiplayerLayer({
     const base = isTeammate ? teammateIcon : srcIcon;
     const big = isTeammate ? bigTeammateIcon : bigSrcIcon;
     const isBest = !!bestIds?.has?.(player.id);
-    // Pin priority: the hardcoded customPins.json entry (one legacy user —
-    // must not regress) beats everything, then the player's purchased skin,
-    // then the stock team pin. A skinned pin gives up the blue/green team
-    // colour by design: the skin IS that player's identity, and the permanent
-    // name label on the tooltip already says whose guess it is.
+    // Pin priority: the player's purchased skin beats the stock team pin. A
+    // skinned pin gives up the blue/green team colour by design: the skin IS
+    // that player's identity, and the permanent name label on the tooltip
+    // already says whose guess it is.
     const skinIcon = icons?.[markerSkinIconKey(player.markerSkin, isBest ? 'Big' : 'Small')];
-    const icon = customPins[displayName] === "polandball"
-      ? polandballIcon
-      : (skinIcon || (big && isBest ? big : base));
+    const icon = skinIcon || (big && isBest ? big : base);
     return (
       <PlayerLine
         key={player.id}
@@ -1970,23 +1983,27 @@ const MapComponent = ({
       src2: shared.src2Small,
       srcBig: shared.srcBig,
       src2Big: shared.src2Big,
-      polandball: shared.polandball,
       ...skins,
     };
   }, []);
 
-  const myUsername = session?.token?.username;
   // MY equipped skin. The session is the primary source because it is the only
   // one that exists outside multiplayer (singleplayer has no roster at all);
   // the roster entry backfills for the window before the session resolves.
   const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
     ?? multiplayerState?.gameData?.players?.find((p) => p.id === multiplayerState?.gameData?.myId)?.markerSkin
     ?? null;
-  // Same priority as MultiplayerLayer: customPins override > purchased skin >
-  // stock pin. Falls back whenever the skin's icon is missing (unknown sku, or
-  // Leaflet not loaded yet and getPinIcons() returned nothing).
+  // THERE IS NO `myNameGlow` HERE ANY MORE, and it is not an oversight. The
+  // viewer's glow was resolved exactly like the skin above (session, then a
+  // host-supplied prop for the mobile WebView, then the roster) for one
+  // consumer: the "Your guess" pin label. That label does not wear a glow —
+  // it is chrome, not a name — so the whole chain came out, from here back
+  // through the embed bridge. The SKIN stays: a pin is identity, a label that
+  // says "Your guess" is not.
+  // Same priority as MultiplayerLayer: purchased skin > stock pin. Falls back
+  // whenever the skin's icon is missing (unknown sku, or Leaflet not loaded yet
+  // and getPinIcons() returned nothing).
   const pinKeyFor = (skin, tier, fallbackKey) => {
-    if (customPins[myUsername] === "polandball") return "polandball";
     const key = markerSkinIconKey(skin, tier);
     return (key && icons[key]) ? key : fallbackKey;
   };
@@ -2127,9 +2144,8 @@ const MapComponent = ({
       <YourGuessLayer
         pinPoint={renderedPinPoint}
         location={answerLocation}
-        // Your pin enlarges too when YOU are your team's closest guesser
-        // (custom polandball pins are already oversized — leave them be).
-        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && myIconKey !== 'polandball' && icons[myBigIconKey]
+        // Your pin enlarges too when YOU are your team's closest guesser.
+        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && icons[myBigIconKey]
           ? icons[myBigIconKey]
           : myIcon}
         polylineRenderer={canvasRenderer}
@@ -2161,7 +2177,6 @@ const MapComponent = ({
           lineIds={teamRevealCtx?.lineIds || null}
           bigSrcIcon={icons.src2Big}
           bigTeammateIcon={icons.srcBig}
-          polandballIcon={icons.polandball}
           icons={icons}
           polylineRenderer={canvasRenderer}
           isCoolMath={isCoolMath}
@@ -2184,7 +2199,6 @@ const MapComponent = ({
             dest={null}
             // This layer only ever contains teammates — blue, same as you.
             srcIcon={icons.src}
-            polandballIcon={icons.polandball}
             icons={icons}
             polylineRenderer={canvasRenderer}
             isCoolMath={isCoolMath}

@@ -7,7 +7,10 @@ export default function Banned() {
     return (
         <>
         <Head>
-            <style>{`body::before { display: none !important; }`}</style>
+            {/* BOTH background layers. The site background is painted by body::before at
+                rest and by html::before during a crossfade (see the contract in
+                lib/siteBackground.js), so a page opting out has to say so twice. */}
+            <style>{`body::before, html::before { display: none !important; }`}</style>
         </Head>
         <div style={{
             minHeight: '100vh',

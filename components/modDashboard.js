@@ -6,6 +6,7 @@ import CountryFlag from './utils/countryFlag';
 import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
 import { navigate } from '@/lib/basePath';
+import { STARTING_ELO } from '@/components/utils/ratingFlags';
 
 function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, dailyReportsByModerator, moderators }) {
   const canvasRef = useRef(null);
@@ -1858,7 +1859,7 @@ export default function ModDashboard({ session }) {
                         </div>
                         <div className={styles.matchStats}>
                           <span>XP: {match.totalXp?.toLocaleString() || 0}</span>
-                          <span>Elo: {match.elo || 1000}</span>
+                          <span>Elo: {match.elo || STARTING_ELO}</span>
                           <span>Joined: {new Date(match.created_at).toLocaleDateString()}</span>
                         </div>
                         {/* {match.email && (
