@@ -26,12 +26,13 @@ import { borderRadius, fontSizes, spacing } from '../src/styles/theme';
 import { useSettingsStore, type MapType } from '../src/store/settingsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
-import { leagues } from '../src/shared/user/leagues';
+import { getStrictFloor } from '../src/shared/user/leagues';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
 import VolumeSliders from '../src/components/VolumeSliders';
 import ReviewPromptModal from '../src/components/ReviewPromptModal';
 import { useManualReviewPrompt } from '../src/hooks/useReviewPrompt';
+import { useSiteAccent } from '../src/store/siteBackgroundStore';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -108,7 +109,10 @@ export default function SettingsScreen() {
   const setStrictMatchmakingOnServer = useMultiplayerStore((s) => s.setStrictMatchmakingOnServer);
   // Voyager+ only (web settingsModal parity; the server enforces it too) —
   // below the floor the row hides entirely rather than showing a disabled tease.
-  const strictEligible = (user?.elo ?? 0) >= leagues.voyager.min;
+  // getStrictFloor(), NOT leagues.voyager.min — see the web note in
+  // components/settingsModal.js. The v1 constant is 5,000 on a scale that no
+  // longer exists, so this row was hidden from everybody.
+  const strictEligible = (user?.elo ?? 0) >= getStrictFloor();
   const [strictInfoShown, setStrictInfoShown] = useState(false);
 
   // Hydrate both toggles. Keyed on `verified` (not just mount): a send before
@@ -145,11 +149,19 @@ export default function SettingsScreen() {
   // never counts as a decline.
   const rate = useManualReviewPrompt();
 
+  // THIS SCREEN WEARS THE EQUIPPED BACKGROUND'S COLOURS, like every other menu.
+  // The scrim, the switch tracks and the selected map tile all come from here
+  // rather than from `colors`, because a StyleSheet is built once at module load
+  // and cannot follow an equip — which is why the retinted values live inline
+  // below and the static ones stay in StyleSheet.create. With nothing equipped
+  // every one of them is the green literal it replaced.
+  const accent = useSiteAccent();
+
   return (
     <View style={styles.root}>
       <SiteBackground style={StyleSheet.absoluteFill}>
         <LinearGradient
-          colors={['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)']}
+          colors={accent.screenWash}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -214,7 +226,13 @@ export default function SettingsScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.tile,
-                      active && styles.tileActive,
+                      // The selected tile's fill AND rim follow the equipped
+                      // background. The rim used to be colors.success, which is
+                      // the "on" green — but the tick below already says
+                      // selected, so the rim was chrome wearing a status colour,
+                      // and left alone it would have put a lime border around a
+                      // purple tile. The tick itself stays green.
+                      active && { backgroundColor: accent.primaryTransparent, borderColor: accent.primary },
                       pressed && styles.tilePressed,
                     ]}
                   >
@@ -287,7 +305,7 @@ export default function SettingsScreen() {
                   haptics.selection();
                   setEmotesEnabled(v);
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -311,7 +329,7 @@ export default function SettingsScreen() {
                   haptics.selection();
                   setChatEnabled(v);
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -341,7 +359,7 @@ export default function SettingsScreen() {
                   setHapticsEnabled(v);
                   haptics.selection();
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -362,7 +380,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setAllowFriendReqOnServer(v);
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -378,7 +396,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setHideLastSeenOnServer(v); // optimistic in the store; echo reconciles
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -399,7 +417,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setStrictMatchmakingOnServer(v); // optimistic in the store; echo reconciles
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -539,10 +557,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  tileActive: {
-    backgroundColor: colors.primaryTransparent,
-    borderColor: colors.success,
-  },
+  /* tileActive is GONE from here: both of its properties follow the equipped
+     background now, and a StyleSheet is frozen at module load. See the inline
+     object at the Pressable above. */
   tilePressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],

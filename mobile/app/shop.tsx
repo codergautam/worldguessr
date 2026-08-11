@@ -131,12 +131,18 @@ import PlayerName from '../src/components/PlayerName';
 import CountryFlag from '../src/components/CountryFlag';
 import EmoteWheel from '../src/components/shop/EmoteWheel';
 import EmberGlow from '../src/components/shop/EmberGlow';
-import StampMark, { STAMP_VALUE_SIZE } from '../src/components/shop/StampMark';
+import StampMark, {
+  STAMP_VALUE_SIZE,
+  STAMP_MARK_SIZE_BTN,
+  STAMP_VALUE_SIZE_BTN,
+  STAMP_MARK_BTN_STYLE,
+} from '../src/components/shop/StampMark';
 // Aliased: this file already imports React Native's Image for the bundled pin
 // and stock-background art, and only the city photographs need expo-image's
 // WebP decoding and disk cache.
 import { Image as ExpoImage } from 'expo-image';
 import { backgroundUrlForSku } from '../src/services/siteBackground';
+import { useSiteAccent } from '../src/store/siteBackgroundStore';
 
 /** The photograph everybody starts with, and the placeholder under every city. */
 const STOCK_BACKGROUND = require('../assets/street2.jpg');
@@ -275,6 +281,17 @@ export default function ShopScreen() {
   const secret = useAuthStore((s) => s.secret);
   const user = useAuthStore((s) => s.user);
   const applyCosmetics = useAuthStore((s) => s.applyCosmetics);
+
+  // THE STOREFRONT WEARS WHAT YOU BOUGHT FROM IT. A player looking at a purple
+  // New York photograph through a green shop was the loudest version of the
+  // mismatch this fixes — the thing being sold is right there behind the chrome
+  // that refuses to match it. The washes and the two chrome fills come from here
+  // rather than from `colors` because a StyleSheet cannot follow an equip.
+  //
+  // The EQUIPPED frame (cardEquipped) is deliberately NOT here: that green means
+  // "this one is on", not "this is WorldGuessr", and it stays green for the same
+  // reason web keeps #4ade80 on .shopCard--equipped.
+  const accent = useSiteAccent();
 
   const [items, setItems] = useState<ShopItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -435,18 +452,53 @@ export default function ShopScreen() {
   const emoteGridY = useRef(0);
   const [activeSection, setActiveSection] = useState<Category | null>(null);
   const activeRef = useRef<Category | null>(null);
+  // Raised by a chip tap, dropped the moment a finger touches the list. This
+  // client gets to be blunter than web about it: RN says outright whether a
+  // scroll came from a drag, so "the reader took over" needs no guessing at
+  // positions the way the browser's does.
+  const jumpLatch = useRef(false);
 
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = e.nativeEvent.contentOffset.y;
-    // A band just under the pinned header, matching the web scroll-spy: the
-    // section crossing it is the one being read.
-    const probe = y + spacing.xl;
+    // A tap on a chip owns the highlight until the reader's own finger moves the
+    // list (see jumpTo and onScrollBeginDrag). Without this the animated scroll
+    // walks the highlight through every shelf it passes — the chip row strobes —
+    // and a jump that runs out of list hands it to a section nobody asked for.
+    if (jumpLatch.current) return;
+
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const y = contentOffset.y;
+    // A line just under the pinned header, matching the web scroll-spy: the
+    // deepest section that has passed it is the one being read.
+    let line = y + spacing.xl;
+
+    // AT THE BOTTOM THAT LINE CANNOT BE REACHED, so it moves. The last section's
+    // top only passes it if there is enough list beneath it to keep scrolling,
+    // and passes is ONE card above a footer's worth of padding — so its chip
+    // never lit, and tapping it scrolled to the clamp and this handler took the
+    // highlight straight back. Down there the halfway mark asks the honest
+    // question instead: which shelf actually fills the bottom of the screen.
+    // (Not "the last one, always" — that lights passes while a screenful of
+    // emotes sits above it.) The overflow test keeps a shop short enough to fit
+    // from pinning itself to its final chip.
+    const scrolls = contentSize.height > layoutMeasurement.height + 8;
+    if (scrolls && y + layoutMeasurement.height >= contentSize.height - 64) {
+      line = y + (layoutMeasurement.height / 2);
+    }
+    // AT THE HARD STOP, THE LAST SHELF ANSWERS. The halfway rule above was
+    // written to stop a jump lighting passes over a screenful of emotes, and
+    // it also stopped the reader who scrolled to the literal bottom from ever
+    // lighting it — the owner called that a bug. At the clamp there is nowhere
+    // further to scroll, so whatever closes the page is what is being read.
+    if (scrolls && y + layoutMeasurement.height >= contentSize.height - 2) {
+      line = Infinity;
+    }
+
     let current: Category | null = null;
     let bestY = -Infinity;
     for (const [type, top] of Object.entries(sectionY.current)) {
-      if (top <= probe && top > bestY) { bestY = top; current = type as Category; }
+      if (top <= line && top > bestY) { bestY = top; current = type as Category; }
     }
-    // Never blank out: a short final section can sit entirely below the band.
+    // Never blank out: a short final section can sit entirely below the line.
     if (current && current !== activeRef.current) {
       activeRef.current = current;
       setActiveSection(current);
@@ -458,11 +510,18 @@ export default function ShopScreen() {
     if (typeof y !== 'number') return;
     haptics.selection();
     // Set it immediately so the chip responds on tap rather than waiting for
-    // the smooth scroll to settle.
+    // the smooth scroll to settle — and LATCH it, so the scroll it starts cannot
+    // walk the highlight through the shelves it passes on the way, or leave it
+    // on whichever one the list happened to stop under.
+    jumpLatch.current = true;
     activeRef.current = type;
     setActiveSection(type);
     scrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.sm), animated: true });
   }, []);
+
+  // The reader taking the list back. One line, and it is the ONLY way the latch
+  // above comes down: no timer to tune, and no window in which a tap is ignored.
+  const onScrollBeginDrag = useCallback(() => { jumpLatch.current = false; }, []);
 
   /* ------------------------------------------------------------------------
    *  THE EMOTE WHEEL — the arrangement the in-game picker renders.
@@ -762,7 +821,7 @@ export default function ShopScreen() {
     <View style={styles.root}>
       <SiteBackground style={StyleSheet.absoluteFill}>
         <LinearGradient
-          colors={['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)']}
+          colors={accent.screenWash}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -814,8 +873,16 @@ export default function ShopScreen() {
                   accessibilityState={{ selected: activeSection === section.type }}
                   style={({ pressed }) => [
                     styles.jumpChip,
-                    activeSection === section.type && styles.jumpChipActive,
-                    pressed && styles.jumpChipPressed,
+                    // "YOU ARE HERE". Web's .shopNav__item--here is
+                    // var(--primaryTransparent) inside a var(--primary) rim and
+                    // retints for free; this was two hardcoded greens that had
+                    // also drifted lighter than the web original. Same tokens
+                    // now, so both follow the equipped background and each
+                    // other. It replaced a styles.jumpChipActive that held
+                    // nothing but these two colours.
+                    activeSection === section.type
+                      && { backgroundColor: accent.primaryTransparent, borderColor: accent.primary },
+                    pressed && { backgroundColor: accent.primaryTransparent },
                   ]}
                 >
                   <Text
@@ -840,6 +907,7 @@ export default function ShopScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
+          onScrollBeginDrag={onScrollBeginDrag}
           // 16ms delivers the event at frame rate; the handler itself only
           // commits when the section changes, so this is cheap.
           scrollEventThrottle={16}
@@ -865,7 +933,10 @@ export default function ShopScreen() {
           ) : loadError ? (
             <View style={styles.notice}>
               <Text style={styles.noticeText}>{loadError}</Text>
-              <Pressable onPress={load} style={styles.retryBtn}>
+              <Pressable
+                onPress={load}
+                style={[styles.retryBtn, { backgroundColor: accent.primaryTransparent }]}
+              >
                 <Text style={styles.retryText}>{t('retry')}</Text>
               </Pressable>
             </View>
@@ -897,16 +968,12 @@ export default function ShopScreen() {
                     sectionY.current[section.type] = e.nativeEvent.layout.y;
                   }}
                 >
-                  {/* Heading, then one line of what-this-is. The count pill that
-                      used to sit beside the title is gone on both platforms: the
-                      count is the grid directly underneath it. The line that
-                      replaced it earns its space, because a swatch cannot tell a
-                      first-time buyer that a glow follows their name into a
-                      duel. Same copy as web (CATEGORY_DESC_KEY), except glows,
-                      where this platform has one more honest thing to say. */}
+                  {/* The heading alone, same ruling as web: the count pill went
+                      first (the count is the grid directly underneath), then
+                      the what-this-is line went too — five shelves of subtitle
+                      furniture on one page. Type and space carry the section. */}
                   <View style={styles.sectionHead}>
                     <Text style={styles.sectionTitle}>{section.label}</Text>
-                    <Text style={styles.sectionDesc}>{categoryDesc(section.type)}</Text>
                   </View>
 
                   {section.type === 'glow' ? (
@@ -1041,70 +1108,9 @@ function categoryLabel(c: Category): string {
   }
 }
 
-/**
- * One line under each heading saying what this kind of thing IS and where it
- * turns up in game. Web renders the same five strings from the same keys
- * (components/shop/stampShopClient.js CATEGORY_DESC_KEY).
- *
- * IT IS NOT THE PER-ITEM BLURB COMING BACK. A card's blurb described the swatch
- * printed directly above it; this says the thing no swatch can, once per shelf,
- * for somebody who has never owned one.
- *
- * GLOWS NO LONGER GET A PLATFORM SENTENCE. They had one for as long as this
- * app rendered the animated tier as a still glow; it says the same thing web
- * says now, because the two platforms finally do the same thing. What is left
- * of the old band structure — an "Animated" heading, a gold dot, a subtitle
- * repeating it and a gold frame on every card — is the one word on one chip.
- */
-function categoryDesc(c: Category): string {
-  switch (c) {
-    // WEB'S LINE, WORD FOR WORD, and the mobile-specific one it replaced —
-    // "The animated ones move on the web version." — is deleted along with the
-    // key `shopCategoryGlowsDescMobile`. That sentence was true for exactly as
-    // long as this platform could not animate a text shadow. It can now
-    // (src/components/NameGlowHalo.tsx), so the sentence had become a
-    // promise pointed at the wrong product: it told a buyer the thing they were
-    // about to pay 3,000 Stamps for happens somewhere else.
-    case 'glow':
-      return t(
-        'shopCategoryGlowsDesc',
-        undefined,
-        'A coloured halo on your name, everywhere it shows up in game.',
-      );
-    // WEB'S LINE, WORD FOR WORD, and the platform-specific one it replaces is
-    // deleted. That line existed because this app had no bar to arrange and no
-    // way to send an emoteOrder, so copy about a bar would have described a
-    // control the screen did not have. It has one now, and it behaves
-    // identically, so the two platforms say the same sentence.
-    case 'emote':
-      return t(
-        'shopCategoryEmotesDesc',
-        undefined,
-        'React mid duel. Your bar is what comes up in game, and you decide what goes in it.',
-      );
-    case 'marker':
-      return t(
-        'shopCategoryPinsDesc',
-        undefined,
-        "The marker that drops where you guess, on your map and everyone else's.",
-      );
-    case 'background':
-      return t(
-        'shopCategoryBackgroundsDesc',
-        undefined,
-        'The photo behind every menu. Swap it whenever you like.',
-      );
-    // Also platform-specific: there are no banner ads in the app, only AdMob
-    // interstitials, so a pass is worth materially less here than on web and the
-    // line says exactly what it removes.
-    case 'pass':
-      return t(
-        'shopCategoryPassesDescMobile',
-        undefined,
-        'No full-screen ads for a stretch of play. Buy one whenever you need a clean run.',
-      );
-  }
-}
+/* categoryDesc IS DELETED — the one-liner under each heading, with its five
+ * locale keys (web's CATEGORY_DESC_KEY table went in the same pass). Subtitle
+ * furniture, five times down one page. A heading, then goods. */
 
 /**
  * Buy / Equip / Equipped — the one action a card ever offers, so both card
@@ -1208,7 +1214,11 @@ function CardAction({
         <ActivityIndicator size="small" color={colors.white} />
       ) : (
         <>
-          <StampMark />
+          {/* THE ACTION ROW'S MARK, not the wallet's — this button has to be the
+              same control as the Equip button on the next card, so it wears
+              STAMP_MARK_SIZE_BTN. Web does this in CSS on `.shopCard__btn
+              .stampMark`; the reasoning lives in StampMark.tsx. */}
+          <StampMark style={STAMP_MARK_BTN_STYLE} />
           {/* priceText, not actionText: this is a stamps FIGURE and it is sized
               against the mark beside it. The word labels on the other variants
               of this button (Owned, Equip, Sign in) stay at actionText. Web
@@ -1223,13 +1233,14 @@ function CardAction({
 /**
  * The Glows section: ONE LIST, one card size, animated skus first.
  *
- * IT WAS TWO BANDS AND IT IS NOT ANY MORE — the same deletion web just made
+ * IT WAS TWO BANDS AND IT IS NOT ANY MORE — the same deletion web made
  * (components/shop/ItemPreview.js). The animated tier used to be promoted into
  * a band with its own heading, a gold dot, a subtitle, a bigger plate, a bigger
- * name, a wider halo and a gold frame. That is seven mechanisms, and on THIS
- * platform they were selling motion the app cannot render at all. What is left
- * says it once, in words, where words are the only honest way to say it: the
- * section line above (see categoryDesc) plus one small chip per animated card.
+ * name, a wider halo and a gold frame. Seven mechanisms, and on THIS platform
+ * they once sold motion the app could not render. The app animates now
+ * (src/components/NameGlowHalo.tsx), and nothing on the card says "animated"
+ * in words any more — the section line and the gold chip both went in the
+ * Aug 11 de-slop pass. The moving ones move; that is the label.
  *
  * CHEAPEST FIRST, WHOLE SHELF, ANIMATED OR NOT. The catalogue already ships them
  * in exactly this order (shared/shop/catalog.js merges the static and animated
@@ -1368,18 +1379,14 @@ function GlowCard({
 }) {
   return (
     <View style={[styles.glowCard, equipped && styles.cardEquipped]}>
-      {/* THE STAGE. Fixed height, and the name row owns all of it — ~28px of
-          clearance around a 24px name, comfortably past the radius-16 halo. */}
+      {/* NO STAGE ANY MORE — no black plate, no wash dressing it, no gold
+          "Animated" chip in its corner. All three went in the owner's de-slop
+          pass, the chip by name ("complete ai slop"): a glow is light, and
+          light in a labelled box is a museum exhibit. The name floats on the
+          card's own surface at a fixed height (halo clearance is the height's
+          whole job), and the animated skus say so by moving. Web dropped the
+          identical furniture from ItemPreview.js in the same pass. */}
       <View style={styles.stage}>
-        {/* The app's own ambient wash, not a new gradient: the identical colour
-            stops this screen paints behind its background image. */}
-        <LinearGradient
-          colors={['rgba(0, 0, 0, 0.95)', 'rgba(0, 30, 15, 0.92)', 'rgba(0, 0, 0, 0.95)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-
         <View style={styles.stageNameRow}>
           <PlayerName
             name={previewName}
@@ -1388,19 +1395,6 @@ function GlowCard({
             glowRadius={16}
           />
         </View>
-
-        {/* THIS ONE MOVES (on web), and this chip is the ONLY place any card
-            says so — the band heading, the gold dot and the band subtitle that
-            all said it too are gone. Top-right corner, out of the name's way in
-            every locale. A static glow carries no chip at all. */}
-        {item.animated ? (
-          <View style={styles.motionChip}>
-            <View style={styles.motionDot} />
-            <Text style={styles.motionText} numberOfLines={1}>
-              {t('shopAnimated')}
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       <View style={styles.cardBottom}>
@@ -1477,6 +1471,7 @@ function DefaultCard({
 }) {
   const isGlow = kind === 'glow';
   const isBackground = kind === 'background';
+  const accent = useSiteAccent();
 
   // THE STOCK BACKGROUND IS A PLACE AND IT SAYS SO. It is a photograph of
   // Trafalgar Square at dusk (lib/siteBackground.js), sitting in a grid of ten
@@ -1528,7 +1523,7 @@ function DefaultCard({
       {isGlow ? (
         <View style={styles.stage}>
           <LinearGradient
-            colors={['rgba(0, 0, 0, 0.95)', 'rgba(0, 30, 15, 0.92)', 'rgba(0, 0, 0, 0.95)']}
+            colors={accent.modalWash}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -1833,9 +1828,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 5,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.35)',
+    // The dark fill and the gold figures ARE the pill — the 1px gold ring it
+    // wore was the border-on-everything habit, gone shop-wide Aug 11.
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   walletValue: {
     fontFamily: 'Lexend-SemiBold',
@@ -1856,20 +1851,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    // Reserved, transparent: the active chip paints the accent primary into
+    // this slot (see the inline style at the call site) — the game's own
+    // active-pill recipe. At rest the fill is the whole chip.
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'transparent',
   },
-  jumpChipPressed: {
-    backgroundColor: colors.primaryTransparent,
-  },
+  /* jumpChipPressed is GONE from here: its one property follows the equipped
+     background, and a StyleSheet is frozen at module load. Inline at the chip. */
   // "You are here" is an OUTLINE, deliberately not a filled pill: a filled chip
   // in a row of chips reads as a selected filter, and every section stays
   // mounted here. Mirrors the web shop's treatment.
-  jumpChipActive: {
-    borderColor: 'rgba(110, 231, 183, 0.85)',
-    backgroundColor: 'rgba(16, 84, 56, 0.55)',
-  },
   jumpChipText: {
     fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.xs,
@@ -1886,32 +1879,26 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing.md,
   },
-  // A COLUMN now: title, then the what-this-is line. It was a row because the
-  // only thing beside the title was a count pill, and the count is the grid.
+  // The heading alone — the what-this-is line under it went with web's, same
+  // ruling. A size up now that it carries the section by itself.
   sectionHead: {
-    gap: 2,
     marginBottom: spacing.xs,
   },
   sectionTitle: {
     fontFamily: 'JockeyOne',
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes['2xl'],
     color: colors.white,
-  },
-  sectionDesc: {
-    fontFamily: 'Lexend-Medium',
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.textMuted,
   },
   loading: {
     paddingVertical: spacing['3xl'],
     alignItems: 'center',
   },
   notice: {
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     borderRadius: borderRadius.lg,
+    // Reserved for noticeError's red — a stroke only ever speaks state.
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'transparent',
     padding: spacing.sm,
     marginBottom: spacing.sm,
     gap: spacing.sm,
@@ -1930,7 +1917,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryTransparent,
+    // backgroundColor is applied inline at the call site — it follows the
+    // equipped background and a StyleSheet cannot.
   },
   retryText: {
     fontFamily: 'Lexend-SemiBold',
@@ -1961,8 +1949,11 @@ const styles = StyleSheet.create({
     minWidth: 128,
     backgroundColor: 'rgba(0, 0, 0, 0.32)',
     borderRadius: borderRadius.lg,
+    // Transparent at rest — the width is reserved so cardEquipped's green can
+    // land without a layout shift, and the tone step against the screen is
+    // what makes it a card. Same call as web's .shopCard.
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'transparent',
     padding: spacing.sm,
     gap: spacing.sm,
     justifyContent: 'space-between',
@@ -1977,7 +1968,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.32)',
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'transparent',
     padding: spacing.sm,
     gap: spacing.xs,
   },
@@ -2059,7 +2050,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.32)',
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'transparent',
     padding: spacing.sm,
     gap: spacing.sm,
   },
@@ -2080,19 +2071,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  // THE STAGE. One plate, a fixed height, and the name row owns all of it now
-  // that the white check strip is gone. 172 -> 88: the strip was 38 of that
-  // plus a 12 gap plus 38 of paddings, and what is left still centres a 32px
-  // line box with ~28px of black on each side — well past the radius-16 halo
-  // drawn on it. `overflow: hidden` is what keeps the absolutely-filled
-  // gradient inside the rounded corners.
+  // NO PLATE, NO CLIP. The height is halo arithmetic only: a 32px line box
+  // centred in 80 leaves 24px each side, past the widest radius in
+  // src/shared/glowKeyframes.ts (the prism's 22px bloom). No `overflow:
+  // 'hidden'` — with no plate edge to keep tidy, clipping could only ever
+  // shear a halo at an invisible line.
   stage: {
-    height: 88,
-    paddingVertical: 14,
+    height: 80,
     paddingHorizontal: 18,
-    borderRadius: borderRadius.md,
-    backgroundColor: '#05070A',
-    overflow: 'hidden',
   },
   stageNameRow: {
     flex: 1,
@@ -2110,41 +2096,9 @@ const styles = StyleSheet.create({
   // stage, black, matching the web card. The light COLOURS stay: see the
   // GlowCard doc comment.
 
-  // The web card's gold pill, in React Native. Same job: say in words that this
-  // sku moves. It is no longer the only evidence — the stage moves too — but it
-  // stays, for the same two reasons web keeps its copy of it: the eye needs a
-  // beat to catch a 4.4s sweep, and under Reduce Motion nothing moves at all.
-  // Pinned to the stage's top-right corner, and capped at 80%
-  // of it, so no locale can grow it across the name underneath (it is absolute,
-  // so it would overlap rather than push).
-  motionChip: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    maxWidth: '80%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.35)',
-    backgroundColor: 'rgba(253, 224, 71, 0.08)',
-  },
-  motionDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#FDE047',
-  },
-  motionText: {
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: 9,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: '#FDE047',
-  },
+  // motionChip / motionDot / motionText ARE DELETED — the gold "Animated"
+  // micro-pill, called complete AI slop by name. An animated glow says so by
+  // moving; web deleted its copy (.shopPrev__motion) in the same pass.
   cardBottom: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2159,12 +2113,21 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingVertical: 6,
     borderRadius: borderRadius.md,
-    minHeight: 30,
+    // ONE HEIGHT FOR EVERY VARIANT. Buy is the only one carrying a picture, so
+    // without a floor it is as tall as the mark while Equip is as tall as its
+    // word, and the two sit side by side across a grid row. 14 is this style's
+    // own vertical chrome: 6px padding twice plus the 1px border twice below.
+    minHeight: STAMP_MARK_SIZE_BTN + 14,
+    // The border is reserved HERE, transparent, so every variant is the same box
+    // whether or not it colours one in. Only actionBtnBuy used to declare it,
+    // which made buy 2px taller than Equip on top of everything else.
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   actionBtnBuy: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.35)',
+    // The gold price and mark on a dark fill say "this one costs" on their
+    // own; the gold ring that traced them said it a second time.
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   // EQUIP IS BLUE, EQUIPPED IS LIGHT BLUE — same call as the web shop
   // (.shopCard__btn--equip / --on in styles/shop.css). Buy stays green: it is
@@ -2185,17 +2148,13 @@ const styles = StyleSheet.create({
   // the wheel above are drawing — that hole and this card are the two ends of
   // one gesture. Web's .shopCard__tag--add, verbatim.
   actionBtnAdd: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
   // ON THE WHEEL: the state, in the light blue every "already on" control in
   // this app wears (it is --gradBlue's own light stop, same as actionBtnEquipped
   // one rule up).
   actionBtnOnWheel: {
-    backgroundColor: 'rgba(112, 112, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(112, 112, 255, 0.55)',
+    backgroundColor: 'rgba(112, 112, 255, 0.24)',
   },
   actionTextOnWheel: {
     color: '#b6b6ff',
@@ -2214,7 +2173,11 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontFamily: 'Lexend-Bold',
-    fontSize: STAMP_VALUE_SIZE,
+    // Sized against the mark it sits beside, and that is the ACTION ROW's mark
+    // (STAMP_VALUE_SIZE_BTN === 14 === fontSizes.sm, the size the word "Equip"
+    // beside it runs at). NOT STAMP_VALUE_SIZE — that is 28, tuned for the 45px
+    // mark in the header wallet, and it is what made this button a giant.
+    fontSize: STAMP_VALUE_SIZE_BTN,
     color: colors.white,
     fontVariant: ['tabular-nums'],
   },

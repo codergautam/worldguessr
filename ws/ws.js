@@ -38,7 +38,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange, leagues, getStrictFloor } from '../components/utils/leagues.js';
+import { getLeagueRange, leagues, getStrictFloor, getActiveLeagues } from '../components/utils/leagues.js';
 import calculateOutcomes, {
   ENTRY_RATING, calculateTransfer, pairK
 } from '../components/utils/eloSystem.js';
@@ -56,6 +56,8 @@ import {
 // timer callback reaches the uncaughtException handler below, which exits the
 // process and ends the game for every connected player. See ws/safeTimers.js.
 import { safeInterval } from './safeTimers.js';
+import { startLeagueConfigRefresh } from '../serverUtils/loadLeagueConfig.js';
+import { checkMigrationAt } from '../serverUtils/checkMigrationAt.js';
 import QueueEtaSnapshot from '../models/QueueEtaSnapshot.js';
 import PairWins from '../models/PairWins.js';
 import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
@@ -241,11 +243,79 @@ function reapQueueWatch(id, now) {
 }
 const dodgeKeyFor = (player) => player?.accountId || player?.id || null;
 
-// Under v2 the arbitrary (hard) world map is gated on a v2-scale rating, not
-// the v1 2000 — the two scales are unrelated, and reusing 2000 would put the
-// gate above the top of the live ladder and silently retire the map. 1800 is
-// leaguesV2.legendV2.min.
-const ARB_MAP_MIN_RATING_V2 = 1800;
+/**
+ * Is bailing out of THIS game, right now, a queue dodge?
+ *
+ * The dodge is leaving a match you were already paired into, during the getready
+ * window before round 1 has been played. That is the move that costs a real
+ * opponent a whole game.
+ *
+ * Cancelling the QUEUE is deliberately not a dodge: nobody has been matched, so
+ * nobody paid anything, and punishing Cancel would make the button hostile.
+ *
+ * Placement matches are EXEMPT. A placement is a brand-new account's first game
+ * against a bot that throws on purpose — locking them out of ranked for backing
+ * out of it is the worst possible first impression, and there is no opponent to
+ * compensate.
+ */
+function isDodgeableExit(game) {
+  return !!(RATING_V2 && game && game.duel && game.public && !game.isPlacement
+    && game.state === 'getready' && game.curRound <= 1);
+}
+
+/**
+ * Book a dodge for `player` if leaving `game` now qualifies.
+ *
+ * SHARED BY THE LEAVE BUTTON AND THE DISCONNECT PURGE, and that is the whole
+ * point. This only ever fired from the explicit `leaveGame` message, so the
+ * penalty landed on the honest player who pressed the button while the one who
+ * killed the tab walked away free — punishing the more considerate of two
+ * identical actions, and the easier one to perform was the one that cost
+ * nothing.
+ *
+ * Keyed through dodgeKeyFor, which prefers accountId, so a cooldown survives the
+ * reconnect that follows a tab close.
+ */
+function recordDodgeIfApplicable(player, game, reason) {
+  if (!isDodgeableExit(game)) return 0;
+  return chargeDodge(player, reason);
+}
+
+/** Unconditional charge, for callers that already decided this is a dodge. */
+function chargeDodge(player, reason) {
+  const penalty = recordDodge(dodgeCooldowns, dodgeKeyFor(player));
+  console.log('[RATING_V2] dodge:', player?.username || player?.id, `${penalty}ms`, `(${reason})`, currentDate());
+  return penalty;
+}
+
+/**
+ * Rating both players must clear for the ARBITRARY (hard) world map.
+ *
+ * THIS SHIPPED AT 1800 AND SILENTLY RETIRED THE MAP. The comment it replaces
+ * correctly warned that reusing the v1 constant "would put the gate above the
+ * top of the live ladder and silently retire the map" — and then set the gate
+ * to 1800, which is leaguesV2.legendV2.min. Legend starts EMPTY at migration by
+ * design, and the migrated #1 lands at ~1600. So nobody on the ladder could
+ * clear it and the hard map stopped appearing for everyone, with no error and
+ * no log.
+ *
+ * The v1 gate was `both players > 2000`, which was exactly the old Explorer
+ * league line (leagues.trekker.min, displayed as Explorer). Re-keying to the v2
+ * Explorer line keeps the RULE identical across the migration — "Explorer and
+ * above get the hard map" — instead of trying to preserve a number from a scale
+ * that no longer exists. For reference the frozen conversion table maps old
+ * 2000 to 875, so this is within 60 points of exact numeric parity too.
+ *
+ * Resolved from the ACTIVE tier table so a seasonal re-anchor carries it along.
+ */
+const ARB_MAP_TIER_NAME = 'Explorer';
+function arbMapMinRating() {
+  const tier = Object.values(getActiveLeagues()).find((l) => l.name === ARB_MAP_TIER_NAME);
+  // Fail CLOSED to the same place the old bug landed rather than to 0: a table
+  // with no Explorer tier means we cannot say who qualifies, and handing the
+  // hard map to EVERYONE is the worse mistake.
+  return typeof tier?.min === 'number' && Number.isFinite(tier.min) ? tier.min : Infinity;
+}
 
 /**
  * Book one directional (winner, loser) win for the anti-farm decay counter.
@@ -372,12 +442,30 @@ function stampRatingV2(game, p1, p2) {
   if (!p1.accountId || !p2.accountId) return;
 
   const day = dayKeyUTC();
-  Promise.all([
+
+  // The promise is PARKED ON THE GAME so finishSoloDuel can await it.
+  //
+  // The original reasoning was that "the shortest possible duel is still tens
+  // of seconds", so this read always lands first. True of a duel that is
+  // PLAYED, false of one that is RESOLVED: an instant forfeit or a pregame
+  // disconnect ends the game in well under a second, and the transfers are read
+  // at whatever decay is stamped at that moment — which is 1. Those are exactly
+  // the games a farming pair would use, so the control was missing precisely
+  // where it was needed.
+  //
+  // Still fire-and-forget for the normal case: the re-stamp below happens on
+  // its own and nothing blocks on it. Game.js awaits this handle only at the
+  // finish line, and only with a short timeout, so a slow database delays a
+  // result by milliseconds rather than holding a game open.
+  game.ratingV2Ready = Promise.all([
     readPairWins(PairWins, day, p1.accountId, p2.accountId),
     readPairWins(PairWins, day, p2.accountId, p1.accountId)
   ]).then(([winsP1OverP2, winsP2OverP1]) => {
-    // The game can be gone or already finished by the time this lands.
-    if (games.get(game.id) !== game || game.state === 'end') return;
+    // The game can be gone by the time this lands. `state === 'end'` is NOT a
+    // reason to bail any more: finishSoloDuel awaits this before reading the
+    // transfers, so a game that has just ended is the case that needs the
+    // re-stamp most.
+    if (games.get(game.id) !== game) return;
     game.ratingV2 = build(decayMultiplier(winsP1OverP2), decayMultiplier(winsP2OverP1));
   }).catch((e) => {
     console.error('[RATING_V2] pair decay read failed, keeping decay 1:', e?.message || e);
@@ -496,6 +584,20 @@ if (dbEnabled) {
   } catch (e) {
     console.error('[queueEta] snapshot restore failed, starting cold:', e?.message || e);
   }
+
+  // Seasonal league tiers, then a periodic re-check so a mid-season re-anchor
+  // lands without a restart. AWAITED before the port opens: the strict
+  // matchmaking floor and the hard-map gate both resolve through the active tier
+  // table, so pairing on the built-in table for the first few seconds would
+  // quietly apply last season's cutoffs. Never throws — a bad doc keeps the
+  // built-in table.
+  await startLeagueConfigRefresh(safeInterval, { label: 'ws' });
+
+  // Is MIGRATION_AT actually this database's migration instant? A stale value
+  // makes pre-migration accounts placement-eligible, and a placement OVERWRITES
+  // a rating. Warns loudly, never blocks boot. This process is the one that
+  // routes players into placements, so it is the one that has to shout.
+  await checkMigrationAt('ws');
 }
 function log(...args) {
   console.log(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }), ...args);
@@ -1106,6 +1208,19 @@ app.ws('/wg', {
           return;
         }
 
+        // Migration day depends on this gate: the queue must be drainable
+        // (ELO_MIGRATION_PLAN Phase 0 — "zero live ranked games" before the
+        // elo snapshot pass). Private games and 2v2 already refuse under
+        // maintenance; the solo queues were the gap.
+        if (maintenanceMode) {
+          player.send({
+            type: 'toast',
+            key: 'maintenanceModeStarted',
+            toastType: 'error'
+          });
+          return;
+        }
+
         player.inQueue = true;
         const queueDetails = {
           guest: player.accountId ? false : true,
@@ -1166,6 +1281,18 @@ app.ws('/wg', {
           return;
 
         }
+        // Migration day depends on this gate: the ranked queue must be
+        // drainable (ELO_MIGRATION_PLAN Phase 0 — "zero live ranked games"
+        // before the elo snapshot pass). Private games and 2v2 already refuse
+        // under maintenance; the solo queues were the gap.
+        if (maintenanceMode) {
+          player.send({
+            type: 'toast',
+            key: 'maintenanceModeStarted',
+            toastType: 'error'
+          });
+          return;
+        }
         // v2 dodge cooldown. Abandoning a match you were matched into costs
         // the opponent a whole game, so the queue is closed for a bit. v1 has
         // no such concept, hence the flag gate.
@@ -1191,11 +1318,28 @@ app.ws('/wg', {
         // them a second placement against a throwing bot. undefined is the
         // "read in flight" state: chooseDuelPairs holds them out for a tick
         // and the placement branch requires an explicit true.
-        if (RATING_V2) player.placementPending = undefined;
+        // botEligibility gets the SAME invalidation for the same event: a
+        // just-placed player requeuing inside the DB round-trip still carries
+        // ranked:true from the pre-placement read, and the legacy backfill
+        // branch would hand them a regular bot instead of human matchmaking.
+        if (RATING_V2) {
+          player.placementPending = undefined;
+          player.botEligibility = undefined;
+        }
         // Bot backfill: stamp fresh W/L eligibility on the Player (async,
         // fire-and-forget — backfill only trusts an explicit true, so it
-        // kicks in on the first tick after this read resolves).
-        refreshBotEligibility(player);
+        // kicks in on the first tick after this read resolves). The placement
+        // announcement rides a follow-up message rather than the queueJoined
+        // ack below: placementPending is ALWAYS undefined at ack time (the
+        // invalidate above), and delaying the ack by a DB round trip is worse
+        // than a second message. Guarded on still-being-in-the-ranked-queue so
+        // a player who bailed before the read landed gets no stale banner.
+        refreshBotEligibility(player).then(() => {
+          if (RATING_V2 && player.placementPending === true && player.inQueue
+              && playersInQueue.get(player.id)?.duel) {
+            player.send({ type: 'queuePlacement', placement: true });
+          }
+        });
 
         if(!player.league) {
 
@@ -1578,11 +1722,10 @@ app.ws('/wg', {
         // very first game against a bot that throws — locking them out of
         // ranked for backing out of it is the worst possible first impression,
         // and there is no opponent to compensate.
-        if (RATING_V2 && game.duel && game.public && !game.isPlacement
-            && game.state === 'getready' && game.curRound <= 1) {
-          const penalty = recordDodge(dodgeCooldowns, dodgeKeyFor(player));
-          console.log('[RATING_V2] dodge:', player.username || player.id, `${penalty}ms`, currentDate());
-        }
+        //
+        // The rule itself lives in recordDodgeIfApplicable so the socket-close
+        // path books the identical dodge: closing the tab used to be free.
+        recordDodgeIfApplicable(player, game, 'leaveGame');
         game.removePlayer(player);
       }
 
@@ -2531,6 +2674,12 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
+    // Guarded for the same reason every timer goes through safeInterval (see
+    // ws/safeTimers.js): an uncaught throw here reaches uncaughtException →
+    // process.exit(1), ending the game for every connected player because ONE
+    // disconnect hit a bad edge. The dodge latch, roster mutation and
+    // removePlayer below are exactly the kind of surface that grows edges.
+    try {
     const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
     const durationSeconds = (connectionDuration / 1000).toFixed(1);
 
@@ -2578,6 +2727,27 @@ app.ws('/wg', {
       // recompute to the same numbers until the purge trims the roster).
       if (player.gameId && games.has(player.gameId)) {
         const dcGame = games.get(player.gameId);
+
+        // DODGE ON DISCONNECT — ARMED HERE, CHARGED AT THE PURGE.
+        //
+        // The penalty only ever fired from the explicit `leaveGame` message, so
+        // it punished the player who pressed the button and let the one who
+        // force-quit walk. Between two identical actions the ruder one was the
+        // one that cost nothing, which is exactly backwards, and killing the tab
+        // is the easier of the two.
+        //
+        // But charging it right here would also punish a WIFI BLIP. The state
+        // test (`getready`, round 1) can only be evaluated now — 30 seconds
+        // later the game has moved on or ended — while the question it answers
+        // ("did they actually abandon?") is not settled until the reconnect
+        // grace expires. So latch the verdict now and resolve it later: the
+        // purge charges it, and handleReconnect clears it if they come back.
+        //
+        // Not persisted in Player.toJSON on purpose: a restored process has no
+        // pending disconnect to resolve, and a stale latch would charge someone
+        // for a deploy.
+        if (isDodgeableExit(dcGame)) player.pendingDodge = true;
+
         const dcTeam = dcGame.players[player.id]?.team;
         if (dcGame.teamDuel && dcGame.state === 'end' && dcTeam) {
           dcGame.sendPlayAgainState(dcTeam);
@@ -2620,10 +2790,18 @@ app.ws('/wg', {
       }
       }
     }
-    if (playersInQueue.has(ws.id)) {
-      playersInQueue.delete(ws.id);
+    } catch (e) {
+      console.error('[ws:close] handler threw for', ws?.id, e?.stack || e);
+    } finally {
+      // Never let a queue entry outlive its socket — even when the body above
+      // threw or returned early. The matchmaking tick dereferences these
+      // entries every 500ms. (The stale-close early return relied on an
+      // explicit delete before this moved into a finally; both paths land
+      // here.)
+      if (ws?.id && playersInQueue.has(ws.id)) {
+        playersInQueue.delete(ws.id);
+      }
     }
-
   }
 });
 
@@ -3182,10 +3360,18 @@ try {
         p2: p2.accountId
       }
 
-      // Track last opponent to prevent same matchup twice in a row
-      // whenever at least one side is below 5000 elo (Voyager-vs-Voyager is
-      // exempt: that pool is thin enough that blocking rematches can strand it)
-      if (p1.elo < leagues.voyager.min || p2.elo < leagues.voyager.min) {
+      // Track last opponent to prevent the same matchup twice in a row, unless
+      // BOTH sides are Voyager+ — that pool is thin enough that blocking
+      // rematches can strand it.
+      //
+      // THE EXEMPTION WAS DEAD. This read `leagues.voyager.min`, which is 5,000
+      // on the retired Season 0 scale, so under v2 the condition was true for
+      // every duel ever played and the carve-out never fired. Nomads and future
+      // Legends — the 20-60 accounts whose quietest hours see roughly one
+      // same-band arrival a week — ate the full rematch block, escaping only via
+      // the 60s waiver in matchmakingV2. Exactly backwards from the intent.
+      const rematchExemptFloor = getStrictFloor();
+      if (p1.elo < rematchExemptFloor || p2.elo < rematchExemptFloor) {
         lastDuelOpponent.set(p1.accountId, p2.accountId);
         lastDuelOpponent.set(p2.accountId, p1.accountId);
       }
@@ -3222,9 +3408,10 @@ try {
         console.log('game.ratingV2', game.ratingV2, game.oldElos);
       }
 
-      // v2 scale: see ARB_MAP_MIN_RATING_V2. Never true for a bot game (bots
-      // sit at ENTRY_RATING ± 30).
-      if (p1.elo > ARB_MAP_MIN_RATING_V2 && p2.elo > ARB_MAP_MIN_RATING_V2) {
+      // v2 scale: see arbMapMinRating(). Never true for a bot game (bots sit
+      // at ENTRY_RATING ± 30, well under the Explorer line).
+      const arbMin = arbMapMinRating();
+      if (p1.elo > arbMin && p2.elo > arbMin) {
         game.locations = pick5RandomArb(game.seenIds);
       }
     } else if (p1.elo && p2.elo) {
@@ -3433,6 +3620,11 @@ try {
 
       // find games that can be joined
       // unranked (meaning non duel) public games
+      // Maintenance drain: existing games play out (state machine above), but
+      // nobody new is seated into them and nothing new is created below.
+      if (maintenanceMode) {
+        continue;
+      }
       if (playersInQueue.size < 1) {
         continue;
       }
@@ -3476,7 +3668,7 @@ try {
 
     }
 
-    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
+    if (!maintenanceMode && playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
       // create a new public game (non duel)
       const gameId = uuidv4();
       const game = new Game(gameId, { public: true, allLocations });
@@ -3512,7 +3704,7 @@ try {
     //   lobby and shown their team for a beat before auto-queueing as a duo;
     //   stage 2 — find opponents: two intact duos pair into a 4-player game.
     // Players who queue from a full duo skip stage 1 entirely.
-    if (playersInQueue.size >= 1) {
+    if (!maintenanceMode && playersInQueue.size >= 1) {
       pair2v2Solos(playersInQueue);
       const teams = build2v2Teams(playersInQueue);
 
@@ -3649,7 +3841,12 @@ try {
       }
     }
 
-    if (playersInQueue.size >= 1) {
+    // !maintenanceMode: migration day drains through here — existing games
+    // play out via the state machine above, but no pairing and no bot
+    // backfill may seat a queued player into a NEW game. Queue entries are
+    // kept (old clients have no wire message for a server-side eject; they
+    // can cancel, and pairing resumes if maintenance lifts without a restart).
+    if (!maintenanceMode && playersInQueue.size >= 1) {
       // ── PAIRING PASS ─────────────────────────────────────────────────────
       // v2 pairs by CLOSEST rating inside a symmetric, time-widening window
       // (ws/matchmakingV2.js). v1's first-fit league-band pass below is kept
@@ -3756,6 +3953,11 @@ try {
         // the stale entry.
         if(!player) continue;
         if(!queueData.guest && queueData.duel && !queueData.widened && Date.now() - queueData.queueTime > 10000) {
+          // v1 BRANCH. `leagues.voyager.min` (5,000) and the 20,000 ceiling
+          // below are CORRECT here and must not be "fixed" to v2 values: this
+          // whole else-branch only runs with RATING_V2 off, on the Season 0
+          // scale, where those are the real numbers. The v2 path above resolves
+          // its floor through getStrictFloor() instead.
           const widenedMin = queueData.strict ? leagues.voyager.min : 0;
           playersInQueue.set(playerId[0], { ...queueData, min: widenedMin, max: 20000, widened: true });
 
@@ -3799,7 +4001,7 @@ try {
           // pIds.p1 for the seed and only p1 can win a placement.
           if (RATING_V2 && player && player.placementPending === true
               && player.inQueue && !player.gameId && player.elo) {
-            const bot = createBotPlayer({ throwGame: true });
+            const bot = createBotPlayer({ placement: true });
             console.log('[RATING_V2] placement match:', player.username || player.id, 'vs', bot.username);
             // isBotGame stays TRUE: the save gate, the null accountIds.p2 and
             // the synthesized bot side all depend on it. Game.js tests
@@ -3869,6 +4071,16 @@ try {
           continue;
         }
         disconnectedPlayers.delete(accountId);
+
+        // The reconnect grace expired without them coming back, so the dodge
+        // latched at socket close is now confirmed as a real abandonment rather
+        // than a connection blip. Charged BEFORE removePlayer, which can end and
+        // dissolve the game out from under this. See the note at the latch site.
+        if (player.pendingDodge) {
+          player.pendingDodge = false;
+          chargeDodge(player, 'disconnect');
+        }
+
         if (player.gameId) {
           const game = games.get(player.gameId);
           if (game) {

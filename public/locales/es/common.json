@@ -967,7 +967,7 @@
   "leaveParty": "Salir",
   "hideMyLastSeen": "Ocultar mi última conexión",
   "strictMatchmaking": "Evitar duelos de menor nivel",
-  "strictMatchmakingHint": "Los duelos clasificatorios solo te emparejarán con jugadores Voyager y Nomad (5000+ ELO). La búsqueda puede tardar más.",
+  "strictMatchmakingHint": "Los duelos clasificatorios solo te emparejarán con jugadores de liga Voyager o superior. La búsqueda puede tardar más.",
   "accountSettings": "Configuración de la cuenta",
   "audioSettings": "Audio",
   "generalSettings": "General",
@@ -981,5 +981,7 @@
   "multiplayerEmoteReactions": "Reacciones con emotes en multijugador",
   "forfeit2v2Warning": "Si te vas ahora, tu equipo pierde la partida y el juego termina para los 4 jugadores.",
   "teamBackgroundWarning": "Ojo: si sales de la app mucho tiempo, abandonas a tu compañero.",
-  "communityBannerTitle": "¡Únete a nuestra comunidad!"
+  "communityBannerTitle": "¡Únete a nuestra comunidad!",
+  "placementMatch": "Partida de colocación",
+  "placementQueueNote": "Tu primera partida clasificatoria establece tu puntuación inicial."
 }

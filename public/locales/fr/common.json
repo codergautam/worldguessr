@@ -967,7 +967,7 @@
   "leaveParty": "Quitter",
   "hideMyLastSeen": "Masquer ma dernière connexion",
   "strictMatchmaking": "Éviter les duels de niveau inférieur",
-  "strictMatchmakingHint": "Les duels classés ne vous opposeront qu'à des joueurs Voyager et Nomad (5000+ ELO). La recherche peut prendre plus de temps.",
+  "strictMatchmakingHint": "Les duels classés ne vous opposeront qu'à des joueurs de ligue Voyager ou supérieure. La recherche peut prendre plus de temps.",
   "accountSettings": "Paramètres du compte",
   "audioSettings": "Audio",
   "generalSettings": "Général",
@@ -981,5 +981,7 @@
   "multiplayerEmoteReactions": "Réactions emotes en multijoueur",
   "forfeit2v2Warning": "Partir maintenant fait perdre le match à ton équipe et met fin à la partie pour les 4 joueurs.",
   "teamBackgroundWarning": "Attention : quitter l'app trop longtemps abandonne ton coéquipier.",
-  "communityBannerTitle": "Rejoignez notre communauté !"
+  "communityBannerTitle": "Rejoignez notre communauté !",
+  "placementMatch": "Match de placement",
+  "placementQueueNote": "Votre premier match classé détermine votre classement initial."
 }

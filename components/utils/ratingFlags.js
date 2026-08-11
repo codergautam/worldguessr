@@ -41,7 +41,7 @@ export const RATING_V2 = true;
 //                      of the prod cutover. Too EARLY is the dangerous
 //                      direction: every account created after it that still has
 //                      ratedGames 0 is placement-eligible, and a placement win
-//                      overwrites a migrated rating with a 500-800 seed. Too
+//                      overwrites a migrated rating with a 500-900 seed. Too
 //                      late merely delays placements for genuinely new accounts.
 export const MIGRATION_AT = new Date('2026-08-07T21:36:00.000Z');
 

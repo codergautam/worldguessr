@@ -53,11 +53,13 @@ import { STOCK_PIN_KEY } from './markerPins';
  *  different shape from every other shelf in the shop. One card size now, one
  *  stage, one grid. The animated ones still stand out: they are the ones moving.
  *
- *  Each animated stage keeps its MOTION CHIP, because a card whose whole value
- *  proposition is movement should say so in the half-second before the eye
- *  catches it, and must still say so under prefers-reduced-motion, where nothing
- *  moves at all. It is the ONLY place that word appears on a card — the price
- *  row used to print "Animated" a second time, directly underneath it.
+ *  THE MOTION CHIP IS GONE — the little gold "Animated" pill with the glowing
+ *  dot that sat in every animated stage's corner. It was a badge restating what
+ *  the stage already demonstrates by MOVING, which is the same sin as the
+ *  per-item blurb this shop already buried: chrome describing the thing it is
+ *  stuck to. The movement is the label. (Reduced-motion users lose the word,
+ *  and that is the honest trade: a badge that outlives its product was selling
+ *  something the surface it was on no longer showed.)
  *
  *  The shadow recipe itself is NEVER reimplemented here. nameGlowProps() from
  *  components/utils/usernameWithFlag.js is the single source for it, and the
@@ -104,7 +106,7 @@ const LAZY_PREVIEW = {
  * name on the same stage with no shadow, which is exactly the plain white name
  * the game ships. That is the whole product of that card.
  */
-function GlowPreview({ sku, username, text, animated }) {
+function GlowPreview({ sku, username }) {
   // One surface is previewed, so one surface is asked for. GLOW_LIGHT is still
   // a live surface everywhere else in the app — it is simply not a shop stage.
   // ownBox: the stage's name is a real element that owns its own truncation, so
@@ -125,22 +127,6 @@ function GlowPreview({ sku, username, text, animated }) {
       >
         {name}
       </span>
-
-      {/* THIS ONE MOVES, in the stage's top-right corner rather than in a row a
-          long locale string could crowd. It says so in words because the eye
-          needs a beat to catch a 2.6s breath and because under
-          prefers-reduced-motion nothing moves at all.
-
-          It used to be a three-way chip — "Animated", "Gradient", "Animated
-          gradient" — back when a static two-tone tier existed. It does not any
-          more, so the only thing left to say is whether the sku moves, and a
-          static glow gets no chip at all. */}
-      {animated && (
-        <span className="shopPrev__motion">
-          <span className="shopPrev__motionDot" aria-hidden="true" />
-          {text('shopAnimated')}
-        </span>
-      )}
     </div>
   );
 }
@@ -238,7 +224,7 @@ function PassPreview({ item, text, adFreeDailyCap, adFreeMsLeft }) {
 function renderBody({ item, username, markerUrls, text, adFreeDailyCap, adFreeMsLeft }) {
   switch (item.type) {
     case 'glow':
-      return <GlowPreview sku={item.sku} username={username} text={text} animated={!!item.animated} />;
+      return <GlowPreview sku={item.sku} username={username} />;
     case 'background':
       return <BackgroundPreview item={item} />;
     case 'marker':

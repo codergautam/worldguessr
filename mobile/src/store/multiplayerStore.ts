@@ -228,8 +228,19 @@ export interface GameData {
   myId: string;
   host: boolean;
   code: string | null;
+  /** Server-side room identity (ws Game.js `this.id`, on every `game`
+   *  payload). Stable for a room's whole life — including a party's
+   *  resetGame replays — and fresh per matchmade match. Backs per-room
+   *  chat clearing; do NOT use `code`/`startTime` for that (neither is on
+   *  the between-rounds broadcast). Optional: pre-fix servers omit it.
+   *  NOT the same id as StampsEarned.gameId, which is the SAVED GAME doc
+   *  id — this is the live in-memory room. Same name, different spaces. */
+  gameId?: string;
   public: boolean;
   duel: boolean;
+  /** Placement seeding match (wire: ws Game.js state payloads). Labels the
+   *  GetReadyOverlay matchup and the duel timer. */
+  isPlacement?: boolean;
   curRound: number;
   rounds: number;
   timePerRound: number;
@@ -514,6 +525,14 @@ interface MultiplayerState {
     unit: 'sec' | 'min' | null;
     tier: 'short' | 'mid' | 'long' | null;
   } | null;
+  /**
+   * This ranked queue resolves into the placement seeding match. Server
+   * follow-up `queuePlacement` (its eligibility read lands AFTER the
+   * queueJoined ack, so it can never ride the ack itself). Drives the
+   * "Placement match" labelling on the queue screen; the in-game labelling
+   * runs off gameData.isPlacement instead.
+   */
+  placementPending: boolean;
   nextGameQueued: boolean;
   nextGameType: 'ranked' | 'unranked' | null;
   // 2v2 matchmaking state that must SURVIVE the stage-2 gameData wipe —
@@ -709,6 +728,7 @@ const gameInitialState = {
     unit: 'sec' | 'min' | null;
     tier: 'short' | 'mid' | 'long' | null;
   } | null,
+  placementPending: false as boolean,
   nextGameQueued: false,
   nextGameType: null as 'ranked' | 'unranked' | null,
   // 2v2 matchmaking state (survives the stage-2 gameData wipe, but is still
@@ -751,6 +771,7 @@ export const queueTeardownState = {
   // minutes ago — the next queue screen would open at "4:12".
   queuedAt: gameInitialState.queuedAt,
   queueEta: gameInitialState.queueEta,
+  placementPending: gameInitialState.placementPending,
   queueStage: gameInitialState.queueStage,
   queueMyId: gameInitialState.queueMyId,
   lobbyIntent: gameInitialState.lobbyIntent,
@@ -842,7 +863,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     wsService.send({ type });
     // queuedAt stays null until the server's ack lands — the timer must run on
     // the server's join instant, not on when we happened to tap the button.
-    set({ gameQueued: type, publicDuelRange: null, queuedAt: null, queueEta: null });
+    // placementPending likewise: the server re-announces per queue if it
+    // applies, so a stale flag from a previous queue must not leak in.
+    set({ gameQueued: type, publicDuelRange: null, queuedAt: null, queueEta: null, placementPending: false });
     queueConfirmTimer = setTimeout(() => {
       queueConfirmTimer = null;
       const s = get();
@@ -1299,19 +1322,22 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
       // Per-ROOM chat clearing (July 30 ruling, mirrors web gameChat.js):
       // a fresh room means a fresh log, so last match's messages never haunt
-      // the next one. Matchmade games carry no join code, so the 2v2 flags +
-      // startTime (stamped once per game in ws Game.js start()) form the key —
-      // per-match-unique, because the Play Again regroup skips the staging
-      // paint and a bare '2v2-match' constant compared equal across the
-      // rematch. staging→match and match→staging both flip the key; the
-      // stage-2 queue window yields no key (no false clear); parties keep
-      // their stable code so party chat still spans play-agains. Compared
-      // against the PERSISTENT chatLastRoomKey, not prevGameData — the
-      // regroup path nulls gameData between matches. The tint latch resets
-      // with the room: new room, new teams.
-      const nextRoomKey = data.code
-        || (data.team2v2 ? `2v2m:${data.startTime ?? ''}`
-          : data.is2v2Lobby ? '2v2-staging' : null);
+      // the next one. Compared against the PERSISTENT chatLastRoomKey, not
+      // prevGameData — the Play Again regroup nulls gameData between matches.
+      // A null key (the stage-2 queue window, where gameData is wiped) is
+      // ignored rather than treated as a change, so it can't false-clear. The
+      // tint latch resets with the room: new room, new teams.
+      //
+      // The key is the server's gameId (ws Game.js, on BOTH `game` payloads).
+      // The old `code || 2v2m:${startTime}` construction could not work: this
+      // broadcast carries neither field, and startTime is stamped in start()
+      // which runs after addPlayer, so it arrives null and is never corrected
+      // — every matchmade match keyed to the same constant string, so the log
+      // was never cleared between them, and the payloads that DID carry a code
+      // made the key appear/vanish and cleared mid-match on the alternation.
+      // Fall back to the merged value: absent means "this payload didn't carry
+      // it", not "the room changed".
+      const nextRoomKey = data.gameId ?? prevGameData?.gameId ?? null;
       const chatRoomChanged = !!(state.chatLastRoomKey && nextRoomKey
         && state.chatLastRoomKey !== nextRoomKey);
 
@@ -1393,6 +1419,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         ...(nextRoomKey ? { chatLastRoomKey: nextRoomKey } : null),
         gameQueued: false,
         queueStage: null,
+        // Queue-scoped flag ends here; gameData.isPlacement (riding the
+        // payload spread below) carries the in-game labelling from now on.
+        placementPending: false,
         // A joiner's 'join' intent is served once the game arrives; creators
         // keep 'party'/'2v2' for lobby presentation (web home.js parity).
         // The SNAPSHOT corrects a stale intent: a '2v2' stamp left behind by
@@ -1551,6 +1580,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           ? data.queuedAt
           : Date.now() + wsService.timeOffset,
       });
+      return;
+    }
+
+    // ── queuePlacement — this ranked queue resolves into the placement ─────
+    // seeding match. Follow-up to queueJoined (the server's eligibility read
+    // lands after the ack). Only ever sent as true.
+    if (data.type === 'queuePlacement') {
+      set({ placementPending: !!data.placement });
       return;
     }
 

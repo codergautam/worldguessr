@@ -335,25 +335,8 @@ export const CATEGORY_LABEL_KEY = {
   pass: 'shopCategoryPasses',
 };
 
-/**
- * One line under each section heading saying WHAT THIS KIND OF THING IS and
- * where it shows up in game.
- *
- * THIS IS NOT THE PER-ITEM BLURB COMING BACK, and the difference is the whole
- * reason one is right and the other was wrong. A card's blurb described the
- * picture directly above it ("Golden hour over the Golden Gate", under a
- * photograph of the Golden Gate at golden hour): the preview already said it,
- * better, and it said it forty times down a page. A SECTION line says the thing
- * no preview can — that a glow follows your name into a duel, that a pin is
- * what other players see land on the map — once per shelf, for a shopper who
- * has never owned one and cannot tell from a swatch what they would be buying.
- *
- * One line each. If one ever needs two, the shelf is misnamed.
- */
-export const CATEGORY_DESC_KEY = {
-  marker: 'shopCategoryPinsDesc',
-  glow: 'shopCategoryGlowsDesc',
-  background: 'shopCategoryBackgroundsDesc',
-  emote: 'shopCategoryEmotesDesc',
-  pass: 'shopCategoryPassesDesc',
-};
+/* CATEGORY_DESC_KEY IS GONE — the one-line "what this kind of thing is" under
+ * each heading, on both storefronts. It was defended here as the line no
+ * preview can say, and the defence lost to the page it produced: five shelves,
+ * five sentences of furniture, each one a subtitle under a heading that already
+ * names the shelf. The locale strings went with it. A heading, then goods. */

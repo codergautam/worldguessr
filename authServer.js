@@ -25,6 +25,8 @@ import 'colors';
 import googleAuthHandler from './api/googleAuth.js';
 import setNameHandler from './api/setName.js';
 import { registerCacheBusRoute } from './serverUtils/cacheBus.js';
+import { safeInterval } from './ws/safeTimers.js';
+import { startLeagueConfigRefresh } from './serverUtils/loadLeagueConfig.js';
 
 const startedAt = Date.now();
 const STATS_WINDOW_MS = 30 * 60 * 1000;
@@ -82,6 +84,11 @@ if (!process.env.MONGODB) {
   } catch (error) {
     console.error('[ERROR] Database connection failed!'.red, error.message);
   }
+
+  // Seasonal league tiers: this process serves /api/googleAuth, whose payload
+  // carries the player's league. Without this it would hand out last season's
+  // tier names while ws and the API server used the current ones.
+  await startLeagueConfigRefresh(safeInterval, { label: 'auth' });
 }
 
 if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
@@ -106,6 +113,23 @@ app.all('/api/setName', (req, res) => setNameHandler(req, res));
 registerCacheBusRoute(app);
 
 const port = process.env.AUTH_PORT || 3004;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`[INFO] Auth Server running on port ${port}`);
 });
+
+// Graceful drain — same rationale as server.js: deploys must not kill
+// requests mid-write (account creation / stamps-adjacent session writes).
+let drainStarted = false;
+const drain = (signal) => {
+  if (drainStarted) return;
+  drainStarted = true;
+  console.log(`[INFO] ${signal} received — draining in-flight requests`);
+  server.close(() => process.exit(0));
+  if (server.closeIdleConnections) server.closeIdleConnections();
+  setTimeout(() => {
+    console.error('[WARN] drain timed out after 10s — exiting with requests in flight');
+    process.exit(0);
+  }, 10000).unref();
+};
+process.on('SIGTERM', () => drain('SIGTERM'));
+process.on('SIGINT', () => drain('SIGINT'));

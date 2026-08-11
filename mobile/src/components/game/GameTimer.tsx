@@ -54,6 +54,12 @@ interface GameTimerProps {
    * viewer is the private-game host and state is 'guess'.
    */
   onForceEndRound?: () => void;
+  /**
+   * Placement seeding match (duel variant only): a persistent one-word tag
+   * above the round label, so the player never loses track of what this game
+   * is after the GetReady intro. Web parity: gameUI.js timer__placement-tag.
+   */
+  isPlacement?: boolean;
 }
 
 // ── Motion policy ───────────────────────────────────────────────────────────
@@ -127,6 +133,7 @@ function GameTimer({
   hasGuess = false,
   variant = 'default',
   onForceEndRound,
+  isPlacement,
 }: GameTimerProps) {
   // Seed from serverEndTime when server-driven so the very first render already
   // has a number. On duel reconnect the partial `game` snapshot carries
@@ -333,6 +340,7 @@ function GameTimer({
     [isTablet, sc],
   );
   const duelRoundLabelStyle = useMemo(() => ({ fontSize: sc(fontSizes.xs) }), [sc]);
+  const duelPlacementTagStyle = useMemo(() => ({ fontSize: sc(9) }), [sc]);
   const duelCountdownStyle = useMemo(
     () => ({ fontSize: sc(fontSizes['3xl']), minWidth: sc(64) }),
     [sc],
@@ -361,6 +369,13 @@ function GameTimer({
           style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
           pointerEvents="none"
         />
+        {/* Placement seeding match: persistent tag above the round footnote —
+            the clock stays the hero. */}
+        {isPlacement && (
+          <Text style={[styles.duelPlacementTag, duelPlacementTagStyle]}>
+            {t('placementMatch').toUpperCase()}
+          </Text>
+        )}
         <Text style={[styles.duelRoundLabel, duelRoundLabelStyle]}>
           {t('round', { r: currentRound, mr: totalRounds })}
         </Text>
@@ -456,6 +471,15 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     opacity: 0.55,
     letterSpacing: 0.6,
+  },
+  // Placement tag above the round footnote — one step smaller and dimmer
+  // than duelRoundLabel (web parity: .timer__placement-tag).
+  duelPlacementTag: {
+    color: colors.white,
+    fontFamily: 'Lexend-Medium',
+    fontSize: 9,
+    opacity: 0.5,
+    letterSpacing: 1.1,
   },
   duelCountdown: {
     color: colors.white,

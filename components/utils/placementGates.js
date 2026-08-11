@@ -4,14 +4,14 @@
 // WHY TWO GATES EXIST, AND WHY BOTH FAIL CLOSED
 // ---------------------------------------------
 // Placements overwrite a rating outright: finish your placement games and the
-// system stamps you at placementSeed(), somewhere in 500..800.
+// system stamps you at placementSeed(), somewhere in 500..900.
 //
 // The trigger for "this account still needs placements" is ratedGames === 0.
 // Every account that existed before the v2 migration has ratedGames 0 by
 // default, because the field did not exist when those docs were written. So on
 // the day v2 ships, without gates, EVERY veteran on the ladder is placement
 // eligible, plays a handful of games, and has its carefully migrated rating
-// bulldozed by a 500-800 seed. A 2400-rated account becomes 640. There is no
+// bulldozed by a 500-900 seed. A 2400-rated account becomes 640. There is no
 // undo: the pre-migration value only survives in elo_s0.
 //
 //  Gate 1 (isPlacementEligible): only accounts CREATED AT OR AFTER the
@@ -102,7 +102,7 @@ export function isPlacementEligible(user, migrationAt) {
  * WHY NOT ZERO: the cap must stay >= 1. Any account with at least one career
  * game must backfill to a non-zero `ratedGames`, because that is gate 2 of the
  * placement guard above — a 0 here plus a bad `created_at` read is how a
- * veteran's migrated rating gets bulldozed by a 500-800 placement seed.
+ * veteran's migrated rating gets bulldozed by a 500-900 placement seed.
  *
  * scripts/verifyMigration.js has its own RATED_GAMES_CAP that MUST match this.
  */

@@ -5,7 +5,7 @@ import Navbar from '@/components/ui/navbar';
 import PublicProfile from '@/components/publicProfile';
 import config from '@/clientConfig';
 import { STARTING_ELO } from '@/components/utils/ratingFlags';
-import { backgroundUrlForSku } from '@/lib/siteBackground';
+import { backgroundUrlForSku, accentForSku, accentStyleVars } from '@/lib/siteBackground';
 import { useTranslation } from '@/components/useTranslations';
 
 export default function UserProfilePage() {
@@ -246,6 +246,35 @@ export default function UserProfilePage() {
     [profileData]
   );
 
+  // AND SO DO ITS COLOURS. The photograph moved to the subject above and the
+  // chrome on top of it did not, which left a purple New York profile wearing
+  // WorldGuessr green buttons — the exact mismatch the accent system was built
+  // to end, just pointed at the wrong person.
+  //
+  // SAME SCOPING RULE, SAME REASON. These go inline on the shell beside
+  // --profile-bg, NOT through applySiteAccent: that writes <html>, which is the
+  // READER's slot, so a stranger's colours would repaint the reader's own menus
+  // and outlive the route change. .user-profile-page is in the accent scope in
+  // styles/globals.scss, so declaring them here is all it takes, and nothing
+  // outside this element can see them.
+  //
+  // Null (nothing equipped, unknown sku, still loading, portal build) leaves all
+  // seven unset and the scope's own fallbacks — the green literals — stand.
+  const profileAccent = useMemo(
+    () => accentStyleVars(accentForSku(profileData?.cosmetics?.equipped?.background)),
+    [profileData]
+  );
+
+  // One object or none: React re-runs the whole inline style on identity change,
+  // and `undefined` is what this page has always passed when it has nothing.
+  const shellStyle = useMemo(() => {
+    if (!profileBackground && !profileAccent) return undefined;
+    return {
+      ...(profileBackground ? { '--profile-bg': `url("${profileBackground}")` } : null),
+      ...profileAccent,
+    };
+  }, [profileBackground, profileAccent]);
+
   return (
     <>
       <Head>
@@ -257,7 +286,7 @@ export default function UserProfilePage() {
 
       <div
         className="user-profile-page"
-        style={profileBackground ? { '--profile-bg': `url("${profileBackground}")` } : undefined}
+        style={shellStyle}
       >
         {loading && (
           <div className="loading-container">
@@ -346,11 +375,21 @@ export default function UserProfilePage() {
              only the fallback while the profile loads (or when its owner has
              nothing equipped). This layer is position:fixed inset:0, so it also
              sits behind the transparent navbar — the whole viewport reads as
-             one background rather than splitting at the bar. */
+             one background rather than splitting at the bar.
+
+             THE MID STOP FOLLOWS THE SUBJECT TOO. It was rgba(20, 26, 57) — a
+             navy that appears nowhere else on the site, picked as a neutral back
+             when this wash had no way of knowing whose page it was on. It does
+             now: --washChannels resolves against the seven --acc* properties set
+             inline above, so the wash IS the equipped background's own colour.
+             With nothing equipped it falls back to the site wash like every
+             other modal, which is a change from the navy and a deliberate one —
+             one page wearing a colour the rest of the site never uses was the
+             oddity, not the fix. */
           background: linear-gradient(
             135deg,
             rgba(0, 0, 0, 0.9) 0%,
-            rgba(20, 26, 57, 0.8) 50%,
+            rgba(var(--washChannels), 0.8) 50%,
             rgba(0, 0, 0, 0.9) 100%
           ),
           var(--profile-bg, var(--site-bg));

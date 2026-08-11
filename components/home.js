@@ -844,14 +844,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // so ranked/2v2 (which require an account) and social links are hidden too.
     const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
     const [navSlideOut, setNavSlideOut] = useState(false);
+    // IS THE TOP-RIGHT COLUMN LEAVING WITH THE MENU, OR JUST MOVING?
+    //
+    // Most destinations unmount it, so it fades out alongside the footer — it
+    // lives outside .home__content and would otherwise hard-pop at the flip.
+    // The matchmaking queue does NOT unmount it: the same element stays on
+    // screen and only changes inset (.hudCorner--tight). Fading it there meant
+    // the card dissolved for 300ms and then cut back in, a corner over, which
+    // is two edits where the eye expects one move. On those destinations it
+    // keeps its opacity and SLIDES to the new inset instead.
+    //
+    // Known at press time and nowhere else: during the slide-out the screen is
+    // still "home", so no piece of state yet says where we are going.
+    const [cornerLeaving, setCornerLeaving] = useState(false);
 
     // Play the nav slide-out animation, then run the action once it finishes.
     // Every main-menu button that leaves the home screen must go through this —
     // acting immediately unmounts the menu with no transition.
-    const navSlideOutThen = (action) => {
+    //
+    // `keepCorner` is for destinations that keep the top-right column mounted
+    // (see cornerLeaving above). Passing it where the column actually unmounts
+    // would bring back the hard pop the fade exists to hide.
+    const navSlideOutThen = (action, { keepCorner = false } = {}) => {
         setNavSlideOut(true);
+        setCornerLeaving(!keepCorner);
         setTimeout(() => {
             setNavSlideOut(false); // Reset for next use
+            setCornerLeaving(false);
             action();
         }, 300);
     };
@@ -2063,7 +2082,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // No ack: the server never queued us. Drop us (a no-op server-side if it
             // never had us), leave the searching screen, and surface the failure.
             try { ws?.send(JSON.stringify({ type: "leaveQueue" })); } catch (e) {}
-            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null, queuedAt: null, queueEta: null }));
+            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null, queuedAt: null, queueEta: null, placementPending: false }));
             setScreen("home");
             toast(text("queueJoinFailed") || "Couldn't join the queue. Please try again.", { type: 'error', theme: "dark" });
         }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
@@ -2103,7 +2122,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // timer may run on. Guessing one here would start the clock
                 // before the join is even acknowledged.
                 queuedAt: null,
-                queueEta: null
+                queueEta: null,
+                // Stale placement labelling from a previous queue must not
+                // leak into this one; the server re-announces if it applies.
+                placementPending: false
             }))
             sendEvent("multiplayer_request_ranked_duel")
             ws.send(JSON.stringify({ type: "publicDuel" }))
@@ -2121,7 +2143,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 nextGameQueued: false,
                 publicDuelRange: null,
                 queuedAt: null,
-                queueEta: null
+                queueEta: null,
+                placementPending: false
             }))
             sendEvent("multiplayer_request_unranked_duel")
             ws.send(JSON.stringify({ type: "unrankedDuel" }))
@@ -2646,6 +2669,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         queueStage: null,
                         queuedAt: null,
                         queueEta: null,
+                        // Queue-scoped flag ends here; gameData.isPlacement
+                        // carries the in-game labelling from this point on.
+                        placementPending: false,
                         inGame: true,
                         gameData: {
                             ...prev.gameData,
@@ -2734,6 +2760,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     ...prev,
                     queuedAt: typeof data.queuedAt === "number" ? data.queuedAt : Date.now() + timeOffset
                 }));
+            } else if (data.type === "queuePlacement") {
+                // Follow-up to queueJoined, sent only when this ranked queue
+                // will resolve into the placement seeding match (the server's
+                // eligibility read lands after the join ack). Drives the
+                // "Placement match" labelling on the searching screen.
+                setMultiplayerState((prev) => ({ ...prev, placementPending: !!data.placement }));
             } else if (data.type === "enter2v2Queue") {
                 // Server moved us into 2v2 matchmaking — from a lobby's Find
                 // Match, or an auto-requeue after a pre-game cancel.
@@ -3632,7 +3664,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // one's ELO range for a frame. Clear the whole queue slice.
                     publicDuelRange: null,
                     queuedAt: null,
-                    queueEta: null
+                    queueEta: null,
+                    placementPending: false
                 }
             });
             setScreen("home")
@@ -4074,24 +4107,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // ally's, tint blue at receive regardless of team-field presence.
         allAllies={!!((multiplayerState?.gameData?.is2v2Lobby || multiplayerState?.gameQueued === '2v2')
             && !multiplayerState?.gameData?.team2v2)}
-        // Per-room log clearing: a new room = fresh chat. Matchmade games
-        // carry no join code, so the 2v2 flags stand in — staging→match and
-        // match→staging both change the key, which is exactly the "clear
-        // after each match" ruling; the queue's gameData wipe yields null
-        // (ignored), and parties keep their stable code so party chat still
-        // spans play-agains.
-        // Match key includes startTime (stamped once per game, Game.js
-        // start()): a bare '2v2-match' constant leaked across Play Again —
-        // the queueBoundDuo regroup skips the staging paint, so match→match
-        // compared equal and last match's chat survived into the rematch.
-        roomCode={multiplayerState?.gameData?.code
-            || (multiplayerState?.gameData?.team2v2 ? `2v2m:${multiplayerState?.gameData?.startTime ?? ''}`
-                : multiplayerState?.gameData?.is2v2Lobby ? '2v2-staging' : null)}
+        // Per-room log clearing: a new room = fresh chat. The key is the
+        // server's gameId (ws Game.js `this.id`, now on BOTH `game` payloads):
+        // stable across a party's resetGame replays so party chat still spans
+        // play-agains, and fresh per matchmade match so those clear.
+        // The old `code || 2v2m:${startTime}` key could not work — startTime is
+        // stamped in start(), which runs AFTER addPlayer, so it shipped null
+        // and no later payload carried it (the between-rounds broadcast has
+        // neither field). Every matchmade match keyed to the same constant, so
+        // last match's chat survived into the rematch. The queue's gameData
+        // wipe still yields null, which is ignored rather than cleared.
+        roomCode={multiplayerState?.gameData?.gameId ?? null}
         gameState={multiplayerState?.gameData?.state}
         // Chat shares the bottom-left corner with the emote FAB; stack above
         // it whenever emotes are concurrently visible (2v2 — parties are XOR).
         stackUp={multiplayerEmotesEnabled && !multiplayerState?.gameData?.disableEmotes && emotesLive}
-    />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.is2v2Lobby, multiplayerState?.gameQueued, multiplayerState?.gameData?.code, multiplayerState?.gameData?.startTime, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
+    />, [ws, subscribeMessages, multiplayerChatEnabled, chatLive, session?.token?.username, multiplayerState?.gameData?.myId, multiplayerState?.queueMyId, multiplayerState?.gameData?.team2v2, multiplayerState?.gameData?.teamGame, multiplayerState?.gameData?.is2v2Lobby, multiplayerState?.gameQueued, multiplayerState?.gameData?.gameId, multiplayerState?.gameData?.hostGuest, myEmoteTeam, multiplayerState?.gameData?.state, multiplayerState?.gameData?.disableChat, multiplayerEmotesEnabled, multiplayerState?.gameData?.disableEmotes, emotesLive])
 
 
 
@@ -5047,7 +5078,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     stage 1 is excluded because it renders inside the lobby card,
                     which has its own roster and its own corner. */}
                 {(hudCornerOnHome || hudCornerOnQueue) && !HIDE_ACCOUNT_UI && (
-                    <HudCorner covered={accountModalOpen || mapModal} tight={hudCornerOnQueue}>
+                    <HudCorner covered={accountModalOpen || mapModal} tight={hudCornerOnQueue} leaving={cornerLeaving}>
                         {session?.token?.secret ? (
                             <PlayerCard
                                 session={session}
@@ -5198,7 +5229,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                             setConnectionErrorModalShown(true);
                                                             return;
                                                         }
-                                                        navSlideOutThen(() => handleMultiplayerAction("publicDuel"));
+                                                        // keepCorner: the queue keeps this column on screen
+                                                        // (hudCornerOnQueue), so it must not fade out and back
+                                                        // in — it slides from the home inset to the tight one.
+                                                        navSlideOutThen(() => handleMultiplayerAction("publicDuel"), { keepCorner: true });
                                                     }}>{text("rankedDuel")}</button>
                                                 )}
                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => {
@@ -5206,7 +5240,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
-                                                    navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"));
+                                                    // Same queue, same column: slide, don't fade. See above.
+                                                    navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"), { keepCorner: true });
                                                 }}>{
                                                     // Ranked is hidden on the no-account builds, so "Unranked"
                                                     // would be meaningless jargon there — it's just "Find Match".

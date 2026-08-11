@@ -139,6 +139,10 @@ export default function QueueScreen() {
   // render, which is immune to that, to a screen remount, and to clock skew.
   const queuedAt = useMultiplayerStore((s) => s.queuedAt);
   const queueEta = useMultiplayerStore((s) => s.queueEta);
+  // This ranked queue resolves into the placement seeding match (server
+  // follow-up `queuePlacement`). Overrides the no-eyebrow ruling below and
+  // swaps the data plate for the one-line explainer.
+  const placementPending = useMultiplayerStore((s) => s.placementPending);
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 1000);
@@ -284,6 +288,7 @@ export default function QueueScreen() {
   };
 
   const isRanked = gameQueued === 'publicDuel';
+  const isPlacement = isRanked && placementPending;
   const theme = isRanked
     ? {
         // RED, and specifically globals.scss's "ranked red" (#ff474c, the home
@@ -296,8 +301,9 @@ export default function QueueScreen() {
         // components/queueScreen.js): "RANKED DUEL" over "Finding an opponent"
         // over an ELO range said the same thing three times. The ELO plate
         // already identifies the mode. Unranked and 2v2 keep theirs — they have
-        // no plate to identify them.
-        label: null,
+        // no plate to identify them. A placement queue is the exception, on
+        // web too: "Placement match" is new information, not a restatement.
+        label: isPlacement ? t('placementMatch') : null,
         // Per-mode headline, mirroring components/queueScreen.js: a matchmade
         // 1v1 is one named person, not a generic "game".
         title: t('findingOpponent'),
@@ -372,7 +378,14 @@ export default function QueueScreen() {
     etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
   ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
 
-  const dataEl = cells.length ? (
+  // Placement: the plate's rating range and wait estimate are both noise when
+  // the opponent is the placement bot — the explainer is what a brand-new
+  // player actually needs. Mirrors web's .wgQueue__placementNote swap.
+  const dataEl = isPlacement ? (
+    <Text style={[styles.placementNote, { textAlign: isLandscape ? 'left' : 'center' }]}>
+      {t('placementQueueNote')}
+    </Text>
+  ) : cells.length ? (
     <View style={styles.dataPlate}>
       {cells.map((c, i) => (
         // The typical-wait cell arrives LATE (the server's first ETA push is up
@@ -569,6 +582,15 @@ const styles = StyleSheet.create({
   dataValueRough: {
     color: 'rgba(255, 255, 255, 0.72)',
     fontFamily: 'Lexend-Medium',
+  },
+  // Placement queue: replaces the data plate (mirrors web's
+  // .wgQueue__placementNote — rating range / ETA are noise vs the bot).
+  placementNote: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontSize: fontSizes.sm,
+    fontFamily: 'Lexend-Medium',
+    lineHeight: 20,
+    maxWidth: 320,
   },
   timerRow: {
     flexDirection: 'row',

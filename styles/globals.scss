@@ -165,8 +165,18 @@
  *  tone every filled button face and card shadow uses. They are held as bare
  *  channel lists rather than colours for the same reason: rgba() needs numbers
  *  to make a per-stop alpha out of them, and a hex cannot be reopened.
+ *
+ *  THE SURFACE TONE IS THREE NUMBERS AND A LIST BUILT FROM THEM, not a list.
+ *  --surfChannels used to BE the base, written out as "36, 87, 52", which is
+ *  fine for rgba() and useless for anything that has to do arithmetic on a
+ *  single channel: a comma list cannot be indexed and cannot be fed to calc().
+ *  --primaryLight below needs exactly that, so the three numbers are the base
+ *  now and the list is derived. Every existing rgba(var(--surfChannels), x)
+ *  consumer is untouched — it resolves to the same string it always did.
  * ======================================================================== */
 @mixin wg-theme-derived {
+    --surfChannels: var(--surfR), var(--surfG), var(--surfB);
+
     --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.612) 50%, rgba(255,255,255,0) 100%;
     --gradTopBase: rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%;
     --grad1: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
@@ -181,19 +191,47 @@
 
     --primary: rgb(var(--surfChannels));
     --primaryTransparent: rgba(var(--surfChannels), 0.85);
+    /* One step ABOVE the surface tone, for the hover rims and light borders the
+       maps page has always drawn.
+       THE FACTOR IS PINNED TO GREEN. Its one consumer, the maps page's old
+       --map-primary-light, was #3a7a52 = rgb(58, 122, 82), hand-picked against
+       rgb(36, 87, 52) — and no single multiplier reproduces all three channels
+       (they scale by 1.61 / 1.40 / 1.58). 1.4 lands the GREEN channel exactly
+       and the other two within nine points, which on a 1px hover rim is nothing;
+       matching all three would mean three factors, which is three numbers to
+       re-tune and exactly the drift --surfR/G/B exist to end.
+       calc() per channel is why those three are numbers rather than a list:
+       there is no way to lighten a comma list, and color-mix() fails the whole
+       declaration on browsers that lack it — which would leave half a page
+       green, the same half-applied failure lib/siteBackground.js refuses. */
+    --primaryLight: rgb(calc(var(--surfR) * 1.4), calc(var(--surfG) * 1.4), calc(var(--surfB) * 1.4));
 }
 
 :root {
-    /* THE TWO BASE TONES STAY LITERAL GREEN HERE and must never be rewritten
-       to read --acc*. The accent properties are declared on :root too (that is
+    /* THE BASE TONES STAY LITERAL GREEN HERE and must never be rewritten to
+       read --acc*. The accent properties are declared on :root too (that is
        the only place the pre-paint script can reach before any element
        exists), so wiring them in at this level would repaint the entire site —
-       shop, modals, leaderboard, the in-game HUD — off a menu cosmetic. The
-       opt-in happens one block down, and nowhere else. */
+       the leaderboard, the daily, every pixel of the in-game HUD — off a menu
+       cosmetic. The opt-in happens one block down, on a named list of menu
+       roots, and nowhere else. Widening the tint means adding a selector
+       THERE. It never means touching these six lines. */
     --r: 20;
     --g: 65;
     --b: 25;
-    --surfChannels: 36, 87, 52;
+    --surfR: 36;
+    --surfG: 87;
+    --surfB: 52;
+    /* THE THIRD BASE: the wash under a full-screen modal, and it is its own tone
+       rather than a dimmer --r/--g/--b. Every modal on the site paints
+       `rgba(0, 30, 15, x)` over the site background — accountModal, settings,
+       the maps modal, /user — hand-copied into ten files at four different
+       alphas and two different angles, which is why it is channels and not a
+       finished gradient: each site keeps its own alpha and its own angle and
+       only the colour comes from here. rgb(0,30,15) is NOT rgb(20,65,25)
+       dimmed; it is bluer and darker, and substituting one for the other is
+       visible on a photograph. */
+    --washChannels: 0, 30, 15;
     --primaryDark: #112b18;
     @include wg-theme-derived;
 
@@ -203,22 +241,47 @@
 }
 
 /* ===========================================================================
- *  THE HOME SCREEN WEARS ITS BACKGROUND'S COLOURS. Nothing else does.
+ *  THE MENU WEARS ITS BACKGROUND'S COLOURS. GAMEPLAY NEVER DOES.
  *
  *  A player who buys the New York background gets a dark purple photograph,
  *  and the green menu wash on top of it read as a broken skin rather than a
  *  purchase. Each background therefore carries a three-tone palette
  *  (shared/shop/catalog.js), lib/siteBackground.js writes it to <html> as the
- *  --accWashR/G/B, --accSurfR/G/B and --accDeep properties, and these two
- *  containers are the ONLY things in the codebase that read them.
+ *  --accWashR/G/B, --accSurfR/G/B and --accDeep properties, and THIS BLOCK IS
+ *  THE ONLY THING IN THE CODEBASE THAT READS THEM. One list, one opt-in.
  *
- *  WHY THESE TWO SELECTORS AND NOT `main.home`: .home exists for the whole
- *  session — it wraps the Street View pano and every screen of the game — so
- *  scoping there would drag the tint straight into gameplay. .home__content is
- *  rendered only while screen === "home" (components/home.js) and .hudCorner
- *  only on home and the matchmaking queue (components/ui/hudCorner.js), which
- *  is the queue sitting on the same photograph and is correct rather than a
- *  leak. Between them they contain every green pixel on the menu.
+ *  EVERY SELECTOR HERE IS A MENU OR PAGE ROOT THAT CANNOT REACH GAMEPLAY, and
+ *  that is the whole admission test. `main.home` would fail it: .home exists
+ *  for the entire session and wraps the Street View pano, so scoping there
+ *  drags the tint into a round. What is listed instead:
+ *
+ *    .home__content        mounted only while screen === "home" (components/home.js)
+ *    .hudCorner            home and the matchmaking queue (components/ui/hudCorner.js) —
+ *                          the queue sits on the same photograph, so that is
+ *                          correct rather than a leak
+ *    .account-modal        the profile modal (components/accountModal.js). Also
+ *                          the only way the shop's wallet chip gets tinted: it
+ *                          renders inside this subtree, not inside .shop
+ *                          (see the note at the top of styles/shop.css)
+ *    .settingsPage         the settings modal shell (components/settingsModal.js)
+ *    .shop                 the storefront (styles/shop.css)
+ *    the shop's PLATE      `.modal-backdrop .modal:has(>.modal-content>.shop)`,
+ *                          which is ui/Modal's dialog node — an ANCESTOR of
+ *                          .shop, not a descendant, so .shop could never reach
+ *                          it. It carries the panel fill and the 2px --primary
+ *                          frame, i.e. the two biggest surfaces in the shop.
+ *                          The :has() is what keeps this off every OTHER dialog
+ *                          ui/Modal renders (the daily leaderboard, the party
+ *                          lobby, a report), none of which are in this list.
+ *    .map-modal-content    the maps modal (components/maps/mapsModal.js)
+ *    .maps-page            the standalone /maps page (pages/maps.js)
+ *    .user-profile-page    a PUBLIC profile, and the one member of this list
+ *                          whose accent is not the viewer's. pages/user.js
+ *                          writes the --acc* properties inline from the SUBJECT's
+ *                          equipped sku, so this scope resolves to the player
+ *                          being looked at while the rest of the site stays on
+ *                          the viewer's own. That is only possible because the
+ *                          properties are read here and not at :root.
  *
  *  THE FALLBACKS ARE THE GREEN VALUES VERBATIM, which is what makes this free:
  *  with nothing equipped — very nearly every visitor — this block computes to
@@ -226,15 +289,32 @@
  *
  *  Deliberately NOT retinted, because they are status and not chrome: the
  *  ranked red, the 2v2 pink, the daily streak pill, the singleplayer hover,
- *  and the WS connection dot (which is a child of .navbar, so this scope
- *  structurally cannot reach it even though it looks like part of the corner).
+ *  the WS connection dot (a child of .navbar, so this scope structurally
+ *  cannot reach it even though it looks like part of the corner), and every
+ *  win/loss tick, +XP figure and "equipped" ring inside the surfaces above.
+ *  Green there means GOOD, not WorldGuessr, and a purple tick beside a red one
+ *  says nothing.
  * ======================================================================== */
 .home__content,
-.hudCorner {
+.hudCorner,
+.account-modal,
+.settingsPage,
+.shop,
+.modal-backdrop .modal:has(>.modal-content>.shop),
+.map-modal-content,
+.maps-page,
+.user-profile-page {
     --r: var(--accWashR, 20);
     --g: var(--accWashG, 65);
     --b: var(--accWashB, 25);
-    --surfChannels: var(--accSurfR, 36), var(--accSurfG, 87), var(--accSurfB, 52);
+    --surfR: var(--accSurfR, 36);
+    --surfG: var(--accSurfG, 87);
+    --surfB: var(--accSurfB, 52);
+    /* Same three source properties as --r/--g/--b, DIFFERENT fallbacks, because
+       the stock modal wash is its own tone (see --washChannels at :root). An
+       equipped background has one wash colour and both bases take it; stock
+       keeps the two literals it always had. */
+    --washChannels: var(--accWashR, 0), var(--accWashG, 30), var(--accWashB, 15);
     --primaryDark: var(--accDeep, #112b18);
     @include wg-theme-derived;
 }
@@ -2054,8 +2134,15 @@ h1, h2, h3, span, label {
 // slide-out (.g2_slide_out) never touched it — it hard-popped at the screen
 // flip while the footer glided. Mirror the footer's fade off the same signal;
 // by the time the screen flips and these unmount, they're already invisible.
-body:has(.g2_slide_out) .navbar .friendBtn,
-body:has(.g2_slide_out) .hudCorner {
+//
+// .hudCorner IS NO LONGER FADED FROM HERE. This selector could not tell a
+// destination that unmounts the column from the one that keeps it: the
+// matchmaking queue holds the same element and only pulls it further into the
+// corner, so the blanket fade turned a 28px move into a disappearance followed
+// by a reappearance somewhere else. That column now takes the signal as a prop
+// and only from the buttons that really are leaving it behind
+// (.hudCorner--leaving, styles/playerCard.css; navSlideOutThen in home.js).
+body:has(.g2_slide_out) .navbar .friendBtn {
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
 }
@@ -2121,14 +2208,22 @@ body:has(.g2_slide_out) .hudCorner {
 // num here"). The HP bars already carry the state that matters in a duel, so
 // the round line is deliberately pushed further back than the shared 0.7em /
 // 0.75 opacity, and the clock is scaled up until it is unmistakably the
-// subject of the pill. Ratio is ~3.2x label-to-clock.
+// subject of the pill.
+//
+// 1.5em, TRIMMED FROM 1.9em (Aug 9). The base pill caps at 24px on any viewport
+// past 1200px, so 1.9em was a 45.6px readout — half again the size of the same
+// clock in the app (mobile GameTimer duelCountdown is fontSizes['3xl'] = 30
+// against an xs = 12 label) and a 3.2x label ratio where that client runs 2.5x.
+// Web was the outlier on both the absolute size and the ratio. 1.5em lands the
+// desktop clock at 36px and puts the two clients on the SAME 2.5x hierarchy,
+// which is still way bigger than the round number, as ruled.
 .timer.duel .timer__round-label {
     font-size: 0.6em;
     opacity: 0.55;
 }
 
 .timer.duel .timer__main-row {
-    font-size: 1.9em;
+    font-size: 1.5em;
     line-height: 1.05;
 }
 
@@ -4340,12 +4435,32 @@ canvas.streetview.dragging {
     white-space: nowrap;
 }
 
+// A SCROLLPORT MEASURES PADDING, NOT MARGINS. Every player row carries
+// `.wg-glow-room` (34px padding / -34px margin, styles/nameGlow.css) to keep an
+// equipped halo out of the row's own clip. The negative margin gives the LAYOUT
+// space back — the card's height is unchanged, which is why this looked fine —
+// but scrollable overflow is computed from descendants' PADDING boxes and
+// ignores negative margins entirely. So the first row's relief hung 34px above
+// the scrollport and the last row's 34px below it, and the roster reported ~68px
+// of scrollable content with one player in it: a scrollbar with plenty of room.
+//
+// `padding-block` of the same 34px absorbs the overhang INSIDE the scrollport,
+// and the equal negative `margin-block` hands that space back to the card, so
+// the resting look is byte-identical. Do NOT "fix" this by clipping the relief
+// away (overflow:clip / removing wg-glow-room) — that re-shears the halo and
+// re-opens the Aug 8 "I bought a glow and see no difference" bug.
+//
+// Keyed to the relief constant: if nameGlow.css's 34px moves, this moves.
+$glow-clip-relief: 34px;
+
 .party-lobby__roster {
     display: flex;
     flex-direction: column;
     gap: 10px;
     max-height: min(38svh, 300px);
     overflow-y: auto;
+    padding-block: $glow-clip-relief;
+    margin-block: -$glow-clip-relief;
 }
 
 .party-lobby__player {
@@ -4536,6 +4651,10 @@ canvas.streetview.dragging {
     }
 }
 
+// Same glow-relief overflow as .party-lobby__roster — see the note there. The
+// team columns hold the same rows, so a 1v1 team lobby scrolled for the same
+// reason. Block axis only: `overflow-x: hidden` already contains the inline
+// relief, and padding the inline axis would indent the columns.
 .party-lobby__teams {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4543,6 +4662,8 @@ canvas.streetview.dragging {
     max-height: min(42svh, 340px);
     overflow-y: auto;
     overflow-x: hidden;
+    padding-block: $glow-clip-relief;
+    margin-block: -$glow-clip-relief;
 }
 
 // Narrow screens: one team under the other instead of two squished columns.

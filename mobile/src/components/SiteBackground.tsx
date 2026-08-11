@@ -36,10 +36,27 @@ interface Props {
   style?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
   children?: ReactNode;
+  /**
+   * WHOSE background to paint. Omit for the viewer's own, which is what every
+   * screen wants and what the store holds.
+   *
+   * IT EXISTS FOR ONE SCREEN: a PUBLIC profile, which is about somebody else.
+   * Painting the reader's own city behind a stranger's stats put the wrong
+   * person's purchase on the one screen that exists to show off a player. Pass
+   * their sku and this paints theirs; `null` is an explicit "they have nothing
+   * equipped, use stock" and is NOT the same as omitting the prop.
+   *
+   * Web does the identical thing with a scoped --profile-bg on pages/user.js.
+   */
+  sku?: string | null;
 }
 
-export default function SiteBackground({ style, imageStyle, children }: Props) {
-  const sku = useSiteBackgroundStore((s) => s.sku);
+export default function SiteBackground({ style, imageStyle, children, sku: skuOverride }: Props) {
+  const ownSku = useSiteBackgroundStore((s) => s.sku);
+  // `undefined` means "not overridden" and falls through to the store; `null`
+  // means "this person has nothing" and must NOT fall through, or a public
+  // profile with no background would silently borrow the reader's.
+  const sku = skuOverride === undefined ? ownSku : skuOverride;
   // Remembered per URL, not as a bare boolean: equipping a different city has
   // to get a fresh attempt rather than inheriting the last one's failure.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);

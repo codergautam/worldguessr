@@ -5,6 +5,9 @@ import destUrl from '@/public/dest.png';
 import srcUrl from '@/public/src.png';
 import src2Url from '@/public/src2.png';
 import goldPinUrl from '@/public/pins/gold.png';
+import neonOrangePinUrl from '@/public/pins/neonorange.png';
+import neonPinkPinUrl from '@/public/pins/neonpink.png';
+import rainbowPinUrl from '@/public/pins/rainbow.png';
 
 // Drop-in replacement for @/lib/markerIcons in the standalone embed. Mirrors the
 // real getPinIcons() icon set exactly (sizes/anchors), but with inlined URLs.
@@ -20,10 +23,16 @@ let _icons = null;
    identical to lib/markerIcons.js. */
 const SKIN_URLS = {
   goldPin: goldPinUrl,
+  neonOrangePin: neonOrangePinUrl,
+  neonPinkPin: neonPinkPinUrl,
+  rainbowPin: rainbowPinUrl,
 };
 
 export const MARKER_SKIN_ICONS = {
   marker_gold_pin: 'goldPin',
+  marker_neon_orange_pin: 'neonOrangePin',
+  marker_neon_pink_pin: 'neonPinkPin',
+  marker_rainbow_pin: 'rainbowPin',
 };
 
 export function markerSkinIconKey(sku, tier = '') {

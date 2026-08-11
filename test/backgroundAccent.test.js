@@ -2,13 +2,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, it, expect } from 'vitest';
 import { SHOP_CATALOG } from '../shared/shop/catalog.js';
-import { PREPAINT_SITE_BG_SCRIPT, accentForSku } from '../lib/siteBackground.js';
+import {
+  PREPAINT_SITE_BG_SCRIPT,
+  ACCENT_VAR_NAMES,
+  accentForSku,
+  accentStyleVars,
+} from '../lib/siteBackground.js';
 
-// The accent is the palette the HOME SCREEN recolours itself to when a player
-// equips a background (styles/globals.scss, .home__content/.hudCorner). It is
-// pure data with no runtime that can complain, and it is edited by hand one
-// city at a time, so the things that can go wrong with it are all typos. This
-// file pins the three that would actually be visible.
+// The accent is the palette every MENU recolours itself to when a player equips
+// a background (styles/globals.scss). It is pure data with no runtime that can
+// complain, and it is edited by hand one city at a time, so the things that can
+// go wrong with it are all typos. This file pins the ones that would actually
+// be visible — plus, at the bottom, the two structural rules the whole design
+// rests on: the tint is opt-in per selector, and it never reaches :root.
 
 const BACKGROUNDS = SHOP_CATALOG.filter((item) => item.type === 'background');
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -119,6 +125,215 @@ describe('accentForSku', () => {
     expect(accentForSku('bg_atlantis')).toBeNull();
     expect(accentForSku('glow_ice')).toBeNull();
   });
+});
+
+describe('accentStyleVars', () => {
+  it('writes exactly the properties applySiteAccent clears', () => {
+    // The two writers are a <html> style and a React style prop, and they had
+    // better name the same seven things: whatever accentStyleVars sets is what
+    // applySiteAccent's removeProperty loop has to be able to take away again.
+    // A name added to one and not the other is a property nothing ever clears.
+    const vars = accentStyleVars(accentForSku('bg_newyork'));
+    expect(Object.keys(vars).sort()).toEqual([...ACCENT_VAR_NAMES].sort());
+  });
+
+  it('carries the palette through unchanged, as strings', () => {
+    expect(accentStyleVars(accentForSku('bg_newyork'))).toEqual({
+      '--accWashR': '37', '--accWashG': '26', '--accWashB': '77',
+      '--accSurfR': '59', '--accSurfG': '42', '--accSurfB': '110',
+      '--accDeep': '#170f2e',
+    });
+  });
+
+  it('returns null for no accent, so a caller can spread-or-omit', () => {
+    // A public profile whose subject has nothing equipped must render with NO
+    // properties set, not with seven empty ones — the scope's green fallbacks
+    // only apply to a property that was never declared.
+    expect(accentStyleVars(null)).toBeNull();
+    expect(accentStyleVars(accentForSku('bg_atlantis'))).toBeNull();
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * THE OPT-IN, AS A TEST.
+ *
+ * The whole design is one rule: --acc* is read in exactly ONE place in the
+ * stylesheet, a named list of menu roots, and NEVER at :root. Wire it at :root
+ * and a menu cosmetic repaints the in-game HUD; drop a selector from the list
+ * and that surface silently goes back to green. Neither failure throws, neither
+ * shows up in a build, and both are invisible until somebody equips New York.
+ * ------------------------------------------------------------------------ */
+// Normalized to LF: these assertions anchor regexes on \n, and a Windows
+// checkout (or an editor resave) hands the working tree CRLF — which nulls the
+// match and fails four tests over line endings rather than over CSS.
+const GLOBALS = readFileSync(
+  fileURLToPath(new URL('../styles/globals.scss', import.meta.url)),
+  'utf8',
+).replace(/\r\n/g, '\n');
+
+/** The one rule that reads the accent: its selector list and its body. */
+const SCOPE = GLOBALS.match(/\n(\.home__content,[\s\S]*?)\{([\s\S]*?)\n\}/);
+
+describe('the accent scope in globals.scss', () => {
+  it('exists, and starts at .home__content', () => {
+    expect(SCOPE).not.toBeNull();
+  });
+
+  it('covers every surface that is meant to wear the tint', () => {
+    // Each of these is a menu or page root. Removing one is how a surface goes
+    // back to green without anything failing.
+    for (const selector of [
+      '.home__content',      // the menu
+      '.hudCorner',          // home + the matchmaking queue
+      '.account-modal',      // the profile modal (and the shop's wallet chip)
+      '.settingsPage',       // settings, including its confirm dialogs
+      '.shop',               // the storefront
+      '.map-modal-content',  // the maps modal
+      '.maps-page',          // the standalone /maps page
+      '.user-profile-page',  // a public profile, tinted by its SUBJECT
+    ]) {
+      expect(SCOPE[1], `accent scope is missing ${selector}`).toContain(selector);
+    }
+  });
+
+  it('re-declares both bases and the wash, then re-includes the mixin', () => {
+    // var() inside a custom property resolves where it is DECLARED, so a scope
+    // that changes --r without re-including the mixin gets a new base and the
+    // old finished gradients. That failure looks like a half-recoloured menu.
+    for (const decl of ['--r:', '--g:', '--b:', '--surfR:', '--surfG:', '--surfB:',
+      '--washChannels:', '--primaryDark:', '@include wg-theme-derived']) {
+      expect(SCOPE[2], `accent scope is missing ${decl}`).toContain(decl);
+    }
+  });
+
+  it('falls back to the green literals on every single property', () => {
+    // This is what makes the whole feature free for the ~99% who own nothing:
+    // with no accent set the scope computes to exactly what :root said. A
+    // missing fallback is a property that resolves to nothing, which takes the
+    // entire declaration with it.
+    for (const fallback of ['--accWashR, 20', '--accWashG, 65', '--accWashB, 25',
+      '--accSurfR, 36', '--accSurfG, 87', '--accSurfB, 52', '--accDeep, #112b18']) {
+      expect(SCOPE[2], `accent scope is missing the fallback ${fallback}`).toContain(fallback);
+    }
+  });
+
+  it('covers the shop PLATE, which .shop cannot reach', () => {
+    // ui/Modal's dialog node is an ANCESTOR of .shop, and it carries the two
+    // biggest surfaces in the storefront: the opaque panel fill and the 2px
+    // --primary frame. A custom property declared on .shop cannot travel up to
+    // it, so it has to be named here in its own right. The :has() is what keeps
+    // the tint off every other dialog ui/Modal renders.
+    expect(SCOPE[1]).toContain('.modal:has(>.modal-content>.shop)');
+  });
+
+  it('is the ONLY place in the stylesheet that reads --acc*', () => {
+    // The load-bearing one. :root declares the accent properties (the pre-paint
+    // script has nowhere else to write before any element exists), so reading
+    // them there would repaint the leaderboard, the daily and every pixel of a
+    // round off a menu cosmetic.
+    const withoutScope = GLOBALS.replace(SCOPE[0], '\n');
+    expect(withoutScope).not.toContain('var(--acc');
+  });
+});
+
+describe("the shop's panel ladder", () => {
+  // The shop is the one surface with no photograph behind it — its panel is an
+  // opaque plate covering the viewport, so the three panel tones ARE the screen.
+  // Retinting only its buttons left the storefront green after everything else
+  // had changed, which is the bug this block guards against coming back.
+  // Same LF normalization as GLOBALS above, same reason.
+  const SHOP = readFileSync(
+    fileURLToPath(new URL('../styles/shop.css', import.meta.url)),
+    'utf8',
+  ).replace(/\r\n/g, '\n');
+  const OVERRIDE = SHOP.match(/\n(\.shop,\n\.modal-backdrop[^{]*)\{([\s\S]*?)\n\}/);
+
+  it('keeps the hand-picked green literals on :root', () => {
+    // These are the values a stock shop renders, and they must not become a
+    // formula's approximation of themselves.
+    for (const literal of ['--shopBg: #06160e', '--shopRaise: #0f2417', '--shopWell: #030a06']) {
+      expect(SHOP).toContain(literal);
+    }
+  });
+
+  it('overrides all three on .shop AND on the plate', () => {
+    expect(OVERRIDE).not.toBeNull();
+    for (const token of ['--shopBg:', '--shopRaise:', '--shopWell:']) {
+      expect(OVERRIDE[2], `panel override is missing ${token}`).toContain(token);
+    }
+  });
+
+  it('reads --accWash* with no fallback, so the tint goes guaranteed-invalid', () => {
+    // Half of the mechanism. A fallback on these references would mean the
+    // formula ALWAYS resolves, and every stock shop would silently render the
+    // formula's approximation of the hand-picked greens instead of the greens.
+    expect(OVERRIDE[2]).toContain('var(--accWashR)');
+    expect(OVERRIDE[2]).not.toMatch(/var\(--accWash[RGB]\s*,/);
+  });
+
+  it('catches that invalid value with a literal var() fallback', () => {
+    // THE OTHER HALF, and the half that shipped broken once. A guaranteed-
+    // invalid custom property does NOT fall back to the inherited :root value —
+    // it shadows it, and `background: var(--shopBg)` then computes to
+    // `transparent` because background is not an inherited property. The whole
+    // stock shop went see-through. Only a var() FALLBACK catches it.
+    for (const [token, literal] of [
+      ['--shopBg', '#06160e'], ['--shopRaise', '#0f2417'], ['--shopWell', '#030a06'],
+    ]) {
+      expect(OVERRIDE[2], `${token} must catch its tint with the literal`)
+        .toContain(`${token}: var(${token}Tint, ${literal})`);
+    }
+  });
+
+  it('keeps the scoped fallbacks equal to the :root literals', () => {
+    // The literals appear twice — once on :root, once as the fallback — because
+    // a var() fallback cannot reference the property being declared. Nothing in
+    // CSS ties them together, so this does.
+    for (const [token, literal] of [
+      ['--shopBg', '#06160e'], ['--shopRaise', '#0f2417'], ['--shopWell', '#030a06'],
+    ]) {
+      expect(SHOP, `${token}: :root literal and scoped fallback disagree`)
+        .toContain(`${token}: ${literal}`);
+      expect(OVERRIDE[2]).toContain(`${token}Tint, ${literal})`);
+    }
+  });
+});
+
+describe('the retinted surfaces reference the tokens, not copies of them', () => {
+  // rgb(36, 87, 52) IS --surfChannels and rgb(0, 30, 15) IS --washChannels.
+  // Written out as literals they look identical and behave completely
+  // differently: a literal is the one thing in the file an equipped background
+  // cannot move. Every one of these files had at least one.
+  // globals.scss is deliberately NOT in this list. It styles the whole site, and
+  // the literals it still carries belong to surfaces that stay green on purpose
+  // — the duel end mask, the HUD, the leaderboard. Its :root base is covered by
+  // the scope tests above instead.
+  const RETINTED = [
+    'styles/shop.css',
+    'styles/mapModal.css',
+    'styles/accountModal.css',
+    'components/accountView.js',
+    'components/settingsModal.js',
+    'components/ui/Modal.js',
+    'pages/user.js',
+  ];
+
+  // mapModal.css legitimately holds ONE: its own :root fallback, the value the
+  // scoped override falls back to when nothing is equipped.
+  const ALLOWED = { 'styles/mapModal.css': 1 };
+
+  for (const file of RETINTED) {
+    it(`${file} carries no stray copy of a base tone`, () => {
+      const src = readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
+      // The comments in these files name the old literals to explain what they
+      // replaced, so strip comments before matching or the docs fail the test.
+      const code = src
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      const copies = code.match(/rgba?\(\s*(36,\s*87,\s*52|0,\s*30,\s*15)/g) || [];
+      expect(copies.length, `${file}: ${copies.join(', ')}`).toBe(ALLOWED[file] ?? 0);
+    });
+  }
 });
 
 /* ---------------------------------------------------------------------------

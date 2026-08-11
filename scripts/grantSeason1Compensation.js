@@ -38,11 +38,33 @@
  *                      Voyager 250 / Nomad 500, plus 300 for the top 100 by elo_s0
  *     milestoneStamps  cumulative at 100/500/1000/5000 career games -> 20/60/120/400
  *                      (a 5,000-game player receives all four: 600)
+ *     floor top-up     max(0, MINIMUM_TOTAL_STAMPS - the three above)
  *
  * Every number above is a pure function of PRE-migration fields (the duel
  * counters, seasonPeakLeague, elo_s0, created_at). None of them reads a field
  * this script writes. That is what makes the dry run an exact rehearsal of the
  * apply run, and it is also what lets the login modal display the same numbers.
+ *
+ * NOBODY LEAVES THIS MIGRATION UNDER 100 STAMPS
+ * ---------------------------------------------
+ *   The floor is paid as a SEPARATE TOP-UP under its own ledger key, not by
+ *   raising any of the three earned components.
+ *
+ *   Keeping it separate is what keeps the earned numbers honest. The league
+ *   starter still pays 0 for a league name the starter table does not budget, so
+ *   the --allow-unknown-league gate still fires on a broken migration instead of
+ *   being papered over by a floor quietly handing everyone 100. And because the
+ *   top-up is a pure function of the other three, the modal's ledger prefix sum
+ *   (api/googleAuth.js reads `^a:season1:<id>:`) picks it up with no changes.
+ *
+ *   On a healthy run this pays almost nothing: the Season 0 starter table's
+ *   lowest tier, Trekker, is exactly 100 and covers rating 0-1999, and
+ *   migrateRatingV2.js falls back to that tier for any rating the table misses.
+ *   So the floor is already met by the league starter for every ordinary
+ *   account. It exists for the accounts that are not ordinary — an unbudgeted
+ *   league name paid under --allow-unknown-league, or a document with no usable
+ *   rating at all — which are exactly the accounts that would otherwise be paid
+ *   nothing.
  *
  * EVERY WRITE IS IDEMPOTENT, SO THIS SCRIPT IS SAFE TO RE-RUN
  * -----------------------------------------------------------
@@ -51,6 +73,7 @@
  *     a:season1:<userId>:grinder
  *     a:season1:<userId>:league
  *     a:season1:<userId>:milestone:<tier>      (tier = 100 | 500 | 1000 | 5000)
+ *     a:season1:<userId>:floor
  *   The ledger's unique index makes each of those independently idempotent. An
  *   interrupted run re-grants nothing and under-pays nothing: just run it again.
  *
@@ -71,6 +94,12 @@
  *   have to be right the FIRST time, which is what the pre-flight gates below are
  *   for. A key that computes to 0 is never written at all, so that case stays
  *   recoverable.
+ *
+ *   The floor top-up inherits that rule in the one direction that matters: an
+ *   account topped up to 100 because its league name was unbudgeted KEEPS that
+ *   100 when a later corrected run pays it a real league starter. That is a
+ *   one-time over-payment of at most MINIMUM_TOTAL_STAMPS, on a document that was
+ *   already wrong, and it is the right way round — the alternative is a claw-back.
  *
  *   grantStamps SHORT-CIRCUITS when the stamps kill switch is off and returns
  *   { disabled: true } WITHOUT touching the database — no row, no key burned. So
@@ -96,6 +125,14 @@
  * -----
  *   Every user document, banned accounts included (a ban is reversible; skipping
  *   them here would silently unpay an unban).
+ *
+ *   Accounts with no usable Season 0 rating are no longer skipped outright: they
+ *   are paid the floor and nothing else. The pre-flight gate below means there
+ *   should not BE any (it refuses to apply while a single in-scope account has a
+ *   null elo_s0), but "everyone gets at least MINIMUM_TOTAL_STAMPS" should not
+ *   quietly depend on a gate holding. Their earned components all compute to 0,
+ *   which writes no ledger row and burns no key, so a later corrected run still
+ *   pays those in full.
  *
  * REQUIRES
  * --------
@@ -153,6 +190,13 @@ export const LEAGUE_STARTER_STAMPS = {
 };
 export const TOP100_BONUS_STAMPS = 300;
 export const TOP_N_BY_ELO_S0 = 100;
+
+/**
+ * The Season 1 floor. Every account leaves the migration with at least this
+ * many Stamps, paid as a top-up over whatever the earned components came to.
+ * See the header: it is deliberately NOT folded into the league starter.
+ */
+export const MINIMUM_TOTAL_STAMPS = 100;
 
 /** Cumulative: a 5,000-game player clears all four and receives 600. */
 export const MILESTONE_TIERS = [
@@ -255,6 +299,17 @@ export function milestoneStamps(games) {
 }
 
 /**
+ * What it takes to lift an earned total up to MINIMUM_TOTAL_STAMPS. 0 once the
+ * earned components already clear the floor, which is every ordinary account.
+ *
+ * Total over garbage like every calculator here: an unusable earned total reads
+ * as 0 and therefore pays the full floor, which is the safe direction.
+ */
+export function floorTopUpStamps(earnedTotal) {
+  return Math.max(0, MINIMUM_TOTAL_STAMPS - safeCount(earnedTotal));
+}
+
+/**
  * The account's Season 0 rating: seasonPeakElo, falling back to the closing
  * rating snapshot. null means neither exists.
  *
@@ -286,6 +341,9 @@ export function planGrants(user, { isTop100 = false } = {}) {
   const grinder = grinderStamps(games);
   const league = leagueStarterStamps(user?.seasonPeakLeague, isTop100);
 
+  const earned = grinder + league + milestoneTotal;
+  const floorTopUp = floorTopUpStamps(earned);
+
   return {
     games,
     peak,
@@ -296,7 +354,39 @@ export function planGrants(user, { isTop100 = false } = {}) {
     isTop100,
     milestones,
     milestoneStamps: milestoneTotal,
-    stampsTotal: grinder + league + milestoneTotal,
+    earnedStamps: earned,
+    floorTopUpStamps: floorTopUp,
+    noRating: false,
+    stampsTotal: earned + floorTopUp,
+  };
+}
+
+/**
+ * The plan for an account planGrants() refuses: no usable Season 0 rating, so
+ * nothing can be keyed on the league or the peak. It gets the floor and the OG
+ * badge (which is created_at only and never depended on a rating), and zero for
+ * every earned component — a 0 writes no ledger row and burns no key, so a run
+ * that later fixes the document still pays those in full.
+ *
+ * run() should never build one of these: the rating-migration gate refuses to
+ * apply while any in-scope account has a null elo_s0. It exists so the floor is
+ * a property of the script rather than a property of that gate holding.
+ */
+export function floorOnlyPlan(user) {
+  return {
+    games: careerRankedGames(user),
+    peak: null,
+    ogAccount: isOgAccount(user?.created_at),
+    grinderStamps: 0,
+    leagueStarterStamps: 0,
+    leagueName: null,
+    isTop100: false,
+    milestones: [],
+    milestoneStamps: 0,
+    earnedStamps: 0,
+    floorTopUpStamps: MINIMUM_TOTAL_STAMPS,
+    noRating: true,
+    stampsTotal: MINIMUM_TOTAL_STAMPS,
   };
 }
 
@@ -495,15 +585,20 @@ export async function run({
   const stats = {
     scanned: 0,
     eligible: 0,
-    skippedNoRating: 0,
+    noRating: 0,
     stampsTotal: 0,
     grinderStampsTotal: 0,
     leagueStampsTotal: 0,
     milestoneStampsTotal: 0,
+    floorStampsTotal: 0,
+    floorTopUps: 0,
     ogBadges: 0,
     top100Hits: 0,
     grinderAtCap: 0,
     ledgerRows: 0,
+    // The floor, observed rather than assumed. Printed in the summary so the
+    // operator can read the guarantee off the dry run instead of trusting it.
+    minStampsPerAccount: Infinity,
   };
   const leagueHist = Object.create(null);
   const milestoneHist = Object.create(null);
@@ -523,24 +618,29 @@ export async function run({
       stats.scanned++;
       const id = String(u._id);
 
-      const plan = planGrants(u, { isTop100: topHundred.ids.has(id) });
-      if (!plan) {
-        stats.skippedNoRating++;
-        continue;
-      }
+      // Never null: an account with no usable rating falls through to the floor
+      // instead of being skipped. See floorOnlyPlan().
+      const plan = planGrants(u, { isTop100: topHundred.ids.has(id) }) || floorOnlyPlan(u);
+      if (plan.noRating) stats.noRating++;
 
       stats.eligible++;
       stats.stampsTotal += plan.stampsTotal;
       stats.grinderStampsTotal += plan.grinderStamps;
       stats.leagueStampsTotal += plan.leagueStarterStamps;
       stats.milestoneStampsTotal += plan.milestoneStamps;
+      stats.floorStampsTotal += plan.floorTopUpStamps;
+      if (plan.floorTopUpStamps > 0) stats.floorTopUps++;
+      if (plan.stampsTotal < stats.minStampsPerAccount) stats.minStampsPerAccount = plan.stampsTotal;
       if (plan.ogAccount) stats.ogBadges++;
       if (plan.isTop100) stats.top100Hits++;
       if (plan.grinderStamps === GRINDER_STAMPS_CAP) stats.grinderAtCap++;
 
       const leagueKey = plan.leagueName ?? '(none)';
       leagueHist[leagueKey] = (leagueHist[leagueKey] || 0) + 1;
-      if (plan.leagueName === null || !(plan.leagueName in LEAGUE_STARTER_STAMPS)) {
+      // A no-rating account has no league by definition, and its own counter
+      // already reports it. Counting it here too would trip the unbudgeted-league
+      // abort with a message about a field it does not have.
+      if (!plan.noRating && (plan.leagueName === null || !(plan.leagueName in LEAGUE_STARTER_STAMPS))) {
         unknownLeagues[leagueKey] = (unknownLeagues[leagueKey] || 0) + 1;
       }
       const mKey = plan.milestones.length ? `${plan.milestones.length} tier(s)` : 'none';
@@ -548,7 +648,8 @@ export async function run({
 
       stats.ledgerRows += (plan.grinderStamps > 0 ? 1 : 0)
         + (plan.leagueStarterStamps > 0 ? 1 : 0)
-        + plan.milestones.length;
+        + plan.milestones.length
+        + (plan.floorTopUpStamps > 0 ? 1 : 0);
 
       if (!largest || plan.stampsTotal > largest.plan.stampsTotal) {
         largest = { id, username: u.username || '(unnamed)', plan };
@@ -562,7 +663,7 @@ export async function run({
 
     if (planBatches % 20 === 0 || docs.length < batchSize) {
       console.log(`[season1] plan batch ${planBatches}: ${stats.scanned} scanned, ${stats.eligible} eligible, ` +
-        `${stats.skippedNoRating} without a rating`);
+        `${stats.noRating} without a rating (floor only)`);
     }
     if (pauseMs) await sleep(pauseMs);
   }
@@ -574,6 +675,20 @@ export async function run({
     apply, scopeNote, stats, leagueHist, milestoneHist,
     unknownLeagues, largest, samples, topHundred, stampsEnabled, writeOgBadge,
   });
+
+  // The floor, enforced rather than documented. It holds BY CONSTRUCTION (every
+  // plan tops itself up to MINIMUM_TOTAL_STAMPS), so this can only fire if a
+  // future edit breaks that — and it fires here, in the plan pass, before a
+  // single stamp has moved. There is no flag to bypass it on purpose.
+  if (stats.eligible > 0 && stats.minStampsPerAccount < MINIMUM_TOTAL_STAMPS) {
+    throw new Error(
+      `An account plans only ${stats.minStampsPerAccount} stamps, under the ${MINIMUM_TOTAL_STAMPS} floor.\n` +
+      '\n' +
+      'Every plan is supposed to carry a top-up that makes this impossible (floorTopUpStamps).\n' +
+      'Something has broken that invariant — fix it before paying anyone, because a ledger key\n' +
+      'is burned at its first non-zero amount and an underpaid account cannot be topped up later.'
+    );
+  }
 
   if (unknownLeagueAccounts > 0 && !allowUnknownLeague) {
     throw new Error(
@@ -606,7 +721,7 @@ export async function run({
     ledgerApplied: 0,
     ledgerDuplicate: 0,
     ledgerDisabled: 0,
-    skipped: 0,
+    floorOnly: 0,
   };
   let applyBatches = 0;
 
@@ -621,8 +736,8 @@ export async function run({
     const work = [];
     for (const u of docs) {
       const id = String(u._id);
-      const plan = planGrants(u, { isTop100: topHundred.ids.has(id) });
-      if (!plan) { applied.skipped++; continue; }
+      const plan = planGrants(u, { isTop100: topHundred.ids.has(id) }) || floorOnlyPlan(u);
+      if (plan.noRating) applied.floorOnly++;
       work.push({ id, user: u, plan });
     }
     if (work.length === 0) {
@@ -644,6 +759,15 @@ export async function run({
           delta: tier.stamps,
           key: `a:season1:${item.id}:milestone:${tier.games}`,
           meta: { periodKey: 'season1', tier: tier.games },
+        });
+      }
+      // LAST, so the earned rows land first and the ledger reads in the order
+      // the numbers were derived.
+      if (item.plan.floorTopUpStamps > 0) {
+        jobs.push({
+          delta: item.plan.floorTopUpStamps,
+          key: `a:season1:${item.id}:floor`,
+          meta: { periodKey: 'season1', floor: MINIMUM_TOTAL_STAMPS },
         });
       }
       for (const job of jobs) {
@@ -699,7 +823,7 @@ export async function run({
   if (applied.ledgerDisabled) {
     console.log(`ledger calls DROPPED: ${applied.ledgerDisabled}  <-- STAMPS_ENABLED was off; re-run with it on`);
   }
-  console.log(`skipped             : ${applied.skipped} (no rating)`);
+  console.log(`floor-only accounts : ${applied.floorOnly} (no usable rating — paid ${MINIMUM_TOTAL_STAMPS} and nothing else)`);
   console.log(`elapsed: ${elapsed}s`);
   console.log('=================================');
 
@@ -716,15 +840,17 @@ function printSummary({
   console.log(`scope                : ${scopeNote}`);
   console.log(`accounts scanned     : ${n(stats.scanned)}`);
   console.log(`accounts in scope    : ${n(stats.eligible)}  (would be granted)`);
-  console.log(`no usable rating     : ${n(stats.skippedNoRating)}  (skipped — no seasonPeakElo and no elo_s0)`);
+  console.log(`no usable rating     : ${n(stats.noRating)}  (no seasonPeakElo and no elo_s0 — floor only)`);
   console.log('');
   console.log(`TOTAL STAMPS         : ${n(stats.stampsTotal)}`);
   console.log(`  grinder            : ${n(stats.grinderStampsTotal)}  (${n(stats.grinderAtCap)} at the ${n(GRINDER_STAMPS_CAP)} cap)`);
   console.log(`  league starter     : ${n(stats.leagueStampsTotal)}  (incl. ${n(stats.top100Hits)} top-100 bonuses of ${TOP100_BONUS_STAMPS})`);
   console.log(`  milestones         : ${n(stats.milestoneStampsTotal)}`);
+  console.log(`  floor top-up       : ${n(stats.floorStampsTotal)}  (${n(stats.floorTopUps)} accounts lifted to the ${MINIMUM_TOTAL_STAMPS} floor)`);
   console.log(`OG badges            : ${n(stats.ogBadges)}${writeOgBadge ? '' : '  (NOT being written)'}`);
   console.log(`ledger rows to write : ${n(stats.ledgerRows)}${stampsEnabled ? '' : '  (0 will be written — STAMPS_ENABLED is off)'}`);
   console.log(`avg stamps per acct  : ${stats.eligible ? n(Math.round(stats.stampsTotal / stats.eligible)) : 0}`);
+  console.log(`MIN stamps per acct  : ${stats.eligible ? n(stats.minStampsPerAccount) : 0}  (floor is ${MINIMUM_TOTAL_STAMPS} — anything lower is a bug)`);
   console.log('\nNo XP is granted by this script. See the file header.');
 
   console.log('\nSeason 0 peak leagues (leagueStarterStamps):');

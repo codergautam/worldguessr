@@ -36,8 +36,8 @@ describe('v2 constants', () => {
     expect(RATING_FLOOR).toBe(100);
     expect(ENTRY_RATING).toBe(500);
     expect(SEED_BASE).toBe(500);
-    expect(SEED_SLOPE).toBeCloseTo(0.06, 10);
-    expect(SEED_MAX).toBe(800);
+    expect(SEED_SLOPE).toBeCloseTo(0.08, 10);
+    expect(SEED_MAX).toBe(900);
     expect(WIN_FLOOR).toBe(1);
   });
 });
@@ -341,11 +341,11 @@ describe('clampRating', () => {
 });
 
 describe('placementSeed', () => {
-  it('maps average round points onto 500..800', () => {
+  it('maps average round points onto 500..900', () => {
     expect(placementSeed(0)).toBe(500);
-    expect(placementSeed(1000)).toBe(560);
-    expect(placementSeed(2500)).toBe(650);
-    expect(placementSeed(5000)).toBe(800);
+    expect(placementSeed(1000)).toBe(580);
+    expect(placementSeed(2500)).toBe(700);
+    expect(placementSeed(5000)).toBe(900);
   });
 
   it('caps above a perfect score instead of running away', () => {
@@ -387,7 +387,7 @@ describe('calculateTransfer — integrality', () => {
 //
 // models/User.js defaulted `elo` to a hardcoded 1000. Correct on the Season 0
 // scale, wrong on v2, where 1000 sits inside VOYAGER (945-1269). Since
-// placementSeed() returns 500..800 — ALWAYS below 1000 — the very first ranked
+// placementSeed() returns 500..900 — ALWAYS below 1000 — the very first ranked
 // game a player plays, which the throwing placement bot guarantees they WIN,
 // rendered as a red rating loss on web, a downward count and a badge demotion on
 // mobile, and was persisted to game history as a defeat.
@@ -412,7 +412,7 @@ describe('placement seeding vs the starting rating — the demotion regression',
 
   it('a perfect placement is the biggest possible GAIN, never a loss', () => {
     const delta = placementSeed(5000) - STARTING_ELO;
-    expect(delta).toBe(SEED_MAX - ENTRY_RATING); // +300
+    expect(delta).toBe(SEED_MAX - ENTRY_RATING); // +400
     expect(delta).toBeGreaterThan(0);
   });
 

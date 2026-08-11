@@ -17,11 +17,11 @@ import StampMark from './StampMark';
  *  just a number.
  *
  *  IT IS THE ONLY CHIP UNDER THE CARD NOW. Community Maps used to sit beside it
- *  and moved to the footer, taking .daily-community-maps-btn with it. The skin
- *  this tile inherited from that button stays — 10px radius, 1.4px rim, the
- *  flat green — because the alternative is the card's heavier 2px/16px recipe,
- *  which would make this a second card in a corner just cut down to one. See
- *  .stampsTile in styles/playerCard.css.
+ *  and moved to the footer, taking .daily-community-maps-btn with it. The tile
+ *  wears the CARD'S tone at CHIP proportions — same fill and rim colour as
+ *  .pcard__face, at 1.4px/10px instead of 2px/16px, so it reads as the card's
+ *  satellite rather than as a second card or (its old inherited skin) a
+ *  visibly darker stranger. See .stampsTile in styles/playerCard.css.
  *
  *  FAIL CLOSED, TWICE, IN THIS ORDER:
  *    1. `stampsEnabled` must be EXACTLY the boolean true. It is server

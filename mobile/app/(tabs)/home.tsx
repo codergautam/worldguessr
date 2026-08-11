@@ -30,7 +30,7 @@ import PlayerCard, {
 } from '../../src/components/home/PlayerCard';
 import PlayerSheet from '../../src/components/home/PlayerSheet';
 import { useAuthStore } from '../../src/store/authStore';
-import { useHomeAccent } from '../../src/store/siteBackgroundStore';
+import { useSiteAccent } from '../../src/store/siteBackgroundStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
@@ -198,9 +198,9 @@ function HeaderCorner({
   onStampsPress?: () => void;
 }) {
   const ghost = variant === 'ghost';
-  // The equipped background's palette, or WorldGuessr green. See useHomeAccent
+  // The equipped background's palette, or WorldGuessr green. See useSiteAccent
   // for why this corner and the menu are the only things that follow it.
-  const accent = useHomeAccent();
+  const accent = useSiteAccent();
   return (
     <View style={styles.headerRight}>
       {variant === 'login' ? (
@@ -265,6 +265,8 @@ function HeaderCorner({
           stamps={stamps}
           animatedStamps={animatedStamps}
           height={cardMetrics.chipHeight}
+          markSize={cardMetrics.chipMarkSize}
+          valueSize={cardMetrics.chipValueSize}
           onPress={onStampsPress}
           ghost={ghost}
         />
@@ -383,7 +385,7 @@ export default function HomeScreen() {
   // The equipped background's palette, or WorldGuessr green when nothing is
   // equipped — which is very nearly everybody, and renders identically to what
   // this screen hardcoded before the accent existed.
-  const accent = useHomeAccent();
+  const accent = useSiteAccent();
 
   // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
   const dailyStatus = useDailyMenuStatus(secret ?? null);
@@ -1372,7 +1374,7 @@ const styles = StyleSheet.create({
   // Account button.
   //
   // NO backgroundColor HERE, and no pressed variant either: both come from
-  // useHomeAccent at the call site, because this corner wears the equipped
+  // useSiteAccent at the call site, because this corner wears the equipped
   // background's colour. A literal left in this sheet would win on nothing and
   // simply be the green that shows for one frame if the accent ever failed to
   // resolve — a second source of truth for a colour that already has one.
@@ -1458,7 +1460,7 @@ const styles = StyleSheet.create({
   bottomIconsLandscape: {
     paddingBottom: spacing.md,
   },
-  // Fill comes from useHomeAccent at the call site. Discord and YouTube keep
+  // Fill comes from useSiteAccent at the call site. Discord and YouTube keep
   // their own brand colours below and override it — those two are not house
   // chrome, they are logos, and a purple YouTube button would be nonsense.
   iconButton: {

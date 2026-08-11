@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getLeague } from './utils/leagues';
+import { resolveLeague } from './utils/leagues';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 import { MdWifiOff } from 'react-icons/md';
@@ -66,8 +66,14 @@ const TeamNames = ({ names, dcLabel }) => {
             {entry.countryCode && <CountryFlag countryCode={entry.countryCode} />}
           </>
         );
-        const leagueColor = typeof entry.elo === 'number'
-          ? (getLeague(entry.elo)?.light ?? getLeague(entry.elo)?.color ?? '#60a5fa')
+        // resolveLeague, not getLeague: the roster carries the tier the
+        // SERVER resolved, and only the server sees a seasonal re-anchor. The
+        // local table is the fallback for old payloads.
+        const entryLeague = typeof entry.elo === 'number'
+          ? resolveLeague(entry.elo, entry.league)
+          : null;
+        const leagueColor = entryLeague
+          ? (entryLeague.light ?? entryLeague.color ?? '#60a5fa')
           : null;
         // Every registered player but yourself gets the same profile link
         // 1v1 opponents have (the multi-name stack used to drop it
@@ -95,11 +101,17 @@ const TeamNames = ({ names, dcLabel }) => {
   );
 };
 
-const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true, nameGlow = null }) => {
+const HealthBar = ({ health, maxHealth, name, names = null, elo, league = null, isStartingDuel, isOpponent = false, countryCode = null, disconnected = false, hasProfile = true, nameGlow = null }) => {
   const { t: text } = useTranslation("common");
   // 1v1 bars only — the 2v2 stack carries a glow PER ENTRY (names[i].nameGlow)
   // because one bar shows two different players. Dark HUD → dark variant.
   const glow = nameGlowProps(nameGlow, GLOW_DARK, { ownBox: true });
+  // resolveLeague, NOT getLeague: the roster carries the tier the SERVER
+  // resolved, and only the server ever sees a seasonal re-anchor (the client
+  // bundle holds a frozen copy of the tier table). Falls back to the local
+  // table for payloads that predate the field.
+  const eloTier = typeof elo === 'number' ? resolveLeague(elo, league) : null;
+  const eloTierColor = eloTier?.light ?? eloTier?.color ?? '#60a5fa';
   const [isAnimating, setIsAnimating] = useState(false);
   const [damageIndicator, setDamageIndicator] = useState(null);
   const prevHealthRef = useRef(health);
@@ -270,8 +282,8 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
             <span
               className="player-elo"
               style={{
-                color: getLeague(elo)?.light ?? getLeague(elo)?.color ?? "#60a5fa",
-                textShadow: `0 0 10px ${getLeague(elo)?.light ?? getLeague(elo)?.color ?? "#60a5fa"}60`
+                color: eloTierColor,
+                textShadow: `0 0 10px ${eloTierColor}60`
               }}
             >
               ({elo})
@@ -284,7 +296,7 @@ const HealthBar = ({ health, maxHealth, name, names = null, elo, isStartingDuel,
 };
 
 // Memoized: GameUI re-renders every 100ms for the round clock, and these bars
-// were re-rendering (players.find results, getLeague, Link, flag) on every
+// were re-rendering (players.find results, league lookup, Link, flag) on every
 // tick for the whole match. Every prop is a primitive except `names` (2v2
 // team stacks), whose entries are rebuilt each render — compare by value.
 //
@@ -301,6 +313,7 @@ const namesEqual = (a, b) => {
     if (x.name !== y.name || x.username !== y.username || x.isMe !== y.isMe
       || x.hasProfile !== y.hasProfile || x.countryCode !== y.countryCode
       || x.disconnected !== y.disconnected || x.elo !== y.elo
+      || x.league !== y.league
       || x.nameGlow !== y.nameGlow) return false;
   }
   return true;
@@ -311,6 +324,7 @@ export default React.memo(HealthBar, (prev, next) =>
   prev.maxHealth === next.maxHealth &&
   prev.name === next.name &&
   prev.elo === next.elo &&
+  prev.league === next.league &&
   prev.isStartingDuel === next.isStartingDuel &&
   prev.isOpponent === next.isOpponent &&
   prev.countryCode === next.countryCode &&

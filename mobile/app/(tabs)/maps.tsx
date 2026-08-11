@@ -21,6 +21,7 @@ import { api, MapItem } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { onHeartUpdate, emitHeartUpdate } from '../../src/store/heartSync';
 import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../../src/components/maps/MapSection';
+import { useSiteAccent } from '../../src/store/siteBackgroundStore';
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function MapsScreen() {
@@ -218,16 +219,21 @@ export default function MapsScreen() {
 
   const isSearching = searchQuery.trim().length >= 3;
 
+  const accent = useSiteAccent();
+
   return (
     <View style={styles.container}>
       {/* Background */}
       <SiteBackground style={StyleSheet.absoluteFillObject}/>
+      {/* The shared plate wash, so this screen follows an equipped background
+          like every other menu. The middle stop used to be rgba(20, 26, 57) — a
+          navy that appears nowhere else in the app, picked as a neutral back
+          when this wash had no way to know what was behind it. With nothing
+          equipped it is now the site wash, which is a change from the navy and a
+          deliberate one: one screen wearing a colour the rest of the app never
+          uses was the oddity. Web made the same swap on its /user page. */}
       <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.9)',
-          'rgba(20, 26, 57, 0.8)',
-          'rgba(0, 0, 0, 0.9)',
-        ]}
+        colors={accent.modalWash}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}

@@ -7,7 +7,7 @@ import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import SafeMapContainer from './SafeMapContainer';
 import openInStreetView from './utils/openInStreetView';
-import { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
+import { cachedNameGlowProps, GLOW_LIGHT } from './utils/usernameWithFlag';
 import GuessPinLabel from './utils/guessPinLabel';
 import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
 import { googleTileScale } from '@/lib/googleTileScale';
@@ -478,6 +478,8 @@ export default function ResultsMap({
                   return null;
                 }
 
+                const popupGlow = cachedNameGlowProps(player.nameGlow, GLOW_LIGHT, { ownBox: true });
+
                 return (
                   <React.Fragment key={`${index}-${playerId}`}>
                     {/* Teammates blue (your pin), enemies green; each team's
@@ -503,18 +505,19 @@ export default function ResultsMap({
                       <Popup>
                         <div>
                           <strong
+                            // Leaflet popup chrome is WHITE, so this takes the
+                            // LIGHT glow variant — class AND inline style, the
+                            // same pair the pin label wears, because the class
+                            // is what carries the @keyframes for an animated
+                            // sku. `ownBox` since this <strong> is the box.
+                            // `nameGlow` rides on the round's player entry —
+                            // absent (older hosts) simply means no glow.
+                            className={popupGlow?.className}
                             style={{
                               cursor: 'default',
                               textDecoration: 'none',
                               color: 'inherit',
-                              // Leaflet popup chrome is WHITE, so this takes
-                              // the LIGHT glow variant. Inline, not a class:
-                              // the popup is portalled out of the React tree
-                              // and this component is bundled into the mobile
-                              // embed, which ships no stylesheet at all.
-                              // `nameGlow` rides on the round's player entry —
-                              // absent (older hosts) simply means no glow.
-                              textShadow: nameGlowShadow(player.nameGlow, GLOW_LIGHT) || undefined
+                              ...popupGlow?.style
                             }}
                           >
                             {player.username || text("opponent")}

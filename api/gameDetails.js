@@ -57,6 +57,11 @@ export default async function handler(req, res) {
       startedAt: game.startedAt,
       endedAt: game.endedAt,
       totalDuration: game.totalDuration,
+      // Rating-v2 placement match. Without this the history view has no way to
+      // tell a seeding game from a duel, and renders the seed as a signed
+      // rating change. Absent on every doc saved before the field existed,
+      // which reads as false — correct, none of them were placements.
+      placement: game.placement === true,
 
       // Game settings
       settings: game.settings,

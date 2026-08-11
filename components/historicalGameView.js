@@ -332,6 +332,17 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         duelData.oldElo = eloData.before || eloData.oldElo || 0;
         duelData.newElo = eloData.after || eloData.newElo || 0;
         duelData.eloDiff = eloData.change || 0;
+        // Rating-v2 placement, off the saved doc (models/Game.js `placement`).
+        // Without it a replayed placement renders as an ordinary rating change
+        // here — a signed delta for a game that SEEDED the rating rather than
+        // transferring it. Games saved before the field existed default false,
+        // which is the correct reading for all of them.
+        // AND-ed with the win, mirroring the live duelEnd gate: an abandoned/
+        // drawn placement granted no seed, so its replay must not wear the
+        // seed reveal either. Draw excluded explicitly — finalRank semantics
+        // on a drawn doc are not a contract this gate should lean on.
+        duelData.placement = fullGameData.placement === true
+          && duelData.winner === true && duelData.draw !== true;
       }
     }
   }

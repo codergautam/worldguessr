@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { getBackground } from '../shared/cosmetics';
-import { backgroundUrlForSku, homeAccentFor, type HomeAccent } from '../services/siteBackground';
+import { backgroundUrlForSku, siteAccentFor, type SiteAccent } from '../services/siteBackground';
 import { useAuthStore } from './authStore';
 
 /* ===========================================================================
@@ -37,22 +37,28 @@ interface SiteBackgroundState {
 export const useSiteBackgroundStore = create<SiteBackgroundState>(() => ({ sku: null }));
 
 /**
- * The home screen's chrome colours for whatever is equipped.
+ * The VIEWER's menu chrome colours for whatever they have equipped.
  *
- * HOME ONLY, and that is a decision rather than an oversight. The photograph
- * swaps behind every menu; the COLOURS follow it on one screen. Everywhere else
- * — the shop, the queue, the leaderboard, and every pixel of the game itself —
- * stays WorldGuessr green, because green is the brand and a menu cosmetic does
- * not get to repaint the product. Web scopes the identical rule to two CSS
- * selectors (.home__content and .hudCorner in styles/globals.scss); here the
- * scope is simply which files call this.
+ * MENUS ONLY, and that is a decision rather than an oversight — it is just a
+ * wider one than it used to be. This was home-only, which left an owner of the
+ * New York background looking at a purple photograph through a green storefront,
+ * a green settings sheet and a green profile. The tint now reaches every menu a
+ * player can open. It still stops dead at gameplay: the HUD, the map, the
+ * results and every win/loss, +XP and health colour stay green, because green
+ * there means GOOD and a cosmetic does not get to argue with that. Web draws the
+ * same line as a named list of selectors in styles/globals.scss; here the scope
+ * is simply which files call this.
  *
- * Memoised on the sku, so the four components reading it re-render on an equip
- * and on nothing else.
+ * A PUBLIC PROFILE DOES NOT USE THIS ONE. It shows somebody else, so its colours
+ * come from THEIR sku via siteAccentFor() directly — see ProfileView. This hook
+ * is the reader's own and nothing else.
+ *
+ * Memoised on the sku, so the components reading it re-render on an equip and on
+ * nothing else.
  */
-export function useHomeAccent(): HomeAccent {
+export function useSiteAccent(): SiteAccent {
   const sku = useSiteBackgroundStore((s) => s.sku);
-  return useMemo(() => homeAccentFor(sku), [sku]);
+  return useMemo(() => siteAccentFor(sku), [sku]);
 }
 
 /**

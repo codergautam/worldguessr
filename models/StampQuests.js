@@ -46,6 +46,20 @@ const stampQuestsSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Stamps already handed out for the human game_base+game_win stream this
+  // period (ranked duels AND 2v2 — one shared ceiling). The bot cap's twin:
+  // without it the base+win stream was the one earn with no daily maximum.
+  duelStampsAwarded: {
+    type: Number,
+    default: 0,
+  },
+  // Ad-free passes purchased this period (api/stampShop.js). Claimed
+  // atomically BEFORE the charge and released if the charge does not land, so
+  // concurrent purchases can never exceed the daily cap.
+  adFreePassesAwarded: {
+    type: Number,
+    default: 0,
+  },
   // Beat a higher-rated opponent at least once this period.
   upset: {
     type: Boolean,

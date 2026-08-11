@@ -2569,6 +2569,7 @@ export default function GameScreen() {
       timeOffset={timeOffset}
       criticalEnabled={gameData.state === 'guess'}
       hasGuess={!!guessPosition}
+      isPlacement={gameData.isPlacement === true}
     />
   ) : null;
 
@@ -3134,6 +3135,7 @@ export default function GameScreen() {
               nextEvtTime={gameData.nextEvtTime}
               timeOffset={timeOffset}
               generated={gameData.generated ?? gameData.rounds}
+              isPlacement={gameData.isPlacement === true}
             />
           </Reanimated.View>
         )}

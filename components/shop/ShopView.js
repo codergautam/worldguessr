@@ -11,7 +11,6 @@ import { loadMarkerSkinUrls } from './markerPins';
 import formatCompact from '@/components/utils/fmtNumber';
 import {
   ADFREE_DAILY_CAP,
-  CATEGORY_DESC_KEY,
   CATEGORY_LABEL_KEY,
   CATEGORY_ORDER,
   DEFAULT_ITEMS,
@@ -56,6 +55,17 @@ const FAIL_MS = 4200;
  * true balance is on screen before anyone reaches for a second card.
  */
 const SPEND_COUNT_MS = 620;
+
+/**
+ * How long the rail stops listening to the scroll after a section chip is
+ * pressed. It covers the browser's smooth-scroll animation (the longest of them
+ * runs a little over half a second) with room to spare, because arming the
+ * release EARLY is the failure that matters: the highlight would start tracking
+ * the shelves the page is still flying over, which is the flicker the latch
+ * exists to stop. Where 'scrollend' is supported the wait is cut short by it and
+ * this is only the backstop.
+ */
+const JUMP_SETTLE_MS = 1200;
 
 /**
  * The confetti burst, hand-placed rather than randomised.
@@ -314,10 +324,42 @@ function useSpendCounter(stamps, lang) {
 const WALLET_HOW_ID = 'shopWalletHow';
 
 const ShopRail = memo(function ShopRail({
-  sections, sectionEls, signedIn, stamps, adFreeMsLeft, text, lang,
+  sections, sectionEls, endEl, signedIn, stamps, adFreeMsLeft, text, lang,
 }) {
   const [active, setActive] = useState(null);
   const [valueRef, spent, spendKey] = useSpendCounter(stamps, lang);
+
+  /* A PRESSED CHIP OUTRANKS THE SCROLL UNTIL THE READER TAKES OVER.
+   *
+   * Two things go wrong without this. The scripted scroll flies past every shelf
+   * between here and the destination, and each one crossing the band repaints
+   * the rail — the row strobes for the length of the animation. And when the
+   * destination is near the bottom the box runs out of scroll before the heading
+   * reaches the band at all, so the moment the animation ends the highlight is
+   * handed to whatever IS up there and the chip you pressed goes dark.
+   *
+   * So: the press wins, and nothing the observers say is written until the
+   * reader's own scroll moves the box off where the jump put it. That release
+   * test is a POSITION COMPARISON rather than a list of input events, which is
+   * the only version that covers a wheel, a drag, a flick, PageDown and the
+   * scrollbar without naming any of them.
+   *
+   * latchRef holds the live jump's teardown; applyRef is the observers' resolver,
+   * published by the effect so the release can settle the highlight in one write.
+   */
+  const latchRef = useRef(null);
+  const applyRef = useRef(null);
+  const boxRef = useRef(null);
+
+  const endJump = useCallback(() => {
+    const latch = latchRef.current;
+    if (!latch) return;
+    latchRef.current = null;
+    latch.dispose();
+    applyRef.current?.();
+  }, []);
+
+  useEffect(() => () => latchRef.current?.dispose(), []);
 
   // A primitive so the effect below re-arms when the section LIST changes
   // (catalogue arrives) and not merely when its array identity does.
@@ -343,10 +385,62 @@ const ShopRail = memo(function ShopRail({
       if (overflowY === 'auto' || overflowY === 'scroll') { root = node; break; }
     }
 
-    // A narrow band just under the sticky bar. Whichever section is crossing it
-    // is the one being read, which is what the highlight should say.
+    const box = root || (typeof document !== 'undefined' ? document.scrollingElement : null);
+    boxRef.current = box;
+
+    // THE LAST STRETCH OF THE BOX ANSWERS FOR ITSELF. The band is a strip near
+    // the TOP of the scroller, and a section can only reach it if there is
+    // enough shelf beneath it to keep scrolling — the final one has none, so
+    // passes (ONE card) could never light no matter how far you scrolled.
+    //
+    // Down there the question is answered off the MIDDLE of the box instead:
+    // the deepest shelf whose heading has passed the halfway line is the one
+    // being read. That is a demotion of the band, not an override of it — the
+    // rule that broke "Emotes" was handing the highlight to the LAST section
+    // whenever the bottom came into view, so a jump that ran out of scroll lit
+    // passes while a screenful of emotes sat above it. A shelf now has to
+    // actually fill the lower half to take the highlight.
+    let endPick = null;
+    const pickAtEnd = () => {
+      // Nothing to scroll means no "end" to be at: a storefront short enough to
+      // fit would otherwise pin its highlight to the bottom shelf forever.
+      if (!box || box.scrollHeight <= box.clientHeight + 8) return null;
+      // THE HARD STOP ANSWERS FOR THE LAST SHELF. The halfway rule below is
+      // fair everywhere the reader can still scroll — but the final shelf is
+      // one card tall and can never fill the lower half, so it could never
+      // take the highlight and the owner called it: scrolled all the way down,
+      // the passes chip stayed dark. At the literal bottom there is nowhere
+      // further to go, so whatever closes the page is what is being read.
+      if (box.scrollTop + box.clientHeight >= box.scrollHeight - 2) {
+        return types[types.length - 1];
+      }
+      const rootTop = root ? root.getBoundingClientRect().top : 0;
+      const line = rootTop + (box.clientHeight / 2);
+      let found = null;
+      // types is in DOM order, so the last match is the deepest.
+      types.forEach((type) => {
+        const el = sectionEls.current.get(type);
+        if (el && el.getBoundingClientRect().top <= line) found = type;
+      });
+      return found;
+    };
+
     const visible = new Set();
     const typeOf = new Map();
+    const apply = () => {
+      // A jump is in flight (or is still the last thing the reader said). The
+      // observers keep their books up to date; they just do not get to write.
+      if (latchRef.current) return;
+      setActive((prev) => {
+        if (endPick) return endPick;
+        // Fall back to the last section that scrolled past the band rather than
+        // clearing the highlight: mid-page a section taller than the band can
+        // straddle it entirely, and a chip row that blanks out looks broken.
+        return types.find((type) => visible.has(type)) || prev;
+      });
+    };
+    applyRef.current = apply;
+
     const observer = new window.IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const type = typeOf.get(entry.target);
@@ -354,11 +448,7 @@ const ShopRail = memo(function ShopRail({
         if (entry.isIntersecting) visible.add(type);
         else visible.delete(type);
       });
-      // Fall back to the last section that scrolled past the band rather than
-      // clearing the highlight: at the very bottom of a long page a short final
-      // section can sit entirely below the band, and a chip row that blanks out
-      // there looks broken.
-      setActive((prev) => types.find((type) => visible.has(type)) || prev);
+      apply();
     }, { root, rootMargin: '-12% 0px -68% 0px', threshold: 0 });
 
     types.forEach((type) => {
@@ -368,23 +458,93 @@ const ShopRail = memo(function ShopRail({
       observer.observe(el);
     });
 
-    return () => observer.disconnect();
-  }, [sectionKeys, sectionEls]);
+    // A second observer, because rootMargin is a property of the OBSERVER and
+    // this one needs the whole box rather than the band. It watches the hairline
+    // that closes the shelves (see .shopEnd) and is the only thing that can say
+    // "the shelves have run out" — no section can report that about itself. A
+    // little slack below the fold so the answer switches as you arrive rather
+    // than on the final pixel.
+    const sentinel = endEl?.current;
+    let endObserver = null;
+    let atEnd = false;
+    // The observer only fires when the sentinel's VISIBILITY flips, but the
+    // answer down there changes as the reader travels the last stretch — the
+    // halfway pick has to hand over to the hard-stop pick on the final pixels.
+    // So while the sentinel is on screen, every scroll rescores. Passive, and
+    // only live in the end zone, so the rest of the page pays nothing.
+    const scrollTarget = root || (typeof window !== 'undefined' ? window : null);
+    const onEndScroll = () => {
+      if (!atEnd) return;
+      const next = pickAtEnd();
+      if (next !== endPick) { endPick = next; apply(); }
+    };
+    if (sentinel) {
+      endObserver = new window.IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          atEnd = entry.isIntersecting;
+          endPick = atEnd ? pickAtEnd() : null;
+        });
+        apply();
+      }, { root, rootMargin: '0px 0px 64px 0px', threshold: 0 });
+      endObserver.observe(sentinel);
+      scrollTarget?.addEventListener('scroll', onEndScroll, { passive: true });
+    }
+
+    return () => {
+      observer.disconnect();
+      if (endObserver) endObserver.disconnect();
+      if (sentinel) scrollTarget?.removeEventListener('scroll', onEndScroll);
+      if (applyRef.current === apply) applyRef.current = null;
+    };
+  }, [sectionKeys, sectionEls, endEl]);
 
   const jumpTo = useCallback((type) => {
     const el = sectionEls.current.get(type);
     if (!el || typeof el.scrollIntoView !== 'function') return;
-    // scrollIntoView walks every scrollable ancestor, so it finds .modal-content
-    // on its own — no hard-coded container reference to go stale. The landing
-    // offset is .shopSection's scroll-margin-top, which clears this bar.
     let smooth = true;
     try {
       smooth = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } catch (e) { /* assume motion is fine */ }
-    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start', inline: 'nearest' });
-    // Paint the highlight now rather than waiting for the scroll to settle.
+
+    // Paint the highlight now, and hold it. Any previous jump is over the moment
+    // a second chip is pressed.
+    endJump();
     setActive(type);
-  }, [sectionEls]);
+
+    const box = boxRef.current;
+    const target = box || (typeof window !== 'undefined' ? window : null);
+    if (target) {
+      // `settled` is where the jump PUT us, and it is only recorded once the
+      // animation is done — until then there is no baseline and every scroll
+      // event is our own. After that, the first frame that moves the box off
+      // that mark is the reader taking over, whatever they used to do it.
+      let settled = null;
+      const readTop = () => (box ? box.scrollTop : window.scrollY);
+      const arm = () => { if (settled === null) settled = readTop(); };
+      const onScroll = () => {
+        if (settled === null) return;
+        if (Math.abs(readTop() - settled) > 8) endJump();
+      };
+      const timer = setTimeout(arm, JUMP_SETTLE_MS);
+      // Where it exists, 'scrollend' is the exact end of the animation and the
+      // backstop above never fires. Where it does not, the backstop is the whole
+      // mechanism — hence its generous length.
+      target.addEventListener('scrollend', arm);
+      target.addEventListener('scroll', onScroll, { passive: true });
+      latchRef.current = {
+        dispose: () => {
+          clearTimeout(timer);
+          target.removeEventListener('scrollend', arm);
+          target.removeEventListener('scroll', onScroll);
+        },
+      };
+    }
+
+    // scrollIntoView walks every scrollable ancestor, so it finds .modal-content
+    // on its own — no hard-coded container reference to go stale. The landing
+    // offset is .shopSection's scroll-margin-top, which clears this bar.
+    el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start', inline: 'nearest' });
+  }, [sectionEls, endJump]);
 
   let balance = '0';
   try {
@@ -960,6 +1120,10 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
   // sticky header's observer and jump handler. A ref, not state: the header
   // must not re-render the page to learn where the sections are.
   const sectionEls = useRef(new Map());
+  // The hairline that closes the shelves. It exists for one reason: the rail's
+  // scroll-spy has to be able to tell that the bottom has been reached, and no
+  // section can report that on its own. See the end observer in ShopRail.
+  const endEl = useRef(null);
   const registerSection = useCallback((type, el) => {
     if (el) sectionEls.current.set(type, el);
     else sectionEls.current.delete(type);
@@ -1281,6 +1445,7 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
       <ShopRail
         sections={navSections}
         sectionEls={sectionEls}
+        endEl={endEl}
         signedIn={signedIn}
         stamps={stamps}
         adFreeMsLeft={adFreeMsLeft}
@@ -1327,16 +1492,16 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
               ref={(el) => registerSection(type, el)}
               aria-labelledby={`shopSection-${type}`}
             >
-              {/* Heading, one line of what-this-is, and a hairline. The pill that
-                  counted the items is gone (the count is the grid, sitting right
-                  underneath); the line that replaced it earns its space, because
-                  a swatch cannot tell a first-time buyer that a glow follows
-                  their name into a duel. See CATEGORY_DESC_KEY. */}
+              {/* The heading alone. The count pill went first (the count is the
+                  grid, sitting right underneath), then the what-this-is line and
+                  the hairline under it went too: three shelves in, that line was
+                  furniture repeated five times down one page, and the rule under
+                  every title was the exact border-under-everything habit the
+                  owner called out. Type and space carry the section now. */}
               <header className="shopSection__head">
                 <h2 className="shopSection__title" id={`shopSection-${type}`}>
                   {text(CATEGORY_LABEL_KEY[type])}
                 </h2>
-                <p className="shopSection__desc">{text(CATEGORY_DESC_KEY[type])}</p>
               </header>
 
               {/* THE WHEEL SITS ABOVE THE SHELF, in the one section it means
@@ -1453,6 +1618,13 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
             </section>
           );
         })}
+
+        {/* THE BOTTOM, AS SOMETHING THE OBSERVER CAN SEE. A section can only
+            report where its own top is, which is why the last chip in the rail
+            never lit: passes is one card and its heading cannot climb into the
+            spy band. This hairline can only come on screen once the shelves are
+            done, so it is the one honest answer to "are we at the end". */}
+        <div className="shopEnd" ref={endEl} aria-hidden="true" />
       </div>
 
       {/* (The buy-confirmation Modal lived here. Removed by user ruling: one

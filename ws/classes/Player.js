@@ -201,6 +201,15 @@ export default class Player {
       const dcPlayer = players.get(dcPlayerId);
       if(dcPlayer && this.ws) {
 
+      // They came back inside the grace window, so the dodge latched when their
+      // socket closed was a connection blip, not an abandonment. Clear it before
+      // anything else can await: the purge charges this latch, and a slow
+      // ban-check below must not leave a window where it still looks armed.
+      //
+      // No exploit here — clearing it requires actually rejoining the game,
+      // which is the outcome the dodge penalty exists to encourage.
+      dcPlayer.pendingDodge = false;
+
       // Re-check ban status from database on reconnect
       // This ensures users banned/forced to change name while disconnected are properly blocked
       if (accountId) {

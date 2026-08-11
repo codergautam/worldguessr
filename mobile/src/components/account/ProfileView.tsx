@@ -25,6 +25,8 @@ import GameHistoryTab from './GameHistoryTab';
 import FriendsTab from './FriendsTab';
 import ModerationTab from './ModerationTab';
 import CountrySelectorModal from './CountrySelectorModal';
+import { siteAccentFor } from '../../services/siteBackground';
+import { useSiteAccent } from '../../store/siteBackgroundStore';
 
 type TabKey = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
 
@@ -84,10 +86,11 @@ interface ProfileData {
   };
   /**
    * Equipped cosmetics, as api/publicProfile.js and api/publicAccount.js both
-   * return them. Only `nameGlow` is public — nothing else about an inventory
-   * leaves the server on this route.
+   * return them. Only the two WORN cosmetics are public — `nameGlow` for the
+   * username and `background` for this screen's photograph and colours. Nothing
+   * else about an inventory leaves the server on this route.
    */
-  cosmetics?: { equipped?: { nameGlow?: string | null } };
+  cosmetics?: { equipped?: { nameGlow?: string | null; background?: string | null } };
   /**
    * Season 0 record, feeding the OG badge in <ProfileTab> (see the prop docs
    * there). Both fetch paths carry them: the public one passes the payload
@@ -189,6 +192,23 @@ export default function ProfileView({
   const [error, setError] = useState<string | null>(null);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // THIS SCREEN BELONGS TO WHOEVER IT IS ABOUT.
+  //
+  // One component serves two people: your own profile (isOwnProfile) and a
+  // stranger's. The photograph and the colours have to follow the SUBJECT, not
+  // the reader — showing off a player against the reader's purchase is the one
+  // place that gets it exactly backwards, and on a public profile the reader's
+  // own sku is simply the wrong answer.
+  //
+  // useSiteAccent() is still called unconditionally (it is a hook), and its
+  // result is only USED on your own profile; a public one resolves the subject's
+  // sku through the same plain function the hook wraps. Null anywhere along the
+  // way — still loading, nothing equipped, a sku this build does not know — lands
+  // on the stock green, which is what this screen has always rendered.
+  const ownAccent = useSiteAccent();
+  const subjectSku = profileData?.cosmetics?.equipped?.background ?? null;
+  const accent = isOwnProfile ? ownAccent : siteAccentFor(subjectSku);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -416,17 +436,23 @@ export default function ProfileView({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Background Image */}
-      <SiteBackground style={StyleSheet.absoluteFillObject}/>
+    // accent.deep under the photograph, not a literal #112b18: this colour is
+    // only ever seen for the frame before the image paints and during a nav
+    // slide, and on a public profile that frame should already be the subject's.
+    <View style={[styles.container, { backgroundColor: accent.deep }]}>
+      {/* THE SUBJECT'S photograph on a public profile, the reader's own on
+          theirs. Passing undefined (not null) on your own profile is what hands
+          the choice back to the store — see the prop docs on SiteBackground. */}
+      <SiteBackground
+        style={StyleSheet.absoluteFillObject}
+        sku={isOwnProfile ? undefined : subjectSku}
+      />
 
-      {/* Dark overlay keeps the street2 backdrop subtle, matching the rest of the app */}
+      {/* Dark overlay keeps the backdrop subtle, matching the rest of the app —
+          and its middle stop is the same person's wash colour, so the plate
+          cannot go green over a purple photograph. */}
       <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.9)',
-          'rgba(0, 30, 15, 0.8)',
-          'rgba(0, 0, 0, 0.9)',
-        ]}
+        colors={accent.modalWash}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -528,7 +554,22 @@ export default function ProfileView({
               {tabs.map((tab) => (
                 <Pressable
                   key={tab.key}
-                  style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}
+                  style={[
+                    styles.tabButton,
+                    // The selected tab is chrome, so it wears the accent — web's
+                    // .public-profile-nav-item.active does the same with
+                    // var(--gradGreenBtn). The GLOW comes too: it spreads
+                    // outside the button, so a green one left behind would ring
+                    // a purple tab in the old brand colour.
+                    activeTab === tab.key && [
+                      styles.tabButtonActive,
+                      {
+                        backgroundColor: accent.primary,
+                        borderColor: accent.primary,
+                        shadowColor: accent.primaryTransparent,
+                      },
+                    ],
+                  ]}
                   onPress={() => setActiveTab(tab.key)}
                 >
                   <Text style={styles.tabIcon}>{tab.icon}</Text>
@@ -729,9 +770,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   tabButtonActive: {
-    backgroundColor: '#245734',
-    borderColor: '#245734',
-    shadowColor: 'rgba(36, 87, 52, 0.3)',
+    // The three COLOURS are applied inline at the call site: they follow the
+    // equipped background and a StyleSheet is frozen at module load. What is
+    // left here is the geometry, which never changes.
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 15,

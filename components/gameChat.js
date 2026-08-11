@@ -159,9 +159,10 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   // Per-ROOM clearing (July 30 ruling, supersedes the July 26 "log survives
   // staging→match" design): a fresh room means a fresh log — staging→match
   // clears, match→back-to-staging clears, so last match's messages never
-  // haunt the next one. Compare DEFINED codes only: the stage-2 queue wipes
-  // gameData (code=undefined) while chat rides the persisting staging room —
-  // that wipe is a state flicker, not a room change, and must not clear.
+  // haunt the next one. `roomCode` is the server's gameId (see home.js).
+  // Compare DEFINED keys only: the stage-2 queue wipes gameData (key
+  // undefined) while chat rides the persisting staging room — that wipe is a
+  // state flicker, not a room change, and must not clear.
   // The allegiance latch resets with the room: new room, new teams.
   const lastRoomRef = useRef(null);
   useEffect(() => {

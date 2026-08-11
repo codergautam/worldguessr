@@ -28,6 +28,24 @@ const SHIMS = {
   '@googlemaps/js-api-loader': path.join(root, 'embed/shims/googleMapsLoader.js'),
 };
 
+// A stylesheet reaches this bundle as TEXT (see the `.css` loader below) — it is
+// injected into a <style> at runtime by embed/entry.jsx, so whatever is in the
+// file ships verbatim inside the HTML string. styles/nameGlow.css is ~50KB, of
+// which the overwhelming majority is the design prose that keeps the sku rules
+// honest, and none of that belongs in an asset the app loads off disk. Minify on
+// the way in: comments and whitespace go, every rule survives. leaflet.css takes
+// the same trip and comes out a few KB lighter for free.
+const cssMinifyPlugin = {
+  name: 'embed-css-minify',
+  setup(b) {
+    b.onLoad({ filter: /\.css$/ }, async (args) => {
+      const src = await fs.promises.readFile(args.path, 'utf8');
+      const { code } = await esbuild.transform(src, { loader: 'css', minify: true });
+      return { contents: code, loader: 'text' };
+    });
+  },
+};
+
 const resolvePlugin = {
   name: 'embed-resolve',
   setup(b) {
@@ -97,7 +115,7 @@ async function buildBundle({ entry, head = '', out, exportName }) {
       '.mp3': 'dataurl',
       '.css': 'text',
     },
-    plugins: [resolvePlugin],
+    plugins: [resolvePlugin, cssMinifyPlugin],
     logLevel: 'info',
   });
 

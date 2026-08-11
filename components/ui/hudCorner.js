@@ -21,7 +21,7 @@ import { useCallback, useEffect, useRef } from 'react';
  *  The variable is cleared on unmount: off the home screen there is no column,
  *  and a stale height would push the badge down over nothing.
  * ======================================================================== */
-export default function HudCorner({ covered, tight, children }) {
+export default function HudCorner({ covered, tight, leaving, children }) {
   const elRef = useRef(null);
 
   const publish = useCallback((h) => {
@@ -49,7 +49,12 @@ export default function HudCorner({ covered, tight, children }) {
   return (
     <div
       ref={setRef}
-      className={`hudCorner ${tight ? 'hudCorner--tight' : ''}`}
+      // `leaving` is the menu's slide-out, and ONLY for destinations that
+      // unmount this column — it used to be a blanket body:has(.g2_slide_out)
+      // rule, which also fed the fade to the one destination that keeps the
+      // column (the queue) and made a 28px move look like a disappearance. See
+      // navSlideOutThen in components/home.js.
+      className={`hudCorner ${tight ? 'hudCorner--tight' : ''} ${leaving ? 'hudCorner--leaving' : ''}`}
       // Modals cover this with visibility, never an unmount: the entrance is a
       // CSS animation on this element, and an unmount would replay it every
       // time a modal closed over the home screen.

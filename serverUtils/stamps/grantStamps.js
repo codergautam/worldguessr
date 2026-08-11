@@ -7,27 +7,23 @@ import { assertReason } from './reasons.js';
 // except the reconciliation sweep in cron.js, which exists only to finish work
 // this function started.
 //
-// DESIGN CONTRACT — LEDGER FIRST, BALANCE SECOND
-// ----------------------------------------------
-// This repo has ZERO mongoose transactions, so a grant is two writes that can
-// be interrupted between them. That leaves exactly one choice to make: which
-// half do we do first, and therefore which way do we fail?
+// DESIGN CONTRACT — LEDGER FIRST, THEN BALANCE+FLIP IN ONE TRANSACTION
+// --------------------------------------------------------------------
+// The ledger insert (applied:false) comes first and stays OUTSIDE the
+// transaction: it is the idempotency stop, and a row that commits with no
+// balance move is exactly the state cron.js's sweep exists to finish.
 //
-//   ledger first (this order): a crash between the two steps leaves a durable
-//   applied:false row and an UNDER-paid user. The row records everything
-//   needed to finish the job, and cron.js's sweep does exactly that.
-//
-//   user first: a crash between the two steps leaves a paid user and no
-//   record. A retry re-pays them. That is a DOUBLE-pay, and it is
-//   unrecoverable — nothing anywhere says the credit already happened.
-//
-// Under-payment is a bug with a repair. Double-payment is currency minted out
-// of nothing. Hence: ledger first, always. Do not "optimise" the order.
-//
-// The idempotency stop is the ledger insert itself (unique index on
-// idempotencyKey), and it happens BEFORE any balance moves — so a retried
-// grant collapses onto the duplicate-key error and returns without touching
-// the balance at all.
+// The balance move and the applied:true flip then share ONE Mongo
+// transaction. This file used to run them as two bare writes on the theory
+// that a crash between them was only ever an UNDER-payment the sweep could
+// repair. That theory had a hole: a kill AFTER the balance $inc but BEFORE
+// the flip left a row the sweep could not tell apart from "never applied",
+// and its repair moved the money a second time — credits minted twice,
+// debits taken twice with no funds guard. The transaction closes the hole
+// outright by making the invariant true: applied:false MEANS the balance did
+// not move. Every environment this runs on is Atlas (replica set), which
+// supports transactions; a standalone mongod does not, and fails loudly on
+// the first grant rather than corrupting silently.
 //
 // opts.extraUpdate exists so a purchase can fuse the debit and the delivery of
 // what was bought into ONE atomic document update: without it, "take the
@@ -92,52 +88,72 @@ export async function grantStamps(userId, delta, reason, idempotencyKey, meta = 
     throw err;
   }
 
-  // 4. Move the balance.
+  // 4+5. Move the balance and close the row out — ONE transaction (see the
+  //      header). A kill in here rolls both back: the row stays applied:false
+  //      with the balance untouched, and the sweep finishes the job exactly
+  //      once.
   let balanceAfter = null;
-  if (delta >= 0) {
-    // CREDIT — unconditional $inc. findOneAndUpdate rather than updateOne only
-    // so the post-update balance comes back for the advisory balanceAfter
-    // stamp below; the update itself is the same unconditional increment.
-    const credited = await User.findOneAndUpdate(
-      { _id: userId },
-      { $inc: { stamps: delta } },
-      { new: true, projection: { stamps: 1 } },
-    );
-    balanceAfter = credited?.stamps ?? null;
-  } else {
-    // DEBIT — this filter is the ONLY thing standing between the economy and a
-    // negative balance (schema `min: 0` is not enforced on update operators —
-    // see models/User.js) AND, via extraFilter, the only thing standing between
-    // a double click and a double charge. A null result means the document no
-    // longer satisfies one of them.
-    const debited = await User.findOneAndUpdate(
-      { _id: userId, stamps: { $gte: -delta }, ...(opts.extraFilter || {}) },
-      { $inc: { stamps: delta }, ...(opts.extraUpdate || {}) },
-      { new: true },
-    );
-    if (!debited) {
-      // Nothing moved, so the row must not survive: leaving it would hand the
-      // reconciliation sweep an applied:false row and it would happily apply
-      // the debit the funds check just refused.
-      await StampLedger.deleteOne({ _id: row._id });
-      // WHICH condition failed is the caller's question, not this function's.
-      // It knows only that the document did not match; a caller that supplied an
-      // extraFilter has to re-read to tell "no funds" from "already owns it"
-      // (api/stampShop.js does exactly that). Reporting `insufficient` for both
-      // would tell a player with 4,000 Stamps that they cannot afford a 100
-      // Stamp emote.
-      const blocked = !!opts.extraFilter;
-      return { applied: false, duplicate: false, insufficient: !blocked, blocked, balance: null };
-    }
-    balanceAfter = debited.stamps ?? null;
-  }
+  let refusal = null;
+  const session = await StampLedger.startSession();
+  try {
+    await session.withTransaction(async () => {
+      // withTransaction retries this callback on transient errors — state
+      // from an aborted attempt must not leak into the next one.
+      balanceAfter = null;
+      refusal = null;
 
-  // 5. Close the row out. balanceAfter is ADVISORY (a concurrent grant can
-  //    land between the $inc and this write) — User.stamps stays the truth.
-  await StampLedger.updateOne(
-    { _id: row._id },
-    { $set: { applied: true, appliedAt: new Date(), balanceAfter } },
-  );
+      if (delta >= 0) {
+        // CREDIT — unconditional $inc. findOneAndUpdate rather than updateOne
+        // only so the post-update balance comes back for the advisory
+        // balanceAfter stamp below; the update itself is the same
+        // unconditional increment.
+        const credited = await User.findOneAndUpdate(
+          { _id: userId },
+          { $inc: { stamps: delta } },
+          { new: true, projection: { stamps: 1 }, session },
+        );
+        balanceAfter = credited?.stamps ?? null;
+      } else {
+        // DEBIT — this filter is the ONLY thing standing between the economy
+        // and a negative balance (schema `min: 0` is not enforced on update
+        // operators — see models/User.js) AND, via extraFilter, the only
+        // thing standing between a double click and a double charge. A null
+        // result means the document no longer satisfies one of them.
+        const debited = await User.findOneAndUpdate(
+          { _id: userId, stamps: { $gte: -delta }, ...(opts.extraFilter || {}) },
+          { $inc: { stamps: delta }, ...(opts.extraUpdate || {}) },
+          { new: true, session },
+        );
+        if (!debited) {
+          // Nothing moved, so the row must not survive: leaving it would hand
+          // the reconciliation sweep an applied:false row for a debit the
+          // funds check just refused.
+          await StampLedger.deleteOne({ _id: row._id }, { session });
+          // WHICH condition failed is the caller's question, not this
+          // function's. It knows only that the document did not match; a
+          // caller that supplied an extraFilter has to re-read to tell "no
+          // funds" from "already owns it" (api/stampShop.js does exactly
+          // that). Reporting `insufficient` for both would tell a player with
+          // 4,000 Stamps that they cannot afford a 100 Stamp emote.
+          const blocked = !!opts.extraFilter;
+          refusal = { applied: false, duplicate: false, insufficient: !blocked, blocked, balance: null };
+          return;
+        }
+        balanceAfter = debited.stamps ?? null;
+      }
+
+      // Close the row out. balanceAfter is ADVISORY (a concurrent grant can
+      // land between the $inc and this write) — User.stamps stays the truth.
+      await StampLedger.updateOne(
+        { _id: row._id },
+        { $set: { applied: true, appliedAt: new Date(), balanceAfter } },
+        { session },
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (refusal) return refusal;
 
   return { applied: true, duplicate: false, insufficient: false, balance: balanceAfter };
 }

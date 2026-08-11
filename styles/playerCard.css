@@ -104,6 +104,40 @@
        not eat clicks meant for the street view behind it. Children opt back
        in individually. */
     pointer-events: none;
+
+    /* HOME -> QUEUE IS A MOVE, SO IT LOOKS LIKE ONE. Entering the matchmaking
+       queue swaps the inset tokens for the tight pair above, ~28px in each
+       axis on a desktop monitor. That used to be a cut: the column faded out
+       with the menu (a blanket body:has(.g2_slide_out) rule that has since
+       been narrowed, see globals.scss) and then snapped back at the new
+       coordinates, so one small move read as two edits and a flicker.
+
+       0.3s to match the menu's own slide, which lands the card at its new spot
+       as the queue screen arrives rather than after it.
+
+       THE TOKENS STAY THE ONE KNOB — this transitions top/right because that
+       is what the tokens feed. A transform would be cheaper to composite, but
+       --hudInsetY is also read by WsIcon's offset (components/wsIcon.js), so
+       faking the move with a transform would slide the card out from under the
+       badge that positions itself off it. One fixed chip with two children
+       relaying for 300ms is a fair price for the corner staying honest. */
+    transition: top 0.3s ease-in-out, right 0.3s ease-in-out;
+}
+
+/* Leaving with the menu, for the destinations that really do unmount this
+   column (see navSlideOutThen in components/home.js). The queue does not set
+   this — it slides. Deliberately no fade back IN: when the class drops, the
+   transition declaration goes with it and the column returns instantly, which
+   is what the blanket rule this replaced did. */
+.hudCorner--leaving {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hudCorner {
+        transition: none;
+    }
 }
 
 .hudCorner>* {
@@ -408,20 +442,51 @@
 /* ===========================================================================
  *  THE STAMPS TILE — now the only chip under the card.
  *
- *  It kept the Community Maps button's skin after that button moved to the
- *  footer: 10px radius, 1.4px --primaryDark rim, the flat green. Deliberately
- *  NOT the card's heavier 2px/16px recipe, which would make this a second card
- *  in a corner that was just cut down to one.
+ *  It wears the CARD'S TONE at CHIP proportions: --gradLight over
+ *  --primaryTransparent and a --primary rim, same as .pcard__face, but at
+ *  1.4px/10px rather than the card's 2px/16px — the heavier box would make this
+ *  a second card in a corner that was just cut down to one. It used to keep the
+ *  Community Maps button's whole skin (--gradGreenBtn + a --primaryDark rim),
+ *  and that gradient is the wash tone at 0.9 alpha where the card's is 0.52, so
+ *  the chip sat visibly DARKER than the card it hangs under. Proportion is what
+ *  separates chip from card; tone is not allowed to.
  *
- *  ITS BOX IS THE CURRENCY MARK'S, and both numbers below say so. The tile
- *  carries a fixed 45px stamp, so a height that ramped 30px→40px with the
- *  viewport could not hold it at the floor, and a label size that ramped
- *  12px→16px read as a caption on a picture. Both are derived from
- *  --stampMarkSize (styles/shop.css) instead, which is why there is no longer a
- *  --hudChipH/--hudChipFont pair: the chip this shared them with is gone.
+ *  ITS BOX IS THE CURRENCY MARK'S, and every number below says so: the height,
+ *  the digits, nothing hand-tuned. That is why there is no --hudChipH/
+ *  --hudChipFont pair any more — the chip those were shared with is gone.
+ *
+ *  BUT THE MARK IS SIZED AGAINST THE CARD, NOT AGAINST THE SHOP. It used to take
+ *  the global 45px --stampMarkSize (styles/shop.css) verbatim, and that number is
+ *  right for a shop surface — which can grow to hold the artwork — and wrong for
+ *  this corner, which cannot. Everything else here is fluid (--pcardName ramps
+ *  18px→26px), the mark was not, so:
+ *
+ *    - the balance read at 27.9px against an 18px name on a phone: the currency
+ *      was the largest thing in the corner, 55% bigger than the player's own
+ *      name, on a card whose whole point is that the name leads;
+ *    - the tile stood 53px tall beside a card that is only ~56px tall at that
+ *      width, so the chip under the card nearly WAS the card.
+ *
+ *  So both tokens are re-derived here, for this subtree only, and stay derived:
+ *    mark   = 1.5x the name above it. Floored at 30px, because below roughly
+ *             that the artwork stops being a picture of anything (shop.css says
+ *             the same thing about 45px on a busy storefront); capped at 39px so
+ *             a future card retune cannot inflate the corner.
+ *    digits = the same 0.62 of the mark that every other surface uses.
+ *
+ *  BOTH must be restated. A custom property's var()s are substituted where it is
+ *  DECLARED, so :root's --stampValueSize has already computed against the 45px
+ *  mark and inherits down here fully resolved — overriding only the mark would
+ *  shrink the picture and leave the digits at 27.9px.
+ *
+ *  This is the SECOND documented exception to one-size-everywhere (the first is a
+ *  card's buy button, --stampMarkSizeBtn) and it is one for the same reason: a
+ *  surface that genuinely cannot grow. Do not add a third.
  * ======================================================================== */
 
 .stampsTile {
+    --stampMarkSize: clamp(30px, calc(var(--pcardName) * 1.5), 39px);
+    --stampValueSize: calc(var(--stampMarkSize) * 0.62);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -430,9 +495,9 @@
     /* +8 is the breathing room either side of the mark. */
     height: calc(var(--stampMarkSize) + 8px);
     padding: 0 14px;
-    border: 1.4px solid var(--primaryDark);
+    border: 1.4px solid var(--primary);
     border-radius: 10px;
-    background: var(--gradGreenBtn);
+    background: var(--gradLight);
     background-color: var(--primaryTransparent);
     color: white;
     font-family: lexend;
@@ -459,9 +524,10 @@
     outline-offset: 2px;
 }
 
-/* No .stampsTile__mark. The mark is one size on every surface
-   (--stampMarkSize, styles/shop.css) and the TILE is what grew to hold it —
-   see .stampsTile's height above. */
+/* No .stampsTile__mark. <StampMark> takes no size and must not start taking one
+   (components/shop/StampMark.js) — the mark is sized by the --stampMarkSize it
+   inherits, and this tile overrides that token on ITSELF, above. Nothing here
+   reaches into the image. */
 
 .stampsTile__value {
     position: relative;

@@ -11,10 +11,11 @@ import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
-import UsernameWithFlag, { GlowName, nameGlowProps, nameGlowShadow, GLOW_DARK, GLOW_LIGHT } from './utils/usernameWithFlag';
+import UsernameWithFlag, { GlowName, nameGlowProps, cachedNameGlowProps, GLOW_DARK, GLOW_LIGHT } from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
 import GuessPinLabel from './utils/guessPinLabel';
 import StampMark from './shop/StampMark';
+import { resolveLeague } from './utils/leagues';
 import { STAMP_REASON_KEYS, mergeStampLines } from '@/shared/stamps/receipt';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
@@ -1133,6 +1134,15 @@ const GameSummary = ({
     const { oldElo, newElo } = data;
     const eloChange = newElo - oldElo;
 
+    // Rating-v2 placement: this game SEEDED the rating instead of transferring
+    // it. Stamped by the server on duelEnd (ws/classes/Game.js) and, for a
+    // replayed game, carried on the saved doc (models/Game.js `placement`).
+    // Only p1 can ever be in a placement — p2 is the throwing bot.
+    const isPlacement = data.placement === true;
+    // Resolved with the server's tier when it sent one, so a seasonal re-anchor
+    // does not need a web deploy to label this correctly.
+    const placementLeague = isPlacement ? resolveLeague(newElo, data.league) : null;
+
     // Opponent(s): every player NOT on my team (teams), or the single other
     // player (1v1). Collected from round data so mid-game leavers still count.
     // (Team context — isTeamGame/teamOf/myTeam/isMyTeammate — is declared at
@@ -1348,6 +1358,10 @@ const GameSummary = ({
                       }
 
                       const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
+                      // Popup chrome is white too — LIGHT variant, class AND
+                      // style so an animated sku actually moves (the keyframes
+                      // only exist on the class). See guessPinLabel.js.
+                      const popupGlow = cachedNameGlowProps(glowOf[playerId], GLOW_LIGHT, { ownBox: true });
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
                           {/* Team games: teammates share YOUR (blue src) pin,
@@ -1377,12 +1391,12 @@ const GameSummary = ({
                             <Popup>
                               <div>
                                 <strong
+                                  className={popupGlow?.className}
                                   style={{
                                     cursor: 'default',
                                     textDecoration: 'none',
                                     color: 'inherit',
-                                    // Popup chrome is white too — LIGHT variant.
-                                    textShadow: nameGlowShadow(glowOf[playerId], GLOW_LIGHT) || undefined
+                                    ...popupGlow?.style
                                   }}
                                 >
                                   {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
@@ -1438,6 +1452,13 @@ const GameSummary = ({
 
               {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
                 <div className="elo-container">
+                  {/* Placement label. The server sends `placement: true` on
+                      duelEnd for a new account's single seeding match; web read
+                      it nowhere, so the one game that is guaranteed to be a WIN
+                      rendered as an ordinary rating change. */}
+                  {isPlacement && (
+                    <span className="elo-placement-label">{text("placementMatch")}</span>
+                  )}
                   <span className="elo-title">{text("elo")}:</span>
                   <div className="elo-display">
                     {/* Renders from the REF, not from state — see eloShownRef.
@@ -1451,16 +1472,29 @@ const GameSummary = ({
                     >
                       {eloShownRef.current}
                     </span>
-                    {/* Colour by class, not inline style. The old inline
-                        `green`/`red` were the CSS keywords (#008000/#f00) —
-                        barely legible on the dark glass, and `>= 0` painted a
-                        zero transfer green as if it were a gain. v2 draws
-                        between evenly matched players really do transfer 0. */}
-                    <span
-                      className={`elo-change ${eloChange > 0 ? 'elo-change--up' : eloChange < 0 ? 'elo-change--down' : 'elo-change--flat'}`}
-                    >
-                      {eloChange > 0 ? `+${eloChange}` : eloChange}
-                    </span>
+                    {/* A placement SEEDS the rating rather than transferring it:
+                        the number is a pure function of your own round scores,
+                        not something won off an opponent. So show the tier you
+                        landed in, never a signed delta — a "+N" here reads as a
+                        giant win bonus, and (before the entry rating was fixed
+                        to 500) a "-N" read as losing your first ever game.
+                        Mirrors mobile's EloChangeDisplay exactly. */}
+                    {isPlacement ? (
+                      <span className="elo-change elo-change--placement" style={{ color: placementLeague?.color }}>
+                        {placementLeague?.name}
+                      </span>
+                    ) : (
+                      /* Colour by class, not inline style. The old inline
+                         `green`/`red` were the CSS keywords (#008000/#f00) —
+                         barely legible on the dark glass, and `>= 0` painted a
+                         zero transfer green as if it were a gain. v2 draws
+                         between evenly matched players really do transfer 0. */
+                      <span
+                        className={`elo-change ${eloChange > 0 ? 'elo-change--up' : eloChange < 0 ? 'elo-change--down' : 'elo-change--flat'}`}
+                      >
+                        {eloChange > 0 ? `+${eloChange}` : eloChange}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -2187,6 +2221,8 @@ const GameSummary = ({
                     }
 
                     const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
+                    // White popup chrome — LIGHT variant, class AND style.
+                    const popupGlow = cachedNameGlowProps(glowOf[playerId], GLOW_LIGHT, { ownBox: true });
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
@@ -2206,12 +2242,12 @@ const GameSummary = ({
                           <Popup>
                             <div>
                               <strong
+                                className={popupGlow?.className}
                                 style={{
                                   cursor:  'default',
                                   textDecoration:  'none',
                                   color: 'inherit',
-                                  // White popup chrome — LIGHT variant.
-                                  textShadow: nameGlowShadow(glowOf[playerId], GLOW_LIGHT) || undefined
+                                  ...popupGlow?.style
                                 }}
                               >
                                 {player.username || text("opponent")}{isPlayerReported && ' (reported)'}

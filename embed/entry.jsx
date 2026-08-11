@@ -2,6 +2,15 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createRoot } from 'react-dom/client';
 import L from 'leaflet';
 import leafletCss from 'leaflet/dist/leaflet.css';
+// The animated name-glow keyframes. THE ONLY STYLESHEET IN THIS BUNDLE BESIDES
+// LEAFLET'S, and it is here because a @keyframes cannot be an inline style.
+// Guess-pin tooltips and popups paint their glow inline (components/utils/
+// guessPinLabel.js) precisely so this bundle is not required — but that inline
+// stack is the STATIC halo, so without these rules every animated sku a player
+// paid for sits dead still on the mobile map while it moves on web. Both
+// bundles' CSS is minified in embed/build.mjs, so the ~50KB of prose in the
+// source file costs nothing here.
+import nameGlowCss from '@/styles/nameGlow.css';
 import Map from '@/components/Map';
 import ResultsMap from '@/components/ResultsMap';
 import { INBOUND, OUTBOUND, APPLY_FN } from '@/shared/embed/protocol';
@@ -11,11 +20,13 @@ import { preloadSfx } from '@/components/utils/audio';
 // Leaflet's UMD build sets window.L on import; make sure it's there for Map.js.
 if (typeof window !== 'undefined' && !window.L) window.L = L;
 
-// Inject Leaflet's CSS (bundled as text) + a full-bleed dark base.
+// Inject Leaflet's CSS + the name-glow keyframes (both bundled as text) + a
+// full-bleed dark base.
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent =
     leafletCss +
+    nameGlowCss +
     'html,body,#root{height:100%;margin:0;padding:0;background:#aadaff;overflow:hidden;}' +
     // Leaflet's default container background is light gray (#ddd). Both the live
     // in-game map and the results map use the light "map-water" blue (#aadaff,

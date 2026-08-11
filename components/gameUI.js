@@ -51,7 +51,7 @@ const AD_TYPES_CG_RESPONSIVE = [[320, 50], [468, 60], [728, 90]];
 //   2. VS chrome — one continuous mount for intro AND exit. Same classes the
 //      whole time; only `.hb-vs-chrome--exiting` flips opacity. Never remount
 //      into a different style context (that was the glow→plain-box jump).
-function DuelIntroBars({ isStartingDuel, vsExiting, countdown, leftBar, rightBar }) {
+function DuelIntroBars({ isStartingDuel, vsExiting, countdown, leftBar, rightBar, placementLabel }) {
   const showVsChrome = isStartingDuel || vsExiting;
 
   return (
@@ -90,6 +90,12 @@ function DuelIntroBars({ isStartingDuel, vsExiting, countdown, leftBar, rightBar
       {showVsChrome && (
         <div className={`hb-vs-chrome${vsExiting ? ' hb-vs-chrome--exiting' : ''}`}>
           <p className="hb-vs-label">VS</p>
+          {/* Placement seeding match: announced under the VS so the very first
+              thing a new player reads is what this game IS. Pre-translated by
+              the call site — this layer stays hook-free. */}
+          {placementLabel && (
+            <p className="hb-vs-placement elo-placement-label">{placementLabel}</p>
+          )}
           <p className="hb-vs-countdown">{countdown}</p>
         </div>
       )}
@@ -1556,14 +1562,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const opponent = players.find(p => p.id !== myId);
   return (
     <DuelIntroBars isStartingDuel={isStartingDuel} vsExiting={vsExiting} countdown={vsChromeCountdown}
+      placementLabel={multiplayerState?.gameData?.isPlacement ? text("placementMatch") : null}
       leftBar={
         <HealthBar health={me?.score} maxHealth={5000} name={text("you")}
-          isStartingDuel={isStartingDuel} elo={me?.elo} countryCode={me?.countryCode}
+          isStartingDuel={isStartingDuel} elo={me?.elo} league={me?.league} countryCode={me?.countryCode}
           nameGlow={me?.nameGlow} />
       }
       rightBar={
         <HealthBar health={opponent?.score} maxHealth={5000} name={opponent?.username}
-          isStartingDuel={isStartingDuel} elo={opponent?.elo} countryCode={opponent?.countryCode}
+          isStartingDuel={isStartingDuel} elo={opponent?.elo} league={opponent?.league} countryCode={opponent?.countryCode}
           isOpponent={true} disconnected={!!opponent?.disconnected}
           hasProfile={!!opponent?.accountId} nameGlow={opponent?.nameGlow} />
       }
@@ -1596,6 +1603,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // League-colored "(elo)" suffix, same as the 1v1 bars. Guests have no elo
     // (null/undefined) so the suffix simply doesn't render for them.
     elo: typeof p.elo === 'number' ? p.elo : null,
+    // Server-resolved tier name for that elo. Preferred over deriving it
+    // client-side so a seasonal cutoff re-anchor does not need a deploy.
+    league: p.league ?? null,
     // Equipped name glow (shop cosmetic). This factory is a PROJECTION: a
     // field missing here never reaches the bar, and duelHealthbar's namesEqual
     // never compares it either — two silent no-ops stacked. Both are wired.
@@ -1756,6 +1766,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           the clock is the hero. */}
       {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
       <span className={`timer duel timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${mpFinal5 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+        {/* Placement seeding match: a persistent one-word tag so the player
+            never loses track of what this game is after the VS intro. */}
+        {multiplayerState?.gameData?.isPlacement && (
+          <span className="timer__placement-tag elo-placement-label">{text("placementMatch")}</span>
+        )}
         <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)

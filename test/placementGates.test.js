@@ -6,13 +6,13 @@ import { kFactor, K_VET, K_MID_UNTIL } from '../components/utils/eloSystem.js';
 // WHY THIS FILE EXISTS
 // ===========================================================================
 // Placements OVERWRITE a rating outright: finish placements and the account is
-// stamped at placementSeed(), somewhere in 500..800.
+// stamped at placementSeed(), somewhere in 500..900.
 //
 // The trigger for "needs placements" is ratedGames === 0. Every account that
 // existed before the v2 migration has ratedGames 0, because the field did not
 // exist when those documents were written. So without BOTH gates, on migration
 // day EVERY veteran on the ladder is placement-eligible, plays a handful of
-// games, and has its carefully migrated rating bulldozed by a 500-800 bot seed.
+// games, and has its carefully migrated rating bulldozed by a 500-900 bot seed.
 // A 2400-rated account becomes 640, and there is no undo: the pre-migration
 // value only survives in elo_s0.
 //
@@ -68,7 +68,7 @@ describe('backfillRatedGames', () => {
 
   // THE SAFETY PROPERTY, and the reason the cap may never be lowered to 0.
   // ratedGames === 0 is what marks an account as needing placements, and a
-  // placement OVERWRITES the rating with a 500-800 seed. Every account with any
+  // placement OVERWRITES the rating with a 500-900 seed. Every account with any
   // ranked history must therefore backfill to a non-zero value.
   it('never returns 0 for an account with any career game at all', () => {
     for (const career of [1, 2, 7, CAP - 1, CAP, CAP + 1, 500, 5000]) {

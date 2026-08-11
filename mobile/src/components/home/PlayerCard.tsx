@@ -2,9 +2,8 @@ import { StyleSheet, Text, View, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable } from '../ui/SfxPressable';
 import PlayerName from '../PlayerName';
-import { STAMP_MARK_SIZE } from '../shop/StampMark';
 import { colors, resolveLeague, t } from '../../shared';
-import { useHomeAccent } from '../../store/siteBackgroundStore';
+import { useSiteAccent } from '../../store/siteBackgroundStore';
 
 /* ===========================================================================
  *  THE PLAYER CARD — the top-right corner of the home screen.
@@ -69,13 +68,34 @@ export interface PlayerCardMetrics {
   caretSize: number;
   /** The stamps tile under the card. Community Maps left for the footer. */
   chipHeight: number;
+  /** The currency mark inside that tile, and the balance beside it. */
+  chipMarkSize: number;
+  chipValueSize: number;
 }
 
 export const CORNER_GAP = 8;
 /** Vertical space between the card's two lines. */
 const LINE_GAP = 2;
-/** The stamps tile, every breakpoint: the currency mark plus 4px either side. */
-const CHIP_H = STAMP_MARK_SIZE + 8;
+
+/* THE STAMPS TILE IS SIZED AGAINST THIS CARD, not against the shop.
+ *
+ * It used to take STAMP_MARK_SIZE (45) verbatim at every breakpoint, and that
+ * number is right for a shop surface — which can grow to hold the artwork — and
+ * wrong for this corner, which cannot. The card steps 18/20/24px of name; the
+ * mark did not step at all, so on a phone the balance rendered at 28px beside an
+ * 18px name: the currency was the largest thing in the corner, on a card whose
+ * whole point is that the name leads, and the chip under the card stood nearly
+ * as tall as the card.
+ *
+ * So the mark is a RATIO of the name now and stays one. Same two numbers web
+ * uses (.stampsTile in styles/playerCard.css, which points the identical ratios
+ * at its fluid --pcardName):
+ *   mark   1.5x the name, floored at 30 — below roughly that the artwork stops
+ *          being a picture of anything, and it is a stamp, not a glyph.
+ *   digits 0.62 of the mark, the same ratio every other surface uses.
+ * The tile's height is the mark plus 4px either side, as it always was. */
+const chipMark = (nameFontSize: number) => Math.max(30, Math.round(nameFontSize * 1.5));
+const chipValue = (markSize: number) => Math.round(markSize * 0.62);
 
 /**
  * ONE table, three breakpoints, NUMBERS ONLY — the card is the same component
@@ -89,18 +109,31 @@ const CHIP_H = STAMP_MARK_SIZE + 8;
  * (Web sizes this fluidly with clamp() because a browser window is dragged;
  * a device's width is fixed for the session, so a step here is never seen.)
  *
- * ONE EXCEPTION TO "NUMBERS ONLY": chipHeight. The stamps tile carries the
- * currency mark, which is one fixed size on every surface and on both platforms
- * (STAMP_MARK_SIZE), so the chip that holds it cannot be 32px on a small phone
- * — the mark would hang out of its own button.
+ * THE THREE chip* FIELDS ARE NOT IN THE TABLE, and that is the point: they are
+ * COMPUTED from the tier's nameFontSize by the block above, so the tile cannot
+ * drift out of proportion with the card the next time a name size is retuned.
+ * They used to be one constant (the 45px mark plus 8) repeated in all three
+ * rows, which is exactly how the chip ended up bigger than the name.
  *
  * (Removed) chipFontSize. It was the pair's LABEL size, and pointing it at the
  * mark as well is what dragged the word "Maps" up to 28px — which is what sent
  * that button to the footer. With Maps gone the stamps tile is the only chip
- * left and it sizes its own balance (STAMP_VALUE_SIZE in StampsTile.tsx), so
- * nothing read this any more.
+ * left, and its balance is chipValueSize now.
  */
+type PlayerCardTier = Omit<PlayerCardMetrics, 'chipHeight' | 'chipMarkSize' | 'chipValueSize'>;
+
 export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
+  const tier = playerCardTier(shortestSide);
+  const chipMarkSize = chipMark(tier.nameFontSize);
+  return {
+    ...tier,
+    chipMarkSize,
+    chipValueSize: chipValue(chipMarkSize),
+    chipHeight: chipMarkSize + 8,
+  };
+}
+
+function playerCardTier(shortestSide: number): PlayerCardTier {
   if (shortestSide >= 768) {
     return {
       paddingHorizontal: 18,
@@ -112,7 +145,6 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
       flagSize: 19,
       caretGap: 18,
       caretSize: 16,
-      chipHeight: CHIP_H,
     };
   }
   if (shortestSide >= 430) {
@@ -126,7 +158,6 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
       flagSize: 16,
       caretGap: 15,
       caretSize: 15,
-      chipHeight: CHIP_H,
     };
   }
   return {
@@ -139,7 +170,6 @@ export function playerCardMetrics(shortestSide: number): PlayerCardMetrics {
     flagSize: 15,
     caretGap: 13,
     caretSize: 13,
-    chipHeight: CHIP_H,
   };
 }
 
@@ -209,7 +239,7 @@ export default function PlayerCard({
   // file rather than shared from one. Do not "fix" that duplication by pulling
   // this skin back into a common style; it would drag the accent into the
   // middle of a round.
-  const accent = useHomeAccent();
+  const accent = useSiteAccent();
 
   return (
     <Pressable
@@ -306,7 +336,7 @@ const styles = StyleSheet.create({
   //
   // A ROW: the two-line block, then the caret. `alignItems: center` is what puts
   // the caret on the card's optical centre instead of on line 1's.
-  // Border and fill come from useHomeAccent at the call site above.
+  // Border and fill come from useSiteAccent at the call site above.
   card: {
     flexDirection: 'row',
     alignItems: 'center',

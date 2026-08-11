@@ -1,5 +1,11 @@
+// FIRST IMPORT, AND IT MUST STAY FIRST — same rule as ws/ws.js (see its
+// header). ESM evaluates every imported module before this file's body runs,
+// and serverUtils/stamps/config.js reads process.env.STAMPS_ENABLED at import
+// time — so .env must be loaded as an import side effect, not by a
+// configDotenv() call in the body, or the kill switch never reaches this
+// process.
+import 'dotenv/config';
 import mongoose from 'mongoose';
-import { configDotenv } from 'dotenv';
 import User from './models/User.js';
 import { STARTING_ELO } from './components/utils/ratingFlags.js';
 import UserStats from './models/UserStats.js';
@@ -14,10 +20,10 @@ import { dayKeyUTC, weekKeyUTC } from './serverUtils/stamps/periods.js';
 // Timers go through safeInterval so one throwing job cannot take the whole cron
 // process down and silently stop every OTHER job with it. See ws/safeTimers.js.
 import { safeInterval } from './ws/safeTimers.js';
-// Both feature flags are plain constants with no env read and no imports of
-// their own, so import order cannot affect them. They were dynamically imported
-// below the configDotenv() call while STAMPS_ENABLED still read the env; that is
-// no longer true of either one. See serverUtils/stamps/config.js.
+// RATING_V2 is a plain constant, but STAMPS_ENABLED DOES read the env at
+// import time (serverUtils/stamps/config.js) — it is the emergency kill switch
+// for the stamps economy. It only sees .env because `dotenv/config` is this
+// file's first import; keep it that way.
 import { STAMPS_ENABLED } from './serverUtils/stamps/config.js';
 import { RATING_V2 } from './components/utils/ratingFlags.js';
 var app = express();
@@ -38,8 +44,6 @@ import zlib from 'zlib';
 import mainWorld from './data/world-main.json' with { type: "json" };
 
 console.log("Locations in mainWorld", mainWorld.length);
-
-configDotenv();
 
 console.log('[INFO] Starting cron.js...');
 
@@ -454,12 +458,10 @@ startAccountDeletionPurgeTimer();
 // which recomputes the delay from the wall clock on every arm.
 //
 // The STAMPS_ENABLED / RATING_V2 gates below are STATIC imports at the top of
-// this file. They used to be dynamic `await import()`s placed here, because a
-// static binding is evaluated BEFORE this module's body — i.e. before
-// configDotenv() runs — so anything reading process.env at import time froze the
-// wrong value. Neither flag reads the env any more, so that trap is gone with
-// them. The rule still applies to any NEW env-reading module: import it
-// dynamically, below configDotenv(), or better, give it a default that is
+// this file. STAMPS_ENABLED still reads process.env at import time — that is
+// safe here only because `dotenv/config` is this file's FIRST import, so .env
+// is loaded before any other module evaluates. Any NEW env-reading module gets
+// the same protection for free, but the safest shape remains a default that is
 // correct when the variable is absent.
 // ============================================================================
 
@@ -615,13 +617,15 @@ startStampsPeriodRolloverTimers();
 // ============================================================================
 // STAMP LEDGER RECONCILIATION SWEEP (every 5 minutes)
 //
-// grantStamps writes the ledger row with applied:false FIRST and moves the
-// user's balance SECOND. That order is chosen so the only way to fail is
-// UNDER-payment: a crash between the two steps leaves a durable applied:false
-// row and an unpaid user. (The reverse order fails as a double-pay, which is
-// unrepairable - nothing records that the credit already happened.) This sweep
-// is the other half of that bargain: it is what actually repairs the
-// under-payment, so it is not optional infrastructure.
+// grantStamps writes the ledger row with applied:false FIRST, then moves the
+// balance and flips applied:true inside ONE transaction. So applied:false
+// MEANS the balance never moved — a crash can only ever strand a row, never
+// half-apply one. This sweep is the other half of that bargain: it finishes
+// stranded CREDITS (the user earned and was never paid) and CANCELS stranded
+// DEBITS (a purchase whose charge+delivery transaction never committed —
+// taking the money now would charge for an item the row cannot deliver, since
+// rows do not carry the purchase's extraUpdate). It is not optional
+// infrastructure.
 //
 // Deliberately NOT calendar-aligned - it is a repair loop, not a boundary.
 //
@@ -659,6 +663,7 @@ const reconcileStampLedger = async () => {
     console.log(`[CRON:stampReconcile] ${rows.length} unapplied ledger row(s) to repair`);
 
     let repaired = 0;
+    let cancelled = 0;
     let contended = 0;
     let failed = 0;
 
@@ -676,13 +681,44 @@ const reconcileStampLedger = async () => {
           continue;
         }
 
-        // Balance moves only AFTER the claim is won. delta is signed, so this
-        // repairs credits and debits alike.
-        await User.updateOne({ _id: row.userId }, { $inc: { stamps: row.delta } });
-        await StampLedger.updateOne(
-          { _id: row._id },
-          { $set: { applied: true, appliedAt: new Date() } },
-        );
+        // DEBIT — a purchase that never completed. grantStamps runs the
+        // charge AND the item delivery (extraUpdate) in one transaction, so a
+        // stranded debit row means the player was neither charged nor given
+        // anything. "Repairing" it would take the money without the item —
+        // the row does not carry the delivery. Cancel instead; the client saw
+        // the request fail, and a retry mints a fresh purchase.
+        if (row.delta < 0) {
+          // applied:false re-asserted at the delete: if the live grant's
+          // transaction somehow committed between the claim above and here,
+          // this must not erase an applied row's audit trail. (The 60s age
+          // gate makes that all but impossible — Mongo aborts transactions
+          // long before then — but the guard costs one filter term.)
+          await StampLedger.deleteOne({ _id: row._id, applied: false });
+          cancelled++;
+          continue;
+        }
+
+        // CREDIT — an earn that never landed. Balance and flip in ONE
+        // transaction, mirroring grantStamps: applied:false is proof the
+        // balance never moved, so this pays exactly once, and a kill mid-
+        // repair strands the row for the next pass instead of half-applying.
+        const session = await StampLedger.startSession();
+        try {
+          await session.withTransaction(async () => {
+            await User.updateOne(
+              { _id: row.userId },
+              { $inc: { stamps: row.delta } },
+              { session },
+            );
+            await StampLedger.updateOne(
+              { _id: row._id },
+              { $set: { applied: true, appliedAt: new Date() } },
+              { session },
+            );
+          });
+        } finally {
+          await session.endSession();
+        }
         repaired++;
       } catch (e) {
         // Per-row isolation: one bad row must not abort the sweep. It stays
@@ -692,7 +728,7 @@ const reconcileStampLedger = async () => {
       }
     }
 
-    console.log(`[CRON:stampReconcile] Repaired ${repaired}, skipped ${contended} claimed, ${failed} failed`);
+    console.log(`[CRON:stampReconcile] Repaired ${repaired}, cancelled ${cancelled} stranded debit(s), skipped ${contended} claimed, ${failed} failed`);
   } catch (e) {
     console.error('[CRON:stampReconcile] Sweep failed:', e?.message || e);
   }

@@ -383,6 +383,19 @@
   font-weight: 500;
 }
 
+/* Placement queue: replaces the data plate (rating range / ETA are noise when
+   the opponent is the placement bot). One muted sentence, capped so it wraps
+   as a caption instead of running the column's full width. */
+.wgQueue__placementNote {
+  margin: 0;
+  max-width: 24rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 /* --- elapsed ------------------------------------------------------------ */
 
 /* THE HERO. This was a 0.88rem muted footnote and it was the wrong call: the

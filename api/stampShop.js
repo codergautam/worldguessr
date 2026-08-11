@@ -1,5 +1,7 @@
 import User from '../models/User.js';
 import StampLedger from '../models/StampLedger.js';
+import StampQuests from '../models/StampQuests.js';
+import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
 import ShopCatalog from '../models/ShopCatalog.js';
 import ShopPurchaseCount from '../models/ShopPurchaseCount.js';
 import { SHOP_CATALOG, getItem, effectivePrice } from '../shared/shop/catalog.js';
@@ -623,35 +625,48 @@ async function handlePurchase(res, user, body, platform) {
 
   // ---- Build the DELIVERY, to be fused into the debit --------------------
   let extraUpdate;
+  let adFreeDurationMs = 0;
+  let adFreeDayKey = null;
   if (item.sku === ADFREE_SKU) {
-    // Repeatable consumable. Cap per UTC day, counted from the ledger (the only
-    // durable record — User carries no purchase counter).
-    const startOfUtcDay = new Date();
-    startOfUtcDay.setUTCHours(0, 0, 0, 0);
-    const todayCount = await StampLedger.countDocuments({
-      userId: user._id,
-      reason: 'purchase',
-      'meta.sku': ADFREE_SKU,
-      createdAt: { $gte: startOfUtcDay },
-    });
-    if (todayCount >= ADFREE_DAILY_CAP) {
+    // Repeatable consumable. Cap per UTC day via an ATOMIC conditional
+    // counter — the same shape as the earn caps in ws/classes/Game.js. The
+    // previous countDocuments read was check-then-act: N concurrent requests
+    // (each press mints a distinct purchaseKey, so the ledger's idempotency
+    // index cannot collapse them) all read the same pre-purchase count and
+    // all passed the cap. The counter only moves while it is still under the
+    // cap, so concurrency can never overshoot. The zero-$inc upsert
+    // materialises the field on day docs that predate it — a $lt range query
+    // never matches a missing field, and a missing counter must read as 0,
+    // not as "capped".
+    adFreeDayKey = dayKeyUTC();
+    await StampQuests.updateOne(
+      { userId: user._id, periodType: 'day', periodKey: adFreeDayKey },
+      { $inc: { adFreePassesAwarded: 0 } },
+      { upsert: true }
+    );
+    const slot = await StampQuests.findOneAndUpdate(
+      { userId: user._id, periodType: 'day', periodKey: adFreeDayKey, adFreePassesAwarded: { $lt: ADFREE_DAILY_CAP } },
+      { $inc: { adFreePassesAwarded: 1 } },
+      { new: true }
+    );
+    if (!slot) {
       return res.status(400).json({ error: 'daily_cap_reached', message: `Limit ${ADFREE_DAILY_CAP} ad-free passes per day` });
     }
 
-    // PASSES STACK. Extending from max(now, existing) means buying a second
-    // pass while one is still running ADDS 20 minutes instead of resetting the
-    // clock to now+20 and silently burning what was left.
-    //
-    // The value is computed here rather than with a $-operator because
-    // extraUpdate is merged into an update DOCUMENT (grantStamps builds
-    // { $inc, ...extraUpdate }), and "existing + duration" needs an aggregation
-    // pipeline, which cannot be merged into one. The read-then-write window is
-    // accepted: the same purchaseKey is idempotent, and two DIFFERENT presses
-    // landing in the same millisecond is not a real user.
-    const durationMs = item.durationMs || 20 * 60 * 1000;
-    const existingMs = user.adFreeUntil ? new Date(user.adFreeUntil).getTime() : 0;
-    const adFreeUntil = new Date(Math.max(Date.now(), existingMs) + durationMs);
-    extraUpdate = { $set: { adFreeUntil } };
+    // The EXTENSION is applied after the debit lands (see below), through an
+    // aggregation-pipeline update that reads the CURRENT adFreeUntil inside
+    // the server — so two racing purchases each add their duration
+    // (max(now, current) + duration, chained) instead of both computing
+    // near-identical absolutes from the same stale read and one $set eating
+    // the other's charge. The cost is that charge and delivery are two
+    // writes for this one sku: a process death in the ~ms between them loses
+    // the extension (the row is applied:true, so the reconcile sweep will
+    // not re-deliver). That window only opens on an unclean kill — deploys
+    // drain (see server.js SIGTERM handler) — whereas the $set race was open
+    // on every concurrent pair of presses, deliberately triggerable, and
+    // silently ate a full charge.
+    adFreeDurationMs = item.durationMs || 20 * 60 * 1000;
+    extraUpdate = undefined;
   } else {
     // ONE SKU, ONE GRANT. There are no bundles in the catalogue any more, so
     // this deliberately does not fan out — see the header of
@@ -660,6 +675,19 @@ async function handlePurchase(res, user, body, platform) {
   }
 
   // ---- THE ATOMIC FUSE ---------------------------------------------------
+  // A claimed ad-free slot whose charge did NOT land must be handed back, or
+  // failed attempts (broke balance, stale retries, a thrown debit) burn the
+  // day's cap without delivering anything. $gt: 0 keeps a double release from
+  // going negative; a crash between claim and release leaks one slot until
+  // UTC midnight — the cap can only ever under-serve, never be exceeded.
+  const releaseAdFreeSlot = async () => {
+    if (!adFreeDayKey) return;
+    await StampQuests.updateOne(
+      { userId: user._id, periodType: 'day', periodKey: adFreeDayKey, adFreePassesAwarded: { $gt: 0 } },
+      { $inc: { adFreePassesAwarded: -1 } }
+    ).catch(() => {});
+  };
+
   // Debit and delivery in ONE document update. See the header: without this a
   // crash between two writes charges the player and hands over nothing.
   let result;
@@ -672,6 +700,7 @@ async function handlePurchase(res, user, body, platform) {
     await User.updateOne({ _id: user._id }, extraUpdate);
     result = { applied: true, duplicate: false, insufficient: false };
   } else {
+    try {
     result = await grantStamps(
       user._id,
       -price,
@@ -694,9 +723,17 @@ async function handlePurchase(res, user, body, platform) {
         ...(isConsumable ? {} : { extraFilter: { 'cosmetics.owned': { $ne: sku } } }),
       },
     );
+    } catch (e) {
+      // A throw here never charged anyone — grantStamps' transaction rolls
+      // back — so the claimed slot must not stay burned. Release, then let
+      // the route wrapper report the failure.
+      await releaseAdFreeSlot();
+      throw e;
+    }
   }
 
   if (result.insufficient) {
+    await releaseAdFreeSlot();
     return res.status(402).json({
       error: 'insufficient_stamps',
       message: 'Not enough stamps',
@@ -724,7 +761,9 @@ async function handlePurchase(res, user, body, platform) {
 
   if (result.duplicate) {
     // Same purchaseKey already charged. This is a RETRY, not an error: return
-    // the current state so the client converges on the truth.
+    // the current state so the client converges on the truth. The original
+    // charge already claimed its cap slot, so this attempt's claim goes back.
+    await releaseAdFreeSlot();
     const state = await readFreshState(user._id);
     return res.status(200).json({ enabled: true, success: true, duplicate: true, sku, price, ...state });
   }
@@ -732,7 +771,18 @@ async function handlePurchase(res, user, body, platform) {
   if (!result.applied) {
     // Kill switch flipped between the top-of-handler check and here, or an
     // unexpected no-op. Nothing was charged.
+    await releaseAdFreeSlot();
     return res.status(500).json({ error: 'purchase_failed', message: 'Purchase could not be completed' });
+  }
+
+  if (adFreeDurationMs > 0) {
+    // Deliver the pass: additive under concurrency (see the branch above).
+    // $$NOW is the server's clock; $ifNull covers a user who has never held a
+    // pass. Racing purchases chain — each adds its full duration on top of
+    // max(now, current) — so N charges always buy N durations.
+    await User.updateOne({ _id: user._id }, [
+      { $set: { adFreeUntil: { $add: [{ $max: ['$$NOW', { $ifNull: ['$adFreeUntil', new Date(0)] }] }, adFreeDurationMs] } } }
+    ]);
   }
 
   const state = await readFreshState(user._id);

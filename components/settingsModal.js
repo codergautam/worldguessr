@@ -11,7 +11,7 @@ import ConfirmModal from './ui/Modal';
 import { signOut } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import VolumeSliders from './ui/volumeSliders';
-import { leagues } from './utils/leagues';
+import { getStrictFloor } from './utils/leagues';
 
 // Section header built ONLY from the modal's existing vocabulary:
 // .settingsModalInner gives the same indent as the option rows, the <label>
@@ -75,7 +75,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
     };
     // Voyager+ only (server enforces too): below the floor the row hides
     // entirely rather than showing a disabled tease.
-    const strictEligible = (session?.token?.elo ?? 0) >= leagues.voyager.min;
+    //
+    // getStrictFloor(), NOT leagues.voyager.min. That constant is 5,000 on the
+    // retired Season 0 scale and a v2 rating tops out near 1,600, so this row
+    // was hidden from EVERY account on the ladder — the setting silently left
+    // the product while its copy and its User field kept shipping.
+    const strictEligible = (session?.token?.elo ?? 0) >= getStrictFloor();
     const [strictInfoShown, setStrictInfoShown] = useState(false);
 
     // ── Danger Zone — account deletion (moved here from the moderation view) ──
@@ -171,7 +176,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 // var(--site-bg), not a resolved path: it carries the basePath
                 // already and it reflects a purchased background (see
                 // lib/siteBackground.js), which a literal here would not.
-                background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), var(--site-bg)',
+                // The green stop is --washChannels (styles/globals.scss) so it
+                // follows an equipped background's accent; .settingsPage is in
+                // the accent scope. Alpha and angle stay this file's own.
+                background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(var(--washChannels), 0.5) 100%), var(--site-bg)',
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -329,9 +337,9 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                                                 onClick={handleRestore}
                                                 disabled={restoring}
                                                 style={{
-                                                    background: '#2e7d32',
+                                                    background: 'var(--primary)',
                                                     color: '#fff',
-                                                    border: '2px solid #2e7d32',
+                                                    border: '2px solid var(--primary)',
                                                     borderRadius: '8px',
                                                     padding: '10px 20px',
                                                     cursor: 'pointer',

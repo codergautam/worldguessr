@@ -424,3 +424,58 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     line-height: 1.45;
     opacity: 0.8;
 }
+
+/* ── Placement match (rating v2) ────────────────────────────────────────────
+ *
+ * A new account's single seeding game. The server stamps `placement: true` on
+ * duelEnd and web read it nowhere, so the one duel that is guaranteed to be a
+ * WIN — the placement bot throws every round by design — rendered as an
+ * ordinary rating change with a signed delta.
+ *
+ * Mirrored from mobile's EloChangeDisplay (placementLabel), which had this
+ * first: same uppercase micro-label above the rating, same muted white, same
+ * wide tracking. Designed once, rendered twice — the standing parity rule.
+ */
+.elo-placement-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+/* The tier name shown INSTEAD of a delta on a placement.
+ *
+ * A placement seeds the rating from your own round scores rather than winning
+ * it off an opponent, so there is no transfer to sign. Printing "+300" would
+ * read as a colossal win bonus; printing a negative (which is what shipped,
+ * because new accounts opened at 1000 and seeds cap at 800) read as losing your
+ * first ever ranked game. The tier is the honest thing to show: where you
+ * landed. Its colour comes from the resolved league, so it is inline, not here.
+ */
+.elo-change--placement {
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    /* Overrides the tabular-nums lane above: this is a word, not a number. */
+    font-variant-numeric: normal;
+    min-width: 0;
+}
+
+/* In-match placement labelling: the VS intro and the duel timer pill both
+ * announce the seeding match by reusing .elo-placement-label's text treatment.
+ * These two rules are POSITIONING ONLY — the label look stays defined once,
+ * above. */
+.hb-vs-placement {
+    /* <p> between the VS label and the countdown: kill the UA margins, keep a
+       hair of separation from the VS above. */
+    margin: 0.2rem 0 0;
+}
+
+.timer__placement-tag {
+    /* Sits above the round-label footnote inside the pill; one step smaller
+       than the label's default so the clock stays the hero. */
+    display: block;
+    font-size: 0.6rem;
+    margin-bottom: 1px;
+}

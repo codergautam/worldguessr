@@ -31,19 +31,28 @@ export function backgroundUrlForSku(sku: string | null | undefined): string | nu
 }
 
 /**
- * The home screen's chrome colours.
+ * The MENU's chrome colours — home, settings, the shop, the profile, maps.
+ *
+ * NOT GAMEPLAY, and that is the line. This used to be home-only and named for
+ * it; the tint now reaches every menu surface a player can open, because a
+ * purple photograph under a green storefront reads as a broken skin rather than
+ * a purchase. What it still never touches is a round: the HUD, the map, the
+ * result screens and every win/loss, +XP and health colour stay WorldGuessr
+ * green, because green there means GOOD and not "this game". Web draws the same
+ * line with a named list of selectors (styles/globals.scss); here the scope is
+ * simply which files call useSiteAccent().
  *
  * READY-MADE STRINGS, NOT CHANNELS, because every consumer is a StyleSheet
  * entry rather than a CSS declaration — the alpha compositing that web does
  * with rgba() var substitution has to be done here instead, and doing it once
- * beats doing it at four call sites.
+ * beats doing it at every call site.
  *
  * THE DEFAULTS ARE THE CURRENT GREEN LITERALS, VERBATIM. With nothing equipped
  * — which is very nearly every player — every field below is byte-identical to
  * what the screens hardcoded before this existed, so the stock app renders
  * exactly as it did and an unequip needs no reset path.
  */
-export interface HomeAccent {
+export interface SiteAccent {
   /** Filled button face, and the pressed state of the translucent ones. */
   primary: string;
   /** Translucent face used on iOS, where it sits over the photograph. */
@@ -66,9 +75,26 @@ export interface HomeAccent {
   /** Footer icon buttons: the wash at 55%, and at 75% under a finger. */
   chrome: string;
   chromePressed: string;
+  /**
+   * TOP-DOWN SCRIM over SiteBackground: settings and the shop's own screen.
+   *
+   * Three stops, and they are not one colour at three alphas — it runs from the
+   * wash through a darker mix into near-black, so the photograph survives at the
+   * top of the screen and the content at the bottom stays readable. Web writes
+   * the same thing as a two-stop linear-gradient over var(--site-bg); the extra
+   * stop here is because RN has no `background:` shorthand to layer with.
+   */
+  screenWash: readonly [string, string, string];
+  /**
+   * SYMMETRIC PLATE WASH: black, the wash, black. The shop's preview stages and
+   * the maps/profile plates. Web's `rgba(0,0,0,.9), rgba(0,30,15,.8),
+   * rgba(0,0,0,.9)` idiom, which is hand-copied into ten files over there and
+   * exactly once into this field over here.
+   */
+  modalWash: readonly [string, string, string];
 }
 
-const STOCK_ACCENT: HomeAccent = {
+const STOCK_ACCENT: SiteAccent = {
   primary: '#245734',
   primaryTransparent: 'rgba(36, 87, 52, 0.85)',
   androidFlat: '#1a4423',
@@ -82,6 +108,18 @@ const STOCK_ACCENT: HomeAccent = {
   ],
   chrome: 'rgba(20, 65, 25, 0.55)',
   chromePressed: 'rgba(20, 65, 25, 0.75)',
+  // Verbatim from settings.tsx and shop.tsx, including the hand-picked middle
+  // tone rgb(6, 18, 11) that is not a scale of anything. Stock is the literal
+  // and the formula is only for cities — the same arrangement androidFlat has
+  // above, and the reason the stock app cannot drift when a formula is tuned.
+  screenWash: ['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)'],
+  // 0.9 / 0.8 / 0.9 is the value web has used for this idiom since it was
+  // written (styles/accountModal.css) and the one ProfileView and the maps tab
+  // already carried. The shop's two preview stages had drifted to 0.95 / 0.92,
+  // and they are the ones that move — by nothing anyone can see, because that
+  // gradient sits on an opaque #05070A plate and only changes how much of a
+  // near-black shows through a near-black.
+  modalWash: ['rgba(0, 0, 0, 0.9)', 'rgba(0, 30, 15, 0.8)', 'rgba(0, 0, 0, 0.9)'],
 };
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -107,7 +145,7 @@ function scale([r, g, b]: [number, number, number], by: number): string {
  * to green entirely rather than mixing a new gradient with old buttons. The
  * half-applied state is the one that looks broken.
  */
-export function homeAccentFor(sku: string | null | undefined): HomeAccent {
+export function siteAccentFor(sku: string | null | undefined): SiteAccent {
   const bg = getBackground(sku);
   if (!bg) return STOCK_ACCENT;
 
@@ -117,6 +155,10 @@ export function homeAccentFor(sku: string | null | undefined): HomeAccent {
 
   const [wr, wg, wb] = wash;
   const [sr, sg, sb] = surface;
+  // The screen scrim's middle tone. Stock hand-picked rgb(6, 18, 11) against a
+  // rgb(0, 30, 15) wash — about three fifths of it, darkened toward the black
+  // stop below. One factor, applied to whatever wash the city ships.
+  const [dr, dg, db] = [wr, wg, wb].map((n) => Math.round(n * 0.6));
   return {
     primary: `rgb(${sr}, ${sg}, ${sb})`,
     primaryTransparent: `rgba(${sr}, ${sg}, ${sb}, 0.85)`,
@@ -131,6 +173,16 @@ export function homeAccentFor(sku: string | null | undefined): HomeAccent {
     ],
     chrome: `rgba(${wr}, ${wg}, ${wb}, 0.55)`,
     chromePressed: `rgba(${wr}, ${wg}, ${wb}, 0.75)`,
+    screenWash: [
+      `rgba(${wr}, ${wg}, ${wb}, 0.62)`,
+      `rgba(${dr}, ${dg}, ${db}, 0.86)`,
+      'rgba(0, 0, 0, 0.92)',
+    ],
+    modalWash: [
+      'rgba(0, 0, 0, 0.9)',
+      `rgba(${wr}, ${wg}, ${wb}, 0.8)`,
+      'rgba(0, 0, 0, 0.9)',
+    ],
   };
 }
 

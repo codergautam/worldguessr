@@ -6,10 +6,14 @@ import {
   leagueStarterStamps,
   milestoneStamps,
   milestoneBreakdown,
+  floorTopUpStamps,
   resolvePeakElo,
   planGrants,
+  floorOnlyPlan,
   GRINDER_STAMPS_CAP,
   TOP100_BONUS_STAMPS,
+  MINIMUM_TOTAL_STAMPS,
+  LEAGUE_STARTER_STAMPS,
 } from '../scripts/grantSeason1Compensation.js';
 
 // ===========================================================================
@@ -147,6 +151,32 @@ describe('milestoneStamps', () => {
   });
 });
 
+describe('floorTopUpStamps', () => {
+  it('lifts a short earned total to the floor and never further', () => {
+    expect(MINIMUM_TOTAL_STAMPS).toBe(100);
+    expect(floorTopUpStamps(0)).toBe(100);
+    expect(floorTopUpStamps(1)).toBe(99);
+    expect(floorTopUpStamps(99)).toBe(1);
+    expect(floorTopUpStamps(100)).toBe(0);
+    expect(floorTopUpStamps(2400)).toBe(0);
+  });
+
+  it('never goes negative, whatever the earned total claims to be', () => {
+    expect(floorTopUpStamps(-500)).toBe(100);
+    expect(floorTopUpStamps(-Infinity)).toBe(100);
+  });
+
+  it('pays the FULL floor for an unusable earned total, not zero', () => {
+    // An earned total that is not a usable number reads as 0, so the account is
+    // over-paid by at most the floor rather than under-paid. Unreachable in
+    // practice (the earned total is a sum of capped integers) — this pins the
+    // direction the failure falls in.
+    expect(floorTopUpStamps(Infinity)).toBe(100);
+    expect(floorTopUpStamps(NaN)).toBe(100);
+    expect(floorTopUpStamps(undefined)).toBe(100);
+  });
+});
+
 describe('resolvePeakElo', () => {
   it('prefers the peak and falls back to the closing rating', () => {
     expect(resolvePeakElo({ seasonPeakElo: 15000, elo_s0: 12000 })).toBe(15000);
@@ -250,7 +280,10 @@ describe('planGrants — the three accounts the modal copy was written against',
     expect(maxed.stampsTotal).toBe(2400);
   });
 
-  it('returns null for an account with no rating, so run() skips it', () => {
+  it('returns null for an account with no rating, so run() falls back to the floor', () => {
+    // run() does `planGrants(u, ...) || floorOnlyPlan(u)`: nothing here can be
+    // keyed on a league or a peak that does not exist, but the account is still
+    // paid MINIMUM_TOTAL_STAMPS.
     expect(planGrants({ duels_wins: 500, created_at: utc(2020, 0, 1) })).toBe(null);
     expect(planGrants(null)).toBe(null);
     expect(planGrants(undefined)).toBe(null);
@@ -274,6 +307,104 @@ describe('planGrants — the three accounts the modal copy was written against',
 });
 
 // ===========================================================================
+// THE 100 STAMP FLOOR. Nobody leaves the migration under it.
+// ===========================================================================
+describe('the MINIMUM_TOTAL_STAMPS floor', () => {
+  it('costs nothing on an ordinary account — the league starter already clears it', () => {
+    // The Season 0 starter table's lowest tier IS the floor, and every rating
+    // resolves to a tier, so the top-up is 0 for every healthy document.
+    expect(Math.min(...Object.values(LEAGUE_STARTER_STAMPS))).toBe(MINIMUM_TOTAL_STAMPS);
+
+    const fresh = planGrants({
+      seasonPeakElo: 1000, seasonPeakLeague: 'Trekker', elo_s0: 1000,
+      duels_wins: 0, duels_losses: 0, duels_tied: 0,
+      created_at: utc(2026, 6, 20),
+    });
+    expect(fresh.earnedStamps).toBe(100);
+    expect(fresh.floorTopUpStamps).toBe(0);
+    expect(fresh.stampsTotal).toBe(100);
+  });
+
+  it('tops up the account the earned components would pay nothing', () => {
+    // An unbudgeted league name pays 0 (run() gates on it, but --allow-unknown-league
+    // exists) and 0 games pays 0 grinder and 0 milestones. Pre-floor this account
+    // received literally nothing.
+    const stranded = planGrants({
+      seasonPeakElo: 4200, seasonPeakLeague: 'Legend', elo_s0: 4200,
+      duels_wins: 0, duels_losses: 0, duels_tied: 0,
+      created_at: utc(2024, 2, 2),
+    });
+    expect(stranded.earnedStamps).toBe(0);
+    expect(stranded.floorTopUpStamps).toBe(MINIMUM_TOTAL_STAMPS);
+    expect(stranded.stampsTotal).toBe(MINIMUM_TOTAL_STAMPS);
+  });
+
+  it('tops up partially when the earned components fall short', () => {
+    const partial = planGrants({
+      seasonPeakElo: 4200, seasonPeakLeague: 'Legend', elo_s0: 4200,
+      duels_wins: 30, duels_losses: 30, duels_tied: 0,   // 60 games -> 12 grinder
+      created_at: utc(2024, 2, 2),
+    });
+    expect(partial.earnedStamps).toBe(12);
+    expect(partial.floorTopUpStamps).toBe(88);
+    expect(partial.stampsTotal).toBe(MINIMUM_TOTAL_STAMPS);
+  });
+
+  it('never tops up an account that already clears the floor', () => {
+    const veteran = planGrants({
+      seasonPeakElo: 20000, seasonPeakLeague: 'Nomad', elo_s0: 20000,
+      duels_wins: 3000, duels_losses: 1500, duels_tied: 500,
+      created_at: utc(2021, 0, 1),
+    }, { isTop100: true });
+    expect(veteran.floorTopUpStamps).toBe(0);
+    expect(veteran.stampsTotal).toBe(2400);  // the cap is unmoved by the floor
+  });
+
+  it('holds for every combination of league, games and top-100 status', () => {
+    const LEAGUES = ['Trekker', 'Explorer', 'Voyager', 'Nomad', 'Legend', null, undefined, ''];
+    const GAMES = [0, 1, 4, 99, 100, 499, 5000, 1e9];
+    for (const league of LEAGUES) {
+      for (const games of GAMES) {
+        for (const isTop100 of [false, true]) {
+          const plan = planGrants({
+            seasonPeakElo: 1500, elo_s0: 1500, seasonPeakLeague: league,
+            duels_wins: games, duels_losses: 0, duels_tied: 0,
+            created_at: utc(2023, 0, 1),
+          }, { isTop100 });
+          expect(plan.stampsTotal, `${league}/${games}/${isTop100}`)
+            .toBeGreaterThanOrEqual(MINIMUM_TOTAL_STAMPS);
+          expect(plan.stampsTotal).toBe(plan.earnedStamps + plan.floorTopUpStamps);
+        }
+      }
+    }
+  });
+
+  it('pays the floor, and only the floor, to an account with no usable rating', () => {
+    const plan = floorOnlyPlan({ duels_wins: 500, created_at: utc(2020, 0, 1) });
+    expect(plan.noRating).toBe(true);
+    expect(plan.stampsTotal).toBe(MINIMUM_TOTAL_STAMPS);
+    expect(plan.floorTopUpStamps).toBe(MINIMUM_TOTAL_STAMPS);
+    // Every earned component is 0 — a 0 writes no ledger row and burns no
+    // idempotency key, so a later run against a repaired document pays them in full.
+    expect(plan.earnedStamps).toBe(0);
+    expect(plan.grinderStamps).toBe(0);
+    expect(plan.leagueStarterStamps).toBe(0);
+    expect(plan.milestoneStamps).toBe(0);
+    expect(plan.milestones).toEqual([]);
+    // The OG badge is created_at only and never depended on a rating.
+    expect(plan.ogAccount).toBe(true);
+  });
+
+  it('survives a garbage document rather than skipping the payout', () => {
+    for (const doc of [null, undefined, {}, { duels_wins: NaN }, { created_at: 'nope' }]) {
+      const plan = floorOnlyPlan(doc);
+      expect(plan.stampsTotal).toBe(MINIMUM_TOTAL_STAMPS);
+      expect(Number.isInteger(plan.games)).toBe(true);
+    }
+  });
+});
+
+// ===========================================================================
 // TOTALITY. The block that must never be relaxed.
 // ===========================================================================
 describe('every calculator is total over garbage input', () => {
@@ -287,6 +418,7 @@ describe('every calculator is total over garbage input', () => {
     grinderStamps,
     leagueStarterStamps,
     milestoneStamps,
+    floorTopUpStamps,
   };
 
   for (const [name, fn] of Object.entries(CALCULATORS)) {
@@ -315,6 +447,7 @@ describe('every calculator is total over garbage input', () => {
       expect(grinderStamps(value)).toBeLessThanOrEqual(GRINDER_STAMPS_CAP);
       expect(milestoneStamps(value)).toBeLessThanOrEqual(600);
       expect(leagueStarterStamps(value)).toBeLessThanOrEqual(500);
+      expect(floorTopUpStamps(value)).toBeLessThanOrEqual(MINIMUM_TOTAL_STAMPS);
     }
   });
 

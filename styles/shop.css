@@ -100,10 +100,35 @@
  * still ONE number to turn: 0.62 puts the digits' cap height at roughly the
  * stamp's inner panel, and the unit label ("STAMPS", "ELO"-style chrome) sits
  * at 0.36 so it stays subordinate to the figure it labels. */
+/* THE ONE EXCEPTION, AND IT IS A CONTROL, NOT A SURFACE. Everything above is
+ * about DISPLAYING a balance — a wallet, a tile, a receipt — and those grew to
+ * hold the mark. A card's buy button is not displaying anything: it is the same
+ * control as the Equip button on the card beside it, and those two sit on one
+ * bottom-anchored baseline across a grid row. At the full mark the buy button
+ * ran 63px tall against Equip's 32px, so a row that mixed owned and unowned
+ * cards had two different buttons in it. "Grow the surface" cannot apply here —
+ * the surface is a 13px pill and growing it means growing Equip, Owned and the
+ * sign-in stub to match a currency mark none of them carry.
+ *
+ * SO IT IS STILL ONE NUMBER, just a second one, and everything in the action row
+ * derives from it exactly like the block above: the digits at the same 0.62 so
+ * the price lands at ~13.6px, which is the 0.82rem the word "Equip" beside it
+ * already runs at, and the button's own min-height so buy and equip come out
+ * identical whatever this is set to.
+ *
+ * THERE IS A SECOND EXCEPTION AND IT IS THE LAST ONE: the home HUD corner's
+ * .stampsTile (styles/playerCard.css) re-derives both tokens on itself, because
+ * that corner is the one surface that CANNOT grow — it hangs under a fluid
+ * player card, and at 45px the balance rendered larger than the player's own
+ * name. It is not a third number: it is this pair of ratios pointed at
+ * --pcardName instead of at a constant, and it is documented in full there.
+ * Everything else that cannot hold 45px should still grow instead. */
 :root {
     --stampMarkSize: 45px;
     --stampValueSize: calc(var(--stampMarkSize) * 0.62);
     --stampUnitSize: calc(var(--stampMarkSize) * 0.36);
+    --stampMarkSizeBtn: 22px;
+    --stampValueSizeBtn: calc(var(--stampMarkSizeBtn) * 0.62);
 }
 
 .stampMark {
@@ -149,10 +174,73 @@
     --shopRaise: #0f2417;
     /* Two steps down: preview stages. The recess the product sits in. */
     --shopWell: #030a06;
-    /* The hairline that does the work a gradient edge used to fake. */
-    --shopLine: rgba(255, 255, 255, 0.08);
-    /* Hover / emphasis only. Never a resting border. */
-    --shopLineHi: rgba(255, 255, 255, 0.2);
+    /* --shopLine and --shopLineHi ARE DELETED. They were the hairline system —
+       a 1px ring on every card, wheel, stage seam and toolbar edge — and the
+       owner vetoed the whole species ("too many borders, too much AI slop").
+       The three tones above are the entire elevation model now: a surface is
+       what it is because of the step it sits on, not because of a line drawn
+       around it. The only strokes left in this file are STATE (equipped green,
+       won gold, refused red) and the site's own button recipes. */
+}
+
+/* --------------------------------------------------------------------------
+ *  ...AND THE GROUND FOLLOWS AN EQUIPPED BACKGROUND, because on THIS screen the
+ *  ground is the thing.
+ *
+ *  Retinting the buttons and the frame was not enough here and it is worth
+ *  saying why: everywhere else on the site the accent's job is the chrome laid
+ *  over a photograph, and the panel underneath is incidental. The shop has no
+ *  photograph — it is an opaque plate covering the viewport (see THE PLATE
+ *  below), so its three panel tones ARE the screen. Leaving them at the green
+ *  above meant buying the New York background, opening the shop to look at what
+ *  you bought, and finding the one screen in the game that had not changed.
+ *
+ *  THE FACTORS ARE AGAINST THE WASH TONE, not against these hexes. --shopBg is
+ *  0.33 of rgb(20, 65, 25), --shopRaise 0.55, --shopWell 0.15 — run the stock
+ *  green through those and you land within a couple of points of the three
+ *  literals above on the channels that carry the colour. So this is the same
+ *  ladder it always was, re-derived rather than re-picked, and a city gets its
+ *  own version of the exact relationship green already had.
+ *
+ *  IT IS TWO TOKENS PER TONE, AND THAT IS LOAD-BEARING. The obvious version of
+ *  this — one declaration reading `var(--accWashR)` with no fallback, expecting
+ *  it to "go invalid and inherit the literal" — SHIPPED AND MADE THE STOCK SHOP
+ *  TRANSPARENT. That is not what invalid means here:
+ *
+ *    a custom property whose value contains an unresolvable var() becomes the
+ *    GUARANTEED-INVALID VALUE. It does not fall back to the inherited value; it
+ *    SHADOWS it. `background: var(--shopBg)` then has nothing to substitute, so
+ *    `background` is invalid at computed-value time, and background is NOT an
+ *    inherited property — it computes to its initial value, `transparent`.
+ *
+ *  So the guaranteed-invalid value has to be caught by a var() FALLBACK, which
+ *  is the one place it does the useful thing. --shopXTint goes guaranteed-invalid
+ *  with nothing equipped; `var(--shopXTint, <literal>)` sees that and hands back
+ *  the literal, EXACTLY, byte for byte. Equipped, the tint resolves and wins.
+ *  There is no third state where a formula quietly approximates a colour
+ *  somebody chose by hand — the same all-or-nothing rule lib/siteBackground.js
+ *  applies to the palette itself.
+ *
+ *  Do NOT "simplify" this back to one declaration, and do not add a fallback to
+ *  the --accWash* references: either change silently swaps the hand-picked
+ *  greens for the formula's approximation of them on every stock shop.
+ *
+ *  BOTH SELECTORS, because the plate is ui/Modal's dialog node and therefore an
+ *  ANCESTOR of .shop — a custom property declared on .shop cannot reach it.
+ * ----------------------------------------------------------------------- */
+.shop,
+.modal-backdrop .modal:has(>.modal-content>.shop) {
+    --shopBgTint: rgb(calc(var(--accWashR) * 0.33), calc(var(--accWashG) * 0.33), calc(var(--accWashB) * 0.33));
+    --shopRaiseTint: rgb(calc(var(--accWashR) * 0.55), calc(var(--accWashG) * 0.55), calc(var(--accWashB) * 0.55));
+    --shopWellTint: rgb(calc(var(--accWashR) * 0.15), calc(var(--accWashG) * 0.15), calc(var(--accWashB) * 0.15));
+
+    /* The literals are repeated here rather than read off :root because a
+       var() fallback cannot itself be a var() to the property being declared —
+       `var(--shopBg, var(--shopBg))` is a cycle. They are asserted equal to the
+       :root pair by test/backgroundAccent.test.js so the two cannot drift. */
+    --shopBg: var(--shopBgTint, #06160e);
+    --shopRaise: var(--shopRaiseTint, #0f2417);
+    --shopWell: var(--shopWellTint, #030a06);
 }
 
 /* --- Account-modal header group ----------------------------------------
@@ -196,7 +284,7 @@
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.35),
-        0 4px 12px rgba(36, 87, 52, 0.3),
+        0 4px 12px rgba(var(--surfChannels), 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
     transition: border-color 0.2s ease, transform 0.2s ease;
 }
@@ -213,11 +301,12 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Sentence case, as the locale wrote it. The uppercase + tracked-out treatment
+   this row wore (and every micro-label in this file wore with it) is the house
+   style of nobody's product in particular — the owner named it as the tell. */
 .wallet__unit {
     font-size: var(--stampUnitSize);
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
     color: rgba(255, 255, 255, 0.62);
 }
 
@@ -227,6 +316,8 @@
    header (beside the balance chip) and in the storefront's sticky bar, which
    are the two places that are on screen the whole time their surface is open.
    Neither is a second subtree that ticks on its own. */
+/* The gold TINT is the pill — no 1px gold ring around it. The fill steps up to
+   carry the edge the stroke used to fake. */
 .wallet__adfree,
 .shopRail__adfree {
     display: inline-flex;
@@ -235,16 +326,13 @@
     gap: 6px;
     padding: 5px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 215, 0, 0.35);
-    background: rgba(255, 215, 0, 0.08);
+    background: rgba(255, 215, 0, 0.14);
     white-space: nowrap;
 }
 
 .wallet__adfreeLabel {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
     color: #ffd700;
 }
 
@@ -469,7 +557,7 @@
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.35),
-        0 4px 12px rgba(36, 87, 52, 0.3),
+        0 4px 12px rgba(var(--surfChannels), 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
@@ -493,8 +581,6 @@
 .shopWallet__unit {
     font-size: var(--stampUnitSize);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.11em;
     color: rgba(255, 255, 255, 0.7);
 }
 
@@ -526,9 +612,10 @@
     width: max-content;
     max-width: min(260px, 68vw);
     padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
     background: linear-gradient(165deg, rgba(20, 32, 20, 0.97), rgba(9, 16, 9, 0.98));
+    /* The shadow alone lifts it off the cards — the hairline it wore on top of
+       one was the double-signal habit this file is being cured of. */
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
     text-align: left;
     /* The pill's own text-shadow and letter-spacing are for two words at 1.55rem
@@ -627,7 +714,7 @@
     border-color: var(--primary);
     color: #fff;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    box-shadow: 0 4px 15px rgba(36, 87, 52, 0.3);
+    box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
 }
 
 .shopNav__count {
@@ -689,40 +776,32 @@
     margin-bottom: 0;
 }
 
+/* The end-of-shelves marker the rail's scroll-spy observes. One pixel, not
+   zero: a zero-area target's intersection is edge-case territory across
+   engines, and one hairline at the very bottom of the last shelf costs nothing.
+   It must stay the LAST child of .shopMain or it stops meaning "the end". */
+.shopEnd {
+    height: 1px;
+}
+
 /* Title, then one line of what-this-is, then the divider. A COLUMN now: it was
    a row because the only thing beside the title was a count pill. */
+/* NO RULE UNDER IT, IN EITHER COLOUR. The white hairline was called
+   generic-dialog furniture and replaced with a --primary one; the owner then
+   called the line itself the furniture ("remove the hr, it just looks bad"),
+   whatever it was painted with. The subtitle went in the same ruling. What
+   separates one shelf from the next is the heading's own weight and the air
+   around it — type and space, no stroke. */
 .shopSection__head {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-bottom: 8px;
-    padding-bottom: 7px;
-    /* GREEN, because a shelf heading is structure and structure in this game is
-       --primary. A white hairline under every section was the last piece of
-       generic-dialog furniture left on the page: correct for the account modal's
-       header, which sits on a --primary-framed nothing, and wrong here, where it
-       was the only line on a green panel with no green in it. */
-    border-bottom: 1px solid var(--primary);
+    margin-bottom: 10px;
 }
 
 .shopSection__title {
     margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: 1.35rem;
+    font-weight: 700;
     color: #fff;
-    letter-spacing: 0.01em;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Subordinate to the heading and clearly not a card: same muted grey the notes
-   in this file already use, and it wraps rather than truncating, because a
-   locale that needs two lines to say what a pin is should get two lines. */
-.shopSection__desc {
-    margin: 0;
-    max-width: 70ch;
-    font-size: 0.8rem;
-    line-height: 1.45;
-    color: rgba(255, 255, 255, 0.6);
 }
 
 /* --------------------------------------------------------------------------
@@ -738,8 +817,7 @@
     margin-bottom: 12px;
     padding: 12px;
     border-radius: 14px;
-    border: 1px solid var(--shopLine);
-    /* Raised, like the cards below it. */
+    /* Raised, like the cards below it — the tone step IS the outline. */
     background: var(--shopRaise);
 }
 
@@ -753,11 +831,9 @@
 
 .shop__wheelTitle {
     margin: 0;
-    font-size: 0.72rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(255, 255, 255, 0.62);
+    color: rgba(255, 255, 255, 0.72);
 }
 
 /* Quiet and deliberately NOT a green button: restoring the stock arrangement is
@@ -766,8 +842,7 @@
 .shop__wheelReset {
     flex-shrink: 0;
     padding: 5px 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.14);
     border-radius: 25px;
     color: rgba(255, 255, 255, 0.86);
     font-family: inherit;
@@ -806,7 +881,6 @@
     width: max-content;
     padding: 10px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.42);
 }
 
@@ -848,13 +922,13 @@
 
 /* A HOLE YOU CAN SEE, and that is the point of drawing all twelve: a new
    account has four of them, so the wheel says "there is room here" without a
-   line of copy. Dashed and dim so it never reads as an emote you cannot make
-   out. */
+   line of copy. Dim, recessed below its filled neighbours, with the ＋ as the
+   sign — the dashed outline it wore was the stock "empty state" cliché and the
+   glyph was already saying it. */
 .shop__cell--empty {
     font-size: 1.05rem;
     color: rgba(255, 255, 255, 0.45);
     background: rgba(255, 255, 255, 0.03);
-    border: 1px dashed rgba(255, 255, 255, 0.22);
 }
 
 /* THE REMOVE VERB, SAID BEFORE THE CLICK. A filled cell removes what is in it,
@@ -1000,7 +1074,12 @@
      emote   one glyph; stretched wide it looks silly
      pass    a big number and two short lines */
 .shop__grid--glow {
-    --shopCardMin: 230px;
+    /* 230 -> 210: with the stage flattened to 3/1 the cards run shorter, and a
+       narrower minimum packs one more column onto a desktop modal — the two
+       changes together are what "compact" means for this shelf. The name still
+       fits: 11 characters at 1.6rem is ~130px against ~178px of text room at
+       the tightest point. */
+    --shopCardMin: 210px;
 }
 
 .shop__grid--background {
@@ -1045,14 +1124,17 @@
 .shopCard {
     display: flex;
     flex-direction: column;
-    /* Positioning context for the purchase ribbon and the gold sweep below.
-       Safe to add: `overflow: hidden` is already here so nothing new can escape
-       the card, and the only absolutely-positioned descendant in this file
-       (.shopPrev__motion) sits inside .shopPrev--glow, which is relative and
-       closer — so no existing element changes what it anchors to. */
+    /* Positioning context for the purchase effects and the fail strip.
+       `overflow: hidden` is already here so nothing positioned can escape the
+       card. */
     position: relative;
     background: var(--shopRaise);
-    border: 2px solid var(--shopLine);
+    /* TRANSPARENT AT REST. The width is reserved so the state frames below
+       (equipped green, won gold, refused red) can land without moving a pixel
+       of layout — but a resting card draws NO outline. Tone against --shopBg
+       is what makes it a card; the grey ring every card used to wear was the
+       border-around-everything habit the owner vetoed by name. */
+    border: 2px solid transparent;
     border-radius: 16px;
     overflow: hidden;
     /* TIGHT, NOT BLOOMED. The 22px spread this replaced was invisible on one
@@ -1069,13 +1151,15 @@
 
 .shopCard:hover {
     transform: translateY(-2px);
-    border-color: var(--shopLineHi);
-    /* The lift is 2px, so the shadow it casts grows by 2px. Nothing else. */
+    /* The lift is 2px, so the shadow it casts grows by 2px. Nothing else — no
+       border brightening; motion and shadow are the whole hover. */
     box-shadow: 0 5px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* The one green frame in the grid, and it stays 2px like every other card's so
-   equipping does not resize anything. */
+/* THE ONE FRAME A RESTING GRID SHOWS, and the reason every card reserves a
+   transparent 2px: the green lands in the reserved slot, so equipping does not
+   resize anything. A frame that appears only when it MEANS something is the
+   deal that let every other frame in this file go. */
 .shopCard--equipped {
     border-color: #4ade80;
 }
@@ -1296,7 +1380,6 @@
     margin: 0;
     padding: 10px 12px;
     background: rgba(38, 10, 13, 0.97);
-    border-top: 1px solid rgba(220, 53, 69, 0.5);
     color: #f8a7ad;
     font-size: 0.76rem;
     line-height: 1.35;
@@ -1525,17 +1608,23 @@
 .shopCard__was {
     color: rgba(255, 255, 255, 0.55);
     font-weight: 500;
-    /* The old price is a stamps figure too, but a SUBORDINATE one: it rides at
-       the unit label's size so it cannot compete with the number you actually
-       pay, sitting right beside it. */
-    font-size: var(--stampUnitSize);
+    /* The old price is a stamps figure too, but a SUBORDINATE one, so it rides
+       BELOW the number you actually pay, sitting right beside it. It is derived
+       from the action row's mark like everything else in this button — NOT from
+       --stampUnitSize, which is 0.36 of the 45px mark and would now render this
+       LARGER than the price it is subordinate to. 0.5 rather than 0.36 because
+       that ratio was tuned to keep a unit label quiet next to 28px digits; at
+       these sizes it collapses to 8px and stops being readable at all. */
+    font-size: calc(var(--stampMarkSizeBtn) * 0.5);
 }
 
 /* No .shopCard__mark, and no CSS restatement of the currency mark either. Every
-   surface renders the same <StampMark> at the same --stampMarkSize (see the top
-   of this file), so there is one drawing, one size, and nothing to keep in
-   sync. Do not reintroduce a per-surface size class or a background-image seal
-   here. */
+   surface renders the same <StampMark>, so there is one drawing and nothing to
+   keep in sync. The card's ACTION ROW is sized down (--stampMarkSizeBtn, applied
+   by the `.shopCard__btn .stampMark` rule further down), because a buy button
+   has to match the Equip button beside it — but that is the whole exception, it
+   is one rule, and it is still a token rather than a number. Do not add a
+   per-card size class or a background-image seal here. */
 
 .shopCard__ownedTag {
     font-size: 0.8rem;
@@ -1555,6 +1644,22 @@
 .shopCard__ownedTag,
 .shopCard__tag {
     margin-top: auto;
+}
+
+/* AND IT IS ONE HEIGHT WHICHEVER SHAPE IT TAKES. The buy button is the only
+   member of this row carrying a picture, so without a floor it is as tall as the
+   currency mark while Equip is as tall as its word — two visibly different
+   controls sitting on that one baseline, and on the emote shelf they are
+   literally side by side (an unowned emote shows the buy button, the card next
+   to it shows the on-wheel pill). The floor is what the buy button needs and
+   every wordy variant grows into it: the action row's mark plus this row's own
+   vertical chrome, 7px of padding twice and 2px of border twice. box-sizing is
+   border-box site-wide (globals.scss), so that is the whole box.
+   .shopCard__ownedTag is left out on purpose — it is bare text, not a pill, and
+   an inline span ignores min-height anyway. */
+.shopCard__btn,
+.shopCard__tag {
+    min-height: calc(var(--stampMarkSizeBtn) + 18px);
 }
 
 /* --------------------------------------------------------------------------
@@ -1625,22 +1730,20 @@
    in the wheel are drawing, which is the whole point — that hole and this card
    are the two ends of one gesture. */
 .shopCard__tag--add {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.16);
     color: #fff;
 }
 
 .shopCard:hover .shopCard__tag--add {
-    background: rgba(74, 222, 128, 0.2);
-    border-color: rgba(74, 222, 128, 0.55);
+    background: rgba(74, 222, 128, 0.24);
     color: #dcfce7;
 }
 
 /* On the wheel: the state, in the light blue every "already on" control in this
-   file wears. */
+   file wears. The fills carry these pills alone — colour IS the state, and a
+   matching ring around a matching fill was the same fact said twice. */
 .shopCard__tag--on {
-    background: rgba(112, 112, 255, 0.2);
-    border-color: rgba(112, 112, 255, 0.55);
+    background: rgba(112, 112, 255, 0.24);
     color: #b6b6ff;
 }
 
@@ -1662,8 +1765,7 @@
 
 .shopCard:hover .shopCard__tag--on,
 .shopCard:focus-within .shopCard__tag--on {
-    background: rgba(220, 53, 69, 0.22);
-    border-color: rgba(220, 53, 69, 0.55);
+    background: rgba(220, 53, 69, 0.28);
     color: #ff8a94;
 }
 
@@ -1683,8 +1785,10 @@
     justify-content: center;
     gap: 6px;
     padding: 7px 12px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.16);
+    /* Reserved, transparent: buy and equip paint their own 2px site-recipe
+       frames over it, and the neutral variants ride on fill alone. */
+    border: 1px solid transparent;
     border-radius: 10px;
     color: #fff;
     font-family: inherit;
@@ -1703,15 +1807,28 @@
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* THE PRICE IS A STAMPS FIGURE, so it is sized like every other stamps figure
-   (--stampValueSize) rather than like the button label it shares a class with.
-   Buy is the only .shopCard__btn variant carrying a mark — Equip, Owned and the
-   sign-in stub are words, and words stay at the button's own 0.82rem. */
+/* THE PRICE IS A STAMPS FIGURE, so it is sized against the mark it sits beside
+   rather than set by hand — but it is the ACTION ROW's mark, so the pair here is
+   --stampMarkSizeBtn / --stampValueSizeBtn (see the top of this file for why the
+   action row is the one place with its own number). That lands the price within
+   half a pixel of the 0.82rem the word "Equip" runs at on the card next to it,
+   which is the point: same control, same weight of type, one baseline. Buy is
+   the only variant carrying a mark — Equip, Owned and the sign-in stub are
+   words, and words stay at the button's own 0.82rem. */
 .shopCard__btn--buy {
     background: var(--gradGreenBtn);
     border: 2px solid var(--primary);
-    font-size: var(--stampValueSize);
+    font-size: var(--stampValueSizeBtn);
     font-weight: 700;
+}
+
+/* The mark inside the action row, and ONLY inside it. Scoped to the button so
+   the wallet, the home tile and the receipt keep the full --stampMarkSize; this
+   is the exception documented at the top of the file, not a new per-surface
+   sizing habit. */
+.shopCard__btn .stampMark {
+    width: var(--stampMarkSizeBtn);
+    height: var(--stampMarkSizeBtn);
 }
 
 /* The background HAS to be restated on hover. `.shopCard__btn:hover:not(:disabled)`
@@ -1719,7 +1836,7 @@
    generic translucent white the moment the pointer lands on it. */
 .shopCard__btn--buy:hover:not(:disabled) {
     background: var(--gradGreenBtn);
-    box-shadow: 0 4px 12px rgba(36, 87, 52, 0.4);
+    box-shadow: 0 4px 12px rgba(var(--surfChannels), 0.4);
 }
 
 /* EQUIP IS BLUE, EQUIPPED IS LIGHT BLUE.
@@ -1756,8 +1873,7 @@
 }
 
 .shopCard__btn--on {
-    background: rgba(112, 112, 255, 0.2);
-    border-color: rgba(112, 112, 255, 0.55);
+    background: rgba(112, 112, 255, 0.24);
     color: #b6b6ff;
 }
 
@@ -1766,8 +1882,7 @@
    `.shopCard__btn:hover:not(:disabled)` above is 0-3-0 and would otherwise wash
    the blue out to generic white. */
 .shopCard__btn--on:hover:not(:disabled) {
-    background: rgba(112, 112, 255, 0.32);
-    border-color: rgba(112, 112, 255, 0.8);
+    background: rgba(112, 112, 255, 0.34);
     color: #d2d2ff;
 }
 
@@ -1788,7 +1903,7 @@
  * Same 0-2-0 specificity as the rule above, so it must stay BELOW it. */
 .shopCard__btn--buy:disabled {
     background: rgba(255, 255, 255, 0.07);
-    border-color: rgba(255, 255, 255, 0.16);
+    border-color: transparent;
     box-shadow: none;
     opacity: 0.78;
 }
@@ -1823,22 +1938,29 @@
     aspect-ratio: 16 / 9;
     overflow: hidden;
     background: var(--shopWell);
-    /* Where the recess ends and the caption begins. 1px, and it is the same
-       hairline the sections and the cards use. */
-    border-bottom: 1px solid var(--shopLine);
+    /* No rule where the recess meets the caption: the well is two tone steps
+       darker than the card and the boundary draws itself. */
 }
 
 /* .shopPrev--empty and .shopPrev--skeleton no longer need a rule of their own:
    an empty stage IS the well, and the skeleton's whole job is to reserve the
    exact box the real preview will paint. They used to be a fourth flat black. */
 
-/* ONE STAGE SHAPE, 16/9, FOR EVERY CATEGORY — and therefore no placeholder
-   maths at all. Glows used to opt out of the aspect ratio and take a fixed
-   pixel height instead, in two sizes (static and "featured"), each restated at
-   the phone breakpoint, with two matching skeleton rules so the lazy mount
-   reserved the same box: six numbers to keep in step for one shelf. A ratio
-   does the job on its own, at every width, because the placeholder and the real
-   stage derive their height from the SAME card width. */
+/* ONE STAGE SHAPE, 16/9 — with ONE exception, and it is not the six-number
+   kind that got the last exception deleted. A 16/9 box around one line of
+   glowing text is mostly air, and the owner called the section on it ("name
+   glows section is too big"). The glow slot below overrides the ratio ONCE,
+   scoped to .shopPrevSlot--glow, which contains the skeleton AND the live
+   stage — so the placeholder cannot disagree with what lands in it, which is
+   the property the 16/9 rule actually existed to protect. */
+.shopPrevSlot--glow .shopPrev {
+    aspect-ratio: 3 / 1;
+    /* The floor is halo arithmetic, not taste: the widest radius in
+       styles/nameGlow.css is 32px, measured from glyphs that stand ~12px above
+       centre at 1.6rem — 44px of clearance either side of the midline, plus
+       margin for the ratio to give back on wide cards. */
+    min-height: 96px;
+}
 
 /* --- GLOW -----------------------------------------------------------------
    THE STAGE IS THE PRODUCT, AND THERE IS NOW ONE OF IT, AND IT IS BLACK.
@@ -1877,11 +1999,21 @@
    name, which still leaves ~45px of black on each side of the line box: past
    the 32px widest radius in styles/nameGlow.css, so the bloom lands in black
    rather than shearing at an edge. Everything above that width has more. */
+/* THE GLOW STAGE IS NO STAGE AT ALL. Every other category previews an OBJECT
+   (a pin, a photo, a glyph) and an object sits in a recessed well; a glow is
+   LIGHT, and light in a box looks like a specimen in a jar — the boxed-in
+   name plus the little "Animated" badge in its corner is exactly the framed-
+   and-labelled museum layout the owner threw out. The name now floats
+   directly on the card's own surface, a size up, and the moving ones sell
+   themselves by moving. The box keeps the shared 16/9 ratio so the grid rows
+   and the lazy-mount placeholders still reserve the same height as every
+   other shelf — only the paint is gone. */
 .shopPrev--glow {
     position: relative;
     display: grid;
     place-items: center;
     padding: 14px 16px;
+    background: transparent;
 }
 
 /* TYPOGRAPHY ONLY. The truncation and the 34px of halo clip relief that used to
@@ -1911,9 +2043,10 @@
    The narrowest card any shelf produces clears that (see .shopPrev--glow). */
 .shopPrev__name {
     max-width: 100%;
-    font-size: 1.3rem;
+    /* A size up from the 1.3rem it ran at inside the deleted well: with no box
+       around it the specimen IS the display, and it earns display size. */
+    font-size: 1.6rem;
     font-weight: 700;
-    letter-spacing: 0.015em;
     line-height: 1.2;
     color: #fff;
 }
@@ -1924,48 +2057,12 @@
    COLOURS are not deleted and are not this stylesheet's to delete: see the
    .shopPrev--glow comment above. */
 
-/* "This one moves", and this is the ONLY place a card says it — the body used
-   to print "Animated" a second time in the price row. It says it in words
-   rather than leaving it to the movement for two reasons: the eye needs a beat
-   to catch a 2.6s breath, and under prefers-reduced-motion nothing moves at all.
-
-   Parked in the stage's top-right corner, out of flow, so no locale can grow it
-   into the name. Shape is .wallet__adfree's gold pill, scaled down: same border
-   alpha, same fill alpha, same 999px radius. Nothing new is invented for it. */
-.shopPrev__motion {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    max-width: calc(100% - 20px);
-    padding: 3px 9px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 215, 0, 0.35);
-    background: rgba(255, 215, 0, 0.08);
-    color: #ffd700;
-    font-size: 0.58rem;
-    font-weight: 600;
-    line-height: 1.2;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-    overflow: hidden;
-}
-
-/* Static, and staying static. Four live previews already run a keyframed
-   text-shadow each; a fifth animation per card for a decorative blink is not
-   a trade this storefront makes. */
-.shopPrev__motionDot {
-    width: 5px;
-    height: 5px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: #ffd700;
-    box-shadow: 0 0 6px rgba(255, 215, 0, 0.85);
-}
+/* THE MOTION CHIP (.shopPrev__motion + its dot) IS DELETED — the gold
+   "Animated" micro-pill that sat in every animated glow's corner. The owner
+   called it complete AI slop, and the defence it shipped with ("the eye needs
+   a beat to catch a 2.6s breath") was the badge explaining why it was
+   restating the picture. An animated glow announces itself by MOVING; the
+   markup went from components/shop/ItemPreview.js in the same pass. */
 
 .shopPrev--bg img {
     width: 100%;
@@ -2018,9 +2115,7 @@
 }
 
 .shopPrev__passUnit {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
+    font-size: 0.74rem;
     color: rgba(255, 255, 255, 0.62);
 }
 
@@ -2040,8 +2135,7 @@
     margin-top: 6px;
     padding: 2px 9px;
     border-radius: 999px;
-    border: 1px solid rgba(255, 215, 0, 0.35);
-    background: rgba(255, 215, 0, 0.1);
+    background: rgba(255, 215, 0, 0.14);
     font-size: 0.72rem;
     font-weight: 600;
     color: #ffd700;
@@ -2108,9 +2202,9 @@
            cards pass UNDERNEATH this bar, so any translucency drags them
            through it. */
         background: var(--shopBg);
-        border-bottom: 1px solid var(--shopLine);
         /* Only visible while a card is passing beneath, which is the one moment
-           the bar has to say it is above something. */
+           the bar has to say it is above something — the shadow is the whole
+           edge; the hairline it doubled up with is gone. */
         box-shadow: 0 8px 14px -10px rgba(0, 0, 0, 0.9);
     }
 
@@ -2167,7 +2261,6 @@
         padding: 6px 12px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.18);
         color: rgba(255, 255, 255, 0.86);
         font-size: 0.8rem;
         white-space: nowrap;
@@ -2186,7 +2279,7 @@
         background-color: var(--primaryTransparent);
         border-color: var(--primary);
         color: #fff;
-        box-shadow: 0 4px 15px rgba(36, 87, 52, 0.3);
+        box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
     }
 
     /* The count is a desktop luxury: it costs a phone chip a third of its width
@@ -2210,7 +2303,7 @@
     }
 
     .shopSection__title {
-        font-size: 0.98rem;
+        font-size: 1.15rem;
     }
 
     /* THE PHONE IS FIVE NUMBERS NOW, and they are the same five knobs the
@@ -2264,7 +2357,7 @@
     }
 
     .shopPrev__name {
-        font-size: 1.12rem;
+        font-size: 1.3rem;
     }
 
     .wallet__chip {

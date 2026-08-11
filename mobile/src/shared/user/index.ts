@@ -4,6 +4,8 @@ export {
   getActiveLeagues,
   getLeague,
   getLeagueRange,
+  getStrictFloor,
+  STRICT_TIER_NAME,
   resolveLeague,
   type League,
   type ServerLeague,

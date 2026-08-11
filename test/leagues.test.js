@@ -7,6 +7,8 @@ import {
   setLeagueConfig,
   getActiveLeagues,
   clearLeagueConfig,
+  getStrictFloor,
+  STRICT_TIER_NAME,
 } from '../components/utils/leagues.js';
 
 // setLeagueConfig installs MODULE-LEVEL state. Every suite here must hand the
@@ -194,5 +196,63 @@ describe('clearLeagueConfig', () => {
     clearLeagueConfig();
     clearLeagueConfig();
     expect(getActiveLeagues()).toBe(leaguesV2);
+  });
+});
+
+// ===========================================================================
+// getStrictFloor — the constant that killed a whole feature
+// ===========================================================================
+// "Avoid lower skill duels" gated on `leagues.voyager.min` at five call sites:
+// two in ws.js, one in web settings, one in mobile settings, and the queue
+// stamp. That constant is 5,000 on the RETIRED Season 0 scale. A v2 rating
+// tops out around 1,600, so every one of those comparisons was false for every
+// account on the ladder: the toggle was hidden on both clients, the queue entry
+// was never stamped, and the server would have refused it anyway — while the
+// User field, the wire message and the "5000+ ELO" copy all kept shipping.
+//
+// Resolving from the ACTIVE table is also what makes a seasonal re-anchor free:
+// move the tiers and the strict floor moves with them, no deploy, no release.
+describe('getStrictFloor', () => {
+  afterEach(() => clearLeagueConfig());
+
+  it('returns the Voyager floor from the live v2 table, not the retired 5000', () => {
+    expect(getStrictFloor()).toBe(leaguesV2.voyagerV2.min);
+    expect(getStrictFloor()).not.toBe(leagues.voyager.min);
+  });
+
+  it('sits inside the actual rating range, which the v1 constant did not', () => {
+    // The regression in one assertion: a floor above the top of the ladder can
+    // never be cleared, so the setting is unreachable for everybody.
+    const topOfLadder = leaguesV2.nomadV2.max;
+    expect(getStrictFloor()).toBeLessThan(topOfLadder);
+    expect(leagues.voyager.min).toBeGreaterThan(topOfLadder);
+  });
+
+  it('follows a seasonal re-anchor installed from a config doc', () => {
+    setLeagueConfig([
+      { name: 'Trekker', min: 0, max: 899 },
+      { name: 'Explorer', min: 900, max: 1099 },
+      { name: STRICT_TIER_NAME, min: 1100, max: 1399 },
+      { name: 'Nomad', min: 1400, max: 1799 },
+      { name: 'Legend', min: 1800, max: 100000 },
+    ]);
+    expect(getStrictFloor()).toBe(1100);
+  });
+
+  it('fails CLOSED on a table with no Voyager tier', () => {
+    // Infinity means "nobody is eligible, nobody is filtered". A 0 would read as
+    // "everyone is eligible", which silently turns the setting into a no-op for
+    // every player who deliberately enabled it — the worse of the two failures.
+    setLeagueConfig([
+      { name: 'Bronze', min: 0, max: 999 },
+      { name: 'Silver', min: 1000, max: 1999 },
+    ]);
+    expect(getStrictFloor()).toBe(Infinity);
+  });
+
+  it('is unaffected by a rejected config and keeps the previous table', () => {
+    const before = getStrictFloor();
+    expect(setLeagueConfig([{ name: 'Broken', min: 'nope', max: 10 }])).toBe(false);
+    expect(getStrictFloor()).toBe(before);
   });
 });

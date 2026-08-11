@@ -20,10 +20,16 @@
     left: 0;
     width: 100%;
     height: 100%;
+    /* The mid stop is --washChannels (globals.scss), not the literal
+       rgba(0, 30, 15) it used to be: this modal is inside the .account-modal
+       accent scope, so an equipped background's own wash colour lands here and
+       the plate stops being green over a purple photograph. The alpha and the
+       angle stay this file's own — the token carries the colour and nothing
+       else, which is why it is three channels rather than a finished gradient. */
     background: linear-gradient(
         135deg,
         rgba(0, 0, 0, 0.9) 0%,
-        rgba(0, 30, 15, 0.8) 50%,
+        rgba(var(--washChannels), 0.8) 50%,
         rgba(0, 0, 0, 0.9) 100%
     ),
     var(--site-bg);
@@ -173,7 +179,7 @@
 .account-nav-item.active {
     background: var(--gradGreenBtn);
     border-color: var(--primary);
-    box-shadow: 0 4px 15px rgba(36, 87, 52, 0.3);
+    box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
 }
 
 .nav-icon {
@@ -348,10 +354,14 @@
 /* Dark mode enhancements */
 @media (prefers-color-scheme: dark) {
     .account-modal-background {
+        /* Same wash token as the base rule, still darker: the black stops carry
+           the darkening (0.95 against 0.9) rather than a second hand-mixed green.
+           The mid stop used to be rgba(0, 20, 10) — the base tone at two thirds —
+           which is a value nobody could retint without knowing it existed. */
         background: linear-gradient(
             135deg,
             rgba(0, 0, 0, 0.95) 0%,
-            rgba(0, 20, 10, 0.9) 50%,
+            rgba(var(--washChannels), 0.9) 50%,
             rgba(0, 0, 0, 0.95) 100%
         ),
         var(--site-bg);

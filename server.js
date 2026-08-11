@@ -23,6 +23,7 @@ import zlib from 'zlib';
 // the handler at the bottom of this file), so an unguarded throw inside a timer
 // callback takes the whole API server down. See ws/safeTimers.js.
 import { safeInterval } from './ws/safeTimers.js';
+import { startLeagueConfigRefresh } from './serverUtils/loadLeagueConfig.js';
 const __dirname = import.meta.dirname;
 
 // Simple memory log, printed every 10s. Shows the split between JS heap and
@@ -185,6 +186,14 @@ if (!process.env.MONGODB) {
       dbEnabled = false;
     }
   }
+}
+
+// Seasonal league tiers. Every process that resolves a tier has to load these or
+// it silently disagrees with the others about who is a Voyager — this one hands
+// leagues back in API responses. Never throws; a missing or malformed doc keeps
+// the built-in table.
+if (dbEnabled) {
+  await startLeagueConfigRefresh(safeInterval, { label: 'api' });
 }
 
 
@@ -435,6 +444,28 @@ process.on('uncaughtException', (err) => {
 });
 
 // listen at port 3001 or process.env.API_PORT
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`[INFO] API Server running on port ${port}`);
 });
+
+// Graceful drain. A deploy delivers SIGTERM; without this the process died
+// mid-request, and a stamps grant killed between its balance $inc and its
+// ledger applied:true flip strands a row whose money already moved — the one
+// state the reconcile sweep cannot repair safely (see
+// serverUtils/stamps/grantStamps.js). close() refuses new connections and
+// lets in-flight requests finish; idle keep-alive sockets are closed so the
+// drain isn't held hostage by them; the timer bounds a hung request.
+let drainStarted = false;
+const drain = (signal) => {
+  if (drainStarted) return;
+  drainStarted = true;
+  console.log(`[INFO] ${signal} received — draining in-flight requests`);
+  server.close(() => process.exit(0));
+  if (server.closeIdleConnections) server.closeIdleConnections();
+  setTimeout(() => {
+    console.error('[WARN] drain timed out after 10s — exiting with requests in flight');
+    process.exit(0);
+  }, 10000).unref();
+};
+process.on('SIGTERM', () => drain('SIGTERM'));
+process.on('SIGINT', () => drain('SIGINT'));

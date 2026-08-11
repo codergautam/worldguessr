@@ -17,6 +17,11 @@
  *
  *  If a surface genuinely cannot hold it, grow the surface. Do not reintroduce
  *  a size prop: that is the thing that made this drift in the first place.
+ *
+ *  ONE PLACE SIZES IT DOWN, and it does so in CSS without a prop: a shop card's
+ *  buy button, which is a CONTROL that has to match the Equip button beside it
+ *  rather than a surface displaying a balance. That override lives next to its
+ *  own token (--stampMarkSizeBtn in styles/shop.css) and is documented there.
  * ======================================================================== */
 export default function StampMark() {
   return (

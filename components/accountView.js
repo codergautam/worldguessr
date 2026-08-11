@@ -143,13 +143,20 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
         padding: '12px 24px',
         border: 'none',
         borderRadius: '25px',
-        background: 'linear-gradient(135deg, #28a745, #20c997)',
+        // THE SITE'S GREEN BUTTON, not a Bootstrap one. This used to be a
+        // hand-picked #28a745 -> #20c997 ramp that appears nowhere else in the
+        // game, so it was both off-brand AND the one control in this modal that
+        // could not follow an equipped background's accent (the modal sits in
+        // the .account-modal scope, see styles/globals.scss). The blue "Change
+        // Flag" and orange "Forced name change" buttons beside it stay their own
+        // colours on purpose — they are contrast, not chrome.
+        background: 'var(--gradGreenBtn)',
         color: 'white',
         cursor: 'pointer',
         fontSize: '16px',
         fontWeight: '600',
         transition: 'all 0.3s ease',
-        boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)',
+        boxShadow: '0 4px 15px rgba(var(--surfChannels), 0.3)',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
         display: 'block'
@@ -224,11 +231,11 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
                                 onClick={changeName}
                                 onMouseEnter={(e) => {
                                     e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
+                                    e.target.style.boxShadow = '0 6px 20px rgba(var(--surfChannels), 0.4)';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                                    e.target.style.boxShadow = '0 4px 15px rgba(var(--surfChannels), 0.3)';
                                 }}
                             >
                                 {text("changeName")}

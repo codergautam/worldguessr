@@ -402,7 +402,16 @@ userSchema.index({ totalXp: -1 });
 userSchema.index({ elo: -1 });
 // Compound indexes for filtering banned/pending users while sorting (covers common query patterns)
 userSchema.index({ banned: 1, pendingNameChange: 1, totalXp: -1 });
-userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1 });
+// ELO board index, ESR order (equality: banned+pendingNameChange, sort: elo,
+// range: lastRankedAt). The trailing lastRankedAt exists for the ranked
+// activity window (api/leaderboard.js activeRankedFilter, live 14 days after
+// MIGRATION_AT): the top-100 walk and the "better users" count both filter on
+// it, and without it in the index every dormant high-elo account forces a
+// document fetch — at millions of users that walks past maxTimeMS(5000).
+// Every prefix query the old {banned, pendingNameChange, elo:-1} index served
+// is served identically by this one; drop the old index from the DB manually
+// (mongoose never auto-drops).
+userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1, lastRankedAt: 1 });
 
 // ===== ACCOUNT DELETION INDEXES =====
 // Background purge query: { scheduledDeletionAt: { $ne: null, $lte: now } }

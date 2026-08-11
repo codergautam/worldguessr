@@ -63,6 +63,11 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
 
   const { Icon, labelKey, titleKey } = MODES[mode] || MODES.unrankedDuel;
 
+  // A ranked queue that resolves into the placement seeding match (server
+  // follow-up `queuePlacement`). This OVERRIDES the no-eyebrow ruling above:
+  // "Placement match" is new information, not a third restatement of "ranked".
+  const isPlacement = mode === "publicDuel" && !!multiplayerState?.placementPending;
+
   const queuedAt = multiplayerState?.queuedAt;
   let elapsedStr = null;
   if (typeof queuedAt === "number") {
@@ -113,11 +118,12 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
 
         <div className="wgQueue__info">
           {/* Absent on ranked — the `gap` lives on .wgQueue__info, so dropping
-              the eyebrow leaves no stray space above the headline. */}
-          {labelKey && (
+              the eyebrow leaves no stray space above the headline. A placement
+              queue is the exception: its eyebrow announces the seeding match. */}
+          {(labelKey || isPlacement) && (
             <span className="wgQueue__mode">
               <Icon className="wgQueue__modeIcon" aria-hidden />
-              {text(labelKey)}
+              {text(isPlacement ? "placementMatch" : labelKey)}
             </span>
           )}
 
@@ -130,8 +136,11 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
           <h2 className="wgQueue__title">{text(titleKey)}...</h2>
 
           {/* One plate, one cell per value. The divider between cells is a CSS
-              sibling rule, so a single value renders with no stray edge. */}
-          {(range || etaStr) && (
+              sibling rule, so a single value renders with no stray edge.
+              Suppressed for a placement: the opponent is the placement bot, so
+              a rating range and a wait estimate are both noise — the one-line
+              explainer below is what a brand-new player actually needs. */}
+          {!isPlacement && (range || etaStr) && (
             <div className="wgQueue__data">
               {range && (
                 <div className="wgQueue__cell">
@@ -148,6 +157,10 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
                 </div>
               )}
             </div>
+          )}
+
+          {isPlacement && (
+            <p className="wgQueue__placementNote">{text("placementQueueNote")}</p>
           )}
 
           {elapsedStr && (

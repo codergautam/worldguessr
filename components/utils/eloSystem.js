@@ -74,7 +74,10 @@ export const ENTRY_RATING = 500;
 
 // Placement seeding from single-player skill: base + slope * avg round points,
 // capped so a perfect scorer still enters below the real ladder's top.
-export const SEED_BASE = 500, SEED_SLOPE = 0.06, SEED_MAX = 800;
+// Slope+cap raised Aug 2026 (user ruling): a strong placement should reach
+// low Explorer (815+) rather than every possible seed landing in Trekker.
+// Perfect 5000 avg => 900; Explorer entry at avg ~3940; avg 2500 => 700.
+export const SEED_BASE = 500, SEED_SLOPE = 0.08, SEED_MAX = 900;
 
 // A decided game must move the ladder by at least this much, otherwise a huge
 // rating gap rounds the transfer to 0 and beating a much weaker opponent (or

@@ -1,6 +1,6 @@
 import { Tooltip } from 'react-leaflet';
 import CountryFlag from './countryFlag';
-import { nameGlowShadow, GLOW_LIGHT } from './usernameWithFlag';
+import { cachedNameGlowProps, GLOW_LIGHT } from './usernameWithFlag';
 
 /* ===========================================================================
  *  Permanent "whose pin is this" label above a guess marker.
@@ -21,9 +21,23 @@ import { nameGlowShadow, GLOW_LIGHT } from './usernameWithFlag';
  *  Style notes, all load-bearing:
  *   • Leaflet's tooltip chrome is WHITE and the text is forced black, so a name
  *     glow takes the LIGHT variant — the dark neon is invisible on white.
- *   • Inline styles, never a class: the tooltip is portalled out of the React
- *     tree, and inside the mobile embed globals.scss does not exist at all
- *     (embed/build.mjs bundles JS only).
+ *   • THE FULL nameGlowProps PAIR — inline style AND className — NOT just the
+ *     shadow. This label wore `nameGlowShadow()` alone for its whole life, which
+ *     is the STATIC stack and nothing else: the @keyframes live on
+ *     `.wg-nameglow--flame|cycle|orbit` (styles/nameGlow.css) and a class is the
+ *     only way to reach them, so every animated sku sold as animated rendered
+ *     dead on every guess pin while the same purchase moved correctly two inches
+ *     away on the HUD. The reasoning that produced it was sound and the
+ *     conclusion was still wrong: the inline stack is required because no
+ *     stylesheet reaches the mobile embed, but "inline is required" was read as
+ *     "a class is forbidden". It is not — nameGlow.css is a global import
+ *     (pages/_app.js), and a Leaflet tooltip is portalled out of the REACT tree,
+ *     never out of the DOCUMENT, so a global class lands on it like any other
+ *     node. The embed now injects nameGlow.css itself (embed/entry.jsx); on any
+ *     surface that still lacks it the class is inert and the inline static halo
+ *     underneath is exactly the documented fallback.
+ *   • `ownBox: true`, because this span already IS a box (display: flex, for the
+ *     flag). The boxless `.wg-nameglow` carrier would fight it for `display`.
  *   • Children, not Leaflet's `content` option: `content` takes an HTML STRING
  *     and a username is user input, so it is an XSS hole. The first-paint
  *     half-width offset that `content` exists to avoid does not bite here —
@@ -91,6 +105,9 @@ export function guessPinLabelNode(label) {
  */
 export default function GuessPinLabel({ label, countryCode = null, nameGlow = null, big = false }) {
   if (!label) return null;
+  // Cached, not fresh: a results map draws one of these per shown player per
+  // shown round, and the props are a pure function of (sku, surface).
+  const glow = cachedNameGlowProps(nameGlow, GLOW_LIGHT, { ownBox: true });
   return (
     <Tooltip
       direction="top"
@@ -99,12 +116,16 @@ export default function GuessPinLabel({ label, countryCode = null, nameGlow = nu
       permanent
     >
       <span
+        className={glow?.className}
         style={{
           color: 'black',
           display: 'flex',
           alignItems: 'center',
           gap: '4px',
-          textShadow: nameGlowShadow(nameGlow, GLOW_LIGHT) || undefined,
+          // LAST: the glow's static text-shadow (and the two custom properties)
+          // are what the keyframes take over from. Nothing above is touched —
+          // `{...undefined}` is a no-op when no glow resolves.
+          ...glow?.style,
         }}
       >
         {label}

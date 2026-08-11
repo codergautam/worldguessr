@@ -334,9 +334,25 @@ const ANIMATED_GLOWS = [
 // Every marker sku is a real pin IMAGE (public/pins/<name>.png), authored at the
 // stock pins' 87x131 and wired up in lib/markerIcons.js + embed/shims/markerIcons.js.
 // A sku added here without its two icon entries silently falls back to the stock pin.
+//
+// PRICED BY UNIQUENESS, ASCENDING, and array order is shelf order like every
+// other section. Orange and Pink are one idea in two colours — the gold pin's
+// artwork recoloured, so every skin shares the stock geometry — and share one
+// rung just above Gold; Rainbow is that idea's one-off flex and tops the
+// ladder. The `price ?? MARKER_PRICE` fallback mirrors the backgrounds' — a
+// row with no price lands on the shelf base rather than NaN.
+//
+// "Neon Blue Pin" WAS DELETED, not repriced: the stock pin players already
+// have is a blue teardrop of the same hue, so the sku was selling the default
+// back to them. The colourways stopped being neon-tube artwork at the same
+// time (see public/pins) and their names dropped the word with it; the skus
+// keep the neon_ prefix because a sku is a stable ID, not copy.
 const MARKERS = [
-  { sku: 'marker_gold_pin', name: 'Gold Pin' },
-].map((m) => ({ ...m, type: 'marker', price: MARKER_PRICE, platforms: ['web', 'mobile'] }));
+  { sku: 'marker_gold_pin',        name: 'Gold Pin' },
+  { sku: 'marker_neon_orange_pin', name: 'Orange Pin', price: 250 },
+  { sku: 'marker_neon_pink_pin',   name: 'Pink Pin',   price: 250 },
+  { sku: 'marker_rainbow_pin',     name: 'Rainbow Pin', price: 500 },
+].map((m) => ({ ...m, type: 'marker', price: m.price ?? MARKER_PRICE, platforms: ['web', 'mobile'] }));
 
 // Purchasable emotes. sku <-> shared/emotes/catalog.js id, one to one.
 const EMOTES = [

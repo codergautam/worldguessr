@@ -23,6 +23,9 @@
  * ======================================================================== */
 import { Image, StyleProp, ImageStyle } from 'react-native';
 
+/** Intrinsic aspect of assets/stamp.png (300x349). */
+const ASPECT = 300 / 349;
+
 /** The one size, and the number every surface sizes ITSELF against. */
 export const STAMP_MARK_SIZE = 45;
 
@@ -35,14 +38,42 @@ export const STAMP_MARK_SIZE = 45;
 export const STAMP_VALUE_SIZE = Math.round(STAMP_MARK_SIZE * 0.62);
 export const STAMP_UNIT_SIZE = Math.round(STAMP_MARK_SIZE * 0.36);
 
-/** Intrinsic aspect of assets/stamp.png (300x349). */
-const ASPECT = 300 / 349;
+/* THE OVERRIDE MECHANISM, AND IT IS A STYLE, NEVER A PROP. A size prop is what
+ * let four screens each pick their own number; a style has to be built from a
+ * documented constant, and there are exactly TWO of those below. Both mirror
+ * web (styles/shop.css --stampMarkSizeBtn, styles/playerCard.css .stampsTile). */
+export function stampMarkStyle(height: number): ImageStyle {
+  return { width: height * ASPECT, height };
+}
+
+/* EXCEPTION 1 — A CONTROL, NOT A SURFACE. A shop card's buy button is the same
+ * control as the Equip button on the card beside it, and at the full mark it ran
+ * nearly twice that button's height. "Grow the surface" cannot apply: the
+ * surface is a 14px pill, and growing it means growing Equip and Owned to match
+ * a mark neither of them carries.
+ *
+ * Still ONE number for the action row, with the digits derived from it at the
+ * same 0.62 — which lands on 14, exactly the fontSizes.sm the word "Equip" runs
+ * at. */
+export const STAMP_MARK_SIZE_BTN = 22;
+export const STAMP_VALUE_SIZE_BTN = Math.round(STAMP_MARK_SIZE_BTN * 0.62);
+export const STAMP_MARK_BTN_STYLE: ImageStyle = stampMarkStyle(STAMP_MARK_SIZE_BTN);
+
+/* EXCEPTION 2 — A SURFACE THAT CANNOT GROW: the home corner's stamps tile. Its
+ * size does not live here, because it is not a constant: it is 1.5x the player
+ * card's name at whatever breakpoint the device landed on, so it lives in that
+ * card's metrics table (chipMarkSize / chipValueSize in
+ * src/components/home/PlayerCard.tsx) and is documented there. At the full 45px
+ * the balance rendered LARGER than the player's own name on a phone, on a card
+ * whose whole point is that the name leads.
+ *
+ * That is the last one. Any other surface that cannot hold 45px should grow. */
 
 export default function StampMark({ style }: { style?: StyleProp<ImageStyle> }) {
   return (
     <Image
       source={require('../../../assets/stamp.png')}
-      style={[{ width: STAMP_MARK_SIZE * ASPECT, height: STAMP_MARK_SIZE }, style]}
+      style={[stampMarkStyle(STAMP_MARK_SIZE), style]}
       resizeMode="contain"
       accessible={false}
     />

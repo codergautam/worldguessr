@@ -35,7 +35,11 @@ export default function MapsPage({ }) {
     const [searchResults, setSearchResults] = useState([]);
 
     return (
-        <div style={styles.page}>
+        // maps-page is not decoration: it is this page's membership of the accent
+        // scope in styles/globals.scss, which is what lets the --map-* palette in
+        // styles/mapModal.css follow an equipped background. The modal form of
+        // this same view gets it from .map-modal-content instead.
+        <div className="maps-page" style={styles.page}>
             <Head>
                 <title>{`${text("communityMaps")} - WorldGuessr`}</title>
                 <meta name="description" content="Browse community-made maps for WorldGuessr, a free GeoGuessr alternative. Play countries, cities and themed challenges, or create your own map." />

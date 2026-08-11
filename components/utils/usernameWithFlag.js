@@ -19,11 +19,20 @@ import { getItem } from '@/shared/shop/catalog';
  *      white leaderboard card, so the surface is an explicit argument with no
  *      "guess it" fallback.
  *
- *  The STATIC halo is always an inline style, never a class: the same recipe
- *  has to run inside the mobile embed's Leaflet tooltips, and no stylesheet
- *  reaches that bundle (embed/build.mjs bundles JS only). The classes in
+ *  The STATIC halo is always an inline style, never a class. The classes in
  *  styles/nameGlow.css do two things and only two: put the animated skus in
  *  motion, and keep the carrier the halo rides on OUT OF LAYOUT.
+ *
+ *  "INLINE IS REQUIRED" IS NOT "A CLASS IS FORBIDDEN", AND READING IT THAT WAY
+ *  COST THE ANIMATED TIER ITS MOTION ON EVERY GUESS PIN. The inline stack is
+ *  what survives where a stylesheet does not; the class is the ONLY way to reach
+ *  a @keyframes, which cannot be an inline style at all. A surface that emits
+ *  the shadow alone therefore sells an animated sku and renders it dead — which
+ *  is exactly what the Leaflet pin tooltips and popups did until they were moved
+ *  onto the nameGlowProps pair. Emit BOTH, everywhere. The class is inert where
+ *  the stylesheet is missing, and the inline halo underneath is the fallback.
+ *  (The mobile embed is no longer such a place: embed/entry.jsx injects
+ *  nameGlow.css alongside Leaflet's own.)
  * ======================================================================== */
 
 export const GLOW_DARK = 'dark';

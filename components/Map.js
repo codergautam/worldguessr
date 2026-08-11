@@ -7,7 +7,7 @@ import calcPoints, { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
-import { nameGlowShadow, GLOW_LIGHT } from './utils/usernameWithFlag';
+import { cachedNameGlowProps, GLOW_LIGHT } from './utils/usernameWithFlag';
 import { guessPinLabelNode } from './utils/guessPinLabel';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
@@ -1493,12 +1493,22 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
     if (!map) return;
     return () => { try { map.stop(); } catch {} };
   }, [map]);
-  // DEV-ONLY white-lines forensics: run __dumpMap() in the console the moment
-  // seams are visible (before the zoom-in-out cure), then again after. The
-  // diff of zoom/origin/transform/zIndex/tile counts between the two dumps
-  // names the guilty subsystem outright.
+  // Map forensics: run __dumpMap() in the console the moment something looks
+  // wrong (seams, blur, wrong camera), and again after any cure. The diff of
+  // zoom/origin/transform/zIndex/tile counts between two dumps names the
+  // guilty subsystem outright.
+  //
+  // Dev by default, plus `?mapdebug=1` anywhere: these bugs surface during real
+  // multiplayer play on prod, which is the one place a dev-only tool can never
+  // reach. Opt-in per URL, same pattern the (since-removed) ?pinprobe=1 phone
+  // overlay used. Read-only DOM/Leaflet state, no listeners, no side effects.
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' || !map || typeof window === 'undefined') return;
+    if (!map || typeof window === 'undefined') return;
+    const optedIn = (() => {
+      try { return new URLSearchParams(window.location.search).get('mapdebug') === '1'; }
+      catch { return false; }
+    })();
+    if (process.env.NODE_ENV === 'production' && !optedIn) return;
     window.__dumpMap = () => {
       const out = {
         zoom: map.getZoom(),
@@ -1512,17 +1522,81 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
         panePos: (() => { try { return L.DomUtil.getPosition(map._mapPane); } catch { return null; } })(),
         pixelOrigin: map.getPixelOrigin(),
         suspendTileUpdates: !!map._suspendTileUpdates,
+        animatingZoom: !!map._animatingZoom,
+        // BLUR FORENSICS (Aug 10). On desktop every tile pixel is painted by
+        // the canvas compositor, so "imagery soft but pins sharp" lives here.
+        // backing must equal rect * dpr: if it is SMALLER the bitmap is being
+        // stretched to fit (deterministic blur, fix the sizing); if it MATCHES
+        // and the imagery is still soft, the pixels are right and the layer's
+        // GPU texture is degraded (the backing-churn family — a display
+        // none/restore toggle on the canvas cures that and proves it).
+        compositor: (() => {
+          try {
+            const c = map._wgCompositor;
+            const el = map.getContainer()?.querySelector('.wg-tile-compositor');
+            if (!el) return { present: false, alive: !!(c && c._map === map) };
+            const r = el.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            return {
+              present: true,
+              alive: !!(c && c._map === map),
+              classOnContainer: !!map.getContainer()?.classList.contains('wg-canvas-tiles'),
+              backing: [el.width, el.height],
+              styleSize: [el.style.width, el.style.height],
+              rect: [+r.width.toFixed(1), +r.height.toFixed(1)],
+              expectBacking: [Math.round(r.width * dpr), Math.round(r.height * dpr)],
+              // Allocation vs content: divergence here is EXPECTED and healthy
+              // (that is the reuse working); it is only a bug if styleSize
+              // stops matching backing/dpr.
+              alloc: c ? [c._allocW, c._allocH] : null,
+              content: c ? [c._lastW, c._lastH] : null,
+              drawnAtDpr: c ? c._lastDpr : null,
+              liveDpr: dpr,
+              transform: el.style.transform,
+              drawnZoom: c ? c._drawnZoom : null,
+              shrinkPending: !!(c && c._shrinkTimer),
+            };
+          } catch (e) { return { error: String(e) }; }
+        })(),
+        heapMB: (() => {
+          try { return Math.round(performance.memory.usedJSHeapSize / 1e6); }
+          catch { return null; }
+        })(),
         layers: [],
       };
       map.eachLayer((layer) => {
         if (!(layer instanceof L.GridLayer)) return;
         const tiles = Object.values(layer._tiles || {});
+        // Tile SOURCE resolution. `scale=2` in the Google vt URL should make
+        // every tile 512px natural; a histogram showing 256s means the imagery
+        // itself arrived degraded and the renderer is innocent.
+        const byNaturalWidth = {};
+        // Which LEVEL the loaded tiles actually sit at, vs tileZoom. This is
+        // the discriminator for "blurry but the pixels are fine" vs "genuinely
+        // coarse content": if the corner map rests at zoom 2 and the loaded
+        // tiles are mostly z0/z1, the imagery IS upscaled — either the
+        // ancestor-cover pass standing in for tiles that never arrived, or a
+        // retained coarse level drawing above the current one (compare the
+        // per-level zIndex + children below). Neither is a texture fault, so
+        // __blurTest would not cure those; they need the load/prune path.
+        const byZ = {};
+        for (const t of tiles) {
+          const w = t.el?.naturalWidth;
+          if (w != null) byNaturalWidth[w] = (byNaturalWidth[w] || 0) + 1;
+          const z = t.coords?.z;
+          if (z != null) {
+            const k = t.loaded ? `z${z}` : `z${z}-pending`;
+            byZ[k] = (byZ[k] || 0) + 1;
+          }
+        }
         const info = {
           tileZoom: layer._tileZoom,
           noPrune: !!layer._noPrune,
           tiles: tiles.length,
           current: tiles.filter((t) => t.current).length,
           loaded: tiles.filter((t) => t.loaded).length,
+          byNaturalWidth,
+          byZ,
           levels: {},
         };
         for (const z in (layer._levels || {})) {
@@ -1540,7 +1614,43 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
       console.log('[__dumpMap]', JSON.stringify(out, null, 1));
       return out;
     };
-    return () => { try { delete window.__dumpMap; } catch {} };
+
+    // BLUR TRIAGE: run while the imagery looks soft. Each step is a strictly
+    // bigger hammer, so the FIRST one that cures it names the cause:
+    //  1 redraw  — repaints the same camera. Cure = stale/insufficient draw.
+    //  2 relayer — hides/reshows the canvas for two frames. Touches ZERO
+    //              pixels; only forces Chrome to drop and re-upload the
+    //              layer's GPU texture. Cure = texture degradation, i.e. the
+    //              backing-churn family (that is what _resizeBacking targets).
+    //  3 realloc — rebuilds the backing store itself. Cure here but not at 2
+    //              points at the buffer contents rather than the texture.
+    window.__blurTest = (step = 2) => {
+      const c = map._wgCompositor;
+      const el = map.getContainer()?.querySelector('.wg-tile-compositor');
+      if (!el || !c) return 'no compositor on this map (DOM tile fallback)';
+      if (step === 1) {
+        try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+        c.draw();
+        return 'redrew same camera — cured? => stale draw';
+      }
+      if (step === 3) {
+        c._allocW = 0;
+        c._allocH = 0;
+        c._lastDpr = 0;
+        c.draw();
+        return 'reallocated backing — cured? => buffer contents, not texture';
+      }
+      el.style.display = 'none';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.display = '';
+        console.log('[__blurTest] layer texture re-uploaded — cured? => GPU texture degradation');
+      }));
+      return 'relayering...';
+    };
+    return () => {
+      try { delete window.__dumpMap; } catch {}
+      try { delete window.__blurTest; } catch {}
+    };
   }, [map]);
   return null;
 });
@@ -1718,6 +1828,7 @@ const PlayerLine = memo(function PlayerLine({
   const linePositions = useMemo(() => (
     destLat != null && destLng != null ? [[guessLat, guessLng], [destLat, destLng]] : null
   ), [guessLat, guessLng, destLat, destLng]);
+  const glow = cachedNameGlowProps(nameGlow, GLOW_LIGHT, { ownBox: true });
 
   return (
     <>
@@ -1731,10 +1842,16 @@ const PlayerLine = memo(function PlayerLine({
         >
           {/* Leaflet's tooltip chrome is WHITE and this text is forced black,
               so the glow takes the LIGHT variant — the dark neon is invisible
-              here. Inline, never a class: this node is portalled outside the
-              React tree, and inside the mobile embed globals.scss does not
-              exist at all (embed/build.mjs bundles JS only). */}
-          <span style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px', textShadow: nameGlowShadow(nameGlow, GLOW_LIGHT) || undefined }}>
+              here. CLASS *AND* INLINE STYLE, both: the inline stack is the
+              static halo, the class is the only thing carrying the @keyframes
+              (styles/nameGlow.css). This wore the shadow alone and so every
+              animated sku sat still on the live map. A tooltip is portalled out
+              of the React tree, not out of the document, so a global class
+              reaches it; the mobile embed injects nameGlow.css itself
+              (embed/entry.jsx). `ownBox` because this span is already a flex
+              box. See components/utils/guessPinLabel.js — same label, one
+              recipe. */}
+          <span className={glow?.className} style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px', ...glow?.style }}>
             {displayName}
             {countryCode && (
               <CountryFlag countryCode={countryCode} style={{ fontSize: '0.9em', marginRight: '0' }} />

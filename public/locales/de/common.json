@@ -967,7 +967,7 @@
   "leaveParty": "Verlassen",
   "hideMyLastSeen": "Meine Zuletzt-gesehen-Zeit verbergen",
   "strictMatchmaking": "Duelle gegen schwächere Spieler vermeiden",
-  "strictMatchmakingHint": "Ranglisten-Duelle bringen dich nur noch gegen Spieler der Ligen Voyager und Nomad (5000+ ELO). Die Suche kann länger dauern.",
+  "strictMatchmakingHint": "Ranglisten-Duelle bringen dich nur gegen Spieler ab der Liga Voyager. Die Suche kann länger dauern.",
   "accountSettings": "Kontoeinstellungen",
   "audioSettings": "Audio",
   "generalSettings": "Allgemein",
@@ -981,5 +981,7 @@
   "multiplayerEmoteReactions": "Multiplayer-Emote-Reaktionen",
   "forfeit2v2Warning": "Wenn du jetzt gehst, verliert dein Team das Match und das Spiel endet für alle 4 Spieler.",
   "teamBackgroundWarning": "Achtung: Wenn du die App länger verlässt, lässt du deinen Teamkameraden im Stich.",
-  "communityBannerTitle": "Werde Teil unserer Community!"
+  "communityBannerTitle": "Werde Teil unserer Community!",
+  "placementMatch": "Platzierungsspiel",
+  "placementQueueNote": "Dein erstes Ranglistenspiel legt deine Startwertung fest."
 }

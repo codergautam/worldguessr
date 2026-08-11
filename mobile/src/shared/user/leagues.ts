@@ -103,6 +103,26 @@ export function getLeagueRange(name: string): [number, number] {
 }
 
 /**
+ * The rating floor the "avoid lower skill duels" (strict matchmaking) setting
+ * enforces. Mirrors getStrictFloor in components/utils/leagues.js.
+ *
+ * READ FROM THE ACTIVE TABLE, NEVER TYPED. Both clients used to compare against
+ * `leagues.voyager.min`, which is 5,000 on the RETIRED Season 0 scale. A v2
+ * rating tops out around 1,600, so after the migration that comparison was
+ * false for every account alive and the toggle was hidden from literally
+ * everybody, on web and here, while the setting kept shipping.
+ */
+export const STRICT_TIER_NAME = 'Voyager';
+
+export function getStrictFloor(): number {
+  const table = getActiveLeagues();
+  const tier = Object.values(table).find((l) => l.name === STRICT_TIER_NAME);
+  // Fails CLOSED (nobody eligible) rather than to 0, which would read as
+  // "everyone is eligible" and is the worse of the two wrong answers.
+  return typeof tier?.min === 'number' && Number.isFinite(tier.min) ? tier.min : Infinity;
+}
+
+/**
  * A league as it arrives from the server. `api/eloRank.js` returns the WHOLE
  * league object (`getLeague(user.elo)`); the ws `elo` message does too; the ws
  * roster carries only the NAME. All three shapes land here.

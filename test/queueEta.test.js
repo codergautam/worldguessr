@@ -16,6 +16,7 @@ import {
   nextShownEta,
   snapshotStore,
   restoreStore,
+  STRICT_INFLATION,
 } from '../ws/queueEta.js';
 
 const NOW = 1_770_000_000_000; // fixed clock; every test passes `now` explicitly
@@ -396,5 +397,122 @@ describe('snapshotStore / restoreStore', () => {
     expect(restoreStore(null, NOW, 3600e3).buckets.size).toBe(0);
     expect(restoreStore({ v: 99 }, NOW, 3600e3).buckets.size).toBe(0);
     expect(restoreStore({ v: 1, buckets: [null, { r: 'nope' }] }, NOW, 3600e3).buckets.size).toBe(0);
+  });
+});
+
+// ===========================================================================
+// STRICT MATCHMAKING IS A SEPARATE POPULATION
+// ===========================================================================
+// A strict player's eligible pool is a strict SUBSET of a non-strict player's
+// at the same rating: everything below the Voyager floor is removed. So their
+// true wait is always LONGER, and quoting them the blended band number is a
+// guaranteed underestimate — the precise failure this file's header calls out
+// as the one that destroys trust, aimed at the players who opted in on purpose.
+//
+// The fix is to partition the samples, never to widen the rating band (see the
+// "WIDEN TIME, NEVER RATING" note at the top of ws/queueEta.js).
+
+/** n matched samples at one rating, all the same wait, with a strict flag. */
+function fillTagged(store, { rating, waitMs, n, strict = false, at = NOW }) {
+  for (let i = 0; i < n; i++) {
+    recordSample(store, { rating, waitMs, at, censored: false, strict });
+  }
+}
+
+describe('queueEta — strict partition', () => {
+  it('collectSamples never mixes the two populations', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 5000, n: 5, strict: false });
+    fillTagged(store, { rating: 1000, waitMs: 90000, n: 3, strict: true });
+
+    const loose = collectSamples(store, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3 });
+    const tight = collectSamples(store, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3, strict: true });
+
+    expect(loose).toHaveLength(5);
+    expect(tight).toHaveLength(3);
+    expect(loose.every((x) => x.waitMs === 5000)).toBe(true);
+    expect(tight.every((x) => x.waitMs === 90000)).toBe(true);
+  });
+
+  it('answers a strict player from strict history when there is enough of it', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 4000, n: 40, strict: false });
+    fillTagged(store, { rating: 1000, waitMs: 120000, n: 40, strict: true });
+
+    const est = estimateWait(store, { rating: 1000, now: NOW, strict: true });
+    expect(est.status).toBe('ok');
+    expect(est.strict).toBe(true);
+    expect(est.modelled).toBeUndefined();   // measured, not derived
+    expect(est.totalMs).toBeGreaterThan(60000);
+  });
+
+  it('a strict player is NEVER quoted the raw non-strict number', () => {
+    // Only non-strict history exists. The estimator must not hand it over as-is.
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 6000, n: 40, strict: false });
+
+    const loose = estimateWait(store, { rating: 1000, now: NOW, strict: false });
+    const tight = estimateWait(store, { rating: 1000, now: NOW, strict: true });
+
+    expect(loose.status).toBe('ok');
+    expect(tight.status).toBe('ok');
+    expect(tight.totalMs).toBeGreaterThan(loose.totalMs);
+    expect(tight.totalMs).toBe(Math.round(loose.totalMs * STRICT_INFLATION));
+  });
+
+  it('marks the derived strict estimate as modelled so the client hedges the wording', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 6000, n: 40, strict: false });
+
+    const tight = estimateWait(store, { rating: 1000, now: NOW, strict: true });
+    expect(tight.modelled).toBe(true);
+    expect(tight.derivedFrom).toBe('nonStrict');
+    // nextShownEta downgrades a modelled estimate to a vague band, never a figure.
+    expect(nextShownEta(null, tight, 0).state).toBe('rough');
+  });
+
+  it('a strict player\'s long waits do not inflate everyone else\'s estimate', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 3000, n: 40, strict: false });
+    fillTagged(store, { rating: 1000, waitMs: 600000, n: 40, strict: true });
+
+    const loose = estimateWait(store, { rating: 1000, now: NOW, strict: false });
+    expect(loose.totalMs).toBeLessThan(10000);
+  });
+
+  it('bootstraps a strict player higher than a non-strict one at the same rating', () => {
+    const loose = bootstrapEstimate(1200, false);
+    const tight = bootstrapEstimate(1200, true);
+
+    expect(tight.totalMs).toBe(loose.totalMs * STRICT_INFLATION);
+    expect(tight.modelled).toBe(true);
+    expect(tight.strict).toBe(true);
+  });
+
+  it('round-trips the strict flag through a snapshot', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 5000, n: 4, strict: false });
+    fillTagged(store, { rating: 1000, waitMs: 90000, n: 4, strict: true });
+
+    const restored = restoreStore(snapshotStore(store, NOW), NOW, 24 * 3600e3);
+    expect(collectSamples(restored, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3 })).toHaveLength(4);
+    expect(collectSamples(restored, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3, strict: true })).toHaveLength(4);
+  });
+
+  it('reads a pre-strict snapshot as non-strict rather than losing it', () => {
+    // Old snapshots have no `s` array. Those samples were taken when the strict
+    // setting was unreachable, so non-strict is the CORRECT reading — and it
+    // means no version bump and no cold start for the sparse high bands.
+    const legacy = { v: 1, at: NOW, buckets: [{ b: 10, r: [1000, 1000], w: [5000, 6000], a: [0, 0], c: [0, 0] }] };
+    const restored = restoreStore(legacy, NOW, 24 * 3600e3);
+
+    expect(collectSamples(restored, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3 })).toHaveLength(2);
+    expect(collectSamples(restored, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3, strict: true })).toHaveLength(0);
+  });
+
+  it('defaults to the non-strict population when no flag is passed', () => {
+    const store = createEtaStore();
+    fillTagged(store, { rating: 1000, waitMs: 5000, n: 3, strict: false });
+    expect(collectSamples(store, { rating: 1000, band: 150, now: NOW, maxAgeMs: 3600e3 })).toHaveLength(3);
   });
 });
