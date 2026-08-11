@@ -133,13 +133,14 @@ const BACKGROUNDS = [
 // Name glows paint a text-shadow behind a username.
 //
 // EVERY GLOW NAME IS ONE WORD. "Living Flame", "Prism Cycle" and "Comet Orbit"
-// were renamed to Blaze, Prism and Comet: a two-word name on this shelf is the
-// sku describing its own animation ("the flame that lives", "the prism that
-// cycles"), and the card already shows the animation. The statics were always
-// one word (Ice, Rose, Amethyst, Gold), so the animated tier reading like a
-// product tagline is what made the shelf read as two different shops. A rename
-// is display-only — the sku strings are what ownership is keyed on and they do
-// NOT change with the name, which is why glow_ember_flame is sold as Blaze.
+// were renamed to Blaze, Prism and Comet (Comet was later renamed again, to
+// Shadow): a two-word name on this shelf is the sku describing its own
+// animation ("the flame that lives", "the prism that cycles"), and the card
+// already shows the animation. The statics were always one word (Ice, Rose,
+// Amethyst, Gold), so the animated tier reading like a product tagline is what
+// made the shelf read as two different shops. A rename is display-only — the
+// sku strings are what ownership is keyed on and they do NOT change with the
+// name, which is why glow_orbit_comet is sold as Shadow.
 //
 // Each carries TWO hex values and both are required: the username renders on the dark HUD AND
 // inside a Leaflet tooltip, which is a white surface with black text. One
@@ -161,7 +162,7 @@ const BACKGROUNDS = [
 // thing worth recording here: the tightest pair on both columns is still Blaze
 // vs Gold at 27.2 degrees dark and 27.0 light, exactly where it was with
 // nine, because orange and yellow are neighbours on the wheel and no amount of
-// catalogue space changes that. The runner-up is Comet vs Amethyst at 27.5, also
+// catalogue space changes that. The runner-up is Shadow vs Amethyst at 27.5, also
 // unchanged. What the two cuts bought is a hole: Prism at 114 now has open wheel
 // all the way to Ice at 186, where Aurora used to sit at 155.
 //
@@ -180,7 +181,7 @@ const BACKGROUNDS = [
 //                                            the window: #FFDF00 "golden yellow"
 //                                            is 52.5 and anything past ~55 is
 //                                            lemon, not gold
-//   Comet         light      238 -> 246 deg  now the same hue as its own dark
+//   Shadow        light      238 -> 246 deg  now the same hue as its own dark
 //   Amethyst      dark+light 271/264 -> 274  likewise. The two columns agreeing
 //                                            on a hue is a bonus, not the goal.
 //
@@ -190,7 +191,7 @@ const BACKGROUNDS = [
 //   - contrast >= 2.0:1 against white, so the halo is CLEARLY darker than the
 //     card rather than a tint of it. The bright hues (Gold, Prism) sit within a
 //     whisker of that floor and give up saturation, not lightness, to reach it;
-//     the naturally dark ones (Comet, Amethyst) run far above it and are capped
+//     the naturally dark ones (Shadow, Amethyst) run far above it and are capped
 //     at 58% lightness instead.
 //
 // CHEAPEST FIRST, AND IT IS A SORT, NOT A CONVENTION. Both storefronts render a
@@ -273,7 +274,7 @@ const GLOWS = [...SOLID_GLOWS].sort(byPriceAsc);
 //
 // Priced as a ladder and merged into the one glow shelf at the bottom of this
 // file, so the section reads bottom rung to flex without a break: four statics
-// at 500, then 2,500 -> 3,000, with Comet the top of the whole shop.
+// at 500, then 2,500 -> 3,000, with Shadow the top of the whole shop.
 //
 // SIX SKUS HAVE BEEN DELETED FROM THIS BAND OVER TIME, NONE OF THEM REPRICED.
 //
@@ -327,12 +328,13 @@ const ANIMATED_GLOWS = [
   // changed: it was always the sku that moves in a way nothing else in the app
   // moves (a spark on an orbit, not a bloom), which is precisely why it is the
   // one that survived the cull of the "same idea, bigger number" skus.
-  { sku: 'glow_orbit_comet',     name: 'Comet', price: 3000, glowDark: '#6D5BFF', glowLight: '#4531F6' },
+  { sku: 'glow_orbit_comet',     name: 'Shadow', price: 3000, glowDark: '#6D5BFF', glowLight: '#4531F6' },
 ].map((g) => ({ ...g, type: 'glow', platforms: ['web', 'mobile'], animated: true }))
   .sort(byPriceAsc);
 
-// Every marker sku is a real pin IMAGE (public/pins/<name>.png), authored at the
-// stock pins' 87x131 and wired up in lib/markerIcons.js + embed/shims/markerIcons.js.
+// Every marker sku is a real pin IMAGE (public/pins/<name>.png), authored on the
+// stock pins' canvas (151x163: 87x131 art + glow headroom, spec in
+// lib/markerIcons.js) and wired up in lib/markerIcons.js + embed/shims/markerIcons.js.
 // A sku added here without its two icon entries silently falls back to the stock pin.
 //
 // PRICED BY UNIQUENESS, ASCENDING, and array order is shelf order like every

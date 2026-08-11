@@ -2033,12 +2033,20 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     transform: [{ scale: 0.98 }],
   },
-  // The pin thumbnail: 22 wide to match the emote glyph and the pass icon that
-  // share this row, and 33 tall because that is the art's own 87:131 — declare
-  // the ratio rather than letting `contain` letterbox a square box.
+  // The pin thumbnail. The PNG canvas is 151x163 — the 87x131 art plus glow
+  // headroom (see lib/markerIcons.js) — so the box declares the CANVAS ratio
+  // and is sized to render the ART at the same ~22x33 it was shown at when the
+  // art filled the file edge-to-edge. Any glow painted in the headroom shows
+  // on the card instead of being cropped by a tight box.
   cardPin: {
-    width: 22,
-    height: 33,
+    width: 38,
+    height: 41,
+    // Canvas arithmetic, mirrored from web's .shopPrev--marker img: every pin
+    // ships on the 151x163 spec (lib/markerIcons.js) — 87x131 art, 32px glow
+    // headroom above and beside it, none below (the needle tip IS the map
+    // anchor) — so centring the canvas hangs the art (32/2)/163 = 9.8% low.
+    // Lift = height x 0.098 = 4.02 -> 4.
+    transform: [{ translateY: -4 }],
   },
   // A CITY, AT THE SHAPE IT WILL BE SEEN IN. Same plate as `card` — one quiet
   // dark tile, one green frame when equipped — but wider, because two 168s plus

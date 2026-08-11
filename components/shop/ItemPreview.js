@@ -79,7 +79,7 @@ const SAMPLE_NAME = 'WorldGuessr';
  *               keyframed text-shadow repaints forever whether or not anyone
  *               can see it, and four of them mount in one section)
  *   background  up to four photographic decodes per card
- *   marker      the first visible one pulls in the leaflet chunk
+ *   marker      the first visible one resolves the thumbnail URL set
  * Emotes are one glyph and passes are one number; gating those would cost more
  * than it saves.
  */
@@ -165,7 +165,11 @@ function MarkerPreview({ item, markerUrls }) {
   // perfectly well on black.
   return (
     <div className="shopPrev shopPrev--marker">
-      {url ? <img src={url} alt="" width={44} height={72} draggable={false} /> : <div className="shopPrev__pinFallback" />}
+      {/* 76x90 renders the ART at the same ~44x72 it was shown at before the
+          canvas grew: pin PNGs are 151x163 with the 87x131 art inside glow
+          headroom (lib/markerIcons.js), so the box scales by canvas/art on
+          each axis — and any glow painted in the headroom shows on the card. */}
+      {url ? <img src={url} alt="" width={76} height={90} draggable={false} /> : <div className="shopPrev__pinFallback" />}
     </div>
   );
 }
@@ -247,9 +251,9 @@ function ItemPreview(props) {
   const [slotRef, near] = useNearViewport(LAZY_PREVIEW[item.type] === true);
 
   // Tells the storefront a preview of this type is now on its way in. Only the
-  // marker section acts on it — that is where the leaflet import is fired, once
-  // for the whole page rather than once per card (loadMarkerSkinUrls is itself
-  // memoised, so this is belt and braces).
+  // marker section acts on it — that is where the preview URLs are resolved,
+  // once for the whole page rather than once per card (loadMarkerSkinUrls is
+  // itself memoised, so this is belt and braces).
   useEffect(() => {
     if (near && onNear) onNear(item.type);
   }, [near, onNear, item.type]);

@@ -2080,9 +2080,19 @@
    shadow and they read on the well. */
 
 /* The lift has to come from LIGHT now that the plate is near-black — a black
-   drop shadow on a black stage is a no-op. */
+   drop shadow on a black stage is a no-op.
+
+   THE TRANSLATE IS CANVAS ARITHMETIC, NOT A NUDGE. Every pin ships on the
+   151x163 canvas spec (lib/markerIcons.js): 87x131 art with 32px of glow
+   headroom on top and both sides and NONE below, because the needle tip
+   touches the bottom edge — that is the map's anchor contract. Centring that
+   canvas on a card therefore hangs the ART (32-0)/2/163 = 9.8% low; on the
+   76x90 card box that is 8.8px, snapped to a WHOLE pixel because a fractional
+   translate forces a subpixel resample that blurs the very outlines the 2x
+   preview thumbnails (public/pins/previews/, 152x180) exist to keep sharp. */
 .shopPrev--marker img {
     display: block;
+    transform: translateY(-9px);
     filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25));
 }
 

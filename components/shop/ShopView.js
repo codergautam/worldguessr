@@ -176,8 +176,9 @@ function Confetti() {
  *    - Heavy previews mount near-viewport behind a same-size placeholder
  *      (lazyMount.js), so the glow keyframes and the background decodes are
  *      not all paid for on open.
- *    - The leaflet import behind marker pins fires ONCE, from the first marker
- *      preview that comes into range.
+ *    - Marker preview URLs resolve ONCE, from the first marker preview that
+ *      comes into range. (They are plain thumbnail paths now — the leaflet
+ *      import this hook used to fire is gone with markerPins.js's rewrite.)
  *    - The ad-free countdown is still ONE interval, owned by useStampShop and
  *      rendered here in the sticky bar (which never scrolls away). Nothing in
  *      this file adds a timer, and the chip is only in the DOM while a pass is
@@ -1139,11 +1140,11 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
    */
 
 
-  // Marker pins pull leaflet in, and leaflet is not on the home screen this
-  // modal opens over. With no tabs left to hang that off, the trigger is the
-  // first marker preview to come within range of the viewport — fired ONCE for
-  // the page, not once per card. (loadMarkerSkinUrls memoises its own promise
-  // too, so a double call still imports once.)
+  // Marker preview URLs arrive from the first marker preview to come within
+  // range of the viewport — fired ONCE for the page, not once per card, and
+  // loadMarkerSkinUrls memoises its own promise besides. (This used to be the
+  // trigger for a leaflet import; markerPins.js now hands out plain thumbnail
+  // paths and the map chunk stays out of the shop entirely.)
   const markerRequestedRef = useRef(false);
   const onPreviewNear = useCallback((type) => {
     if (type !== 'marker' || markerRequestedRef.current) return;
@@ -1590,9 +1591,9 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
                       signedIn={signedIn}
                       username={username}
                       // Scoped to the two cards that can use it. Handing the map
-                      // to all 37 would mean the leaflet import landing mid-scroll
-                      // changes a prop on every card and re-renders the whole page
-                      // — for two pin images.
+                      // to all 37 would mean the URLs landing mid-scroll change
+                      // a prop on every card and re-render the whole page — for
+                      // two pin images.
                       markerUrls={item.type === 'marker' ? markerUrls : null}
                       // A NUMBER, not the item — same reason `affordable` is a
                       // boolean. It is stable for all 44 cards a purchase did

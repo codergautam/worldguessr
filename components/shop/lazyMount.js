@@ -14,7 +14,8 @@ import { useEffect, useRef, useState } from 'react';
  *                them.
  *    backgrounds one full-size photographic <img> decode per card, and the
  *                whole section is photographs.
- *    markers     the first one to appear pulls the leaflet chunk in.
+ *    markers     the first one to appear resolves the preview URL set (plain
+ *                thumbnail paths since markerPins.js dropped its leaflet read).
  *
  *  Mounting all of that on open is the documented low-end freeze in this repo
  *  (the maps modal, which evaluated its whole grid inside the click handler).

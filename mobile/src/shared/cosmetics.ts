@@ -110,8 +110,9 @@ const GLOW_LIST: GlowDef[] = [
   // These three rows are a byte-for-byte mirror of ANIMATED_GLOWS in
   // shared/shop/catalog.js: same skus, same price order, same hex values, same
   // names, same `animated` flag. EVERY GLOW NAME IS ONE WORD — "Living Flame",
-  // "Prism Cycle" and "Comet Orbit" became Blaze, Prism and Comet, and the skus
-  // did not move with them, because ownership is keyed on the sku. They have drifted before. When a glow is added, changed or
+  // "Prism Cycle" and "Comet Orbit" became Blaze, Prism and Comet (Comet later
+  // became Shadow), and the skus did not move with them, because ownership is
+  // keyed on the sku. They have drifted before. When a glow is added, changed or
   // repriced there, change it HERE IN THE SAME COMMIT — a mismatch is not a
   // cosmetic bug, it is the app painting a different colour from the one the
   // buyer saw in the web shop for an item they already own.
@@ -146,7 +147,7 @@ const GLOW_LIST: GlowDef[] = [
   // sku whose resting hue is free.
   { sku: 'glow_cycle_prism',     name: 'Prism', dark: '#1AFF00', light: '#40D214', animated: true },
   // The top of the shop now that Spectrum Nova is gone.
-  { sku: 'glow_orbit_comet',     name: 'Comet', dark: '#6D5BFF', light: '#4531F6', animated: true },
+  { sku: 'glow_orbit_comet',     name: 'Shadow', dark: '#6D5BFF', light: '#4531F6', animated: true },
 ];
 
 const GLOWS_BY_SKU = new Map(GLOW_LIST.map((g) => [g.sku, g]));

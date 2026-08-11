@@ -18,7 +18,7 @@
  *
  *  A cross-fade between two fixed layers reads as MOVEMENT, and which movement
  *  depends on what differs between them:
- *    different OFFSET  -> the light travels          (Comet)
+ *    different OFFSET  -> the light travels          (Shadow)
  *    different COLOUR  -> the hue sweeps             (Prism)
  *    different RADIUS  -> the halo breathes          (Blaze)
  *
@@ -106,7 +106,7 @@ export interface GlowAnim {
 const MAX_LAYERS = 8;
 
 /* ---------------------------------------------------------------------------
- *  COMET — glow_orbit_comet, 3,000
+ *  SHADOW (sold as Comet until Aug 2026) — glow_orbit_comet, 3,000
  *
  *  A bright, tight point of light travels around the name while a soft indigo
  *  halo stays centred and still. Nothing else in the app moves like this, which

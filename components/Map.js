@@ -2092,12 +2092,15 @@ const MapComponent = ({
     const skins = {};
     Object.values(MARKER_SKIN_ICONS).forEach((k) => {
       skins[`${k}Small`] = shared[`${k}Small`];
+      skins[`${k}Mid`] = shared[`${k}Mid`];
       skins[`${k}Big`] = shared[`${k}Big`];
     });
     return {
-      dest: shared.destSmall,
-      src: shared.srcSmall,
-      src2: shared.src2Small,
+      destSmall: shared.destSmall,
+      destMid: shared.destMid,
+      srcSmall: shared.srcSmall,
+      srcMid: shared.srcMid,
+      src2Small: shared.src2Small,
       srcBig: shared.srcBig,
       src2Big: shared.src2Big,
       ...skins,
@@ -2124,7 +2127,13 @@ const MapComponent = ({
     const key = markerSkinIconKey(skin, tier);
     return (key && icons[key]) ? key : fallbackKey;
   };
-  const myIconKey = pinKeyFor(myMarkerSkin, 'Small', 'src');
+  // Singleplayer reveals hold exactly two markers, so your pin and the dest
+  // wear the Mid 28x46 tier. Multiplayer keeps the Small tier: a full-roster
+  // reveal is a pin CLUSTER, and Small is what keeps it readable.
+  const inMultiplayer = Boolean(multiplayerState?.inGame);
+  const myIconKey = inMultiplayer
+    ? pinKeyFor(myMarkerSkin, 'Small', 'srcSmall')
+    : pinKeyFor(myMarkerSkin, 'Mid', 'srcMid');
   const myBigIconKey = pinKeyFor(myMarkerSkin, 'Big', 'srcBig');
   const myIcon = icons[myIconKey];
 
@@ -2255,7 +2264,7 @@ const MapComponent = ({
       <ContainerResizeBridge resizingRef={resizingRef} />
 
       {answerShown && (
-        <DestMarker location={answerLocation} icon={icons.dest} />
+        <DestMarker location={answerLocation} icon={inMultiplayer ? icons.destSmall : icons.destMid} />
       )}
 
       <YourGuessLayer
@@ -2287,9 +2296,9 @@ const MapComponent = ({
           players={answerPlayers}
           myId={multiplayerState?.gameData?.myId}
           dest={answerLocation}
-          srcIcon={icons.src2}
+          srcIcon={icons.src2Small}
           teammateIds={teamRevealCtx?.teammateIds || null}
-          teammateIcon={icons.src}
+          teammateIcon={icons.srcSmall}
           bestIds={teamRevealCtx?.bestIds || null}
           lineIds={teamRevealCtx?.lineIds || null}
           bigSrcIcon={icons.src2Big}
@@ -2315,7 +2324,7 @@ const MapComponent = ({
             myId={myId}
             dest={null}
             // This layer only ever contains teammates — blue, same as you.
-            srcIcon={icons.src}
+            srcIcon={icons.srcSmall}
             icons={icons}
             polylineRenderer={canvasRenderer}
             isCoolMath={isCoolMath}
