@@ -138,9 +138,12 @@ export default function LeaderboardScreen() {
             textStyle={styles.username}
             style={styles.usernameRow}
             glow={item.nameGlow}
-            // Static: a hundred virtualised rows, each animated sku stacking
-            // blurred <Text> copies. Same call the web leaderboard makes.
-            animated={false}
+            // Animated (Aug 11, "animated nametag not working in places like
+            // leaderboard" — the owner's ruling, same flip as web). The cost
+            // model that kept this static priced a hundred animated rows;
+            // virtualisation mounts ~15 and only rows WEARING an animated sku
+            // stack blurred copies, which is a handful. PlayerName's
+            // `animated` prop remains the dial if a potato phone disagrees.
           />
         </View>
 

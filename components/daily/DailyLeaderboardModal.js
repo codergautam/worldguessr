@@ -20,10 +20,13 @@ function medal(rank) {
 
 function ProfileNameLink({ username, className, nameGlow = null }) {
   if (!username) return null;
-  // Static, cached props: this modal paints ten rows at a time out of a
-  // hundred-row response, and a keyframed text-shadow per row is main-thread
-  // paint on a surface that exists to be scrolled. Dark modal → dark variant.
-  const glow = cachedNameGlowProps(nameGlow, undefined, { animated: false });
+  // ANIMATED (Aug 11, "animated nametag not working in places like
+  // leaderboard"). This ran static on the paint-cost argument, which priced
+  // the wrong thing: only rows whose player EQUIPPED an animated sku animate,
+  // and that is a handful per hundred, not a hundred. Cached props so the
+  // rows share objects; reduced-motion users get the static stack from the
+  // CSS side. Dark modal → dark variant.
+  const glow = cachedNameGlowProps(nameGlow);
   const label = glow
     ? <span className={glow.className} style={glow.style}>{username}</span>
     : username;

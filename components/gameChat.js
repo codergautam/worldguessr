@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import CountryFlag from '@/components/utils/countryFlag';
 import { useTranslation } from '@/components/useTranslations';
-import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
+import { HoverGlowName } from '@/components/utils/usernameWithFlag';
 
 const MAX_MESSAGES = 100;
 const MAX_LEN = 200;
@@ -314,22 +314,20 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           </div>
           <div className="chatMessages" ref={listRef} onScroll={onListScroll}>
             {visible.map(m => {
-              // STATIC EVEN FOR THE ANIMATED SKUS. This log holds up to a
-              // hundred rows and a keyframed `text-shadow` is main-thread PAINT,
-              // so a busy 2v2 lobby would be repainting a hundred haloes a frame
-              // while the round is running. The static stack is the same colour
-              // and the same reach; it just stops moving. Cached props, so the
-              // rows share a handful of objects rather than minting one each.
-              // The halo clips at the edges of .chatMessages (it is a scroll
-              // container) — expected, and left alone rather than fought.
-              const glow = cachedNameGlowProps(m.nameGlow, undefined, { animated: false });
+              // REST-UNTIL-HOVER (`wg-glowHover` on the row). Chat is the one
+              // glow surface that animates OVER a live round, so HoverGlowName
+              // keeps a static shadow at rest and cross-fades to a paint-only
+              // animated layer under the pointer. Mouse-out fades back to the
+              // static halo instead of leaving the animation frozen mid-bloom.
+              // Props are cached inside the helper; the halo still clips at
+              // the scroll container's edges, as expected.
               return (
               // Tint was stamped at RECEIVE time (see the subscribe handler)
               // and never changes afterwards — render-time team comparison is
-              // what let state wipes repaint the whole log.
-              <div key={m.key} className={`chatMsg ${m.tint || ''}`}>
+                // what let state wipes repaint the whole log.
+              <div key={m.key} className={`chatMsg wg-glowHover ${m.tint || ''}`}>
                 <span className="chatMsgName">
-                  {glow ? <span className={glow.className} style={glow.style}>{m.name}</span> : m.name}
+                  <HoverGlowName sku={m.nameGlow}>{m.name}</HoverGlowName>
                   {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
                   {m.teamChat && <span className="chatMsgTeamTag">{text('chatChannelTeam')}</span>}
                 </span>

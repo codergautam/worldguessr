@@ -1197,6 +1197,24 @@ app.ws('/wg', {
         player.setScreen(json.screen);
       }
 
+      // Repair a dangling gameId before the queue/create gates below. The id
+      // can outlive its game — Game.removePlayer early-returns without
+      // clearing it when the roster seat was already pruned, and reconnect
+      // re-adopts the same Player object across refreshes — and these gates
+      // read a truthy gameId as "already playing", silently dropping the
+      // message. For an affected player that is ranked, unranked, party
+      // create and 2v2 all dead at once (no error, no ack) until the 30s
+      // purge mints them a fresh Player. Raw types on purpose: the
+      // create2v2Lobby → createPrivateGame rewrite happens further down.
+      // Scoped to the entry gates — every mid-game handler already no-ops on
+      // a dead id via its own games.has() guard, and joinPrivateGame
+      // self-heals (games.get miss + addPlayer restamp). playAgain2v2 /
+      // teamDuelBack carry their own tolerant guard.
+      if (player.gameId && !games.has(player.gameId)
+        && ['unrankedDuel', 'publicDuel', 'createPrivateGame', 'create2v2Lobby'].includes(json.type)) {
+        player.gameId = null;
+      }
+
       if((json.type === 'unrankedDuel') && !player.gameId) {
         if (blockUnnamed(player)) return;
         if(player.banned) {

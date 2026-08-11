@@ -67,7 +67,9 @@ import { getGlowAnim, type GlowLayer } from '../shared/glowKeyframes';
  *  animated sku falls back to the static halo below rather than to nothing — the
  *  same treatment `prefers-reduced-motion` gets in styles/nameGlow.css. A user
  *  who asked for less motion did not ask to lose the item they bought. Same for
- *  `animated={false}`, which long lists pass for paint budget.
+ *  `animated={false}`, which the maps tile wall and the in-game chat pass for
+ *  paint budget (the two surfaces still doing so — see PlayerName.tsx for the
+ *  Aug 11 re-pricing and web's hover-to-wake equivalent).
  * ======================================================================== */
 
 interface NameGlowHaloProps {

@@ -14,10 +14,12 @@ import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
  * your own verify. The two request lists latch at verify instead, which is
  * right: they change only when a request is sent or answered.
  *
- * Static: a roster caps at 100 and this modal is a scroll list.
+ * Animated (Aug 11, same ruling as the leaderboards): the roster caps at 100
+ * but only friends wearing an ANIMATED sku move, which is a handful — the
+ * static-by-default caution was pricing a hundred animations nobody had.
  */
 function FriendName({ friend }) {
-    const glow = cachedNameGlowProps(friend?.nameGlow, undefined, { animated: false });
+    const glow = cachedNameGlowProps(friend?.nameGlow);
     if (!glow) return friend?.name ?? null;
     return <span className={glow.className} style={glow.style}>{friend.name}</span>;
 }

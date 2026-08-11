@@ -2088,6 +2088,43 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
     }
 
+    // ── Create-lobby confirmation watchdog ────────────────────────────────────
+    // The party / 2v2 create shell renders instantly with every control
+    // disabled (partyLobby's `pending`) and waits for the server's `game`
+    // snapshot. If the server never answers — the create was silently dropped —
+    // the shell used to hang forever: masked code, dead buttons, no error.
+    // Condition-driven rather than armed per action so it also covers the 2v2
+    // queue back-out, which re-shows the shell awaiting a lobby restore. Any
+    // resolution (snapshot lands → inGame, user backs out → lobbyIntent
+    // cleared, queue starts, disconnect) flips the condition and disarms via
+    // the effect cleanup, so a fire always means a genuinely hung shell.
+    const pendingCreateShellActive = !!(multiplayerState?.connected
+        && !multiplayerState?.inGame
+        && !multiplayerState?.gameQueued
+        && (multiplayerState?.lobbyIntent === 'party' || multiplayerState?.lobbyIntent === '2v2'));
+    useEffect(() => {
+        if (!pendingCreateShellActive) return;
+        const timer = setTimeout(() => {
+            // Fire-time re-check via the ref, mirroring the queue watchdog
+            // above: effect cleanup is a PASSIVE effect (runs after paint), so
+            // a `game` snapshot landing just before the deadline could see the
+            // timer fire before the cleanup clears it — and tear down the
+            // lobby that just arrived.
+            const st = mpStateRef.current;
+            if (!st || st.inGame || st.gameQueued || !st.connected
+                || !(st.lobbyIntent === 'party' || st.lobbyIntent === '2v2')) return;
+            // Same exit as the navbar back button from this shell (its
+            // lobbyIntent branch): leaveGame — which tears down a ghost lobby
+            // if the create DID land server-side, and is a no-op otherwise —
+            // then state reset + home. skipConfirm: no confirm modal from a
+            // timer, and the shell has nothing worth confirming anyway.
+            backBtnPressed(false, undefined, true);
+            toast(text("createLobbyFailed") || "Could not reach the game server. Please try again.", { type: 'error', theme: "dark" });
+        }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingCreateShellActive]);
+
     function handleMultiplayerAction(action, ...args) {
         if (!ws || !multiplayerState.connected) {
             setConnectionErrorModalShown(true);

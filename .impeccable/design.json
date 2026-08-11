@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-11T00:00:00Z",
+  "title": "Design System: WorldGuessr",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Forest Green", "canonical": "#245734", "tonalRamp": ["oklch(15% 0.05 152)", "oklch(26% 0.06 152)", "oklch(37% 0.07 152)", "oklch(48% 0.07 152)", "oklch(59% 0.07 152)", "oklch(70% 0.07 152)", "oklch(81% 0.06 152)", "oklch(95% 0.03 152)"] },
+      "wash-green": { "role": "primary", "displayName": "Wash Green", "canonical": "#144119", "tonalRamp": ["oklch(15% 0.06 148)", "oklch(25% 0.07 148)", "oklch(35% 0.08 148)", "oklch(46% 0.08 148)", "oklch(57% 0.08 148)", "oklch(68% 0.08 148)", "oklch(80% 0.07 148)", "oklch(95% 0.03 148)"] },
+      "night-green": { "role": "primary", "displayName": "Night Green", "canonical": "#112b18", "tonalRamp": ["oklch(14% 0.04 150)", "oklch(24% 0.05 150)", "oklch(34% 0.06 150)", "oklch(45% 0.06 150)", "oklch(56% 0.06 150)", "oklch(68% 0.06 150)", "oklch(80% 0.05 150)", "oklch(95% 0.02 150)"] },
+      "hud-glass": { "role": "primary", "displayName": "HUD Glass Green", "canonical": "rgba(36, 87, 52, 0.85)", "tonalRamp": ["oklch(15% 0.05 152)", "oklch(26% 0.06 152)", "oklch(37% 0.07 152)", "oklch(48% 0.07 152)", "oklch(59% 0.07 152)", "oklch(70% 0.07 152)", "oklch(81% 0.06 152)", "oklch(95% 0.03 152)"] },
+      "shop-panel": { "role": "neutral", "displayName": "Shop Panel", "canonical": "#06160e", "tonalRamp": ["oklch(12% 0.02 160)", "oklch(22% 0.02 160)", "oklch(33% 0.02 160)", "oklch(44% 0.02 160)", "oklch(55% 0.02 160)", "oklch(67% 0.02 160)", "oklch(80% 0.02 160)", "oklch(95% 0.01 160)"] },
+      "shop-raise": { "role": "neutral", "displayName": "Shop Raise", "canonical": "#0f2417", "tonalRamp": ["oklch(14% 0.02 158)", "oklch(24% 0.02 158)", "oklch(35% 0.02 158)", "oklch(46% 0.02 158)", "oklch(57% 0.02 158)", "oklch(69% 0.02 158)", "oklch(81% 0.02 158)", "oklch(95% 0.01 158)"] },
+      "shop-well": { "role": "neutral", "displayName": "Shop Well", "canonical": "#030a06", "tonalRamp": ["oklch(9% 0.01 160)", "oklch(20% 0.01 160)", "oklch(31% 0.01 160)", "oklch(42% 0.01 160)", "oklch(54% 0.01 160)", "oklch(66% 0.01 160)", "oklch(79% 0.01 160)", "oklch(95% 0.01 160)"] },
+      "duel-glass": { "role": "neutral", "displayName": "Duel Dark Glass", "canonical": "rgba(8, 8, 8, 0.92)", "tonalRamp": ["oklch(10% 0 0)", "oklch(21% 0 0)", "oklch(32% 0 0)", "oklch(43% 0 0)", "oklch(55% 0 0)", "oklch(67% 0 0)", "oklch(80% 0 0)", "oklch(95% 0 0)"] },
+      "white": { "role": "neutral", "displayName": "White", "canonical": "#ffffff", "tonalRamp": ["oklch(15% 0 0)", "oklch(27% 0 0)", "oklch(39% 0 0)", "oklch(51% 0 0)", "oklch(63% 0 0)", "oklch(75% 0 0)", "oklch(87% 0 0)", "oklch(99% 0 0)"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#333333", "tonalRamp": ["oklch(14% 0 0)", "oklch(25% 0 0)", "oklch(36% 0 0)", "oklch(48% 0 0)", "oklch(60% 0 0)", "oklch(72% 0 0)", "oklch(84% 0 0)", "oklch(95% 0 0)"] },
+      "equip-green": { "role": "secondary", "displayName": "Equip Green", "canonical": "#4ade80", "tonalRamp": ["oklch(18% 0.08 152)", "oklch(30% 0.11 152)", "oklch(42% 0.14 152)", "oklch(54% 0.16 152)", "oklch(66% 0.17 152)", "oklch(78% 0.17 152)", "oklch(86% 0.13 152)", "oklch(95% 0.06 152)"] },
+      "stamp-gold": { "role": "secondary", "displayName": "Stamp Gold", "canonical": "#ffd700", "tonalRamp": ["oklch(20% 0.06 95)", "oklch(32% 0.09 95)", "oklch(44% 0.12 95)", "oklch(56% 0.14 95)", "oklch(68% 0.16 95)", "oklch(80% 0.17 95)", "oklch(88% 0.18 95)", "oklch(96% 0.08 95)"] },
+      "ranked-red": { "role": "tertiary", "displayName": "Ranked Red", "canonical": "#ff474c", "tonalRamp": ["oklch(18% 0.08 22)", "oklch(29% 0.12 22)", "oklch(40% 0.16 22)", "oklch(52% 0.19 22)", "oklch(65% 0.21 22)", "oklch(75% 0.17 22)", "oklch(85% 0.11 22)", "oklch(95% 0.04 22)"] },
+      "team-pink": { "role": "tertiary", "displayName": "Team Pink", "canonical": "#f06292", "tonalRamp": ["oklch(18% 0.06 358)", "oklch(30% 0.09 358)", "oklch(42% 0.12 358)", "oklch(55% 0.14 358)", "oklch(68% 0.16 358)", "oklch(78% 0.13 358)", "oklch(87% 0.09 358)", "oklch(95% 0.04 358)"] },
+      "scrim": { "role": "neutral", "displayName": "House Scrim", "canonical": "rgba(0, 0, 0, 0.3)", "tonalRamp": ["oklch(0% 0 0)", "oklch(14% 0 0)", "oklch(28% 0 0)", "oklch(42% 0 0)", "oklch(56% 0 0)", "oklch(70% 0 0)", "oklch(84% 0 0)", "oklch(98% 0 0)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero titles over the photo. Jockey One only. Wears the photo-text stroke and shadow." },
+      "headline": { "displayName": "Headline", "purpose": "HUD pills and section headers. Fluid clamp sizing." },
+      "title": { "displayName": "Title", "purpose": "Card titles and button labels. 600 is the workhorse weight." },
+      "body": { "displayName": "Body", "purpose": "Descriptions, chat, settings. 0.9rem is the most common size in the product." },
+      "label": { "displayName": "Label", "purpose": "Small chips and captions. Never uppercase." },
+      "score": { "displayName": "Score", "purpose": "Big animated numbers. Always tabular-nums. Largest text token is 3rem." }
+    },
+    "shadows": [
+      { "name": "card-seat", "value": "0 2px 3px rgba(0,0,0,0.35)", "purpose": "Shop cards at rest. Tight, not bloomed." },
+      { "name": "button-lift", "value": "0 4px 6px rgba(0,0,0,0.3)", "purpose": "Filled buttons on hover, with scale(1.05)." },
+      { "name": "container-drop", "value": "0 6px 7px rgba(0,0,0,0.3)", "purpose": "The g2 container panel family." },
+      { "name": "hud-stack", "value": "0 8px 32px rgba(0,0,0,0.35), 0 4px 12px rgba(36,87,52,0.3), inset 0 1px 0 rgba(255,255,255,0.15)", "purpose": "The .timer pill and every HUD chrome that copies it." },
+      { "name": "modal-float", "value": "0 10px 40px rgba(0,0,0,0.7)", "purpose": "Dialogs over the 75% black backdrop." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Counters and reveal motion." },
+      { "name": "duration-fast", "value": "0.15s", "purpose": "Snappy hover states." },
+      { "name": "duration-base", "value": "0.3s", "purpose": "The house default for state transitions." },
+      { "name": "duration-slow", "value": "0.5s", "purpose": "Large UI slides and hides." },
+      { "name": "hud-enter", "value": "opacity 0 to 1, translateY(-8px) to 0, 0.3s", "purpose": "The one entrance rule for all HUD chrome." },
+      { "name": "footer-enter", "value": "opacity 0 to 1, translateY(40px) to 0, 0.3s ease-in-out", "purpose": "Bottom chrome trio entrance. Never replays after modal cover." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The filled green action button (.gameBtn + .g2_green_button). Gradient wash, thick dark border, lift on hover.",
+      "html": "<button class=\"ds-btn-primary\">Play</button>",
+      "css": ".ds-btn-primary { background: linear-gradient(135deg, rgba(20,65,25,0.9) 0%, rgba(20,65,25,0.6) 57%, rgba(255,255,255,0) 100%); background-color: rgba(36,87,52,0.5); border: 1.4px solid var(--primaryDark, #112b18); border-radius: 15px; color: #fff; font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 1.1rem; padding: 10px 24px; cursor: pointer; transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s; } .ds-btn-primary:hover { background-color: var(--primary, #245734); box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(1.05); } .ds-btn-primary:focus-visible { outline: 2px solid var(--primary, #245734); outline-offset: 2px; }"
+    },
+    {
+      "name": "Menu Text Link",
+      "kind": "nav",
+      "refersTo": "g2_nav_text",
+      "description": "The home menu is words, not buttons. Hover tints the word and nudges it right.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link\">Singleplayer</a><a class=\"ds-nav-link ds-nav-link--ranked\">Ranked</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 8px; background: rgba(0,20,10,0.55); padding: 16px 20px; border-radius: 20px; width: max-content; } .ds-nav-link { background: none; border: none; color: #fff; font-family: 'Jockey One', 'Lexend', sans-serif; font-size: 1.6rem; cursor: pointer; transition: color 0.15s, margin-left 0.15s; margin-left: 0; text-decoration: none; } .ds-nav-link:hover { color: #77dd77; margin-left: 10px; } .ds-nav-link--ranked:hover { color: #ff474c; }"
+    },
+    {
+      "name": "HUD Pill",
+      "kind": "custom",
+      "refersTo": "hud-pill",
+      "description": "The .timer recipe: the canonical HUD chrome. Green glass by opacity, 2px frame, three-layer shadow, tabular numbers. No blur, ever.",
+      "html": "<div class=\"ds-hud-pill\">0:42</div>",
+      "css": ".ds-hud-pill { display: inline-block; background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%); background-color: var(--primaryTransparent, rgba(36,87,52,0.85)); border: 2px solid var(--primary, #245734); border-radius: 16px; padding: 12px 20px; color: #fff; font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 1.25rem; letter-spacing: 0.025em; font-variant-numeric: tabular-nums; box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 4px 12px rgba(36,87,52,0.3), inset 0 1px 0 rgba(255,255,255,0.15); text-shadow: 0 2px 4px rgba(0,0,0,0.3); user-select: none; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "The one field recipe: opaque white, thick dark-green border, green focus glow. Reused from username entry to chat.",
+      "html": "<input class=\"ds-input\" placeholder=\"Enter party code\" />",
+      "css": ".ds-input { background: rgba(255,255,255,0.95); color: #333; border: 2px solid var(--primaryDark, #112b18); border-radius: 12px; padding: 16px 20px; font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 1rem; text-align: center; letter-spacing: 2px; transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s; } .ds-input:focus { outline: none; border-color: var(--primary, #245734); box-shadow: 0 0 0 3px rgba(36,87,52,0.4); transform: translateY(-1px); } .ds-input::placeholder { color: #999; letter-spacing: normal; }"
+    },
+    {
+      "name": "Shop Card",
+      "kind": "card",
+      "refersTo": "shop-card",
+      "description": "Tone-carved card: one step lighter than the panel, border transparent at rest and reserved for state (equipped green).",
+      "html": "<div class=\"ds-shop-card\"><div class=\"ds-shop-card__stage\"></div><div class=\"ds-shop-card__name\">Gold Pin</div></div><div class=\"ds-shop-card ds-shop-card--equipped\"><div class=\"ds-shop-card__stage\"></div><div class=\"ds-shop-card__name\">Neon Pink Pin</div></div>",
+      "css": ".ds-shop-card { display: inline-block; width: 160px; background: var(--shopRaise, #0f2417); border: 2px solid transparent; border-radius: 16px; box-shadow: 0 2px 3px rgba(0,0,0,0.35); padding: 10px; margin: 6px; vertical-align: top; } .ds-shop-card__stage { aspect-ratio: 16/9; background: var(--shopWell, #030a06); border-radius: 10px; } .ds-shop-card__name { color: #fff; font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 0.9rem; padding: 8px 4px 2px; } .ds-shop-card--equipped { border-color: #4ade80; }"
+    },
+    {
+      "name": "Modal",
+      "kind": "custom",
+      "refersTo": "modal",
+      "description": "The shared dialog: dark diagonal wash keyed to the accent scope, 12px radius, rim-light border, rotating close circle.",
+      "html": "<div class=\"ds-modal\"><div class=\"ds-modal__header\"><span>Settings</span><button class=\"ds-modal__close\">×</button></div><div class=\"ds-modal__body\">Modal content sits here.</div></div>",
+      "css": ".ds-modal { width: 320px; background: linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(0,30,15,0.9) 50%, rgba(0,0,0,0.95) 100%); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); color: #fff; font-family: 'Lexend', sans-serif; } .ds-modal__header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; } .ds-modal__body { padding: 16px; font-size: 0.9rem; } .ds-modal__close { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 1rem; cursor: pointer; transition: background 0.2s, transform 0.2s; } .ds-modal__close:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Traveler's Passport",
+    "overview": "WorldGuessr looks like a well-worn passport turned into a game. The real world is always the main image: a live Street View pano or a full-bleed city photo fills the screen. The interface floats over it as small pieces of dark green glass. Stamps, streaks, pins, and collected cosmetics are the player's identity, the way stamps fill a passport. The mood is fun first: friendly, game-like, and never so heavy that it hides the world behind it. The system is a single fixed dark theme. Hierarchy comes from tone steps, not from outlines. Color is rationed: the green chrome is constant, and every other color has one job.",
+    "keyCharacteristics": [
+      "Full-bleed world imagery under everything; chrome floats and stays small.",
+      "Dark green translucent plates (glass by opacity, never by blur).",
+      "Tone carves hierarchy; strokes only speak state.",
+      "Color is rationed to a few fixed meanings.",
+      "Numbers are first-class: big, animated, tabular."
+    ],
+    "rules": [
+      { "name": "The Rationed Color Rule", "body": "In the shop grid, green appears exactly twice (equipped frame, buy button) and gold exactly twice (currency mark, purchase win). Never put --primary back on a surface there.", "section": "colors" },
+      { "name": "The Menu Rule", "body": "The menu wears its background's colors; gameplay never does. Only the named menu roots read the accent variables. Accent application is all-or-nothing.", "section": "colors" },
+      { "name": "The Status Colors Stay Rule", "body": "Ranked red, team pink, streak gold, and win/loss ticks are never retinted by an equipped accent. They are information, not chrome.", "section": "colors" },
+      { "name": "The Tabular Numbers Rule", "body": "Every number that changes while visible uses font-variant-numeric: tabular-nums so its container never breathes.", "section": "typography" },
+      { "name": "The Photo Text Rule", "body": "Text sitting directly on the photo wears a 1px black text-stroke plus a hard 2px offset shadow. Text on a plate wears only a soft text-shadow; the plate carries the contrast.", "section": "typography" },
+      { "name": "The Shadow Font Rule", "body": "Cyrillic falls through to Rubik/Oswald via unicode-range faces under the same family names. Each shadow face's font-weight descriptor must exactly match the real face.", "section": "typography" },
+      { "name": "The Tone-Carves Rule", "body": "Hierarchy is carved by tone steps. Strokes exist only to speak state: equipped green, won gold, refused red, focus green. Never draw a ring around a surface to make it a surface.", "section": "elevation" },
+      { "name": "The No-Blur Rule", "body": "No backdrop-filter on chrome over the live pano or full-bleed photos. Glass is faked with opacity.", "section": "elevation" },
+      { "name": "The Compositor Pulse Rule", "body": "Attention pulses animate opacity on a pseudo-element only. Never animate box-shadow or filter per-frame.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do build new HUD chrome by restating the .timer recipe (fill, frame, radius, shadow) so it takes future corrections at the same time.",
+      "Do carve hierarchy with tone steps (~11 sRGB units per step in the shop ladder) and reserve strokes for state.",
+      "Do use tabular-nums on every live number and animate counters ease-out at 30Hz.",
+      "Do keep accent-tinting all-or-nothing, through the one selector allowlist in globals.scss.",
+      "Do use opacity-only pulses on pseudo-elements for attention states.",
+      "Do ship metric-matched fallback fonts and weight-matched Cyrillic shadow faces.",
+      "Do put a 1px black text-stroke + hard offset shadow on any text placed directly over the photo."
+    ],
+    "donts": [
+      "Don't draw 1px translucent-white hairline rings around surfaces. The owner vetoed the whole species as AI slop; it is the single biggest someone-else's-app tell.",
+      "Don't stack gradients. One wash over one flat tint is the maximum.",
+      "Don't use backdrop-filter on anything over the pano or a full-bleed photo, and don't stack a black underlay instead; raise the plate's alpha.",
+      "Don't make 9999px pill chips with outline borders, uppercase micro-labels, or badges that describe the thing they are stuck to.",
+      "Don't put accent green on shop surfaces or retint status colors (ranked red, team pink, gold) with an equipped accent.",
+      "Don't use SVG or glyph map pins; pins are PNG images on the 151x163 glow canvas, always.",
+      "Don't let a cosmetic replace a fill color; cosmetics add light on top."
+    ]
+  }
+}

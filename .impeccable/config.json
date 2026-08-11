@@ -1,0 +1,42 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "mobile/src/shared/glowKeyframes.ts",
+          "styles/nameGlow.css"
+        ],
+        "createdAt": "2026-08-11T14:14:00.609Z",
+        "reason": "Glow sku keyframe palettes are purchased-product data, not theme drift; user confirmed via audit"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "lexend-bold",
+        "createdAt": "2026-08-11T14:14:00.659Z",
+        "reason": "RN static font-file name for Lexend 700, the documented brand family; user confirmed"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "lexend-semibold",
+        "createdAt": "2026-08-11T14:14:00.709Z",
+        "reason": "RN static font-file name for Lexend 600, the documented brand family; user confirmed"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "1px",
+        "createdAt": "2026-08-11T14:14:00.758Z",
+        "reason": "Hairline meter/underline shape, not corner rounding; user confirmed"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "2px",
+        "createdAt": "2026-08-11T14:14:00.808Z",
+        "reason": "Hairline meter/underline shape, not corner rounding; user confirmed"
+      }
+    ]
+  }
+}

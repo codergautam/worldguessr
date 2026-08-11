@@ -55,7 +55,6 @@ function Row({ entry, isMe }: { entry: DailyLeaderboardEntry; isMe: boolean }) {
           textStyle={styles.name}
           numberOfLines={1}
           glow={entry.nameGlow}
-          animated={false}
         />
       </View>
       <Text style={styles.score}>{entry.score.toLocaleString()}</Text>

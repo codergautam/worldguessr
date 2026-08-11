@@ -513,6 +513,7 @@
   "appealOnDiscord": "Appeal on Discord",
   "opponentLeftBeforeStart": "Opponent left before the game started. Returning to queue...",
   "queueJoinFailed": "Couldn't join the queue. Please try again.",
+  "createLobbyFailed": "Could not reach the game server. Please try again.",
   "needMorePlayers": "Need at least 2 players to start",
   "mapLocationsLoading": "Map locations not loaded, try reselecting the map or use a different map",
   "obCompletePrompt": "What would you like to try next?",

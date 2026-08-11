@@ -160,12 +160,20 @@ export function nameGlowShadow(sku, surface = GLOW_DARK) {
  * `wg-glow-room`, if it declares its truncation in a stylesheet) on it —
  * UNCONDITIONALLY, glow or not, so the box is the same box either way.
  *
- * `animated: false` suppresses the keyframes and leaves the static halo. Pass
- * it from LONG or VIRTUALISED lists — leaderboards, chat logs, history. A
- * `text-shadow` animation is main-thread PAINT, so a hundred of them on one
- * screen is a hundred repaints a frame; the same reasoning caps the mobile rig
- * (mobile/src/components/PlayerName.tsx `animated`). Bounded surfaces — a HUD,
- * a lobby, your own name in the navbar — keep the motion they were sold.
+ * `animated: false` suppresses the keyframes and leaves the static halo.
+ * LISTS NO LONGER PASS IT (Aug 11, "animated nametag not working in places
+ * like leaderboard"): the leaderboards, friends and history animate outright,
+ * because the paint fear priced a hundred animated owners per screen and
+ * reality is a handful — only a row whose player EQUIPPED an animated sku
+ * pays anything. Two surfaces take a THIRD option instead of either extreme:
+ * the in-game chat log and the community-maps tiles use `HoverGlowName` below.
+ * It cross-fades a static shadow layer into a paused animated one on hover, so
+ * animation over a live round or a flooded grid costs nothing until someone
+ * actually looks and mouse-out settles smoothly instead of freezing a bloom.
+ * Nobody on web passes `animated: false` any more;
+ * the mobile chat and tile mirrors pass it because touch has no hover to
+ * wake with, and resting is the design. Reduced-motion users get the static
+ * stack from the CSS side regardless.
  */
 export function nameGlowProps(sku, surface = GLOW_DARK, { animated = true, ownBox = false } = {}) {
   const shadow = nameGlowShadow(sku, surface);
@@ -225,6 +233,61 @@ export function cachedNameGlowProps(sku, surface = GLOW_DARK, { animated = true,
     GLOW_PROPS_CACHE.set(key, nameGlowProps(sku, surface, { animated, ownBox }));
   }
   return GLOW_PROPS_CACHE.get(key);
+}
+
+/**
+ * A name whose animated glow wakes only while its containing `.wg-glowHover`
+ * row/tile is hovered.
+ *
+ * The readable copy owns layout and accessibility. Animated skus add two
+ * aria-hidden, paint-only copies in exactly the same box: the static shadow is
+ * visible at rest and cross-fades to the running keyframes on hover. On leave,
+ * the animation pauses immediately while its layer fades back into the static
+ * halo, avoiding both continued paint work and the old frozen-mid-bloom look.
+ * Static/no-glow names keep the same host box, so equipping an animated sku
+ * cannot change wrapping or alignment on these surfaces.
+ */
+export function HoverGlowName({
+  sku,
+  surface = GLOW_DARK,
+  ownBox = false,
+  className,
+  children,
+}) {
+  const staticGlow = cachedNameGlowProps(sku, surface, { animated: false, ownBox });
+  const movingGlow = cachedNameGlowProps(sku, surface, { ownBox });
+  const isAnimated = Boolean(
+    staticGlow && movingGlow?.className !== staticGlow.className
+  );
+  const hostClassName = [
+    'wg-glowHoverName',
+    className,
+    isAnimated ? 'wg-glowCrossfade' : staticGlow?.className,
+  ].filter(Boolean).join(' ');
+
+  if (!isAnimated) {
+    return <span className={hostClassName} style={staticGlow?.style}>{children}</span>;
+  }
+
+  return (
+    <span className={hostClassName}>
+      <span className="wg-glowCrossfade__content">{children}</span>
+      <span
+        aria-hidden="true"
+        className={`wg-glowCrossfade__shadow wg-glowCrossfade__static ${staticGlow.className ?? ''}`.trim()}
+        style={staticGlow.style}
+      >
+        {children}
+      </span>
+      <span
+        aria-hidden="true"
+        className={`wg-glowCrossfade__shadow wg-glowCrossfade__animated ${movingGlow.className ?? ''}`.trim()}
+        style={movingGlow.style}
+      >
+        {children}
+      </span>
+    </span>
+  );
 }
 
 // THE TRUNCATION THAT USED TO LIVE HERE IS DELETED, and its deletion is the fix

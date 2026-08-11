@@ -504,7 +504,7 @@ export async function run({
   for await (const b of idBatches({ batchSize, limit })) {
     batches++;
     const docs = await User.find({ _id: { $gte: b.first, $lte: b.last } })
-      .select('_id username elo_s0 duels_wins duels_losses duels_tied banned pendingNameChange')
+      .select('_id username elo_s0 duels_wins duels_losses duels_tied banned pendingNameChange cosmetics.equipped.nameGlow')
       .lean();
 
     for (const u of docs) {
@@ -554,6 +554,12 @@ export async function run({
         // games" instead of libelling someone with a 0% win rate.
         winRate: games > 0 ? Math.round((safeCount(u.duels_wins) / games) * 10000) / 10000 : null,
         league: season0League(u.elo_s0, tiersDesc),
+        // The equipped name glow AT EXPORT TIME, so the board can dress every
+        // row and not just the viewer's own (the owner's "animated nametag not
+        // working on the leaderboard" report, Aug 11). A snapshot field like
+        // everything else here: re-run the export to refresh it. Omitted when
+        // bare so the file doesn't carry a thousand nulls.
+        ...(u.cosmetics?.equipped?.nameGlow ? { nameGlow: u.cosmetics.equipped.nameGlow } : {}),
       });
     }
 
@@ -633,6 +639,7 @@ export async function run({
       games: 'Career ranked games: duels_wins + duels_losses + duels_tied',
       winRate: 'wins / career ranked games, 0..1, null when games is 0',
       league: 'Season 0 league from the OLD cutoffs',
+      nameGlow: 'Equipped name-glow sku at export time; absent when none',
     },
     players: ranked,
   };

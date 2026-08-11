@@ -14,12 +14,13 @@ import { cachedNameGlowProps } from './utils/usernameWithFlag';
  * the sku live by accountId rather than reading it off the frozen Game document,
  * because a cosmetic is identity and a Game is a result.
  *
- * Static and cached — a page holds up to fifty games, several of which are 2v2
- * rows with four names apiece. The glow is additive, so the cyan profile-link
- * fill these names carry is untouched; only the halo is new.
+ * Animated, cached (Aug 11, same ruling as the leaderboards) — a page holds up
+ * to fifty games but only names wearing an ANIMATED sku move, a handful at
+ * most. The glow is additive, so the cyan profile-link fill these names carry
+ * is untouched; only the halo is new.
  */
 function HistoryName({ name, glow }) {
-  const props = cachedNameGlowProps(glow, undefined, { animated: false });
+  const props = cachedNameGlowProps(glow);
   if (!props) return name;
   return <span className={props.className} style={props.style}>{name}</span>;
 }

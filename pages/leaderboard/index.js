@@ -12,18 +12,20 @@ import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
 /**
  * A leaderboard name, wearing its owner's equipped glow.
  *
- * STATIC EVEN FOR THE ANIMATED SKUS (`animated: false`). This page renders a
- * hundred rows at once and a keyframed `text-shadow` is main-thread paint —
- * a hundred of them would repaint the list every frame for as long as the page
- * is open, which is exactly the kind of cost the shop's own storefront rules
- * already refuse. The halo is the same colour and the same reach; it just holds
- * still. The bounded surfaces (HUD, lobby, profile header) keep the motion.
+ * ANIMATED (Aug 11, "animated nametag not working in places like leaderboard"
+ * — this page was the one the owner was literally looking at). It ran static
+ * on a hundred-repaints-a-frame argument that priced a hundred ANIMATED-GLOW
+ * OWNERS on one screen; the real bill is the handful of rows whose player
+ * equipped an animated sku, and offscreen rows do not paint. Reduced-motion
+ * users get the static stack from the CSS side. Same flip as the Hall of
+ * Fame, the daily modal, chat, friends and history — the community-maps tile
+ * wall is the one list that stays static (see usernameWithFlag.js).
  *
  * The props come from the shared cache, so a hundred rows share at most nine
  * objects instead of minting a hundred style literals per render.
  */
 function GlowName({ name, glow }) {
-  const props = cachedNameGlowProps(glow, undefined, { animated: false });
+  const props = cachedNameGlowProps(glow);
   if (!props) return name;
   return <span className={props.className} style={props.style}>{name}</span>;
 }

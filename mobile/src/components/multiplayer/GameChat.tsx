@@ -69,11 +69,14 @@ function MessageRow({ msg, onMute }: { msg: ChatMessage; onMute: (m: ChatMessage
             textStyle={styles.msgName}
             style={styles.msgNameRow}
             glow={msg.nameGlow}
-            // Static: the log holds up to CHAT_LOG_CAP rows and every animated
-            // sku stacks blurred <Text> copies per name. The panel also clips
-            // (styles.panel overflow:hidden), so a halo on the first or last
-            // visible row shears at the edge — expected in a scroll container,
-            // and not worth restructuring the panel over.
+            // STATIC, deliberately, while the leaderboards animate (Aug 11
+            // second pass): chat overlays a LIVE round, and web's answer —
+            // rest until hover (`wg-glowHover`) — has no touch equivalent.
+            // Resting is the whole design there too, so static IS the parity.
+            // The panel also clips (styles.panel overflow:hidden), so a halo
+            // on the first or last visible row shears at the edge — expected
+            // in a scroll container, and not worth restructuring the panel
+            // over.
             animated={false}
           />
           {msg.teamChat && (

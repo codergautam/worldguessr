@@ -207,7 +207,6 @@ export default function FriendsTab() {
                 style={styles.reqNameRow}
                 numberOfLines={1}
                 glow={req.nameGlow}
-                animated={false}
               />
               <Pressable
                 onPress={() => acceptFriend(req.id)}
@@ -242,7 +241,6 @@ export default function FriendsTab() {
                 style={styles.reqNameRow}
                 numberOfLines={1}
                 glow={req.nameGlow}
-                animated={false}
               />
               <Pressable
                 onPress={() => cancelFriendRequest(req.id)}
@@ -285,8 +283,7 @@ export default function FriendsTab() {
                     textStyle={[styles.userName, { flex: 0 }]}
                     numberOfLines={1}
                     glow={friend.nameGlow}
-                    animated={false}
-                  />
+                      />
                   {/* lastSeen is null for friends who opted out (hideLastSeen) —
                       they read as plain offline (dot only), mirroring web */}
                   {!friend.online && friend.lastSeen != null && (

@@ -4,7 +4,7 @@ import clientConfig from "@/clientConfig";
 import { useSession } from "@/components/auth/auth";
 import { useTranslation } from "@/components/useTranslations";
 import { asset } from "@/lib/basePath";
-import { nameGlowProps, GlowName } from "@/components/utils/usernameWithFlag";
+import { nameGlowProps, cachedNameGlowProps, GlowName } from "@/components/utils/usernameWithFlag";
 import { NO_PROFILE_LINKS } from "@/components/utils/externalLinks";
 
 /**
@@ -222,7 +222,9 @@ const Podium = memo(function Podium({ entries, lang, myKey, gamesLabel, myGlow =
             <div className="hof-podium__medal">{MEDALS[entry.rank - 1] || MEDALS[index]}</div>
             <div className="hof-podium__rank">#{entry.rank}</div>
             <div className="hof-podium__name">
-              <PlayerName username={entry.username} glow={isMe ? myGlow : null} />
+              {/* Everyone's glow, off the snapshot — cached props, this maps
+                  per render. My own row prefers the live session sku. */}
+              <PlayerName username={entry.username} glow={isMe ? myGlow : cachedNameGlowProps(entry.nameGlow)} />
             </div>
             <div className="hof-podium__rating">{formatNumber(entry.elo_s0, lang)}</div>
             <div className={`hof-podium__league hof-league--${slug}`}>{entry.league}</div>
@@ -380,17 +382,16 @@ export default function HallOfFame({ initialData = null }) {
 
   const myUsername = session?.token?.username || null;
   const myKey = myUsername ? myUsername.toLowerCase() : null;
-  // THE VIEWER'S OWN ROW, AND ONLY THE VIEWER'S OWN ROW.
-  //
-  // This board is a FROZEN Season 0 snapshot served as a static file
-  // (public/season0-hall-of-fame.json, written by a script), so it carries no
-  // cosmetics and there is nowhere to add them without a new public endpoint
-  // that resolves a page of usernames to skus. Deliberately not built: this is
-  // an archive of a closed season, the rows are a historical record, and the one
-  // person whose purchase being invisible here is a bug is the person looking at
-  // their own name. Theirs comes off the session and costs nothing.
-  //
-  // Animated: it is one row per page, not a hundred.
+  // EVERY ROW WEARS ITS GLOW NOW (Aug 11, "animated nametag not working in
+  // places like leaderboard"). It used to be the viewer's own row and nothing
+  // else, on the argument that a frozen snapshot carries no cosmetics and an
+  // endpoint just for skus was not worth building. It still isn't: the EXPORT
+  // carries them instead — scripts/exportSeason0HallOfFame.js snapshots each
+  // player's equipped sku into the JSON, so there is no live lookup and no new
+  // API. An older JSON simply has no nameGlow fields and renders bare, exactly
+  // as before. The viewer's OWN row still prefers the live session sku over
+  // the snapshot: they see the glow they equipped five minutes ago; everyone
+  // else is as-of-export.
   const myGlow = nameGlowProps(session?.token?.cosmetics?.equipped?.nameGlow);
 
   const myEntry = useMemo(() => {
@@ -570,7 +571,7 @@ export default function HallOfFame({ initialData = null }) {
                 lang={lang}
                 gamesLabel={gamesLabel}
                 isMe={myKey !== null && entry.username.toLowerCase() === myKey}
-                glow={myKey !== null && entry.username.toLowerCase() === myKey ? myGlow : null}
+                glow={myKey !== null && entry.username.toLowerCase() === myKey ? myGlow : cachedNameGlowProps(entry.nameGlow)}
               />
             ))}
           </div>

@@ -197,6 +197,7 @@ export const MARKER_PIN_IMAGES: Record<string, number> = {
   marker_gold_pin: require('../../assets/pins/gold.png'),
   marker_neon_orange_pin: require('../../assets/pins/neonorange.png'),
   marker_neon_pink_pin: require('../../assets/pins/neonpink.png'),
+  marker_emerald_pin: require('../../assets/pins/emerald.png'),
   marker_rainbow_pin: require('../../assets/pins/rainbow.png'),
 };
 

@@ -7,6 +7,7 @@ import src2Url from '@/public/src2.png';
 import goldPinUrl from '@/public/pins/gold.png';
 import neonOrangePinUrl from '@/public/pins/neonorange.png';
 import neonPinkPinUrl from '@/public/pins/neonpink.png';
+import emeraldPinUrl from '@/public/pins/emerald.png';
 import rainbowPinUrl from '@/public/pins/rainbow.png';
 
 // Drop-in replacement for @/lib/markerIcons in the standalone embed. Mirrors the
@@ -25,6 +26,7 @@ const SKIN_URLS = {
   goldPin: goldPinUrl,
   neonOrangePin: neonOrangePinUrl,
   neonPinkPin: neonPinkPinUrl,
+  emeraldPin: emeraldPinUrl,
   rainbowPin: rainbowPinUrl,
 };
 
@@ -32,6 +34,7 @@ export const MARKER_SKIN_ICONS = {
   marker_gold_pin: 'goldPin',
   marker_neon_orange_pin: 'neonOrangePin',
   marker_neon_pink_pin: 'neonPinkPin',
+  marker_emerald_pin: 'emeraldPin',
   marker_rainbow_pin: 'rainbowPin',
 };
 

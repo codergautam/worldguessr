@@ -318,6 +318,12 @@ export default class Player {
             key: 'reconnected',
           });
         }
+      } else if (dcPlayer.gameId) {
+        // The game died while they were away (lobby dissolved into a match,
+        // pregame cancel, purge race). This reused Player object is about to
+        // become the live session — a dangling id here rides through every
+        // future refresh and silently gates all queue/create entries.
+        dcPlayer.gameId = null;
       }
 
       // destroy this player

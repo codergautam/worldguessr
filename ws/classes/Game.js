@@ -902,6 +902,11 @@ export default class Game {
 
   removePlayer(player, socketClosed=false) {
     if (!this.players[player.id]) {
+      // Seat already pruned (direct roster deletes never touch the Player):
+      // still clear the back-pointer, or the id dangles after this game dies
+      // and gates every queue/create entry. Own-game check so a player who
+      // has since joined ANOTHER game never gets that id wiped.
+      if (player.gameId === this.id) player.gameId = null;
       return;
     }
     if(!socketClosed) {

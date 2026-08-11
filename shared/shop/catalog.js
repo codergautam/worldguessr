@@ -350,9 +350,14 @@ const ANIMATED_GLOWS = [
 // time (see public/pins) and their names dropped the word with it; the skus
 // keep the neon_ prefix because a sku is a stable ID, not copy.
 const MARKERS = [
-  { sku: 'marker_gold_pin',        name: 'Gold Pin' },
-  { sku: 'marker_neon_orange_pin', name: 'Orange Pin', price: 250 },
-  { sku: 'marker_neon_pink_pin',   name: 'Pink Pin',   price: 250 },
+  { sku: 'marker_neon_orange_pin', name: 'Orange Pin',  price: 250 },
+  { sku: 'marker_neon_pink_pin',   name: 'Pink Pin',    price: 250 },
+  { sku: 'marker_emerald_pin',     name: 'Emerald Pin', price: 300 },
+  // Gold moved off the 200 entry rung when it was redone as a gradient-and-
+  // gloss metal — it is jewellery now, so it sits with the emerald and closes
+  // the colourway band right before Rainbow. The sku did not move; ownership
+  // survives a reprice.
+  { sku: 'marker_gold_pin',        name: 'Gold Pin',    price: 300 },
   { sku: 'marker_rainbow_pin',     name: 'Rainbow Pin', price: 500 },
 ].map((m) => ({ ...m, type: 'marker', price: m.price ?? MARKER_PRICE, platforms: ['web', 'mobile'] }));
 

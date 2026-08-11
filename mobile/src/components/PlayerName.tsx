@@ -47,14 +47,18 @@ interface PlayerNameProps {
   /**
    * Set false to force the STATIC halo even for an animated sku.
    *
-   * THIS IS THE LAG BUDGET AND IT IS NOT OPTIONAL IN LONG LISTS. Each animated
-   * sku stacks up to eight extra <Text> nodes, every one of them drawing a
-   * blurred copy of the name each frame. That is nothing on a duel HUD with two
-   * names and it is a hundred blurred draws a frame on a leaderboard. Pass
-   * `animated={false}` from anything virtualised or unbounded — leaderboards,
-   * chat logs, friends lists, history — and leave it alone on the bounded
-   * surfaces: HUD, get-ready, results, lobby, profile header, your own name.
-   * The same rule governs the web side (`animatedGlow` on UsernameWithFlag).
+   * THE LAG BUDGET, RE-PRICED (Aug 11, "animated nametag not working in
+   * places like leaderboard"): lists no longer pass false. Each animated sku
+   * stacks up to eight extra <Text> nodes drawing blurred copies per frame —
+   * but only rows whose player EQUIPPED an animated sku pay it, and a
+   * virtualised list mounts ~15 rows, so the real bill is a handful of names,
+   * not a hundred. Leaderboards, friends and history animate now, mirroring
+   * web. Two surfaces still pass false: the maps tile wall (MapSection can
+   * flood hundreds of tiles) and the in-game chat (it overlays a live round).
+   * Web rests those same two under a hover-to-wake class instead
+   * (`wg-glowHover`, styles/nameGlow.css); touch has no hover, so resting
+   * static IS the parity. This prop is also the dial to turn FIRST if a
+   * low-end device ever stutters on a glow-heavy list.
    */
   animated?: boolean;
   /**

@@ -750,6 +750,108 @@
    text-shadow is not a compositable property, so the hint cannot promote
    anything — and the carrier these classes now land on generates no box at all
    (`display: contents`), so there is nothing left to promote even in theory. */
+/* --------------------------------------------------------------------------
+   REST-UNTIL-HOVER (`wg-glowHover`), for the surfaces where an always-on
+   animation would run OVER live gameplay or a flooded grid: the in-game chat
+   log (a round is rendering behind it) and the community-maps tile wall
+   (five sections of a hundred tiles).
+
+   A PAUSED KEYFRAME CANNOT BE THE RESTING VISUAL. The first version merely
+   toggled `animation-play-state`; mouse-out therefore stranded whatever large
+   bloom or offset happened to be on screen at that instant. `HoverGlowName`
+   now renders the readable name once plus two aria-hidden, shadow-only copies
+   in the same box. The static copy owns the resting halo. Hover cross-fades it
+   into the animated copy; mouse-out pauses that copy immediately and fades its
+   frozen frame back into the canonical static stack. Nothing ticks at rest,
+   but the exit still reads as the light dying away instead of getting stuck.
+
+   The host is present for glowing and non-glowing names alike, so this real
+   positioning box cannot make an equipped name wrap or align differently. The
+   `.wg-name-clip` variant repeats its 34px padding on the absolute paint copies:
+   their text gets the same ellipsis width as the readable copy while their
+   shadows are clipped only at the outer padding edge, not at the glyphs.
+
+   Hover activation is gated on a real hover-capable pointer and normal motion
+   preference. Touch and reduced-motion users therefore keep the static layer,
+   matching mobile's deliberate `animated={false}` on these two surfaces. */
+.wg-glowHoverName {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: baseline;
+    /* Keep the paint-only copies behind this name, never behind neighbouring
+       row/tile content when their explicit z-index is applied below. */
+    isolation: isolate;
+}
+
+/* Text-shadow normally paints behind its own glyph. The cross-fade shadows
+   live on separate, later DOM siblings, so without explicit stacking their
+   blur paints OVER the readable glyph instead — most visibly darkening Blaze,
+   whose animation carries seven layers. Restore native text-shadow ordering. */
+.wg-glowCrossfade__content {
+    position: relative;
+    z-index: 1;
+}
+
+.wg-glowCrossfade__shadow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    min-width: 0;
+    pointer-events: none;
+    user-select: none;
+    color: transparent !important;
+    background: transparent !important;
+    transition: opacity 180ms ease-out;
+}
+
+/* Search highlighting adds a padded child span. Duplicate the geometry so its
+   shadows stay registered with the readable copy, but never duplicate its fill
+   or orange highlight plate. */
+.wg-glowCrossfade__shadow * {
+    color: transparent !important;
+    background: transparent !important;
+}
+
+.wg-name-clip.wg-glowCrossfade .wg-glowCrossfade__shadow {
+    box-sizing: border-box;
+    padding: 34px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wg-glowCrossfade__static {
+    opacity: 1;
+}
+
+.wg-glowCrossfade__animated {
+    opacity: 0;
+}
+
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--flame,
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--cycle,
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--orbit {
+    animation-play-state: paused;
+}
+
+@media (any-hover: hover) and (prefers-reduced-motion: no-preference) {
+    .wg-glowHover:hover .wg-glowCrossfade__static {
+        opacity: 0;
+    }
+
+    .wg-glowHover:hover .wg-glowCrossfade__animated {
+        opacity: 1;
+    }
+
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--flame,
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--cycle,
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--orbit {
+        animation-play-state: running;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
 
     .wg-nameglow--flame,
