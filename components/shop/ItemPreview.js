@@ -21,13 +21,12 @@ import { STOCK_PIN_KEY } from './markerPins';
  *  not a product anybody spends 3,000 Stamps on, and the strip was still paying
  *  a third of every card's height for a caption.
  *
- *  So there is now exactly ONE stage per preview and it is black, and the stage
- *  is dressed as the place the glow actually lives: the same 135deg black ->
- *  green-black wash the account modal already paints (the wallet popover, the
- *  other surface this was matched to, has since been deleted),
- *  under the .timer HUD's inset top highlight, with a centre vignette so the
- *  darkest pixels are the ones directly behind the name. Nothing invented, no
- *  glassmorphism, no gradient card that belongs to some other app.
+ *  So there is now exactly ONE stage per preview and it is dark: the shared
+ *  .shopPrev well, the same recess the pins sit in (styles/shop.css). The
+ *  stage spent a while stripped to the card's own surface; the well came back
+ *  because a glow is sold by contrast — the halos are tuned against near-black
+ *  and the card's mid plate washed the pale wide layers out. Nothing invented,
+ *  no glassmorphism, no gradient card that belongs to some other app.
  *
  *  THE LIGHT *VARIANT* IS NOT GONE — ONLY THE LIGHT *STAGE* IS. Every sku still
  *  carries a `glowLight` colour in shared/shop/catalog.js and styles/nameGlow.css
@@ -156,7 +155,7 @@ function MarkerPreview({ item, markerUrls }) {
   // The baseline pin is the stock one the map falls back to, pulled out of the
   // SAME icon set the skins come from (see markerPins.js) — so this card costs
   // no second import and previews the literal pin the player gets back.
-  const url = markerUrls?.[item.isDefault ? STOCK_PIN_KEY : item.sku];
+  const urls = markerUrls?.[item.isDefault ? STOCK_PIN_KEY : item.sku];
   // ONE DARK PLATE, like every other preview in this storefront. This used to be
   // a pale map-coloured wash on the argument that a pin is judged on the map. It
   // is the only light plate left after the "on light" stage came out, and one
@@ -168,8 +167,13 @@ function MarkerPreview({ item, markerUrls }) {
       {/* 76x90 renders the ART at the same ~44x72 it was shown at before the
           canvas grew: pin PNGs are 151x163 with the 87x131 art inside glow
           headroom (lib/markerIcons.js), so the box scales by canvas/art on
-          each axis — and any glow painted in the headroom shows on the card. */}
-      {url ? <img src={url} alt="" width={76} height={90} draggable={false} /> : <div className="shopPrev__pinFallback" />}
+          each axis — and any glow painted in the headroom shows on the card.
+          srcSet carries a native-size 1x and an @2x: at DPR 1 the browser
+          paints the 76x90 file with NO resample at all, which is what "crisp"
+          actually requires (see markerPins.js). */}
+      {urls ? (
+        <img src={urls.src} srcSet={urls.srcSet} alt="" width={76} height={90} draggable={false} />
+      ) : <div className="shopPrev__pinFallback" />}
     </div>
   );
 }

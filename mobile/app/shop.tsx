@@ -1324,11 +1324,13 @@ function GlowSection({
  * a debug view, and the strip was still spending a third of the card's height
  * saying so.
  *
- * The stage is dressed as the surface a glow actually lives on here — the same
- * 135deg black -> green-black wash this screen already paints behind its own
- * header, over a near-black plate. Nothing invented, and no photograph: a
- * full-bleed image per card is a real cost on the phones this app has to stay
- * smooth on, and the wash is the recognisable part anyway.
+ * The stage is a RECESSED DARK PLATE — the owner's second ruling on this box,
+ * reversing the "no stage at all" pass, in step with the web card handing its
+ * glow preview the shared .shopPrev well back (styles/shop.css): a glow is
+ * sold by CONTRAST, every radius in src/shared/glowKeyframes.ts is tuned
+ * against near-black, and on the card's own mid plate the pale wide layers
+ * washed out. The tone is bgThumb's #05070A — the recess this screen already
+ * uses — not a wash, not a photograph, and no dressing on top of it.
  *
  * THE LIGHT COLOURS ARE NOT DELETED, ONLY THE LIGHT STAGE IS. Every sku still
  * carries a light hue in src/shared/cosmetics.ts and <PlayerName onLight> still
@@ -1348,11 +1350,11 @@ function GlowSection({
  * frame) and it buys nothing now that the cards move: motion is the thing that
  * separates them, and motion does not need a larger box to be seen in.
  *
- * THE STAGE'S CLEARANCE IS WHY THE LAYER TABLE IS CAPPED. 88px tall, 14px of
- * vertical padding around a 32px line box, and `overflow: 'hidden'` — so ~28px
- * of room on each side. Every radius in src/shared/glowKeyframes.ts is under
- * that (the widest is the prism's 22px bloom), which is what keeps these
- * previews from shearing at the stage edge. Raise one and check the other.
+ * THE STAGE'S CLEARANCE IS WHY THE LAYER TABLE IS CAPPED. An 80px stage with a
+ * 32px line box centred in it leaves 24px each side, and every radius in
+ * src/shared/glowKeyframes.ts is under that (the widest is the prism's 22px
+ * bloom) — which is what keeps these previews from reaching the plate edge.
+ * Raise one and check the other.
  */
 function GlowCard({
   item,
@@ -1379,13 +1381,12 @@ function GlowCard({
 }) {
   return (
     <View style={[styles.glowCard, equipped && styles.cardEquipped]}>
-      {/* NO STAGE ANY MORE — no black plate, no wash dressing it, no gold
-          "Animated" chip in its corner. All three went in the owner's de-slop
-          pass, the chip by name ("complete ai slop"): a glow is light, and
-          light in a labelled box is a museum exhibit. The name floats on the
-          card's own surface at a fixed height (halo clearance is the height's
-          whole job), and the animated skus say so by moving. Web dropped the
-          identical furniture from ItemPreview.js in the same pass. */}
+      {/* THE PLATE IS BACK — second ruling. The de-slop pass stripped the
+          plate, the wash and the gold "Animated" chip together; the wash and
+          the chip STAY dead, but a glow needs dark behind it to read, so the
+          stage wears the same #05070A recess bgThumb uses. The animated skus
+          still say "animated" by moving. Web made the identical change to
+          .shopPrev--glow (styles/shop.css) in the same pass. */}
       <View style={styles.stage}>
         <View style={styles.stageNameRow}>
           <PlayerName
@@ -2079,14 +2080,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  // NO PLATE, NO CLIP. The height is halo arithmetic only: a 32px line box
-  // centred in 80 leaves 24px each side, past the widest radius in
-  // src/shared/glowKeyframes.ts (the prism's 22px bloom). No `overflow:
-  // 'hidden'` — with no plate edge to keep tidy, clipping could only ever
-  // shear a halo at an invisible line.
+  // THE PLATE IS BACK (second ruling — see GlowCard's doc). Tone and radius
+  // are bgThumb's recess, so the shop keeps ONE recessed-dark treatment
+  // rather than growing a second. Still NO CLIP: clearance is the height's
+  // job — a 32px line box centred in 80 leaves 24px each side, past the
+  // widest radius in src/shared/glowKeyframes.ts (the prism's 22px bloom) —
+  // so nothing reaches the plate edge and a clip could only shear a halo.
   stage: {
     height: 80,
     paddingHorizontal: 18,
+    backgroundColor: '#05070A',
+    borderRadius: borderRadius.md,
   },
   stageNameRow: {
     flex: 1,

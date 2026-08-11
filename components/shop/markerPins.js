@@ -40,18 +40,30 @@ export const STOCK_PIN_KEY = '__stock';
 
 const PATH_BY_KEY = new Map(PIN_PATHS.map(({ key, path }) => [key, path]));
 
-/** /pins/gold.png -> /pins/previews/gold.png (src.png -> /pins/previews/src.png) */
-function previewPath(mapPath) {
-  const base = mapPath.slice(mapPath.lastIndexOf('/') + 1);
-  return `/pins/previews/${base}`;
+/**
+ * TWO DENSITIES PER PIN, and the 1x is the reason the cards are finally crisp
+ * on a standard monitor: at DPR 1 the browser renders the 76x90 file into the
+ * 76x90 box with ZERO resampling — the only scale factor no algorithm can
+ * soften. The @2x (152x180) serves hiDPI screens. Both are pre-stretched to
+ * the map's canvas proportions at build time; the browser never does a
+ * non-integer, non-uniform resample again.
+ *   /pins/gold.png -> { src: /pins/previews/gold.png        (76x90)
+ *                       srcSet: "... 1x, ...@2x.png 2x"     (152x180) }
+ */
+function previewUrls(mapPath) {
+  const base = mapPath.slice(mapPath.lastIndexOf('/') + 1).replace(/\.png$/, '');
+  const x1 = asset(`/pins/previews/${base}.png`);
+  const x2 = asset(`/pins/previews/${base}@2x.png`);
+  return { src: x1, srcSet: `${x1} 1x, ${x2} 2x` };
 }
 
 let pending = null;
 
 /**
- * @returns {Promise<Record<string, string>>} sku -> image URL. Still a promise
- * purely so the call sites that awaited the old leaflet-reading version keep
- * working unchanged; nothing async remains underneath.
+ * @returns {Promise<Record<string, {src: string, srcSet: string}>>} sku ->
+ * preview image urls. Still a promise purely so the call sites that awaited
+ * the old leaflet-reading version keep working unchanged; nothing async
+ * remains underneath.
  */
 export function loadMarkerSkinUrls() {
   if (pending) return pending;
@@ -60,9 +72,9 @@ export function loadMarkerSkinUrls() {
     const urls = {};
     Object.entries(MARKER_SKIN_ICONS).forEach(([sku, key]) => {
       const path = PATH_BY_KEY.get(key);
-      if (path) urls[sku] = asset(previewPath(path));
+      if (path) urls[sku] = previewUrls(path);
     });
-    urls[STOCK_PIN_KEY] = asset(previewPath(PATH_BY_KEY.get('src') || '/src.png'));
+    urls[STOCK_PIN_KEY] = previewUrls(PATH_BY_KEY.get('src') || '/src.png');
     return urls;
   })().catch(() => ({}));
 

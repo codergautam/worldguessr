@@ -1999,21 +1999,22 @@
    name, which still leaves ~45px of black on each side of the line box: past
    the 32px widest radius in styles/nameGlow.css, so the bloom lands in black
    rather than shearing at an edge. Everything above that width has more. */
-/* THE GLOW STAGE IS NO STAGE AT ALL. Every other category previews an OBJECT
-   (a pin, a photo, a glyph) and an object sits in a recessed well; a glow is
-   LIGHT, and light in a box looks like a specimen in a jar — the boxed-in
-   name plus the little "Animated" badge in its corner is exactly the framed-
-   and-labelled museum layout the owner threw out. The name now floats
-   directly on the card's own surface, a size up, and the moving ones sell
-   themselves by moving. The box keeps the shared 16/9 ratio so the grid rows
-   and the lazy-mount placeholders still reserve the same height as every
-   other shelf — only the paint is gone. */
+/* THE GLOW STAGE IS THE SAME DARK WELL AS EVERY OTHER SHELF — the owner's
+   second ruling on this box, reversing the first. The paint was stripped for
+   a while on the "light in a jar" argument (a glow floating on the card's own
+   surface, selling itself by moving), but a glow is sold by CONTRAST: every
+   radius in styles/nameGlow.css is tuned against near-black chrome, and on
+   the card's mid plate the pale wide layers washed toward invisible. The pins
+   already answered this — they sit in the recess and read — and a glow needs
+   the recess MORE, because its whole product is the pixels around the name.
+   So no background override here: the .shopPrev well shows through, same as
+   the marker stage. Geometry unchanged — shared 16/9, same grid centring,
+   and the halo clearance arithmetic above still holds. */
 .shopPrev--glow {
     position: relative;
     display: grid;
     place-items: center;
     padding: 14px 16px;
-    background: transparent;
 }
 
 /* TYPOGRAPHY ONLY. The truncation and the 34px of halo clip relief that used to
@@ -2093,7 +2094,12 @@
 .shopPrev--marker img {
     display: block;
     transform: translateY(-9px);
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25));
+    /* ONE shadow, the offset black lift. The 1px WHITE bloom that rode beside
+       it ("the lift has to come from light") predates the skins' baked-in dark
+       outlines — painted over one of those rims it reads as a grey smear
+       around the whole pin, which the owner correctly called blur. The stock
+       pin never needed it either: cyan on the near-black well carries. */
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
 }
 
 .shopPrev__pinFallback {
