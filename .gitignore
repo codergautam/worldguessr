@@ -95,3 +95,5 @@ builds-submission/
 ELO_DEPLOYMENT_AUDIT.md
 
 .agents/
+
+data/season0-peaks.json
