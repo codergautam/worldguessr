@@ -7,23 +7,54 @@ import { assertReason } from './reasons.js';
 // except the reconciliation sweep in cron.js, which exists only to finish work
 // this function started.
 //
-// DESIGN CONTRACT — LEDGER FIRST, THEN BALANCE+FLIP IN ONE TRANSACTION
-// --------------------------------------------------------------------
-// The ledger insert (applied:false) comes first and stays OUTSIDE the
-// transaction: it is the idempotency stop, and a row that commits with no
-// balance move is exactly the state cron.js's sweep exists to finish.
+// DESIGN CONTRACT — LEDGER FIRST, THEN CLAIM-BEFORE-PAY
+// -----------------------------------------------------
+// The ledger insert (applied:false) comes first: it is the idempotency stop,
+// and a row that commits with no balance move is exactly the state cron.js's
+// sweep exists to finish.
 //
-// The balance move and the applied:true flip then share ONE Mongo
-// transaction. This file used to run them as two bare writes on the theory
-// that a crash between them was only ever an UNDER-payment the sweep could
-// repair. That theory had a hole: a kill AFTER the balance $inc but BEFORE
-// the flip left a row the sweep could not tell apart from "never applied",
-// and its repair moved the money a second time — credits minted twice,
-// debits taken twice with no funds guard. The transaction closes the hole
-// outright by making the invariant true: applied:false MEANS the balance did
-// not move. Every environment this runs on is Atlas (replica set), which
-// supports transactions; a standalone mongod does not, and fails loudly on
-// the first grant rather than corrupting silently.
+// THE INVARIANT EVERYTHING RESTS ON: applied:false MEANS THE BALANCE DID NOT
+// MOVE. cron.js's sweep repairs precisely the applied:false rows, so if that
+// ever becomes false the sweep pays a second time.
+//
+// This ran as ONE Mongo transaction (balance move + applied:true flip)
+// until the production mongod turned out to be a STANDALONE, where
+// transactions are rejected outright: every grant since the stamps launch
+// inserted a row and then threw, so the economy paid nobody. Transactions
+// are gone; the invariant is not.
+//
+// What replaced it, for CREDITS, is ORDER plus a compare-and-set:
+//
+//   1. flip applied:false -> applied:true, CONDITIONAL on it still being
+//      false. Exactly one actor can win that CAS — this call or the sweep,
+//      never both. THIS IS THE CLAIM, and it is what the transaction used to
+//      provide.
+//   2. only the winner moves the balance.
+//
+// Because the flip happens BEFORE the money, applied:false still means the
+// balance never moved, so the sweep's bargain holds unchanged and a credit
+// can never be paid twice.
+//
+// THE COST, STATED PLAINLY: a crash between the flip and the $inc leaves a
+// row marked applied whose money never moved — a silent UNDER-payment that
+// the sweep will not repair, because it only looks at applied:false. That is
+// the deliberate trade. Under-payment is detectable (reconcile the sum of
+// applied deltas against balances) and repayable; the double-payment this
+// ordering rules out is neither. The prior two-bare-writes version had the
+// ordering backwards, which is exactly why it minted credits twice and took
+// debits twice — see the emote_party rows at 06:16:51.193 and .228.
+//
+// DEBITS keep the charge in a single findOneAndUpdate, which is atomic
+// per-document with no transaction needed: the funds guard, the extraFilter
+// and the extraUpdate delivery all land or none do. Only the applied:true
+// flip is now a second write, so a crash between them strands an
+// applied:false row for a charge that DID happen. The sweep cancels such
+// rows (it cannot replay the delivery), which costs the audit trail for that
+// purchase but moves no money — the charge and the item stay consistent.
+//
+// RESTORING THE TRANSACTION: put mongod on a replica set and this file can go
+// back to withTransaction, which is strictly stronger. Nothing else has to
+// change; the CAS is harmless there too.
 //
 // opts.extraUpdate exists so a purchase can fuse the debit and the delivery of
 // what was bought into ONE atomic document update: without it, "take the
@@ -88,72 +119,73 @@ export async function grantStamps(userId, delta, reason, idempotencyKey, meta = 
     throw err;
   }
 
-  // 4+5. Move the balance and close the row out — ONE transaction (see the
-  //      header). A kill in here rolls both back: the row stays applied:false
-  //      with the balance untouched, and the sweep finishes the job exactly
-  //      once.
+  // 4+5. Claim the row, then move the balance. See the header for why the
+  //      order is what it is.
   let balanceAfter = null;
-  let refusal = null;
-  const session = await StampLedger.startSession();
-  try {
-    await session.withTransaction(async () => {
-      // withTransaction retries this callback on transient errors — state
-      // from an aborted attempt must not leak into the next one.
-      balanceAfter = null;
-      refusal = null;
 
-      if (delta >= 0) {
-        // CREDIT — unconditional $inc. findOneAndUpdate rather than updateOne
-        // only so the post-update balance comes back for the advisory
-        // balanceAfter stamp below; the update itself is the same
-        // unconditional increment.
-        const credited = await User.findOneAndUpdate(
-          { _id: userId },
-          { $inc: { stamps: delta } },
-          { new: true, projection: { stamps: 1 }, session },
-        );
-        balanceAfter = credited?.stamps ?? null;
-      } else {
-        // DEBIT — this filter is the ONLY thing standing between the economy
-        // and a negative balance (schema `min: 0` is not enforced on update
-        // operators — see models/User.js) AND, via extraFilter, the only
-        // thing standing between a double click and a double charge. A null
-        // result means the document no longer satisfies one of them.
-        const debited = await User.findOneAndUpdate(
-          { _id: userId, stamps: { $gte: -delta }, ...(opts.extraFilter || {}) },
-          { $inc: { stamps: delta }, ...(opts.extraUpdate || {}) },
-          { new: true, session },
-        );
-        if (!debited) {
-          // Nothing moved, so the row must not survive: leaving it would hand
-          // the reconciliation sweep an applied:false row for a debit the
-          // funds check just refused.
-          await StampLedger.deleteOne({ _id: row._id }, { session });
-          // WHICH condition failed is the caller's question, not this
-          // function's. It knows only that the document did not match; a
-          // caller that supplied an extraFilter has to re-read to tell "no
-          // funds" from "already owns it" (api/stampShop.js does exactly
-          // that). Reporting `insufficient` for both would tell a player with
-          // 4,000 Stamps that they cannot afford a 100 Stamp emote.
-          const blocked = !!opts.extraFilter;
-          refusal = { applied: false, duplicate: false, insufficient: !blocked, blocked, balance: null };
-          return;
-        }
-        balanceAfter = debited.stamps ?? null;
-      }
+  if (delta >= 0) {
+    // CREDIT — CLAIM FIRST. This CAS is the mutual exclusion the transaction
+    // used to provide: `applied: false` in the FILTER means only one actor can
+    // ever win it, so this call and the sweep can race freely and exactly one
+    // of them pays.
+    const claimed = await StampLedger.findOneAndUpdate(
+      { _id: row._id, applied: false },
+      { $set: { applied: true, appliedAt: new Date() } },
+      { new: true },
+    );
+    if (!claimed) {
+      // The sweep got here first and has already paid (or is paying) this row.
+      // Reported as a duplicate because that is what it is: the event is paid.
+      return { applied: false, duplicate: true, insufficient: false, balance: null };
+    }
 
-      // Close the row out. balanceAfter is ADVISORY (a concurrent grant can
-      // land between the $inc and this write) — User.stamps stays the truth.
-      await StampLedger.updateOne(
-        { _id: row._id },
-        { $set: { applied: true, appliedAt: new Date(), balanceAfter } },
-        { session },
-      );
-    });
-  } finally {
-    await session.endSession();
+    // findOneAndUpdate rather than updateOne only so the post-update balance
+    // comes back for the advisory balanceAfter stamp below.
+    const credited = await User.findOneAndUpdate(
+      { _id: userId },
+      { $inc: { stamps: delta } },
+      { new: true, projection: { stamps: 1 } },
+    );
+    balanceAfter = credited?.stamps ?? null;
+  } else {
+    // DEBIT — this filter is the ONLY thing standing between the economy
+    // and a negative balance (schema `min: 0` is not enforced on update
+    // operators — see models/User.js) AND, via extraFilter, the only
+    // thing standing between a double click and a double charge. A null
+    // result means the document no longer satisfies one of them.
+    //
+    // Single-document update: charge and delivery are atomic here with no
+    // transaction involved, which is the guarantee that actually mattered.
+    const debited = await User.findOneAndUpdate(
+      { _id: userId, stamps: { $gte: -delta }, ...(opts.extraFilter || {}) },
+      { $inc: { stamps: delta }, ...(opts.extraUpdate || {}) },
+      { new: true },
+    );
+    if (!debited) {
+      // Nothing moved, so the row must not survive: leaving it would hand
+      // the reconciliation sweep an applied:false row for a debit the
+      // funds check just refused.
+      await StampLedger.deleteOne({ _id: row._id });
+      // WHICH condition failed is the caller's question, not this
+      // function's. It knows only that the document did not match; a
+      // caller that supplied an extraFilter has to re-read to tell "no
+      // funds" from "already owns it" (api/stampShop.js does exactly
+      // that). Reporting `insufficient` for both would tell a player with
+      // 4,000 Stamps that they cannot afford a 100 Stamp emote.
+      const blocked = !!opts.extraFilter;
+      return { applied: false, duplicate: false, insufficient: !blocked, blocked, balance: null };
+    }
+    balanceAfter = debited.stamps ?? null;
   }
-  if (refusal) return refusal;
+
+  // Close the row out. balanceAfter is ADVISORY (a concurrent grant can land
+  // between the $inc and this write) — User.stamps stays the truth. On the
+  // credit path `applied` is already true from the claim; re-setting it keeps
+  // one write here instead of branching.
+  await StampLedger.updateOne(
+    { _id: row._id },
+    { $set: { applied: true, appliedAt: new Date(), balanceAfter } },
+  );
 
   return { applied: true, duplicate: false, insufficient: false, balance: balanceAfter };
 }

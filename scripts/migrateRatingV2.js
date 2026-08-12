@@ -111,7 +111,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import User from '../models/User.js';
-import { backfillRatedGames } from '../components/utils/placementGates.js';
+import { backfillRatedGames, RATED_GAMES_BACKFILL_CAP } from '../components/utils/placementGates.js';
 import { RATING_FLOOR } from '../components/utils/eloSystem.js';
 import { getLeague, leagues as SEASON0_LEAGUES } from '../components/utils/leagues.js';
 
@@ -131,11 +131,24 @@ import { getLeague, leagues as SEASON0_LEAGUES } from '../components/utils/leagu
  * whether it runs before or after the flag is switched on.
  */
 function season0League(elo) {
-  for (const key in SEASON0_LEAGUES) {
+  const keys = Object.keys(SEASON0_LEAGUES);
+  for (const key of keys) {
     const tier = SEASON0_LEAGUES[key];
     if (elo >= tier.min && elo <= tier.max) return tier;
   }
-  return SEASON0_LEAGUES[Object.keys(SEASON0_LEAGUES)[0]];
+  // ABOVE THE TOP TIER IS THE TOP TIER, NOT THE BOTTOM ONE.
+  //
+  // Nomad's max is 20000, but seasonPeakElo comes from the peak export, which
+  // is a $max over historical UserStats and is NOT bounded by whatever cap the
+  // live elo field currently sits at: the highest recorded peak is 20167.
+  // getLeague()'s "return the first league" fallback would hand those accounts
+  // the LOWEST tier, so the two highest-rated players in Season 0 history would
+  // carry a permanent grey Trekker (0-1999) badge — and grantSeason1Compensation.js
+  // keys its starter-stamp payout on this exact name, so they would also be paid
+  // as if they had never left the bottom bracket.
+  const highest = SEASON0_LEAGUES[keys[keys.length - 1]];
+  if (elo > highest.max) return highest;
+  return SEASON0_LEAGUES[keys[0]];
 }
 
 // Top of the v2 scale. eloSystem.js owns the floor (100); the ceiling is a
@@ -163,6 +176,28 @@ function flagValue(name, fallback = null) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function fmtDur(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * Throughput line for a batch loop: how far in, how fast, how much longer.
+ * `total` is the scope size, so on a 4.4M-user run the operator can tell within
+ * the first batch whether this finishes in minutes or hours.
+ */
+function progress(done, total, startedAt) {
+  const elapsed = (Date.now() - startedAt) / 1000;
+  const rate = elapsed > 0 ? done / elapsed : 0;
+  const pct = total ? ((done / total) * 100).toFixed(1) : '?';
+  const eta = rate > 0 && total && done < total ? ` | eta ${fmtDur((total - done) / rate)}` : '';
+  return `${pct}% (${done.toLocaleString()}/${total.toLocaleString()}) | ` +
+    `${Math.round(rate).toLocaleString()} users/s | elapsed ${fmtDur(elapsed)}${eta}`;
+}
 
 /* ------------------------------------------------------------------ *
  * Conversion table
@@ -401,6 +436,7 @@ export async function run({
     `${peakTable.missing ? '' : ` — ${peakTable.users} users, generated ${peakTable.generated_at || 'unknown'}`}`);
 
   const totalUsers = await User.countDocuments({});
+  const scopeTotal = limit ? Math.min(limit, totalUsers) : totalUsers;
   const scopeNote = limit ? `first ${limit} of ${totalUsers} users` : `all ${totalUsers} users`;
   console.log(`[migrate] scope: ${scopeNote}`);
   console.log(`[migrate] batch size ${batchSize}, pause ${pauseMs}ms\n`);
@@ -412,6 +448,7 @@ export async function run({
   let snapBatches = 0;
   let scopeCount = 0;
   let scopeLastId = null;
+  const snapStarted = Date.now();
 
   for await (const range of idBatches({ batchSize, limit })) {
     snapBatches++;
@@ -430,7 +467,7 @@ export async function run({
       const n = await User.countDocuments(filter);
       snapMatched += n;
     }
-    console.log(`[migrate] snapshot batch ${snapBatches}: ${range.count} users in range, ` +
+    console.log(`[migrate] snapshot batch ${snapBatches}: ${progress(scopeCount, scopeTotal, snapStarted)} | ` +
       `${snapMatched} needing snapshot so far${apply ? `, ${snapModified} written` : ''}`);
     if (pauseMs) await sleep(pauseMs);
   }
@@ -450,6 +487,10 @@ export async function run({
   }
 
   /* ---- PRE-FLIGHT: does the table cover the data? ---------------------- */
+  // One aggregate over the whole scope with no progress of its own — say so,
+  // otherwise it reads as a hang between the two passes.
+  console.log(`\n[migrate] pre-flight: scanning min/max rating over ${scopeTotal.toLocaleString()} users (no per-batch output during this)...`);
+  const preflightStarted = Date.now();
   const [range] = await User.aggregate([
     { $match: scopeFilter },
     {
@@ -462,8 +503,9 @@ export async function run({
       },
     },
   ]);
+  console.log(`[migrate] pre-flight scan done in ${fmtDur((Date.now() - preflightStarted) / 1000)}`);
   if (range) {
-    console.log(`\n[migrate] source rating range in scope: ${range.min} .. ${range.max}`);
+    console.log(`[migrate] source rating range in scope: ${range.min} .. ${range.max}`);
     const uncovered = range.min < conv.minOld || range.max > conv.maxOld;
     if (uncovered && !allowOutOfRange) {
       throw new Error(
@@ -497,6 +539,7 @@ export async function run({
   const peakLeagueHist = Object.create(null);
   const newLeagueHist = Object.create(null);
   const samples = [];
+  const mapStarted = Date.now();
 
   for await (const b of idBatches({ batchSize, limit })) {
     mapBatches++;
@@ -518,9 +561,12 @@ export async function run({
       if (newElo < minNew) minNew = newElo;
       if (newElo > maxNew) maxNew = newElo;
 
-      // ratedGames: NOT OPTIONAL. See the header. min(W+L+T, 70).
+      // ratedGames: NOT OPTIONAL. See the header. min(W+L+T, RATED_GAMES_BACKFILL_CAP).
       const ratedGames = backfillRatedGames(u);
-      if (ratedGames === 70) ratedAtCap++;
+      // Cap read from placementGates.js, never typed here: this counter used to
+      // compare against a hardcoded 70 while the constant was 15, so it reported
+      // "0 accounts at cap" over a dataset where 138,807 accounts are at it.
+      if (ratedGames === RATED_GAMES_BACKFILL_CAP) ratedAtCap++;
       if (ratedGames === 0) ratedZero++;
 
       const recorded = Number(peakTable.peaks[String(u._id)]);
@@ -562,7 +608,8 @@ export async function run({
         written += res.modifiedCount || 0;
       }
     }
-    console.log(`[migrate] mapping batch ${mapBatches}: ${docs.length} users${apply ? `, ${written} written so far` : ''} (${processed} processed)`);
+    console.log(`[migrate] mapping batch ${mapBatches}: ${progress(processed, scopeTotal, mapStarted)}` +
+      `${apply ? ` | ${written} written` : ''}`);
     if (pauseMs) await sleep(pauseMs);
   }
 
@@ -577,7 +624,7 @@ export async function run({
   console.log(`resulting elo range : ${processed ? `${minNew} .. ${maxNew}` : 'n/a'} (floor ${RATING_FLOOR}, ceil ${RATING_CEIL})`);
   console.log(`clamped to floor/ceil: ${clampedCount}`);
   console.log(`out of table range  : ${outOfRangeLow} low, ${outOfRangeHigh} high`);
-  console.log(`ratedGames at cap 70: ${ratedAtCap}`);
+  console.log(`ratedGames at cap ${RATED_GAMES_BACKFILL_CAP}   : ${ratedAtCap}`);
   console.log(`ratedGames still 0  : ${ratedZero}  (accounts with zero W/L/T — expected for never-duelled accounts)`);
   console.log(`peak table hits     : ${peakHits}, misses (fell back to elo_s0): ${peakMisses}`);
   console.log(`peak above closing  : ${peakAboveClose}  (players who slid from their high-water mark)`);

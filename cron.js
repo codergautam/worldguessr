@@ -617,10 +617,11 @@ startStampsPeriodRolloverTimers();
 // ============================================================================
 // STAMP LEDGER RECONCILIATION SWEEP (every 5 minutes)
 //
-// grantStamps writes the ledger row with applied:false FIRST, then moves the
-// balance and flips applied:true inside ONE transaction. So applied:false
-// MEANS the balance never moved — a crash can only ever strand a row, never
-// half-apply one. This sweep is the other half of that bargain: it finishes
+// grantStamps writes the ledger row with applied:false FIRST, then CLAIMS it
+// (a CAS flipping applied:true) and only then moves the balance. So
+// applied:false MEANS the balance never moved — a crash can only ever strand a
+// row, never half-apply one. This sweep is the other half of that bargain: it
+// finishes
 // stranded CREDITS (the user earned and was never paid) and CANCELS stranded
 // DEBITS (a purchase whose charge+delivery transaction never committed —
 // taking the money now would charge for an item the row cannot deliver, since
@@ -698,27 +699,28 @@ const reconcileStampLedger = async () => {
           continue;
         }
 
-        // CREDIT — an earn that never landed. Balance and flip in ONE
-        // transaction, mirroring grantStamps: applied:false is proof the
-        // balance never moved, so this pays exactly once, and a kill mid-
-        // repair strands the row for the next pass instead of half-applying.
-        const session = await StampLedger.startSession();
-        try {
-          await session.withTransaction(async () => {
-            await User.updateOne(
-              { _id: row.userId },
-              { $inc: { stamps: row.delta } },
-              { session },
-            );
-            await StampLedger.updateOne(
-              { _id: row._id },
-              { $set: { applied: true, appliedAt: new Date() } },
-              { session },
-            );
-          });
-        } finally {
-          await session.endSession();
+        // CREDIT — an earn that never landed. FLIP FIRST, THEN PAY, mirroring
+        // serverUtils/stamps/grantStamps.js: the flip is a CAS on
+        // applied:false, so of this sweep and a live grant racing the same row
+        // exactly one wins and the loser pays nothing. That ordering is what
+        // keeps "applied:false means the balance never moved" true now that
+        // there is no transaction to make the pair atomic (the mongod is a
+        // standalone and rejects them outright).
+        const flipped = await StampLedger.findOneAndUpdate(
+          { _id: row._id, applied: false },
+          { $set: { applied: true, appliedAt: new Date() } },
+          { new: true },
+        );
+        if (!flipped) {
+          // A live grant claimed it between our claim and here. It owns the
+          // payment now — do NOT also pay.
+          contended++;
+          continue;
         }
+        await User.updateOne(
+          { _id: row.userId },
+          { $inc: { stamps: row.delta } },
+        );
         repaired++;
       } catch (e) {
         // Per-row isolation: one bad row must not abort the sweep. It stays
