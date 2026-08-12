@@ -59,11 +59,10 @@ interface Props {
    */
   myId?: string | null;
   /**
-   * The viewer's own equipped pin sku. Every OTHER player's skin rides on their
-   * guess entry inside `rounds`, but the viewer's own guess is drawn from each
-   * round's guessLat/guessLong rather than from round.players — so in
-   * singleplayer, where there is no players map at all, this prop is the only
-   * way their purchased pin reaches the embed.
+   * The viewer's own equipped pin sku. The live WebView has no web session, and
+   * the results map draws the viewer outside round.players, so both routes need
+   * this explicit identity prop. Every other player's skin rides on their
+   * multiplayer/round entry.
    */
   myMarkerSkin?: string | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
@@ -201,6 +200,7 @@ export default function EmbeddedMap({
       // volume model of its own.
       sfxGain: toGain(sfxVolume),
       options: { mapType },
+      myMarkerSkin: myMarkerSkin ?? null,
       pinPoint: guessPosition ? { lat: guessPosition.lat, lng: guessPosition.lng } : null,
       answerShown: !!isShowingResult,
       location: location ? { lat: location.lat, long: location.long } : null,

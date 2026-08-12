@@ -2,14 +2,12 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 
 /* ===========================================================================
- *  Equipped cosmetics for a set of account ids, joined LIVE.
+ *  Current equipped cosmetics for a set of account ids, joined LIVE.
  *
- *  WHY LIVE AND NOT STORED ON THE ROW. A Game is a RESULT — where people
- *  guessed and what they scored — and a Map is a THING somebody built. A glow
- *  is IDENTITY, and identity is whatever the player wears now. Freezing a sku
- *  into the save would mean a player's history showed the glow they had last
- *  March, and getting even that far would need a migration to backfill every
- *  game ever played: a lot of work to produce the wrong answer.
+ *  TWO SEMANTICS USE THIS ONE JOIN. Identity surfaces such as history lists
+ *  and map cards show what a player wears now. Game-detail surfaces prefer the
+ *  match-time snapshot stored on each player summary, then use this join only
+ *  for legacy documents that predate those fields.
  *
  *  WHY IT IS ONE MODULE AND NOT THREE COPIES. It was two, and the third was
  *  missing, and that is exactly what the bug looked like from the outside: the
@@ -95,4 +93,24 @@ export async function cosmeticsForGames(games) {
  */
 export function cosmeticsReader(map) {
   return (accountId) => (accountId ? map.get(String(accountId)) : null) || NO_COSMETICS;
+}
+
+/**
+ * Cosmetics shown on a saved game.
+ *
+ * New game documents freeze both equipped slots at match time. Older documents
+ * have neither field, so they retain the previous behaviour and fall back to
+ * the player's current equipment. `undefined` means "legacy field absent";
+ * `null` is a real snapshot meaning the player had that slot unequipped.
+ */
+export function cosmeticsForSavedPlayer(player, currentCosmetics = NO_COSMETICS) {
+  const current = currentCosmetics || NO_COSMETICS;
+  return {
+    nameGlow: player?.nameGlow !== undefined
+      ? (player.nameGlow ?? null)
+      : (current.nameGlow ?? null),
+    markerSkin: player?.markerSkin !== undefined
+      ? (player.markerSkin ?? null)
+      : (current.markerSkin ?? null),
+  };
 }

@@ -1,0 +1,11 @@
+---
+description: Prevent decorative 1px outlines from making UI look generic or AI-generated
+alwaysApply: true
+---
+
+# No Decorative Hairlines
+
+- Do not use decorative 1px borders or outlines to define cards, modals, badges, pills, panels, or separators.
+- Build hierarchy with tonal surfaces, spacing, elevation, or inset highlights.
+- Borders must communicate a real state or follow a deliberate structural border token.
+- Preserve visible keyboard focus indicators; this rule does not remove functional focus treatment.

@@ -9,12 +9,9 @@
  *
  *  THE TRICK: DON'T ANIMATE THE SHADOW. ANIMATE WHICH SHADOW YOU CAN SEE.
  *  Every entry below is a FIXED shadow — one colour, one radius, one offset —
- *  rendered by its own <Animated.Text> stacked under the real name. The only
- *  thing that moves is each layer's OPACITY, driven from one shared clock by a
- *  worklet. Opacity is a native-driver property and changing it triggers no
- *  measure and no layout, so the whole effect runs on the UI thread and costs
- *  the JS thread literally nothing per frame. That is the entire reason the
- *  animated tier could finally ship here after being marked impossible.
+ *  rendered by its own fixed Text inside an Animated.View stacked under the
+ *  real name. One shared UI-thread clock drives wrapper opacity; no shadow or
+ *  layout property changes per frame.
  *
  *  A cross-fade between two fixed layers reads as MOVEMENT, and which movement
  *  depends on what differs between them:
@@ -39,7 +36,7 @@
  *      glowing names on one duel HUD drift apart instead of marching in step.
  *
  *   4. EIGHT LAYERS IS THE HARD CEILING, and this one is new. Each layer is a
- *      real <Text> node drawing a BLURRED copy of the name every frame, and
+ *      real shadowed Text node, and
  *      four players on a results screen multiply whatever number you pick here
  *      by four. Web can afford twelve hue stops in one shadow list; this cannot.
  *      Where a sku needed more stops than the budget allows, stops were removed
@@ -370,6 +367,11 @@ export function glowReach(anim: GlowAnim | null): number {
 
 /**
  * How much paint room a glowing name needs on every side, in px.
+ *
+ * NameGlowHalo also uses this number to grow each decorative Text node's native
+ * paint box, then takes it back as padding so the glyph layout does not move.
+ * A consumer that deliberately clips a row/card still needs the same allowance
+ * at that exact outer boundary or it will shear the escaped halo again.
  *
  * WHERE THIS GOES, AND IT IS NOT WHERE YOU EXPECT. React Native clips at the
  * PADDING box of whichever ancestor sets `overflow: 'hidden'` — so the relief

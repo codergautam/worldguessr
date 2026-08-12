@@ -165,7 +165,7 @@ function MarkerPreview({ item, markerUrls }) {
   return (
     <div className="shopPrev shopPrev--marker">
       {/* 76x90 renders the ART at the same ~44x72 it was shown at before the
-          canvas grew: pin PNGs are 151x163 with the 87x131 art inside glow
+          canvas grew: pin PNGs are 150x163 with the 87x131 art inside glow
           headroom (lib/markerIcons.js), so the box scales by canvas/art on
           each axis — and any glow painted in the headroom shows on the card.
           srcSet carries a native-size 1x and an @2x: at DPR 1 the browser

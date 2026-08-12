@@ -222,6 +222,54 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     font-family: "Lexend", "Lexend Fallback", sans-serif;
 }
 
+/* Beside the joined date the badge is identity punctuation, not another
+   profile row. Its height matches the metadata line instead of dominating it. */
+.s1-badges--compact {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-top: 0;
+}
+
+.s1-badges--compact .s1-badge {
+    gap: 5px;
+    padding: 5px 9px;
+}
+
+.s1-badges--compact .s1-badge__icon {
+    display: grid;
+    place-items: center;
+    font-size: 0.8rem;
+}
+
+.s1-badges--compact .s1-badge__ogTag {
+    font-size: 0.78rem;
+    line-height: 1;
+    letter-spacing: 0.08em;
+}
+
+/* Keep the join copy and its identity mark together when they fit. On narrow
+   cards the compact badge wraps beside the copy instead of widening the card. */
+.account-profile-joined-copy {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* The compact badge sits at the end of the join line, so the detail card opens
+   back toward the card's safe interior instead of spilling off its right edge. */
+.s1-badges--compact .s1-ogCard {
+    right: 0;
+    left: auto;
+    transform: translateY(0);
+}
+
+.s1-badges--compact .s1-badge--og:hover .s1-ogCard,
+.s1-badges--compact .s1-badge--og:focus-within .s1-ogCard {
+    transform: translateY(4px);
+}
+
 /* Gold-outlined dark glass. No --primary green: this is a career mark, not
    another green button, and the gold ties it to the Season 0 numbers it hides. */
 .s1-badge {
@@ -234,6 +282,7 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     border: 1px solid rgba(255, 215, 0, 0.3);
     background: rgba(0, 0, 0, 0.32);
     color: white;
+    font: inherit;
     /* Career marks are not controls: no hover lift, no pointer. The tooltip is
        the only affordance and it needs no advertising. */
     cursor: default;
@@ -381,6 +430,12 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
         gap: 8px;
     }
 
+    /* On narrow profile cards, "OG" is the durable identity mark. The
+       decorative star yields first so the joined copy can keep its breathing room. */
+    .s1-badges--compact .s1-badge__icon {
+        display: none;
+    }
+
     /* Still chips, just tighter. They must NOT go full-width here: two stacked
        full-bleed bars under the name is the block layout this replaced. */
     .s1-badge {
@@ -427,14 +482,9 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
 
 /* ── Placement match (rating v2) ────────────────────────────────────────────
  *
- * A new account's single seeding game. The server stamps `placement: true` on
- * duelEnd and web read it nowhere, so the one duel that is guaranteed to be a
- * WIN — the placement bot throws every round by design — rendered as an
- * ordinary rating change with a signed delta.
- *
- * Mirrored from mobile's EloChangeDisplay (placementLabel), which had this
- * first: same uppercase micro-label above the rating, same muted white, same
- * wide tracking. Designed once, rendered twice — the standing parity rule.
+ * This compact system label is useful while the seeding match is underway.
+ * The result screen switches to a plain-language league sentence instead of
+ * repeating this label above a rating readout.
  */
 .elo-placement-label {
     color: rgba(255, 255, 255, 0.7);
@@ -443,23 +493,6 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     letter-spacing: 0.09em;
     text-transform: uppercase;
     margin-bottom: 0.35rem;
-}
-
-/* The tier name shown INSTEAD of a delta on a placement.
- *
- * A placement seeds the rating from your own round scores rather than winning
- * it off an opponent, so there is no transfer to sign. Printing "+300" would
- * read as a colossal win bonus; printing a negative (which is what shipped,
- * because new accounts opened at 1000 and seeds cap at 800) read as losing your
- * first ever ranked game. The tier is the honest thing to show: where you
- * landed. Its colour comes from the resolved league, so it is inline, not here.
- */
-.elo-change--placement {
-    font-size: 1.25rem;
-    letter-spacing: 0.02em;
-    /* Overrides the tabular-nums lane above: this is a word, not a number. */
-    font-variant-numeric: normal;
-    min-width: 0;
 }
 
 /* In-match placement labelling: the VS intro and the duel timer pill both

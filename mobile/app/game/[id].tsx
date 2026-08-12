@@ -428,8 +428,14 @@ export default function GameScreen() {
   // opens in the middle. When that gap is wide enough (landscape, tablets, large
   // phones) we float the round timer UP into it instead of below the bars — that
   // reclaims a strip of vertical space for the Street View.
-  const duelHudInnerWidth =
-    width - Math.max(insets.left, spacing.md) - Math.max(insets.right, spacing.md);
+  // Keep the HUD anchored to the physical safe-area corners. Glow paint room is
+  // owned by NameGlowHalo's absolute canvas and must never become exterior
+  // padding here: doing that subtracts 68dp from the row, pushes both bars
+  // toward the middle, and makes BAR_MAX_FRACTION shrink them on narrow phones.
+  // This one shared row serves ranked 1v1 and matchmade 2v2.
+  const duelHudLeftInset = Math.max(insets.left, spacing.md);
+  const duelHudRightInset = Math.max(insets.right, spacing.md);
+  const duelHudInnerWidth = width - duelHudLeftInset - duelHudRightInset;
   const duelBarWidth = Math.min(DUEL_BAR_WIDTH, duelHudInnerWidth * DUEL_BAR_MAX_FRACTION);
   const duelMiddleGap = duelHudInnerWidth - duelBarWidth * 2;
   // ~200px duel pill + breathing room on each side before it's allowed to nest.
@@ -437,6 +443,7 @@ export default function GameScreen() {
   const isSingleplayer = id === 'singleplayer';
   const isMultiplayer = !isSingleplayer;
   const secret = useAuthStore((s) => s.secret);
+  const myMarkerSkin = useAuthStore((s) => s.user?.cosmetics?.equipped?.markerSkin ?? null);
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
@@ -2731,7 +2738,10 @@ export default function GameScreen() {
           && (gameData.state === 'guess' || gameData.state === 'getready')
           && !showDuelMatchupIntro && (
           <SafeAreaView
-            style={[styles.duelHudContainer, { paddingLeft: Math.max(insets.left, spacing.md), paddingRight: Math.max(insets.right, spacing.md) }]}
+            style={[
+              styles.duelHudContainer,
+              { paddingLeft: duelHudLeftInset, paddingRight: duelHudRightInset },
+            ]}
             edges={['top']}
             pointerEvents="box-none"
           >
@@ -2776,6 +2786,7 @@ export default function GameScreen() {
                 route="map"
                 mapType={mapType}
                 lang={language}
+                myMarkerSkin={myMarkerSkin}
                 mapBandFraction={miniFraction}
                 onRevealReady={handleRevealReady}
                 location={embedLocation}

@@ -4,9 +4,9 @@ import L from 'leaflet';
 import destUrl from '@/public/dest.png';
 import srcUrl from '@/public/src.png';
 import src2Url from '@/public/src2.png';
-import goldPinUrl from '@/public/pins/gold.png';
 import neonOrangePinUrl from '@/public/pins/neonorange.png';
 import neonPinkPinUrl from '@/public/pins/neonpink.png';
+import skyPinUrl from '@/public/pins/sky.png';
 import emeraldPinUrl from '@/public/pins/emerald.png';
 import rainbowPinUrl from '@/public/pins/rainbow.png';
 
@@ -23,17 +23,17 @@ let _icons = null;
    same dataurl loader. Keep the geometry, the sku table and the size tiers
    identical to lib/markerIcons.js. */
 const SKIN_URLS = {
-  goldPin: goldPinUrl,
   neonOrangePin: neonOrangePinUrl,
   neonPinkPin: neonPinkPinUrl,
+  skyPin: skyPinUrl,
   emeraldPin: emeraldPinUrl,
   rainbowPin: rainbowPinUrl,
 };
 
 export const MARKER_SKIN_ICONS = {
-  marker_gold_pin: 'goldPin',
   marker_neon_orange_pin: 'neonOrangePin',
   marker_neon_pink_pin: 'neonPinkPin',
+  marker_sky_pin: 'skyPin',
   marker_emerald_pin: 'emeraldPin',
   marker_rainbow_pin: 'rainbowPin',
 };
@@ -44,12 +44,11 @@ export function markerSkinIconKey(sku, tier = '') {
 }
 
 /* ONE CANVAS SPEC FOR EVERY PIN IMAGE — mirror of lib/markerIcons.js, see the
- * full comment there. Art 87x131 inside a 151x163 canvas: 32px transparent
+ * full comment there. Art 87x131 inside a 150x163 canvas: about 32px transparent
  * glow headroom on top and both sides, none on the bottom, so the needle tip
  * is the image's bottom-centre and the anchor stays exactly there. */
-const ART_W = 87, ART_H = 131, GLOW_PAD = 32;
-const IMG_W = ART_W + GLOW_PAD * 2;  // 151
-const IMG_H = ART_H + GLOW_PAD;      // 163
+const ART_W = 87, ART_H = 131;
+const IMG_W = 150, IMG_H = 163;
 
 function tierOpts(artW, artH) {
   const w = (IMG_W * artW) / ART_W;

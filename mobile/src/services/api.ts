@@ -386,6 +386,16 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ secret }) },
     ),
 
+  // Mint the same short-lived, single-use forum session bridge used by the
+  // web home CTA. Native cannot share SecureStore with the browser, so the
+  // bridge hands the signed-in session across without putting the secret in
+  // the URL. Guests skip this call and open the public forum directly.
+  createForumBridge: async (secret: string) =>
+    fetchApi<{ success: boolean; code: string }>('/api/forumBridge', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', secret }),
+    }),
+
   checkNameChangeStatus: async (secret: string) => {
     return fetchApi<{
       hasPendingRequest: boolean;
@@ -656,10 +666,8 @@ export const api = {
           elo?: { before?: number; after?: number; change?: number };
           /** Team assignment in team modes ('a' | 'b'); null on solo modes. */
           team?: 'a' | 'b' | null;
-          /** Equipped cosmetics, joined LIVE off the account by the endpoint
-           *  (serverUtils/userCosmetics.js) — a Game is a result, a glow is
-           *  identity, so these are what the player wears NOW, not what the
-           *  save froze. Absent on responses from a server older than that. */
+          /** Match-time cosmetics frozen in the saved roster. Legacy game
+           *  documents fall back to the player's current equipment. */
           nameGlow?: string | null;
           markerSkin?: string | null;
         }>;

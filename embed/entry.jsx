@@ -149,6 +149,7 @@ function MapEmbed({ state }) {
         cameraCancelKey={state.cameraCancelKey}
         bandFraction={band}
         session={state.session}
+        myMarkerSkin={state.myMarkerSkin ?? null}
         ws={null}
         pinPoint={pinPoint}
         setPinPoint={handleSetPinPoint}

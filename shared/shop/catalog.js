@@ -1,6 +1,8 @@
-// Stamps shop catalogue, shared by web and mobile. Pure data — no imports, no
-// env, no I/O, so the server can price-check a purchase against the exact same
-// table the client rendered.
+import { CATEGORY_ORDER } from './categoryOrder.js';
+
+// Stamps shop catalogue, shared by web and mobile. Pure data plus the shared
+// category sequence; no env or I/O, so the server can price-check a purchase
+// against the exact same table the client rendered.
 //
 // Entry shape:
 //   sku        stable id, never reused or renamed (it is what a purchase row
@@ -333,16 +335,16 @@ const ANIMATED_GLOWS = [
   .sort(byPriceAsc);
 
 // Every marker sku is a real pin IMAGE (public/pins/<name>.png), authored on the
-// stock pins' canvas (151x163: 87x131 art + glow headroom, spec in
+// stock pins' canvas (150x163: 87x131 art + glow headroom, spec in
 // lib/markerIcons.js) and wired up in lib/markerIcons.js + embed/shims/markerIcons.js.
 // A sku added here without its two icon entries silently falls back to the stock pin.
 //
 // PRICED BY UNIQUENESS, ASCENDING, and array order is shelf order like every
-// other section. Orange and Pink are one idea in two colours — the gold pin's
-// artwork recoloured, so every skin shares the stock geometry — and share one
-// rung just above Gold; Rainbow is that idea's one-off flex and tops the
-// ladder. The `price ?? MARKER_PRICE` fallback mirrors the backgrounds' — a
-// row with no price lands on the shelf base rather than NaN.
+// other section. Orange and Pink are the simple colourways, Emerald follows at
+// 150, Sky sits at 300, and Rainbow remains the one-off flex at the top. The
+// `price ?? MARKER_PRICE`
+// fallback mirrors the backgrounds' — a row with no price lands on the shelf
+// base rather than NaN.
 //
 // "Neon Blue Pin" WAS DELETED, not repriced: the stock pin players already
 // have is a blue teardrop of the same hue, so the sku was selling the default
@@ -350,14 +352,10 @@ const ANIMATED_GLOWS = [
 // time (see public/pins) and their names dropped the word with it; the skus
 // keep the neon_ prefix because a sku is a stable ID, not copy.
 const MARKERS = [
-  { sku: 'marker_neon_orange_pin', name: 'Orange Pin',  price: 250 },
-  { sku: 'marker_neon_pink_pin',   name: 'Pink Pin',    price: 250 },
-  { sku: 'marker_emerald_pin',     name: 'Emerald Pin', price: 300 },
-  // Gold moved off the 200 entry rung when it was redone as a gradient-and-
-  // gloss metal — it is jewellery now, so it sits with the emerald and closes
-  // the colourway band right before Rainbow. The sku did not move; ownership
-  // survives a reprice.
-  { sku: 'marker_gold_pin',        name: 'Gold Pin',    price: 300 },
+  { sku: 'marker_neon_orange_pin', name: 'Orange Pin',  price: 100 },
+  { sku: 'marker_neon_pink_pin',   name: 'Pink Pin',    price: 100 },
+  { sku: 'marker_emerald_pin',     name: 'Emerald Pin', price: 150 },
+  { sku: 'marker_sky_pin',         name: 'Sky Pin',     price: 300 },
   { sku: 'marker_rainbow_pin',     name: 'Rainbow Pin', price: 500 },
 ].map((m) => ({ ...m, type: 'marker', price: m.price ?? MARKER_PRICE, platforms: ['web', 'mobile'] }));
 
@@ -397,14 +395,12 @@ const PASSES = [
   },
 ];
 
-// THE ARRAY IS GROUPED IN SHELF ORDER — pins, glows, backgrounds, emotes,
-// passes — but it is not what PUTS the shelves in that order: both storefronts
-// group by `type` and walk CATEGORY_ORDER (components/shop/stampShopClient.js,
-// which carries the reasoning). What this array decides is the order WITHIN a
-// shelf. It is grouped to match anyway, because a catalogue that reads in a
-// different order from the page it feeds is a trap for the next person.
-export const SHOP_CATALOG = [
-  ...MARKERS,
+// Category order and catalogue order have one owner. The storefronts still
+// regroup by `type` so empty shelves can disappear, but raw API consumers now
+// receive the same sequence too. Each block below owns only its internal order.
+const ITEMS_BY_CATEGORY = {
+  marker: MARKERS,
+  background: BACKGROUNDS,
   // ONE GLOW SHELF, CHEAPEST FIRST, ANIMATED OR NOT. Both storefronts render a
   // category in catalogue order, so this sort IS the shelf order — in the DOM,
   // not just visually, which is what keeps the tab order and the screen-reader
@@ -420,11 +416,12 @@ export const SHOP_CATALOG = [
   // Array.prototype.sort is stable (spec since ES2019), so equal prices keep the
   // order their own array wrote: the five statics stay in the hue order set out
   // above rather than being shuffled into an arbitrary one.
-  ...[...GLOWS, ...ANIMATED_GLOWS].sort(byPriceAsc),
-  ...BACKGROUNDS,
-  ...EMOTES,
-  ...PASSES,
-];
+  glow: [...GLOWS, ...ANIMATED_GLOWS].sort(byPriceAsc),
+  emote: EMOTES,
+  pass: PASSES,
+};
+
+export const SHOP_CATALOG = CATEGORY_ORDER.flatMap((type) => ITEMS_BY_CATEGORY[type]);
 
 const BY_SKU = new Map(SHOP_CATALOG.map((item) => [item.sku, item]));
 

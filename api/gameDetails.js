@@ -1,6 +1,10 @@
 import Game from '../models/Game.js';
 import User from '../models/User.js';
-import { cosmeticsForGames, cosmeticsReader } from '../serverUtils/userCosmetics.js';
+import {
+  cosmeticsForGames,
+  cosmeticsForSavedPlayer,
+  cosmeticsReader,
+} from '../serverUtils/userCosmetics.js';
 import { stampReceiptForGame } from '../serverUtils/stamps/gameReceipt.js';
 
 export default async function handler(req, res) {
@@ -130,13 +134,9 @@ export default async function handler(req, res) {
         // Team assignment for team modes ('a' | 'b'); null on solo modes.
         team: player.team ?? null,
         elo: player.elo,
-        // Equipped cosmetics, joined live (see cosmeticsForGame). Without these
-        // two fields historicalGameView's projection into the live gameData
-        // shape read `player.nameGlow ?? null` off something that was never
-        // sent, so EVERY name in a game opened from history rendered plain and
-        // every pin rendered stock — while the history LIST beside it, which
-        // does its own join, glowed correctly.
-        ...cosmeticsOf(player.accountId)
+        // Match-time cosmetics from the saved roster. Legacy games have no
+        // snapshot, so the helper falls back to the live account join above.
+        ...cosmeticsForSavedPlayer(player, cosmeticsOf(player.accountId))
       })),
 
       // Game result

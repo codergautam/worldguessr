@@ -24,6 +24,7 @@ import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import getMyTeam from '../../shared/game/getMyTeam';
+import { GLOW_CLIP_RELIEF } from '../../shared/glowKeyframes';
 import WgWordmark from '../ui/WgWordmark';
 import PlayerName from '../PlayerName';
 
@@ -356,8 +357,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   body: {
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    // The matchup columns can shrink names to the edge on narrow phones. Keep
+    // that edge at least one full halo reach inside the native screen canvas.
+    paddingHorizontal: GLOW_CLIP_RELIEF,
   },
   // ── Opponent-introduction matchup ───────────────────────────────
   matchup: {

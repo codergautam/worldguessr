@@ -121,7 +121,10 @@ export default function useStampShop({ session, setSession }) {
   // prod without a deploy, so an absent/unknown value must read as OFF.
   const enabled = state.stampsEnabled === true;
 
-  const [catalog, setCatalog] = useState({ status: 'idle', items: [], emotes: [], error: null });
+  // Every mounted storefront immediately fetches its catalogue. Begin in the
+  // matching visual state so its first paint contains the loading message
+  // instead of an empty goods column that fills one effect later.
+  const [catalog, setCatalog] = useState({ status: 'loading', items: [], emotes: [], error: null });
   const [busySku, setBusySku] = useState(null);
 
   // Refs, not deps: every callback below stays referentially stable so the

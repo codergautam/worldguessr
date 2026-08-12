@@ -45,7 +45,7 @@ const GameSummary = dynamic(() => import('./roundOverScreen'), {
   },
 });
 
-export default function HistoricalGameView({ game, session, onBack, options, onUsernameLookup }) {
+export default function HistoricalGameView({ game, session, viewerMarkerSkin, onBack, options, onUsernameLookup }) {
   const { t: text } = useTranslation("common");
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,7 +247,9 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
 
     // For duels and multiplayer, include players data
     let players = {};
-    if (round.allGuesses && round.allGuesses.length > 0) {
+    if (fullGameData.gameType !== 'singleplayer'
+        && fullGameData.gameType !== 'daily_challenge'
+        && round.allGuesses?.length > 0) {
       round.allGuesses.forEach(guess => {
         players[guess.playerId] = {
           username: guess.username,
@@ -458,6 +460,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         button2Text=""
         hidden={false}
         session={session}
+        // The saved match snapshot wins. viewerMarkerSkin is only a legacy
+        // fallback for payloads produced before player summaries stored pins.
+        viewerMarkerSkin={perspectivePlayer?.markerSkin !== undefined
+          ? perspectivePlayer.markerSkin
+          : viewerMarkerSkin}
         gameId={game?.gameId || game?._id}
         options={{
           ...options,

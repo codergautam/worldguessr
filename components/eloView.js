@@ -127,18 +127,18 @@ export default function EloView({ eloData, session, isPublic = false, username =
                 rel="noopener noreferrer"
                 style={{
                     display: 'block',
-                    background: 'rgba(255, 215, 0, 0.08)',
-                    border: '1px solid rgba(255, 215, 0, 0.35)',
+                    background: 'rgba(74, 222, 128, 0.08)',
+                    border: '1px solid rgba(74, 222, 128, 0.35)',
                     borderRadius: 'clamp(8px, 2vw, 15px)',
                     padding: 'clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 20px)',
-                    color: '#ffd700',
+                    color: '#4ade80',
                     fontSize: 'clamp(13px, 2.8vw, 16px)',
                     textAlign: 'center',
                     textDecoration: 'none',
                     lineHeight: 1.4
                 }}
             >
-                ⚠️ {text("eloRebuildNotice")}{' '}
+                {text("eloRebuildNotice")}{' '}
                 <span style={{ textDecoration: 'underline', whiteSpace: 'nowrap' }}>
                     {text("eloRebuildLink")} →
                 </span>

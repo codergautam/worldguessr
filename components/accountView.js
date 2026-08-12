@@ -3,12 +3,13 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
+import { FaClock, FaGamepad, FaGlobe, FaStar, FaEye, FaUsers, FaTriangleExclamation } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
 import CountryFlag from "./utils/countryFlag";
 import { fetchWithFallback } from "./utils/retryFetch";
+import Season0Badges from "./season0Badges";
 
 export default function AccountView({ accountData, setAccountData, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
@@ -102,7 +103,7 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
         paddingBottom: '20px',
         boxSizing: 'border-box',
         borderRadius: '10px',
-        gap: "20px"
+        gap: "16px"
     };
 
     const profileCardStyle = {
@@ -138,30 +139,6 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
         width: '24px'
     };
 
-    const buttonStyle = {
-        marginTop: '20px',
-        padding: '12px 24px',
-        border: 'none',
-        borderRadius: '25px',
-        // THE SITE'S GREEN BUTTON, not a Bootstrap one. This used to be a
-        // hand-picked #28a745 -> #20c997 ramp that appears nowhere else in the
-        // game, so it was both off-brand AND the one control in this modal that
-        // could not follow an equipped background's accent (the modal sits in
-        // the .account-modal scope, see styles/globals.scss). The blue "Change
-        // Flag" and orange "Forced name change" buttons beside it stay their own
-        // colours on purpose — they are contrast, not chrome.
-        background: 'var(--gradGreenBtn)',
-        color: 'white',
-        cursor: 'pointer',
-        fontSize: '16px',
-        fontWeight: '600',
-        transition: 'all 0.3s ease',
-        boxShadow: '0 4px 15px rgba(var(--surfChannels), 0.3)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        display: 'block'
-    };
-
     const warningStyle = {
         ...textStyle,
         color: '#ffc107',
@@ -176,7 +153,10 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
             <div style={profileCardStyle}>
                 <div style={textStyle}>
                     <FaClock style={iconStyle} />
-                    {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
+                    <span className="account-profile-joined-copy">
+                        <span>{text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}</span>
+                        <Season0Badges profileData={accountData} text={text} variant="compact" />
+                    </span>
                 </div>
 
                 {accountData.lastLogin && viewingPublicProfile && false && (
@@ -208,35 +188,18 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
                         {isForcedNameChange ? (
                             // Forced name change - always show button, ignore cooldowns
                             <button
-                                style={{
-                                    ...buttonStyle,
-                                    background: 'linear-gradient(135deg, #f0883e, #d29922)',
-                                    boxShadow: '0 4px 15px rgba(240, 136, 62, 0.3)',
-                                }}
+                                type="button"
+                                className="account-profile-action account-profile-action--required"
                                 onClick={changeName}
-                                onMouseEnter={(e) => {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 20px rgba(240, 136, 62, 0.4)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = '0 4px 15px rgba(240, 136, 62, 0.3)';
-                                }}
                             >
-                                ⚠️ {text("changeName")} ({text("required") || "Required"})
+                                <FaTriangleExclamation aria-hidden="true" />
+                                {text("changeName")} ({text("required") || "Required"})
                             </button>
                         ) : accountData.canChangeUsername ? (
                             <button
-                                style={buttonStyle}
+                                type="button"
+                                className="account-profile-action"
                                 onClick={changeName}
-                                onMouseEnter={(e) => {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 20px rgba(var(--surfChannels), 0.4)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = '0 4px 15px rgba(var(--surfChannels), 0.3)';
-                                }}
                             >
                                 {text("changeName")}
                             </button>
@@ -259,24 +222,13 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
                 {/* Change country flag button - hidden in public view */}
                 {!isPublic && (
                     <button
-                        style={{
-                            ...buttonStyle,
-                            background: 'linear-gradient(135deg, #2196F3, #1976D2)',
-                            boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)',
-                        }}
+                        type="button"
+                        className="account-profile-action"
                         onClick={() => setShowCountrySelector(true)}
-                        onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-2px)';
-                            e.target.style.boxShadow = '0 6px 20px rgba(33, 150, 243, 0.4)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 4px 15px rgba(33, 150, 243, 0.3)';
-                        }}
                     >
                         {currentCountry
-                            ? <><CountryFlag countryCode={currentCountry} size={1.2} style={{ marginRight: '8px' }} />{text("changeFlag") || "Change Flag"}</>
-                            : `🌍 ${text("setFlag") || "Set Flag"}`
+                            ? <><CountryFlag countryCode={currentCountry} size={1.2} />{text("changeFlag") || "Change Flag"}</>
+                            : <><FaGlobe aria-hidden="true" />{text("setFlag") || "Set Flag"}</>
                         }
                     </button>
                 )}

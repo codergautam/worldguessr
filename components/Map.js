@@ -1998,6 +1998,7 @@ const MapComponent = ({
   options,
   ws,
   session,
+  myMarkerSkin: suppliedMarkerSkin,
   pinPoint,
   setPinPoint,
   answerShown,
@@ -2107,10 +2108,11 @@ const MapComponent = ({
     };
   }, []);
 
-  // MY equipped skin. The session is the primary source because it is the only
-  // one that exists outside multiplayer (singleplayer has no roster at all);
-  // the roster entry backfills for the window before the session resolves.
-  const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
+  // MY equipped skin. Mobile's WebView cannot carry the web session object, so
+  // its host sends the sku explicitly. Web keeps resolving from the session,
+  // and the multiplayer roster remains the final backfill for either client.
+  const myMarkerSkin = suppliedMarkerSkin
+    ?? session?.token?.cosmetics?.equipped?.markerSkin
     ?? multiplayerState?.gameData?.players?.find((p) => p.id === multiplayerState?.gameData?.myId)?.markerSkin
     ?? null;
   // THERE IS NO `myNameGlow` HERE ANY MORE, and it is not an oversight. The

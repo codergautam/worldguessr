@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import { useTranslation } from '@/components/useTranslations';
 import useStampShop from './useStampShop';
@@ -39,23 +39,36 @@ import ShopView from './ShopView';
 /** ui/Modal's close animation is 200ms; one frame of slack on top of it. */
 const EXIT_MS = 220;
 
-export default function ShopModal({ session, setSession, onClose }) {
+export default function ShopModal({ session, setSession, onClose, onReady, coveredEntry = false }) {
   const { t: text, lang } = useTranslation('common');
 
   // ONE instance of the shop's data layer for the life of this modal: one
   // catalogue fetch per open, one entitlement patch path, one countdown.
   const shop = useStampShop({ session, setSession });
 
-  // Starts closed and opens on the frame after mount, so ui/Modal's slideIn
-  // actually runs. Mounting straight into isOpen:true would render the card in
-  // its final position with the entrance already over.
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setOpen(true); }, []);
+  // CSS animations begin when their node is inserted, so the modal can mount
+  // open and animate immediately. Starting false added two empty React passes
+  // before the storefront painted, which exposed the home screen during the
+  // profile-to-shop handoff.
+  const [open, setOpen] = useState(true);
 
   // Latest onClose without putting it in a dep array — home hands us a fresh
   // arrow on every one of its (many) renders and this must not re-arm.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // A raw import promise resolving does not guarantee that Next's dynamic
+  // wrapper has committed the imported component yet. Notify home from a
+  // layout effect so the profile remains the last complete frame until the
+  // shop backdrop and surface physically exist in the DOM.
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  const readyNotifiedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!shop.enabled || readyNotifiedRef.current) return;
+    readyNotifiedRef.current = true;
+    if (onReadyRef.current) onReadyRef.current();
+  }, [shop.enabled]);
 
   const exitTimerRef = useRef(null);
   useEffect(() => () => {
@@ -84,10 +97,18 @@ export default function ShopModal({ session, setSession, onClose }) {
   if (!shop.enabled) return null;
 
   return (
-    <Modal isOpen={open} onClose={requestClose} title={text('shopTitle')}>
+    <Modal
+      isOpen={open}
+      onClose={requestClose}
+      variant="shopFullscreen"
+      coveredEntry={coveredEntry}
+    >
       <ShopView
         shop={shop}
         username={session?.token?.username}
+        title={text('shopShortTitle')}
+        closeLabel={text('close')}
+        onClose={requestClose}
         text={text}
         lang={lang}
       />

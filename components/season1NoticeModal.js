@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { useTranslation } from "@/components/useTranslations";
 import clientConfig from "@/clientConfig";
+import StampMark from "@/components/shop/StampMark";
+import { resolveLeague } from "@/components/utils/leagues";
 
 /**
  * SEASON 1 FIRST-LOGIN NOTICE
@@ -171,6 +173,8 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
   const peakElo = Number(notice?.peakElo ?? 0);
   const newElo = Number(notice?.newElo ?? 0);
   const stampsGranted = Number(notice?.stampsGranted ?? 0);
+  const league = notice?.league ? resolveLeague(newElo, notice.league) : null;
+  const leagueColor = league?.light ?? league?.color ?? "#ffffff";
 
   // Delayed entrance + beat schedule. One effect owns every timer so the cleanup
   // cannot leave a stray beat firing into an unmounted tree.
@@ -258,6 +262,7 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
       onClose={handleDismiss}
       actions={actions}
       variant="default"
+      borderless
       disableBackdropClose
     >
       <div className="s1">
@@ -276,8 +281,13 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           <div className="s1__label">{text("season1NoticeNewLabel")}</div>
           <div className="s1__numberRow">
             <span className="s1__number">{fmt(ratingDisplay)}</span>
-            {notice.league && (
-              <span className={`s1__league ${beat >= 4 ? "in" : ""}`}>{notice.league}</span>
+            {league && (
+              <span
+                className={`s1__league ${beat >= 4 ? "in" : ""}`}
+                style={{ backgroundColor: `${leagueColor}24` }}
+              >
+                {league.name}
+              </span>
             )}
           </div>
           <p className="s1__note">{text("season1NoticeNewNote")}</p>
@@ -296,7 +306,9 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
                   than what they were for. */}
               <div className="s1__gift">
                 <div className="s1__giftValue">
-                  +{fmt(stampsDisplay)} <span className="s1__giftUnit">{text("season1NoticeStampsUnit")}</span>
+                  <StampMark />
+                  <span>+{fmt(stampsDisplay)}</span>
+                  <span className="s1__giftUnit">{text("season1NoticeStampsUnit")}</span>
                 </div>
                 <p className="s1__note">{text("season1NoticeStampsNote")}</p>
               </div>
@@ -363,23 +375,24 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           text-align: center;
         }
 
-        /* The write-up link. Gold, matching the same notice link in
-           eloView.js so the two read as the same announcement. */
+        /* Supporting detail, deliberately quieter than the Continue action. */
         .s1__link {
           display: block;
+          align-self: center;
           text-align: center;
-          padding: 10px 14px;
-          border: 1px solid rgba(255, 215, 0, 0.35);
-          background: rgba(255, 215, 0, 0.08);
-          border-radius: 12px;
-          color: #ffd700;
-          font-size: 0.9rem;
-          font-weight: 500;
-          text-decoration: none;
+          color: rgba(255, 255, 255, 0.58);
+          font-size: 0.75rem;
+          font-weight: 400;
+          text-decoration: underline;
         }
 
         .s1__link:hover {
-          background: rgba(255, 215, 0, 0.14);
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .s1__link:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.7);
+          outline-offset: 4px;
         }
 
         .s1__title {
@@ -420,7 +433,7 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
 
         .s1__numberRow {
           display: flex;
-          align-items: baseline;
+          align-items: center;
           gap: 10px;
           flex-wrap: wrap;
         }
@@ -446,8 +459,6 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           font-size: 0.9rem;
           font-weight: 500;
           color: rgba(255, 255, 255, 0.85);
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          background: rgba(0, 0, 0, 0.25);
           border-radius: 999px;
           padding: 3px 12px;
           opacity: 0;
@@ -481,13 +492,15 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           flex: 1 1 180px;
           min-width: 0;
           background: rgba(0, 0, 0, 0.28);
-          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 12px;
           padding: 12px 14px;
         }
 
         .s1__giftValue {
-          font-size: 1.4rem;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: var(--stampValueSize);
           font-weight: 600;
           color: #4ade80;
           font-variant-numeric: tabular-nums;
@@ -495,7 +508,7 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
         }
 
         .s1__giftUnit {
-          font-size: 0.8em;
+          font-size: var(--stampUnitSize);
           color: rgba(255, 255, 255, 0.75);
           font-weight: 500;
         }
@@ -504,7 +517,6 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           display: flex;
           align-items: center;
           gap: 10px;
-          border: 1px solid rgba(255, 215, 0, 0.35);
           background: rgba(255, 215, 0, 0.08);
           border-radius: 12px;
           padding: 10px 14px;
@@ -516,7 +528,7 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
           font-weight: 600;
           letter-spacing: 0.1em;
           color: #ffd700;
-          border: 1px solid rgba(255, 215, 0, 0.5);
+          background: rgba(255, 215, 0, 0.14);
           border-radius: 6px;
           padding: 2px 8px;
         }
@@ -568,17 +580,13 @@ export default function Season1NoticeModal({ session, eloNotice, onDismissed }) 
             flex: 1 1 auto;
             width: 100%;
           }
-          .s1__giftValue {
-            font-size: 1.25rem;
-          }
           /* The rating and its league chip stop sharing a line: at this width
              "1,247" + "Voyager" pushes the chip off the card edge. */
           .s1__numberRow {
             flex-wrap: wrap;
             row-gap: 6px;
           }
-          .s1__note,
-          .s1__link {
+          .s1__note {
             font-size: 0.82rem;
           }
           .s1__og {

@@ -22,6 +22,9 @@ export interface EmbedMapProps {
   shown?: boolean;
   options?: { mapType?: "m" | "s" | "p" | "y" };
   session?: { token?: { username?: string } } | null;
+  /** The viewer's equipped pin sku. Required on mobile because its WebView has
+   *  no web session; web clients may continue resolving it from `session`. */
+  myMarkerSkin?: string | null;
   pinPoint?: LatLng | null;
   answerShown?: boolean;
   location?: { lat: number; long: number } | null;
@@ -37,8 +40,8 @@ export interface EmbedMapProps {
   cameraCancelKey?: number;
   /* NO `myNameGlow` HERE ANY MORE. It crossed this bridge for exactly one
    * consumer — the "Your guess" pin label — and that label wears no glow: it is
-   * chrome, not a name (components/utils/guessPinLabel.js). Skins still travel
-   * (myMarkerSkin, EmbedResultsProps below) because a pin IS identity. */
+   * chrome, not a name (components/utils/guessPinLabel.js). The pin skin stays
+   * because a pin IS identity. */
   /** Drives the tile-label language (hl=) via useTranslation. */
   lang?: string;
 }

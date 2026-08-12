@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import CountryFlag from './CountryFlag';
 import { resolveGlowColor } from '../shared/cosmetics';
-import NameGlowHalo from './NameGlowHalo';
+import NameGlowHalo, { type GlowMotion } from './NameGlowHalo';
 
 interface PlayerNameProps {
   /** The name/label text, shown first. */
@@ -44,23 +44,8 @@ interface PlayerNameProps {
    * with no re-measure.
    */
   glow?: string | null;
-  /**
-   * Set false to force the STATIC halo even for an animated sku.
-   *
-   * THE LAG BUDGET, RE-PRICED (Aug 11, "animated nametag not working in
-   * places like leaderboard"): lists no longer pass false. Each animated sku
-   * stacks up to eight extra <Text> nodes drawing blurred copies per frame —
-   * but only rows whose player EQUIPPED an animated sku pay it, and a
-   * virtualised list mounts ~15 rows, so the real bill is a handful of names,
-   * not a hundred. Leaderboards, friends and history animate now, mirroring
-   * web. Two surfaces still pass false: the maps tile wall (MapSection can
-   * flood hundreds of tiles) and the in-game chat (it overlays a live round).
-   * Web rests those same two under a hover-to-wake class instead
-   * (`wg-glowHover`, styles/nameGlow.css); touch has no hover, so resting
-   * static IS the parity. This prop is also the dial to turn FIRST if a
-   * low-end device ever stutters on a glow-heavy list.
-   */
-  animated?: boolean;
+  /** How animated glow SKUs behave on this surface. Defaults to system. */
+  glowMotion?: GlowMotion;
   /**
    * Static-halo blur radius in px. The default suits in-game name sizes
    * (13-18px). Raise it ONLY where the name is set at display size — the shop's
@@ -106,7 +91,7 @@ export default function PlayerName({
   glow,
   glowRadius = 8,
   onLight = false,
-  animated = true,
+  glowMotion = 'system',
   children,
 }: PlayerNameProps) {
   // The sku resolving to a colour is the whole test: every tier, static and
@@ -138,7 +123,7 @@ export default function PlayerName({
             name={name}
             sku={glow}
             onLight={onLight}
-            animated={animated}
+            motion={glowMotion}
             radius={glowRadius}
             // The SAME style the name resolves with, minus the shadow: the
             // layers have to lay out identically or they ghost out from behind
@@ -163,6 +148,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 1,
     minWidth: 0,
+    // NameGlowHalo paints outside the measured line box. Fabric Text is fixed in
+    // that component; these wrappers must also preserve the escaped pixels.
+    overflow: 'visible',
   },
   name: {
     flexShrink: 1,
@@ -176,5 +164,6 @@ const styles = StyleSheet.create({
   glowStack: {
     flexShrink: 1,
     minWidth: 0,
+    overflow: 'visible',
   },
 });

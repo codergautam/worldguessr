@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useNavigation } from 'expo-router';
 import { colors, t } from '../src/shared';
-import { spacing, fontSizes } from '../src/styles/theme';
+import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplayerStore';
 import { useSettingsStore } from '../src/store/settingsStore';
@@ -33,7 +33,7 @@ import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
 import GameChat from '../src/components/multiplayer/GameChat';
 
-// Plate fill for the core and the data strip. Neutral by ruling (see
+// Plate fill for the segmented data strip. Neutral by ruling (see
 // styles/queueScreen.css's header): the site's own panel colour — accountModal
 // paints its surface as rgba(0,30,15) over black — darkened, NOT the strongly
 // green --primaryTransparent the .timer recipe uses.
@@ -148,9 +148,10 @@ export default function QueueScreen() {
     const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  const elapsed = queuedAt
-    ? Math.max(0, Math.floor((Date.now() + wsService.timeOffset - queuedAt) / 1000))
+  const elapsedMs = queuedAt
+    ? Math.max(0, Date.now() + wsService.timeOffset - queuedAt)
     : 0;
+  const elapsed = Math.floor(elapsedMs / 1000);
   const mm = Math.floor(elapsed / 60);
   const ss = elapsed % 60;
   const elapsedStr = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
@@ -165,7 +166,12 @@ export default function QueueScreen() {
   // the visual confidence of a measured median.
   const ROUGH_KEYS = { short: 'queueEtaRoughShort', mid: 'queueEtaRoughMid', long: 'queueEtaRoughLong' } as const;
   const etaRough = queueEta?.state === 'rough' && !!queueEta.tier;
-  const etaStr = queueEta?.state === 'long'
+  // Render from the local 1s clock as soon as the server-provided deadline is
+  // crossed. Waiting for the 5s ETA beat could otherwise leave an already-
+  // expired quote visible for several seconds.
+  const etaPastThreshold = typeof queueEta?.longAfterSeconds === 'number'
+    && elapsedMs > queueEta.longAfterSeconds * 1000;
+  const etaStr = queueEta?.state === 'long' || etaPastThreshold
     ? t('queueEtaLong')
     : etaRough
       ? t(ROUGH_KEYS[queueEta!.tier as keyof typeof ROUGH_KEYS])
@@ -185,14 +191,6 @@ export default function QueueScreen() {
   const titleSize = isLandscape
     ? Math.min(34, Math.max(22, height * 0.085))
     : Math.min(40, Math.max(26, width * 0.085));
-
-  // Sized off the same axis as the title so the two scale together. CALIBRATED,
-  // because both ends were wrong once: 14px read as a footnote nobody looked at,
-  // and the first correction put a scoreboard numeral on screen ("HUGE!!! I
-  // DIDNT MEAN THAT HUGE"). Web's equivalent is clamp(1.5rem, .7vw+1.1svh, 2.1rem).
-  const clockSize = isLandscape
-    ? Math.min(32, Math.max(22, height * 0.075))
-    : Math.min(34, Math.max(24, width * 0.075));
 
   // Single exit path. Idempotent — caller can race state updates without double-popping.
   const exitBack = () => {
@@ -291,37 +289,28 @@ export default function QueueScreen() {
   const isPlacement = isRanked && placementPending;
   const theme = isRanked
     ? {
-        // RED, and specifically globals.scss's "ranked red" (#ff474c, the home
-        // menu's Ranked Duel hover) — user ruling Aug 9, shared verbatim with
-        // styles/queueScreen.css. With the eyebrow gone below this is the sonar
-        // rings only. Unranked green and 2v2 pink are untouched.
-        accent: '#ff474c',
+        accent: '#fbbf24',
+        glow: '#f59e0b',
+        gradient: ['#fbbf24', '#f59e0b'] as const,
         icon: 'trophy' as const,
-        // NO EYEBROW ON RANKED (user ruling Aug 9, mirrors
-        // components/queueScreen.js): "RANKED DUEL" over "Finding an opponent"
-        // over an ELO range said the same thing three times. The ELO plate
-        // already identifies the mode. Unranked and 2v2 keep theirs — they have
-        // no plate to identify them. A placement queue is the exception, on
-        // web too: "Placement match" is new information, not a restatement.
-        label: isPlacement ? t('placementMatch') : null,
-        // Per-mode headline, mirroring components/queueScreen.js: a matchmade
-        // 1v1 is one named person, not a generic "game".
-        title: t('findingOpponent'),
+        label: t('rankedDuel'),
       }
     : is2v2
       ? {
           // The 2v2 identity color/glyph everywhere else (web gameHistory.js
           // badge: shield, #e91e63) — don't invent a second one.
           accent: '#f06292',
+          glow: '#e91e63',
+          gradient: ['#f06292', '#c2185b'] as const,
           icon: 'shield' as const,
           label: t('twovtwo'),
-          title: t('findingMatch'),
         }
       : {
           accent: '#4ade80',
+          glow: '#22c55e',
+          gradient: ['#4ade80', '#16a34a'] as const,
           icon: 'flash' as const,
           label: t('unrankedDuel'),
-          title: t('findingGame'),
         };
 
   // Shared building blocks — composed differently per orientation below.
@@ -335,6 +324,8 @@ export default function QueueScreen() {
             width: coreSize,
             height: coreSize,
             borderRadius: coreSize / 2,
+            borderColor: theme.accent,
+            shadowColor: theme.glow,
           },
         ]}
       >
@@ -346,16 +337,17 @@ export default function QueueScreen() {
     </View>
   );
 
-  // The mode identity as TYPE, not as a filled gradient pill. Web's queue
-  // screen was rejected for looking "AI generated with all the rounded corners
-  // and pills and outlines"; this is the same information with none of the
-  // chrome, and it keeps the two platforms identical.
-  const pillEl = theme.label ? (
-    <View style={styles.modeRow}>
-      <Ionicons name={theme.icon} size={14} color={theme.accent} />
-      <Text style={[styles.modeText, { color: theme.accent }]}>{theme.label.toUpperCase()}</Text>
-    </View>
-  ) : null;
+  const pillEl = (
+    <LinearGradient
+      colors={theme.gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.modePill}
+    >
+      <Ionicons name={theme.icon} size={15} color="#1a1205" />
+      <Text style={styles.modePillText}>{theme.label.toUpperCase()}</Text>
+    </LinearGradient>
+  );
 
   const titleEl = (
     <Text
@@ -363,7 +355,7 @@ export default function QueueScreen() {
       numberOfLines={isLandscape ? 2 : 1}
       adjustsFontSizeToFit
     >
-      {theme.title}...
+      {t('findingGame')}
     </Text>
   );
 
@@ -378,14 +370,8 @@ export default function QueueScreen() {
     etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
   ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
 
-  // Placement: the plate's rating range and wait estimate are both noise when
-  // the opponent is the placement bot — the explainer is what a brand-new
-  // player actually needs. Mirrors web's .wgQueue__placementNote swap.
-  const dataEl = isPlacement ? (
-    <Text style={[styles.placementNote, { textAlign: isLandscape ? 'left' : 'center' }]}>
-      {t('placementQueueNote')}
-    </Text>
-  ) : cells.length ? (
+  // Placement skips the data plate because its bot match begins immediately.
+  const dataEl = !isPlacement && cells.length ? (
     <View style={styles.dataPlate}>
       {cells.map((c, i) => (
         // The typical-wait cell arrives LATE (the server's first ETA push is up
@@ -394,7 +380,7 @@ export default function QueueScreen() {
         // animated here — RN width animation on a flex row is finicky and the
         // fade+slide reads as the same reveal.
         <QueueCell key={c.key} divided={i > 0}>
-          <Text style={styles.dataLabel}>{c.label.toUpperCase()}</Text>
+          <Text style={styles.dataLabel}>{c.label}</Text>
           <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
         </QueueCell>
       ))}
@@ -403,8 +389,8 @@ export default function QueueScreen() {
 
   const timerEl = (
     <View style={styles.timerRow}>
-      <Ionicons name="time-outline" size={clockSize * 0.62} color="rgba(255,255,255,0.6)" />
-      <Text style={[styles.timerText, { fontSize: clockSize }]}>{elapsedStr}</Text>
+      <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
+      <Text style={styles.timerText}>{elapsedStr}</Text>
     </View>
   );
 
@@ -412,7 +398,7 @@ export default function QueueScreen() {
     <View style={styles.container}>
       <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <LinearGradient
-        colors={['rgba(6, 16, 10, 0.5)', 'rgba(6, 16, 10, 0.62)', 'rgba(6, 16, 10, 0.74)']}
+        colors={['rgba(6, 16, 10, 0.72)', 'rgba(6, 16, 10, 0.86)', 'rgba(6, 16, 10, 0.96)']}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -503,35 +489,32 @@ const styles = StyleSheet.create({
   radarSpacer: {
     marginVertical: spacing['3xl'],
   },
-  modeRow: {
+  modePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: borderRadius.full,
   },
-  modeText: {
+  modePillText: {
+    color: '#1a1205',
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-Bold',
-    letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.55)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
+    letterSpacing: 1.5,
   },
   radar: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // NEUTRAL and UNFRAMED — see styles/queueScreen.css's header for the two
-  // owner rulings behind this ("remove the green backgrounds", then "still has
-  // green outlines/borders i dont like that"). The mode accent lives only in
-  // the rings that orbit this disc, the eyebrow, and the bloom under the timer.
   radarCore: {
-    backgroundColor: SURFACE,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
   title: {
@@ -565,10 +548,10 @@ const styles = StyleSheet.create({
     borderLeftColor: 'rgba(0, 0, 0, 0.45)',
   },
   dataLabel: {
-    color: 'rgba(255, 255, 255, 0.66)',
-    fontSize: 10,
-    fontFamily: 'Lexend-Medium',
-    letterSpacing: 1.4,
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontSize: fontSizes.xs,
+    fontFamily: 'Lexend-SemiBold',
+    letterSpacing: 0.2,
   },
   dataValue: {
     color: colors.white,
@@ -583,27 +566,17 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.72)',
     fontFamily: 'Lexend-Medium',
   },
-  // Placement queue: replaces the data plate (mirrors web's
-  // .wgQueue__placementNote — rating range / ETA are noise vs the bot).
-  placementNote: {
-    color: 'rgba(255, 255, 255, 0.72)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
-    lineHeight: 20,
-    maxWidth: 320,
-  },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
-  // THE HERO, matching web. This was a muted 14px footnote; the clock is the
-  // only thing on screen actually moving and it is the answer to the question
-  // the player is asking, so it gets scoreboard size. Tabular figures are
-  // mandatory — proportional digits jitter the whole number every second.
+  // Secondary live status. Tabular figures prevent the row from breathing as
+  // the digits change, while the softer color keeps the headline in charge.
   timerText: {
-    color: colors.white,
-    fontFamily: 'Lexend-Bold',
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: fontSizes.sm,
+    fontFamily: 'Lexend-Medium',
     fontVariant: ['tabular-nums'],
   },
 });

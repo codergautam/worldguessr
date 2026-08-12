@@ -14,6 +14,15 @@ export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://server.worldguess
 // Public website (used for shareable party invite links — mirrors web NEXT_PUBLIC_DOMAIN).
 export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://worldguessr.com';
 
+// Static files served by the web app. Local native development already points
+// EXPO_PUBLIC_EMBED_URL at the LAN Next.js server, so use that same origin for
+// images unless a dedicated asset/CDN origin was supplied. Keeping this
+// separate from SITE_URL matters: SITE_URL must remain a public, shareable
+// origin even while a development build loads its assets from a local server.
+export const ASSET_BASE_URL = process.env.EXPO_PUBLIC_ASSET_URL
+  || process.env.EXPO_PUBLIC_EMBED_URL
+  || SITE_URL;
+
 // Base URL for the chrome-less /embed/* Leaflet map pages loaded in the map
 // WebView. Served from worldguessr.com in prod; override with
 // EXPO_PUBLIC_EMBED_URL to point at a local `next dev`.

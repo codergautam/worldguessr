@@ -43,5 +43,6 @@
   "usernameRulesHint": "{{min}}-{{max}} characters, letters, numbers, and underscores only",
   "errorBoundaryRetry": "Try Again",
   "errorBoundaryMessage": "The app hit an unexpected error. You can try again or go back home.",
-  "backToLobby": "Back to Lobby"
+  "backToLobby": "Back to Lobby",
+  "shopPassDailyCap": "Limit: {{count}} passes per day"
 }

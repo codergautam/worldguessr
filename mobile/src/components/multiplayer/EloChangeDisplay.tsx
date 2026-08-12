@@ -21,10 +21,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Platform, View, Text, StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  useReducedMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -48,8 +49,8 @@ interface EloChangeDisplayProps {
   serverLeague?: ServerLeague;
   /**
    * Placement match: this result SEEDED the rating rather than transferring it.
-   * Renders the "Placement match" label and reframes the jump from the entry
-   * rating to the seed as an placement outcome, not a +N win bonus.
+   * Replaces the rating mechanics with a plain-language league result for a
+   * player's first ranked-game outcome.
    */
   placement?: boolean;
 }
@@ -85,6 +86,7 @@ export default function EloChangeDisplay({
   // rating jump is the reveal. Otherwise sparkle only on an actual gain.
   const particleCount = !placement && delta > 0 ? getParticleCount(league) : 0;
   const starColor = league.light ?? league.color;
+  const reduceMotion = useReducedMotion();
 
   // Count the rating up/down from old → new (web parity: components/roundOverScreen.js).
   //
@@ -103,12 +105,12 @@ export default function EloChangeDisplay({
   // classic front-loaded count-up.
   const [animatedElo, setAnimatedElo] = useState(oldElo);
   useEffect(() => {
-    if (oldElo === newElo) {
+    if (reduceMotion || oldElo === newElo) {
       setAnimatedElo(newElo);
       return;
     }
     const COUNT_MS = 1000;
-    const START_DELAY = 350; // let the "Victory/Defeat" title land first
+    const START_DELAY = 250; // let the result title and badge paint first
     const SMALL_DELTA = 8;
     const ease = Math.abs(delta) < SMALL_DELTA ? easeInOutCubic : easeOutCubic;
 
@@ -144,22 +146,37 @@ export default function EloChangeDisplay({
       clearTimeout(startTimer);
       if (interval) clearInterval(interval);
     };
-  }, [oldElo, newElo, delta]);
+  }, [oldElo, newElo, delta, reduceMotion]);
 
   // Subtle pop-in on the value row.
-  const slide = useSharedValue(0);
-  const scale = useSharedValue(0.6);
+  const slide = useSharedValue(reduceMotion ? 1 : 0);
+  const scale = useSharedValue(reduceMotion ? 1 : placement ? 0.94 : 0.6);
   useEffect(() => {
-    slide.value = withDelay(150, withTiming(1, { duration: 350 }));
-    scale.value = withDelay(
-      150,
-      withTiming(1, { duration: 450, easing: Easing.out(Easing.back(1.6)) }),
-    );
+    if (reduceMotion) {
+      slide.value = 1;
+      scale.value = 1;
+      return;
+    }
+    if (placement) {
+      slide.value = 0;
+      scale.value = 0.94;
+      slide.value = withDelay(100, withTiming(1, { duration: 320 }));
+      scale.value = withDelay(
+        100,
+        withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }),
+      );
+    } else {
+      slide.value = withDelay(150, withTiming(1, { duration: 350 }));
+      scale.value = withDelay(
+        150,
+        withTiming(1, { duration: 450, easing: Easing.out(Easing.back(1.6)) }),
+      );
+    }
     return () => {
       cancelAnimation(slide);
       cancelAnimation(scale);
     };
-  }, [scale, slide]);
+  }, [placement, reduceMotion, scale, slide]);
 
   const displayStyle = useAnimatedStyle(() => ({
     opacity: slide.value,
@@ -171,6 +188,31 @@ export default function EloChangeDisplay({
   const deltaColor = delta > 0 ? colors.success : delta < 0 ? colors.error : colors.textSecondary;
   const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
 
+  // A first-time player needs the outcome before the rating vocabulary. The
+  // badge keeps the league sentence and the live rating in one readable unit.
+  if (placement) {
+    return (
+      <View style={[styles.container, styles.placementContainer]}>
+        <Animated.View
+          style={[styles.placementBadge, { borderColor: starColor }, displayStyle]}
+          accessible
+          accessibilityLabel={`${t('placementLeagueResult', { league: league.name })}. ${newElo} ${t('elo')}`}
+        >
+          <Text style={styles.placementEmblem} accessible={false}>{league.emoji}</Text>
+          <View style={styles.placementBody} accessible={false}>
+            <Text style={styles.placementResult}>
+              {t('placementLeagueResult', { league: league.name })}
+            </Text>
+            <View style={styles.placementRatingRow}>
+              <Text style={[styles.placementValue, { color: starColor }]}>{animatedElo}</Text>
+              <Text style={styles.placementUnit}>{t('elo')}</Text>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {Array.from({ length: particleCount }).map((_, index) => (
@@ -181,22 +223,10 @@ export default function EloChangeDisplay({
           color={starColor}
         />
       ))}
-      {placement && (
-        <Text style={styles.placementLabel}>
-          {t('placementMatch')}
-        </Text>
-      )}
       <Text style={styles.label}>{t('elo')}:</Text>
       <Animated.View style={[styles.row, displayStyle]}>
         <Text style={styles.value}>{animatedElo}</Text>
-        {/* A placement SEEDS the rating rather than transferring it, so the
-            jump from the entry rating is not a "+N you earned" — showing one
-            would read as a gigantic win bonus. Show the tier instead. */}
-        {placement ? (
-          <Text style={[styles.delta, { color: starColor }]}>{league.name}</Text>
-        ) : (
-          <Text style={[styles.delta, { color: deltaColor }]}>{deltaText}</Text>
-        )}
+        <Text style={[styles.delta, { color: deltaColor }]}>{deltaText}</Text>
       </Animated.View>
     </View>
   );
@@ -261,12 +291,61 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     position: 'relative',
   },
-  placementLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: fontSizes.xs,
+  placementContainer: {
+    alignSelf: 'stretch',
+  },
+  placementBadge: {
+    width: '100%',
+    maxWidth: 320,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderWidth: 2,
+    borderRadius: 16,
+    backgroundColor: colors.primaryTransparent,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  placementEmblem: {
+    flexShrink: 0,
+    fontSize: fontSizes['3xl'],
+    lineHeight: fontSizes['4xl'],
+  },
+  placementBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  placementResult: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Lexend-Medium',
+    lineHeight: fontSizes.xl,
+  },
+  placementRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
+  placementValue: {
+    fontSize: fontSizes['3xl'],
+    lineHeight: fontSizes['4xl'],
+    fontFamily: 'Lexend-Bold',
+    fontVariant: ['tabular-nums'],
+  },
+  placementUnit: {
+    color: colors.textMuted,
+    fontSize: fontSizes.sm,
     fontFamily: 'Lexend-SemiBold',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
   },
   label: {
     color: 'rgba(255, 255, 255, 0.45)',

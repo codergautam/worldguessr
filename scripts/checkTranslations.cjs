@@ -2,32 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const translate = require('google-translate-free');
+const { maskPlaceholders, unmaskPlaceholders } = require('./translationPlaceholders.cjs');
 
 const langs = ["en","fr","de","ru","es"];
 
-// Google Translate likes to mangle i18next placeholders ({{name}}) — it can
-// translate them, drop the braces, or insert spaces. Mask them with a token
-// that survives translation across language pairs, then restore after.
-const PH_TOKEN_RE = /xphx(\d+)xphx/gi;
-function maskPlaceholders(text) {
-  const placeholders = [];
-  const masked = text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, name) => {
-    const idx = placeholders.length;
-    placeholders.push(name.trim());
-    return `xphx${idx}xphx`;
-  });
-  return { masked, placeholders };
+// Temp file + rename so a killed run (the checkpoint comment below explains why
+// runs die) can never leave a half-written common.json behind.
+function writeLocaleFile(filePath, json) {
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(json, null, 2)}\n`);
+  fs.renameSync(tmp, filePath);
 }
-function unmaskPlaceholders(text, placeholders) {
-  let restored = 0;
-  const out = text.replace(PH_TOKEN_RE, (m, idx) => {
-    const i = Number(idx);
-    if (!Number.isInteger(i) || !placeholders[i]) return m;
-    restored++;
-    return `{{${placeholders[i]}}}`;
-  });
-  return { out, ok: restored === placeholders.length };
-}
+
 const paths = langs.map(lang => path.join(__dirname, `../public/locales/${lang}/common.json`));
 const jsons = paths.map(path => JSON.parse(fs.readFileSync(path)));
 
@@ -106,6 +92,13 @@ if (missingKeys.length > 0) {
               // Add translation
               jsons[langIndex][key] = translatedText;
 
+              // Checkpoint immediately. Translation is intentionally
+              // sequential to stay gentle on the public endpoint, so a full
+              // locale backfill can take longer than a shell session. Without
+              // this write, one timeout discards every successful request and
+              // the next run starts from zero.
+              writeLocaleFile(paths[langIndex], jsons[langIndex]);
+
               changes.translated.push({
                 key,
                 lang,
@@ -124,11 +117,13 @@ if (missingKeys.length > 0) {
           if (langs[i] === 'en') continue; // Skip English
 
           const reorderedJson = {};
-          let reordered = false;
+          const beforeOrder = Object.keys(jsons[i]);
 
-          // First add keys that exist in English, in the same order
+          // First add keys that exist in English, in the same order.
+          // Presence check, not truthiness: an empty-string translation must
+          // survive the rewrite, not be silently deleted from the file.
           for (const key of masterKeyOrder) {
-            if (jsons[i][key]) {
+            if (key in jsons[i]) {
               reorderedJson[key] = jsons[i][key];
             }
           }
@@ -137,11 +132,11 @@ if (missingKeys.length > 0) {
           for (const key in jsons[i]) {
             if (!masterKeyOrder.includes(key)) {
               reorderedJson[key] = jsons[i][key];
-              reordered = true;
             }
           }
 
-          if (reordered) {
+          const afterOrder = Object.keys(reorderedJson);
+          if (afterOrder.length !== beforeOrder.length || afterOrder.some((key, at) => key !== beforeOrder[at])) {
             changes.reordered.push(langs[i]);
           }
 
@@ -151,7 +146,7 @@ if (missingKeys.length > 0) {
 
         // Write all changes back to files
         for (let i = 0; i < langs.length; i++) {
-          fs.writeFileSync(paths[i], JSON.stringify(jsons[i], null, 2));
+          writeLocaleFile(paths[i], jsons[i]);
         }
 
         // Report changes

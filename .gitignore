@@ -93,3 +93,5 @@ builds-submission/
 .github/hooks/impeccable.json
 
 ELO_DEPLOYMENT_AUDIT.md
+
+.agents/

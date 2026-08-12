@@ -60,11 +60,6 @@ const stampQuestsSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  // Beat a higher-rated opponent at least once this period.
-  upset: {
-    type: Boolean,
-    default: false,
-  },
   // Distinct UTC day keys touched inside this period (weekly "play N days" quest).
   daysPlayed: {
     type: [String],

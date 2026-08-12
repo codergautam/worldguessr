@@ -49,6 +49,27 @@ const WON_MS = 2100;
  */
 const FAIL_MS = 4200;
 
+const BUY_REJECT_KEYFRAMES = [
+  { transform: 'translateX(0)' },
+  { transform: 'translateX(-5px)', offset: 0.18 },
+  { transform: 'translateX(4px)', offset: 0.42 },
+  { transform: 'translateX(-2px)', offset: 0.68 },
+  { transform: 'translateX(0)' },
+];
+
+/** Immediate refusal feedback without creating a purchase request. */
+function shakeUnaffordableButton(button) {
+  if (
+    typeof button?.animate !== 'function'
+    || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  ) return;
+
+  button.animate(BUY_REJECT_KEYFRAMES, {
+    duration: 280,
+    easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+  });
+}
+
 /**
  * How long the header's balance takes to count down to the new figure. Long
  * enough to see the digits move and register the amount, short enough that the
@@ -231,7 +252,7 @@ function fmt(value, lang) {
  *  one screen in this game whose entire subject is that number. The rail gives
  *  each job its own object: the balance is the .timer HUD pill (the same recipe
  *  the round timer, the league button and the account modal's balance wear), and
- *  the sections are a list with their counts.
+ *  the sections are a compact destination list.
  *
  *  Owns its own "which section am I looking at" state so a scroll never
  *  re-renders the storefront — the observer callback fires many times a second
@@ -325,7 +346,8 @@ function useSpendCounter(stamps, lang) {
 const WALLET_HOW_ID = 'shopWalletHow';
 
 const ShopRail = memo(function ShopRail({
-  sections, sectionEls, endEl, signedIn, stamps, adFreeMsLeft, text, lang,
+  sections, sectionEls, endEl, signedIn, stamps, adFreeMsLeft, title,
+  closeLabel, onClose, text, lang,
 }) {
   const [active, setActive] = useState(null);
   const [valueRef, spent, spendKey] = useSpendCounter(stamps, lang);
@@ -553,8 +575,20 @@ const ShopRail = memo(function ShopRail({
   } catch (e) { /* the raw string is a fine fallback */ }
 
   return (
-    <aside className="shopRail">
-      {signedIn && (
+    <div className="shopRail">
+      <header className="shopHeader">
+        <button
+          type="button"
+          className="shopHeader__close"
+          onClick={onClose}
+          aria-label={closeLabel}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
+
+        <h1 className="shopHeader__title">{title}</h1>
+
+        {signedIn ? (
         // A <div>, not the <p> this was. It stopped being a paragraph of prose
         // the moment it grew a flying spend chip and a tooltip: it is a flex
         // container of chrome, and it now owns a description and a tab stop.
@@ -613,8 +647,11 @@ const ShopRail = memo(function ShopRail({
             <strong className="shopWallet__howTitle">{text('shopStampsHowTitle')}</strong>
             <span className="shopWallet__howBody">{text('shopStampsHowBody')}</span>
           </span>
-        </div>
-      )}
+          </div>
+        ) : (
+          <span className="shopHeader__side" aria-hidden="true" />
+        )}
+      </header>
 
       {sections.length > 1 && (
         <nav className="shopNav" aria-label={text('shopJumpTo')}>
@@ -627,12 +664,6 @@ const ShopRail = memo(function ShopRail({
               onClick={() => jumpTo(section.type)}
             >
               {section.label}
-              {/* HOW MUCH IS DOWN THERE, which is the fact the old chip row had
-                  no room for and the thing that decides whether a shelf is worth
-                  the scroll. aria-hidden because the label already names the
-                  destination and a screen reader announcing "Glows 12" as one
-                  button label reads as a price. */}
-              <span className="shopNav__count" aria-hidden="true">{section.count}</span>
             </button>
           ))}
         </nav>
@@ -646,7 +677,7 @@ const ShopRail = memo(function ShopRail({
           confetti) and by the balance above; refusals are told by the card too
           (.shopCard__fail). This rail is a wallet and a set of shortcuts, and
           nothing else. */}
-    </aside>
+    </div>
   );
 });
 
@@ -828,18 +859,28 @@ const ShopCard = memo(function ShopCard({
     action = (
       <button
         type="button"
-        className="shopCard__btn shopCard__btn--buy"
-        onClick={() => onBuy(item)}
+        className={`shopCard__btn shopCard__btn--buy ${affordable ? '' : 'shopCard__btn--unaffordable'}`}
+        onClick={(event) => {
+          if (!affordable) {
+            shakeUnaffordableButton(event.currentTarget);
+            return;
+          }
+          onBuy(item);
+        }}
         // In-flight lockout. Every press mints its own idempotency key, so two
         // presses would be two DIFFERENT keys and therefore two real charges.
-        disabled={busy || !affordable}
+        // Unaffordable remains focusable/pressable only for refusal feedback;
+        // the branch above never calls onBuy.
+        disabled={busy}
+        aria-disabled={busy || !affordable}
+        data-no-click-sfx={affordable ? undefined : ''}
       >
         {/* THE PRICE NEVER CHANGES, AFFORDABLE OR NOT. This used to swap itself
             for "Need 240 more" the moment you could not pay, which turned a
             price tag into a scold and hid the one number the shopper is
             comparing across cards. Unaffordable is carried entirely by the
-            chrome now: the button drops its green and stops taking presses
-            (see .shopCard__btn--buy:disabled in styles/shop.css). */}
+            chrome now: the button drops its green, refuses the purchase, and
+            shakes once (see .shopCard__btn--unaffordable in shop.css). */}
         <StampMark />
         {fmt(item.price, lang)}
         {/* The sale, said once and said here: the number you pay, with the
@@ -951,7 +992,9 @@ const ShopCard = memo(function ShopCard({
   );
 });
 
-export default function ShopView({ shop, username, text: rawText, lang }) {
+export default function ShopView({
+  shop, username, title, closeLabel, onClose, text: rawText, lang,
+}) {
   const {
     enabled, signedIn, stamps, cosmetics, ownedSkus, adFreeMsLeft, catalog, busySku,
     refreshCatalog, purchase, equip, equipEmotes,
@@ -1096,25 +1139,16 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
     [byType, emoteItems],
   );
 
-  // Labels and shelf sizes for the rail. `lang` is in the deps on purpose:
+  // Labels for the shelf rail. `lang` is in the deps on purpose:
   // `text` is deliberately stable (see above), so it is the language that has to
   // invalidate this, not the translator's identity.
   //
-  // THE COUNT INCLUDES THE DEFAULT CARD, because the count has to describe what
-  // you actually land on. It is a real card in a real cell (see the grid below),
-  // so a shelf of twelve glows plus the baseline reads 13 or the number is
-  // lying about the thing directly under it.
   const navSections = useMemo(
-    () => sectionTypes.map((type) => {
-      const shelf = type === 'emote' ? emoteItems : (byType[type] || []);
-      const hasDefault = !!(SLOT_FOR_TYPE[type] && DEFAULT_ITEMS[type]);
-      return {
-        type,
-        label: text(CATEGORY_LABEL_KEY[type]),
-        count: shelf.length + (hasDefault ? 1 : 0),
-      };
-    }),
-    [sectionTypes, byType, emoteItems, text, lang],
+    () => sectionTypes.map((type) => ({
+      type,
+      label: text(CATEGORY_LABEL_KEY[type]),
+    })),
+    [sectionTypes, text, lang],
   );
 
   // type -> section element, filled by the ref callback below and read by the
@@ -1450,6 +1484,9 @@ export default function ShopView({ shop, username, text: rawText, lang }) {
         signedIn={signedIn}
         stamps={stamps}
         adFreeMsLeft={adFreeMsLeft}
+        title={title}
+        closeLabel={closeLabel}
+        onClose={onClose}
         text={text}
         lang={lang}
       />

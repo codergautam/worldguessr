@@ -7,9 +7,13 @@ export default function Modal({
   children,
   actions = null,
   variant = "default",
-  disableBackdropClose = false
+  disableBackdropClose = false,
+  borderless = false,
+  coveredEntry = false
 }) {
-  const [isVisible, setIsVisible] = useState(false);
+  // A conditionally mounted open modal must paint on its first render. Starting
+  // false forced an otherwise unnecessary blank commit before every modal.
+  const [isVisible, setIsVisible] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
@@ -49,10 +53,10 @@ export default function Modal({
 
   return (
     <div 
-      className={`modal-backdrop ${isClosing ? 'closing' : ''}`}
+      className={`modal-backdrop modal-backdrop--${variant} ${coveredEntry && !isClosing ? 'covered-entry' : ''} ${isClosing ? 'closing' : ''}`}
       onClick={handleBackdropClick}
     >
-      <div className={`modal ${variant} ${isClosing ? 'closing' : ''}`}>
+      <div className={`modal ${variant} ${borderless ? 'borderless' : ''} ${isClosing ? 'closing' : ''}`}>
         {title && (
           <div className="modal-header">
             <h2 className="modal-title">{title}</h2>
@@ -96,6 +100,15 @@ export default function Modal({
           animation: fadeOut 0.2s ease-out forwards;
         }
 
+        .modal-backdrop.covered-entry {
+          /* The profile's backdrop already owns the pixels underneath this
+             one. Paint an opaque replacement immediately so neither the home
+             page nor the retiring profile can leak through while the shop
+             surface performs its entrance. The destination variant supplies
+             the exact resting background for this class. */
+          animation: none;
+        }
+
         .modal {
           /* --washChannels, not a fourth hand-copy of rgba(0, 30, 15): this
              dialog is rendered INSIDE .settingsPage (settingsModal.js keeps it
@@ -120,6 +133,14 @@ export default function Modal({
 
         .modal.closing {
           animation: slideOut 0.2s ease-out forwards;
+        }
+
+        .modal.borderless {
+          border: none;
+        }
+
+        .modal.borderless .modal-actions {
+          border-top: none;
         }
 
         .modal.error {

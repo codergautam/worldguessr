@@ -3,6 +3,7 @@ import StampMark, { stampMarkStyle } from '../shop/StampMark';
 import { Pressable } from '../ui/SfxPressable';
 import { colors, t, formatCompact } from '../../shared';
 import { useSiteAccent } from '../../store/siteBackgroundStore';
+import CountUpText from '../ui/CountUpText';
 
 /* ===========================================================================
  *  THE STAMPS TILE — the balance, on its own, under the player card.
@@ -42,10 +43,10 @@ import { useSiteAccent } from '../../store/siteBackgroundStore';
 interface StampsTileProps {
   /** Both gates, resolved by the caller off the auth store. */
   visible: boolean;
-  /** The real balance — accessibility label only, never the digits. */
+  /** Settled balance used by both the counter target and accessibility label. */
   stamps: number;
-  /** The counting balance, so a screen reader never gets a half-finished number. */
-  animatedStamps: number;
+  /** Starts the counter once the home entrance has made the tile visible. */
+  animate?: boolean;
   /* THE THREE COME AS A SET, from playerCardMetrics — mark, digits and box are
      one derivation off the card's name size and are documented there. This
      component picks none of them, and must not: a fontSize chosen here is how
@@ -58,21 +59,25 @@ interface StampsTileProps {
   onPress?: () => void;
   /** Blank clone used by the header's height reservation. */
   ghost?: boolean;
+  /** Static, non-interactive clone used to measure the signed-in corner. */
+  measurement?: boolean;
 }
 
 export default function StampsTile({
   visible,
   stamps,
-  animatedStamps,
+  animate = true,
   height,
   markSize,
   valueSize,
   onPress,
   ghost = false,
+  measurement = false,
 }: StampsTileProps) {
   // BEFORE the visibility bail, not after: this is the only hook on the
   // component and an early return above it would make the call conditional.
   const accent = useSiteAccent();
+  const inactive = ghost || measurement;
 
   if (!visible) return null;
 
@@ -83,15 +88,16 @@ export default function StampsTile({
         {
           height,
           borderColor: accent.primary,
-          backgroundColor: pressed && !ghost
+          backgroundColor: pressed && !inactive
             ? accent.primary
             : Platform.OS === 'android' ? accent.androidFlat : accent.primaryTransparent,
         },
       ]}
-      onPress={ghost ? undefined : onPress}
-      disabled={ghost}
-      accessibilityRole="button"
-      accessibilityLabel={t('shopOpenWithBalance', { count: stamps })}
+      onPress={inactive ? undefined : onPress}
+      disabled={inactive}
+      accessible={!inactive}
+      accessibilityRole={inactive ? undefined : 'button'}
+      accessibilityLabel={inactive ? undefined : t('shopOpenWithBalance', { count: stamps })}
     >
       {/* THE CURRENCY MARK: the same stamp artwork as every other surface on
           both platforms, at the ONE size this corner overrides it to. A style,
@@ -102,9 +108,26 @@ export default function StampsTile({
           and at text height those close up into a smudge, which is why the
           derivation has a 30px floor. */}
       <StampMark style={stampMarkStyle(markSize)} />
-      <Text style={[styles.value, { fontSize: valueSize }]} numberOfLines={1}>
-        {ghost ? ' ' : formatCompact(animatedStamps)}
-      </Text>
+      {ghost ? (
+        <Text style={[styles.value, { fontSize: valueSize }]} numberOfLines={1}>
+          {' '}
+        </Text>
+      ) : measurement ? (
+        <Text style={[styles.value, { fontSize: valueSize }]} numberOfLines={1}>
+          {formatCompact(stamps)}
+        </Text>
+      ) : (
+        <CountUpText
+          target={stamps}
+          active={animate}
+          formatValue={formatCompact}
+          style={[styles.value, { fontSize: valueSize }]}
+          numberOfLines={1}
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
     </Pressable>
   );
 }

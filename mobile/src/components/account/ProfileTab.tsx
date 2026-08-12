@@ -108,8 +108,7 @@ export default function ProfileTab({
   const [modalLoading, setModalLoading] = useState(false);
   const [existingRequest, setExistingRequest] = useState<ExistingRequest | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
-  // The OG badge's card. Closed by default — it is the phone's stand-in for the
-  // web hover, not a permanent block of stats.
+  // The compact OG badge opens the same detail card web reveals on hover.
   const [ogCardOpen, setOgCardOpen] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -240,10 +239,64 @@ export default function ProfileTab({
       {/* Stats Card */}
       <GlassCard>
         {joinedAgo && (
-          <View style={sharedStyles.statRow}>
-            <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
-            <Text style={sharedStyles.statText}>{t('joined', { t: joinedAgo })}</Text>
-          </View>
+          <>
+            <View style={sharedStyles.statRow}>
+              <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
+              {/* Match web's compact treatment: tenure copy and identity mark
+                  share one wrapping metadata row. */}
+              <View style={styles.joinedCopy}>
+                <Text style={sharedStyles.statText}>{t('joined', { t: joinedAgo })}</Text>
+                {isOg && (
+                  <Pressable
+                    style={[styles.ogBadge, ogCardOpen && styles.ogBadgeOpen]}
+                    onPress={() => setOgCardOpen((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`OG — ${t('ogBadgeLabel')}`}
+                    accessibilityState={{ expanded: ogCardOpen }}
+                  >
+                    <Ionicons name="star" size={11} color="#ffd700" />
+                    <Text style={styles.ogBadgeText}>OG</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            {isOg && ogCardOpen && (
+              <View style={styles.ogCard}>
+                {joinedMonth && (
+                  <View style={styles.ogCardRow}>
+                    <Text style={styles.ogCardRowLabel}>{t('ogCardJoined')}</Text>
+                    <Text style={styles.ogCardRowValue}>{joinedMonth}</Text>
+                  </View>
+                )}
+                {hasSeason0Final && (
+                  <View style={styles.ogCardRow}>
+                    <Text style={styles.ogCardRowLabel}>{t('ogCardFinal')}</Text>
+                    <Text style={styles.ogCardRowValue}>{Math.round(finalRaw).toLocaleString()}</Text>
+                  </View>
+                )}
+                {hasSeason0Rank && (
+                  <View style={styles.ogCardRow}>
+                    <Text style={styles.ogCardRowLabel}>{t('ogCardRank')}</Text>
+                    <Text style={styles.ogCardRowValue}>#{Math.round(rankRaw).toLocaleString()}</Text>
+                  </View>
+                )}
+                {hasSeasonPeak && (
+                  <View style={styles.ogCardRow}>
+                    <Text style={styles.ogCardRowLabel}>{t('ogCardPeak')}</Text>
+                    <Text style={styles.ogCardRowValue}>{Math.round(peakRaw).toLocaleString()}</Text>
+                  </View>
+                )}
+                {seasonPeakLeague && (
+                  <View style={styles.ogCardRow}>
+                    <Text style={styles.ogCardRowLabel}>{t('ogCardPeakLeague')}</Text>
+                    <Text style={styles.ogCardRowValue}>{seasonPeakLeague}</Text>
+                  </View>
+                )}
+                <Text style={styles.ogCardNote}>{t('ogBadgeNote')}</Text>
+              </View>
+            )}
+          </>
         )}
 
         <View style={sharedStyles.statRow}>
@@ -260,91 +313,6 @@ export default function ProfileTab({
           <View style={sharedStyles.statRow}>
             <Ionicons name="people" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
             <Text style={sharedStyles.statText}>{t('profileViewsLabel', { count: profileData.profileViews.toLocaleString() })}</Text>
-          </View>
-        )}
-
-        {/* The trophy chip, below the live statRows and visually apart from
-            them: the statRows are all current-season numbers, and dropping a
-            dead-scale 20,000 into that list is exactly the confusion this is
-            built to prevent. */}
-        {isOg && (
-          <View style={styles.badgeRow}>
-            {/* There is no hover on a phone, so the web's hover card becomes a
-                tap toggle. Same content, same order — see .s1-ogCard in
-                styles/season1Badges.css. */}
-            <Pressable
-              style={[styles.badge, styles.badgeOg, ogCardOpen && styles.badgeOgOpen]}
-              onPress={() => setOgCardOpen((v) => !v)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: ogCardOpen }}
-            >
-              <Text style={styles.badgeIcon}>⭐</Text>
-              <View style={styles.badgeBody}>
-                <Text style={styles.badgeOgTag}>OG</Text>
-                <Text style={styles.badgeLabel}>
-                  {t('ogBadgeLabel').toUpperCase()}
-                </Text>
-              </View>
-              <Ionicons
-                name={ogCardOpen ? 'chevron-up' : 'chevron-down'}
-                size={13}
-                color="rgba(255, 215, 0, 0.7)"
-              />
-            </Pressable>
-          </View>
-        )}
-
-        {isOg && ogCardOpen && (
-          // NO TITLE, same as web: the gold "SEASON 0" eyebrow came out of both
-          // cards together. The chip above already says OG / WorldGuessr
-          // veteran and the note below says when that was.
-          <View style={styles.ogCard}>
-            {joinedMonth && (
-              <View style={styles.ogCardRow}>
-                <Text style={styles.ogCardRowLabel}>{t('ogCardJoined')}</Text>
-                <Text style={styles.ogCardRowValue}>{joinedMonth}</Text>
-              </View>
-            )}
-            {hasSeason0Final && (
-              <View style={styles.ogCardRow}>
-                <Text style={styles.ogCardRowLabel}>
-                  {t('ogCardFinal')}
-                </Text>
-                <Text style={styles.ogCardRowValue}>{Math.round(finalRaw).toLocaleString()}</Text>
-              </View>
-            )}
-            {/* Where that rating finished on the closing ladder. The "#" is what
-                makes it read as a place rather than yet another rating on a
-                scale nobody remembers. */}
-            {hasSeason0Rank && (
-              <View style={styles.ogCardRow}>
-                <Text style={styles.ogCardRowLabel}>{t('ogCardRank')}</Text>
-                <Text style={styles.ogCardRowValue}>#{Math.round(rankRaw).toLocaleString()}</Text>
-              </View>
-            )}
-            {hasSeasonPeak && (
-              <View style={styles.ogCardRow}>
-                <Text style={styles.ogCardRowLabel}>{t('ogCardPeak')}</Text>
-                <Text style={styles.ogCardRowValue}>{Math.round(peakRaw).toLocaleString()}</Text>
-              </View>
-            )}
-            {seasonPeakLeague && (
-              <View style={styles.ogCardRow}>
-                <Text style={styles.ogCardRowLabel}>
-                  {t('ogCardPeakLeague')}
-                </Text>
-                <Text style={styles.ogCardRowValue}>{seasonPeakLeague}</Text>
-              </View>
-            )}
-            {/* WHAT THE BADGE MEANS, in one line: the account predates the
-                ranked update. NOT "played before ranked history was saved",
-                which is what this used to say and which stopped being true the
-                day the badge widened — most OG accounts never played a ranked
-                game. Tenure is the claim, and the Joined row above is the
-                evidence. */}
-            <Text style={styles.ogCardNote}>
-              {t('ogBadgeNote')}
-            </Text>
           </View>
         )}
 
@@ -611,39 +579,39 @@ export default function ProfileTab({
 }
 
 const styles = StyleSheet.create({
-  // The OG chip. Mirrors .s1-badge in styles/season1Badges.css — keep the two in
-  // step. A gold-outlined dark glass pill, never a full-bleed card: a stacked
-  // bar of migration prose is what it replaced. badgeRow stays a wrapping row
-  // even with one chip in it, which is where a second badge would go.
-  badgeRow: {
+  // Mirrors web's .account-profile-joined-copy + .s1-badges--compact. The join
+  // copy leads; OG is small identity punctuation that wraps with it.
+  joinedCopy: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    minWidth: 0,
   },
-  badge: {
+  ogBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    paddingVertical: 7,
-    paddingLeft: 11,
-    paddingRight: 14,
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    backgroundColor: 'rgba(0, 0, 0, 0.32)',
-  },
-  badgeOg: {
     borderColor: 'rgba(255, 215, 0, 0.4)',
     backgroundColor: 'rgba(255, 215, 0, 0.07)',
   },
-  badgeOgOpen: {
+  ogBadgeOpen: {
     borderColor: 'rgba(255, 215, 0, 0.8)',
   },
-  // OG card. Mirrors .s1-ogCard on web, but anchored inline under the chip row
-  // instead of floating: a popover over a scrolling list is a fight nobody wins
-  // on a phone.
+  ogBadgeText: {
+    color: '#ffd700',
+    fontSize: 12,
+    lineHeight: 14,
+    letterSpacing: 1,
+    fontFamily: 'Lexend-SemiBold',
+  },
+  // The detail remains inline on mobile because a hover popover has no stable
+  // touch equivalent. It opens directly under the joined row that owns it.
   ogCard: {
     marginTop: 8,
     gap: 5,
@@ -681,30 +649,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontFamily: 'Lexend-Regular',
-  },
-  badgeIcon: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  badgeBody: {
-    gap: 1,
-  },
-  // The caption under "OG". The chip's own word is two letters, and this is the
-  // only thing on the closed badge that says what those two letters mean.
-  badgeLabel: {
-    color: 'rgba(255, 255, 255, 0.55)',
-    fontSize: 9,
-    letterSpacing: 1,
-    fontFamily: 'Lexend-Medium',
-  },
-  // "OG" is the badge itself, not a tag stuck to a sentence, so it carries the
-  // weight a headline number would.
-  badgeOgTag: {
-    color: '#ffd700',
-    fontSize: 17,
-    lineHeight: 22,
-    letterSpacing: 2,
-    fontFamily: 'Lexend-SemiBold',
   },
   greenButton: {
     paddingVertical: 10,

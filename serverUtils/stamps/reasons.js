@@ -26,6 +26,7 @@ export const STAMP_REASONS = {
   daily_ladder:  { sign: 1,  maxAbs: 20 },
   weekly_play20: { sign: 1,  maxAbs: 25 },
   weekly_win10:  { sign: 1,  maxAbs: 25 },
+  // Legacy only: retained so historical ledger entries remain valid/readable.
   weekly_upset:  { sign: 1,  maxAbs: 10 },
   weekly_days4:  { sign: 1,  maxAbs: 15 },
 

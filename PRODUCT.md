@@ -45,7 +45,7 @@ Binding constraints (confirmed as the full set):
 
 - Name and logo: WorldGuessr (`public/logo-*.png` variants, light/dark).
 - Typefaces in use as identity: Jockey One (display) and Lexend (text).
-- Map pins are PNG image assets only, never SVG or glyph markers (87x131 art on a 151x163 glow-padded canvas, `public/pins/`).
+- Map pins are PNG image assets only, never SVG or glyph markers (87x131 art on a 150x163 glow-padded canvas, `public/pins/`).
 - User-facing copy: plain language, short sentences, no em dashes; playful but school-safe tone.
 
 ## Evidence on Hand

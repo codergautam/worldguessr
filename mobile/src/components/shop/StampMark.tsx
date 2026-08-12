@@ -16,15 +16,12 @@
  *  chipHeight and StampsEarnedDisplay's reservation both derive from it. If a
  *  surface cannot hold it, grow the surface.
  *
- *  The height is what is fixed; the art is 300x349, so the width follows the
- *  ratio. A square box with resizeMode="contain" would letterbox instead, and
- *  in a flex row that empty column reads as a broken gap rather than a wide
- *  icon.
+ *  The height is what is fixed; the square artwork keeps the same width.
  * ======================================================================== */
 import { Image, StyleProp, ImageStyle } from 'react-native';
 
-/** Intrinsic aspect of assets/stamp.png (300x349). */
-const ASPECT = 300 / 349;
+/** Intrinsic aspect of assets/stamp.png (512x512). */
+const ASPECT = 1;
 
 /** The one size, and the number every surface sizes ITSELF against. */
 export const STAMP_MARK_SIZE = 45;

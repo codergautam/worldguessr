@@ -1,5 +1,5 @@
 import { getBackground } from '../shared/cosmetics';
-import { SITE_URL } from '../constants/config';
+import { ASSET_BASE_URL } from '../constants/config';
 
 /* ===========================================================================
  *  THE SITE BACKGROUND, AND THE COLOURS THAT GO WITH IT.
@@ -27,7 +27,7 @@ import { SITE_URL } from '../constants/config';
 /** Absolute URL of the background a sku paints, or null for "use the stock one". */
 export function backgroundUrlForSku(sku: string | null | undefined): string | null {
   const bg = getBackground(sku);
-  return bg ? `${SITE_URL}${bg.path}` : null;
+  return bg ? `${ASSET_BASE_URL}${bg.path}` : null;
 }
 
 /**

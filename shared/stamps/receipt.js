@@ -33,6 +33,7 @@ export const STAMP_REASON_KEYS = {
   daily_ladder: 'stampsReasonDailyLadder',
   weekly_play20: 'stampsReasonWeeklyPlay20',
   weekly_win10: 'stampsReasonWeeklyWin10',
+  // Legacy receipt compatibility; this reward is no longer issued.
   weekly_upset: 'stampsReasonWeeklyUpset',
   weekly_days4: 'stampsReasonWeeklyDays4',
 };

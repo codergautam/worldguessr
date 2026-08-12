@@ -1,5 +1,11 @@
 import { Html, Head, Main, NextScript } from "next/document";
-import { DEFAULT_BACKGROUND_LQIP, DEFAULT_BACKGROUND_PATH, IS_PORTAL_BUILD, PREPAINT_SITE_BG_SCRIPT } from "@/lib/siteBackground";
+import {
+  DEFAULT_BACKGROUND_LQIP,
+  DEFAULT_BACKGROUND_PATH,
+  IS_PORTAL_BUILD,
+  PREPAINT_SITE_BG_SCRIPT,
+  SITE_BG_FADE_MS,
+} from "@/lib/siteBackground";
 
 // The language homepages export localized HTML, but a hardcoded lang="en"
 // told Google the Spanish/French/... pages were English — one more reason it
@@ -61,6 +67,7 @@ export default function Document({ pathname }) {
               /* The INCOMING photograph during a swap; \`none\` the rest of the
                  time. See the crossfade contract in lib/siteBackground.js. */
               --site-bg-next: none;
+              --site-bg-fade-duration: ${SITE_BG_FADE_MS}ms;
             }
             html, body {
               background-color: #000000 !important;
@@ -128,7 +135,7 @@ export default function Document({ pathname }) {
               /* An ANIMATION, not a transition: it has to run on the frame the
                  class lands, from a state this element does not otherwise have.
                  Duration pairs with SITE_BG_FADE_MS in lib/siteBackground.js. */
-              animation: siteBgFadeIn 450ms ease-in-out both;
+              animation: siteBgFadeIn var(--site-bg-fade-duration) ease-in-out both;
             }
             @keyframes siteBgFadeIn {
               from { opacity: 0; }

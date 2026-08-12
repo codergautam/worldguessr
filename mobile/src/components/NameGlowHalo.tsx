@@ -12,7 +12,11 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { resolveGlowColor } from '../shared/cosmetics';
-import { getGlowAnim, type GlowLayer } from '../shared/glowKeyframes';
+import {
+  getGlowAnim,
+  GLOW_CLIP_RELIEF,
+  type GlowLayer,
+} from '../shared/glowKeyframes';
 
 /* ===========================================================================
  *  NameGlowHalo — EVERY name glow on this platform, static tier and animated
@@ -33,18 +37,9 @@ import { getGlowAnim, type GlowLayer } from '../shared/glowKeyframes';
  *  layouts for one name. Now every tier renders the identical tree and the only
  *  difference between them is what this component draws.
  *
- *  HOW THE ANIMATED TIER MOVES: NOTHING ABOUT ANY SHADOW EVER CHANGES. Each
- *  layer in src/shared/glowKeyframes.ts is a fixed <Animated.Text> — one colour,
- *  one radius, one offset — drawing the same string. ONE shared clock runs the
- *  lap; each layer's OPACITY is a worklet over that clock. `textShadowRadius` is
- *  not a native-driver property and driving it from JS would stutter the duel
- *  HUD; opacity is, and changing it triggers no measure and no layout, so:
- *
- *    - the JS thread does nothing at all per frame,
- *    - the text is never re-measured, so there is no layout thrash on the HUD,
- *    - and cross-fading two fixed layers reads as MOVEMENT: different offsets
- *      look like travel, different colours look like a sweep, different radii
- *      look like a breath.
+ *  Animated glows stack fixed shadow Text nodes inside expanded Animated.View
+ *  wrappers. One shared UI-thread clock cross-fades wrapper opacity; shadow and
+ *  layout properties remain fixed.
  *
  *  THE STACK IS SIZED BY THE REAL NAME, WHICH IS NOT IN THIS FILE. The caller
  *  wraps its <Text> in a relative View and drops this component in beside it;
@@ -52,6 +47,19 @@ import { getGlowAnim, type GlowLayer } from '../shared/glowKeyframes';
  *  and inherits the exact box the name resolved to. `textStyle` and
  *  `numberOfLines` must be the SAME values the name uses — a layer that lays out
  *  a pixel differently is a visible ghost behind the glyphs.
+ *
+ *  EVERY HALO LAYER OWNS A LARGER NATIVE PAINT BOX. `overflow: visible` alone
+ *  was not sufficient: it disables React Native's explicit padding-box clip,
+ *  but Android/iOS still rasterize a native Text node into a canvas allocated at
+ *  that node's rectangular bounds. These decorative nodes therefore extend
+ *  GLOW_CLIP_RELIEF beyond the real name on all four sides and take the same
+ *  amount back as padding. Their CONTENT box remains byte-for-byte identical to
+ *  the real Text—same width, baseline and ellipsis—while their native canvas is
+ *  finally large enough to contain the shadow and the animated layers' travel.
+ *  The expanded node remains absolute, so it contributes nothing to layout.
+ *
+ *  Ancestors that intentionally clip still need GLOW_CLIP_RELIEF at that clip
+ *  boundary (PlayerList is the canonical example).
  *
  *  THE LAYERS DRAW OPAQUE TEXT, NOT TRANSPARENT TEXT. It is tempting to set
  *  their `color` to transparent so only the shadows draw. That does not work: a
@@ -67,10 +75,12 @@ import { getGlowAnim, type GlowLayer } from '../shared/glowKeyframes';
  *  animated sku falls back to the static halo below rather than to nothing — the
  *  same treatment `prefers-reduced-motion` gets in styles/nameGlow.css. A user
  *  who asked for less motion did not ask to lose the item they bought. Same for
- *  `animated={false}`, which the maps tile wall and the in-game chat pass for
- *  paint budget (the two surfaces still doing so — see PlayerName.tsx for the
- *  Aug 11 re-pricing and web's hover-to-wake equivalent).
+ *  `motion="static"`, which the maps tile wall and in-game chat use for their
+ *  paint budget. Shop previews use `motion="always"` because demonstrating the
+ *  animated product is the purpose of that surface.
  * ======================================================================== */
+
+export type GlowMotion = 'system' | 'always' | 'static';
 
 interface NameGlowHaloProps {
   /** The name. Must be byte-identical to the <Text> this sits under. */
@@ -79,15 +89,8 @@ interface NameGlowHaloProps {
   sku: string | null | undefined;
   /** Light surface (white card / map tooltip) selects the light colours. */
   onLight?: boolean;
-  /**
-   * false forces the STATIC halo even for an animated sku.
-   *
-   * THIS IS THE LAG BUDGET AND IT IS NOT OPTIONAL IN LONG LISTS. Each animated
-   * sku stacks up to eight extra <Text> nodes, every one of them drawing a
-   * blurred copy of the name each frame. That is nothing on a duel HUD with two
-   * names and it is a hundred blurred draws a frame on a leaderboard.
-   */
-  animated?: boolean;
+  /** Motion policy: system preference, forced preview, or static paint budget. */
+  motion?: GlowMotion;
   /**
    * Static-halo blur radius in px, on the DARK surface. The default suits
    * in-game name sizes (13-18px). Raise it ONLY where the name is set at display
@@ -165,37 +168,42 @@ const GlowLayerText = memo(function GlowLayerText({
   });
 
   return (
-    <Animated.Text
-      style={[
-        StyleSheet.absoluteFill,
-        textStyle,
-        {
-          textShadowColor: layer.color,
-          textShadowOffset: { width: layer.dx, height: layer.dy },
-          textShadowRadius: layer.radius,
-        },
-        animatedStyle,
-      ]}
-      numberOfLines={numberOfLines}
-      // Decoration under a real name: never announce it a second time.
+    <Animated.View
+      style={[styles.animatedLayerRoom, animatedStyle]}
+      pointerEvents="none"
       accessible={false}
       importantForAccessibility="no-hide-descendants"
+      collapsable={false}
     >
-      {name}
-    </Animated.Text>
+      <Text
+        style={[
+          textStyle,
+          styles.animatedLayerText,
+          {
+            textShadowColor: layer.color,
+            textShadowOffset: { width: layer.dx, height: layer.dy },
+            textShadowRadius: layer.radius,
+          },
+        ]}
+        numberOfLines={numberOfLines}
+        // Decoration under a real name: never announce it a second time.
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+      >
+        {name}
+      </Text>
+    </Animated.View>
   );
 });
 
 function NameGlowHalo({
-  name, sku, onLight = false, animated = true, radius = 8, textStyle, numberOfLines,
+  name, sku, onLight = false, motion = 'system', radius = 8, textStyle, numberOfLines,
 }: NameGlowHaloProps) {
   const color = resolveGlowColor(sku, onLight);
-  const anim = animated ? getGlowAnim(sku, onLight) : null;
+  const anim = motion === 'static' ? null : getGlowAnim(sku, onLight);
   const reduceMotion = useReducedMotion();
   const phase = useSharedValue(0);
-  // The clock only runs for a sku that has a table AND a user who wants motion.
-  // Everything else falls through to the single static layer below.
-  const running = !!anim && !reduceMotion;
+  const running = !!anim && (motion === 'always' || !reduceMotion);
 
   useEffect(() => {
     if (!anim || !running) return undefined;
@@ -221,7 +229,7 @@ function NameGlowHalo({
   if (!color) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={styles.haloRoot} pointerEvents="none">
       {running && anim ? (
         anim.layers.map((layer, i) => (
           <GlowLayerText
@@ -234,13 +242,12 @@ function NameGlowHalo({
           />
         ))
       ) : (
-        // THE STATIC TIER, AND THE FALLBACK FOR THE ANIMATED ONE. A plain <Text>,
-        // not an Animated one: a leaderboard passing `animated={false}` would
-        // otherwise mint a Reanimated node per row to hold a constant.
+        // Static fallback stays a plain Text so static-policy rows do not create
+        // Reanimated nodes just to hold a constant value.
         <Text
           style={[
-            StyleSheet.absoluteFill,
             textStyle,
+            styles.haloPaintRoom,
             {
               textShadowColor: color,
               textShadowOffset: NO_OFFSET,
@@ -257,5 +264,41 @@ function NameGlowHalo({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  haloRoot: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'visible',
+  },
+  // The expanded wrapper contains the shadow before its opacity is composited.
+  animatedLayerRoom: {
+    ...StyleSheet.absoluteFillObject,
+    top: -GLOW_CLIP_RELIEF,
+    right: -GLOW_CLIP_RELIEF,
+    bottom: -GLOW_CLIP_RELIEF,
+    left: -GLOW_CLIP_RELIEF,
+    overflow: 'visible',
+  },
+  // The wrapper already owns the expanded bounds. Padding returns this Text's
+  // content box to the real name's exact width, height and baseline.
+  animatedLayerText: {
+    ...StyleSheet.absoluteFillObject,
+    padding: GLOW_CLIP_RELIEF,
+    overflow: 'visible',
+  },
+  // A native Text can only rasterize inside its own allocated canvas—even when
+  // overflow is visible. Grow that canvas by 34px on every side, then consume
+  // the growth as padding: content width, baseline, ellipsis and PlayerName's
+  // measured box remain identical while the shadow gets real pixels to paint.
+  haloPaintRoom: {
+    ...StyleSheet.absoluteFillObject,
+    top: -GLOW_CLIP_RELIEF,
+    right: -GLOW_CLIP_RELIEF,
+    bottom: -GLOW_CLIP_RELIEF,
+    left: -GLOW_CLIP_RELIEF,
+    padding: GLOW_CLIP_RELIEF,
+    overflow: 'visible',
+  },
+});
 
 export default memo(NameGlowHalo);

@@ -18,6 +18,7 @@ import { fontSizes } from '../../styles/theme';
 import { useGameUiScale } from '../../styles/responsive';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 import { playSfx, stopSfx } from '../../services/sound';
+import { formatGameTimerDisplay } from './gameTimerFormat';
 
 interface GameTimerProps {
   timeRemaining: number;
@@ -97,10 +98,6 @@ function displayValue(msLeft: number): number {
   return tenths >= 10 ? Math.ceil(tenths) : tenths;
 }
 
-function formatCountdown(value: number): string {
-  return value >= 10 ? String(Math.ceil(value)) : value.toFixed(1);
-}
-
 // Sampled at 30Hz, not at the 100ms rate the tenths actually change at. A timer
 // polled at exactly its own change rate drifts past boundaries and silently
 // drops values: MEASURED, a flat 100ms poll paints only ~69 of ~100 tenths
@@ -154,14 +151,8 @@ function GameTimer({
   // breathe: 0↔1 loop while critical, drives glow/brightness only.
   const breathe = useSharedValue(0);
   const isServerDriven = serverEndTime !== undefined && serverEndTime > 0;
+  const localClockIdentityRef = useRef({ initialTime, roundKey, isServerDriven });
   const { displayed: displayedScore, animating: scoreAnimating } = useAnimatedNumber(totalScore);
-
-  // Reset timer when initialTime changes (new round) — local mode only
-  useEffect(() => {
-    if (!isServerDriven) {
-      setTimeRemaining(initialTime ?? 0);
-    }
-  }, [initialTime, roundKey, isServerDriven]);
 
   // Live inputs read through refs, not deps (ported from web gameUI.js). Without
   // this, `onTimeUp` changes identity every time the pin moves (its useCallback
@@ -189,16 +180,33 @@ function GameTimer({
     return () => clearInterval(interval);
   }, [isServerDriven, serverEndTime, showTimer]);
 
-  // Local countdown timer — only when NOT server-driven
+  // Local countdown timer — only when NOT server-driven. Resetting the visible
+  // value and choosing the deadline happen in this ONE effect. They used to be
+  // separate effects: on a roundKey change the reset scheduled 60 in state,
+  // while this effect armed immediately from the previous round's remaining
+  // value. The next tick then jumped from 60 back to that stale value, turning
+  // daily and timed singleplayer into one shared clock across all rounds.
   useEffect(() => {
+    const previousIdentity = localClockIdentityRef.current;
+    const shouldReset =
+      previousIdentity.initialTime !== initialTime ||
+      previousIdentity.roundKey !== roundKey ||
+      previousIdentity.isServerDriven !== isServerDriven;
+    localClockIdentityRef.current = { initialTime, roundKey, isServerDriven };
+
     if (isServerDriven) return;
-    if (!showTimer || isPaused || timeRemaining <= 0) return;
+
+    // New round/configuration: seed BOTH state and deadline from the prop in
+    // this commit. Pause/resume: continue from the last displayed remainder.
+    const startingSeconds = shouldReset ? (initialTime ?? 0) : timeRemaining;
+    if (shouldReset) setTimeRemaining(startingSeconds);
+    if (!showTimer || isPaused || startingSeconds <= 0) return;
 
     // Deadline-based, not `prev - 0.1`. The old decrementing clock accumulated
     // every millisecond the JS thread was busy, so local rounds ran long. The
     // deadline is re-anchored whenever this effect arms, which is exactly when
     // a round starts or a pause ends.
-    const deadline = Date.now() + timeRemaining * 1000;
+    const deadline = Date.now() + startingSeconds * 1000;
     let interval: ReturnType<typeof setInterval> | null = null;
 
     const update = () => {
@@ -213,8 +221,10 @@ function GameTimer({
 
     interval = setInterval(update, TICK_MS);
     return () => { if (interval) clearInterval(interval); };
+    // `timeRemaining` is deliberately a snapshot, not a dependency: adding it
+    // would tear down and re-anchor the deadline on every displayed tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isServerDriven, showTimer, isPaused, timeRemaining <= 0, roundKey]);
+  }, [isServerDriven, showTimer, isPaused, initialTime, roundKey]);
 
   // Critical when <=5s — mirrors web's full guard set: time window, not paused
   // (web `!showAnswer`), state===guess (`criticalEnabled`), AND no guess yet
@@ -349,16 +359,10 @@ function GameTimer({
   const mainRowStyle = useMemo(() => ({ fontSize: sc(fontSizes.md) }), [sc]);
   const forceEndTextStyle = useMemo(() => ({ fontSize: sc(fontSizes.xs) }), [sc]);
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    // Above a minute there is no decimal to show — the tenths only appear in
-    // the last 10 seconds now, which is always inside the mins === 0 branch.
-    if (mins > 0) {
-      return `${mins}:${Math.floor(secs).toString().padStart(2, '0')}`;
-    }
-    return formatCountdown(seconds);
-  };
+  const timerDisplay = formatGameTimerDisplay(timeRemaining);
+  const timerText = timerDisplay.unit === 'seconds'
+    ? t('secondsShort', { secs: timerDisplay.value })
+    : timerDisplay.value;
 
   // Duel: one compact line, no score. Mirrors web gameUI.js:1033-1037 — show the
   // round-only label for the "infinite round" sentinel, otherwise round + seconds.
@@ -381,7 +385,7 @@ function GameTimer({
         </Text>
         {!isInfiniteRound && (
           <Animated.Text style={[styles.duelCountdown, duelCountdownStyle, criticalTextStyle]}>
-            {t('secondsShort', { secs: formatCountdown(timeRemaining) })}
+            {timerText}
           </Animated.Text>
         )}
       </Animated.View>
@@ -401,7 +405,7 @@ function GameTimer({
         {shouldShowCountdown ? (
           <>
             <Animated.Text style={[styles.countdown, criticalTextStyle]}>
-              {t('secondsShort', { secs: formatTime(timeRemaining) })}
+              {timerText}
             </Animated.Text>
             <Text style={styles.separator}> · </Text>
           </>

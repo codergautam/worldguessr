@@ -60,6 +60,12 @@ const playerSummarySchema = new mongoose.Schema({
   accountId: { type: String, default: null },
   countryCode: { type: String, default: null }, // player's flag at game time (null if unset/guest)
 
+  // Equipped cosmetics frozen at match time. No default on purpose: absence
+  // identifies legacy documents, whose detail APIs fall back to the player's
+  // current equipment. An explicit null means the slot was unequipped.
+  nameGlow: { type: String },
+  markerSkin: { type: String },
+
   // Final scores
   totalPoints: { type: Number, required: true },
   totalXp: { type: Number, default: 0 },

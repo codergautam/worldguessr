@@ -77,7 +77,7 @@ function MessageRow({ msg, onMute }: { msg: ChatMessage; onMute: (m: ChatMessage
             // on the first or last visible row shears at the edge — expected
             // in a scroll container, and not worth restructuring the panel
             // over.
-            animated={false}
+            glowMotion="static"
           />
           {msg.teamChat && (
             <View style={styles.msgTeamTag}>

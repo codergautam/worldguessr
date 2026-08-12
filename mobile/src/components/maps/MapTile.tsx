@@ -84,14 +84,11 @@ export default function MapTile({
           <View style={styles.tileBottom}>
             <View style={styles.tileAuthorRow}>
               <Ionicons name="person" size={11} color="rgba(255,255,255,0.6)" />
-              {/* The creator's equipped glow, STATIC. A section expands to 100
-                  tiles and each animated sku stacks up to eight extra blurred
-                  <Text> copies drawn every frame, so `animated={false}` is the
-                  lag budget here — the same call the web grid makes. */}
+              {/* Large tile grids keep animated glow SKUs static for paint cost. */}
               <PlayerName
                 name={map.created_by_name}
                 glow={map.created_by_glow}
-                animated={false}
+                glowMotion="static"
                 glowRadius={6}
                 gap={0}
                 textStyle={styles.tileAuthor}

@@ -10,12 +10,12 @@
  *
  * THINGS THAT ARE DELIBERATE HERE:
  *
- *  - ONE PAGE, NO TABS. Every category is mounted at once, stacked under its
- *    own heading, reached by scrolling — same shape as the web storefront
- *    (components/shop/ShopView.js). There is no selected-category state in this
- *    file: a shop you have to tab around to see the stock of hides four fifths
- *    of its stock. Categories the server sent nothing for are omitted outright,
- *    never rendered as an empty heading.
+ *  - ONE PAGE, NO TABS. Every category stays in one continuous storefront,
+ *    stacked under its own heading and reached by scrolling — same shape as the
+ *    web storefront (components/shop/ShopView.js). The native list virtualizes
+ *    those shelves, so off-screen glows, emotes and photographs do not mount on
+ *    entry. Categories the server sent nothing for are omitted outright, never
+ *    rendered as an empty heading.
  *
  *  - THE WALLET AND THE JUMP ROW LIVE OUTSIDE THE SCROLLVIEW. The balance has
  *    to be on screen at the moment of every buy decision, and now that the page
@@ -26,9 +26,8 @@
  *  - GLOW CARDS PREVIEW LIVE, ON ONE BLACK STAGE. A halo needs somewhere to go:
  *    drawn small, on the card's own translucent green, every hue lands in the
  *    same pale smear and the whole palette looks identical. So each glow gets a
- *    near-black plate washed with the app's own 135deg black -> green-black
- *    gradient, the name set at display size and weight, and enough quiet margin
- *    that the bloom dies inside its own stage. ONE stage, one size, for every
+ *    near-black plate, the name set at display size and weight, and enough quiet
+ *    margin that the bloom dies inside its own stage. ONE stage, one size, for
  *    sku — same as web (components/shop/ItemPreview.js).
  *
  *  - EACH FACT IS STATED ONCE, and that rule is what most of the recent
@@ -94,17 +93,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  type LayoutChangeEvent,
   ScrollView,
   StyleSheet,
   Text,
+  type ViewStyle,
+  type ViewToken,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import SiteBackground from '../src/components/SiteBackground';
 import { Pressable } from '../src/components/ui/SfxPressable';
-import Animated, { FadeIn, FadeInDown, ReduceMotion } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  FadeOut,
+  interpolateColor,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -132,10 +146,11 @@ import CountryFlag from '../src/components/CountryFlag';
 import EmoteWheel from '../src/components/shop/EmoteWheel';
 import EmberGlow from '../src/components/shop/EmberGlow';
 import StampMark, {
-  STAMP_VALUE_SIZE,
+  STAMP_MARK_SIZE,
   STAMP_MARK_SIZE_BTN,
   STAMP_VALUE_SIZE_BTN,
   STAMP_MARK_BTN_STYLE,
+  stampMarkStyle,
 } from '../src/components/shop/StampMark';
 // Aliased: this file already imports React Native's Image for the bundled pin
 // and stock-background art, and only the city photographs need expo-image's
@@ -143,24 +158,121 @@ import StampMark, {
 import { Image as ExpoImage } from 'expo-image';
 import { backgroundUrlForSku } from '../src/services/siteBackground';
 import { useSiteAccent } from '../src/store/siteBackgroundStore';
+import { GLOW_CLIP_RELIEF } from '../src/shared/glowKeyframes';
+// One source for web and native: jump-chip order, FlatList indices and shelf
+// lazy mounting all derive from this sequence.
+import { CATEGORY_ORDER, type ShopCategory } from '@shared/shop/categoryOrder';
 
 /** The photograph everybody starts with, and the placeholder under every city. */
 const STOCK_BACKGROUND = require('../assets/street2.jpg');
 
-type Category = 'glow' | 'emote' | 'pass' | 'marker' | 'background';
+// Backgrounds are image products, but a phone does not need a full-width hero
+// for every city. This is the same compact floor as the web shop. The column
+// count is derived from the current window so rotation, tablets and split view
+// recompute the shelf instead of stretching a phone card.
+const BACKGROUND_CARD_MIN_WIDTH = 160;
+const BACKGROUND_CARD_MAX_COLUMNS = 4;
+const GLOW_STAGE_LINE_HEIGHT = 32;
+const SHOP_LOADING_SHELVES = [0, 1] as const;
+const SHOP_LOADING_CARDS = [0, 1, 2, 3] as const;
+const SHOP_LOADING_CHIPS = [64, 84, 76] as const;
+const SHOP_WALLET_MARK_SIZE = Math.round(STAMP_MARK_SIZE * 0.8);
+const SHOP_WALLET_VALUE_SIZE = Math.round(SHOP_WALLET_MARK_SIZE * 0.62);
+const SHOP_WALLET_MARK_STYLE = stampMarkStyle(SHOP_WALLET_MARK_SIZE);
+const SHOP_WALLET_HELP_MAX_WIDTH = 260;
+const JUMP_CHIP_TRANSITION_MS = 220;
+const SHOP_BACKGROUND_BLUR_RADIUS = 2;
+const SHOP_CARD_SURFACE_COLOR = 'rgba(0, 0, 0, 0.68)';
+const SHOP_VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 10,
+  minimumViewTime: 60,
+} as const;
+
+interface EquippedAppearance {
+  card: ViewStyle;
+  action: ViewStyle;
+}
+
+function backgroundCardWidthFor(shelfWidth: number): number {
+  const columns = Math.max(
+    1,
+    Math.min(
+      BACKGROUND_CARD_MAX_COLUMNS,
+      Math.floor(
+        (shelfWidth + spacing.xs)
+        / (BACKGROUND_CARD_MIN_WIDTH + spacing.xs),
+      ),
+    ),
+  );
+  return Math.floor(
+    (shelfWidth - (spacing.xs * (columns - 1))) / columns,
+  );
+}
+
+type Category = ShopCategory;
 
 /**
- * Section order. Web's order verbatim (components/shop/stampShopClient.js) —
- * the same shop in the same order on both platforms, which is the whole point
- * of a parity surface.
- *
- * SORTED BY WHO SEES THE ITEM: a pin drops on everyone's map, a glow follows
- * your name into a duel, a background is yours alone. `background` used to be
- * missing from this list because the server filtered the rows out for
- * platform:'mobile'; it does not any more (see the platform note in
- * shared/shop/catalog.js), so the shelves finally match.
+ * The pinned section control. Selection is a relationship to the shelf below,
+ * so its tint travels instead of teleporting when the scroll spy changes.
+ * Only color and opacity animate; card layout and the horizontal rail stay
+ * completely still on low-end phones.
  */
-const CATEGORY_ORDER: Category[] = ['marker', 'glow', 'background', 'emote', 'pass'];
+function ShopJumpChip({
+  label,
+  active,
+  accent,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  accent: { primary: string; chrome: string };
+  onPress: () => void;
+}) {
+  const selected = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    selected.value = withTiming(active ? 1 : 0, {
+      duration: JUMP_CHIP_TRANSITION_MS,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      reduceMotion: ReduceMotion.System,
+    });
+  }, [active, selected]);
+
+  const selectionStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      selected.value,
+      [0, 1],
+      ['rgba(0, 0, 0, 0.45)', accent.chrome],
+    ),
+    borderColor: interpolateColor(
+      selected.value,
+      [0, 1],
+      ['rgba(0, 0, 0, 0)', accent.primary],
+    ),
+  }), [accent.chrome, accent.primary]);
+
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: 0.78 + (selected.value * 0.22),
+  }));
+
+  return (
+    <Animated.View style={[styles.jumpChip, selectionStyle]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
+        style={({ pressed }) => [
+          styles.jumpChipHit,
+          pressed && styles.jumpChipPressed,
+        ]}
+      >
+        <Animated.Text style={[styles.jumpChipText, labelStyle]}>
+          {label}
+        </Animated.Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 /**
  * The equippable slots, as one name. Mirrors api.equipCosmetic's own union —
@@ -200,8 +312,22 @@ type ShelfItem = Omit<ShopItem, 'sku'> & {
   freeEmote?: boolean;
 };
 
+interface ShopSection {
+  type: Category;
+  label: string;
+  items: ShelfItem[];
+}
+
+// Keep the last successful catalogue in memory across route unmounts. Opening
+// the shop again paints useful shelves on frame one, then reconciles quietly in
+// the background instead of replaying the whole loading screen.
+let shopCatalogItemsCache: ShopItem[] | null = null;
+
 /** Signed-out visitors still get to see a glow on something name-shaped. */
 const SAMPLE_NAME = 'WorldGuessr';
+/** Display copy only; api/stampShop.js remains authoritative for enforcement. */
+const ADFREE_SKU = 'pass_adfree_20m';
+const ADFREE_DAILY_CAP = 3;
 
 /**
  * The figure at which a buy count stops being printed exactly and starts being
@@ -234,6 +360,9 @@ function bumpBuyCount(items: ShopItem[], sku: string): ShopItem[] {
   let changed = false;
   const next = items.map((item) => {
     if (item.sku !== sku) return item;
+    // Mobile deliberately does not display a public buy count for the
+    // consumable pass, so updating that hidden figure only rebuilds the shelf.
+    if (item.sku === ADFREE_SKU) return item;
     const count = item.purchases;
     if (typeof count !== 'number' || !isFinite(count) || count >= BUY_COUNT_EXACT_MAX) return item;
     changed = true;
@@ -252,7 +381,8 @@ function bumpBuyCount(items: ShopItem[], sku: string): ShopItem[] {
  *                 only cards in the shop that said nothing at all about where
  *                 they came from — a glyph, a name and a button, with no hint
  *                 that everybody already has one.
- *   "N buys"      for every sku, INCLUDING ZERO (owner ruling, 2026-08-08).
+ *   "N buys"      for permanent cosmetics, INCLUDING ZERO. The consumable
+ *                 ad-free pass uses this slot for its daily limit instead.
  *
  * ZERO USED TO HIDE, on the argument that "0 buys" is a sentence about emptiness
  * printed on the one item somebody is still deciding whether to want. What that
@@ -274,9 +404,102 @@ function BuyCount({ item }: { item: ShelfItem }) {
   );
 }
 
+/**
+ * A size-stable first-load state. It occupies the same shelf geometry as the
+ * catalogue, so the jump row and content do not teleport when the request wins.
+ * One shared opacity breath is considerably cheaper and calmer than a spinner
+ * plus dozens of delayed card entrances.
+ */
+function ShopLoadingState() {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, {
+        duration: 900,
+        easing: Easing.inOut(Easing.quad),
+        reduceMotion: ReduceMotion.System,
+      }),
+      -1,
+      true,
+      undefined,
+      ReduceMotion.System,
+    );
+    return () => cancelAnimation(pulse);
+  }, [pulse]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: 0.52 + (pulse.value * 0.32),
+  }));
+
+  return (
+    <View
+      style={styles.loadingState}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={t('loading')}
+    >
+      <Animated.View
+        entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)}
+      >
+        <Animated.View style={[styles.loadingSkeleton, pulseStyle]}>
+          {SHOP_LOADING_SHELVES.map((shelf) => (
+            <View key={shelf} style={styles.loadingShelf}>
+              <View style={styles.loadingSectionTitle} />
+              <View style={styles.loadingGrid}>
+                {SHOP_LOADING_CARDS.map((card) => (
+                  <View key={card} style={styles.loadingCard}>
+                    <View style={styles.loadingPreview} />
+                    <View style={styles.loadingLine} />
+                    <View style={[styles.loadingLine, styles.loadingLineShort]} />
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function ShopScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const safeWindowWidth = windowWidth - insets.left - insets.right;
+  const headerSideWidth = Math.min(140, Math.max(104, Math.round(safeWindowWidth * 0.3)));
+  const walletHelpWidth = Math.min(
+    SHOP_WALLET_HELP_MAX_WIDTH,
+    safeWindowWidth - (spacing.md * 2),
+  );
+
+  const estimatedBackgroundShelfWidth = Math.max(
+    BACKGROUND_CARD_MIN_WIDTH,
+    safeWindowWidth - (spacing.md * 2),
+  );
+  const backgroundLayoutKey = `${windowWidth}:${insets.left}:${insets.right}`;
+  const [backgroundGridMeasurement, setBackgroundGridMeasurement] = useState<{
+    key: string;
+    width: number;
+  } | null>(null);
+  const backgroundShelfWidth = backgroundGridMeasurement?.key === backgroundLayoutKey
+    ? backgroundGridMeasurement.width
+    : estimatedBackgroundShelfWidth;
+  const backgroundCardWidth = backgroundCardWidthFor(backgroundShelfWidth);
+
+  const onBackgroundGridLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const measuredWidth = Math.floor(event.nativeEvent.layout.width);
+      if (measuredWidth <= 0) return;
+      setBackgroundGridMeasurement((current) => (
+        current?.key === backgroundLayoutKey && current.width === measuredWidth
+          ? current
+          : { key: backgroundLayoutKey, width: measuredWidth }
+      ));
+    },
+    [backgroundLayoutKey],
+  );
 
   const secret = useAuthStore((s) => s.secret);
   const user = useAuthStore((s) => s.user);
@@ -288,17 +511,22 @@ export default function ShopScreen() {
   // that refuses to match it. The washes and the two chrome fills come from here
   // rather than from `colors` because a StyleSheet cannot follow an equip.
   //
-  // The EQUIPPED frame (cardEquipped) is deliberately NOT here: that green means
-  // "this one is on", not "this is WorldGuessr", and it stays green for the same
-  // reason web keeps #4ade80 on .shopCard--equipped.
   const accent = useSiteAccent();
+  // Equipped is a selected state inside theme-aware menu chrome. One restrained
+  // outline marks the card; the small action carries the solid accent. Tinting
+  // both entire surfaces the same color flattened them into one large blob.
+  const equippedAppearance = useMemo<EquippedAppearance>(() => ({
+    card: { borderColor: accent.primary },
+    action: { backgroundColor: accent.primary },
+  }), [accent.primary]);
 
-  const [items, setItems] = useState<ShopItem[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<ShopItem[] | null>(() => shopCatalogItemsCache);
+  const [loading, setLoading] = useState(shopCatalogItemsCache === null);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** sku currently in flight — disables just that card, not the whole page. */
   const [busySku, setBusySku] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [walletHelpOpen, setWalletHelpOpen] = useState(false);
   // (`landedAt` lived here. It existed for ONE job: telling the wheel to close a
   // picker panel that was still pointing at a cell a purchase had just moved.
   // The panel is deleted, so the signal has nothing left to say — the wheel
@@ -344,7 +572,9 @@ export default function ShopScreen() {
     setLoadError(null);
     try {
       const res = await api.getShopCatalog(secret);
-      setItems(Array.isArray(res.items) ? res.items : []);
+      const nextItems = Array.isArray(res.items) ? res.items : [];
+      shopCatalogItemsCache = nextItems;
+      setItems(nextItems);
       // The catalogue call doubles as a balance read when it carries a token —
       // one round trip, and it keeps the wallet honest if a purchase landed on
       // another device since this session started.
@@ -438,76 +668,95 @@ export default function ShopScreen() {
   const barIds = useMemo(() => bar.map((e) => e.id), [bar]);
   const barIsDefault = (emoteOrder ?? []).length === 0;
 
-  // Jump-to-section. Offsets live in a REF so measuring them never re-renders.
-  // The highlight DOES need state, but it is written only when the section
-  // actually changes, not on every scroll frame: at 16ms throttle a naive
-  // setState would re-render the whole page ~60x/sec, which is exactly the
-  // full-grid-rerender pattern that has frozen low-end devices in this app
-  // before. The guard below means a full scroll through five sections commits
-  // four times total.
-  const scrollRef = useRef<ScrollView>(null);
-  const sectionY = useRef<Record<string, number>>({});
+  // Jump-to-section. The vertical storefront is a FlatList so only nearby
+  // shelves exist. That matters here: a plain ScrollView mounted all 35 priced
+  // products, 20 emotes, every live glow and every city photograph in one
+  // commit before the navigation transition could finish.
+  const scrollRef = useRef<FlatList<ShopSection>>(null);
   // The emote GRID's offset inside its section. The section starts with the
   // wheel you are standing on, so "Get more" has to aim past it.
   const emoteGridY = useRef(0);
-  const [activeSection, setActiveSection] = useState<Category | null>(null);
-  const activeRef = useRef<Category | null>(null);
+  const firstSection = sections[0]?.type ?? null;
+  const [activeSection, setActiveSection] = useState<Category | null>(() => firstSection);
+  const activeRef = useRef<Category | null>(firstSection);
   // Raised by a chip tap, dropped the moment a finger touches the list. This
   // client gets to be blunter than web about it: RN says outright whether a
   // scroll came from a drag, so "the reader took over" needs no guessing at
   // positions the way the browser's does.
   const jumpLatch = useRef(false);
+  const pendingScroll = useRef<{
+    index: number;
+    animated: boolean;
+    viewOffset: number;
+  } | null>(null);
 
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // A tap on a chip owns the highlight until the reader's own finger moves the
-    // list (see jumpTo and onScrollBeginDrag). Without this the animated scroll
-    // walks the highlight through every shelf it passes — the chip row strobes —
-    // and a jump that runs out of list hands it to a section nobody asked for.
+  // A catalog fetched after mount used to leave every chip unselected until
+  // the first scroll event. Seed from the first real shelf instead: Pins in the
+  // normal catalog, or whichever category actually leads when one is absent.
+  useEffect(() => {
+    const currentStillExists = sections.some((section) => section.type === activeRef.current);
+    if (currentStillExists || !firstSection) return;
+    activeRef.current = firstSection;
+    setActiveSection(firstSection);
+  }, [firstSection, sections]);
+
+  const onViewableItemsChanged = useRef(({
+    viewableItems,
+  }: {
+    viewableItems: Array<ViewToken<ShopSection>>;
+  }) => {
+    // A chip tap owns the highlight until the reader takes the list back. This
+    // prevents a long animated jump from lighting each shelf it passes.
     if (jumpLatch.current) return;
+    const firstVisible = viewableItems
+      .filter((token) => token.isViewable && token.item)
+      .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))[0]?.item;
+    if (firstVisible && firstVisible.type !== activeRef.current) {
+      activeRef.current = firstVisible.type;
+      setActiveSection(firstVisible.type);
+    }
+  }).current;
 
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const y = contentOffset.y;
-    // A line just under the pinned header, matching the web scroll-spy: the
-    // deepest section that has passed it is the one being read.
-    let line = y + spacing.xl;
+  const scrollToSection = useCallback((
+    type: Category,
+    animated = true,
+    viewOffset = spacing.sm,
+  ) => {
+    const index = sections.findIndex((section) => section.type === type);
+    if (index < 0) return;
+    pendingScroll.current = { index, animated, viewOffset };
+    scrollRef.current?.scrollToIndex({
+      index,
+      animated,
+      viewPosition: 0,
+      viewOffset,
+    });
+  }, [sections]);
 
-    // AT THE BOTTOM THAT LINE CANNOT BE REACHED, so it moves. The last section's
-    // top only passes it if there is enough list beneath it to keep scrolling,
-    // and passes is ONE card above a footer's worth of padding — so its chip
-    // never lit, and tapping it scrolled to the clamp and this handler took the
-    // highlight straight back. Down there the halfway mark asks the honest
-    // question instead: which shelf actually fills the bottom of the screen.
-    // (Not "the last one, always" — that lights passes while a screenful of
-    // emotes sits above it.) The overflow test keeps a shop short enough to fit
-    // from pinning itself to its final chip.
-    const scrolls = contentSize.height > layoutMeasurement.height + 8;
-    if (scrolls && y + layoutMeasurement.height >= contentSize.height - 64) {
-      line = y + (layoutMeasurement.height / 2);
-    }
-    // AT THE HARD STOP, THE LAST SHELF ANSWERS. The halfway rule above was
-    // written to stop a jump lighting passes over a screenful of emotes, and
-    // it also stopped the reader who scrolled to the literal bottom from ever
-    // lighting it — the owner called that a bug. At the clamp there is nowhere
-    // further to scroll, so whatever closes the page is what is being read.
-    if (scrolls && y + layoutMeasurement.height >= contentSize.height - 2) {
-      line = Infinity;
-    }
-
-    let current: Category | null = null;
-    let bestY = -Infinity;
-    for (const [type, top] of Object.entries(sectionY.current)) {
-      if (top <= line && top > bestY) { bestY = top; current = type as Category; }
-    }
-    // Never blank out: a short final section can sit entirely below the line.
-    if (current && current !== activeRef.current) {
-      activeRef.current = current;
-      setActiveSection(current);
-    }
+  const onScrollToIndexFailed = useCallback((info: {
+    index: number;
+    averageItemLength: number;
+  }) => {
+    // Dynamic shelves cannot provide getItemLayout. Move near the unmeasured
+    // target so FlatList mounts it, then repeat the exact index jump next frame.
+    scrollRef.current?.scrollToOffset({
+      offset: Math.max(0, info.averageItemLength * info.index),
+      animated: false,
+    });
+    requestAnimationFrame(() => {
+      const pending = pendingScroll.current;
+      if (!pending || pending.index !== info.index) return;
+      scrollRef.current?.scrollToIndex({
+        index: info.index,
+        animated: pending.animated,
+        viewPosition: 0,
+        viewOffset: pending.viewOffset,
+      });
+    });
   }, []);
 
   const jumpTo = useCallback((type: Category) => {
-    const y = sectionY.current[type];
-    if (typeof y !== 'number') return;
+    setWalletHelpOpen(false);
     haptics.selection();
     // Set it immediately so the chip responds on tap rather than waiting for
     // the smooth scroll to settle — and LATCH it, so the scroll it starts cannot
@@ -516,12 +765,15 @@ export default function ShopScreen() {
     jumpLatch.current = true;
     activeRef.current = type;
     setActiveSection(type);
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.sm), animated: true });
-  }, []);
+    scrollToSection(type);
+  }, [scrollToSection]);
 
   // The reader taking the list back. One line, and it is the ONLY way the latch
   // above comes down: no timer to tune, and no window in which a tap is ignored.
-  const onScrollBeginDrag = useCallback(() => { jumpLatch.current = false; }, []);
+  const onScrollBeginDrag = useCallback(() => {
+    jumpLatch.current = false;
+    setWalletHelpOpen(false);
+  }, []);
 
   /* ------------------------------------------------------------------------
    *  THE EMOTE WHEEL — the arrangement the in-game picker renders.
@@ -654,11 +906,10 @@ export default function ShopScreen() {
 
   /** The picker's last tile: leave the wheel and go look at what is for sale. */
   const scrollToEmoteShelf = useCallback(() => {
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, (sectionY.current.emote ?? 0) + emoteGridY.current - spacing.sm),
-      animated: true,
-    });
-  }, []);
+    // Negative viewOffset moves into the virtualized cell by the wheel's own
+    // measured height, landing the first sellable card just under the jump row.
+    scrollToSection('emote', true, spacing.sm - emoteGridY.current);
+  }, [scrollToSection]);
 
   const handleBuy = useCallback(
     async (item: ShelfItem) => {
@@ -691,7 +942,12 @@ export default function ShopScreen() {
         // two. Nothing is refetched: `load()` would cost a round trip to move a
         // number by one, and the server's copy is cached for five minutes anyway.
         if (!res.duplicate) {
-          setItems((prev) => (prev ? bumpBuyCount(prev, item.sku!) : prev));
+          setItems((prev) => {
+            if (!prev) return prev;
+            const next = bumpBuyCount(prev, item.sku!);
+            shopCatalogItemsCache = next;
+            return next;
+          });
         }
         haptics.success();
 
@@ -734,14 +990,11 @@ export default function ShopScreen() {
       // The wheel is above the shelf and the shelf is long, so bring it back on
       // screen: a landing nobody sees is the same as no landing at all.
       if (landing) {
-        scrollRef.current?.scrollTo({
-          y: Math.max(0, (sectionY.current.emote ?? 0) - spacing.sm),
-          animated: true,
-        });
+        scrollToSection('emote');
         assignEmote(landing.index, landing.id, { bar: landing.bar, owned: landing.owned });
       }
     },
-    [secret, busySku, ownedList, emoteOrder, applyCosmetics, entitlementPatch, load, assignEmote],
+    [secret, busySku, ownedList, emoteOrder, applyCosmetics, entitlementPatch, load, assignEmote, scrollToSection],
   );
 
   /**
@@ -817,47 +1070,210 @@ export default function ShopScreen() {
     [handleEquip, equipped],
   );
 
+  const initialLoading = loading && items === null;
+
+  const renderShopSection = ({ item: section }: { item: ShopSection }) => {
+    // The slot this section writes, or null for emotes and passes — which is
+    // exactly the test for "does this section have a baseline to go back to".
+    const sectionSlot = SLOT_FOR_CATEGORY[section.type];
+    const defaultBusyKey = sectionSlot ? `slot:${sectionSlot}` : '';
+
+    return (
+      <Animated.View
+        // Each shelf gets one cheap opacity reveal when FlatList brings it into
+        // the render window. There are no staggered card entrances to block JS.
+        entering={FadeIn.duration(240).reduceMotion(ReduceMotion.System)}
+        style={styles.section}
+      >
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>{section.label}</Text>
+        </View>
+
+        {section.type === 'glow' ? (
+          <GlowSection
+            items={section.items}
+            previewName={previewName}
+            ownedSkus={owned}
+            equippedSku={equipped.nameGlow ?? null}
+            stamps={stamps}
+            busySku={busySku}
+            locked={!secret}
+            equippedAppearance={equippedAppearance}
+            onBuy={handleBuy}
+            onEquip={equipItem}
+            onEquipDefault={equipDefault}
+          />
+        ) : (
+          <>
+            {section.type === 'emote' && secret ? (
+              <EmoteWheel
+                bar={bar}
+                isDefault={barIsDefault}
+                busy={busySku === 'emoteOrder'}
+                onRemove={removeEmoteCell}
+                onReset={resetEmoteBar}
+                onAddMore={scrollToEmoteShelf}
+              />
+            ) : null}
+            <View
+              style={styles.grid}
+              onLayout={section.type === 'emote'
+                ? (e) => { emoteGridY.current = e.nativeEvent.layout.y; }
+                : section.type === 'background'
+                  ? onBackgroundGridLayout
+                  : undefined}
+            >
+              {sectionSlot ? (
+                <DefaultCard
+                  kind={section.type}
+                  previewName={previewName}
+                  backgroundCardWidth={section.type === 'background' ? backgroundCardWidth : undefined}
+                  equipped={!(equipped as any)[sectionSlot]}
+                  busy={busySku === defaultBusyKey}
+                  disabled={!secret || (!!busySku && busySku !== defaultBusyKey)}
+                  equippedAppearance={equippedAppearance}
+                  onEquip={() => equipDefault(sectionSlot)}
+                />
+              ) : null}
+              {section.items.map((item) => {
+                const key = item.sku ?? `emote:${item.emoteId}`;
+                if (section.type === 'background') {
+                  return (
+                    <BackgroundCard
+                      key={key}
+                      item={item}
+                      cardWidth={backgroundCardWidth}
+                      owned={!!item.sku && owned.has(item.sku)}
+                      equipped={equipped.background === item.sku}
+                      affordable={stamps >= item.price}
+                      busy={busySku === key}
+                      disabled={!secret || (!!busySku && busySku !== key)}
+                      equippedAppearance={equippedAppearance}
+                      onBuy={() => handleBuy(item)}
+                      onEquip={(unequip) => equipItem(item, unequip)}
+                    />
+                  );
+                }
+                return (
+                  <ShopCard
+                    key={key}
+                    item={item}
+                    owned={!!item.freeEmote || (!!item.sku && owned.has(item.sku))}
+                    equipped={
+                      SLOT_FOR_CATEGORY[item.type as Category]
+                        ? (equipped as any)[SLOT_FOR_CATEGORY[item.type as Category]!] === item.sku
+                        : false
+                    }
+                    inBar={!!item.emoteId && barIds.includes(item.emoteId)}
+                    affordable={stamps >= item.price}
+                    busy={busySku === key || busySku === item.emoteId}
+                    disabled={!secret || (!!busySku && busySku !== key && busySku !== item.emoteId)}
+                    equippedAppearance={equippedAppearance}
+                    onBuy={() => handleBuy(item)}
+                    onEquip={(unequip) => equipItem(item, unequip)}
+                    onToggleEmote={() => toggleEmote(item)}
+                  />
+                );
+              })}
+            </View>
+          </>
+        )}
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.root}>
-      <SiteBackground style={StyleSheet.absoluteFill}>
+      <SiteBackground
+        style={StyleSheet.absoluteFill}
+        blurRadius={SHOP_BACKGROUND_BLUR_RADIUS}
+      >
         <LinearGradient
-          colors={accent.screenWash}
-          locations={[0, 0.55, 1]}
+          // Match the profile's stronger theme-aware wash: the background still
+          // identifies the equipped city, but the catalogue owns the contrast.
+          colors={accent.modalWash}
           style={StyleSheet.absoluteFill}
         />
       </SiteBackground>
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <Animated.View
-          entering={FadeIn.duration(320).reduceMotion(ReduceMotion.Never)}
+          entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)}
           style={styles.header}
         >
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
-            accessibilityRole="button"
-            accessibilityLabel={t('close')}
+          <View style={[styles.headerSide, { width: headerSideWidth }]}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={t('close')}
+            >
+              <Ionicons name="close" size={26} color={colors.white} />
+            </Pressable>
+          </View>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
-            <Ionicons name="close" size={26} color={colors.white} />
-          </Pressable>
-          <Text style={styles.headerTitle}>{t('shop')}</Text>
+            {t('shop')}
+          </Text>
           {/* Wallet. Outside the scroller, so the balance is on screen at the
               moment of every buy decision no matter how far down the page. */}
-          <View
-            style={styles.wallet}
-            accessible
-            accessibilityLabel={t('shopStampsBalance', { count: stamps })}
-          >
-            {/* The stamp artwork — the one currency mark, shared with the home
-                header and with the web build. */}
-            <StampMark />
-            <Text style={styles.walletValue}>{stamps.toLocaleString()}</Text>
+          <View style={[styles.headerSide, styles.headerSideRight, { width: headerSideWidth }]}>
+            <View style={styles.walletAnchor}>
+              <Pressable
+                onPress={() => {
+                  haptics.selection();
+                  setWalletHelpOpen((open) => !open);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: walletHelpOpen }}
+                accessibilityLabel={`${t('shopStampsBalance', { count: stamps })}. ${t('shopStampsHowTitle')}`}
+                style={({ pressed }) => [styles.wallet, pressed && styles.walletPressed]}
+              >
+                <StampMark style={SHOP_WALLET_MARK_STYLE} />
+                <Text
+                  style={styles.walletValue}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  {formatCompact(stamps)}
+                </Text>
+              </Pressable>
+
+              {walletHelpOpen ? (
+                <Animated.View
+                  entering={FadeIn.duration(150).reduceMotion(ReduceMotion.System)}
+                  exiting={FadeOut.duration(120).reduceMotion(ReduceMotion.System)}
+                  style={[
+                    styles.walletHelp,
+                    { width: walletHelpWidth, backgroundColor: accent.deep },
+                  ]}
+                  accessible
+                >
+                  <Text style={styles.walletHelpTitle}>{t('shopStampsHowTitle')}</Text>
+                  <Text style={styles.walletHelpBody}>{t('shopStampsHowBody')}</Text>
+                </Animated.View>
+              ) : null}
+            </View>
           </View>
         </Animated.View>
 
         {/* Jump row — pinned with the wallet, not scrolled with the content. */}
-        {sections.length > 1 && (
+        {initialLoading ? (
+          <View style={styles.jumpBar} accessibilityElementsHidden>
+            <View style={[styles.jumpRow, styles.loadingJumpRow]}>
+              {SHOP_LOADING_CHIPS.map((width) => (
+                <View key={width} style={[styles.loadingJumpChip, { width }]} />
+              ))}
+            </View>
+          </View>
+        ) : sections.length > 1 ? (
           <View style={styles.jumpBar}>
             <ScrollView
               horizontal
@@ -866,228 +1282,84 @@ export default function ShopScreen() {
               accessibilityLabel={t('shopJumpTo')}
             >
               {sections.map((section) => (
-                <Pressable
+                <ShopJumpChip
                   key={section.type}
+                  label={section.label}
+                  active={activeSection === section.type}
+                  accent={accent}
                   onPress={() => jumpTo(section.type)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: activeSection === section.type }}
-                  style={({ pressed }) => [
-                    styles.jumpChip,
-                    // "YOU ARE HERE". Web's .shopNav__item--here is
-                    // var(--primaryTransparent) inside a var(--primary) rim and
-                    // retints for free; this was two hardcoded greens that had
-                    // also drifted lighter than the web original. Same tokens
-                    // now, so both follow the equipped background and each
-                    // other. It replaced a styles.jumpChipActive that held
-                    // nothing but these two colours.
-                    activeSection === section.type
-                      && { backgroundColor: accent.primaryTransparent, borderColor: accent.primary },
-                    pressed && { backgroundColor: accent.primaryTransparent },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.jumpChipText,
-                      activeSection === section.type && styles.jumpChipTextActive,
-                    ]}
-                  >
-                    {section.label}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </ScrollView>
           </View>
-        )}
+        ) : null}
 
-        <ScrollView
+        <FlatList<ShopSection>
           ref={scrollRef}
+          data={initialLoading ? [] : sections}
+          keyExtractor={(section) => section.type}
+          renderItem={renderShopSection}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: insets.bottom + spacing['3xl'] },
           ]}
           showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
           onScrollBeginDrag={onScrollBeginDrag}
-          // 16ms delivers the event at frame rate; the handler itself only
-          // commits when the section changes, so this is cheap.
-          scrollEventThrottle={16}
-        >
-          {!secret ? (
-            <View style={styles.notice}>
-              <Text style={styles.noticeText}>
-                {t('shopSignInRequired')}
-              </Text>
-            </View>
-          ) : null}
-
-          {actionError ? (
-            <View style={[styles.notice, styles.noticeError]}>
-              <Text style={styles.noticeText}>{actionError}</Text>
-            </View>
-          ) : null}
-
-          {loading ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={colors.white} />
-            </View>
-          ) : loadError ? (
-            <View style={styles.notice}>
-              <Text style={styles.noticeText}>{loadError}</Text>
-              <Pressable
-                onPress={load}
-                style={[styles.retryBtn, { backgroundColor: accent.primaryTransparent }]}
-              >
-                <Text style={styles.retryText}>{t('retry')}</Text>
-              </Pressable>
-            </View>
-          ) : sections.length === 0 ? (
-            <View style={styles.notice}>
-              <Text style={styles.noticeText}>
-                {t('shopEmpty')}
-              </Text>
-            </View>
-          ) : (
-            sections.map((section, sectionIndex) => {
-              // The slot this section writes, or null for emotes and passes —
-              // which is exactly the test for "does this section have a
-              // baseline to go back to".
-              const sectionSlot = SLOT_FOR_CATEGORY[section.type];
-              const defaultBusyKey = sectionSlot ? `slot:${sectionSlot}` : '';
-              return (
-                <Animated.View
-                  key={section.type}
-                  // The entrance rides the SECTION, not the cards. ~45 cards each
-                  // playing their own delayed slide is the "fly-in parade" this
-                  // app does not do, and on a low-end phone it is 45 animations
-                  // competing with the first scroll.
-                  entering={FadeInDown.duration(340)
-                    .delay(Math.min(sectionIndex, 3) * 60)
-                    .reduceMotion(ReduceMotion.Never)}
-                  style={styles.section}
-                  onLayout={(e) => {
-                    sectionY.current[section.type] = e.nativeEvent.layout.y;
-                  }}
-                >
-                  {/* The heading alone, same ruling as web: the count pill went
-                      first (the count is the grid directly underneath), then
-                      the what-this-is line went too — five shelves of subtitle
-                      furniture on one page. Type and space carry the section. */}
-                  <View style={styles.sectionHead}>
-                    <Text style={styles.sectionTitle}>{section.label}</Text>
-                  </View>
-
-                  {section.type === 'glow' ? (
-                    <GlowSection
-                      items={section.items}
-                      previewName={previewName}
-                      ownedSkus={owned}
-                      equippedSku={equipped.nameGlow ?? null}
-                      stamps={stamps}
-                      busySku={busySku}
-                      locked={!secret}
-                      onBuy={handleBuy}
-                      onEquip={equipItem}
-                      onEquipDefault={equipDefault}
-                    />
-                  ) : (
-                    <>
-                    {/* THE WHEEL SITS ABOVE THE SHELF, in the one section it
-                        means anything in — it is the in-game picker, drawn as
-                        the game draws it, and the cards below are what you can
-                        put in it. Signed-out visitors browse the shelf without
-                        one; there is no account to arrange. */}
-                    {section.type === 'emote' && secret ? (
-                      <EmoteWheel
-                        bar={bar}
-                        isDefault={barIsDefault}
-                        busy={busySku === 'emoteOrder'}
-                        onRemove={removeEmoteCell}
-                        onReset={resetEmoteBar}
-                        // An empty cell is a signpost to the shelf, not a
-                        // picker: the roster it used to open is the grid
-                        // immediately below it.
-                        onAddMore={scrollToEmoteShelf}
-                      />
-                    ) : null}
-                    <View
-                      style={styles.grid}
-                      // The GRID's offset inside its section, so the wheel's
-                      // "Get more" tile has somewhere exact to send you. Only
-                      // the emote shelf is ever asked for.
-                      onLayout={section.type === 'emote'
-                        ? (e) => { emoteGridY.current = e.nativeEvent.layout.y; }
-                        : undefined}
-                    >
-                      {/* FIRST IN THE SECTION, AND THE PRICE LADDER IS UNTOUCHED:
-                          rendered as a SIBLING ahead of the map, never spliced
-                          into the sorted list, so no comparator has to be taught
-                          about an item with no price. Only slot-backed categories
-                          have a baseline to go back to — emotes are an
-                          arrangement and passes are consumed, so neither gets
-                          one. */}
-                      {sectionSlot ? (
-                        <DefaultCard
-                          kind={section.type}
-                          previewName={previewName}
-                          equipped={!(equipped as any)[sectionSlot]}
-                          busy={busySku === defaultBusyKey}
-                          disabled={!secret || (!!busySku && busySku !== defaultBusyKey)}
-                          onEquip={() => equipDefault(sectionSlot)}
-                        />
-                      ) : null}
-                      {section.items.map((item) => {
-                        // A free emote has NO sku (there is nothing to buy), so
-                        // the key and the busy key are its emote id, and it is
-                        // owned by definition — routing it through the owned set
-                        // would test `undefined` and put a price on something
-                        // everybody already has.
-                        const key = item.sku ?? `emote:${item.emoteId}`;
-                        // A background's product is a photograph, so it gets a
-                        // card built around one. Everything else shares the
-                        // glyph/pin/number row.
-                        if (section.type === 'background') {
-                          return (
-                            <BackgroundCard
-                              key={key}
-                              item={item}
-                              owned={!!item.sku && owned.has(item.sku)}
-                              equipped={equipped.background === item.sku}
-                              affordable={stamps >= item.price}
-                              busy={busySku === key}
-                              disabled={!secret || (!!busySku && busySku !== key)}
-                              onBuy={() => handleBuy(item)}
-                              onEquip={(unequip) => equipItem(item, unequip)}
-                            />
-                          );
-                        }
-                        return (
-                          <ShopCard
-                            key={key}
-                            item={item}
-                            owned={!!item.freeEmote || (!!item.sku && owned.has(item.sku))}
-                            equipped={
-                              SLOT_FOR_CATEGORY[item.type as Category]
-                                ? (equipped as any)[SLOT_FOR_CATEGORY[item.type as Category]!] === item.sku
-                                : false
-                            }
-                            inBar={!!item.emoteId && barIds.includes(item.emoteId)}
-                            affordable={stamps >= item.price}
-                            busy={busySku === key || busySku === item.emoteId}
-                            disabled={!secret || (!!busySku && busySku !== key && busySku !== item.emoteId)}
-                            onBuy={() => handleBuy(item)}
-                            onEquip={(unequip) => equipItem(item, unequip)}
-                            onToggleEmote={() => toggleEmote(item)}
-                          />
-                        );
-                      })}
-                    </View>
-                    </>
-                  )}
-                </Animated.View>
-              );
-            })
+          onTouchStart={() => setWalletHelpOpen(false)}
+          directionalLockEnabled
+          initialNumToRender={1}
+          maxToRenderPerBatch={1}
+          updateCellsBatchingPeriod={50}
+          windowSize={3}
+          // Android defaults this to true, which clips text-shadow halos at the
+          // virtual cell boundary. Windowing still unmounts distant shelves.
+          removeClippedSubviews={false}
+          viewabilityConfig={SHOP_VIEWABILITY_CONFIG}
+          onViewableItemsChanged={onViewableItemsChanged}
+          onScrollToIndexFailed={onScrollToIndexFailed}
+          ListHeaderComponent={(
+            <>
+              {!secret ? (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeText}>{t('shopSignInRequired')}</Text>
+                </View>
+              ) : null}
+              {actionError ? (
+                <View style={[styles.notice, styles.noticeError]}>
+                  <Text style={styles.noticeText}>{actionError}</Text>
+                </View>
+              ) : null}
+              {loadError && items !== null ? (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeText}>{loadError}</Text>
+                  <Pressable
+                    onPress={load}
+                    style={[styles.retryBtn, { backgroundColor: accent.primaryTransparent }]}
+                  >
+                    <Text style={styles.retryText}>{t('retry')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {initialLoading ? <ShopLoadingState /> : null}
+              {loadError && items === null ? (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeText}>{loadError}</Text>
+                  <Pressable
+                    onPress={load}
+                    style={[styles.retryBtn, { backgroundColor: accent.primaryTransparent }]}
+                  >
+                    <Text style={styles.retryText}>{t('retry')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
           )}
-        </ScrollView>
+          ListEmptyComponent={!initialLoading && !(loadError && items === null) ? (
+            <View style={styles.notice}>
+              <Text style={styles.noticeText}>{t('shopEmpty')}</Text>
+            </View>
+          ) : null}
+        />
       </SafeAreaView>
     </View>
   );
@@ -1124,6 +1396,7 @@ function CardAction({
   affordable,
   busy,
   disabled,
+  equippedAppearance,
   onBuy,
   onEquip,
 }: {
@@ -1134,10 +1407,34 @@ function CardAction({
   affordable: boolean;
   busy: boolean;
   disabled: boolean;
+  equippedAppearance: EquippedAppearance;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
 }) {
   const slot = SLOT_FOR_CATEGORY[item.type as Category];
+  const rejectOffset = useSharedValue(0);
+  const rejectStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: rejectOffset.value }],
+  }));
+
+  const handleBuyPress = () => {
+    if (affordable) {
+      onBuy();
+      return;
+    }
+
+    haptics.warning();
+    cancelAnimation(rejectOffset);
+    rejectOffset.value = 0;
+    rejectOffset.value = withSequence(
+      ReduceMotion.System,
+      withTiming(-5, { duration: 40, easing: Easing.out(Easing.quad) }),
+      withTiming(5, { duration: 45, easing: Easing.inOut(Easing.quad) }),
+      withTiming(-3, { duration: 40, easing: Easing.inOut(Easing.quad) }),
+      withTiming(3, { duration: 35, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0, { duration: 45, easing: Easing.out(Easing.quad) }),
+    );
+  };
 
   if (owned) {
     // AN OWNED EMOTE'S PLATE IS A SIGN, NOT A CONTROL. The press belongs to the
@@ -1181,7 +1478,7 @@ function CardAction({
         disabled={disabled || busy}
         style={({ pressed }) => [
           styles.actionBtn,
-          equipped ? styles.actionBtnEquipped : styles.actionBtnOwned,
+          equipped ? equippedAppearance.action : styles.actionBtnOwned,
           (disabled || busy) && styles.actionBtnDisabled,
           pressed && styles.actionBtnPressed,
         ]}
@@ -1198,35 +1495,40 @@ function CardAction({
   }
 
   return (
-    <Pressable
-      onPress={onBuy}
-      // In-flight lockout. Every press mints its own idempotency key, so two
-      // presses would be two DIFFERENT keys and therefore two real charges.
-      disabled={disabled || busy || !affordable}
-      style={({ pressed }) => [
-        styles.actionBtn,
-        styles.actionBtnBuy,
-        (disabled || busy || !affordable) && styles.actionBtnDisabled,
-        pressed && styles.actionBtnPressed,
-      ]}
-    >
-      {busy ? (
-        <ActivityIndicator size="small" color={colors.white} />
-      ) : (
-        <>
-          {/* THE ACTION ROW'S MARK, not the wallet's — this button has to be the
-              same control as the Equip button on the next card, so it wears
-              STAMP_MARK_SIZE_BTN. Web does this in CSS on `.shopCard__btn
-              .stampMark`; the reasoning lives in StampMark.tsx. */}
-          <StampMark style={STAMP_MARK_BTN_STYLE} />
-          {/* priceText, not actionText: this is a stamps FIGURE and it is sized
-              against the mark beside it. The word labels on the other variants
-              of this button (Owned, Equip, Sign in) stay at actionText. Web
-              scopes it the same way, on .shopCard__btn--buy. */}
-          <Text style={styles.priceText}>{item.price.toLocaleString()}</Text>
-        </>
-      )}
-    </Pressable>
+    <Animated.View style={[styles.buyButtonMotionWrap, rejectStyle]}>
+      <Pressable
+        onPress={handleBuyPress}
+        sfx={affordable ? 'click' : 'none'}
+        // In-flight lockout. Every press mints its own idempotency key, so two
+        // presses would be two DIFFERENT keys and therefore two real charges.
+        // An unaffordable button remains pressable solely to acknowledge the
+        // attempt with a shake; handleBuyPress blocks the purchase itself.
+        disabled={disabled || busy}
+        style={({ pressed }) => [
+          styles.actionBtn,
+          styles.actionBtnBuy,
+          (disabled || busy || !affordable) && styles.actionBtnBuyUnavailable,
+          pressed && affordable && styles.actionBtnPressed,
+        ]}
+      >
+        {busy ? (
+          <ActivityIndicator size="small" color={colors.white} />
+        ) : (
+          <>
+            {/* THE ACTION ROW'S MARK, not the wallet's — this button has to be the
+                same control as the Equip button on the next card, so it wears
+                STAMP_MARK_SIZE_BTN. Web does this in CSS on `.shopCard__btn
+                .stampMark`; the reasoning lives in StampMark.tsx. */}
+            <StampMark style={STAMP_MARK_BTN_STYLE} />
+            {/* priceText, not actionText: this is a stamps FIGURE and it is sized
+                against the mark beside it. The word labels on the other variants
+                of this button (Owned, Equip, Sign in) stay at actionText. Web
+                scopes it the same way, on .shopCard__btn--buy. */}
+            <Text style={styles.priceText}>{item.price.toLocaleString()}</Text>
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -1257,6 +1559,7 @@ function GlowSection({
   stamps,
   busySku,
   locked,
+  equippedAppearance,
   onBuy,
   onEquip,
   onEquipDefault,
@@ -1268,6 +1571,7 @@ function GlowSection({
   stamps: number;
   busySku: string | null;
   locked: boolean;
+  equippedAppearance: EquippedAppearance;
   onBuy: (item: ShelfItem) => void;
   onEquip: (item: ShelfItem, unequip: boolean) => void;
   onEquipDefault: (slot: EquipSlot) => void;
@@ -1292,6 +1596,7 @@ function GlowSection({
         equipped={!equippedSku}
         busy={busySku === 'slot:nameGlow'}
         disabled={locked || !!busySku}
+        equippedAppearance={equippedAppearance}
         onEquip={() => onEquipDefault('nameGlow')}
       />
 
@@ -1305,6 +1610,7 @@ function GlowSection({
           affordable={stamps >= item.price}
           busy={busySku === item.sku}
           disabled={locked || (!!busySku && busySku !== item.sku)}
+          equippedAppearance={equippedAppearance}
           onBuy={() => onBuy(item)}
           onEquip={(unequip) => onEquip(item, unequip)}
         />
@@ -1350,11 +1656,12 @@ function GlowSection({
  * frame) and it buys nothing now that the cards move: motion is the thing that
  * separates them, and motion does not need a larger box to be seen in.
  *
- * THE STAGE'S CLEARANCE IS WHY THE LAYER TABLE IS CAPPED. An 80px stage with a
- * 32px line box centred in it leaves 24px each side, and every radius in
- * src/shared/glowKeyframes.ts is under that (the widest is the prism's 22px
- * bloom) — which is what keeps these previews from reaching the plate edge.
- * Raise one and check the other.
+ * THE STAGE'S CLEARANCE IS THE SHARED GLOW CONTRACT, NOT AN EYEBALLED HEIGHT.
+ * The old 80px stage left 24px around a 32px line and counted only shadow radius;
+ * animated layers also travel off-centre, so the bloom reached the plate edge
+ * and appeared to stop on a rectangle. GLOW_CLIP_RELIEF is the app-wide reach
+ * allowance, applied on all four sides here so every halo dies on the same dark
+ * surface before the card begins.
  */
 function GlowCard({
   item,
@@ -1364,6 +1671,7 @@ function GlowCard({
   affordable,
   busy,
   disabled,
+  equippedAppearance,
   onBuy,
   onEquip,
 }: {
@@ -1376,11 +1684,12 @@ function GlowCard({
   affordable: boolean;
   busy: boolean;
   disabled: boolean;
+  equippedAppearance: EquippedAppearance;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
 }) {
   return (
-    <View style={[styles.glowCard, equipped && styles.cardEquipped]}>
+    <View style={[styles.glowCard, equipped && equippedAppearance.card]}>
       {/* THE PLATE IS BACK — second ruling. The de-slop pass stripped the
           plate, the wash and the gold "Animated" chip together; the wash and
           the chip STAY dead, but a glow needs dark behind it to read, so the
@@ -1391,8 +1700,10 @@ function GlowCard({
         <View style={styles.stageNameRow}>
           <PlayerName
             name={previewName}
+            style={styles.stagePlayerName}
             textStyle={styles.stageName}
             glow={item.sku}
+            glowMotion="always"
             glowRadius={16}
           />
         </View>
@@ -1416,11 +1727,42 @@ function GlowCard({
             affordable={affordable}
             busy={busy}
             disabled={disabled}
+            equippedAppearance={equippedAppearance}
             onBuy={onBuy}
             onEquip={onEquip}
           />
         </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * One bounded photographic stage for every background card.
+ *
+ * The stock London card used React Native Image while purchased cities used
+ * expo-image. More importantly, both images owned `width: '100%'` directly
+ * inside a padded fixed-width card. At two columns that percentage could resolve
+ * against the card's outer width, spill through the padding, and paint over the
+ * next tile. The View owns geometry now; the image is absolutely contained and
+ * cannot influence or escape layout.
+ */
+function BackgroundThumb({ url = null }: { url?: string | null }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const remoteUrl = url && url !== failedUrl ? url : null;
+
+  return (
+    <View style={styles.bgThumb}>
+      <ExpoImage
+        source={remoteUrl ? { uri: remoteUrl } : STOCK_BACKGROUND}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        placeholder={remoteUrl ? STOCK_BACKGROUND : undefined}
+        placeholderContentFit="cover"
+        transition={0}
+        onError={remoteUrl ? () => setFailedUrl(remoteUrl) : undefined}
+      />
     </View>
   );
 }
@@ -1450,29 +1792,32 @@ function GlowCard({
  * signed-out player really is wearing the baseline, so the card says so instead
  * of nagging for a sign-in over something that costs nothing.
  *
- * The glow variant reuses the section's own stage verbatim (same plate, same
- * wash) with `glow={null}`, so the plain white name is drawn by the very same
+ * The glow variant reuses the section's own stage verbatim with `glow={null}`,
+ * so the plain white name is drawn by the very same
  * <PlayerName> the game draws it with. The marker variant reuses the compact
  * card and the untinted pin, which is literally what the map falls back to.
  */
 function DefaultCard({
   kind,
   previewName,
+  backgroundCardWidth,
   equipped,
   busy,
   disabled,
+  equippedAppearance,
   onEquip,
 }: {
   kind: Category;
   previewName: string;
+  backgroundCardWidth?: number;
   equipped: boolean;
   busy: boolean;
   disabled: boolean;
+  equippedAppearance: EquippedAppearance;
   onEquip: () => void;
 }) {
   const isGlow = kind === 'glow';
   const isBackground = kind === 'background';
-  const accent = useSiteAccent();
 
   // THE STOCK BACKGROUND IS A PLACE AND IT SAYS SO. It is a photograph of
   // Trafalgar Square at dusk (lib/siteBackground.js), sitting in a grid of ten
@@ -1484,23 +1829,29 @@ function DefaultCard({
   // shelf of proper nouns.
   if (isBackground) {
     return (
-      <View style={[styles.bgCard, equipped && styles.cardEquipped]}>
-        <Image source={STOCK_BACKGROUND} style={styles.bgThumb} resizeMode="cover" />
-        <View style={styles.cardBottom}>
+      <View
+        style={[
+          styles.bgCard,
+          backgroundCardWidth !== undefined && { width: backgroundCardWidth },
+          equipped && equippedAppearance.card,
+        ]}
+      >
+        <BackgroundThumb />
+        <View style={styles.bgCardBottom}>
           <View style={styles.cardTitleWrap}>
             <View style={styles.bgNameRow}>
-              <Text style={styles.cardName} numberOfLines={1}>London</Text>
+              <Text style={[styles.cardName, styles.bgNameText]} numberOfLines={1}>London</Text>
               <CountryFlag countryCode="gb" size={11} />
             </View>
             <Text style={styles.cardNote} numberOfLines={1}>{t('shopDefaultName')}</Text>
           </View>
-          <View style={styles.cardActionWrap}>
+          <View style={styles.bgActionWrap}>
             <Pressable
               onPress={onEquip}
               disabled={disabled || busy || equipped}
               style={({ pressed }) => [
                 styles.actionBtn,
-                equipped ? styles.actionBtnEquipped : styles.actionBtnOwned,
+                equipped ? equippedAppearance.action : styles.actionBtnOwned,
                 (disabled || busy) && !equipped && styles.actionBtnDisabled,
                 pressed && styles.actionBtnPressed,
               ]}
@@ -1520,19 +1871,17 @@ function DefaultCard({
   }
 
   return (
-    <View style={[isGlow ? styles.glowCard : styles.card, equipped && styles.cardEquipped]}>
+    <View style={[isGlow ? styles.glowCard : styles.card, equipped && equippedAppearance.card]}>
       {isGlow ? (
         <View style={styles.stage}>
-          <LinearGradient
-            colors={accent.modalWash}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-
           <View style={styles.stageNameRow}>
             {/* glow={null} IS the product of this card. */}
-            <PlayerName name={previewName} textStyle={styles.stageName} glow={null} />
+            <PlayerName
+              name={previewName}
+              style={styles.stagePlayerName}
+              textStyle={styles.stageName}
+              glow={null}
+            />
           </View>
         </View>
       ) : (
@@ -1563,7 +1912,7 @@ function DefaultCard({
             disabled={disabled || busy || equipped}
             style={({ pressed }) => [
               styles.actionBtn,
-              equipped ? styles.actionBtnEquipped : styles.actionBtnOwned,
+              equipped ? equippedAppearance.action : styles.actionBtnOwned,
               // Deliberately excludes `equipped`: dimming there would read as
               // "unavailable" rather than as "on".
               (disabled || busy) && !equipped && styles.actionBtnDisabled,
@@ -1599,50 +1948,39 @@ function DefaultCard({
  */
 function BackgroundCard({
   item,
+  cardWidth,
   owned,
   equipped,
   affordable,
   busy,
   disabled,
+  equippedAppearance,
   onBuy,
   onEquip,
 }: {
   item: ShelfItem;
+  cardWidth: number;
   owned: boolean;
   equipped: boolean;
   affordable: boolean;
   busy: boolean;
   disabled: boolean;
+  equippedAppearance: EquippedAppearance;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
 }) {
   const url = item.sku ? backgroundUrlForSku(item.sku) : null;
 
   return (
-    <View style={[styles.bgCard, equipped && styles.cardEquipped]}>
-      {url ? (
-        <ExpoImage
-          source={{ uri: url }}
-          style={styles.bgThumb}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          // The stock photo holds the frame while a city downloads, so a slow
-          // connection scrolls past ten filled cards rather than ten holes.
-          placeholder={STOCK_BACKGROUND}
-          placeholderContentFit="cover"
-          transition={0}
-        />
-      ) : (
-        // A sku with no catalogue path (shipped to the server before this
-        // build). It still has to be buyable, so it gets the frame it would
-        // have had rather than a collapsed card.
-        <Image source={STOCK_BACKGROUND} style={styles.bgThumb} resizeMode="cover" />
-      )}
+    <View style={[styles.bgCard, { width: cardWidth }, equipped && equippedAppearance.card]}>
+      {/* The stock photo holds this frame while a city downloads, and remains
+          the fallback for an unknown sku or failed request. */}
+      <BackgroundThumb url={url} />
 
-      <View style={styles.cardBottom}>
+      <View style={styles.bgCardBottom}>
         <View style={styles.cardTitleWrap}>
           <View style={styles.bgNameRow}>
-            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.cardName, styles.bgNameText]} numberOfLines={1}>{item.name}</Text>
             {/* THE FLAG IS AN IMAGE, NEVER AN EMOJI — flagcdn through
                 CountryFlag, the same one every username on the site draws.
                 Backgrounds are the only shelf carrying `cc`. */}
@@ -1650,7 +1988,7 @@ function BackgroundCard({
           </View>
           <BuyCount item={item} />
         </View>
-        <View style={styles.cardActionWrap}>
+        <View style={styles.bgActionWrap}>
           <CardAction
             item={item}
             owned={owned}
@@ -1658,6 +1996,7 @@ function BackgroundCard({
             affordable={affordable}
             busy={busy}
             disabled={disabled}
+            equippedAppearance={equippedAppearance}
             onBuy={onBuy}
             onEquip={onEquip}
           />
@@ -1676,6 +2015,7 @@ function ShopCard({
   affordable,
   busy,
   disabled,
+  equippedAppearance,
   onBuy,
   onEquip,
   onToggleEmote,
@@ -1689,6 +2029,7 @@ function ShopCard({
   affordable: boolean;
   busy: boolean;
   disabled: boolean;
+  equippedAppearance: EquippedAppearance;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
   onToggleEmote: () => void;
@@ -1712,7 +2053,7 @@ function ShopCard({
   const tapToToggle = item.type === 'emote' && owned;
   const base = [
     styles.card,
-    (equipped || (item.type === 'emote' && inBar)) && styles.cardEquipped,
+    (equipped || (item.type === 'emote' && inBar)) && equippedAppearance.card,
   ];
   const Card: any = tapToToggle ? Pressable : View;
   // A FUNCTION STYLE ONLY WHERE A FUNCTION STYLE IS LEGAL. Pressable calls it
@@ -1740,7 +2081,13 @@ function ShopCard({
             {/* The one emote with an effect burns on its card too, so the shelf
                 shows what the wheel and the duel will show. */}
             {item.fx === 'ember' ? <EmberGlow size={34} /> : null}
-            <Text style={[styles.cardGlyph, item.fx === 'ember' && styles.cardGlyphEmber]}>
+            <Text
+              style={[
+                styles.cardGlyph,
+                item.emoteId === 'gg' && styles.cardGlyphGg,
+                item.fx === 'ember' && styles.cardGlyphEmber,
+              ]}
+            >
               {emoteGlyph}
             </Text>
           </View>
@@ -1762,12 +2109,16 @@ function ShopCard({
               {`${Math.round(item.durationMs / 60000)} ${t('shopPassMinutes')}`}
             </Text>
           ) : null}
-          {/* SAME PLACE AS THE PASS DURATION, and the same style: both are the
-              small line under a name, so they share one look rather than
-              inventing a second muted grey a pixel apart from the first. A pass
-              is the one card that can show both — how long it lasts, then how
-              many people bought one. */}
-          <BuyCount item={item} />
+          {/* The consumable pass uses this line for the decision-changing daily
+              limit. Public buy counts add no useful context here and made the
+              actual restriction invisible until the server refused a buy. */}
+          {item.sku === ADFREE_SKU ? (
+            <Text style={[styles.cardNote, styles.passLimit]} numberOfLines={2}>
+              {t('shopPassDailyCap', { count: ADFREE_DAILY_CAP })}
+            </Text>
+          ) : (
+            <BuyCount item={item} />
+          )}
         </View>
       </View>
 
@@ -1780,6 +2131,7 @@ function ShopCard({
           affordable={affordable}
           busy={busy}
           disabled={disabled}
+          equippedAppearance={equippedAppearance}
           onBuy={onBuy}
           onEquip={onEquip}
         />
@@ -1800,10 +2152,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
+    zIndex: 10,
+  },
+  // Equal side reservations keep the title physically centred even though the
+  // wallet is wider than the close button. Their width is window-derived at the
+  // call site, so split view and rotation recompute rather than squeeze.
+  headerSide: {
+    flexShrink: 0,
+    alignItems: 'flex-start',
+  },
+  headerSideRight: {
+    alignItems: 'flex-end',
   },
   backBtn: {
     width: 40,
@@ -1816,28 +2178,68 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   headerTitle: {
-    fontFamily: 'JockeyOne',
+    flex: 1,
+    minWidth: 0,
+    fontFamily: 'Lexend-Bold',
     fontSize: fontSizes['3xl'],
     color: colors.white,
+    textAlign: 'center',
+  },
+  walletAnchor: {
+    position: 'relative',
+    alignItems: 'flex-end',
+    zIndex: 20,
   },
   wallet: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    minWidth: 40,
+    gap: spacing.xs,
+    maxWidth: '100%',
+    minHeight: 44,
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
+    paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
     // The dark fill and the gold figures ARE the pill — the 1px gold ring it
     // wore was the border-on-everything habit, gone shop-wide Aug 11.
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
+  walletPressed: {
+    opacity: 0.82,
+  },
   walletValue: {
+    flexShrink: 1,
+    minWidth: 0,
     fontFamily: 'Lexend-SemiBold',
-    fontSize: STAMP_VALUE_SIZE,
+    fontSize: SHOP_WALLET_VALUE_SIZE,
     color: '#FDE047',
     fontVariant: ['tabular-nums'],
+  },
+  walletHelp: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    borderRadius: borderRadius.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  walletHelpTitle: {
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.sm,
+    color: '#FDE047',
+  },
+  walletHelpBody: {
+    fontFamily: 'Lexend',
+    fontSize: fontSizes.xs,
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.84)',
   },
   // Jump row
   jumpBar: {
@@ -1849,8 +2251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   jumpChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    minHeight: 44,
     borderRadius: borderRadius.full,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     // Reserved, transparent: the active chip paints the accent primary into
@@ -1858,21 +2259,31 @@ const styles = StyleSheet.create({
     // active-pill recipe. At rest the fill is the whole chip.
     borderWidth: 1,
     borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  jumpChipHit: {
+    minHeight: 42,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jumpChipPressed: {
+    opacity: 0.82,
   },
   /* jumpChipPressed is GONE from here: its one property follows the equipped
      background, and a StyleSheet is frozen at module load. Inline at the chip. */
   // "You are here" is an OUTLINE, deliberately not a filled pill: a filled chip
-  // in a row of chips reads as a selected filter, and every section stays
-  // mounted here. Mirrors the web shop's treatment.
+  // in a row of chips reads as a selected filter, while this row is navigation
+  // through one continuous storefront. Mirrors the web shop's treatment.
   jumpChipText: {
     fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.xs,
+    fontSize: fontSizes.sm,
+    lineHeight: 18,
     color: colors.white,
   },
-  jumpChipTextActive: {
-    color: '#6EE7B7',
-  },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
   },
@@ -1886,13 +2297,64 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   sectionTitle: {
-    fontFamily: 'JockeyOne',
+    fontFamily: 'Lexend-Bold',
     fontSize: fontSizes['2xl'],
     color: colors.white,
   },
-  loading: {
-    paddingVertical: spacing['3xl'],
+  loadingJumpRow: {
+    minHeight: 44,
     alignItems: 'center',
+  },
+  loadingJumpChip: {
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  loadingState: {
+    flex: 1,
+    paddingTop: spacing.sm,
+  },
+  loadingSkeleton: {
+    gap: spacing.xl,
+  },
+  loadingShelf: {
+    gap: spacing.sm,
+  },
+  loadingSectionTitle: {
+    width: 112,
+    height: 26,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  loadingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  loadingCard: {
+    width: '48%',
+    minWidth: 128,
+    flexGrow: 1,
+    height: 132,
+    padding: spacing.sm,
+    gap: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: SHOP_CARD_SURFACE_COLOR,
+  },
+  loadingPreview: {
+    height: 68,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  loadingLine: {
+    width: '74%',
+    height: 10,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  loadingLineShort: {
+    width: '46%',
+    opacity: 0.72,
   },
   notice: {
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -1948,7 +2410,7 @@ const styles = StyleSheet.create({
     // 150 -> 128: three emote/pin tiles now fit across a 390px phone where two
     // used to, and the tile is still wider than its own glyph and button.
     minWidth: 128,
-    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    backgroundColor: SHOP_CARD_SURFACE_COLOR,
     borderRadius: borderRadius.lg,
     // Transparent at rest — the width is reserved so cardEquipped's green can
     // land without a layout shift, and the tone step against the screen is
@@ -1966,21 +2428,16 @@ const styles = StyleSheet.create({
     // phone now gets two, and the 24px name still has room for its halo at
     // that width.
     minWidth: 260,
-    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    backgroundColor: SHOP_CARD_SURFACE_COLOR,
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
     borderColor: 'transparent',
     padding: spacing.sm,
     gap: spacing.xs,
   },
-  // GONE WITH THE BAND: glowCardFeatured (a gold frame on a deeper plate) and
-  // the baseline's two demotion styles (defaultCardPlate / defaultCardFrame).
-  // Every tile on this screen is the same quiet dark card now, so the ONE frame
-  // colour left that means anything is the green one directly below.
-  cardEquipped: {
-    borderColor: colors.success,
-    backgroundColor: colors.primaryTransparent,
-  },
+  // Equipped card colors are resolved from useSiteAccent at the screen root and
+  // passed down as one appearance object. Keeping them in this static sheet is
+  // what left purple, blue and red backgrounds wearing stock green selection.
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2009,8 +2466,19 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  passLimit: {
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
   cardGlyph: {
     fontSize: 22,
+  },
+  // GG is the catalogue's only text glyph. Native emoji keep their own colour,
+  // but plain text otherwise inherits the platform default and turns black.
+  cardGlyphGg: {
+    fontFamily: 'Lexend-Bold',
+    color: colors.white,
   },
   // Only for the emote glyph, and only so EmberGlow has a box to centre in. 34
   // square is the glyph's own row height, so nothing moves for the emotes that
@@ -2034,7 +2502,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     transform: [{ scale: 0.98 }],
   },
-  // The pin thumbnail. The PNG canvas is 151x163 — the 87x131 art plus glow
+  // The pin thumbnail. The PNG canvas is 150x163 — the 87x131 art plus glow
   // headroom (see lib/markerIcons.js) — so the box declares the CANVAS ratio
   // and is sized to render the ART at the same ~22x33 it was shown at when the
   // art filled the file edge-to-edge. Any glow painted in the headroom shows
@@ -2043,31 +2511,31 @@ const styles = StyleSheet.create({
     width: 38,
     height: 41,
     // Canvas arithmetic, mirrored from web's .shopPrev--marker img: every pin
-    // ships on the 151x163 spec (lib/markerIcons.js) — 87x131 art, 32px glow
+    // ships on the 150x163 spec (lib/markerIcons.js) — 87x131 art, about 32px glow
     // headroom above and beside it, none below (the needle tip IS the map
     // anchor) — so centring the canvas hangs the art (32/2)/163 = 9.8% low.
     // Lift = height x 0.098 = 4.02 -> 4.
     transform: [{ translateY: -4 }],
   },
-  // A CITY, AT THE SHAPE IT WILL BE SEEN IN. Same plate as `card` — one quiet
-  // dark tile, one green frame when equipped — but wider, because two 168s plus
-  // a gutter do not fit a 390px phone, so backgrounds land one per row and the
-  // photograph gets the full width to be a photograph in.
+  // A CITY, AT THE SHAPE IT WILL BE SEEN IN. The screen computes an exact width
+  // from the current safe window: two-up on ordinary phones, up to four-up on
+  // tablets/landscape, and one-up only when two honest 160px previews cannot fit.
   bgCard: {
-    flexGrow: 1,
-    minWidth: 260,
-    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    backgroundColor: SHOP_CARD_SURFACE_COLOR,
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
     borderColor: 'transparent',
     padding: spacing.sm,
     gap: spacing.sm,
+    // The preview frame below is already bounded, and this is the final safety
+    // boundary: a native image must never paint into the neighbouring tile.
+    overflow: 'hidden',
   },
-  // 16:9-ish, which is the crop the menu itself shows on a landscape tablet and
-  // close enough to what a phone shows that the card is not advertising a
-  // different picture. `overflow: hidden` keeps the image inside the radius.
+  // One stable stage shape for every city. The source art varies from 16:9 to
+  // 4:3, so `cover` makes a restrained centre crop without stretching it.
+  // `overflow: hidden` keeps the image inside the radius.
   bgThumb: {
-    width: '100%',
+    alignSelf: 'stretch',
     aspectRatio: 16 / 9,
     borderRadius: borderRadius.md,
     backgroundColor: '#05070A',
@@ -2079,28 +2547,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    minWidth: 0,
+  },
+  bgNameText: {
+    flexShrink: 1,
+  },
+  // Compact background cards stack their caption and action. Keeping the old
+  // 104px action beside the title is what forced every city into a phone-width
+  // banner even though the photograph itself is legible at this shelf's floor.
+  bgCardBottom: {
+    alignSelf: 'stretch',
+    gap: spacing.xs,
+  },
+  bgActionWrap: {
+    alignSelf: 'stretch',
   },
   // THE PLATE IS BACK (second ruling — see GlowCard's doc). Tone and radius
   // are bgThumb's recess, so the shop keeps ONE recessed-dark treatment
-  // rather than growing a second. Still NO CLIP: clearance is the height's
-  // job — a 32px line box centred in 80 leaves 24px each side, past the
-  // widest radius in src/shared/glowKeyframes.ts (the prism's 22px bloom) —
-  // so nothing reaches the plate edge and a clip could only shear a halo.
+  // rather than growing a second. Still NO CLIP: GLOW_CLIP_RELIEF is real paint
+  // room on all four sides, so even the animated layers' radius PLUS travel dies
+  // inside the dark plate instead of crossing its rectangular colour boundary.
   stage: {
-    height: 80,
-    paddingHorizontal: 18,
+    minHeight: GLOW_STAGE_LINE_HEIGHT + (GLOW_CLIP_RELIEF * 2),
+    paddingHorizontal: GLOW_CLIP_RELIEF,
+    paddingVertical: GLOW_CLIP_RELIEF,
     backgroundColor: '#05070A',
     borderRadius: borderRadius.md,
+    overflow: 'visible',
   },
   stageNameRow: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 0,
+  },
+  // Give PlayerName an explicit row width so a long account name ellipsises
+  // inside the 34px safety area instead of pushing the halo toward a plate edge.
+  stagePlayerName: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   stageName: {
     fontFamily: 'Lexend-Bold',
     fontSize: 24,
-    lineHeight: 32,
+    lineHeight: GLOW_STAGE_LINE_HEIGHT,
     color: colors.white,
   },
   // The white "on light" check strip that used to sit at the bottom of every
@@ -2136,10 +2626,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  buyButtonMotionWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+    alignSelf: 'stretch',
+    minHeight: STAMP_MARK_SIZE_BTN + 14,
+  },
   actionBtnBuy: {
-    // The gold price and mark on a dark fill say "this one costs" on their
-    // own; the gold ring that traced them said it a second time.
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    // Green is reserved for the action that spends stamps, matching web. The
+    // brighter edge separates the control from the now-opaque card surface.
+    backgroundColor: colors.primary,
+    borderColor: colors.success,
+  },
+  actionBtnBuyUnavailable: {
+    // Affordability changes whether the action is available, never whether its
+    // price is legible. Keep the whole price row at full opacity and neutralise
+    // only the button chrome while it cannot be pressed.
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   // EQUIP IS BLUE, EQUIPPED IS LIGHT BLUE — same call as the web shop
   // (.shopCard__btn--equip / --on in styles/shop.css). Buy stays green: it is
@@ -2152,9 +2656,7 @@ const styles = StyleSheet.create({
   actionBtnOwned: {
     backgroundColor: '#1e3e9c',
   },
-  actionBtnEquipped: {
-    backgroundColor: 'rgba(112, 112, 255, 0.24)',
-  },
+  // The equipped action uses the same dynamic appearance as its card frame.
   // NOT ON THE WHEEL: the invitation. Neutral white chrome so it does not claim
   // to be the green buy button, and the ＋ is the same sign the empty cells on
   // the wheel above are drawing — that hole and this card are the two ends of

@@ -30,11 +30,14 @@ import { useSiteBackgroundStore } from '../store/siteBackgroundStore';
  * ======================================================================== */
 
 const STOCK = require('../../assets/street2.jpg');
+const BACKGROUND_TRANSITION_MS = 280;
 
 interface Props {
   /** Almost always StyleSheet.absoluteFill(Object) — this is a backdrop layer. */
   style?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
+  /** Optional screen-specific softening. Keep zero on image-led surfaces. */
+  blurRadius?: number;
   children?: ReactNode;
   /**
    * WHOSE background to paint. Omit for the viewer's own, which is what every
@@ -51,7 +54,13 @@ interface Props {
   sku?: string | null;
 }
 
-export default function SiteBackground({ style, imageStyle, children, sku: skuOverride }: Props) {
+export default function SiteBackground({
+  style,
+  imageStyle,
+  blurRadius = 0,
+  children,
+  sku: skuOverride,
+}: Props) {
   const ownSku = useSiteBackgroundStore((s) => s.sku);
   // `undefined` means "not overridden" and falls through to the store; `null`
   // means "this person has nothing" and must NOT fall through, or a public
@@ -75,10 +84,14 @@ export default function SiteBackground({ style, imageStyle, children, sku: skuOv
       placeholderContentFit="cover"
       cachePolicy="memory-disk"
       contentFit="cover"
-      // No crossfade, matching web and the fadeDuration={0} these call sites
-      // already passed: this is a backdrop that is either there or being
-      // replaced, and a fade on it reads as the screen loading twice.
-      transition={0}
+      blurRadius={blurRadius}
+      // Cross-dissolve source changes so equipping a city feels like one scene
+      // replacing another instead of a full-screen image snapping in place.
+      transition={{
+        duration: BACKGROUND_TRANSITION_MS,
+        timing: 'ease-out',
+        effect: 'cross-dissolve',
+      }}
       onError={() => { if (remote) setFailedUrl(remote); }}
       style={style ?? StyleSheet.absoluteFillObject}
       imageStyle={imageStyle}

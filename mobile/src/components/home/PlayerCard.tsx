@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, Platform } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable } from '../ui/SfxPressable';
 import PlayerName from '../PlayerName';
+import CountUpText from '../ui/CountUpText';
 import { colors, resolveLeague, t } from '../../shared';
 import { useSiteAccent } from '../../store/siteBackgroundStore';
 
@@ -28,10 +29,10 @@ import { useSiteAccent } from '../../store/siteBackgroundStore';
  *     visible start right by the glyph's side bearing, so the two lines stopped
  *     sharing a left edge even though their boxes did. A digit starts flush; an
  *     emoji does not.
- *   - THE RATING IS RIGHT-ALIGNED inside its reservation. The reservation is the
- *     FINAL rating's width and the count-up climbs into it, so right-aligning
- *     keeps the number flush against "ELO" the whole way up. Left-aligned, the
- *     gap before the unit shrank digit by digit for the length of the animation.
+ *   - THE RATING STAYS IN NORMAL FLOW. Its first digit shares the name's left
+ *     edge, including during the count-up. Giving it a fixed final-width slot
+ *     either inset the digits or forced wider intermediate values into an
+ *     ellipsis; neither is acceptable for the card's second line.
  *   - NO ROW `gap` ON LINE 2. One gap spaces a word and an emoji identically and
  *     they do not read that way — the emoji carries its own side bearings. Each
  *     element buys its own space, scaled off the font size.
@@ -44,13 +45,10 @@ import { useSiteAccent } from '../../store/siteBackgroundStore';
  *  `.timer`: translucent green, 2px --primary border, 16px radius, platform
  *  shadow. Not a gradient card, and no blur.
  *
- *  THE MEASUREMENT CLONE. home.tsx renders this twice — once in the interactive
- *  absolute overlay and once, invisibly, in the in-flow header, because that
- *  hidden copy is what reserves the header's height. `ghost` renders the exact
- *  same tree with the text blanked, so the guest state reserves the SIGNED-IN
- *  height and the menu below cannot jump the moment auth resolves. Blank text is
- *  height-exact by construction: both line boxes are a fixed lineHeight, and the
- *  flag is always shorter than the line it sits on.
+ *  THE MEASUREMENT CLONE. home.tsx renders a static, invisible copy in-flow so
+ *  the header reserves the signed-in card's exact size. That copy shows settled
+ *  text without mounting the counter or cosmetic glow. Before auth resolves,
+ *  `ghost` keeps the same fixed line heights with blank text.
  * ======================================================================== */
 
 export interface PlayerCardMetrics {
@@ -76,6 +74,8 @@ export interface PlayerCardMetrics {
 export const CORNER_GAP = 8;
 /** Vertical space between the card's two lines. */
 const LINE_GAP = 2;
+const CARD_RADIUS = 16;
+const CARD_BORDER_WIDTH = 2;
 
 /* THE STAMPS TILE IS SIZED AGAINST THIS CARD, not against the shop.
  *
@@ -197,11 +197,15 @@ interface PlayerCardProps {
   /** Resolved by the caller so both copies agree. */
   elo: number | null;
   league: ReturnType<typeof resolveLeague> | null;
-  /** The counting rating. Digits only. */
-  animatedElo: number;
+  /** Starts the counter once the home entrance has made the card visible. */
+  animateElo?: boolean;
+  /** Rating-line press. Kept separate from the card-wide Profile target. */
+  onEloPress?: () => void;
   onPress?: () => void;
   /** Blank clone used by the header's height reservation. */
   ghost?: boolean;
+  /** Static, non-interactive clone that measures the signed-in card's width. */
+  measurement?: boolean;
 }
 
 export default function PlayerCard({
@@ -211,10 +215,13 @@ export default function PlayerCard({
   nameGlow,
   elo,
   league,
-  animatedElo,
+  animateElo = true,
+  onEloPress,
   onPress,
   ghost = false,
+  measurement = false,
 }: PlayerCardProps) {
+  const inactive = ghost || measurement;
   const nameText = {
     fontSize: metrics.nameFontSize,
     lineHeight: metrics.nameLineHeight,
@@ -223,6 +230,7 @@ export default function PlayerCard({
     fontSize: metrics.textFontSize,
     lineHeight: metrics.textLineHeight,
   };
+  const eloHitSlop = Math.round(metrics.textFontSize * 0.5);
   // THE DIGITS CARRY THE TIER'S COLOUR, the badge beside them repeats it as a
   // glyph — one fact said two ways on purpose. The colour is what reads at a
   // glance; the emoji is what stays legible to anyone who cannot separate
@@ -240,66 +248,83 @@ export default function PlayerCard({
   // this skin back into a common style; it would drag the accent into the
   // middle of a round.
   const accent = useSiteAccent();
+  const accessibilityLabel = ghost
+    ? undefined
+    : [
+        t('profile'),
+        username,
+        elo === null ? null : `${Math.round(elo)} ${t('elo')}`,
+      ].filter(Boolean).join(', ');
 
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
         {
           paddingHorizontal: metrics.paddingHorizontal,
           paddingVertical: metrics.paddingVertical,
           gap: metrics.caretGap,
           borderColor: accent.primary,
-          backgroundColor: pressed && !ghost
-            ? accent.primary
-            : Platform.OS === 'android' ? accent.androidFlat : accent.primaryTransparent,
+          backgroundColor: Platform.OS === 'android'
+            ? accent.androidFlat
+            : accent.primaryTransparent,
         },
       ]}
-      onPress={ghost ? undefined : onPress}
-      disabled={ghost}
-      accessibilityRole="button"
-      accessibilityLabel={t('profile')}
     >
-      <View style={styles.body}>
-        {ghost ? (
-          <Text style={[styles.name, nameText]}> </Text>
-        ) : (
-          <PlayerName
-            name={username}
-            countryCode={countryCode}
-            flagSize={metrics.flagSize}
-            gap={Math.round(metrics.nameFontSize * 0.34)}
-            textStyle={[styles.name, nameText]}
-            glow={nameGlow}
-          />
-        )}
+      {!inactive && onPress ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.cardHit,
+            pressed && { backgroundColor: accent.primary },
+          ]}
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+        />
+      ) : null}
 
-        <View style={styles.stat}>
-          {/* THE WIDTH IS A HIDDEN COPY OF THE SETTLED RATING, not digits x an
-              assumed digit width. That estimate was the same guess web made
-              with `ch`: it takes no account of letter-spacing, of the bold
-              weight, or of the placeholder that renders before the rating
-              arrives, so the reserved box and the real text were never the same
-              width and line 2 sat at a different width from line 1.
+      <View style={styles.body} pointerEvents="box-none">
+        <View pointerEvents="none">
+          {ghost ? (
+            <Text style={[styles.name, nameText]}> </Text>
+          ) : (
+            <PlayerName
+              name={username}
+              countryCode={countryCode}
+              flagSize={metrics.flagSize}
+              gap={Math.round(metrics.nameFontSize * 0.34)}
+              textStyle={[styles.name, nameText]}
+              glow={measurement ? null : nameGlow}
+            />
+          )}
+        </View>
 
-              The sizer holds the box at the settled value's REAL measured width
-              for the whole count-up; the live value is laid over it, right
-              aligned, so it climbs into that box and stays flush against "ELO".
-              At rest the two are the same string, so line 2's left edge lands on
-              line 1's exactly. */}
-          <View>
-            <Text
-              style={[styles.elo, statText, styles.eloSizer]}
-              numberOfLines={1}
+        <Pressable
+          style={({ pressed }) => [styles.stat, pressed && styles.statPressed]}
+          onPress={inactive ? undefined : onEloPress}
+          disabled={inactive || elo === null || !onEloPress}
+          pointerEvents={inactive || elo === null || !onEloPress ? 'none' : 'auto'}
+          hitSlop={eloHitSlop}
+          accessible={!inactive && elo !== null && !!onEloPress}
+          accessibilityRole={!inactive && elo !== null && onEloPress ? 'button' : undefined}
+          accessibilityLabel={!inactive && elo !== null && onEloPress
+            ? `${Math.round(elo)} ${t('elo')}`
+            : undefined}
+        >
+          {ghost || elo === null ? (
+            <Text style={[styles.elo, statText, eloTint]}>{' '}</Text>
+          ) : measurement ? (
+            <Text style={[styles.elo, statText, eloTint]}>{Math.round(elo)}</Text>
+          ) : (
+            <CountUpText
+              target={elo}
+              active={animateElo}
+              style={[styles.elo, statText, eloTint]}
+              accessible={false}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-            >
-              {ghost || elo === null ? ' ' : Math.round(elo)}
-            </Text>
-            <Text style={[styles.elo, statText, eloTint, styles.eloLive]} numberOfLines={1}>
-              {ghost || elo === null ? ' ' : animatedElo}
-            </Text>
-          </View>
+            />
+          )}
           {!ghost && elo !== null && (
             <Text
               style={[styles.eloUnit, statText, { marginLeft: metrics.textFontSize * 0.34 }]}
@@ -318,15 +343,16 @@ export default function PlayerCard({
               {league.emoji}
             </Text>
           )}
-        </View>
+        </Pressable>
       </View>
 
       <Ionicons
         name="chevron-down"
         size={metrics.caretSize}
         color="rgba(255,255,255,0.6)"
+        pointerEvents="none"
       />
-    </Pressable>
+    </View>
   );
 }
 
@@ -338,10 +364,11 @@ const styles = StyleSheet.create({
   // the caret on the card's optical centre instead of on line 1's.
   // Border and fill come from useSiteAccent at the call site above.
   card: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 2,
+    borderRadius: CARD_RADIUS,
+    borderWidth: CARD_BORDER_WIDTH,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -352,9 +379,22 @@ const styles = StyleSheet.create({
       android: { elevation: 8 },
     }),
   },
-  // The two lines share a left edge, and that edge is the card's only vertical
-  // alignment — which is why the rating is right-aligned inside its reservation.
+  // Sibling of the ELO control, matching web's two-target card without nested
+  // buttons. It fills the card inside the visible border and stays underneath
+  // the content, so every non-rating press opens Profile.
+  cardHit: {
+    position: 'absolute',
+    top: CARD_BORDER_WIDTH,
+    right: CARD_BORDER_WIDTH,
+    bottom: CARD_BORDER_WIDTH,
+    left: CARD_BORDER_WIDTH,
+    borderRadius: CARD_RADIUS - CARD_BORDER_WIDTH,
+  },
+  // The two lines share a left edge. The rating remains a normal-flow child of
+  // the row so its first digit starts on that edge at every counter frame.
   body: {
+    position: 'relative',
+    zIndex: 1,
     flexShrink: 1,
     alignItems: 'flex-start',
     gap: LINE_GAP,
@@ -365,6 +405,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
   },
+  statPressed: {
+    opacity: 0.72,
+  },
   name: {
     color: colors.white,
     fontFamily: 'Lexend-SemiBold',
@@ -373,21 +416,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: 'Lexend-Bold',
     fontVariant: ['tabular-nums'],
-    textAlign: 'right',
-  },
-  // Occupies space, paints nothing. opacity rather than visibility (RN has no
-  // visibility) plus the accessibility hide, so the duplicate number is never
-  // announced.
-  eloSizer: {
-    opacity: 0,
-  },
-  // RIGHT-aligned over the sizer, so the count-up climbs into the reservation
-  // and stays flush against "ELO" the whole way up.
-  eloLive: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    textAlign: 'left',
   },
   // Same size as the number, one step down in weight and dimmed. That is the
   // only hierarchy on this line and it is enough.

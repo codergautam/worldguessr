@@ -1,6 +1,10 @@
 import Game from '../../models/Game.js';
 import User from '../../models/User.js';
-import { cosmeticsForGames, cosmeticsReader } from '../../serverUtils/userCosmetics.js';
+import {
+  cosmeticsForGames,
+  cosmeticsForSavedPlayer,
+  cosmeticsReader,
+} from '../../serverUtils/userCosmetics.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -127,11 +131,9 @@ export default async function handler(req, res) {
         // Team assignment for team modes ('a' | 'b'); null on solo modes.
         team: player.team ?? null,
         elo: player.elo,
-        // Equipped cosmetics, joined live (serverUtils/userCosmetics.js). The
-        // mod dashboard PRE-FETCHES this payload and hands it straight to
-        // HistoricalGameView, which never re-fetches — so a field missing here
-        // is missing for the whole moderation view, with no error anywhere.
-        ...cosmeticsOf(player.accountId)
+        // Match-time cosmetics from the saved roster, with a current-account
+        // fallback for legacy game documents that predate the snapshot.
+        ...cosmeticsForSavedPlayer(player, cosmeticsOf(player.accountId))
       })),
 
       // Game result
@@ -159,4 +161,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

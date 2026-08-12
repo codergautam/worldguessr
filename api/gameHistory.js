@@ -4,8 +4,9 @@ import User from '../models/User.js';
 // api/mod/gameDetails.js. It used to live here privately, which is precisely
 // why the two DETAIL endpoints never got it: this list glowed, opening a row
 // from it did not, and nothing anywhere said the two were the same fact. The
-// whole rationale (live vs frozen, the ObjectId.isValid filter, fail-open)
-// lives in serverUtils/userCosmetics.js.
+// whole rationale (current identity here, frozen match cosmetics in details,
+// ObjectId.isValid filtering, and fail-open behaviour) lives in
+// serverUtils/userCosmetics.js.
 import { cosmeticsForGames, cosmeticsReader } from '../serverUtils/userCosmetics.js';
 
 export default async function handler(req, res) {

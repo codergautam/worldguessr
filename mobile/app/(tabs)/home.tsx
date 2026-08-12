@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,17 +18,25 @@ import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, getLeague, resolveLeague, t, formatCompact } from '../../src/shared';
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { colors, resolveLeague, t, formatCompact } from '../../src/shared';
 import StampsTile from '../../src/components/home/StampsTile';
 import PlayerCard, {
+  homeCornerHeight,
+  playerCardHeight,
   playerCardMetrics,
   CORNER_GAP,
   type PlayerCardMetrics,
 } from '../../src/components/home/PlayerCard';
-import PlayerSheet from '../../src/components/home/PlayerSheet';
 import { useAuthStore } from '../../src/store/authStore';
 import { useSiteAccent } from '../../src/store/siteBackgroundStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
@@ -37,7 +45,6 @@ import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
-import useCountUp from '../../src/hooks/useCountUp';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
 import Season1NoticeModal from '../../src/components/Season1NoticeModal';
 import PlayerName from '../../src/components/PlayerName';
@@ -47,7 +54,7 @@ import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesser
 import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailyStatus';
 import DailyStreakBadge from '../../src/components/daily/DailyStreakBadge';
 import { useDailyMenuStatus } from '../../src/components/daily/useDailyMenuStatus';
-import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
+import { runGameInterstitial } from '../../src/services/ads';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import { TEAM_SUPPORT } from '../../src/services/websocketConfig';
 
@@ -78,14 +85,41 @@ interface MenuButtonProps {
 // Web slides each nav child from translateX(-100%); the mobile column
 // (title ≈230px, menu maxWidth 300) starts fully offscreen-left the same way.
 const NAV_SLIDE_FROM = -300;
+const HOME_TITLE_MIN_FONT_SIZE = 32;
+const HOME_TITLE_MAX_FONT_SIZE = 40;
+const HOME_TITLE_SHORTEST_SIDE_RATIO = 0.1;
+const HOME_TITLE_TO_DIVIDER_GAP = spacing.md;
+const DIVIDER_VERTICAL_MARGIN = spacing.sm;
+const AUTH_LAYOUT_TRANSITION_MS = 320;
+const FORUM_URL = 'https://worldguessr.forum';
+const FORUM_BRIDGE_URL = 'https://www.worldguessr.com/forum-bridge?code=';
 
-function useNavEntrance() {
-  const slide = useRef(new Animated.Value(NAV_SLIDE_FROM)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+function homeTitleMetrics(shortestSide: number) {
+  const fontSize = Math.round(
+    Math.min(
+      HOME_TITLE_MAX_FONT_SIZE,
+      Math.max(HOME_TITLE_MIN_FONT_SIZE, shortestSide * HOME_TITLE_SHORTEST_SIDE_RATIO),
+    ),
+  );
+  return { fontSize, lineHeight: fontSize + spacing.sm };
+}
+
+function useNavEntrance(reduceMotion: boolean) {
+  const slide = useRef(new Animated.Value(reduceMotion ? 0 : NAV_SLIDE_FROM)).current;
+  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const [complete, setComplete] = useState(reduceMotion);
 
   useEffect(() => {
+    if (reduceMotion) {
+      slide.setValue(0);
+      opacity.setValue(1);
+      setComplete(true);
+      return undefined;
+    }
+
+    setComplete(false);
     // 300ms ease-in-out on both channels = web's `nav_slide_in 0.3s ease-in-out`.
-    Animated.parallel([
+    const entrance = Animated.parallel([
       Animated.timing(slide, {
         toValue: 0,
         duration: 300,
@@ -98,10 +132,17 @@ function useNavEntrance() {
         easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }),
-    ]).start();
-  }, [slide, opacity]);
+    ]);
+    entrance.start(({ finished }) => {
+      if (finished) setComplete(true);
+    });
+    return () => entrance.stop();
+  }, [reduceMotion, slide, opacity]);
 
-  return { transform: [{ translateX: slide }], opacity };
+  return {
+    style: { transform: [{ translateX: slide }], opacity },
+    complete,
+  };
 }
 
 function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
@@ -142,9 +183,9 @@ function MenuDivider() {
         itself rather than a hand-matched spacer, so the two cannot drift.
      2. NOTHING WAITS ON A SECOND ROUND TRIP — `stamps`, `stampsEnabled` and
         `elo` all arrive in the auth response.
-     3. THE NUMBERS GROW LEFTWARD. The card is right-anchored and its numbers
-        column is right-aligned, so a balance gaining a digit extends into empty
-        space rather than shoving anything. */
+     3. THE CORNER GROWS LEFTWARD. The card is right-anchored, so changing
+        account values extend into open space. Inside the card, ELO stays in
+        normal flow so its first digit shares the username's left edge. */
 
 /**
  * The top-right corner: the player card (or the login button) with the
@@ -160,8 +201,12 @@ function MenuDivider() {
  * so it is neither a menu row nor a row inside the card. It is simply the next
  * item in the corner, which is exactly where the web build puts it.
  */
+type HeaderCornerPart = 'all' | 'account' | 'wallet';
+type HeaderCornerVariant = 'card' | 'login' | 'measure' | 'ghost';
+
 function HeaderCorner({
   variant,
+  part = 'all',
   cardMetrics,
   loginMetrics,
   username,
@@ -169,18 +214,20 @@ function HeaderCorner({
   nameGlow,
   elo,
   league,
-  animatedElo,
+  animateCounters,
   showStamps,
   stamps,
-  animatedStamps,
   authLoading,
   onCardPress,
+  onEloPress,
   onLogin,
   onStampsPress,
 }: {
-  /** card = signed in · login = signed out · ghost = blank height reservation ·
-   *  none = awaiting username, the forced modal is covering the screen */
-  variant: 'card' | 'login' | 'ghost' | 'none';
+  /** card = signed in; measure/ghost = static layout clones. */
+  variant: HeaderCornerVariant;
+  /** Compact portrait measures the two rows separately so the title can share
+   *  the wallet row without ever entering the profile card's row. */
+  part?: HeaderCornerPart;
   cardMetrics: PlayerCardMetrics;
   loginMetrics: { paddingHorizontal: number; paddingVertical: number; fontSize: number; lineHeight: number; gap: number };
   username: string;
@@ -188,22 +235,23 @@ function HeaderCorner({
   nameGlow?: string | null;
   elo: number | null;
   league: ReturnType<typeof resolveLeague> | null;
-  animatedElo: number;
+  animateCounters: boolean;
   showStamps: boolean;
   stamps: number;
-  animatedStamps: number;
   authLoading: boolean;
   onCardPress?: () => void;
+  onEloPress?: () => void;
   onLogin?: () => void;
   onStampsPress?: () => void;
 }) {
   const ghost = variant === 'ghost';
+  const measurement = variant === 'measure';
   // The equipped background's palette, or WorldGuessr green. See useSiteAccent
   // for why this corner and the menu are the only things that follow it.
   const accent = useSiteAccent();
   return (
     <View style={styles.headerRight}>
-      {variant === 'login' ? (
+      {part !== 'wallet' && (variant === 'login' ? (
         <Pressable
           style={({ pressed }) => [
             styles.accountBtn,
@@ -235,7 +283,7 @@ function HeaderCorner({
             )}
           </View>
         </Pressable>
-      ) : variant === 'none' ? null : (
+      ) : (
         <PlayerCard
           metrics={cardMetrics}
           username={username}
@@ -243,39 +291,50 @@ function HeaderCorner({
           nameGlow={nameGlow}
           elo={elo}
           league={league}
-          animatedElo={animatedElo}
+          animateElo={animateCounters}
           onPress={onCardPress}
+          onEloPress={onEloPress}
           ghost={ghost}
+          measurement={measurement}
         />
-      )}
+      ))}
 
       {/* ONE chip under the card now: what you can spend. Community Maps used
           to sit beside it and is a footer icon button instead — it was never
           account chrome, and pairing it with the balance meant its label had to
           track a type size chosen for a currency figure.
 
-          THE GHOST RENDERS THE STAMPS TILE TOO. The clone's whole job is to
-          reserve one header height for every auth state — if the tile only
-          appeared once the flag arrived, signing in would grow the header and
-          shove the menu down, which is exactly the jump the clone exists to
-          prevent. */}
-      <View style={styles.cornerChips}>
-        <StampsTile
-          visible={showStamps || ghost}
-          stamps={stamps}
-          animatedStamps={animatedStamps}
-          height={cardMetrics.chipHeight}
-          markSize={cardMetrics.chipMarkSize}
-          valueSize={cardMetrics.chipValueSize}
-          onPress={onStampsPress}
-          ghost={ghost}
-        />
-      </View>
+          MEASUREMENT COPIES RENDER THE TILE TOO. Compact portrait measures the
+          signed-in account and wallet rows separately; its guest state instead
+          measures the smaller Login control beside the title. */}
+      {part !== 'account' && (
+        <View style={styles.cornerChips}>
+          <StampsTile
+            visible={showStamps || ghost}
+            stamps={stamps}
+            animate={animateCounters}
+            height={cardMetrics.chipHeight}
+            markSize={cardMetrics.chipMarkSize}
+            valueSize={cardMetrics.chipValueSize}
+            onPress={onStampsPress}
+            ghost={ghost}
+            measurement={measurement}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
-function OutlinedTitle({ children }: { children: string }) {
+function OutlinedTitle({
+  children,
+  fontSize,
+  lineHeight,
+}: {
+  children: string;
+  fontSize: number;
+  lineHeight: number;
+}) {
   const offsets = [
     { x: -1, y: -1 },
     { x: 1, y: -1 },
@@ -287,13 +346,26 @@ function OutlinedTitle({ children }: { children: string }) {
     { x: 1, y: 0 },
   ];
 
+  // Every paint layer gets the same measured width and fitting rules. Compact
+  // phones give this mark a full row; wider layouts still share the header with
+  // account chrome, where fitting is the final collision guard.
+  const textProps = {
+    numberOfLines: 1,
+    adjustsFontSizeToFit: true,
+    minimumFontScale: 0.58,
+    maxFontSizeMultiplier: 1,
+  } as const;
+  const responsiveType = { fontSize, lineHeight };
+
   return (
-    <View>
+    <View style={styles.titleStack}>
       {offsets.map((offset, i) => (
         <Text
           key={i}
+          {...textProps}
           style={[
             styles.title,
+            responsiveType,
             styles.titleStroke,
             { left: offset.x, top: offset.y },
           ]}
@@ -301,8 +373,8 @@ function OutlinedTitle({ children }: { children: string }) {
           {children}
         </Text>
       ))}
-      <Text style={[styles.title, styles.titleShadow]}>{children}</Text>
-      <Text style={styles.title}>{children}</Text>
+      <Text {...textProps} style={[styles.title, responsiveType, styles.titleShadow]}>{children}</Text>
+      <Text {...textProps} style={[styles.title, responsiveType]}>{children}</Text>
     </View>
   );
 }
@@ -380,6 +452,9 @@ let modPopupDismissedNameChange = false;
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const singleplayerDefaultModeRef = useRef<Promise<string | null> | null>(null);
+  const singleplayerOpeningRef = useRef(false);
   const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
   const updateUser = useAuthStore((s) => s.updateUser);
   // The equipped background's palette, or WorldGuessr green when nothing is
@@ -390,10 +465,19 @@ export default function HomeScreen() {
   // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
   const dailyStatus = useDailyMenuStatus(secret ?? null);
 
-  // ELO data fetching & animation (matches web home.js:298-367)
-  const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
+  // Warm the only async preference needed by the Singleplayer button while the
+  // menu is already on-screen. Refresh on every return from a game because the
+  // map selector can change this value without remounting the persistent Home
+  // tab. The press path can then hand off immediately instead of releasing the
+  // button, repainting the menu, and only later starting navigation.
+  useFocusEffect(useCallback(() => {
+    singleplayerOpeningRef.current = false;
+    singleplayerDefaultModeRef.current = AsyncStorage
+      .getItem(SINGLEPLAYER_DEFAULT_MODE_KEY)
+      .catch(() => null);
+  }, []));
+
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
-  const [playerSheetOpen, setPlayerSheetOpen] = useState(false);
   // When a guest taps an account-gated mode (Ranked / 2v2), the sheet opens
   // with that mode's pitch instead of the generic sign-in copy.
   const [loginUpsell, setLoginUpsell] = useState<'2v2' | 'ranked' | null>(null);
@@ -409,25 +493,34 @@ export default function HomeScreen() {
   const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
   const [modPopupReady, setModPopupReady] = useState(false);
   const modPopupAnim = useRef(new Animated.Value(0)).current;
+  const [openingCommunity, setOpeningCommunity] = useState(false);
+  const openingCommunityRef = useRef(false);
 
   // Opening wave: header, menu and footer all share this one entrance (web:
   // one keyframe on all `.g2_nav_ui` children). The header actions overlay
   // reuses only its opacity — a top-right element sliding in from the LEFT
   // would read wrong, and web's account corner doesn't slide either.
-  const navEntrance = useNavEntrance();
+  const { style: navEntrance, complete: navEntranceComplete } = useNavEntrance(reduceMotion);
 
   // The backdrop settles from a gentle zoom while the native splash dissolves
   // over it, so app-open reads as one continuous reveal instead of a hard cut.
   // Runs once per mount = once per app open (home stays mounted thereafter).
-  const bgScale = useRef(new Animated.Value(1.05)).current;
+  const bgScale = useRef(new Animated.Value(reduceMotion ? 1 : 1.05)).current;
   useEffect(() => {
-    Animated.timing(bgScale, {
+    if (reduceMotion) {
+      bgScale.setValue(1);
+      return undefined;
+    }
+
+    const settle = Animated.timing(bgScale, {
       toValue: 1,
       duration: 1400,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start();
-  }, [bgScale]);
+    });
+    settle.start();
+    return () => settle.stop();
+  }, [bgScale, reduceMotion]);
 
   // Warm the Daily Challenge cache once the session resolves, so opening
   // /daily has no layout shift (mirrors web's home-rendered DailyMenuItem).
@@ -437,60 +530,6 @@ export default function HomeScreen() {
     if (authLoading) return;
     prefetchDailyStatus(secret);
   }, [authLoading, secret]);
-
-  // Fetch fresh ELO data when authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !user?.username) return;
-
-    // Use session data as initial fallback
-    if (user.elo && !eloData) {
-      setEloData({
-        elo: user.elo,
-        rank: 0,
-        // Server-computed league beats the local cutoff table (a seasonal
-        // re-anchor then needs no store release). authStore carries whatever
-        // the auth response / ws `elo` message last said; resolveLeague falls
-        // back to the local bucket when that is absent.
-        league: resolveLeague(user.elo, user.league),
-      });
-    }
-
-    // Fetch fresh data
-    api.eloRank(user.username)
-      .then((data) => {
-        if (data && data.elo !== undefined) {
-          setEloData({
-            elo: data.elo,
-            rank: data.rank,
-            // api/eloRank.js returns the WHOLE league object — prefer it.
-            league: resolveLeague(data.elo, data.league),
-          });
-        }
-      })
-      .catch(() => {});
-  }, [isAuthenticated, user?.username]);
-
-  // Instant ELO update after a ranked match (web home.js:1835 `type:"elo"` handler).
-  // The multiplayerStore `elo` handler writes the new rating into authStore on
-  // duel end; re-derive eloData from user.elo here so the pill (and its animated
-  // counter) updates immediately without a refetch or app reopen.
-  useEffect(() => {
-    if (!isAuthenticated || user?.elo === undefined) return;
-    setEloData((prev) =>
-      prev && prev.elo === user.elo
-        ? prev
-        : { elo: user.elo, rank: prev?.rank ?? 0, league: resolveLeague(user.elo, user.league) },
-    );
-  }, [isAuthenticated, user?.elo]);
-
-  // Reset ELO state on logout. The counters rewind themselves once their
-  // targets go away (useCountUp), so there is nothing to reset here but the
-  // data.
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setEloData(null);
-    }
-  }, [isAuthenticated]);
 
   // Delay moderation popup to avoid flashbang on load
   const showModPopup = !!(
@@ -546,6 +585,34 @@ export default function HomeScreen() {
     );
   }, [secret, restoringAccount, updateUser]);
 
+  const handleOpenCommunity = useCallback(async () => {
+    if (openingCommunityRef.current) return;
+    openingCommunityRef.current = true;
+    setOpeningCommunity(true);
+
+    let destination = FORUM_URL;
+    if (secret) {
+      try {
+        const { code } = await api.createForumBridge(secret);
+        if (code) destination = `${FORUM_BRIDGE_URL}${encodeURIComponent(code)}`;
+      } catch {
+        // A bridge outage must not make the community unreachable. Opening the
+        // public forum still lets the existing universal-link login flow work.
+      }
+    }
+
+    try {
+      // Use the OS URL handler so this leaves the app for Chrome, Safari, or
+      // the player's chosen default browser instead of an in-app browser sheet.
+      await Linking.openURL(destination);
+    } catch {
+      // External-link failures are non-fatal and match the other home links.
+    } finally {
+      openingCommunityRef.current = false;
+      setOpeningCommunity(false);
+    }
+  }, [secret]);
+
   // First-launch routing happens in app/index.tsx — it waits for the
   // onboarding flag to load and redirects to /onboarding/play directly,
   // so this screen never has to redirect itself.
@@ -561,7 +628,6 @@ export default function HomeScreen() {
   // pending request has to announce itself from outside the sheet or it is
   // invisible until you go looking. Already global here — web needed the ws
   // message lifted into its provider to get the same integer.
-  const friendRequestCount = useMultiplayerStore((s) => s.receivedRequests.length);
   const connected = useMultiplayerStore((s) => s.connected);
   const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
   const nextGameType = useMultiplayerStore((s) => s.nextGameType);
@@ -690,6 +756,13 @@ export default function HomeScreen() {
   };
 
   const handleModePress = async (mode: GameMode) => {
+    // AsyncStorage and an eligible native interstitial both sit in the
+    // Singleplayer handoff. Lock before either can yield so a rapid second tap
+    // cannot stack two identical game routes and flash Home between them.
+    if (mode === 'singleplayer') {
+      if (singleplayerOpeningRef.current) return;
+      singleplayerOpeningRef.current = true;
+    }
     // ui_click rides MenuButton's SfxPressable (sfx="ui").
     haptics.light(); // tap on any main menu mode button
     // Account-gated modes mirror web's button order: guest upsell BEFORE the
@@ -713,19 +786,31 @@ export default function HomeScreen() {
     }
 
     switch (mode) {
-      case 'singleplayer':
-        maybeShowGameInterstitial('singleplayer');
-        const defaultMode = await AsyncStorage.getItem(SINGLEPLAYER_DEFAULT_MODE_KEY).catch(() => null);
-        router.push({
-          pathname: '/game/[id]',
-          params: {
-            id: 'singleplayer',
-            map: 'all',
-            rounds: defaultMode === 'countryGuesser' || defaultMode === 'continentGuesser' ? '10' : '5',
-            mode: defaultMode || 'world',
-          },
-        });
+      case 'singleplayer': {
+        try {
+          const modePromise = singleplayerDefaultModeRef.current
+            ?? AsyncStorage.getItem(SINGLEPLAYER_DEFAULT_MODE_KEY).catch(() => null);
+          const [defaultMode] = await Promise.all([
+            modePromise,
+            // Never navigate underneath a full-screen native ad. Waiting for
+            // CLOSED gives React Navigation one clean, visible transition.
+            runGameInterstitial('singleplayer'),
+          ]);
+          router.push({
+            pathname: '/game/[id]',
+            params: {
+              id: 'singleplayer',
+              map: 'all',
+              rounds: defaultMode === 'countryGuesser' || defaultMode === 'continentGuesser' ? '10' : '5',
+              mode: defaultMode || 'world',
+            },
+          });
+        } catch (error) {
+          singleplayerOpeningRef.current = false;
+          console.warn('[home] Failed to open Singleplayer', error);
+        }
         break;
+      }
       case 'rankedDuel':
         // Wait for the interstitial to be dismissed before joining the queue —
         // otherwise the server can match us and start the round behind the ad.
@@ -766,6 +851,36 @@ export default function HomeScreen() {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const shortestSide = Math.min(width, height);
+  const { fontSize: homeTitleFontSize, lineHeight: homeTitleLineHeight } =
+    homeTitleMetrics(shortestSide);
+  // This is a horizontal collision breakpoint, so key it to width rather than
+  // shortestSide: a landscape phone has ample room and should keep the higher
+  // wordmark composition just like a tablet.
+  const isCompact = width < 430;
+  // Use the shared spacing scale for the optical offset at every wide size.
+  // The menu lift below consumes this same value, so title and menu move as one
+  // section instead of being tuned independently for specific devices.
+  const titleVerticalOffset = isCompact
+    ? 0
+    : isLandscape
+      ? spacing.lg
+      : spacing['3xl'];
+  // On wider screens the menu can safely occupy the left side beside the lower
+  // account-corner row. Lift it by the height that the invisible corner clone
+  // would otherwise add, leaving one stable gap beneath the high wordmark at
+  // every PlayerCard size tier.
+  const wideMenuLift = isCompact
+    ? 0
+    : Math.max(
+        0,
+        homeCornerHeight(shortestSide) +
+          spacing.lg +
+          spacing.md +
+          DIVIDER_VERTICAL_MARGIN -
+          homeTitleLineHeight -
+          titleVerticalOffset -
+          HOME_TITLE_TO_DIVIDER_GAP,
+      );
 
   // The online badge (bottom-right, fixed) sits on the same line as the footer
   // icon row (bottom-left, scrolls). On narrow screens they can collide
@@ -797,18 +912,47 @@ export default function HomeScreen() {
   // is covering the screen, so don't render the misleading "Login" button behind it.
   const awaitingUsername = isAuthenticated && !user?.username;
 
-  // Pill data for the league badge, derived the instant we know the user is
-  // logged in (every account has an ELO) instead of waiting for the async
-  // `eloData` fetch. The in-flow header placeholder renders the pill from this
-  // so it reserves the pill's height immediately — otherwise the header grows a
-  // frame after login (when `eloData` resolves) and shoves the whole menu, with
-  // its freshly revealed dividers, downward. `eloData` still supplies the
-  // authoritative rank + animated counter once the request returns.
+  // One UI-thread value owns both compact header geometry and corner opacity.
+  // Because withTiming is interruptible, rapid auth changes continue smoothly
+  // from the current frame instead of restarting from either endpoint.
+  const authProgress = useSharedValue(loggedIn ? 1 : 0);
+  const restoringInitialAuthRef = useRef(authLoading);
+  const compactProfileReservationHeight = playerCardHeight(cardMetrics) + CORNER_GAP;
+  useLayoutEffect(() => {
+    const target = loggedIn ? 1 : 0;
+    // Session restoration is launch state, not a user-triggered login. Resolve
+    // its geometry synchronously before paint so an already-authenticated home
+    // only performs the shared left entrance animation.
+    if (reduceMotion || restoringInitialAuthRef.current) {
+      authProgress.value = target;
+      if (!authLoading) restoringInitialAuthRef.current = false;
+      return;
+    }
+
+    authProgress.value = withTiming(target, {
+      duration: AUTH_LAYOUT_TRANSITION_MS,
+      easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
+    });
+  }, [authLoading, authProgress, loggedIn, reduceMotion]);
+  const compactAccountSpacerStyle = useAnimatedStyle(() => ({
+    height: authProgress.value * compactProfileReservationHeight,
+  }), [compactProfileReservationHeight]);
+  const guestCornerTransitionStyle = useAnimatedStyle(() => ({
+    opacity: 1 - authProgress.value,
+  }));
+  const profileCornerTransitionStyle = useAnimatedStyle(() => ({
+    opacity: authProgress.value,
+  }));
+
+  // The auth store is the single ELO authority on home: session restore seeds
+  // it and ranked websocket updates keep it current. Zero is valid, so this is
+  // deliberately a finite-number check rather than a truthiness check.
+  const settledElo =
+    typeof user?.elo === 'number' && Number.isFinite(user.elo) ? user.elo : null;
   const eloForLayout =
-    eloData ??
-    (loggedIn && user?.elo
-      ? { elo: user.elo, rank: 0, league: resolveLeague(user.elo, user.league) }
-      : null);
+    loggedIn && settledElo !== null
+      ? { elo: settledElo, league: resolveLeague(settledElo, user?.league) }
+      : null;
 
   // Stamps button, sibling of the league pill. FAILS CLOSED: `stampsEnabled` is
   // the server's kill switch and authStore coerces a missing field to false, so
@@ -818,12 +962,91 @@ export default function HomeScreen() {
   const showStampsBtn = loggedIn && user?.stampsEnabled === true;
   const stampsBalance = user?.stamps ?? 0;
 
-  // Both pills count up from 0 on open, off the SAME hook so they cannot fall
-  // out of step. The rating targets eloForLayout (known the instant login
-  // resolves) rather than the async eloData, so the count starts on the frame
-  // the pill appears instead of waiting on a round trip.
-  const animatedElo = useCountUp(eloForLayout?.elo);
-  const animatedStamps = useCountUp(showStampsBtn ? stampsBalance : null);
+  // Preserve the departing card's last complete payload while it fades out;
+  // the auth store clears before the transition finishes on logout.
+  const currentProfilePresentation = {
+    username: user?.username ?? '',
+    countryCode: user?.countryCode,
+    nameGlow: user?.cosmetics?.equipped?.nameGlow,
+    elo: eloForLayout?.elo ?? null,
+    league: eloForLayout?.league ?? null,
+    showStamps: showStampsBtn,
+    stamps: stampsBalance,
+  };
+  const lastProfilePresentationRef = useRef(currentProfilePresentation);
+  useEffect(() => {
+    if (!loggedIn) return;
+    lastProfilePresentationRef.current = {
+      username: user?.username ?? '',
+      countryCode: user?.countryCode,
+      nameGlow: user?.cosmetics?.equipped?.nameGlow,
+      elo: eloForLayout?.elo ?? null,
+      league: eloForLayout?.league ?? null,
+      showStamps: showStampsBtn,
+      stamps: stampsBalance,
+    };
+  }, [
+    eloForLayout?.elo,
+    eloForLayout?.league,
+    loggedIn,
+    showStampsBtn,
+    stampsBalance,
+    user?.cosmetics?.equipped?.nameGlow,
+    user?.countryCode,
+    user?.username,
+  ]);
+  const profilePresentation = loggedIn
+    ? currentProfilePresentation
+    : lastProfilePresentationRef.current;
+
+  // Counter state lives inside each text leaf. Home only supplies settled
+  // values and opens the animation gate once the entrance has finished.
+  const homeTitle = (
+    <View
+      style={[
+        styles.titleSlot,
+        isCompact && styles.titleSlotCompact,
+        { transform: [{ translateY: titleVerticalOffset }] },
+      ]}
+    >
+      <Pressable
+        style={styles.titlePressable}
+        onLongPress={async () => {
+          // Hidden replay path so the tutorial can be tested repeatedly
+          // without reinstalling the app. Long-press lasts ~500ms which
+          // keeps it out of accidental-tap territory.
+          await useOnboardingStore.getState().reset();
+          router.push('/onboarding/play');
+        }}
+        delayLongPress={500}
+      >
+        <OutlinedTitle fontSize={homeTitleFontSize} lineHeight={homeTitleLineHeight}>
+          WorldGuessr
+        </OutlinedTitle>
+      </Pressable>
+    </View>
+  );
+
+  const renderCornerClone = (
+    part: HeaderCornerPart = 'all',
+    variant: HeaderCornerVariant = loggedIn ? 'measure' : 'ghost',
+  ) => (
+    <HeaderCorner
+      variant={variant}
+      part={part}
+      cardMetrics={cardMetrics}
+      loginMetrics={loginMetrics}
+      username={user?.username ?? ''}
+      countryCode={user?.countryCode}
+      nameGlow={user?.cosmetics?.equipped?.nameGlow}
+      elo={eloForLayout?.elo ?? null}
+      league={eloForLayout?.league ?? null}
+      animateCounters={false}
+      showStamps={showStampsBtn}
+      stamps={stampsBalance}
+      authLoading={authLoading}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -856,24 +1079,62 @@ export default function HomeScreen() {
           pointerEvents="box-none"
         >
           <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
-            <HeaderCorner
-              variant={awaitingUsername ? 'none' : loggedIn ? 'card' : 'login'}
-              cardMetrics={cardMetrics}
-              loginMetrics={loginMetrics}
-              username={user?.username ?? ''}
-              countryCode={user?.countryCode}
-              nameGlow={user?.cosmetics?.equipped?.nameGlow}
-              elo={eloForLayout?.elo ?? null}
-              league={eloForLayout?.league ?? null}
-              animatedElo={animatedElo}
-              showStamps={showStampsBtn}
-              stamps={stampsBalance}
-              animatedStamps={animatedStamps}
-              authLoading={authLoading}
-              onCardPress={() => setPlayerSheetOpen(true)}
-              onLogin={handleLogin}
-              onStampsPress={() => router.push('/shop')}
-            />
+            {!awaitingUsername && (
+              <>
+                <Reanimated.View
+                  style={[styles.headerGuestOverlay, guestCornerTransitionStyle]}
+                  pointerEvents={loggedIn ? 'none' : 'box-none'}
+                  accessibilityElementsHidden={loggedIn}
+                  importantForAccessibility={loggedIn ? 'no-hide-descendants' : 'auto'}
+                >
+                  <HeaderCorner
+                    variant="login"
+                    part="account"
+                    cardMetrics={cardMetrics}
+                    loginMetrics={loginMetrics}
+                    username=""
+                    elo={null}
+                    league={null}
+                    animateCounters={false}
+                    showStamps={false}
+                    stamps={0}
+                    authLoading={authLoading}
+                    onLogin={handleLogin}
+                  />
+                </Reanimated.View>
+
+                <Reanimated.View
+                  style={profileCornerTransitionStyle}
+                  pointerEvents={loggedIn ? 'box-none' : 'none'}
+                  accessibilityElementsHidden={!loggedIn}
+                  importantForAccessibility={loggedIn ? 'auto' : 'no-hide-descendants'}
+                >
+                  <HeaderCorner
+                    variant="card"
+                    cardMetrics={cardMetrics}
+                    loginMetrics={loginMetrics}
+                    username={profilePresentation.username}
+                    countryCode={profilePresentation.countryCode}
+                    nameGlow={profilePresentation.nameGlow}
+                    elo={profilePresentation.elo}
+                    league={profilePresentation.league}
+                    animateCounters={navEntranceComplete && loggedIn}
+                    showStamps={profilePresentation.showStamps}
+                    stamps={profilePresentation.stamps}
+                    authLoading={false}
+                    onCardPress={() => router.navigate({
+                      pathname: '/(tabs)/account',
+                      params: { tab: 'profile' },
+                    })}
+                    onEloPress={() => router.navigate({
+                      pathname: '/(tabs)/account',
+                      params: { tab: 'elo' },
+                    })}
+                    onStampsPress={() => router.push('/shop')}
+                  />
+                </Reanimated.View>
+              </>
+            )}
           </View>
         </Animated.View>
 
@@ -884,58 +1145,62 @@ export default function HomeScreen() {
           bounces={true}
         >
           {/* Header — rides the shared entrance wave */}
-          <Animated.View style={[styles.header, navEntrance]}>
-            <View style={{ transform: [{ translateY: 30 }] }}>
-              <Pressable
-                onLongPress={async () => {
-                  // Hidden replay path so the tutorial can be tested repeatedly
-                  // without reinstalling the app. Long-press lasts ~500ms which
-                  // keeps it out of accidental-tap territory.
-                  await useOnboardingStore.getState().reset();
-                  router.push('/onboarding/play');
-                }}
-                delayLongPress={500}
-              >
-                <OutlinedTitle>WorldGuessr</OutlinedTitle>
-              </Pressable>
-            </View>
+          <Animated.View style={[styles.header, isCompact && styles.headerCompact, navEntrance]}>
+            {isCompact ? (
+              <>
+                {/* This spacer continuously grows from zero to the exact profile
+                    card height plus its row gap. The wordmark, divider and menu
+                    therefore move as one stable section. */}
+                <Reanimated.View
+                  style={[styles.headerAccountSpacerCompact, compactAccountSpacerStyle]}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                />
 
-            {/* THE MEASUREMENT CLONE. This hidden in-flow copy is what gives the
-                header its height; the visible corner is the absolute overlay
-                above. It renders the SAME HeaderCorner so the two cannot drift.
+                {/* Guests pair the wordmark with Login in their only row.
+                    Signed-in players pair it with the smaller wallet below the
+                    profile card. Both reserve the real control's width. */}
+                <View style={styles.headerCompactBrandRow}>
+                  {homeTitle}
+                  <View
+                    style={[styles.headerRightPlaceholder, styles.headerWalletPlaceholderCompact]}
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    {loggedIn
+                      ? renderCornerClone('wallet', 'measure')
+                      : renderCornerClone('account', 'login')}
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                {homeTitle}
 
-                IT IS ALWAYS THE CARD VARIANT, signed in or not. The menu below
-                does not wait on auth, so the header has to reserve one height
-                for both states or the whole column jumps the moment the session
-                resolves. `ghost` is the card's own tree with the text blanked —
-                height-exact by construction, which the hand-matched
-                league-pill-sized spacer this replaces never quite was. */}
-            <View
-              style={[styles.headerRight, styles.headerRightPlaceholder]}
-              pointerEvents="none"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <HeaderCorner
-                variant={loggedIn ? 'card' : 'ghost'}
-                cardMetrics={cardMetrics}
-                loginMetrics={loginMetrics}
-                username={user?.username ?? ''}
-                countryCode={user?.countryCode}
-                nameGlow={user?.cosmetics?.equipped?.nameGlow}
-                elo={eloForLayout?.elo ?? null}
-                league={eloForLayout?.league ?? null}
-                animatedElo={animatedElo}
-                showStamps={showStampsBtn}
-                stamps={stampsBalance}
-                animatedStamps={animatedStamps}
-                authLoading={authLoading}
-              />
-            </View>
+                {/* THE MEASUREMENT CLONE. It shares the settled corner layout
+                    so the wide header reserves its exact width and height. */}
+                <View
+                  style={[styles.headerRight, styles.headerRightPlaceholder]}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  {renderCornerClone()}
+                </View>
+              </>
+            )}
           </Animated.View>
 
           {/* Menu — rides the shared entrance wave, one unit like web */}
-          <Animated.View style={[styles.menu, navEntrance]}>
+          <Animated.View
+            style={[
+              styles.menu,
+              isCompact ? styles.menuCompact : { marginTop: -wideMenuLift },
+              navEntrance,
+            ]}
+          >
             {/* Pending-deletion restore banner — shown when the account is inside
                 its 30-day deletion grace window. Tapping prompts to cancel deletion
                 (explicit Restore, never auto-cancel on login). */}
@@ -1012,15 +1277,6 @@ export default function HomeScreen() {
                 label={t('singleplayer')}
                 onPress={() => handleModePress('singleplayer')}
               />
-              <MenuButton
-                label={t('dailyChallenge')}
-                onPress={() => handleModePress('dailyChallenge')}
-                accessory={
-                  dailyStatus.streak > 0 ? (
-                    <DailyStreakBadge streak={dailyStatus.streak} variant={dailyStatus.variant} />
-                  ) : null
-                }
-              />
               {/* Visible to GUESTS too (web parity — a hidden button is a lost
                   conversion funnel): a guest tap opens the link-Google prompt
                   instead of the queue. */}
@@ -1056,6 +1312,50 @@ export default function HomeScreen() {
               />
             </View>
 
+            <MenuDivider />
+
+            <View style={styles.menuGroup}>
+              <MenuButton
+                label={t('dailyChallenge')}
+                onPress={() => handleModePress('dailyChallenge')}
+                accessory={
+                  dailyStatus.streak > 0 ? (
+                    <DailyStreakBadge
+                      streak={dailyStatus.streak}
+                      variant={dailyStatus.variant}
+                      align="center"
+                    />
+                  ) : null
+                }
+              />
+            </View>
+
+          </Animated.View>
+
+          {/* Web places this directly above its footer controls. Keep the same
+              relationship in native flow so it remains reachable on every
+              screen size without competing with the primary game menu. */}
+          <Animated.View style={[styles.communityBannerRow, navEntrance]}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.communityBanner,
+                {
+                  backgroundColor: pressed ? accent.chromePressed : accent.chrome,
+                },
+              ]}
+              onPress={handleOpenCommunity}
+              disabled={openingCommunity}
+              accessibilityRole="link"
+              accessibilityLabel={t('communityBannerTitle')}
+              accessibilityState={{ busy: openingCommunity, disabled: openingCommunity }}
+            >
+              {openingCommunity ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons name="earth" size={22} color={colors.white} />
+              )}
+              <Text style={styles.communityBannerText}>{t('communityBannerTitle')}</Text>
+            </Pressable>
           </Animated.View>
 
           {/* Bottom Icons — rides the shared entrance wave. onLayout is safe
@@ -1269,20 +1569,6 @@ export default function HomeScreen() {
           : undefined}
       />
 
-      {/* The player card's menu. Rows route into the account screen's own tabs
-          and the shop — no new destinations, just doors that used to be four
-          separate buttons in the corner. */}
-      <PlayerSheet
-        visible={playerSheetOpen}
-        onClose={() => setPlayerSheetOpen(false)}
-        showShop={showStampsBtn}
-        friendRequests={friendRequestCount}
-        onOpenElo={() => router.push({ pathname: '/(tabs)/account', params: { tab: 'elo' } })}
-        onOpenShop={() => router.push('/shop')}
-        onOpenProfile={() => router.navigate('/(tabs)/account')}
-        onOpenFriends={() => router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })}
-      />
-
       {/* What's New — auto-shows for logged-in users on version bump.
           Long-press the settings gear to preview it on demand (demo). */}
       <WhatsNewModal forceOpen={whatsNewDemo} onForceClose={() => setWhatsNewDemo(false)} />
@@ -1323,6 +1609,14 @@ const styles = StyleSheet.create({
   headerActionsOverlayInner: {
     alignItems: 'flex-end',
   },
+  // The profile stays in flow so its username defines the corner's intrinsic
+  // width. Only the smaller Login state is overlaid; it can never constrain or
+  // truncate the card it crossfades into.
+  headerGuestOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
   scrollView: {
     flex: 1,
   },
@@ -1337,6 +1631,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
+  // Compact guests use one measured row: wordmark + Login. Signed-in players
+  // smoothly open an exact profile-card reservation above wordmark + wallet.
+  headerCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingBottom: 0,
+  },
   // THE CORNER COLUMN: card (or login button), then Community Maps. The gap is
   // the only vertical measurement left in this corner — everything used to be
   // absolutely placed and hand-offset against whatever sat above it.
@@ -1347,11 +1648,38 @@ const styles = StyleSheet.create({
   headerRightPlaceholder: {
     opacity: 0,
   },
+  headerAccountSpacerCompact: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  headerCompactBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  headerWalletPlaceholderCompact: {
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+  },
+  titleSlot: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: spacing.md,
+  },
+  titleSlotCompact: {
+    alignSelf: 'flex-start',
+    marginRight: spacing.sm,
+  },
+  titlePressable: {
+    width: '100%',
+  },
+  titleStack: {
+    width: '100%',
+  },
   title: {
-    fontSize: 42,
     fontFamily: 'JockeyOne',
     color: colors.white,
     letterSpacing: 0,
+    width: '100%',
   },
   titleStroke: {
     position: 'absolute',
@@ -1421,13 +1749,18 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     maxWidth: 300,
   },
+  menuCompact: {
+    // The title already shares the wallet row, so the menu follows with one
+    // tight token rather than compensating for the whole corner stack.
+    paddingTop: spacing.sm,
+  },
   menuGroup: {
     gap: 0,
   },
   divider: {
     height: 3,
     backgroundColor: 'rgba(255,255,255,0.9)',
-    marginVertical: 8,
+    marginVertical: DIVIDER_VERTICAL_MARGIN,
     width: '90%',
   },
   menuButton: {
@@ -1446,6 +1779,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     fontWeight: '400',
     color: colors.white,
+  },
+  communityBannerRow: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  communityBanner: {
+    minHeight: 48,
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 7,
+    elevation: 8,
+  },
+  communityBannerText: {
+    flexShrink: 1,
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
   },
   // Bottom icons
   bottomIcons: {

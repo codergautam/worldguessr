@@ -107,7 +107,12 @@ export default function PlayerList({
         ]}
       >
         <MovedPulse active={!!highlightIds?.has(player.id)} />
-        <View style={styles.playerLeft}>
+        <View
+          style={[
+            styles.playerLeft,
+            mode === 'lobby' && styles.playerLeftLobbyGlowRoom,
+          ]}
+        >
           {mode !== 'lobby' && (
             <Text style={[styles.rankText, dense && styles.rankTextBetween]}>{t('rankN', { rank: index + 1 })}</Text>
           )}
@@ -347,6 +352,14 @@ const styles = StyleSheet.create({
     // content, so padding + equal negative margin cancel exactly.
     paddingVertical: GLOW_CLIP_RELIEF,
     marginVertical: -GLOW_CLIP_RELIEF,
+  },
+  // Lobby rows have no rank label before PlayerName, so the name begins on the
+  // exact edge clipped by playerLeft. Move that clip edge outward by the shared
+  // halo reach while returning the space to Yoga; the name, badges and trailing
+  // controls keep their original positions and widths.
+  playerLeftLobbyGlowRoom: {
+    paddingLeft: GLOW_CLIP_RELIEF,
+    marginLeft: -GLOW_CLIP_RELIEF,
   },
   rankText: {
     color: 'rgba(255, 255, 255, 0.55)',

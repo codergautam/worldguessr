@@ -56,6 +56,7 @@ import {
 // timer callback reaches the uncaughtException handler below, which exits the
 // process and ends the game for every connected player. See ws/safeTimers.js.
 import { safeInterval } from './safeTimers.js';
+import { canJoinUnrankedRound, UNRANKED_ROUND_TIME_MS } from './unrankedMatchmaking.js';
 import { startLeagueConfigRefresh } from '../serverUtils/loadLeagueConfig.js';
 import { checkMigrationAt } from '../serverUtils/checkMigrationAt.js';
 import QueueEtaSnapshot from '../models/QueueEtaSnapshot.js';
@@ -194,53 +195,9 @@ const ALLOW_REMATCH = process.env.ALLOW_REMATCH === 'true';
 const dodgeCooldowns = new Map();
 
 // ── QUEUE WAIT TELEMETRY (see ws/queueEta.js) ─────────────────────────────
-// Observed ranked-1v1 waits, bucketed by rating, feeding the estimate the
-// client shows while queued. In-memory, snapshotted to Mongo every 5 minutes —
-// a cold start costs the sparse high bands DAYS, not minutes, and those are the
-// only bands where an estimate is interesting.
+// Completed human ranked waits from the last hour, bucketed by 100 ELO.
 const etaStore = createEtaStore();
 const ETA_MAX_AGE_MS = QUERY_PLAN[QUERY_PLAN.length - 1].ageMs;
-
-// socketId -> the SAME queue-entry object currently held in playersInQueue.
-//
-// WHY A WATCH MAP AND NOT HOOKS ON EVERY EXIT. The queue has nine of them
-// (leaveQueue, the three party/invite cancels, two close paths, the disconnect
-// purge, and the pairing race). Instrumenting each is silently fragile: miss
-// one — today, or when someone adds a tenth — and the sample set skews toward
-// FAST matches, which is the one bias this estimator cannot survive, because it
-// would make the queue look quicker than it is precisely when people are giving
-// up. Sweeping for liveness is correct by construction for exits that don't
-// exist yet.
-const queueWatch = new Map();
-
-/**
- * File a queue session that ended without a match as a CENSORED sample: the
- * player waited at least this long, but we never learned what a match would
- * have cost them. kmCurve knows the difference; counting these as matches is
- * exactly the bias that makes an estimator lie.
- */
-function reapQueueWatch(id, now) {
-  const watched = queueWatch.get(id);
-  if (!watched) return;
-  // Session identity is queueTime, not object identity. The v2 widening pass
-  // mutates the entry in place, but v1's REPLACES it (`{ ...queueData, ... }`),
-  // and reading a replaced-but-alive entry as an abandonment would inject a
-  // false censored sample every time that player's window widened.
-  const live = playersInQueue.get(id);
-  if (live && (live === watched || live.queueTime === watched.queueTime)) return;
-  queueWatch.delete(id);
-  if (!Number.isFinite(watched.rating)) return;   // unrated/guest entry, no band
-  recordSample(etaStore, {
-    rating: watched.rating,
-    waitMs: Math.max(0, now - watched.queueTime),
-    at: now,
-    censored: true,
-    // Strict and non-strict are separate populations in the estimator: a strict
-    // player's pool is a subset of a non-strict player's at the same rating, so
-    // blending them quotes strict players a wait they will never see.
-    strict: !!watched.strict
-  });
-}
 const dodgeKeyFor = (player) => player?.accountId || player?.id || null;
 
 /**
@@ -1415,13 +1372,7 @@ app.ws('/wg', {
           // Trekker immediately without it.
           strict: strictQueue
         }
-        // Flush any previous session BEFORE overwriting the map entry: a leave
-        // and rejoin inside the same 500ms tick would otherwise drop a censored
-        // sample silently, and fast bailers are the one population the
-        // estimator cannot afford to lose.
-        reapQueueWatch(player.id, Date.now());
         playersInQueue.set(player.id, queueDetails);
-        queueWatch.set(player.id, queueDetails);
 
         // send the range to the player
         player.send({
@@ -2936,7 +2887,8 @@ try {
         const changed = !q.etaShown
           || q.etaShown.state !== shown.state
           || q.etaShown.seconds !== shown.seconds
-          || q.etaShown.tier !== shown.tier;
+          || q.etaShown.tier !== shown.tier
+          || q.etaShown.longAfterMs !== shown.longAfterMs;
         q.etaShown = shown;
         if (!changed) continue; // same as last beat — don't spam the client
 
@@ -2946,6 +2898,11 @@ try {
           value: shown.value,
           unit: shown.unit,
           seconds: shown.seconds,
+          // Lets the 1s client clock replace the quote immediately instead of
+          // waiting up to five seconds for this server beat to notice it.
+          longAfterSeconds: Number.isFinite(shown.longAfterMs)
+            ? shown.longAfterMs / 1000
+            : null,
           // Only set when state is 'rough': 'short' | 'mid' | 'long'.
           tier: shown.tier
         });
@@ -3352,12 +3309,17 @@ try {
     const queueWaits = {};
     for (const [tag, p] of [['p1', p1], ['p2', p2]]) {
       const q = playersInQueue.get(p.id);
-      queueWatch.delete(p.id);
       if (!q || q.duel !== true) continue;
       queueWaits[tag] = matchedAt - q.queueTime;
       if (isBotGame || isPlacement) continue;
       if (!Number.isFinite(q.rating)) continue; // unrated/guest entry, no band
-      recordSample(etaStore, { rating: q.rating, waitMs: queueWaits[tag], at: matchedAt, censored: false, strict: !!q.strict });
+      recordSample(etaStore, {
+        rating: q.rating,
+        waitMs: queueWaits[tag],
+        at: matchedAt,
+        strict: !!q.strict,
+        matchId: gameId,
+      });
     }
     // Rides onto the saved game doc so the estimate can be checked against
     // what players actually experienced (models/Game.js playerSummarySchema).
@@ -3652,7 +3614,7 @@ try {
       if (game.rounds - game.curRound < minRoundsRemaining) {
         continue;
       }
-      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 3) {
+      if (!canJoinUnrankedRound(game)) {
         continue;
       }
       if (playerCnt >= game.maxPlayers) {
@@ -3690,6 +3652,7 @@ try {
       // create a new public game (non duel)
       const gameId = uuidv4();
       const game = new Game(gameId, { public: true, allLocations });
+      game.timePerRound = UNRANKED_ROUND_TIME_MS;
       games.set(gameId, game);
 
       let playersCanJoin = game.maxPlayers;
@@ -4116,35 +4079,12 @@ try {
       }
     }
 
-    // Censored-sample reaper. LAST in the tick on purpose: it runs after the
-    // pairing pass (so matched players are already out of the watch) and after
-    // the disconnect purge above (so entries killed this tick are caught this
-    // tick, not next). ±500ms accuracy on an abandonment is far better than the
-    // alternative of instrumenting nine separate exit paths.
-    {
-      const reapNow = Date.now();
-      for (const id of [...queueWatch.keys()]) {
-        try {
-          reapQueueWatch(id, reapNow);
-        } catch (e) {
-          console.error('[tick:queue] reapQueueWatch threw for', id, e?.stack || e);
-        }
-      }
-    }
-
   });
 
 
 
 
-  // Persist the queue-wait samples so a deploy doesn't blank the ETA for the
-  // sparse high bands (they take days to refill, not minutes — see
-  // models/QueueEtaSnapshot.js).
-  //
-  // 5 MINUTES, NOT 10 SECONDS like Memsave below: this doc is ~100x larger and
-  // losing a few minutes of samples costs nothing measurable. And deliberately
-  // NOT in stop() — that handler is synchronous and SIGTERM calls
-  // process.exit(0) on the next line, so an async write there could never land.
+  // Preserve the rolling hour across deploys without changing shutdown.
   if (dbEnabled) {
     safeInterval('etaSnapshot', 5 * 60 * 1000, () => {
       QueueEtaSnapshot.updateOne(

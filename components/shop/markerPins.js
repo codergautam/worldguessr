@@ -5,7 +5,7 @@ import { MARKER_SKIN_ICONS, PIN_PATHS } from '@/lib/markerIcons';
  *  Marker-skin preview images.
  *
  *  THE SHOP NO LONGER SHOWS THE MAP'S OWN ASSETS, and sharpness is the whole
- *  reason. The map pins live on src.png's 151x163 canvas and get stretched to
+ *  reason. The map pins live on src.png's 150x163 canvas and get stretched to
  *  the 30x49 icon box by Leaflet; the shop card imitated that by handing the
  *  full-size PNG to a 44x72 <img>, which left the BROWSER to do a ~3.4x
  *  non-uniform downscale. On the flat stock pin that mush is invisible — on
@@ -47,8 +47,8 @@ const PATH_BY_KEY = new Map(PIN_PATHS.map(({ key, path }) => [key, path]));
  * soften. The @2x (152x180) serves hiDPI screens. Both are pre-stretched to
  * the map's canvas proportions at build time; the browser never does a
  * non-integer, non-uniform resample again.
- *   /pins/gold.png -> { src: /pins/previews/gold.png        (76x90)
- *                       srcSet: "... 1x, ...@2x.png 2x"     (152x180) }
+ *   /pins/sky.png -> { src: /pins/previews/sky.png          (76x90)
+ *                      srcSet: "... 1x, ...@2x.png 2x"      (152x180) }
  */
 function previewUrls(mapPath) {
   const base = mapPath.slice(mapPath.lastIndexOf('/') + 1).replace(/\.png$/, '');

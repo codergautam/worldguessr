@@ -71,12 +71,9 @@
      test is true), but nothing here should depend on that quirk holding. */
   pointer-events: none;
 
-  /* MODE ACCENT — the one place a non-token colour is allowed, because it is
-     the mode's identity and it is shared verbatim with mobile. Used for the
-     sonar rings and the eyebrow, and nothing else: one accent, two uses.
-     (There was a second `--wgq-glow` token beside this one. Its only readers
-     were the radar core's coloured shadow and the stopwatch bloom; both are now
-     neutral, so it is gone rather than left declared and unread.) */
+  /* MODE ACCENT — the mode identity shared verbatim with mobile. All queues use
+     it for the sonar and eyebrow; ranked also applies its scoped glow token to
+     the compass core so that state matches mobile end to end. */
   --wgq-accent: #4ade80;
 
   /* The plate fill. NEUTRAL, deliberately: `.timer`'s own recipe puts
@@ -101,14 +98,9 @@
   --wgq-title: clamp(1.7rem, 1.6vw + 1.4svh, 3rem);
 }
 
-/* Ranked is RED (user ruling Aug 9), and the red is the one this codebase
-   already calls "the ranked red": `.g2_nav_text.ranked:hover` in globals.scss,
-   the colour the home menu's Ranked Duel row turns on hover. Derived, not
-   invented — same rule that took 2v2's accent from its history badge. The gold
-   it replaces was never a ranked identity anywhere else on the site.
-   With the ranked eyebrow gone, this now paints the sonar rings and nothing
-   else, which is exactly what "the ranked pulse is red" means. */
-.wgQueue--publicDuel   { --wgq-accent: #ff474c; }
+/* Ranked compass mirrors mobile's gold accent and warm halo. Unranked green and
+   2v2 pink keep their own identities. */
+.wgQueue--publicDuel   { --wgq-accent: #fbbf24; --wgq-glow: rgba(245, 158, 11, 0.7); }
 .wgQueue--unrankedDuel { --wgq-accent: #4ade80; }
 .wgQueue--2v2          { --wgq-accent: #f06292; }
 
@@ -235,9 +227,8 @@
   100% { transform: scale(1.55); opacity: 0; }
 }
 
-/* The core is HOUSE chrome, not mode chrome: the .timer plate rounded off. The
-   mode accent lives in the rings that radiate from it and in the eyebrow — one
-   accent, used twice, rather than tinting every surface on screen. */
+/* The core is house chrome by default. Ranked overrides it below to mirror the
+   mobile queue's black disc, gold rim, and warm gold halo. */
 .wgQueue__core {
   position: relative;
   width: calc(var(--wgq-radar, 200px) * 0.44);
@@ -250,6 +241,15 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
   display: grid;
   place-items: center;
+}
+
+.wgQueue--publicDuel .wgQueue__core {
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1.5px solid var(--wgq-accent);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.28),
+    0 0 18px var(--wgq-glow);
 }
 
 .wgQueue__compass {
@@ -383,19 +383,6 @@
   font-weight: 500;
 }
 
-/* Placement queue: replaces the data plate (rating range / ETA are noise when
-   the opponent is the placement bot). One muted sentence, capped so it wraps
-   as a caption instead of running the column's full width. */
-.wgQueue__placementNote {
-  margin: 0;
-  max-width: 24rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.72);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
 /* --- elapsed ------------------------------------------------------------ */
 
 /* THE HERO. This was a 0.88rem muted footnote and it was the wrong call: the
@@ -421,10 +408,9 @@
   line-height: 1;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  /* NO accent bloom. It was a 12px glow in the mode colour under the digits, to
-     tie the two together; it read as a smudge rather than an accent and is gone
-     (it was the last reader of the `--wgq-glow` token, which went with it). What remains is the plain dark drop shadow every other line on
-     this screen carries, which is legibility over a photo, not decoration. */
+  /* NO accent bloom. It read as a smudge under the digits; the ranked glow is
+     reserved for the compass core. What remains here is the plain dark drop
+     shadow used for legibility over a photo. */
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 

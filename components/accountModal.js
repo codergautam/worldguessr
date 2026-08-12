@@ -200,6 +200,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                 <HistoricalGameView
                     game={selectedGame}
                     session={session}
+                    viewerMarkerSkin={shop.cosmetics?.equipped?.markerSkin}
                     options={options}
                     onBack={() => {
                         setShowingGameAnalysis(false);
@@ -259,80 +260,80 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
                                 <h1 className="account-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {/* The truncation that used to sit on .account-modal-title (where a
-                                        flex container made it inert) lives here, on the real text box,
-                                        and it is the shared wg-name-clip recipe so it carries the halo's
-                                        clip relief with it — unconditionally, so equipping a glow does
-                                        not change the box. Dark modal chrome → the dark variant. */}
-                                    <span
-                                        className={`wg-name-clip ${titleGlow?.className ?? ''}`.trim()}
-                                        style={titleGlow?.style}
-                                    >
-                                        {accountData?.username || text("account")}
-                                    </span>
-                                    {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
-                                    {accountData?.username && (
-                                        <button
-                                            onClick={() => {
-                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
-                                                const showCopied = () => {
-                                                    setCopiedLink(true);
-                                                    setTimeout(() => setCopiedLink(false), 2000);
-                                                };
-                                                const fallbackCopy = () => {
-                                                    try {
-                                                        const ta = document.createElement('textarea');
-                                                        ta.value = profileUrl;
-                                                        ta.setAttribute('readonly', '');
-                                                        ta.style.position = 'fixed';
-                                                        ta.style.top = '0';
-                                                        ta.style.left = '0';
-                                                        ta.style.opacity = '0';
-                                                        document.body.appendChild(ta);
-                                                        ta.focus();
-                                                        ta.select();
-                                                        const ok = document.execCommand('copy');
-                                                        document.body.removeChild(ta);
-                                                        if (ok) showCopied();
-                                                        else window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
-                                                    } catch (e) {
-                                                        window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
-                                                    }
-                                                };
-                                                if (navigator.clipboard && window.isSecureContext) {
-                                                    navigator.clipboard.writeText(profileUrl).then(showCopied).catch(fallbackCopy);
-                                                } else {
-                                                    fallbackCopy();
-                                                }
-                                            }}
-                                            title={text("copyProfileLink") || "Copy profile link"}
-                                            style={{
-                                                marginLeft: '10px',
-                                                background: 'rgba(255,255,255,0.1)',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                padding: '6px 10px',
-                                                cursor: 'pointer',
-                                                color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
-                                                fontSize: '0.8rem',
-                                                transition: 'all 0.2s ease',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '5px',
-                                                verticalAlign: 'middle'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!copiedLink) e.target.style.color = '#fff';
-                                                e.target.style.background = 'rgba(255,255,255,0.2)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
-                                                e.target.style.background = 'rgba(255,255,255,0.1)';
-                                            }}
+                                        {/* The truncation that used to sit on .account-modal-title (where a
+                                            flex container made it inert) lives here, on the real text box,
+                                            and it is the shared wg-name-clip recipe so it carries the halo's
+                                            clip relief with it — unconditionally, so equipping a glow does
+                                            not change the box. Dark modal chrome → the dark variant. */}
+                                        <span
+                                            className={`wg-name-clip ${titleGlow?.className ?? ''}`.trim()}
+                                            style={titleGlow?.style}
                                         >
-                                            {copiedLink ? <FaCheck /> : <FaLink />}
-                                        </button>
-                                    )}
+                                            {accountData?.username || text("account")}
+                                        </span>
+                                        {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
+                                        {accountData?.username && (
+                                            <button
+                                                onClick={() => {
+                                                    const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
+                                                    const showCopied = () => {
+                                                        setCopiedLink(true);
+                                                        setTimeout(() => setCopiedLink(false), 2000);
+                                                    };
+                                                    const fallbackCopy = () => {
+                                                        try {
+                                                            const ta = document.createElement('textarea');
+                                                            ta.value = profileUrl;
+                                                            ta.setAttribute('readonly', '');
+                                                            ta.style.position = 'fixed';
+                                                            ta.style.top = '0';
+                                                            ta.style.left = '0';
+                                                            ta.style.opacity = '0';
+                                                            document.body.appendChild(ta);
+                                                            ta.focus();
+                                                            ta.select();
+                                                            const ok = document.execCommand('copy');
+                                                            document.body.removeChild(ta);
+                                                            if (ok) showCopied();
+                                                            else window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                        } catch (e) {
+                                                            window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                        }
+                                                    };
+                                                    if (navigator.clipboard && window.isSecureContext) {
+                                                        navigator.clipboard.writeText(profileUrl).then(showCopied).catch(fallbackCopy);
+                                                    } else {
+                                                        fallbackCopy();
+                                                    }
+                                                }}
+                                                title={text("copyProfileLink") || "Copy profile link"}
+                                                style={{
+                                                    marginLeft: '10px',
+                                                    background: 'rgba(255,255,255,0.1)',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    padding: '6px 10px',
+                                                    cursor: 'pointer',
+                                                    color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
+                                                    fontSize: '0.8rem',
+                                                    transition: 'all 0.2s ease',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    verticalAlign: 'middle'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!copiedLink) e.target.style.color = '#fff';
+                                                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
+                                                    e.target.style.background = 'rgba(255,255,255,0.1)';
+                                                }}
+                                            >
+                                                {copiedLink ? <FaCheck /> : <FaLink />}
+                                            </button>
+                                        )}
                                 </h1>
 
                                 {/* Wallet sits beside the close button, not in

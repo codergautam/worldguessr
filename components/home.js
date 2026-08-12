@@ -57,9 +57,20 @@ const PendingNameChangeModal = dynamic(() => import("./pendingNameChangeModal"),
 const Season1NoticeModal = dynamic(() => import("@/components/season1NoticeModal"), { ssr: false });
 // The Stamps shop is its own surface (it used to be a tab in the account
 // modal). ssr:false + dynamic keeps the storefront, its previews and the
-// leaflet-backed marker pins entirely off the home screen's critical path — the
-// chunk is not fetched until somebody actually opens the shop.
-const ShopModal = dynamic(() => import("@/components/shop/ShopModal"), { ssr: false });
+// leaflet-backed marker pins entirely off the home screen's critical path.
+// Cache the loader so the profile can warm this chunk before its wallet opens
+// the shop; that handoff must never expose the home screen between modals.
+let shopModalImport = null;
+const loadShopModal = () => {
+    if (!shopModalImport) {
+        shopModalImport = import("@/components/shop/ShopModal").catch((error) => {
+            shopModalImport = null;
+            throw error;
+        });
+    }
+    return shopModalImport;
+};
+const ShopModal = dynamic(loadShopModal, { ssr: false });
 import HudCorner from "@/components/ui/hudCorner";
 import PlayerCard from "@/components/ui/playerCard";
 import AdFreeChip from "@/components/ui/adFreeChip";
@@ -168,6 +179,44 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // account modal — the two surfaces are independent and can never stack,
     // because the shop only opens from the home screen.
     const [shopModalOpen, setShopModalOpen] = useState(false);
+    const [shopModalCoveredEntry, setShopModalCoveredEntry] = useState(false);
+
+    // The account modal already represents deliberate interest in the wallet,
+    // so warm the storefront while that surface is open. If the chunk is still
+    // loading when the wallet is pressed, leave the profile visible until it is
+    // ready instead of flashing the home screen as an accidental fallback.
+    useEffect(() => {
+        if (!accountModalOpen || session?.token?.stampsEnabled !== true) return;
+        loadShopModal().catch((error) => {
+            console.error("Failed to preload the Stamps shop:", error);
+        });
+    }, [accountModalOpen, session?.token?.stampsEnabled]);
+
+    const openShopFromAccount = useCallback(() => {
+        loadShopModal()
+            .then(() => {
+                setShopModalCoveredEntry(true);
+                setShopModalOpen(true);
+            })
+            .catch((error) => {
+                // Keep the working profile surface open. Closing it when the
+                // destination chunk failed is precisely the flash/dead-end this
+                // handoff is designed to prevent.
+                console.error("Failed to open the Stamps shop:", error);
+            });
+    }, []);
+
+    const openShopFromHome = useCallback(() => {
+        setShopModalCoveredEntry(false);
+        setShopModalOpen(true);
+    }, []);
+
+    // ShopModal calls this from a layout effect after its backdrop and surface
+    // are in the DOM. Until then the profile stays mounted as the last complete
+    // frame, independent of how many renders Next's dynamic wrapper needs.
+    const completeShopHandoff = useCallback(() => {
+        setAccountModalOpen(false);
+    }, []);
     const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
@@ -1092,7 +1141,26 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // roots for the duration is the fix; see .gd-ad-active in
             // globals.scss for why it hides by name rather than by z-index.
             let adBreakWatchdog = null;
+            let adPauseProbe = null;
+            const clearAdPauseProbe = () => {
+                if (adPauseProbe) {
+                    clearTimeout(adPauseProbe);
+                    adPauseProbe = null;
+                }
+            };
+            const isAdvertisementVisible = () => {
+                const ad = document.getElementById('gdsdk__advertisement');
+                if (!ad || !ad.isConnected || ad.childElementCount === 0) return false;
+                const style = window.getComputedStyle(ad);
+                const rect = ad.getBoundingClientRect();
+                return style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && Number.parseFloat(style.opacity || '1') !== 0
+                    && rect.width > 0
+                    && rect.height > 0;
+            };
             const endAdBreak = () => {
+                clearAdPauseProbe();
                 if (adBreakWatchdog) {
                     clearTimeout(adBreakWatchdog);
                     adBreakWatchdog = null;
@@ -1100,28 +1168,41 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 document.body.classList.remove('gd-ad-active');
                 duckAudio(false);
             };
-            window.onGDPauseGame = () => {
+            const beginAdBreak = () => {
                 document.body.classList.add('gd-ad-active');
-                // GD's own docs require the game to be muted for the whole
-                // break: "background audio through video advertisements is
-                // forbidden". crazyMidgame already ducks for between-round
-                // ads, but the first-interaction pre-roll below does not.
                 duckAudio(true);
-                // SDK_GAME_START fires on every ad exit path (complete, no
-                // fill, error, cancel), but a dropped event would leave the
-                // game invisible forever. Longer than any GD ad pod, shorter
-                // than a player's patience.
                 if (adBreakWatchdog) clearTimeout(adBreakWatchdog);
                 adBreakWatchdog = setTimeout(() => {
                     console.warn("GD ad break watchdog fired, restoring UI");
                     endAdBreak();
                 }, 60000);
             };
+            window.onGDPauseGame = () => {
+                clearAdPauseProbe();
+                if (window._gdAdRequestActive || isAdvertisementVisible()) {
+                    beginAdBreak();
+                    return;
+                }
+
+                // Publisher wrappers can emit an unsolicited PAUSE during
+                // startup and never follow it with START. Give a real automatic
+                // ad one paint to appear, but never black out the app for an
+                // empty/no-fill pause.
+                adPauseProbe = setTimeout(() => {
+                    adPauseProbe = null;
+                    if (window._gdAdRequestActive || isAdvertisementVisible()) {
+                        beginAdBreak();
+                    } else {
+                        console.warn("Ignoring GD pause without an active advertisement");
+                    }
+                }, 250);
+            };
             window.onGDResumeGame = () => {
                 // Idempotent on purpose: GD fires SDK_GAME_START with no
                 // preceding SDK_GAME_PAUSE at SDK init and on splash skip, so
                 // this runs at least once before any ad has ever played.
                 endAdBreak();
+                window._gdAdRequestActive = false;
                 if (window._gdAdTimeout) {
                     clearTimeout(window._gdAdTimeout);
                     window._gdAdTimeout = null;
@@ -1131,6 +1212,46 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     window._gdAdFinished = null;
                 }
             };
+
+            const requestGDInterstitial = (onFinished = () => { }) => {
+                if (typeof gdsdk === 'undefined' || typeof gdsdk.showAd === 'undefined') {
+                    onFinished();
+                    return;
+                }
+
+                if (window._gdAdTimeout) clearTimeout(window._gdAdTimeout);
+                window._gdAdRequestActive = true;
+                window._gdAdFinished = onFinished;
+
+                const resume = () => {
+                    if (window.onGDResumeGame) {
+                        window.onGDResumeGame();
+                        return;
+                    }
+                    window._gdAdRequestActive = false;
+                    if (window._gdAdTimeout) clearTimeout(window._gdAdTimeout);
+                    window._gdAdTimeout = null;
+                    const callback = window._gdAdFinished;
+                    window._gdAdFinished = null;
+                    if (callback) callback();
+                };
+
+                window._gdAdTimeout = setTimeout(() => {
+                    console.warn("GD ad timeout, forcing resume");
+                    resume();
+                }, 15000);
+
+                try {
+                    const result = gdsdk.showAd('interstitial');
+                    if (result && typeof result.then === 'function') {
+                        result.then(resume).catch(resume);
+                    }
+                } catch (error) {
+                    console.warn("GD interstitial error:", error);
+                    resume();
+                }
+            };
+            window.requestGDInterstitial = requestGDInterstitial;
 
             // Show interstitial pre-roll on first user interaction (GD SDK requires a user gesture)
             const handleFirstInteraction = () => {
@@ -1147,13 +1268,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         return;
                     }
                 } catch (e) { }
-                try {
-                    if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-                        gdsdk.showAd('interstitial');
-                    }
-                } catch (e) {
-                    console.warn("GD preroll error:", e);
-                }
+                requestGDInterstitial();
                 document.removeEventListener('click', handleFirstInteraction);
                 document.removeEventListener('touchstart', handleFirstInteraction);
             };
@@ -1200,6 +1315,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     setLoginQueued(false);
                 });
             }
+
+            return () => {
+                document.removeEventListener('click', handleFirstInteraction);
+                document.removeEventListener('touchstart', handleFirstInteraction);
+                endAdBreak();
+                if (window._gdAdTimeout) clearTimeout(window._gdAdTimeout);
+                window._gdAdTimeout = null;
+                window._gdAdRequestActive = false;
+                window._gdAdFinished = null;
+                if (window.requestGDInterstitial === requestGDInterstitial) {
+                    delete window.requestGDInterstitial;
+                }
+            };
         }
     }, [])
 
@@ -2847,7 +2975,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         state: data.state,
                         value: data.value ?? null,
                         unit: data.unit ?? null,
-                        tier: data.tier ?? null
+                        tier: data.tier ?? null,
+                        seconds: typeof data.seconds === "number" ? data.seconds : null,
+                        longAfterSeconds: typeof data.longAfterSeconds === "number"
+                            ? data.longAfterSeconds
+                            : null
                     }
                 }))
             } else if (data.type === "maxDist") {
@@ -3408,6 +3540,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 adFinished()
             }
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+            // The SDK initialization owns the GD request lifecycle so preroll
+            // and midgame ads share identical promise/event/timeout cleanup.
+            if (typeof window.requestGDInterstitial === 'function') {
+                window.requestGDInterstitial(adFinished);
+                return;
+            }
             try {
                 if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
                     // Clear any previous pending state to avoid leaking the prior closure.
@@ -4652,11 +4790,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     && (multiplayerState?.gameData?.players?.length ?? 0) <
                         (multiplayerState?.gameData?.maxPlayers ?? (multiplayerState?.gameData?.is2v2Lobby ? 2 : Infinity))
                 } sendInvite={sendInvite} options={options}
-                // The wallet chip in the account header. Close first, then
-                // open: ShopModal is a sibling modal, not a page inside this
-                // one, and two react-responsive-modals open at once would
-                // stack scroll locks and backdrops.
-                onOpenShop={() => { setAccountModalOpen(false); setShopModalOpen(true); }}
+                // The wallet chip in the account header. The destination chunk
+                // is guaranteed ready before the handoff begins; ShopModal then
+                // removes this profile only after its own DOM has committed.
+                onOpenShop={openShopFromAccount}
             />}
             {/* The Stamps shop. Mounted ONLY while open, which is what tears the
                 ad-free countdown interval down on close — ShopModal plays its
@@ -4665,7 +4802,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 <ShopModal
                     session={session}
                     setSession={setSession}
-                    onClose={() => setShopModalOpen(false)}
+                    coveredEntry={shopModalCoveredEntry}
+                    onReady={shopModalCoveredEntry ? completeShopHandoff : undefined}
+                    onClose={() => {
+                        setShopModalOpen(false);
+                        setShopModalCoveredEntry(false);
+                    }}
                 />
             )}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
@@ -5148,7 +5290,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             so the column simply closes the gap.
 
                             HOME ONLY — see hudCornerOnQueue. */}
-                        {hudCornerOnHome && <StampsTile session={session} onOpen={() => setShopModalOpen(true)} />}
+                        {hudCornerOnHome && <StampsTile session={session} onOpen={openShopFromHome} />}
 
                         {/* The running ad-free pass, directly under the card
                             that sold it. Renders nothing at all unless a pass is

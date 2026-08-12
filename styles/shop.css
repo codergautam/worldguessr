@@ -229,7 +229,7 @@
  *  ANCESTOR of .shop — a custom property declared on .shop cannot reach it.
  * ----------------------------------------------------------------------- */
 .shop,
-.modal-backdrop .modal:has(>.modal-content>.shop) {
+.modal-backdrop .modal.shopFullscreen {
     --shopBgTint: rgb(calc(var(--accWashR) * 0.33), calc(var(--accWashG) * 0.33), calc(var(--accWashB) * 0.33));
     --shopRaiseTint: rgb(calc(var(--accWashR) * 0.55), calc(var(--accWashG) * 0.55), calc(var(--accWashB) * 0.55));
     --shopWellTint: rgb(calc(var(--accWashR) * 0.15), calc(var(--accWashG) * 0.15), calc(var(--accWashB) * 0.15));
@@ -453,6 +453,90 @@
     overflow-x: hidden;
 }
 
+.modal-backdrop.modal-backdrop--shopFullscreen.modal-backdrop--shopFullscreen {
+    --shopSurfaceBackground:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(var(--washChannels), 0.72) 100%),
+        var(--site-bg);
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+/* Profile → shop is a covered handoff. At the first shop commit its surface is
+   still at opacity:0, so the backdrop underneath must already be the exact
+   resting shop background. Otherwise removing the profile reveals either the
+   home page through the translucent scrim or a black shield for one frame. */
+.modal-backdrop.modal-backdrop--shopFullscreen.modal-backdrop--shopFullscreen.covered-entry {
+    background: var(--shopSurfaceBackground);
+    background-position: center;
+    background-size: cover;
+}
+
+@keyframes shopSurfaceIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shopSurfaceOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(12px); }
+}
+
+@keyframes shopBackgroundFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* A storefront is a destination, not a dialog. It owns the fixed viewport box
+   like the maps surface while the shared modal retains dismissal and motion. */
+.modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    /* Keep the equipped backdrop visible, as it is in the mobile shop and Maps.
+       The single heavy wash protects the shelves without blurring the image. */
+    background: var(--shopSurfaceBackground);
+    background-position: center;
+    background-size: cover;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation: shopSurfaceIn 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The full-screen shop paints its own --site-bg above the global body layers.
+   Mirror the incoming layer here so an equip dissolves under the shelves rather
+   than crossfading behind the modal while the visible shop cuts at commit. */
+html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(var(--washChannels), 0.72) 100%),
+        var(--site-bg-next);
+    background-position: center;
+    background-size: cover;
+    pointer-events: none;
+    animation: shopBackgroundFadeIn var(--site-bg-fade-duration, 600ms) ease-in-out both;
+}
+
+.modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen.closing {
+    animation: shopSurfaceOut 200ms ease-out forwards;
+}
+
+.modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen>.modal-content {
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
 /* ===========================================================================
  *  THE LAYOUT: A WALLET RAIL AND A WALL OF SHELVES.
  *
@@ -472,8 +556,8 @@
  *      timer, the league button, the account modal's own balance chip). Its
  *      --primary frame is the loudest thing in the shop, and it should be: it
  *      is the number the whole screen is about.
- *    - THE NAV IS A LIST, not a chip row, so five destinations read as five
- *      destinations with room for their counts.
+ *    - THE NAV IS A LIST, not a dense dashboard: five destinations read as five
+ *      plain destinations without inventory counters competing with the names.
  *
  *  IT IS STICKY, NOT FIXED, and it sticks against .modal-content, which is the
  *  modal's one and only scroller (see ShopModal.js). Nothing may introduce an
@@ -484,34 +568,102 @@
  *  component and no JS breakpoint.
  * ======================================================================== */
 .shop {
+    --shopHeaderHeight: clamp(64px, 6vw, 74px);
+    --shopHeaderInset: clamp(8px, 1vw, 14px);
+    --shopHeaderPadInline: clamp(18px, 2vw, 24px);
     font-family: "Lexend", "Lexend Fallback", sans-serif;
     color: #fff;
     display: grid;
-    /* minmax(0, 1fr) and NOT 1fr: a grid track sizes to its content's minimum by
-       default, and the shelf grid inside this one would then refuse to go below
-       its widest row and push the whole modal into a horizontal scroll. */
     grid-template-columns: 210px minmax(0, 1fr);
-    gap: 24px;
-    /* So the rail is its own height and can stick, rather than being stretched
-       to the full height of the goods column. */
-    align-items: start;
+    column-gap: 24px;
+    align-items: flex-start;
+    min-height: 100%;
+    padding: 0 max(14px, calc((100% - 1600px) / 2));
+    background: transparent;
+    box-sizing: border-box;
 }
 
 .shopRail {
-    position: sticky;
-    top: 0;
-    /* Above the cards. .shopCard's hover lift creates a stacking context at
-       z-index 0, and a positive z-index on a positioned box paints after it. */
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 0;
+    display: contents;
 }
 
-/* Nothing scrolls UNDER the rail on desktop (the goods are beside it, not
-   behind it), so it needs no plate of its own and does not get one. The mobile
-   block is where it becomes a bar and therefore has to be opaque. */
+.shopHeader {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: var(--shopHeaderHeight);
+    margin: 0;
+    padding: 8px var(--shopHeaderPadInline);
+    background: var(--shopRaise);
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    box-sizing: border-box;
+}
+
+.shopHeader__close,
+.shopHeader__side {
+    width: 44px;
+    height: 44px;
+}
+
+.shopHeader__close {
+    display: grid;
+    place-items: center;
+    justify-self: start;
+    padding: 0;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    box-sizing: border-box;
+    transition: background 0.18s ease, border-color 0.18s ease,
+        box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.shopHeader__close:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+    transform: scale(1.08);
+}
+
+.shopHeader__close:active {
+    transform: scale(1.03);
+}
+
+.shopHeader__close:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+.shopHeader__title {
+    min-width: 0;
+    margin: 0;
+    color: #fff;
+    font-family: inherit;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The header floats over the equipped background on every width. Its inset and
+   rounded silhouette stay constant; only the responsive gutter and density
+   tighten on phones. */
 
 /* A signed-out visitor looking at a one-category catalogue has nothing to put in
    here: no balance, and a list of one destination is not a list (ShopView drops
@@ -545,43 +697,58 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-self: end;
+    gap: 8px;
+    max-width: 100%;
     margin: 0;
-    padding: 12px 14px;
-    background: var(--gradLight);
-    background-color: var(--primaryTransparent);
-    border: 2px solid var(--primary);
+    padding: 7px 12px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 0;
     border-radius: 16px;
     color: #fff;
     letter-spacing: 0.02em;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.35),
-        0 4px 12px rgba(var(--surfChannels), 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.24);
+    box-sizing: border-box;
+}
+
+.shopHeader .shopWallet .stampMark {
+    width: clamp(32px, 4vw, 38px);
+    height: clamp(32px, 4vw, 38px);
 }
 
 /* The figure leads and the word sits under it. Side by side, the unit competed
    with the digits for the same line and the number had to shrink to fit. */
 .shopWallet__figures {
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    gap: 6px;
+    flex: 1 1 auto;
     min-width: 0;
 }
 
 .shopWallet__value {
-    font-size: var(--stampValueSize);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: clamp(1.1rem, 2vw, var(--stampValueSize));
     font-weight: 700;
     line-height: 1.08;
+    color: #fde047;
     /* The whole reason: this counts DOWN after a purchase, one digit at a time.
        Proportional digits would make the pill breathe on every frame. */
     font-variant-numeric: tabular-nums;
 }
 
 .shopWallet__unit {
-    font-size: var(--stampUnitSize);
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.7);
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 /* WHERE STAMPS COME FROM, on hover over the balance. This is now the ONLY
@@ -661,15 +828,21 @@
 }
 
 /* --- THE NAV ------------------------------------------------------------
-   A list, and it reads as one: a row per destination, the count of what is on
-   that shelf sitting quietly on the right. The count is the one fact the old
-   chip row had no room for, and it is what tells you whether a section is worth
-   the scroll before you take it. */
+   A plain destination list on desktop; the same labels become a horizontal
+   jump row on phones without duplicating markup or adding inventory badges. */
 .shopNav {
+    position: sticky;
+    top: calc(var(--shopHeaderHeight) + 16px);
+    z-index: 3;
+    grid-column: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    width: 100%;
     min-width: 0;
+    margin: 0;
+    padding: 16px 0 0;
+    align-self: start;
 }
 
 .shopNav__item {
@@ -677,7 +850,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex: none;
     width: 100%;
+    min-height: 0;
     padding: 9px 12px;
     background: transparent;
     border: 1px solid transparent;
@@ -717,22 +892,15 @@
     box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
 }
 
-.shopNav__count {
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.4);
-    font-variant-numeric: tabular-nums;
-}
-
-.shopNav__item--here .shopNav__count {
-    color: rgba(255, 255, 255, 0.55);
-}
-
 /* The goods. min-width: 0 for the same reason the track is minmax(0, 1fr) — the
    shelf grids inside must be allowed to be narrower than their content wants. */
 .shopMain {
+    grid-column: 2;
+    width: 100%;
     min-width: 0;
+    margin: 0;
+    padding: 18px 0 64px;
+    box-sizing: border-box;
 }
 
 .shop__status {
@@ -764,7 +932,7 @@
  *  SECTION
  * ----------------------------------------------------------------------- */
 .shopSection {
-    margin: 0 0 20px 0;
+    margin: 0 0 34px 0;
     /* Where a jumped-to heading lands. On desktop the rail is BESIDE the goods,
        so nothing overlays a section and this is breathing room, nothing more —
        it used to have to clear a full-width sticky strip. The phone block puts
@@ -793,13 +961,15 @@
    separates one shelf from the next is the heading's own weight and the air
    around it — type and space, no stroke. */
 .shopSection__head {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
 }
 
 .shopSection__title {
     margin: 0;
-    font-size: 1.35rem;
+    font-family: inherit;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
     font-weight: 700;
+    line-height: 1.1;
     color: #fff;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -1161,11 +1331,14 @@
    resize anything. A frame that appears only when it MEANS something is the
    deal that let every other frame in this file go. */
 .shopCard--equipped {
-    border-color: #4ade80;
+    border-color: transparent;
+    background: color-mix(in srgb, var(--shopRaise) 90%, #7070ff 10%);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35);
 }
 
 .shopCard--equipped:hover {
-    border-color: #4ade80;
+    border-color: transparent;
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* --------------------------------------------------------------------------
@@ -1839,51 +2012,28 @@
     box-shadow: 0 4px 12px rgba(var(--surfChannels), 0.4);
 }
 
-/* EQUIP IS BLUE, EQUIPPED IS LIGHT BLUE.
- *
- * Buy is green and stays green: it is the only button here that spends. Equip
- * is a different job, so it gets its own colour instead of sharing the neutral
- * white chrome with "Sign in" and "Add to bar".
- *
- * IT IS THE BUY BUTTON'S STYLE IN BLUE. Same structure as --gradGreenBtn
- * directly above, stop for stop: one hue at 0.9 alpha, 0.6 at 57%, gone by
- * 100%, inside a 2px solid border, with a coloured glow on hover. Only the hue
- * moves. NOT the .guessBtn treatment (var(--gradBlue) + inset highlights) —
- * that is a three-stop navy slab and it made the shop's action row look like it
- * had been borrowed from the game HUD.
- *
- * The hue is rgb(30, 62, 156), --gradBlue's first stop, so this is still the
- * site's blue and not a new one. The border is that gradient's LIGHT stop,
- * rgb(112, 112, 255), which is also what tints the equipped state below: the
- * action and the state are then literally the same paint at two volumes. */
+/* Match mobile's two equip states: available-to-equip is solid site blue,
+   while already-equipped uses the current background's solid accent. Both use
+   the base button's reserved transparent border, so neither grows an outline. */
 .shopCard__btn--equip {
-    background: linear-gradient(135deg,
-            rgba(30, 62, 156, 0.9) 0%,
-            rgba(30, 62, 156, 0.6) 57%,
-            rgba(255, 255, 255, 0) 100%);
-    border: 2px solid rgba(112, 112, 255, 0.6);
+    background: #1e3e9c;
+    border-color: transparent;
 }
 
 .shopCard__btn--equip:hover:not(:disabled) {
-    background: linear-gradient(135deg,
-            rgba(30, 62, 156, 0.9) 0%,
-            rgba(30, 62, 156, 0.6) 57%,
-            rgba(255, 255, 255, 0) 100%);
-    box-shadow: 0 4px 12px rgba(30, 62, 156, 0.5);
+    background: #264dbd;
 }
 
 .shopCard__btn--on {
-    background: rgba(112, 112, 255, 0.24);
-    color: #b6b6ff;
+    background: var(--primary);
+    border-color: transparent;
+    color: #fff;
 }
 
-/* The equipped state is live on a real card (pressing it unequips), so it gets
-   a hover too, just a quieter one. It has to be restated at all because
-   `.shopCard__btn:hover:not(:disabled)` above is 0-3-0 and would otherwise wash
-   the blue out to generic white. */
+/* Restate the live equipped hover at the same specificity as the base hover. */
 .shopCard__btn--on:hover:not(:disabled) {
-    background: rgba(112, 112, 255, 0.34);
-    color: #d2d2ff;
+    background: color-mix(in srgb, var(--primary) 88%, white 12%);
+    color: #fff;
 }
 
 .shopCard__btn:disabled {
@@ -1896,16 +2046,20 @@
  * It used to replace the price with "Need 240 more", which cost the shopper the
  * one number they are comparing across a grid and put a scold where a price tag
  * goes. The whole state is carried here instead: the green call-to-action drops
- * out to neutral, the shadow goes, and it stops taking presses. The price is
- * held at a higher opacity than the base :disabled rule so it stays READABLE —
- * it is information, not a disabled control's label.
+ * out to neutral and the shadow goes. A press is intercepted client-side and
+ * shakes the control without ever entering the purchase path. The price stays
+ * fully white and fully opaque because it is information, not a disabled label.
  *
- * Same 0-2-0 specificity as the rule above, so it must stay BELOW it. */
-.shopCard__btn--buy:disabled {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: transparent;
+ * The hover selector matches the live-buy hover rule's specificity and stays
+ * below it so an unaffordable button never flashes green under a pointer. */
+.shopCard__btn--buy.shopCard__btn--unaffordable,
+.shopCard__btn--buy.shopCard__btn--unaffordable:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.22);
     box-shadow: none;
-    opacity: 0.78;
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 1;
 }
 
 /* --------------------------------------------------------------------------
@@ -2084,7 +2238,7 @@
    drop shadow on a black stage is a no-op.
 
    THE TRANSLATE IS CANVAS ARITHMETIC, NOT A NUDGE. Every pin ships on the
-   151x163 canvas spec (lib/markerIcons.js): 87x131 art with 32px of glow
+   150x163 canvas spec (lib/markerIcons.js): 87x131 art with about 32px of glow
    headroom on top and both sides and NONE below, because the needle tip
    touches the bottom edge — that is the map's anchor contract. Centring that
    canvas on a card therefore hangs the ART (32-0)/2/163 = 9.8% low; on the
@@ -2298,12 +2452,6 @@
         box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
     }
 
-    /* The count is a desktop luxury: it costs a phone chip a third of its width
-       for a number nobody navigates by at this size. */
-    .shopNav__count {
-        display: none;
-    }
-
     /* It stays. A running pass is the one thing in here with a deadline, and it
        is only in the DOM while that deadline is live. It keeps its own width and
        lets the nav beside it take the squeeze (the nav scrolls; a countdown
@@ -2416,10 +2564,155 @@
     }
 }
 
-/* Reduced motion: the hover lifts are the only motion here, and they are
-   pointer-driven, so there is nothing to keep animating. Jumping to a section
-   drops to an instant scroll in ShopView (it reads the same media query). */
+/* The full-screen chrome keeps the same structure at narrow widths. Only
+   density changes; the header, jump row and shelf order never fork. */
+@media (max-width: 768px) {
+    .modal-backdrop.modal-backdrop--shopFullscreen {
+        padding: 0;
+    }
+
+    .modal-backdrop .modal.shopFullscreen,
+    .modal-backdrop .modal:has(>.modal-content>.shop) {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .modal-backdrop .modal.shopFullscreen>.modal-content,
+    .modal-backdrop .modal:has(>.modal-content>.shop)>.modal-content {
+        padding: 0;
+    }
+
+    .shop {
+        --shopHeaderHeight: clamp(60px, 16vw, 68px);
+        --shopHeaderInset: env(safe-area-inset-top, 0px);
+        --shopHeaderPadInline: clamp(16px, 4vw, 20px);
+        display: block;
+        padding: 0;
+    }
+
+    .shopRail {
+        position: sticky;
+        top: 0;
+        z-index: 8;
+        display: block;
+        width: 100%;
+        margin: 0;
+        background: var(--shopRaise);
+        border-radius: 18px;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+        box-sizing: border-box;
+    }
+
+    .shopHeader {
+        position: static;
+        gap: 8px;
+        width: 100%;
+        min-height: var(--shopHeaderHeight);
+        margin: 0;
+        padding: max(8px, var(--shopHeaderInset)) var(--shopHeaderPadInline) 8px;
+        background: var(--shopRaise);
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .shopHeader__title {
+        font-size: clamp(1.1rem, 6vw, 1.5rem);
+    }
+
+    .shopHeader__close,
+    .shopHeader__side {
+        width: 40px;
+        height: 40px;
+    }
+
+    .shopWallet {
+        justify-self: end;
+        flex-shrink: 1;
+        gap: 6px;
+        max-width: 100%;
+        padding: 5px 8px;
+        border-radius: 14px;
+    }
+
+    .shopHeader .shopWallet .stampMark {
+        width: 32px;
+        height: 32px;
+    }
+
+    .shopWallet__value {
+        font-size: 1.1rem;
+    }
+
+    .shopNav {
+        position: static;
+        display: flex;
+        flex: none;
+        flex-direction: row;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        padding: 0 var(--shopHeaderPadInline) 12px;
+        background: transparent;
+        box-shadow: none;
+        overflow-x: auto;
+        scrollbar-width: none;
+        box-sizing: border-box;
+    }
+
+    .shopNav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .shopNav__item {
+        flex: 0 0 auto;
+        width: auto;
+        min-height: 36px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(3, 10, 6, 0.78);
+        color: rgba(255, 255, 255, 0.86);
+    }
+
+    .shopNav__item--here {
+        background: var(--gradGreenBtn);
+        background-color: var(--primaryTransparent);
+        border-color: var(--primary);
+        color: #fff;
+        box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
+    }
+
+    .shopMain {
+        display: block;
+        width: 100%;
+        padding: 14px 14px 48px;
+    }
+
+    .shopSection {
+        margin-bottom: 28px;
+        scroll-margin-top: calc(var(--shopHeaderHeight) + 72px);
+    }
+
+    .shopSection__title {
+        font-size: 1.5rem;
+    }
+}
+
+/* Reduced motion keeps every state change immediate, including the background
+   dissolve. Jumping to a section also drops to an instant scroll in ShopView. */
 @media (prefers-reduced-motion: reduce) {
+
+    .modal-backdrop .modal.shopFullscreen,
+    .modal-backdrop .modal.shopFullscreen.closing {
+        animation: none;
+    }
+
+    html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen::before {
+        animation: none;
+    }
 
     .shopCard,
     .shopCard:hover,

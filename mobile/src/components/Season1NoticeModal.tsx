@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Linking, Modal, View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pressable } from './ui/SfxPressable';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { withTiming, withSpring } from './daily/anims';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, formatNumber, t } from '../shared';
+import { colors, formatNumber, resolveLeague, t } from '../shared';
 import { useAuthStore } from '../store/authStore';
 import { API_URL } from '../constants/config';
 import { fetchWithTimeout } from '../services/fetchWithTimeout';
 import { haptics } from '../services/haptics';
+import StampMark, { STAMP_UNIT_SIZE, STAMP_VALUE_SIZE } from './shop/StampMark';
 
 /**
  * SEASON 1 FIRST-LOGIN NOTICE (native)
@@ -57,6 +58,7 @@ const RATING_COUNT_MS = 1600;
 const GIFT_COUNT_MS = 900;
 
 const GOLD = '#FFD700';
+const ELO_FORUM_POST_URL = 'https://worldguessr.forum/t/ranked-elo-is-being-rebuilt/1237';
 
 /** Ease-out cubic — the curve web's roundOverScreen counts with. */
 const easeOutCubic = (p: number) => 1 - Math.pow(1 - p, 3);
@@ -124,6 +126,8 @@ export default function Season1NoticeModal({ forceNotice }: Props) {
   const peakElo = Number(notice?.peakElo ?? 0);
   const newElo = Number(notice?.newElo ?? 0);
   const stampsGranted = Number(notice?.stampsGranted ?? 0);
+  const league = notice?.league ? resolveLeague(newElo, notice.league) : null;
+  const leagueColor = league ? (league.light ?? league.color) : colors.white;
 
   // Delayed entrance + beat schedule. One effect owns every timer.
   useEffect(() => {
@@ -220,9 +224,14 @@ export default function Season1NoticeModal({ forceNotice }: Props) {
                 <Text style={styles.label}>{t('season1NoticeNewLabel')}</Text>
                 <View style={styles.numberRow}>
                   <Text style={styles.number}>{formatNumber(ratingDisplay)}</Text>
-                  {!!notice?.league && beat >= 4 && (
-                    <View style={styles.leaguePill}>
-                      <Text style={styles.leagueText}>{notice.league}</Text>
+                  {!!league && beat >= 4 && (
+                    <View
+                      style={[
+                        styles.leaguePill,
+                        { backgroundColor: `${leagueColor}24` },
+                      ]}
+                    >
+                      <Text style={styles.leagueText}>{league.name}</Text>
                     </View>
                   )}
                 </View>
@@ -232,10 +241,11 @@ export default function Season1NoticeModal({ forceNotice }: Props) {
               {showGifts && (
                 <View style={[styles.gifts, beat >= 4 && styles.blockIn]}>
                   <View style={styles.gift}>
-                    <Text style={styles.giftValue}>
-                      +{formatNumber(stampsDisplay)}{' '}
+                    <View style={styles.giftValueRow}>
+                      <StampMark />
+                      <Text style={styles.giftValue}>+{formatNumber(stampsDisplay)}</Text>
                       <Text style={styles.giftUnit}>{t('season1NoticeStampsUnit')}</Text>
-                    </Text>
+                    </View>
                     <Text style={styles.note}>{t('season1NoticeStampsNote')}</Text>
                   </View>
                 </View>
@@ -250,9 +260,14 @@ export default function Season1NoticeModal({ forceNotice }: Props) {
                 </View>
               )}
 
-              <Text style={[styles.legend, beat >= 5 && styles.blockIn]}>
-                {t('season1NoticeLegend')}
-              </Text>
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={12}
+                onPress={() => Linking.openURL(ELO_FORUM_POST_URL).catch(() => {})}
+                style={[styles.forumLink, beat >= 5 && styles.blockIn]}
+              >
+                <Text style={styles.forumLinkText}>{t('season1NoticeForumLink')}</Text>
+              </Pressable>
             </ScrollView>
 
             <Pressable onPress={handleDismiss} style={styles.primaryBtn}>
@@ -284,8 +299,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(12,32,20,0.97)',
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     width: '100%',
     maxWidth: 440,
     maxHeight: '92%',
@@ -347,15 +360,12 @@ const styles = StyleSheet.create({
   },
   numberPeak: { color: GOLD },
   leaguePill: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: 'rgba(0,0,0,0.25)',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 3,
   },
   leagueText: {
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.white,
     fontFamily: 'Lexend',
     fontSize: 13,
   },
@@ -373,21 +383,24 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexBasis: 170,
     backgroundColor: 'rgba(0,0,0,0.28)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  giftValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   giftValue: {
     color: colors.success,
     fontFamily: 'Lexend-Bold',
-    fontSize: 20,
+    fontSize: STAMP_VALUE_SIZE,
   },
   giftUnit: {
     color: 'rgba(255,255,255,0.75)',
     fontFamily: 'Lexend',
-    fontSize: 15,
+    fontSize: STAMP_UNIT_SIZE,
   },
 
   og: {
@@ -395,16 +408,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.35)',
     backgroundColor: 'rgba(255,215,0,0.08)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   ogTag: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.5)',
+    backgroundColor: 'rgba(255,215,0,0.14)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -423,12 +433,17 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  legend: {
+  forumLink: {
     opacity: 0,
-    color: 'rgba(255,255,255,0.6)',
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  forumLinkText: {
+    color: 'rgba(255,255,255,0.58)',
     fontFamily: 'Lexend',
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
+    textDecorationLine: 'underline',
   },
 
   primaryBtn: { width: '100%', borderRadius: 12, overflow: 'hidden' },
@@ -437,8 +452,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(76,175,80,0.7)',
   },
   primaryBtnText: {
     color: colors.white,

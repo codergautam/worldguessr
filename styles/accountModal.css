@@ -20,21 +20,17 @@
     left: 0;
     width: 100%;
     height: 100%;
-    /* The mid stop is --washChannels (globals.scss), not the literal
-       rgba(0, 30, 15) it used to be: this modal is inside the .account-modal
-       accent scope, so an equipped background's own wash colour lands here and
-       the plate stops being green over a purple photograph. The alpha and the
-       angle stay this file's own — the token carries the colour and nothing
-       else, which is why it is three channels rather than a finished gradient. */
+    /* Keep the scrim uniform so brighter themes cannot create a black corner.
+       A small blur softens the cosmetic background without putting a costly
+       backdrop-filter on the scrollable modal surface. */
     background: linear-gradient(
-        135deg,
-        rgba(0, 0, 0, 0.9) 0%,
-        rgba(var(--washChannels), 0.8) 50%,
-        rgba(0, 0, 0, 0.9) 100%
+        rgb(from var(--primaryDark) calc(r * 0.2) calc(g * 0.2) calc(b * 0.2) / 0.86),
+        rgb(from var(--primaryDark) calc(r * 0.2) calc(g * 0.2) calc(b * 0.2) / 0.86)
     ),
     var(--site-bg);
     background-size: cover;
     background-position: center;
+    filter: blur(2px);
     /* Changed from background-attachment: fixed to position: fixed */
     /* background-attachment: fixed causes repaint on every scroll frame */
     z-index: -1;
@@ -193,7 +189,7 @@
 
 .account-modal-body {
     flex: 1;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.46);
     border-radius: 20px;
     padding: 30px;
     /* Removed backdrop-filter from scrollable area - causes flickering during scroll */
@@ -214,6 +210,60 @@
     justify-content: center;
     margin-top: auto;
     padding-top: 20px;
+}
+
+/* Change Name and Change Flag are the same kind of account edit. One component
+   owns their geometry, theme tint, and interaction states so they cannot drift. */
+.account-profile-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 44px;
+    margin-top: 20px;
+    padding: 12px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: box-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+}
+
+.account-profile-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+}
+
+.account-profile-action:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 3px;
+}
+
+.account-profile-action:active {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(0);
+}
+
+.account-profile-action--required {
+    border-color: #d29922;
+    background: linear-gradient(135deg, #f0883e, #d29922);
+    box-shadow: 0 4px 15px rgba(240, 136, 62, 0.3);
+}
+
+.account-profile-action--required:hover {
+    background: linear-gradient(135deg, #f0883e, #d29922);
+    box-shadow: 0 6px 20px rgba(240, 136, 62, 0.4);
+    filter: brightness(1.08);
 }
 
 .logout-button {
@@ -351,25 +401,6 @@
     }
 }
 
-/* Dark mode enhancements */
-@media (prefers-color-scheme: dark) {
-    .account-modal-background {
-        /* Same wash token as the base rule, still darker: the black stops carry
-           the darkening (0.95 against 0.9) rather than a second hand-mixed green.
-           The mid stop used to be rgba(0, 20, 10) — the base tone at two thirds —
-           which is a value nobody could retint without knowing it existed. */
-        background: linear-gradient(
-            135deg,
-            rgba(0, 0, 0, 0.95) 0%,
-            rgba(var(--washChannels), 0.9) 50%,
-            rgba(0, 0, 0, 0.95) 100%
-        ),
-        var(--site-bg);
-        background-size: cover;
-        background-position: center;
-    }
-}
-
 /* Animation for modal entrance */
 @keyframes modalSlideIn {
     from {
@@ -446,4 +477,13 @@
 
 .account-modal-p-container {
     height: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .account-profile-action,
+    .account-profile-action:hover,
+    .account-profile-action:active {
+        transition: none;
+        transform: none;
+    }
 }

@@ -63,15 +63,10 @@ const TileLayer = dynamic(
  * front-loaded count-up they have always had.
  */
 const ELO_COUNT_MS = 1000;
+/** Let the result title and badge paint before the digits begin moving. */
+const ELO_COUNT_DELAY_MS = 250;
 /** Below this |Δ| the digits alone cannot carry the motion — see WHY TWO CURVES. */
 const ELO_SMALL_DELTA = 8;
-
-/* ── Stamps receipt ─────────────────────────────────────────────────────────
- * Deliberately SHORTER than the rating count: the receipt arrives on its own ws
- * message a beat after this screen paints (the grants sit behind the game save,
- * ws/classes/Game.js sendStampEarnings), so its count starts late and must be
- * finished well before the player reaches for Play Again. */
-const STAMPS_COUNT_MS = 650;
 
 /* Reason labels and the repeated-reason merge live in shared/stamps/receipt.js
  * — mobile's results screen imports the SAME module through its @shared alias,
@@ -153,6 +148,7 @@ const GameSummary = ({
     hidden,
     multiplayerState,
     session,
+    viewerMarkerSkin,
     gameId,
     options,
     // Matchmade team duels only (passed by the LIVE mounts, never history):
@@ -204,29 +200,14 @@ const GameSummary = ({
   const [eloCounting, setEloCounting] = useState(false);
 
   // ── Stamps receipt plumbing ───────────────────────────────────────────────
-  // Everything here keys off the receipt ARRIVING, never off mount: it lands on
-  // its own ws message after this screen is already painted. `stampsPending`
-  // (stamped onto duelEnd by the server for games that expect to pay) is what
-  // holds the row's height open in the meantime, so the fill is a fade, not a
-  // shove.
+  // The receipt lands on its own ws message after the ledger applies it. Do not
+  // reserve a blank row while it is in flight: the header stays compact, then
+  // renders the authoritative total immediately when it exists.
   const stampsReceipt = multiplayerState?.gameData?.stampsEarned || null;
   const stampsTotal = typeof stampsReceipt?.total === 'number' ? stampsReceipt.total : 0;
   const stampsLines = useMemo(() => mergeStampLines(stampsReceipt?.lines), [stampsReceipt]);
-  const stampsPending = !!data?.stampsPending;
-  // Same callback-ref + write-to-the-DOM recipe as the rating counter above, for
-  // the same reason: this tree re-renders constantly (round clicks, mobile
-  // expand, player selection) and a state-driven counter would repaint the whole
-  // summary once per frame.
-  const [stampsNode, setStampsNode] = useState(null);
-  const stampsShownRef = useRef(0);
-  const stampsRafRef = useRef(0);
-  const [stampsCounting, setStampsCounting] = useState(false);
-  // The per-reason breakdown is HOVER-REVEALED (styles/duel.css). What the
-  // player wants at a glance is the number; the itemisation is a detail, and
-  // four grey chips permanently under the headline made a one-line fact look
-  // like an invoice. `:hover` covers pointers; this state is the TOUCH half —
-  // there is no hover on a phone, so tapping the row toggles it. Both paths end
-  // at the same class, and neither changes the row's height (see the CSS).
+  // Pointer hover/focus reveals the out-of-flow tooltip in CSS. This state is
+  // the touch fallback, where tapping the amount toggles the same tooltip.
   const [stampsBreakdownOpen, setStampsBreakdownOpen] = useState(false);
 
 
@@ -330,98 +311,42 @@ const GameSummary = ({
     }
 
     const ease = Math.abs(delta) < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
-    const start = performance.now();
     let last = oldElo;
     write(oldElo);
-    setEloCounting(true);
+    setEloCounting(false);
 
-    const step = (now) => {
-      const progress = Math.min((now - start) / ELO_COUNT_MS, 1);
-      const value = Math.round(oldElo + delta * ease(progress));
-      // Only touch the DOM when a digit actually changes. On the v2 scale most
-      // frames of a ±3 swing produce the same integer, so this skips ~57 of the
-      // 60 writes and the text node is left alone.
-      if (value !== last) {
-        last = value;
-        write(value);
-      }
-      if (progress < 1) {
-        eloRafRef.current = requestAnimationFrame(step);
-        return;
-      }
-      eloRafRef.current = 0;
-      write(newElo);
-      setEloCounting(false);
-    };
-    eloRafRef.current = requestAnimationFrame(step);
+    const startTimer = window.setTimeout(() => {
+      const start = performance.now();
+      setEloCounting(true);
+      const step = (now) => {
+        const progress = Math.min((now - start) / ELO_COUNT_MS, 1);
+        const value = Math.round(oldElo + delta * ease(progress));
+        // Only touch the DOM when a digit actually changes. On the v2 scale most
+        // frames of a ±3 swing produce the same integer, so this skips ~57 of the
+        // 60 writes and the text node is left alone.
+        if (value !== last) {
+          last = value;
+          write(value);
+        }
+        if (progress < 1) {
+          eloRafRef.current = requestAnimationFrame(step);
+          return;
+        }
+        eloRafRef.current = 0;
+        write(newElo);
+        setEloCounting(false);
+      };
+      eloRafRef.current = requestAnimationFrame(step);
+    }, ELO_COUNT_DELAY_MS);
 
     return () => {
+      window.clearTimeout(startTimer);
       if (eloRafRef.current) {
         cancelAnimationFrame(eloRafRef.current);
         eloRafRef.current = 0;
       }
     };
   }, [eloNode, duel, data?.oldElo, data?.newElo]); // Use specific properties instead of entire data object
-
-  // Count the stamps receipt up from zero. Same rAF-to-the-DOM machinery as the
-  // rating counter; the differences are all consequences of it arriving late:
-  // it starts from 0 (there is no "before" balance to count from on this
-  // screen — the wallet is not what this row is about), and it runs for
-  // STAMPS_COUNT_MS rather than a full second.
-  useEffect(() => {
-    if (!stampsNode || !duel || !(stampsTotal > 0)) return;
-
-    const write = (v) => {
-      stampsShownRef.current = v;
-      stampsNode.textContent = `+${v}`;
-    };
-
-    // Kill any in-flight loop first — same rule as the rating counter.
-    if (stampsRafRef.current) {
-      cancelAnimationFrame(stampsRafRef.current);
-      stampsRafRef.current = 0;
-    }
-
-    if (prefersReducedMotion()) {
-      write(stampsTotal);
-      setStampsCounting(false);
-      return;
-    }
-
-    // A game pays 2-8 in the common case, so the count has only a handful of
-    // digit transitions to spend. easeInOutCubic puts them in the middle of the
-    // flourish for the small totals; a back-paid weekly quest (+25) or a ladder
-    // sweep is large enough for the classic front-loaded curve.
-    const ease = stampsTotal < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
-    const start = performance.now();
-    let last = 0;
-    write(0);
-    setStampsCounting(true);
-
-    const step = (now) => {
-      const progress = Math.min((now - start) / STAMPS_COUNT_MS, 1);
-      const value = Math.round(stampsTotal * ease(progress));
-      if (value !== last) {
-        last = value;
-        write(value);
-      }
-      if (progress < 1) {
-        stampsRafRef.current = requestAnimationFrame(step);
-        return;
-      }
-      stampsRafRef.current = 0;
-      write(stampsTotal);
-      setStampsCounting(false);
-    };
-    stampsRafRef.current = requestAnimationFrame(step);
-
-    return () => {
-      if (stampsRafRef.current) {
-        cancelAnimationFrame(stampsRafRef.current);
-        stampsRafRef.current = 0;
-      }
-    };
-  }, [stampsNode, duel, stampsTotal]);
 
   // Handle scroll to make header compact
   useEffect(() => {
@@ -968,14 +893,16 @@ const GameSummary = ({
   // pin vanished the moment the round ended.
   const skinOf = {};
   gamePlayers.forEach(p => { if (p.markerSkin) skinOf[p.id] = p.markerSkin; });
-  // The VIEWER's own pin cannot come from the roster: singleplayer has no
-  // roster at all, so `gamePlayers` is empty and `myId` is undefined. The
-  // session is the only source that exists in every mode, which is exactly the
-  // priority Map.js uses (session first, roster entry as the backfill for the
-  // window before the session resolves).
-  const myMarkerSkin = session?.token?.cosmetics?.equipped?.markerSkin
-    ?? skinOf[multiplayerState?.gameData?.myId]
-    ?? null;
+  // History passes the account modal's live shop state (falling back to the
+  // API-joined cosmetic) because solo modes have no multiplayer roster and an
+  // auth session may predate the latest equip.
+  // `undefined` means live mode (use its existing session/roster resolution);
+  // explicit null means the historical perspective player has no pin equipped.
+  const myMarkerSkin = viewerMarkerSkin !== undefined
+    ? viewerMarkerSkin
+    : (session?.token?.cosmetics?.equipped?.markerSkin
+      ?? skinOf[multiplayerState?.gameData?.myId]
+      ?? null);
   // And the VIEWER's own glow, for the same reason and in the same order — in
   // singleplayer the roster is empty and `myId` is undefined, so the session is
   // the only source that exists in every mode. It dresses YOUR NAME on this
@@ -1139,6 +1066,7 @@ const GameSummary = ({
     // replayed game, carried on the saved doc (models/Game.js `placement`).
     // Only p1 can ever be in a placement — p2 is the throwing bot.
     const isPlacement = data.placement === true;
+    const isLivePlacement = isPlacement && !options?.isHistoryView;
     // Resolved with the server's tier when it sent one, so a seasonal re-anchor
     // does not need a web deploy to label this correctly.
     const placementLeague = isPlacement ? resolveLeague(newElo, data.league) : null;
@@ -1429,7 +1357,13 @@ const GameSummary = ({
           <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
             <div className={`summary-header duel-header ${headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? 'compact' : ''}`}>
               <h1 className="summary-title">
-                {draw ? text("draw") : winner ? text("victory") : text("defeat")}
+                {isPlacement
+                  ? text("placementCompleteTitle")
+                  : draw
+                    ? text("draw")
+                    : winner
+                      ? text("victory")
+                      : text("defeat")}
               </h1>
 
               {/* Cumulative team parties: final team totals under the verdict */}
@@ -1450,145 +1384,111 @@ const GameSummary = ({
                 </div>
               )}
 
-              {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
-                <div className="elo-container">
-                  {/* Placement label. The server sends `placement: true` on
-                      duelEnd for a new account's single seeding match; web read
-                      it nowhere, so the one game that is guaranteed to be a WIN
-                      rendered as an ordinary rating change. */}
-                  {isPlacement && (
-                    <span className="elo-placement-label">{text("placementMatch")}</span>
-                  )}
-                  <span className="elo-title">{text("elo")}:</span>
-                  <div className="elo-display">
-                    {/* Renders from the REF, not from state — see eloShownRef.
-                        `setEloNode` is the stable useState setter used as a
-                        callback ref; an inline arrow here would detach and
-                        reattach the node on every render and restart the
-                        animation effect with it. */}
-                    <span
-                      ref={setEloNode}
-                      className={`elo-value${eloCounting ? ' elo-value--counting' : ''}`}
+              <div className="duel-header__meta">
+                {typeof data.oldElo === "number" && typeof data.newElo === "number" && (isPlacement ? (
+                  <div className="placement-result">
+                    <div
+                      className="placement-rating-badge"
+                      style={{ '--placement-accent': placementLeague?.light ?? placementLeague?.color }}
+                      aria-label={`${text("placementLeagueResult", { league: placementLeague?.name })}. ${newElo} ${text("elo")}`}
                     >
-                      {eloShownRef.current}
-                    </span>
-                    {/* A placement SEEDS the rating rather than transferring it:
-                        the number is a pure function of your own round scores,
-                        not something won off an opponent. So show the tier you
-                        landed in, never a signed delta — a "+N" here reads as a
-                        giant win bonus, and (before the entry rating was fixed
-                        to 500) a "-N" read as losing your first ever game.
-                        Mirrors mobile's EloChangeDisplay exactly. */}
-                    {isPlacement ? (
-                      <span className="elo-change elo-change--placement" style={{ color: placementLeague?.color }}>
-                        {placementLeague?.name}
+                      <span className="placement-rating-badge__emblem" aria-hidden="true">
+                        {placementLeague?.emoji}
                       </span>
-                    ) : (
-                      /* Colour by class, not inline style. The old inline
-                         `green`/`red` were the CSS keywords (#008000/#f00) —
-                         barely legible on the dark glass, and `>= 0` painted a
-                         zero transfer green as if it were a gain. v2 draws
-                         between evenly matched players really do transfer 0. */
+                      <span className="placement-rating-badge__body" aria-hidden="true">
+                        <span className="placement-rating-badge__result">
+                          {text("placementLeagueResult", { league: placementLeague?.name })}
+                        </span>
+                        <span className="placement-rating-badge__rating">
+                          <span
+                            ref={setEloNode}
+                            className={`elo-value placement-rating-badge__value${eloCounting ? ' elo-value--counting' : ''}`}
+                          >
+                            {eloShownRef.current}
+                          </span>
+                          <span className="placement-rating-badge__unit">{text("elo")}</span>
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="elo-container">
+                    <span className="elo-title">{text("elo")}:</span>
+                    <div className="elo-display">
+                      <span
+                        ref={setEloNode}
+                        className={`elo-value${eloCounting ? ' elo-value--counting' : ''}`}
+                      >
+                        {eloShownRef.current}
+                      </span>
                       <span
                         className={`elo-change ${eloChange > 0 ? 'elo-change--up' : eloChange < 0 ? 'elo-change--down' : 'elo-change--flat'}`}
                       >
                         {eloChange > 0 ? `+${eloChange}` : eloChange}
                       </span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Placement keeps one focused onboarding message. Rewards
+                    still reach the wallet, but the receipt waits for later
+                    ranked results instead of competing with the league reveal. */}
+                {!isPlacement && stampsTotal > 0 && (
+                  <div
+                    className={`stamps-earned${stampsBreakdownOpen ? ' stamps-earned--open' : ''}`}
+                    onMouseLeave={() => setStampsBreakdownOpen(false)}
+                  >
+                    <button
+                      type="button"
+                      className="stamps-earned__trigger"
+                      aria-label={`${text("shopStampsUnit")}: +${stampsTotal}`}
+                      aria-describedby={stampsLines.length > 0 ? 'stamps-earned-breakdown' : undefined}
+                      aria-expanded={stampsLines.length > 0 ? stampsBreakdownOpen : undefined}
+                      onClick={() => {
+                        if (stampsLines.length > 0) {
+                          setStampsBreakdownOpen((v) => !v);
+                        }
+                      }}
+                      onBlur={() => setStampsBreakdownOpen(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setStampsBreakdownOpen(false);
+                        }
+                      }}
+                    >
+                        <span className="stamps-earned__mark">
+                          <StampMark />
+                        </span>
+                        <span className="stamps-earned__value">+{stampsTotal}</span>
+                    </button>
+
+                    {stampsLines.length > 0 && (
+                      <div
+                        id="stamps-earned-breakdown"
+                        className="stamps-earned__lines"
+                        role="tooltip"
+                      >
+                        {stampsLines.map((line) => (
+                          <span className="stamps-earned__line" key={line.reason}>
+                            {STAMP_REASON_KEYS[line.reason] && (
+                              <span className="stamps-earned__line-label">
+                                {text(STAMP_REASON_KEYS[line.reason])}
+                              </span>
+                            )}
+                            <span className="stamps-earned__line-amount">+{line.amount}</span>
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* ── Stamps receipt ──────────────────────────────────────────
-                  Rendered as soon as the server says a receipt is COMING
-                  (`stampsPending` on duelEnd), empty, purely to hold its own
-                  height. The alternative is a 60px row materialising under the
-                  player's thumb half a second later and pushing Play Again
-                  down as they reach for it.
-
-                  The number itself only ever appears when the ledger actually
-                  applied something: sendStampEarnings does not send a receipt
-                  for zero, and this never renders a "+0". In the one place in
-                  the app where a player counts currency, an optimistic number
-                  is worse than no number. */}
-              {(stampsPending || stampsTotal > 0) && (
-                <div
-                  className={[
-                    'stamps-earned',
-                    stampsTotal > 0 ? 'stamps-earned--paid' : '',
-                    stampsBreakdownOpen ? 'stamps-earned--open' : '',
-                  ].filter(Boolean).join(' ')}
-                  // Touch (and keyboard, via the button role) toggle for the
-                  // hover-revealed breakdown. Only interactive once there is
-                  // something to reveal — a pending row has no lines yet, and a
-                  // control that does nothing is worse than no control.
-                  {...(stampsLines.length > 0 ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'aria-expanded': stampsBreakdownOpen,
-                    onClick: () => setStampsBreakdownOpen((v) => !v),
-                    onKeyDown: (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setStampsBreakdownOpen((v) => !v);
-                      }
-                    },
-                  } : {})}
-                >
-                  {stampsTotal > 0 && (
-                    <>
-                      <div className="stamps-earned__headline">
-                        <StampMark />
-                        {/* Renders from the REF (see stampsShownRef) so an
-                            unrelated re-render mid-count cannot snap the digits
-                            back to zero. */}
-                        <span
-                          ref={setStampsNode}
-                          className={`stamps-earned__value${stampsCounting ? ' stamps-earned__value--counting' : ''}`}
-                        >
-                          {`+${stampsShownRef.current}`}
-                        </span>
-                        <span className="stamps-earned__unit">{text("shopStampsUnit")}</span>
-                      </div>
-
-                      {stampsLines.length > 0 && (
-                        // ALWAYS RENDERED, ALWAYS IN FLOW — only its opacity
-                        // moves. The per-line entrance stagger that used to be
-                        // here (an inline animationDelay per chip) is gone with
-                        // the reveal it belonged to: it made sense while the
-                        // breakdown arrived as part of the results choreography,
-                        // and on a hover it reads as the UI being slow.
-                        //
-                        // No aria-hidden: this is a DENSITY decision, not an
-                        // information one. The breakdown stays in the
-                        // accessibility tree at all times — hiding it from a
-                        // screen reader because a sighted user has not hovered
-                        // yet would make the currency less legible to the people
-                        // who can least afford that, and `:hover` is not a state
-                        // React knows about anyway.
-                        <div className="stamps-earned__lines">
-                          {stampsLines.map((line) => (
-                            <span className="stamps-earned__line" key={line.reason}>
-                              {STAMP_REASON_KEYS[line.reason] && (
-                                <span className="stamps-earned__line-label">
-                                  {text(STAMP_REASON_KEYS[line.reason])}
-                                </span>
-                              )}
-                              <span className="stamps-earned__line-amount">+{line.amount}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {data.timeElapsed > 0 && (
-                <div className="time-elapsed">
-                  <FaClock /> {text("time")}: {msToTime(data.timeElapsed)}
-                </div>
-              )}
+                {!isPlacement && data.timeElapsed > 0 && (
+                  <div className="time-elapsed">
+                    <FaClock /> {text("time")}: {msToTime(data.timeElapsed)}
+                  </div>
+                )}
+              </div>
 
               {/* {gameId && (
                 <div className="game-id-container" style={{
@@ -1621,7 +1521,12 @@ const GameSummary = ({
                 </div>
               )} */}
 
-              <div className="summary-actions">
+              <div className={`summary-actions${isLivePlacement ? ' summary-actions--placement' : ''}`}>
+                {isLivePlacement && button1Text && (
+                  <button className="action-btn primary placement-replay" onClick={button1Press}>
+                    {text("startDueling")}
+                  </button>
+                )}
                 <button
                   className="action-btn mobile-expand-btn"
                   onClick={() => setMobileExpanded(!mobileExpanded)}
@@ -1667,7 +1572,7 @@ const GameSummary = ({
                     </>
                   );
                 })() : (
-                  button1Text && (
+                  button1Text && !isLivePlacement && (
                     <button className="action-btn primary" onClick={button1Press}>
                       {button1Text}
                     </button>

@@ -70,9 +70,12 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
 
   const queuedAt = multiplayerState?.queuedAt;
   let elapsedStr = null;
+  let elapsedSecs = 0;
+  let elapsedMs = 0;
   if (typeof queuedAt === "number") {
-    const secs = Math.max(0, Math.floor((Date.now() + (timeOffset || 0) - queuedAt) / 1000));
-    elapsedStr = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+    elapsedMs = Math.max(0, Date.now() + (timeOffset || 0) - queuedAt);
+    elapsedSecs = Math.floor(elapsedMs / 1000);
+    elapsedStr = `${Math.floor(elapsedSecs / 60)}:${String(elapsedSecs % 60).padStart(2, "0")}`;
   }
 
   // Ranked only — unranked and 2v2 carry no rating, so the server never sends
@@ -85,7 +88,12 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
   // never a reason to invent a number.
   let etaStr = null;
   let etaRough = false;
-  if (eta?.state === "long") {
+  // The server sends the threshold, but this screen owns a 1s clock. Flip
+  // locally as soon as it is crossed so a stale quote cannot survive until the
+  // server's next 5s broadcast. The next server message makes the state agree.
+  const etaPastThreshold = typeof eta?.longAfterSeconds === "number"
+    && elapsedMs > eta.longAfterSeconds * 1000;
+  if (eta?.state === "long" || etaPastThreshold) {
     etaStr = text("queueEtaLong");
   } else if (eta?.state === "rough" && ROUGH_KEYS[eta.tier]) {
     etaStr = text(ROUGH_KEYS[eta.tier]);
@@ -137,9 +145,7 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
 
           {/* One plate, one cell per value. The divider between cells is a CSS
               sibling rule, so a single value renders with no stray edge.
-              Suppressed for a placement: the opponent is the placement bot, so
-              a rating range and a wait estimate are both noise — the one-line
-              explainer below is what a brand-new player actually needs. */}
+              Placement skips the plate because its bot match begins immediately. */}
           {!isPlacement && (range || etaStr) && (
             <div className="wgQueue__data">
               {range && (
@@ -157,10 +163,6 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
                 </div>
               )}
             </div>
-          )}
-
-          {isPlacement && (
-            <p className="wgQueue__placementNote">{text("placementQueueNote")}</p>
           )}
 
           {elapsedStr && (

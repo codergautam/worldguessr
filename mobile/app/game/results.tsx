@@ -84,6 +84,8 @@ interface PlayerInfo {
   accountId?: string | null;
   /** Equipped name-glow sku off the roster. Rendered by <PlayerName glow>. */
   nameGlow?: string | null;
+  /** Equipped marker sku frozen with the result roster. */
+  markerSkin?: string | null;
 }
 
 interface MultiplayerInfo {
@@ -429,6 +431,8 @@ export default function GameResultsScreen() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyData, setHistoryData] = useState<{ score: number; rounds: RoundResult[] } | null>(null);
   const [historyMode, setHistoryMode] = useState<string | null>(null);
+  // undefined = no history response yet; null = explicitly unequipped.
+  const [historyViewerMarkerSkin, setHistoryViewerMarkerSkin] = useState<string | null | undefined>(undefined);
   // What the game paid, for a game opened from HISTORY. The live path gets this
   // pushed over the socket; api/gameDetails rebuilds the same shape from the
   // stamps ledger (serverUtils/stamps/gameReceipt.js), which is why replaying an
@@ -449,6 +453,7 @@ export default function GameResultsScreen() {
         const game = data.game as any;
         const myId: string = game.currentUserId;
         const myPlayer = game.players.find((p: any) => p.accountId === myId);
+        setHistoryViewerMarkerSkin(myPlayer?.markerSkin ?? null);
         // Team detection via the roster (web historicalGameView.js) — never
         // the gameType string alone, so team parties (gameType
         // 'private_multiplayer') classify correctly too.
@@ -577,12 +582,10 @@ export default function GameResultsScreen() {
               elo: p.elo,
               team: p.team === 'a' || p.team === 'b' ? p.team : undefined,
               accountId: p.accountId ?? null,
-              // The LIVE path stamps this from the duelEnd roster; this one
-              // never did, so every name in a game opened from history rendered
-              // plain while the same game's live end screen glowed. The server
-              // joins it live off the account (serverUtils/userCosmetics.js) —
-              // ?? null keeps a pre-join server from producing `undefined`.
+              // The detail API returns the saved match snapshot, with a live
+              // account fallback only for legacy games that predate it.
               nameGlow: p.nameGlow ?? null,
+              markerSkin: p.markerSkin ?? null,
             })),
             myId,
             isDuel,
@@ -627,18 +630,17 @@ export default function GameResultsScreen() {
       const myId = liveMyIdParam ?? players.find((p: any) => p.id)?.id ?? '';
       const roundData = buildLiveRoundData(liveHistory);
 
-      // Team games: everything team-shaped reads the FROZEN duelEnd.players
-      // snapshot, never the live/params roster — the live array shrinks as
-      // opponents hit Play Again on the finished game (roster-freeze
-      // invariant). The params roster only backfills anyone the frozen
-      // snapshot lacks (a mid-game leaver still shown in rounds).
+      // Every current duelEnd carries a frozen roster. Prefer it over the
+      // navigation-time roster, which may already have lost a disconnecting
+      // player; keep the latter as a rolling-deploy fallback for old servers.
       const isTeam = !!(duelEnd?.team2v2 || duelEnd?.teamGame);
-      const frozenRoster: any[] = isTeam && Array.isArray(duelEnd.players) ? duelEnd.players : [];
+      const frozenRoster: any[] = Array.isArray(duelEnd?.players) ? duelEnd.players : [];
       const teamOf = (id: string): 'a' | 'b' | undefined => {
         const team = frozenRoster.find((p) => p.id === id)?.team;
         return team === 'a' || team === 'b' ? team : undefined;
       };
-      const rosterSource: any[] = isTeam
+      const liveRosterById = new Map<string, any>(players.map((p: any) => [p.id, p]));
+      const rosterSource: any[] = frozenRoster.length > 0
         ? [
             ...frozenRoster,
             ...players.filter((p: any) => !frozenRoster.some((f) => f.id === p.id)),
@@ -678,8 +680,11 @@ export default function GameResultsScreen() {
               }
             : undefined,
           team: isTeam ? teamOf(p.id) : undefined,
-          accountId: p.accountId ?? null,
-          nameGlow: p.nameGlow ?? null,
+          accountId: p.accountId ?? liveRosterById.get(p.id)?.accountId ?? null,
+          // Undefined means an older frozen payload omitted cosmetics. Null
+          // is authoritative and must not fall through to the live roster.
+          nameGlow: p.nameGlow !== undefined ? p.nameGlow : (liveRosterById.get(p.id)?.nameGlow ?? null),
+          markerSkin: p.markerSkin !== undefined ? p.markerSkin : (liveRosterById.get(p.id)?.markerSkin ?? null),
         })),
         myId,
         isDuel: !!duelEnd && !isTeam,
@@ -801,16 +806,23 @@ export default function GameResultsScreen() {
   }, [multiplayerInfo?.players]);
   const glowOf = (playerId?: string | null) => (playerId ? glowById.get(playerId) ?? null : null);
 
+  const markerSkinById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const p of multiplayerInfo?.players ?? []) m.set(p.playerId, p.markerSkin ?? null);
+    return m;
+  }, [multiplayerInfo?.players]);
+  const resultsViewerMarkerSkin = isHistoryView
+    ? (historyViewerMarkerSkin !== undefined ? historyViewerMarkerSkin : myMarkerSkin)
+    : (multiplayerInfo?.myId && markerSkinById.has(multiplayerInfo.myId)
+      ? markerSkinById.get(multiplayerInfo.myId) ?? null
+      : myMarkerSkin);
+
   // Web finalHistory shape for the results embed (components/ResultsMap.js): my
   // guess = guessLat/guessLong; players = opponents (which already exclude me).
   //
-  // `nameGlow` IS THE ONE COSMETIC THAT HAS TO BE COPIED IN HERE, and it is the
-  // exception the glowById comment above describes rather than a contradiction
-  // of it. The embed is a WebView: it cannot reach into this component's roster,
-  // so anything the pin labels need has to cross the bridge inside `rounds`.
-  // Web's own ResultsMap reads exactly this field off exactly this entry
-  // (`player.nameGlow`), so leaving it out was the whole reason opponents'
-  // names glowed on the site and not in the app.
+  // The embed is a WebView and cannot reach this component's canonical roster,
+  // so both cosmetics consumed by ResultsMap must cross the bridge on each
+  // opponent entry: nameGlow dresses the label; markerSkin selects the pin.
   const resultsRounds = useMemo(
     () =>
       parsedRounds.map((r) => ({
@@ -829,6 +841,7 @@ export default function GameResultsScreen() {
               username: o.username,
               countryCode: o.countryCode,
               nameGlow: glowById.get(o.playerId) ?? null,
+              markerSkin: markerSkinById.get(o.playerId) ?? null,
             };
             return acc;
           },
@@ -841,11 +854,12 @@ export default function GameResultsScreen() {
               username: string;
               countryCode?: string;
               nameGlow: string | null;
+              markerSkin: string | null;
             }
           >,
         ),
       })),
-    [parsedRounds, glowById],
+    [parsedRounds, glowById, markerSkinById],
   );
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
   const resultMode = mode ?? historyMode;
@@ -1208,6 +1222,10 @@ export default function GameResultsScreen() {
     const me = multiplayerInfo.players.find(p => p.playerId === multiplayerInfo.myId);
     return me?.elo ?? null;
   }, [multiplayerInfo]);
+  const isPlacementResult = multiplayerInfo?.isDuel && myEloData?.placement === true;
+  const showStampReceipt = !isPlacementResult && (isHistoryView
+    ? (historyStamps?.total ?? 0) > 0
+    : stampsPending || (stampsReceipt?.total ?? 0) > 0);
 
   // ── Helper: find my rank for multiplayer header ──────────
   const myRank = useMemo(() => {
@@ -1424,17 +1442,26 @@ export default function GameResultsScreen() {
   // ── Sidebar header (stars + score + buttons) ───────────────
   const renderHeader = (compact: boolean) => (
     <View style={[styles.header, compact && styles.headerCompact]}>
-      {/* Duel/team: Victory/Defeat/Draw title (+ ELO for 1v1 ranked only —
-          2v2 is unranked; team parties have no elo either). A null myTeam
-          renders the neutral draw color, never a fabricated win/loss. */}
+      {/* Placement gets a plain onboarding result. Later duels keep the usual
+          Victory/Defeat/Draw title and rating change. */}
       {multiplayerInfo?.isDuel || multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame ? (
         <>
           <Text style={[
             styles.duelTitle,
             compact && { fontSize: 24 },
-            { color: multiplayerInfo.isDraw ? '#FFC107' : multiplayerInfo.isWinner ? '#4CAF50' : '#F44336' },
+            {
+              color: isPlacementResult
+                ? colors.white
+                : multiplayerInfo.isDraw
+                  ? '#FFC107'
+                  : multiplayerInfo.isWinner
+                    ? '#4CAF50'
+                    : '#F44336',
+            },
           ]}>
-            {t(multiplayerInfo.isDraw ? 'draw' : multiplayerInfo.isWinner ? 'victory' : 'defeat')}
+            {isPlacementResult
+              ? t('placementCompleteTitle')
+              : t(multiplayerInfo.isDraw ? 'draw' : multiplayerInfo.isWinner ? 'victory' : 'defeat')}
           </Text>
           {/* teamGame: cumulative scoreline (Team 1 pts — pts Team 2, crown on
               the winner). 2v2 deliberately has NO scoreline (HP already hit 0). */}
@@ -1458,7 +1485,9 @@ export default function GameResultsScreen() {
               serverLeague={myLeague}
             />
           )}
-          {/* Stamps receipt. LIVE from the store, NOT from the frozen route
+          {/* Stamps receipt. Hidden during placement so the first ranked result
+              stays focused; the authoritative balance still updates normally.
+              LIVE from the store, NOT from the frozen route
               params: it lands on its own ws message a beat after duelEnd (the
               grants sit behind the game save), which is usually after this
               screen has already been pushed. `pending` reserves its height
@@ -1473,9 +1502,7 @@ export default function GameResultsScreen() {
               ledger itself is permanent and keyed by game. `pending` is a live
               concept only; a history receipt is either already here or was
               never paid. */}
-          {(isHistoryView
-            ? (historyStamps?.total ?? 0) > 0
-            : (stampsPending || (stampsReceipt?.total ?? 0) > 0)) && (
+          {showStampReceipt && (
             <StampsEarnedDisplay
               total={isHistoryView ? historyStamps?.total : stampsReceipt?.total}
               lines={isHistoryView ? historyStamps?.lines : stampsReceipt?.lines}
@@ -1554,7 +1581,32 @@ export default function GameResultsScreen() {
       )}
 
       {/* Action buttons */}
-      <View style={styles.headerButtons}>
+      <View style={[
+        styles.headerButtons,
+        showStampReceipt && styles.headerButtonsAfterStamps,
+        isPlacementResult && !isHistoryView && styles.placementHeaderButtons,
+      ]}>
+        {isPlacementResult && !isHistoryView && (is2v2Game || isPartyHost || !isPrivateParty) && (
+          <Pressable
+            onPress={handlePlayAgain}
+            style={({ pressed }) => [
+              styles.placementReplayPressable,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+            ]}
+          >
+            <LinearGradient
+              colors={['#4CAF50', '#45a049']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.actionBtnPrimary, styles.placementReplayButton]}
+            >
+              <Ionicons name="trending-up" size={18} color={colors.white} />
+              <Text style={[styles.actionBtnPrimaryText, styles.placementReplayText]}>
+                {t('startDueling')}
+              </Text>
+            </LinearGradient>
+          </Pressable>
+        )}
         {!isLandscape && (
           <Pressable
             onPress={toggleDetails}
@@ -1597,7 +1649,7 @@ export default function GameResultsScreen() {
                 only the host restarts a party — a member "Play Again" would
                 leaveGame and eject them). They still exit via the back
                 button, which carries the leave confirm. */}
-            {(is2v2Game || isPartyHost || !isPrivateParty) && (
+            {!isPlacementResult && (is2v2Game || isPartyHost || !isPrivateParty) && (
             <Pressable
               onPress={handlePlayAgain}
               disabled={is2v2Game && selfAcked2v2}
@@ -2374,7 +2426,7 @@ export default function GameResultsScreen() {
               isDuel={!!multiplayerInfo?.isDuel}
               teams={resultsTeams}
               myId={multiplayerInfo?.myId}
-              myMarkerSkin={myMarkerSkin}
+              myMarkerSkin={resultsViewerMarkerSkin}
               selectedPlayer={selectedPlayer}
             />
           </View>
@@ -2387,15 +2439,16 @@ export default function GameResultsScreen() {
               colors={['rgba(20, 65, 25, 0.97)', 'rgba(20, 65, 25, 0.88)']}
               style={styles.sidebarGradient}
             >
-              {renderHeader(false)}
-
-              <View style={styles.sidebarDivider} />
-
               <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingBottom: spacing.lg }}
                 showsVerticalScrollIndicator={false}
               >
+                {/* Keep landscape as one natural document. The result summary
+                    scrolls away with the rounds instead of occupying a fixed
+                    slab of a phone's short vertical axis. */}
+                {renderHeader(false)}
+                <View style={styles.sidebarDivider} />
                 {renderRoundsList()}
               </ScrollView>
             </LinearGradient>
@@ -2440,7 +2493,7 @@ export default function GameResultsScreen() {
         isDuel={!!multiplayerInfo?.isDuel}
         teams={resultsTeams}
         myId={multiplayerInfo?.myId}
-        myMarkerSkin={myMarkerSkin}
+        myMarkerSkin={resultsViewerMarkerSkin}
         selectedPlayer={selectedPlayer}
       />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
@@ -2650,6 +2703,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  headerButtonsAfterStamps: {
+    marginTop: spacing.xs,
+  },
+  placementHeaderButtons: {
+    marginTop: spacing.sm,
+  },
+  placementReplayPressable: {
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  placementReplayButton: {
+    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+  },
+  placementReplayText: {
+    fontSize: fontSizes.md,
   },
   detailsToggleBtn: {
     flexDirection: 'row',

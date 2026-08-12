@@ -126,7 +126,7 @@ export interface PlayAgain2v2State {
   ackedIds: string[];
 }
 
-/** Frozen roster entry in a team `duelEnd` (teamGame players also carry score). */
+/** Frozen roster entry in a `duelEnd` (teamGame players also carry score). */
 export interface DuelEndPlayer {
   id: string;
   username: string;
@@ -134,6 +134,9 @@ export interface DuelEndPlayer {
   team?: 'a' | 'b';
   /** null for guests and bots — gates profile links / report eligibility. */
   accountId?: string | null;
+  /** Cosmetics frozen with the end roster so result pins cannot lose identity. */
+  nameGlow?: string | null;
+  markerSkin?: string | null;
   score?: number;
 }
 
@@ -158,6 +161,8 @@ export interface DuelEnd1v1 {
   timeElapsed: number;
   /** Saved history doc id ('duel_<id>') — names the doc for the history view. */
   historyGameId?: string;
+  /** Present on current servers; absent on legacy 1v1 end payloads. */
+  players?: DuelEndPlayer[];
   opponent?: { accountId: string | null; username: string };
   /**
    * A stamps receipt is COMING for this game (see StampsEarned). An expectation,
@@ -524,6 +529,8 @@ interface MultiplayerState {
     value: number | null;
     unit: 'sec' | 'min' | null;
     tier: 'short' | 'mid' | 'long' | null;
+    seconds: number | null;
+    longAfterSeconds: number | null;
   } | null;
   /**
    * This ranked queue resolves into the placement seeding match. Server
@@ -727,6 +734,8 @@ const gameInitialState = {
     value: number | null;
     unit: 'sec' | 'min' | null;
     tier: 'short' | 'mid' | 'long' | null;
+    seconds: number | null;
+    longAfterSeconds: number | null;
   } | null,
   placementPending: false as boolean,
   nextGameQueued: false,
@@ -1602,6 +1611,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           value: data.value ?? null,
           unit: data.unit ?? null,
           tier: data.tier ?? null,
+          seconds: typeof data.seconds === 'number' ? data.seconds : null,
+          longAfterSeconds: typeof data.longAfterSeconds === 'number'
+            ? data.longAfterSeconds
+            : null,
         },
       });
       return;

@@ -149,6 +149,8 @@ interface ProfileViewProps {
   // Navigation
   onBack?: () => void;
   onNavigateToUser?: (username: string) => void;
+  /** Keeps the account route's tab parameter aligned with direct tab presses. */
+  onTabChange?: (tab: TabKey) => void;
   /** Optional initial tab to preselect (e.g. via a route param). Falls back to 'profile'. */
   initialTab?: TabKey;
 }
@@ -162,6 +164,7 @@ export default function ProfileView({
   username: publicUsername,
   onBack,
   onNavigateToUser,
+  onTabChange,
   initialTab,
 }: ProfileViewProps) {
   const resolvedUsername = isOwnProfile ? user?.username : publicUsername;
@@ -174,16 +177,14 @@ export default function ProfileView({
     : 'profile';
   const [activeTab, setActiveTab] = useState<TabKey>(safeInitialTab);
 
-  // If the caller swaps `initialTab` while mounted (deep link from a different screen),
-  // honor that and switch tabs — but don't loop on every render.
-  const lastInitialTabRef = useRef<TabKey | undefined>(initialTab);
-  useEffect(() => {
-    if (initialTab && initialTab !== lastInitialTabRef.current
-      && tabs.some((tab) => tab.key === initialTab)) {
-      lastInitialTabRef.current = initialTab;
-      setActiveTab(initialTab);
-    }
-  }, [initialTab, tabs]);
+  // Account stays mounted behind Home. Synchronize a new route request during
+  // render so React retries before commit; an effect would paint the retained
+  // tab once and visibly switch sections during the native tab transition.
+  const [appliedInitialTab, setAppliedInitialTab] = useState<TabKey | undefined>(initialTab);
+  if (initialTab !== appliedInitialTab) {
+    setAppliedInitialTab(initialTab);
+    setActiveTab(safeInitialTab);
+  }
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [eloData, setEloData] = useState<EloData | null>(null);
   const [progression, setProgression] = useState<ProgressionEntry[]>([]);
@@ -570,7 +571,10 @@ export default function ProfileView({
                       },
                     ],
                   ]}
-                  onPress={() => setActiveTab(tab.key)}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    onTabChange?.(tab.key);
+                  }}
                 >
                   <Text style={styles.tabIcon}>{tab.icon}</Text>
                   <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>

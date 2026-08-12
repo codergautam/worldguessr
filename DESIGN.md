@@ -103,7 +103,7 @@ One accent-aware green family carries all chrome; every other color is a status 
 - **Night Green** (#112b18): `--primaryDark`. The 1.4px border on filled buttons and 1.5px border on footer chips. The darkest structural green.
 
 ### Secondary
-- **Equip Green** (#4ade80): State only: the equipped-item frame in the shop and the default queue accent.
+- **Equip Green** (#4ade80): The default queue accent. Equipped shop cards use a quiet blue selected fill and label, never a green frame.
 - **Stamp Gold** (#ffd700): Currency and victory. The stamp mark, won-item frames, purchase celebrations. Never decorative.
 
 ### Tertiary
@@ -118,7 +118,7 @@ One accent-aware green family carries all chrome; every other color is a status 
 - **House Scrim** (rgba(0,0,0,0.3)): The default shadow and scrim alpha, used ~40 times.
 
 ### Named Rules
-**The Rationed Color Rule.** In the shop grid, green appears exactly twice (equipped frame, buy button) and gold exactly twice (currency mark, purchase win). Never put `--primary` back on a surface there; a green wall buries the one card that is legitimately green.
+**The Rationed Color Rule.** In the shop grid, green belongs to the buy action; gold belongs to currency and purchase wins. Equipped cards use a quiet blue selected fill without a frame, while the small Equipped action uses the current site accent to match mobile. Never put `--primary` back on every card surface.
 
 **The Menu Rule.** The menu wears its background's colors; gameplay never does. Only the named menu roots (home content, HUD corner, account modal, settings, shop, map modal, maps page, user profile) read the accent variables (`--accWashR/G/B`, `--accSurfR/G/B`, `--accDeep`). Accent application is all-or-nothing: a partial accent resolves to null and everything stays green.
 
@@ -147,6 +147,8 @@ One accent-aware green family carries all chrome; every other color is a status 
 
 **The Shadow Font Rule.** Cyrillic falls through to Rubik/Oswald via unicode-range faces registered under the same family names. Each shadow face's font-weight descriptor must exactly match the real face (`Lexend: 100 900`, `Jockey One: 400`) or Latin text falls to the system font.
 
+**The Storefront Type Rule.** Shop page titles and shelf headings use bold Lexend on the Headline ramp. The storefront is a utility catalogue, not a hero screen, so its navigation stays readable and compact on both web and native instead of switching to the display face.
+
 ## Layout
 
 Everything important is pinned to the frame, not to content. The home screen's bottom chrome is three independent `position: fixed` layers sharing the bottom edge: the footer buttons (bottom 50px, z 10000), the community banner above them, and the player count pinned bottom-right (50px/50px). All three enter with the same `footerEnter` rise (translateY 40px → 0, 0.3s) and never replay their entrance when a modal covers them.
@@ -157,7 +159,7 @@ Modals size from the backdrop, not the viewport: `max-height: min(80vh, 100%)` w
 
 ## Elevation & Depth
 
-Depth comes from tone, not from lines and not from blur. A surface is what it is because of the step it sits on. The shop states the model at its purest: three flat tones (#06160e panel, #0f2417 raise, #030a06 well) are the entire elevation system; a card is a card because it is one step lighter than the panel, and a preview stage is a recess because it is two steps darker.
+Depth comes from tone, not from lines and not from blur. A surface is what it is because of the step it sits on. The shop states the model at its purest: the equipped site background remains visible beneath one dark wash, then three flat tones (#06160e panel, #0f2417 raise, #030a06 well) carry the chrome; a card is a card because it is one step lighter than the panel, and a preview stage is a recess because it is two steps darker.
 
 HUD chrome floating over the live pano is glass by opacity: an 85%-opaque green plate with a gradient wash. `backdrop-filter` is banned on anything that sits over the pano or a full-bleed photo, because the browser re-blurs the region every time the pixels behind it change. Do not stack a dark sheet on top either; if a pano is too bright, raise the plate's alpha.
 
@@ -171,7 +173,7 @@ Shadows exist but are tools, not decoration: a tight `0 2px 3px rgba(0,0,0,0.35)
 - **Modal float** (`0 10px 40px rgba(0,0,0,0.7)`): Dialogs over the 75% black backdrop.
 
 ### Named Rules
-**The Tone-Carves Rule.** Hierarchy is carved by tone steps. Strokes exist only to speak state: equipped green, won gold, refused red, focus green. Never draw a ring around a surface to make it a surface.
+**The Tone-Carves Rule.** Hierarchy is carved by tone steps. Strokes exist only to speak exceptional state: won gold, refused red, or keyboard focus. Equipped shop items use fill and their action label, not a surrounding frame. Never draw a ring around a surface to make it a surface.
 
 **The No-Blur Rule.** No `backdrop-filter` on chrome over the live pano or full-bleed photos (`.timer`, g2 containers, HP bars, player card, shop, queue). Glass is faked with opacity.
 
@@ -181,9 +183,9 @@ Shadows exist but are tools, not decoration: a tight `0 2px 3px rgba(0,0,0,0.35)
 
 Rounded but never pill-happy. The radius vocabulary is small and semantic: 12px for input fields and modals, 15px for game buttons, 16px for HUD plates and cards, 20px for large containers, 24px for full-page modal cards, 50px only for the nav button capsule, 50% for avatars and dots. `border-radius: 9999px` chips with outline rings were explicitly rejected ("very AI generated").
 
-Structural borders are thick and green when they exist at all: 1.4px `--primaryDark` on filled buttons, 2px `--primary` on HUD plates. There is no 1px gray divider hairline anywhere; translucent white 1px borders appear only as rim-light inside glass, never as separators.
+Structural borders are thick and green when they exist at all: 1.4px `--primaryDark` on filled buttons, 2px `--primary` on HUD plates. Never outline surfaces or separators with decorative 1px hairlines. Use tone, spacing, shadow, or an inset highlight instead.
 
-The one signature silhouette is the map pin: an 87x131 teardrop PNG on a 151x163 canvas with 32px transparent glow headroom on top and sides, none below, so the needle tip anchors the ground point exactly.
+The one signature silhouette is the map pin: an 87x131 teardrop PNG on a 150x163 canvas with about 32px of transparent glow headroom above and beside it, none below, so the needle tip anchors the ground point exactly.
 
 ## Components
 
@@ -213,7 +215,7 @@ The one signature silhouette is the map pin: an 87x131 teardrop PNG on a 151x163
 The `.timer` recipe is the canonical chrome and the copy source for the player card, wallet chip, team scorebar, season badges, and the mobile GameTimer: `--gradLight` wash over 85%-opaque Forest Green, 2px Forest Green frame, 16px radius, the three-layer HUD stack shadow, soft text-shadow, tabular numbers. Critical state swaps to a red two-stop gradient, pale red border, `scale(1.05)`, and an opacity-only pulse. New HUD chrome copies this recipe verbatim; it never invents a sibling.
 
 ### The Modal (signature)
-One shared `Modal.js`: 75% black backdrop, 12px radius, `1px solid rgba(255,255,255,0.1)` rim, diagonal wash `rgba(0,0,0,0.95) → accent wash 0.9 → rgba(0,0,0,0.95)`, modal float shadow. Close button is a 32px circle that rotates 90° on hover, the one playful micro-interaction in the recipe. Sizing is backdrop-derived (`min(80vh, 100%)`); edge-to-edge at ≤768px.
+One shared `Modal.js`: 75% black backdrop, 12px radius, no decorative rim, diagonal wash `rgba(0,0,0,0.95) → accent wash 0.9 → rgba(0,0,0,0.95)`, modal float shadow. Close button is a 32px circle that rotates 90° on hover, the one playful micro-interaction in the recipe. Sizing is backdrop-derived (`min(80vh, 100%)`); edge-to-edge at ≤768px. Destination surfaces such as Maps and Shop use explicit full-viewport variants instead of pretending to be oversized dialogs.
 
 ### Cosmetics (signature)
 - **Name glows** are additive only: they emit `text-shadow`, never `color`, because name fill is rank information. Dark surfaces get a 4-layer 24px-reach halo; light surfaces a 9px-reach one. Every animated keyframe restates the dark legibility layer so a purchase can never reduce readability.
@@ -237,5 +239,5 @@ One shared `Modal.js`: 75% black backdrop, 12px radius, `1px solid rgba(255,255,
 - **Don't** use `backdrop-filter` on anything over the pano or a full-bleed photo, and don't stack a black underlay instead; raise the plate's alpha.
 - **Don't** make `9999px` pill chips with outline borders, uppercase micro-labels, or badges that describe the thing they are stuck to ("the movement is the label").
 - **Don't** put accent green on shop surfaces or retint status colors (ranked red, team pink, gold) with an equipped accent.
-- **Don't** use SVG or glyph map pins; pins are PNG images on the 151x163 glow canvas, always.
+- **Don't** use SVG or glyph map pins; pins are PNG images on the 150x163 glow canvas, always.
 - **Don't** let a cosmetic replace a fill color; cosmetics add light on top.

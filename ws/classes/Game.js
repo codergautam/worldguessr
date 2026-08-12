@@ -49,7 +49,6 @@ const STAMP_DAILY_LADDER = [[5, 5], [10, 10], [20, 15], [30, 20]];  // [gamesPla
 const STAMP_WEEKLY_QUESTS = [
   { key: 'play20', reason: 'weekly_play20', reward: 25, met: (d) => (d?.gamesPlayed || 0) >= 20 },
   { key: 'win10',  reason: 'weekly_win10',  reward: 25, met: (d) => (d?.gamesWon || 0) >= 10 },
-  { key: 'upset',  reason: 'weekly_upset',  reward: 10, met: (d) => !!d?.upset },
   { key: 'days4',  reason: 'weekly_days4',  reward: 15, met: (d) => (d?.daysPlayed?.length || 0) >= 4 },
 ];
 
@@ -194,6 +193,7 @@ export default class Game {
       pIds: this.pIds,
       accountIds: this.accountIds,
       oldElos: this.oldElos,
+      queueWaitMs: this.queueWaitMs,
       // finishSoloDuel's save gate keys on this for bot duels (accountIds.p2
       // is null by construction there) — Player.isBot's game-side twin; a
       // restored bot game without it finishes but never saves to history.
@@ -216,8 +216,10 @@ export default class Game {
       autoPairedTeams: this.autoPairedTeams,
       teamHostIds: this.teamHostIds,
       playAgainAcks: this.playAgainAcks,
-      // Known gap: persistentPlayerData is not serialized, so a restart-recovery
-      // mid-duel loses leaver records for that game only (pre-existing).
+      // Durable roster, including players who have already left. Without this,
+      // restoring a short-handed team match drops the leaver from both the end
+      // payload and the saved history (including their frozen cosmetics).
+      persistentPlayerData: this.persistentPlayerData,
     }
   }
   static fromJSON(json) {
@@ -235,6 +237,32 @@ export default class Game {
     // Object.assign'd over the constructor-set values.
     gObj.teamDuel = json.teamDuel ?? json.team2v2 ?? false;
     delete gObj.team2v2;
+    // Snapshots written before persistentPlayerData was serialized still need
+    // a durable copy of every player who remains in the restored roster. A
+    // player who left before that old snapshot was written is unrecoverable,
+    // but nobody present at restore time may disappear from a later result.
+    gObj.persistentPlayerData = json.persistentPlayerData
+      && typeof json.persistentPlayerData === 'object'
+      && !Array.isArray(json.persistentPlayerData)
+      ? { ...json.persistentPlayerData }
+      : {};
+    if (gObj.duel || gObj.teamDuel || gObj.teamGame) {
+      for (const [id, player] of Object.entries(gObj.players || {})) {
+        if (gObj.persistentPlayerData[id]) continue;
+        const score = Number.isFinite(player.score) ? player.score : 0;
+        gObj.persistentPlayerData[id] = {
+          accountId: player.accountId,
+          username: player.username,
+          countryCode: player.countryCode,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
+          tag: player.tag,
+          team: player.team,
+          score,
+          initialScore: score,
+        };
+      }
+    }
     // A snapshot can be written mid-save; the restored process has no
     // in-flight promise to ever flip this back, and a stuck `true` disables
     // the shutdown save-gate for this game. The interrupted write is lost
@@ -305,6 +333,8 @@ export default class Game {
         accountId: player.accountId,
         username: player.username,
         countryCode: player.countryCode,
+        nameGlow: playerObj.nameGlow,
+        markerSkin: playerObj.markerSkin,
         tag: tag,
         team: team,
         initialScore: playerObj.score
@@ -942,6 +972,8 @@ export default class Game {
     // not their join-time score.
     if (this.persistentPlayerData[player.id]) {
       this.persistentPlayerData[player.id].score = this.players[player.id].score;
+      this.persistentPlayerData[player.id].nameGlow = this.players[player.id].nameGlow ?? null;
+      this.persistentPlayerData[player.id].markerSkin = this.players[player.id].markerSkin ?? null;
     }
 
     delete this.players[player.id];
@@ -1163,6 +1195,8 @@ export default class Game {
           accountId: p.accountId,
           username: p.username,
           countryCode: p.countryCode,
+          nameGlow: p.nameGlow ?? null,
+          markerSkin: p.markerSkin ?? null,
           team: p.team,
           score: 0,
           initialScore: 0
@@ -1590,6 +1624,8 @@ export default class Game {
       id: p.id,
       username: p.username,
       countryCode: p.countryCode || null,
+      nameGlow: p.nameGlow ?? null,
+      markerSkin: p.markerSkin ?? null,
       team: p.team || null,
       score: p.score || 0
     }));
@@ -1644,7 +1680,16 @@ export default class Game {
     for (const [id, data] of Object.entries(this.persistentPlayerData)) {
       // score: removePlayer keeps the snapshot's score current at leave-time,
       // so cumulative-team results/persistence see a leaver's real total.
-      byId[id] = { id, username: data.username, countryCode: data.countryCode, accountId: data.accountId, team: data.team, score: data.score ?? 0 };
+      byId[id] = {
+        id,
+        username: data.username,
+        countryCode: data.countryCode,
+        accountId: data.accountId,
+        nameGlow: data.nameGlow ?? null,
+        markerSkin: data.markerSkin ?? null,
+        team: data.team,
+        score: data.score ?? 0,
+      };
     }
     for (const player of Object.values(this.players)) {
       byId[player.id] = player;
@@ -1674,7 +1719,9 @@ export default class Game {
     // tell reportable players from fake-success targets.
     const rosterSnapshot = this.getFinalRoster().map(p => ({
       id: p.id, username: p.username, countryCode: p.countryCode || null, team: p.team || null,
-      accountId: p.accountId ?? null
+      accountId: p.accountId ?? null,
+      nameGlow: p.nameGlow ?? null,
+      markerSkin: p.markerSkin ?? null
     }));
 
     // Frozen end payload (mirrors finishTeamParty's lastTeamEnd): replayed to
@@ -2085,6 +2132,14 @@ export default class Game {
       // have code=null) plus the opponent's account identity (null accountId
       // = bot/guest → the client fakes the report instead of sending one).
       const historyGameId = `duel_${this.id}`;
+      const rosterSnapshot = this.getFinalRoster().map((p) => ({
+        id: p.id,
+        username: p.username,
+        countryCode: p.countryCode || null,
+        accountId: p.accountId ?? null,
+        nameGlow: p.nameGlow ?? null,
+        markerSkin: p.markerSkin ?? null,
+      }));
 
       if(p1obj && leftUser !== 'p1') {
         try {
@@ -2115,6 +2170,7 @@ export default class Game {
           : {}),
         ...(this.stampsExpected ? { stampsPending: true } : {}),
         historyGameId,
+        players: rosterSnapshot,
         opponent: { accountId: this.accountIds.p2 ?? null, username: p2?.username ?? null }
       });
         } catch(e){}
@@ -2131,6 +2187,7 @@ export default class Game {
         oldElo: p2OldElo,
         ...(this.stampsExpected ? { stampsPending: true } : {}),
         historyGameId,
+        players: rosterSnapshot,
         opponent: { accountId: this.accountIds.p1 ?? null, username: p1?.username ?? null }
       });
       } catch(e) {
@@ -2501,15 +2558,6 @@ export default class Game {
         $inc: { gamesPlayed: 1, gamesWon: won ? 1 : 0 },
         $addToSet: { daysPlayed: dayKey }
       };
-      // Upset = beat a HIGHER-rated opponent. Both elos must be real numbers:
-      // 2v2 has no rating, so its entries carry opponentElo null and the upset
-      // quest can never fire from a 2v2 at all. The elos are the PRE-game
-      // values (see saveDuelToMongoDB) — post-game values would flip a
-      // near-equal matchup into a false upset the instant the transfer lands.
-      if (won && typeof entry.myElo === 'number' && typeof entry.opponentElo === 'number'
-          && entry.myElo < entry.opponentElo) {
-        weekUpdate.$set = { upset: true };
-      }
       const weekDoc = await StampQuests.findOneAndUpdate(
         { userId: accountId, periodType: 'week', periodKey: weekKey },
         weekUpdate,
@@ -2610,6 +2658,8 @@ export default class Game {
         username: participant.username || 'Player',
         countryCode: participant.countryCode || null,
         accountId: participant.accountId,
+        nameGlow: data.nameGlow ?? null,
+        markerSkin: data.markerSkin ?? null,
         totalPoints: data.score,
         totalXp: xp,
         averageTimePerRound: this.calculateAverageTime(data.id),
@@ -2729,6 +2779,8 @@ export default class Game {
           username: player.username || 'Player',
           countryCode: player.countryCode || null,
           accountId: player.accountId || null,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
           totalPoints: player.score || 0,
           totalXp: (awardXp && player.accountId) ? this.calculatePlayerXp(player.id) : 0,
           averageTimePerRound: this.calculateAverageTime(player.id),
@@ -2823,6 +2875,8 @@ export default class Game {
           username: player.username || 'Player',
           countryCode: player.countryCode || null,
           accountId: player.accountId || null,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
           totalPoints: personalPoints(player.id),
           totalXp: player.accountId ? this.calculatePlayerXp(player.id) : 0,
           averageTimePerRound: this.calculateAverageTime(player.id),
@@ -2889,8 +2943,7 @@ export default class Game {
         // the capped bot trickle instead of the real payout.
         isBot: !!this.isBotGame,
         gameId: `2v2_${this.id}`,
-        // 2v2 has NO elo: opponentElo stays null, so the weekly upset quest
-        // can never fire from a 2v2 (grantGameStamps requires two real numbers).
+        // 2v2 has no individual rating, so no ELO metadata is attached.
         entries: validPlayersWithAccounts.map(player => ({
           accountId: player.accountId,
           won: !draw && player.team === winningTeam,
