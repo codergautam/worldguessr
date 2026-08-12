@@ -110,6 +110,8 @@ import Ad from "./bannerAdNitro";
 import useAdFree from "@/lib/adFree";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
+const DUEL_RELOAD_DEFAULT_TOP = 90;
+const DUEL_RELOAD_CLEARANCE = 6;
 const ROUND_OVER_FADE_MS = 500;
 // How long to wait after a multiplayer reveal starts before navigating the pano
 // to the next round's preload target. Must outlast BOTH things that would let
@@ -283,7 +285,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // A team duel stacks two name rows in the centered pill, and a long
     // teammate name can widen it far enough left to swallow the button —
     // measure the real pill rect and drop below it only on actual overlap.
-    const [duelReloadBtnTop, setDuelReloadBtnTop] = useState(90)
+    const [duelReloadBtnTop, setDuelReloadBtnTop] = useState(DUEL_RELOAD_DEFAULT_TOP)
+    const duelReloadBtnRef = useRef(null)
     const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
     const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
     const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
@@ -2125,26 +2128,53 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         .join('|');
 
     // Collision probe for the in-duel reload button (see duelReloadBtnTop).
-    // Runs after commit so the HP bars' DOM is current. Only desktop: compact
-    // mobile bars never reach the button (and the probe staying inert keeps
-    // mobile pixel-identical to before).
+    // The left HP bar slides into place after this effect first commits, so an
+    // immediate rect read sees its off-screen transform and misses the settled
+    // username tile. Re-measure when that entrance finishes and whenever the
+    // tile's actual dimensions change; no username length or viewport guess.
     useEffect(() => {
-        const gd = multiplayerState?.gameData;
-        if (!(gd?.duel && gd?.state === "guess")) return;
-        let top = 90;
-        if (width > 830) {
-            const pill = document.querySelector(".hb-left .player-name-wrapper");
-            if (pill) {
-                const r = pill.getBoundingClientRect();
-                // Default button box (left 10, top 90, ~44px) with a few px of
-                // grace so a near-graze also drops.
-                const btn = { left: 10, top: 90, size: 48 };
-                if (r.right > btn.left && r.left < btn.left + btn.size && r.bottom > btn.top && r.top < btn.top + btn.size) {
-                    top = Math.ceil(r.bottom) + 6;
-                }
-            }
+        if (!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess")) {
+            setDuelReloadBtnTop((top) => top === DUEL_RELOAD_DEFAULT_TOP ? top : DUEL_RELOAD_DEFAULT_TOP);
+            return;
         }
-        setDuelReloadBtnTop(top);
+
+        const leftBar = document.querySelector(".hb-left");
+        const pill = leftBar?.querySelector(".player-name-wrapper");
+        const button = duelReloadBtnRef.current;
+        if (!leftBar || !pill || !button) return;
+
+        let frameId = null;
+        const measure = () => {
+            if (frameId !== null) cancelAnimationFrame(frameId);
+            frameId = requestAnimationFrame(() => {
+                frameId = null;
+                const r = pill.getBoundingClientRect();
+                const b = button.getBoundingClientRect();
+                const crossesButtonColumn = r.right > b.left && r.left < b.right;
+                const nextTop = crossesButtonColumn
+                    ? Math.max(DUEL_RELOAD_DEFAULT_TOP, Math.ceil(r.bottom) + DUEL_RELOAD_CLEARANCE)
+                    : DUEL_RELOAD_DEFAULT_TOP;
+                setDuelReloadBtnTop((top) => top === nextTop ? top : nextTop);
+            });
+        };
+
+        const onEntranceEnd = (event) => {
+            if (event.target === leftBar) measure();
+        };
+        leftBar.addEventListener("animationend", onEntranceEnd);
+        window.addEventListener("resize", measure);
+
+        const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+        observer?.observe(pill);
+        observer?.observe(button);
+        measure();
+
+        return () => {
+            leftBar.removeEventListener("animationend", onEntranceEnd);
+            window.removeEventListener("resize", measure);
+            observer?.disconnect();
+            if (frameId !== null) cancelAnimationFrame(frameId);
+        };
     }, [multiplayerState?.gameData?.state, multiplayerState?.gameData?.duel, duelPillSignature, width]);
 
     useEffect(() => {
@@ -5214,7 +5244,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: `${duelReloadBtnTop}px`, left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
+                        <button ref={duelReloadBtnRef} className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
                 )}
 
