@@ -85,6 +85,7 @@ interface MenuButtonProps {
 // Web slides each nav child from translateX(-100%); the mobile column
 // (title ≈230px, menu maxWidth 300) starts fully offscreen-left the same way.
 const NAV_SLIDE_FROM = -300;
+const INITIAL_AUTH_REVEAL_MAX_WAIT_MS = 900;
 const HOME_TITLE_MIN_FONT_SIZE = 32;
 const HOME_TITLE_MAX_FONT_SIZE = 40;
 const HOME_TITLE_SHORTEST_SIDE_RATIO = 0.1;
@@ -104,12 +105,40 @@ function homeTitleMetrics(shortestSide: number) {
   return { fontSize, lineHeight: fontSize + spacing.sm };
 }
 
-function useNavEntrance(reduceMotion: boolean) {
-  const slide = useRef(new Animated.Value(reduceMotion ? 0 : NAV_SLIDE_FROM)).current;
-  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
-  const [complete, setComplete] = useState(reduceMotion);
+function useInitialHomeRevealReady(authLoading: boolean) {
+  const [ready, setReady] = useState(!authLoading);
 
   useEffect(() => {
+    if (ready) return;
+    if (!authLoading) {
+      setReady(true);
+      return;
+    }
+
+    // Never strand the menu behind a slow/offline 15s auth request. The
+    // timeout reveals the collision-safe pending geometry; a late restored
+    // profile can then appear without moving the menu.
+    const timeout = setTimeout(() => setReady(true), INITIAL_AUTH_REVEAL_MAX_WAIT_MS);
+    return () => clearTimeout(timeout);
+  }, [authLoading, ready]);
+
+  return ready;
+}
+
+function useNavEntrance(reduceMotion: boolean, ready: boolean) {
+  const initiallyVisible = reduceMotion && ready;
+  const slide = useRef(new Animated.Value(initiallyVisible ? 0 : NAV_SLIDE_FROM)).current;
+  const opacity = useRef(new Animated.Value(initiallyVisible ? 1 : 0)).current;
+  const [complete, setComplete] = useState(initiallyVisible);
+
+  useEffect(() => {
+    if (!ready) {
+      slide.setValue(NAV_SLIDE_FROM);
+      opacity.setValue(0);
+      setComplete(false);
+      return undefined;
+    }
+
     if (reduceMotion) {
       slide.setValue(0);
       opacity.setValue(1);
@@ -137,7 +166,7 @@ function useNavEntrance(reduceMotion: boolean) {
       if (finished) setComplete(true);
     });
     return () => entrance.stop();
-  }, [reduceMotion, slide, opacity]);
+  }, [ready, reduceMotion, slide, opacity]);
 
   return {
     style: { transform: [{ translateX: slide }], opacity },
@@ -500,7 +529,11 @@ export default function HomeScreen() {
   // one keyframe on all `.g2_nav_ui` children). The header actions overlay
   // reuses only its opacity — a top-right element sliding in from the LEFT
   // would read wrong, and web's account corner doesn't slide either.
-  const { style: navEntrance, complete: navEntranceComplete } = useNavEntrance(reduceMotion);
+  const initialHomeRevealReady = useInitialHomeRevealReady(authLoading);
+  const { style: navEntrance, complete: navEntranceComplete } = useNavEntrance(
+    reduceMotion,
+    initialHomeRevealReady,
+  );
 
   // The backdrop settles from a gentle zoom while the native splash dissolves
   // over it, so app-open reads as one continuous reveal instead of a hard cut.
@@ -517,6 +550,9 @@ export default function HomeScreen() {
       duration: 1400,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
+      // The photograph's subtle tail must not hold launch-time service work;
+      // the shorter navigation wave remains the interaction boundary.
+      isInteraction: false,
     });
     settle.start();
     return () => settle.stop();
@@ -915,11 +951,20 @@ export default function HomeScreen() {
   // One UI-thread value owns both compact header geometry and corner opacity.
   // Because withTiming is interruptible, rapid auth changes continue smoothly
   // from the current frame instead of restarting from either endpoint.
-  const authProgress = useSharedValue(loggedIn ? 1 : 0);
+  // Unknown startup auth uses the taller, collision-safe geometry. A restored
+  // account therefore never paints one guest-positioned frame at the top; a
+  // true guest collapses to the compact layout before the splash handoff in
+  // the normal local-session path.
+  const authProgress = useSharedValue(authLoading ? 1 : loggedIn ? 1 : 0);
   const restoringInitialAuthRef = useRef(authLoading);
+  const initialAuthPending = restoringInitialAuthRef.current && authLoading;
   const compactProfileReservationHeight = playerCardHeight(cardMetrics) + CORNER_GAP;
   useLayoutEffect(() => {
     const target = loggedIn ? 1 : 0;
+    if (restoringInitialAuthRef.current && authLoading) {
+      authProgress.value = 1;
+      return;
+    }
     // Session restoration is launch state, not a user-triggered login. Resolve
     // its geometry synchronously before paint so an already-authenticated home
     // only performs the shared left entrance animation.
@@ -1079,7 +1124,7 @@ export default function HomeScreen() {
           pointerEvents="box-none"
         >
           <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
-            {!awaitingUsername && (
+            {!awaitingUsername && !initialAuthPending && (
               <>
                 <Reanimated.View
                   style={[styles.headerGuestOverlay, guestCornerTransitionStyle]}
@@ -1169,8 +1214,8 @@ export default function HomeScreen() {
                     accessibilityElementsHidden
                     importantForAccessibility="no-hide-descendants"
                   >
-                    {loggedIn
-                      ? renderCornerClone('wallet', 'measure')
+                    {loggedIn || initialAuthPending
+                      ? renderCornerClone('wallet', initialAuthPending ? 'ghost' : 'measure')
                       : renderCornerClone('account', 'login')}
                   </View>
                 </View>

@@ -299,6 +299,36 @@ describe("the shop's panel ladder", () => {
   });
 });
 
+describe('the shop background dissolve', () => {
+  const SHOP = readFileSync(
+    fileURLToPath(new URL('../styles/shop.css', import.meta.url)),
+    'utf8',
+  ).replace(/\r\n/g, '\n');
+  const SURFACE = SHOP.match(
+    /\.modal-backdrop\.modal-backdrop--shopFullscreen>\.modal\.shopFullscreen\s*\{([^}]*)\}/,
+  );
+  const INCOMING = SHOP.match(
+    /html\.site-bg-swap[^{}]*\.shopFullscreen::before\s*\{([^}]*)\}/,
+  );
+  const WASH = SHOP.match(
+    /\.modal-backdrop\.modal-backdrop--shopFullscreen>\.modal\.shopFullscreen::after\s*\{([^}]*)\}/,
+  );
+
+  it('crossfades the photographs without fading the darkness wash', () => {
+    expect(SURFACE).not.toBeNull();
+    expect(INCOMING).not.toBeNull();
+    expect(SURFACE[1]).toContain('background: var(--site-bg);');
+    expect(INCOMING[1]).toContain('background: var(--site-bg-next);');
+    expect(INCOMING[1]).not.toContain('linear-gradient');
+  });
+
+  it('keeps one wash painted across the transition handoff', () => {
+    expect(WASH).not.toBeNull();
+    expect(WASH[1]).toContain('background: var(--shopSurfaceWash);');
+    expect(WASH[1]).not.toContain('animation:');
+  });
+});
+
 describe('the retinted surfaces reference the tokens, not copies of them', () => {
   // rgb(36, 87, 52) IS --surfChannels and rgb(0, 30, 15) IS --washChannels.
   // Written out as literals they look identical and behave completely

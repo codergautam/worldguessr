@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFonts } from 'expo-font';
 import { JockeyOne_400Regular } from '@expo-google-fonts/jockey-one';
 import {
@@ -65,6 +65,7 @@ const imageAssets = [
 ];
 
 export default function RootLayout() {
+  const pathname = usePathname();
   const [fontsLoaded] = useFonts({
     JockeyOne: JockeyOne_400Regular,
     Lexend: Lexend_400Regular,
@@ -74,6 +75,8 @@ export default function RootLayout() {
   });
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [rootViewLaidOut, setRootViewLaidOut] = useState(false);
+  const splashHiddenRef = useRef(false);
   // User preferences (units / map type / language / emotes). Gating the splash
   // on this means the i18n table is primed before the first screen renders, so
   // the (tabs) navigator mounts in the right language with no remount flash.
@@ -95,7 +98,9 @@ export default function RootLayout() {
   const updateRequired = useForceUpdate();
 
   useEffect(() => {
-    Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
+    Asset.loadAsync(imageAssets)
+      .catch(() => { /* The bundled image still has SiteBackground's fallback. */ })
+      .finally(() => setAssetsLoaded(true));
   }, []);
 
   // Load auth session + user preferences on app start
@@ -112,10 +117,15 @@ export default function RootLayout() {
     hydrateSiteBackground();
   }, []);
 
-  // Initialize native services (ads, analytics)
+  // Ads and analytics are not launch-critical. Initializing their native SDKs
+  // during the first navigation wave can steal the exact frames the user sees,
+  // so let the entrance interaction complete before waking them up.
   useEffect(() => {
-    initAnalytics();
-    initAds().then(() => preloadInterstitial());
+    const task = InteractionManager.runAfterInteractions(() => {
+      initAnalytics();
+      initAds().then(() => preloadInterstitial());
+    });
+    return () => task.cancel();
   }, []);
 
   // Boot the sound system once persisted volumes are known (a pre-load start
@@ -123,16 +133,32 @@ export default function RootLayout() {
   // asked for). Music is allowed on ALL app routes (user sign-off), so the
   // root layout owns the one-time start + lifecycle wiring.
   useEffect(() => {
-    if (settingsLoaded) initSoundSystem();
+    if (!settingsLoaded) return;
+    const task = InteractionManager.runAfterInteractions(() => initSoundSystem());
+    return () => task.cancel();
   }, [settingsLoaded]);
 
-  useEffect(() => {
-    if (fontsLoaded && assetsLoaded && settingsLoaded && onboardingLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, assetsLoaded, settingsLoaded, onboardingLoaded]);
+  const bootReady = fontsLoaded && assetsLoaded && settingsLoaded && onboardingLoaded;
+  const handleRootLayout = useCallback(() => setRootViewLaidOut(true), []);
 
-  if (!fontsLoaded || !assetsLoaded || !settingsLoaded || !onboardingLoaded) {
+  useEffect(() => {
+    // `/` is only the redirector. Wait until the actual destination has
+    // committed and the native root has dimensions, otherwise the splash fade
+    // exposes one frame of the brand-colour placeholder between screens.
+    if (
+      !splashHiddenRef.current &&
+      bootReady &&
+      rootViewLaidOut &&
+      pathname !== '/'
+    ) {
+      splashHiddenRef.current = true;
+      SplashScreen.hideAsync().catch(() => {
+        // Native may already have dismissed it during a development reload.
+      });
+    }
+  }, [bootReady, pathname, rootViewLaidOut]);
+
+  if (!bootReady) {
     return (
       <View style={[styles.container, styles.loading]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -141,7 +167,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <GestureHandlerRootView style={styles.container} onLayout={handleRootLayout}>
       <SafeAreaProvider>
         <StatusBar style="light" />
         {/* Catch any render/commit-phase throw so a single screen crash shows a

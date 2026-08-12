@@ -174,6 +174,9 @@
     --shopRaise: #0f2417;
     /* Two steps down: preview stages. The recess the product sits in. */
     --shopWell: #030a06;
+    /* Purchase is a semantic action, not background chrome. Keep it on the
+       stock green even when an equipped city retints the rest of the shop. */
+    --shopBuy: #245734;
     /* --shopLine and --shopLineHi ARE DELETED. They were the hairline system —
        a 1px ring on every card, wheel, stage seam and toolbar edge — and the
        owner vetoed the whole species ("too many borders, too much AI slop").
@@ -454,9 +457,9 @@
 }
 
 .modal-backdrop.modal-backdrop--shopFullscreen.modal-backdrop--shopFullscreen {
-    --shopSurfaceBackground:
-        linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(var(--washChannels), 0.72) 100%),
-        var(--site-bg);
+    --shopSurfaceWash:
+        linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(var(--washChannels), 0.72) 100%);
+    --shopSurfaceBackground: var(--shopSurfaceWash), var(--site-bg);
     align-items: stretch;
     justify-content: stretch;
     padding: 0;
@@ -498,9 +501,10 @@
     height: 100%;
     max-height: none;
     margin: 0;
-    /* Keep the equipped backdrop visible, as it is in the mobile shop and Maps.
-       The single heavy wash protects the shelves without blurring the image. */
-    background: var(--shopSurfaceBackground);
+    /* The photo and wash are separate paint layers. During an equip, only the
+       photo dissolves; the persistent ::after wash keeps the transition's last
+       frame pixel-identical to the resting surface. */
+    background: var(--site-bg);
     background-position: center;
     background-size: cover;
     border: 0;
@@ -510,20 +514,31 @@
 }
 
 /* The full-screen shop paints its own --site-bg above the global body layers.
-   Mirror the incoming layer here so an equip dissolves under the shelves rather
-   than crossfading behind the modal while the visible shop cuts at commit. */
+   Crossfade only the incoming photograph: coupling the wash to this opacity made
+   the surface visibly darken when the temporary layer was removed at commit. */
 html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: -1;
-    background:
-        linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(var(--washChannels), 0.72) 100%),
-        var(--site-bg-next);
+    background: var(--site-bg-next);
     background-position: center;
     background-size: cover;
     pointer-events: none;
     animation: shopBackgroundFadeIn var(--site-bg-fade-duration, 600ms) ease-in-out both;
+}
+
+/* One wash stays fully painted before, during and after the image dissolve. It
+   shares the negative layer with ::before but follows it in paint order, so the
+   tint remains above both photos and below all shop content without extra z-index
+   rules on the storefront itself. */
+.modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--shopSurfaceWash);
+    pointer-events: none;
 }
 
 .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFullscreen.closing {
@@ -1826,8 +1841,9 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
    literally side by side (an unowned emote shows the buy button, the card next
    to it shows the on-wheel pill). The floor is what the buy button needs and
    every wordy variant grows into it: the action row's mark plus this row's own
-   vertical chrome, 7px of padding twice and 2px of border twice. box-sizing is
-   border-box site-wide (globals.scss), so that is the whole box.
+   vertical chrome. The fixed floor also keeps the row aligned when the price
+   button drops its old outline. box-sizing is border-box site-wide
+   (globals.scss), so that is the whole box.
    .shopCard__ownedTag is left out on purpose — it is bare text, not a pill, and
    an inline span ignores min-height anyway. */
 .shopCard__btn,
@@ -1959,8 +1975,8 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
     gap: 6px;
     padding: 7px 12px;
     background: rgba(255, 255, 255, 0.16);
-    /* Reserved, transparent: buy and equip paint their own 2px site-recipe
-       frames over it, and the neutral variants ride on fill alone. */
+    /* Reserved, transparent: word-label variants keep one consistent box while
+       the price button below deliberately drops the border altogether. */
     border: 1px solid transparent;
     border-radius: 10px;
     color: #fff;
@@ -1989,8 +2005,10 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
    the only variant carrying a mark — Equip, Owned and the sign-in stub are
    words, and words stay at the button's own 0.82rem. */
 .shopCard__btn--buy {
-    background: var(--gradGreenBtn);
-    border: 2px solid var(--primary);
+    /* The clean, lighter stock green replaces the old fading gradient. The
+       stamp + price still distinguish this as the purchase action. */
+    background: var(--shopBuy);
+    border: 0;
     font-size: var(--stampValueSizeBtn);
     font-weight: 700;
 }
@@ -2008,13 +2026,13 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
    above is 0-3-0 and would otherwise drop this button's own colour for the
    generic translucent white the moment the pointer lands on it. */
 .shopCard__btn--buy:hover:not(:disabled) {
-    background: var(--gradGreenBtn);
+    background: color-mix(in srgb, var(--shopBuy) 88%, white 12%);
     box-shadow: 0 4px 12px rgba(var(--surfChannels), 0.4);
 }
 
 /* Match mobile's two equip states: available-to-equip is solid site blue,
-   while already-equipped uses the current background's solid accent. Both use
-   the base button's reserved transparent border, so neither grows an outline. */
+   while already-equipped is the lighter, translucent end of that same blue
+   family. Buy owns green; an equipped STATE must not read as another purchase. */
 .shopCard__btn--equip {
     background: #1e3e9c;
     border-color: transparent;
@@ -2025,15 +2043,16 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
 }
 
 .shopCard__btn--on {
-    background: var(--primary);
-    border-color: transparent;
-    color: #fff;
+    background: rgba(112, 112, 255, 0.24);
+    border-color: rgba(182, 182, 255, 0.48);
+    color: #dadaff;
 }
 
-/* Restate the live equipped hover at the same specificity as the base hover. */
+/* Still interactive (pressing it unequips), but only brightens within blue. */
 .shopCard__btn--on:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary) 88%, white 12%);
-    color: #fff;
+    background: rgba(112, 112, 255, 0.34);
+    border-color: rgba(202, 202, 255, 0.62);
+    color: #eeeeff;
 }
 
 .shopCard__btn:disabled {
@@ -2055,7 +2074,6 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
 .shopCard__btn--buy.shopCard__btn--unaffordable,
 .shopCard__btn--buy.shopCard__btn--unaffordable:hover {
     background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.22);
     box-shadow: none;
     color: #fff;
     cursor: not-allowed;

@@ -124,6 +124,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { haptics } from '../src/services/haptics';
+import { PurchaseCardCelebration } from '../src/components/shop/PurchaseCelebration';
 // formatCompact is the house compact formatter (src/shared/utils/formatTime.ts),
 // already on the home header and the map tiles: exact under 1,000, then 1.1K /
 // 12K / 343K. Web renders the same field through its own mirror of it
@@ -183,6 +184,13 @@ const SHOP_WALLET_HELP_MAX_WIDTH = 260;
 const JUMP_CHIP_TRANSITION_MS = 220;
 const SHOP_BACKGROUND_BLUR_RADIUS = 2;
 const SHOP_CARD_SURFACE_COLOR = 'rgba(0, 0, 0, 0.68)';
+// Equip is solid blue because it is an available action. Equipped is the same
+// hue softened into a light state tint: clearly selected, but never competing
+// with the solid green Buy action for primary-action weight.
+const EQUIPPED_ACTION_APPEARANCE: ViewStyle = {
+  backgroundColor: 'rgba(112, 112, 255, 0.24)',
+  borderColor: 'rgba(182, 182, 255, 0.48)',
+};
 const SHOP_VIEWABILITY_CONFIG = {
   itemVisiblePercentThreshold: 10,
   minimumViewTime: 60,
@@ -328,6 +336,12 @@ const SAMPLE_NAME = 'WorldGuessr';
 /** Display copy only; api/stampShop.js remains authoritative for enforcement. */
 const ADFREE_SKU = 'pass_adfree_20m';
 const ADFREE_DAILY_CAP = 3;
+const PURCHASE_CELEBRATION_VISIBLE_MS = 2100;
+
+interface ActivePurchaseCelebration {
+  sku: string;
+  trigger: number;
+}
 
 /**
  * The figure at which a buy count stops being printed exactly and starts being
@@ -512,12 +526,12 @@ export default function ShopScreen() {
   // rather than from `colors` because a StyleSheet cannot follow an equip.
   //
   const accent = useSiteAccent();
-  // Equipped is a selected state inside theme-aware menu chrome. One restrained
-  // outline marks the card; the small action carries the solid accent. Tinting
-  // both entire surfaces the same color flattened them into one large blob.
+  // The card outline follows the equipped background. The action does not: it
+  // belongs to the shop's verb hierarchy (Buy green, Equip blue, Equipped soft
+  // blue), so a themed green button can never masquerade as another Buy button.
   const equippedAppearance = useMemo<EquippedAppearance>(() => ({
     card: { borderColor: accent.primary },
-    action: { backgroundColor: accent.primary },
+    action: EQUIPPED_ACTION_APPEARANCE,
   }), [accent.primary]);
 
   const [items, setItems] = useState<ShopItem[] | null>(() => shopCatalogItemsCache);
@@ -527,6 +541,9 @@ export default function ShopScreen() {
   const [busySku, setBusySku] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [walletHelpOpen, setWalletHelpOpen] = useState(false);
+  const [purchaseCelebration, setPurchaseCelebration] =
+    useState<ActivePurchaseCelebration | null>(null);
+  const purchaseCelebrationSequence = useRef(0);
   // (`landedAt` lived here. It existed for ONE job: telling the wheel to close a
   // picker panel that was still pointing at a cell a purchase had just moved.
   // The panel is deleted, so the signal has nothing left to say — the wheel
@@ -539,6 +556,17 @@ export default function ShopScreen() {
   const equipped = user?.cosmetics?.equipped ?? {};
   const emoteOrder = user?.cosmetics?.emoteOrder;
   const previewName = user?.username || SAMPLE_NAME;
+
+  useEffect(() => {
+    if (!purchaseCelebration) return;
+    const timeout = setTimeout(
+      () => setPurchaseCelebration((current) => (
+        current?.trigger === purchaseCelebration.trigger ? null : current
+      )),
+      PURCHASE_CELEBRATION_VISIBLE_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [purchaseCelebration]);
 
   /**
    * The entitlement block off any shop response, in the shape applyCosmetics
@@ -949,6 +977,11 @@ export default function ShopScreen() {
             return next;
           });
         }
+        purchaseCelebrationSequence.current += 1;
+        setPurchaseCelebration({
+          sku: item.sku,
+          trigger: purchaseCelebrationSequence.current,
+        });
         haptics.success();
 
         // OFF THE SERVER'S BLOCK, NOT OFF THE STORE. applyCosmetics above has
@@ -1099,6 +1132,7 @@ export default function ShopScreen() {
             busySku={busySku}
             locked={!secret}
             equippedAppearance={equippedAppearance}
+            purchaseCelebration={purchaseCelebration}
             onBuy={handleBuy}
             onEquip={equipItem}
             onEquipDefault={equipDefault}
@@ -1149,6 +1183,9 @@ export default function ShopScreen() {
                       busy={busySku === key}
                       disabled={!secret || (!!busySku && busySku !== key)}
                       equippedAppearance={equippedAppearance}
+                      celebrationToken={purchaseCelebration?.sku === item.sku
+                        ? purchaseCelebration.trigger
+                        : null}
                       onBuy={() => handleBuy(item)}
                       onEquip={(unequip) => equipItem(item, unequip)}
                     />
@@ -1169,6 +1206,9 @@ export default function ShopScreen() {
                     busy={busySku === key || busySku === item.emoteId}
                     disabled={!secret || (!!busySku && busySku !== key && busySku !== item.emoteId)}
                     equippedAppearance={equippedAppearance}
+                    celebrationToken={purchaseCelebration?.sku === item.sku
+                      ? purchaseCelebration.trigger
+                      : null}
                     onBuy={() => handleBuy(item)}
                     onEquip={(unequip) => equipItem(item, unequip)}
                     onToggleEmote={() => toggleEmote(item)}
@@ -1560,6 +1600,7 @@ function GlowSection({
   busySku,
   locked,
   equippedAppearance,
+  purchaseCelebration,
   onBuy,
   onEquip,
   onEquipDefault,
@@ -1572,6 +1613,7 @@ function GlowSection({
   busySku: string | null;
   locked: boolean;
   equippedAppearance: EquippedAppearance;
+  purchaseCelebration: ActivePurchaseCelebration | null;
   onBuy: (item: ShelfItem) => void;
   onEquip: (item: ShelfItem, unequip: boolean) => void;
   onEquipDefault: (slot: EquipSlot) => void;
@@ -1611,6 +1653,9 @@ function GlowSection({
           busy={busySku === item.sku}
           disabled={locked || (!!busySku && busySku !== item.sku)}
           equippedAppearance={equippedAppearance}
+          celebrationToken={purchaseCelebration?.sku === item.sku
+            ? purchaseCelebration.trigger
+            : null}
           onBuy={() => onBuy(item)}
           onEquip={(unequip) => onEquip(item, unequip)}
         />
@@ -1672,6 +1717,7 @@ function GlowCard({
   busy,
   disabled,
   equippedAppearance,
+  celebrationToken,
   onBuy,
   onEquip,
 }: {
@@ -1685,11 +1731,18 @@ function GlowCard({
   busy: boolean;
   disabled: boolean;
   equippedAppearance: EquippedAppearance;
+  celebrationToken: number | null;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
 }) {
   return (
     <View style={[styles.glowCard, equipped && equippedAppearance.card]}>
+      {celebrationToken !== null ? (
+        <PurchaseCardCelebration
+          key={celebrationToken}
+          trigger={celebrationToken}
+        />
+      ) : null}
       {/* THE PLATE IS BACK — second ruling. The de-slop pass stripped the
           plate, the wash and the gold "Animated" chip together; the wash and
           the chip STAY dead, but a glow needs dark behind it to read, so the
@@ -1955,6 +2008,7 @@ function BackgroundCard({
   busy,
   disabled,
   equippedAppearance,
+  celebrationToken,
   onBuy,
   onEquip,
 }: {
@@ -1966,6 +2020,7 @@ function BackgroundCard({
   busy: boolean;
   disabled: boolean;
   equippedAppearance: EquippedAppearance;
+  celebrationToken: number | null;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
 }) {
@@ -1973,6 +2028,12 @@ function BackgroundCard({
 
   return (
     <View style={[styles.bgCard, { width: cardWidth }, equipped && equippedAppearance.card]}>
+      {celebrationToken !== null ? (
+        <PurchaseCardCelebration
+          key={celebrationToken}
+          trigger={celebrationToken}
+        />
+      ) : null}
       {/* The stock photo holds this frame while a city downloads, and remains
           the fallback for an unknown sku or failed request. */}
       <BackgroundThumb url={url} />
@@ -2016,6 +2077,7 @@ function ShopCard({
   busy,
   disabled,
   equippedAppearance,
+  celebrationToken,
   onBuy,
   onEquip,
   onToggleEmote,
@@ -2030,6 +2092,7 @@ function ShopCard({
   busy: boolean;
   disabled: boolean;
   equippedAppearance: EquippedAppearance;
+  celebrationToken: number | null;
   onBuy: () => void;
   onEquip: (unequip: boolean) => void;
   onToggleEmote: () => void;
@@ -2075,6 +2138,12 @@ function ShopCard({
 
   return (
     <Card {...cardProps}>
+      {celebrationToken !== null ? (
+        <PurchaseCardCelebration
+          key={celebrationToken}
+          trigger={celebrationToken}
+        />
+      ) : null}
       <View style={styles.cardTop}>
         {emoteGlyph ? (
           <View style={styles.cardGlyphWrap}>
@@ -2634,16 +2703,15 @@ const styles = StyleSheet.create({
   },
   actionBtnBuy: {
     // Green is reserved for the action that spends stamps, matching web. The
-    // brighter edge separates the control from the now-opaque card surface.
+    // fill carries the price action cleanly; it does not need a second outline.
     backgroundColor: colors.primary,
-    borderColor: colors.success,
+    borderWidth: 0,
   },
   actionBtnBuyUnavailable: {
     // Affordability changes whether the action is available, never whether its
     // price is legible. Keep the whole price row at full opacity and neutralise
     // only the button chrome while it cannot be pressed.
     backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   // EQUIP IS BLUE, EQUIPPED IS LIGHT BLUE — same call as the web shop
   // (.shopCard__btn--equip / --on in styles/shop.css). Buy stays green: it is
@@ -2656,7 +2724,8 @@ const styles = StyleSheet.create({
   actionBtnOwned: {
     backgroundColor: '#1e3e9c',
   },
-  // The equipped action uses the same dynamic appearance as its card frame.
+  // Equipped uses EQUIPPED_ACTION_APPEARANCE above: the light stop of this same
+  // blue family as a translucent state tint, never the themed Buy green.
   // NOT ON THE WHEEL: the invitation. Neutral white chrome so it does not claim
   // to be the green buy button, and the ＋ is the same sign the empty cells on
   // the wheel above are drawing — that hole and this card are the two ends of
