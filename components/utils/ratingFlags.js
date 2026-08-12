@@ -36,14 +36,34 @@ export const RATING_V2 = true;
 //                      RATING_V2_MIGRATION_AT in .env is now INERT and can be
 //                      deleted.
 //
-//                      >>> THIS IS THE DEV-DATABASE MIGRATION TIME. <<<
-//                      Bump it to the real production migration instant as part
-//                      of the prod cutover. Too EARLY is the dangerous
-//                      direction: every account created after it that still has
-//                      ratedGames 0 is placement-eligible, and a placement win
-//                      overwrites a migrated rating with a 500-900 seed. Too
-//                      late merely delays placements for genuinely new accounts.
-export const MIGRATION_AT = new Date('2026-08-07T21:36:00.000Z');
+//                      THIS IS THE REAL PRODUCTION MIGRATION INSTANT: the
+//                      moment scripts/migrateRatingV2.js --apply finished its
+//                      mapping pass on prod (started 15:27:28Z, 257s elapsed,
+//                      completed 15:31:45Z).
+//
+//                      IT IS THE COMPLETION INSTANT, NOT THE START, and not a
+//                      round number in between. Two independent readers split
+//                      history on it:
+//
+//                        - api/userProgression.js converts UserStats points
+//                          older than this onto the v2 scale. A cutoff INSIDE
+//                          the 4-minute write window (15:30:00Z was the first
+//                          attempt) leaves points written after it, for accounts
+//                          the migration had not reached yet, classified as
+//                          already-v2 and served raw — a profile graph showing
+//                          Season 0 numbers next to a v2 rating.
+//                        - components/utils/placementGates.js gate 1.
+//
+//                      Too EARLY is the dangerous direction for BOTH: every
+//                      account created after it that still has ratedGames 0 is
+//                      placement-eligible, and a placement win overwrites a
+//                      migrated rating with a 500-900 seed. The dev value that
+//                      shipped here before (2026-08-07T21:36Z) was five days
+//                      early, which left 22.5k accounts placement-eligible and
+//                      made every progression point since Aug 7 render on the
+//                      old scale. Too late merely delays placements for
+//                      genuinely new accounts.
+export const MIGRATION_AT = new Date('2026-08-12T15:31:45.000Z');
 
 // STARTING_ELO      Where a brand-new account's rating starts, and the value
 //                   every "this rating is missing, use the default" fallback in
