@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Modal } from "react-responsive-modal";
+import NextImage from "next/image";
 import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
+import sendEvent from "@/components/utils/sendEvent";
 import { FaGithub } from "react-icons/fa";
 import { FaCircleInfo } from "react-icons/fa6";
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
@@ -9,7 +11,7 @@ import ConfirmModal from './ui/Modal';
 import { signOut } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import VolumeSliders from './ui/volumeSliders';
-import { leagues } from './utils/leagues';
+import { getStrictFloor } from './utils/leagues';
 
 // Section header built ONLY from the modal's existing vocabulary:
 // .settingsModalInner gives the same indent as the option rows, the <label>
@@ -25,7 +27,7 @@ function SectionHeader({ label, color, first }) {
     );
 }
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, isApp, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
     const { t: text } = useTranslation("common");
 
     // ── Account settings ─────────────────────────────────────────────────
@@ -73,7 +75,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
     };
     // Voyager+ only (server enforces too): below the floor the row hides
     // entirely rather than showing a disabled tease.
-    const strictEligible = (session?.token?.elo ?? 0) >= leagues.voyager.min;
+    //
+    // getStrictFloor(), NOT leagues.voyager.min. That constant is 5,000 on the
+    // retired Season 0 scale and a v2 rating tops out near 1,600, so this row
+    // was hidden from EVERY account on the ladder — the setting silently left
+    // the product while its copy and its User field kept shipping.
+    const strictEligible = (session?.token?.elo ?? 0) >= getStrictFloor();
     const [strictInfoShown, setStrictInfoShown] = useState(false);
 
     // ── Danger Zone — account deletion (moved here from the moderation view) ──
@@ -166,7 +173,13 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset('/street2.webp')}")`,
+                // var(--site-bg), not a resolved path: it carries the basePath
+                // already and it reflects a purchased background (see
+                // lib/siteBackground.js), which a literal here would not.
+                // The green stop is --washChannels (styles/globals.scss) so it
+                // follows an equipped background's accent; .settingsPage is in
+                // the accent scope. Alpha and angle stay this file's own.
+                background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(var(--washChannels), 0.5) 100%), var(--site-bg)',
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -324,9 +337,9 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                                                 onClick={handleRestore}
                                                 disabled={restoring}
                                                 style={{
-                                                    background: '#2e7d32',
+                                                    background: 'var(--primary)',
                                                     color: '#fff',
-                                                    border: '2px solid #2e7d32',
+                                                    border: '2px solid var(--primary)',
                                                     borderRadius: '8px',
                                                     padding: '10px 20px',
                                                     cursor: 'pointer',
@@ -381,6 +394,18 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
                             <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
                         </a>
+                        {/* CoolMathGames backlink, moved here from the home footer row.
+                            It keeps its OWN gates rather than riding this block's: the
+                            webview app (?app=true) and SchoolGuessr hide it, and both
+                            are irrelevant to GitHub / Terms beside it. The logo is a
+                            `fill` image, which anchors to the nearest positioned
+                            ancestor — .home__squarebtn supplies the position:relative,
+                            so that class must stay on the button. */}
+                        {!isApp && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                            <a href="https://www.coolmathgames.com/0-worldguessr" target="_blank" rel="noreferrer" onClick={() => sendEvent("coolmathgames_backlink_click")}>
+                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames" title="Coolmath Games" style={{ width: '50px', height: '50px', padding: '0' }}><NextImage.default src={asset('/cmlogo.png')} draggable={false} fill sizes="50px" alt="Coolmath Games Logo" className="home__squarebtnicon" /></button>
+                            </a>
+                        )}
                     </div>
                 )}
             </div>
@@ -406,11 +431,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.9)' }}>{text("deleteAccountConfirmBody", { days: 30 })}</p>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>{text("deleteAccountLossList")}</p>
-                    {session?.token?.supporter && (
-                        <div style={{ padding: '12px', background: 'rgba(255, 152, 0, 0.12)', border: '1px solid rgba(255, 152, 0, 0.35)', borderRadius: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>
-                            {text("deleteAccountWarningSupporter")}
-                        </div>
-                    )}
                 </div>
             </ConfirmModal>
 

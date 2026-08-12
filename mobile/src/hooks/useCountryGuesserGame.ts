@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { haptics } from '../services/haptics';
+import { orderByFreshness } from '@shared/locations/repeatGuard';
+import { hydrateSeenLocs, markSeenLoc, seenLocs } from '../services/seenLocations';
 import { useOnboardingStore } from '../store/onboardingStore';
 import {
   ALL_CONTINENTS,
@@ -137,6 +139,10 @@ export default function useCountryGuesserGame({
       setLoading(true);
       setLoadError(null);
       try {
+        // Same repeat guard as the pin-drop game: this mode reads the same
+        // /allCountries.json pool, so it orders against the same ring (web gets
+        // this for free, its country guesser shares home.js's loader).
+        await hydrateSeenLocs();
         const data = await api.fetchAllLocations();
         if (cancelled) return;
         if (!data.ready || !data.locations || data.locations.length === 0) {
@@ -166,7 +172,7 @@ export default function useCountryGuesserGame({
           throw new Error(`No ${region} locations available`);
         }
 
-        setAllLocs(shuffle(regionFiltered));
+        setAllLocs(orderByFreshness(regionFiltered, seenLocs()));
         setLoading(false);
       } catch (err) {
         if (!cancelled) {
@@ -187,12 +193,15 @@ export default function useCountryGuesserGame({
     const picked = selectFrom(allLocs, cursorRef.current, subMode);
     if (!picked.loc) {
       cursorRef.current = 0;
-      setAllLocs((prev) => shuffle(prev));
+      // Exhausted the pool: re-order rather than re-shuffle, so the walk
+      // restarts on the spots seen longest ago instead of at random.
+      setAllLocs((prev) => orderByFreshness(prev, seenLocs()));
       return;
     }
 
     cursorRef.current = picked.cursor;
     setCurrentLoc(picked.loc);
+    markSeenLoc(picked.loc);
     roundStartTimeRef.current = Date.now();
 
     // Peek the FOLLOWING valid candidate WITHOUT consuming the cursor. The next

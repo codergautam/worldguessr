@@ -2,6 +2,27 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from '@/components/useTranslations';
 import { timeAgo } from '@/shared/time/timeAgo';
 import { useMultiplayer } from '@/components/multiplayer/MultiplayerProvider';
+import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
+
+/**
+ * A friend's name, wearing their equipped glow.
+ *
+ * The sku arrives on the ws `friends` payload (ws/classes/Player.js
+ * sendFriendsData): resolved from the LIVE Player for anyone online, and from
+ * the lastSeen lookup that block already runs for anyone offline — so it costs
+ * no extra query and it refreshes on every push rather than being latched at
+ * your own verify. The two request lists latch at verify instead, which is
+ * right: they change only when a request is sent or answered.
+ *
+ * Animated (Aug 11, same ruling as the leaderboards): the roster caps at 100
+ * but only friends wearing an ANIMATED sku move, which is a handful — the
+ * static-by-default caution was pricing a hundred animations nobody had.
+ */
+function FriendName({ friend }) {
+    const glow = cachedNameGlowProps(friend?.nameGlow);
+    if (!glow) return friend?.name ?? null;
+    return <span className={glow.className} style={glow.style}>{friend.name}</span>;
+}
 
 export default function FriendsModal({ shown, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
 
@@ -165,8 +186,7 @@ export default function FriendsModal({ shown, session, ws, canSendInvite, sendIn
                                         <div key={friend.id} className="friend-card">
                                             <div className="friend-details">
                                                 <span className="friend-name">
-                                                    {friend?.name}
-                                                    {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                                                    <FriendName friend={friend} />
                                                 </span>
                                             </div>
                                             <div>
@@ -188,8 +208,7 @@ export default function FriendsModal({ shown, session, ws, canSendInvite, sendIn
                                         <div key={friend.id} className="friend-card">
                                             <div className="friend-details">
                                                 <span className="friend-name">
-                                                    {friend?.name}
-                                                    {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                                                    <FriendName friend={friend} />
                                                 </span>
                                             </div>
                                             <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
@@ -214,8 +233,7 @@ export default function FriendsModal({ shown, session, ws, canSendInvite, sendIn
                                     <div key={friend.id} className="friend-card">
                                         <div className="friend-details">
                                             <span className="friend-name">
-                                                {friend?.name}
-                                                {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                                                <FriendName friend={friend} />
                                             </span>
                                             <span className="friend-state">
                                                 {friend?.online

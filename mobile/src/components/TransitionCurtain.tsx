@@ -13,9 +13,10 @@
  * the LAST child of the screen container, a sibling of the swapping content.
  */
 import { useLayoutEffect, useRef } from 'react';
-import { Animated, Easing, ImageBackground, Platform, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import SiteBackground from './SiteBackground';
 
-const STREET2 = require('../../assets/street2.jpg');
+
 
 export default function TransitionCurtain({ sceneKey }: { sceneKey: string }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -42,12 +43,7 @@ export default function TransitionCurtain({ sceneKey }: { sceneKey: string }) {
       pointerEvents="none"
       style={[StyleSheet.absoluteFillObject, styles.curtain, { opacity }]}
     >
-      <ImageBackground
-        source={STREET2}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.dim} />
     </Animated.View>
   );

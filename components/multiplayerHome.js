@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import BannerText from "./bannerText"
 import PartyLobby from "./partyLobby";
+import QueueScreen from "./queueScreen";
 import { useTranslation } from '@/components/useTranslations'
 import PartyModal from "./partyModal";
 
@@ -8,7 +9,7 @@ import PartyModal from "./partyModal";
 // connection banners → queue banners → one shared dim container hosting the
 // join-code card / PartyLobby card.
 // In-round UI (leaderboard, round-over) is mounted from gameUI, not here.
-export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames, openFriends }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames, openFriends, timeOffset }) {
 
     const { t: text } = useTranslation("common");
 
@@ -82,6 +83,14 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     const teammateSearch = is2v2Queue
         && multiplayerState.queueStage === "teammate"
         && inWaitingLobby;
+    // Which queue screen to show, if any. gameQueued's own values
+    // ('publicDuel' | 'unrankedDuel' | '2v2') travel straight through as both
+    // the mode prop and the CSS modifier suffix.
+    const queueMode = (is2v2Queue && !teammateSearch)
+        ? '2v2'
+        : (!is2v2Queue && multiplayerState.gameQueued)
+            ? multiplayerState.gameQueued
+            : null;
     // Creator pressed 2v2 / Create Party and the server's `game` message
     // hasn't landed yet → show the lobby's disabled pending shell instantly.
     const pendingCreateShell = !multiplayerState.inGame
@@ -100,17 +109,22 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     return (
         <div className={`multiplayerHome g2_slide_in ${!["waiting"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
 
-            {/* Same compass spinner as the 1v1 duel queue below — the queue
-                screens read as one family. No in-banner Cancel (user ruling):
-                the navbar back button is the single exit, and it does exactly
-                what the old button did (both were backBtnPressed). */}
-            {is2v2Queue && !teammateSearch && (
-                <BannerText position={"auto"} text={`${text("findingMatch")}...`} shown={true} />
+            {/* One screen for all three queues. `mode` is gameQueued's own
+                string, reused verbatim as the CSS modifier — a second
+                ranked/unranked vocabulary would need mapping both ways.
+                2v2 stage 1 is excluded here on purpose: the teammate search
+                renders inside the lobby card below (as it does on mobile), so
+                the player keeps the roster and the Cancel button in view.
+                No in-queue Cancel (user ruling): the navbar back button is the
+                single exit for every mode. */}
+            {queueMode && (
+                <QueueScreen
+                    key={queueMode}
+                    mode={queueMode}
+                    multiplayerState={multiplayerState}
+                    timeOffset={timeOffset}
+                />
             )}
-
-            <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued && !is2v2Queue} position={"auto"} subText={
-                multiplayerState?.publicDuelRange ? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
-            } />
 
             {!multiplayerState.gameQueued && (
                 <BannerText position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />

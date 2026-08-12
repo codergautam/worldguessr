@@ -7,9 +7,13 @@ export default function Modal({
   children,
   actions = null,
   variant = "default",
-  disableBackdropClose = false
+  disableBackdropClose = false,
+  borderless = false,
+  coveredEntry = false
 }) {
-  const [isVisible, setIsVisible] = useState(false);
+  // A conditionally mounted open modal must paint on its first render. Starting
+  // false forced an otherwise unnecessary blank commit before every modal.
+  const [isVisible, setIsVisible] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
@@ -49,10 +53,10 @@ export default function Modal({
 
   return (
     <div 
-      className={`modal-backdrop ${isClosing ? 'closing' : ''}`}
+      className={`modal-backdrop modal-backdrop--${variant} ${coveredEntry && !isClosing ? 'covered-entry' : ''} ${isClosing ? 'closing' : ''}`}
       onClick={handleBackdropClick}
     >
-      <div className={`modal ${variant} ${isClosing ? 'closing' : ''}`}>
+      <div className={`modal ${variant} ${borderless ? 'borderless' : ''} ${isClosing ? 'closing' : ''}`}>
         {title && (
           <div className="modal-header">
             <h2 className="modal-title">{title}</h2>
@@ -96,8 +100,21 @@ export default function Modal({
           animation: fadeOut 0.2s ease-out forwards;
         }
 
+        .modal-backdrop.covered-entry {
+          /* The profile's backdrop already owns the pixels underneath this
+             one. Paint an opaque replacement immediately so neither the home
+             page nor the retiring profile can leak through while the shop
+             surface performs its entrance. The destination variant supplies
+             the exact resting background for this class. */
+          animation: none;
+        }
+
         .modal {
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 30, 15, 0.9) 50%, rgba(0, 0, 0, 0.95) 100%);
+          /* --washChannels, not a fourth hand-copy of rgba(0, 30, 15): this
+             dialog is rendered INSIDE .settingsPage (settingsModal.js keeps it
+             within its own <Modal>), so it is in the accent scope and follows an
+             equipped background like the page behind it. */
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(var(--washChannels), 0.9) 50%, rgba(0, 0, 0, 0.95) 100%);
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           color: white;
@@ -116,6 +133,14 @@ export default function Modal({
 
         .modal.closing {
           animation: slideOut 0.2s ease-out forwards;
+        }
+
+        .modal.borderless {
+          border: none;
+        }
+
+        .modal.borderless .modal-actions {
+          border-top: none;
         }
 
         .modal.error {
@@ -181,9 +206,12 @@ export default function Modal({
         }
 
         .modal-actions :global(button) {
-          background: linear-gradient(135deg, rgba(36, 87, 52, 0.9) 0%, rgba(20, 65, 25, 0.8) 100%);
+          /* The two site base tones, referenced rather than restated: this ramp
+             was the surface colour into the wash colour, written out as two hex
+             literals that no longer matched anything if either base moved. */
+          background: linear-gradient(135deg, rgba(var(--surfChannels), 0.9) 0%, rgba(var(--r), var(--g), var(--b), 0.8) 100%);
           color: white;
-          border: 2px solid #245734;
+          border: 2px solid var(--primary);
           border-radius: 8px;
           padding: 10px 20px;
           font-size: 14px;
@@ -194,9 +222,9 @@ export default function Modal({
         }
 
         .modal-actions :global(button:hover) {
-          background: linear-gradient(135deg, rgba(36, 87, 52, 1) 0%, rgba(36, 87, 52, 0.9) 100%);
+          background: linear-gradient(135deg, rgba(var(--surfChannels), 1) 0%, rgba(var(--surfChannels), 0.9) 100%);
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(36, 87, 52, 0.4);
+          box-shadow: 0 4px 12px rgba(var(--surfChannels), 0.4);
         }
 
         @keyframes fadeIn {

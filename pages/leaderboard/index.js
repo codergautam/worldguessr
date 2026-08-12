@@ -7,6 +7,46 @@ import styles from '@/styles/Leaderboard.module.css';
 import { navigate } from '@/lib/basePath';
 import CountryFlag from '@/components/utils/countryFlag';
 import { NO_PROFILE_LINKS } from '@/components/utils/externalLinks';
+import { cachedNameGlowProps } from '@/components/utils/usernameWithFlag';
+
+/**
+ * A leaderboard name, wearing its owner's equipped glow.
+ *
+ * ANIMATED (Aug 11, "animated nametag not working in places like leaderboard"
+ * — this page was the one the owner was literally looking at). It ran static
+ * on a hundred-repaints-a-frame argument that priced a hundred ANIMATED-GLOW
+ * OWNERS on one screen; the real bill is the handful of rows whose player
+ * equipped an animated sku, and offscreen rows do not paint. Reduced-motion
+ * users get the static stack from the CSS side. Same flip as the Hall of
+ * Fame, the daily modal, chat, friends and history — the community-maps tile
+ * wall is the one list that stays static (see usernameWithFlag.js).
+ *
+ * The props come from the shared cache, so a hundred rows share at most nine
+ * objects instead of minting a hundred style literals per render.
+ */
+function GlowName({ name, glow }) {
+  const props = cachedNameGlowProps(glow);
+  if (!props) return name;
+  return <span className={props.className} style={props.style}>{name}</span>;
+}
+
+/**
+ * Translate with an English default.
+ *
+ * useTranslations' `t()` falls back to `en[key] || key`, so a key that has not
+ * landed in public/locales yet RENDERS ITS OWN KEY NAME on the page. These two
+ * strings ship in the same release as the 14-day window and the locale files are
+ * owned elsewhere, so they carry their English inline until the keys land — at
+ * which point every language starts working with no change here.
+ *
+ * Mirrors mobile's `t(key, vars, fallback)` third argument (src/shared/locale.ts).
+ */
+const withFallback = (text, key, fallback, vars) => {
+  const translated = text(key, vars);
+  if (translated !== key) return translated;
+  if (!vars) return fallback;
+  return Object.keys(vars).reduce((s, v) => s.replace(`{{${v}}}`, vars[v]), fallback);
+};
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -173,12 +213,46 @@ const Leaderboard = ({ }) => {
 
         {!loading && !error && (
           <div className={styles.leaderboardContainer}>
+            {/* Why someone vanished. The server only sends activityWindowDays on
+                the board the window actually applies to (all-time ranked), so
+                this renders off the payload rather than re-deriving the rule and
+                drifting from it. Read from the STAMP (result.for*), like every
+                other value on this page, so it can never appear under the XP or
+                daily tab during a tab switch. */}
+            {result.forElo && !result.forPastDay && leaderboardData?.activityWindowDays > 0 && (
+              <div className="s1-board-note">
+                <span className="s1-board-note__icon" aria-hidden>ⓘ</span>
+                <span>
+                  {withFallback(
+                    text,
+                    'leaderboardInactiveNote',
+                    'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
+                    { days: leaderboardData.activityWindowDays }
+                  )}
+                  {session && leaderboardData.myRankHidden && (
+                    <>
+                      {' '}
+                      <strong>
+                        {withFallback(
+                          text,
+                          'leaderboardInactiveYou',
+                          'That includes you right now. Play a ranked match to reappear.'
+                        )}
+                      </strong>
+                    </>
+                  )}
+                </span>
+              </div>
+            )}
+
             {session && leaderboardData?.myRank && (
               <div className={styles.myRankCard}>
                 <div className={styles.rankBadge}>#{leaderboardData.myRank}</div>
                 <div className={styles.playerInfo}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}>
-                    <span className={styles.playerName}>{session.token.username}</span>
+                    <span className={styles.playerName}>
+                      <GlowName name={session.token.username} glow={leaderboardData.myNameGlow} />
+                    </span>
                     {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
                   </div>
                   <span className={styles.playerScore}>
@@ -212,7 +286,7 @@ const Leaderboard = ({ }) => {
                         className={styles.username}
                         style={{ color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
                       >
-                        {user.username}
+                        <GlowName name={user.username} glow={user.nameGlow} />
                         {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
                       </span>
                     ) : (
@@ -224,7 +298,7 @@ const Leaderboard = ({ }) => {
                         style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {user.username}
+                        <GlowName name={user.username} glow={user.nameGlow} />
                         {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
                       </a>
                     )}

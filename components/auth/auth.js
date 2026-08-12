@@ -4,7 +4,7 @@ import { fetchWithFallback } from "../utils/retryFetch";
 import { useState, useEffect } from "react";
 import { claimGuestProgressIfAny, resetClaimGuestProgressState } from "../../utils/claimGuestProgress";
 
-// secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
+// secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues
 let session = false;
 // null = not logged in
 // false = session loading/fetching
@@ -13,6 +13,32 @@ let session = false;
 const sessionListeners = new Set();
 function notifySessionChange() {
   sessionListeners.forEach(listener => listener(session));
+}
+
+/**
+ * Publish a session established CLIENT-SIDE — a sign-in — into this shared
+ * store, so everything subscribed through useSession() learns about it.
+ *
+ * WHY THIS EXISTS. `session` above is the one the whole app subscribes to, and
+ * until this function there was exactly one way to write it: the verify fetch
+ * below, which only runs on a page load that already has a `wg_secret`. A fresh
+ * Google sign-in has no page load. It handed its payload to home.js's OWN
+ * `useState` copy, so the account UI on that page lit up and every other
+ * subscriber went on believing the visitor was signed out — most visibly
+ * pages/_app.js, which owns `--site-bg`: an owner signed in and kept the stock
+ * background until they refreshed, because refreshing is what finally ran the
+ * verify fetch. The account UI updating made it look like the session had
+ * landed everywhere, which is exactly why it went unnoticed.
+ *
+ * Persistence is deliberately NOT here. The three sign-in paths disagree about
+ * it — the CrazyGames one has its own secret lifecycle and stores no
+ * `wg_secret` — and folding that decision into this function would either
+ * change that flow or need a flag to describe it. This publishes; the caller
+ * still owns what it keeps.
+ */
+export function publishSession(token) {
+  session = token ? { token } : null;
+  notifySessionChange();
 }
 
 export function signOut() {

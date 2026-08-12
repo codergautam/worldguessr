@@ -12,9 +12,32 @@ import FriendsModal from "@/components/friendModal";
 import { FaLink, FaCheck } from "react-icons/fa";
 import CountryFlag from './utils/countryFlag';
 import { navigate } from '@/lib/basePath';
+import useStampShop from '@/components/shop/useStampShop';
+import StampsWallet from '@/components/shop/StampsWallet';
+import { nameGlowProps } from './utils/usernameWithFlag';
 
-export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
-    const { t: text } = useTranslation("common");
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop }) {
+    const { t: text, lang } = useTranslation("common");
+    // Stamps WALLET only. The storefront moved out of this modal entirely — it
+    // is its own surface now (components/shop/ShopModal.js), opened from the
+    // Stamps button beside the league button on the home screen. What stays
+    // here is the balance chip in the header, because "how many Stamps do I
+    // have" is account state and this is the account screen.
+    //
+    // FAIL CLOSED: shop.enabled is `session.token.stampsEnabled === true`
+    // (server-delivered, see api/stampShop.js entitlementFields). Until the env
+    // flag is flipped in prod this is falsy for everybody and the chip does not
+    // render at all.
+    const shop = useStampShop({ session, setSession });
+    // Read the equipped glow off the SHOP's entitlement block, not off
+    // accountData. Same reason the wallet chip does: `shop.cosmetics` is the
+    // optimistically-patched copy, so equipping in the storefront repaints this
+    // header on the click rather than after the round trip — and it is the
+    // identical object every other equipped cosmetic on this screen resolves
+    // from, so there is one source of truth instead of two that can disagree.
+    // ownBox: the title already has its own element and its own truncation
+    // (wg-name-clip below), so the glow adds motion and a shadow, nothing else.
+    const titleGlow = nameGlowProps(shop.cosmetics?.equipped?.nameGlow, undefined, { ownBox: true });
     const [accountData, setAccountData] = useState({});
     const [friends, setFriends] = useState([]);
     const [sentRequests, setSentRequests] = useState([]);
@@ -34,16 +57,6 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
     );
     const [copiedLink, setCopiedLink] = useState(false);
     const bodyRef = useRef(null);
-    const badgeStyle = {
-        marginLeft: '15px',
-        color: 'black',
-        fontSize: '0.7rem',
-        background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
-        padding: '4px 12px',
-        borderRadius: '15px',
-        fontWeight: 'bold',
-        textShadow: 'none'
-    };
 
     // Detect touch devices (mobile and iPad)
     useEffect(() => {
@@ -127,7 +140,6 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                         <AccountView
                             accountData={accountData}
                             setAccountData={setAccountData}
-                            supporter={session?.token?.supporter}
                             eloData={eloData}
                             session={session}
                             setSession={setSession}
@@ -188,6 +200,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                 <HistoricalGameView
                     game={selectedGame}
                     session={session}
+                    viewerMarkerSkin={shop.cosmetics?.equipped?.markerSkin}
                     options={options}
                     onBack={() => {
                         setShowingGameAnalysis(false);
@@ -247,81 +260,119 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
                                 <h1 className="account-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {accountData?.username || text("account")}
-                                    {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
-                                    {accountData?.username && (
-                                        <button
-                                            onClick={() => {
-                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
-                                                const showCopied = () => {
-                                                    setCopiedLink(true);
-                                                    setTimeout(() => setCopiedLink(false), 2000);
-                                                };
-                                                const fallbackCopy = () => {
-                                                    try {
-                                                        const ta = document.createElement('textarea');
-                                                        ta.value = profileUrl;
-                                                        ta.setAttribute('readonly', '');
-                                                        ta.style.position = 'fixed';
-                                                        ta.style.top = '0';
-                                                        ta.style.left = '0';
-                                                        ta.style.opacity = '0';
-                                                        document.body.appendChild(ta);
-                                                        ta.focus();
-                                                        ta.select();
-                                                        const ok = document.execCommand('copy');
-                                                        document.body.removeChild(ta);
-                                                        if (ok) showCopied();
-                                                        else window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
-                                                    } catch (e) {
-                                                        window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
-                                                    }
-                                                };
-                                                if (navigator.clipboard && window.isSecureContext) {
-                                                    navigator.clipboard.writeText(profileUrl).then(showCopied).catch(fallbackCopy);
-                                                } else {
-                                                    fallbackCopy();
-                                                }
-                                            }}
-                                            title={text("copyProfileLink") || "Copy profile link"}
-                                            style={{
-                                                marginLeft: '10px',
-                                                background: 'rgba(255,255,255,0.1)',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                padding: '6px 10px',
-                                                cursor: 'pointer',
-                                                color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
-                                                fontSize: '0.8rem',
-                                                transition: 'all 0.2s ease',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '5px',
-                                                verticalAlign: 'middle'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!copiedLink) e.target.style.color = '#fff';
-                                                e.target.style.background = 'rgba(255,255,255,0.2)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
-                                                e.target.style.background = 'rgba(255,255,255,0.1)';
-                                            }}
+                                        {/* The truncation that used to sit on .account-modal-title (where a
+                                            flex container made it inert) lives here, on the real text box,
+                                            and it is the shared wg-name-clip recipe so it carries the halo's
+                                            clip relief with it — unconditionally, so equipping a glow does
+                                            not change the box. Dark modal chrome → the dark variant. */}
+                                        <span
+                                            className={`wg-name-clip ${titleGlow?.className ?? ''}`.trim()}
+                                            style={titleGlow?.style}
                                         >
-                                            {copiedLink ? <FaCheck /> : <FaLink />}
-                                        </button>
-                                    )}
-                                    {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}
+                                            {accountData?.username || text("account")}
+                                        </span>
+                                        {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
+                                        {accountData?.username && (
+                                            <button
+                                                onClick={() => {
+                                                    const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
+                                                    const showCopied = () => {
+                                                        setCopiedLink(true);
+                                                        setTimeout(() => setCopiedLink(false), 2000);
+                                                    };
+                                                    const fallbackCopy = () => {
+                                                        try {
+                                                            const ta = document.createElement('textarea');
+                                                            ta.value = profileUrl;
+                                                            ta.setAttribute('readonly', '');
+                                                            ta.style.position = 'fixed';
+                                                            ta.style.top = '0';
+                                                            ta.style.left = '0';
+                                                            ta.style.opacity = '0';
+                                                            document.body.appendChild(ta);
+                                                            ta.focus();
+                                                            ta.select();
+                                                            const ok = document.execCommand('copy');
+                                                            document.body.removeChild(ta);
+                                                            if (ok) showCopied();
+                                                            else window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                        } catch (e) {
+                                                            window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                        }
+                                                    };
+                                                    if (navigator.clipboard && window.isSecureContext) {
+                                                        navigator.clipboard.writeText(profileUrl).then(showCopied).catch(fallbackCopy);
+                                                    } else {
+                                                        fallbackCopy();
+                                                    }
+                                                }}
+                                                title={text("copyProfileLink") || "Copy profile link"}
+                                                style={{
+                                                    marginLeft: '10px',
+                                                    background: 'rgba(255,255,255,0.1)',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    padding: '6px 10px',
+                                                    cursor: 'pointer',
+                                                    color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
+                                                    fontSize: '0.8rem',
+                                                    transition: 'all 0.2s ease',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    verticalAlign: 'middle'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!copiedLink) e.target.style.color = '#fff';
+                                                    e.target.style.background = 'rgba(255,255,255,0.2)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
+                                                    e.target.style.background = 'rgba(255,255,255,0.1)';
+                                                }}
+                                            >
+                                                {copiedLink ? <FaCheck /> : <FaLink />}
+                                            </button>
+                                        )}
                                 </h1>
 
+                                {/* Wallet sits beside the close button, not in
+                                    the body: account state belongs in the header
+                                    of the account screen, and the header is the
+                                    one part of this modal that is on screen no
+                                    matter which tab is open. Grouped with the
+                                    close button so .account-modal-header's
+                                    space-between still puts the title left and
+                                    this cluster right (see styles/shop.css).
 
-                                <button
-                                    className="account-modal-close"
-                                    onClick={() => setAccountModalOpen(false)}
-                                    aria-label="Close"
-                                >
-                                    <span className="close-icon">✕</span>
-                                </button>
+                                    THE CHIP OPENS THE STOREFRONT (user ruling
+                                    Aug 9), reversing the note that used to sit
+                                    here arguing it should not: pressing a
+                                    balance and getting a paragraph instead of
+                                    the place that spends it is a dead end, and
+                                    "the home screen has a Stamps button" is no
+                                    answer to someone already standing on their
+                                    balance. home.js closes this modal as it
+                                    opens the shop — the two never stack. */}
+                                <div className="shop-header-actions">
+                                    {shop.enabled && (
+                                        <StampsWallet
+                                            stamps={shop.stamps}
+                                            adFreeMsLeft={shop.adFreeMsLeft}
+                                            text={text}
+                                            lang={lang}
+                                            onOpenShop={onOpenShop}
+                                        />
+                                    )}
+
+                                    <button
+                                        className="account-modal-close"
+                                        onClick={() => setAccountModalOpen(false)}
+                                        aria-label="Close"
+                                    >
+                                        <span className="close-icon">✕</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Navigation */}

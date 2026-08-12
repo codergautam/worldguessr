@@ -1,4 +1,5 @@
-import { Animated, Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -51,7 +52,7 @@ interface Props {
   backDuringCountdown?: boolean;
 }
 
-const STREET2 = require('../../../assets/street2.jpg');
+
 const LOADER = require('../../../assets/loader.gif');
 
 export default function GameLoadingOverlay({
@@ -77,7 +78,7 @@ export default function GameLoadingOverlay({
       style={[styles.overlay, { opacity }]}
       pointerEvents={interactive ? 'auto' : 'none'}
     >
-      <ImageBackground source={STREET2} style={StyleSheet.absoluteFillObject} resizeMode="cover" fadeDuration={0} />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.dim} />
       {showCountdown ? (
         // During the countdown the wordmark sits top-left; when the round is
@@ -102,7 +103,7 @@ export default function GameLoadingOverlay({
         {showCountdown ? (
           <MatchCountdown
             seconds={countdown as number}
-            label={t('getReady', undefined, 'Get Ready!')}
+            label={t('getReady')}
           />
         ) : error ? (
           <>

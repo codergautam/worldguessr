@@ -20,15 +20,17 @@
     left: 0;
     width: 100%;
     height: 100%;
+    /* Keep the scrim uniform so brighter themes cannot create a black corner.
+       A small blur softens the cosmetic background without putting a costly
+       backdrop-filter on the scrollable modal surface. */
     background: linear-gradient(
-        135deg,
-        rgba(0, 0, 0, 0.9) 0%,
-        rgba(0, 30, 15, 0.8) 50%,
-        rgba(0, 0, 0, 0.9) 100%
+        rgb(from var(--primaryDark) calc(r * 0.2) calc(g * 0.2) calc(b * 0.2) / 0.86),
+        rgb(from var(--primaryDark) calc(r * 0.2) calc(g * 0.2) calc(b * 0.2) / 0.86)
     ),
-    var(--bg-street2);
+    var(--site-bg);
     background-size: cover;
     background-position: center;
+    filter: blur(2px);
     /* Changed from background-attachment: fixed to position: fixed */
     /* background-attachment: fixed causes repaint on every scroll frame */
     z-index: -1;
@@ -55,6 +57,15 @@
     margin-bottom: 20px;
 }
 
+/* The `overflow: hidden; text-overflow: ellipsis` pair that used to live here is
+   gone for the same reason it left three rules in globals.scss: this element is
+   `display: flex` (set inline by accountModal.js), the ellipsis has therefore
+   never fired, and all the overflow did was shear an equipped name glow flush
+   with the letterforms — on the ONE surface a buyer opens to admire it. The
+   truncation moved onto the name's own span in accountModal.js as the shared
+   .wg-name-clip recipe, where the ellipsis is real and the clip edge sits 34px
+   out. That class is unconditional: a title that only truncates once its owner
+   equips something is a purchase that changes the layout. */
 .account-modal-title {
     font-size: clamp(2rem, 4vw, 3rem);
     font-weight: 600;
@@ -62,8 +73,6 @@
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .account-modal-close {
@@ -166,7 +175,7 @@
 .account-nav-item.active {
     background: var(--gradGreenBtn);
     border-color: var(--primary);
-    box-shadow: 0 4px 15px rgba(36, 87, 52, 0.3);
+    box-shadow: 0 4px 15px rgba(var(--surfChannels), 0.3);
 }
 
 .nav-icon {
@@ -180,7 +189,7 @@
 
 .account-modal-body {
     flex: 1;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.46);
     border-radius: 20px;
     padding: 30px;
     /* Removed backdrop-filter from scrollable area - causes flickering during scroll */
@@ -201,6 +210,60 @@
     justify-content: center;
     margin-top: auto;
     padding-top: 20px;
+}
+
+/* Change Name and Change Flag are the same kind of account edit. One component
+   owns their geometry, theme tint, and interaction states so they cannot drift. */
+.account-profile-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 44px;
+    margin-top: 20px;
+    padding: 12px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: box-shadow 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+}
+
+.account-profile-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+}
+
+.account-profile-action:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 3px;
+}
+
+.account-profile-action:active {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(0);
+}
+
+.account-profile-action--required {
+    border-color: #d29922;
+    background: linear-gradient(135deg, #f0883e, #d29922);
+    box-shadow: 0 4px 15px rgba(240, 136, 62, 0.3);
+}
+
+.account-profile-action--required:hover {
+    background: linear-gradient(135deg, #f0883e, #d29922);
+    box-shadow: 0 6px 20px rgba(240, 136, 62, 0.4);
+    filter: brightness(1.08);
 }
 
 .logout-button {
@@ -338,21 +401,6 @@
     }
 }
 
-/* Dark mode enhancements */
-@media (prefers-color-scheme: dark) {
-    .account-modal-background {
-        background: linear-gradient(
-            135deg,
-            rgba(0, 0, 0, 0.95) 0%,
-            rgba(0, 20, 10, 0.9) 50%,
-            rgba(0, 0, 0, 0.95) 100%
-        ),
-        var(--bg-street2);
-        background-size: cover;
-        background-position: center;
-    }
-}
-
 /* Animation for modal entrance */
 @keyframes modalSlideIn {
     from {
@@ -429,4 +477,13 @@
 
 .account-modal-p-container {
     height: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .account-profile-action,
+    .account-profile-action:hover,
+    .account-profile-action:active {
+        transition: none;
+        transform: none;
+    }
 }

@@ -17,11 +17,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   Animated,
   Easing,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,6 +30,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { colors, t } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
+import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../../src/services/websocketConfig';
 
 /** A single shimmering placeholder block. */
 function SkeletonBlock({
@@ -118,14 +119,34 @@ export default function PartyCreateScreen() {
     }
   }, [verified, inGame, mode]);
 
+  // Create-shell watchdog (web home.js parity): if the server never answers
+  // the create with a `game` snapshot, this skeleton would shimmer forever —
+  // home.tsx only pushes the lobby when inGame flips, and nothing else pops
+  // this screen. Armed while the create is unanswered; any resolution clears
+  // it via the effect cleanup (inGame flips → lobby pushed, verified drops →
+  // disconnect flow owns it, X press → unmount).
+  useEffect(() => {
+    if (!verified || inGame) return;
+    const timer = setTimeout(() => {
+      const s = useMultiplayerStore.getState();
+      if (s.inGame || s.gameData || s.gameQueued || !s.connected) return;
+      // Same exit as the X button, plus teardown: leaveGame tears down a
+      // ghost lobby if the create DID land server-side (no-op otherwise)
+      // and resets lobbyIntent.
+      s.leaveGame();
+      s.pushToast({
+        key: 'createLobbyFailed',
+        toastType: 'error',
+        message: 'Could not reach the game server. Please try again.',
+      });
+      router.back();
+    }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [verified, inGame]);
+
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[

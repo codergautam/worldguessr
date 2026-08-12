@@ -95,6 +95,7 @@ export default function EmbedResults() {
           rounds={state.rounds}
           activeRound={state.activeRound}
           myId={state.myId}
+          myMarkerSkin={state.myMarkerSkin ?? null}
           isDuel={state.isDuel}
           isCountryGuesser={state.isCountryGuesser}
           lang={lang}

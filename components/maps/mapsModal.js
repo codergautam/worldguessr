@@ -3,7 +3,7 @@ import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
-import { asset, localePath } from '@/lib/basePath';
+import { localePath } from '@/lib/basePath';
 // import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
 
 const MAP_MODAL_ANIM_MS = 400;
@@ -128,7 +128,7 @@ const styles = {
     },
     // Full-viewport modal wrapper - fixed container, no scrolling
     modalShell: {
-        background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
+        background: 'linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), var(--site-bg)',
         backgroundSize: "cover",
         backgroundPosition: "center",
         boxShadow: "none",

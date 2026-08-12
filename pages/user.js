@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Navbar from '@/components/ui/navbar';
 import PublicProfile from '@/components/publicProfile';
 import config from '@/clientConfig';
+import { STARTING_ELO } from '@/components/utils/ratingFlags';
+import { backgroundUrlForSku, accentForSku, accentStyleVars } from '@/lib/siteBackground';
 import { useTranslation } from '@/components/useTranslations';
-import { asset } from '@/lib/basePath';
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -119,7 +120,7 @@ export default function UserProfilePage() {
         // ELO data is optional, continue without it
         console.warn('Failed to fetch ELO data:', eloResponse.status);
         eloDataToSet = {
-          elo: profile.elo || 1000,
+          elo: profile.elo || STARTING_ELO,
           rank: profile.rank || 0,
           duels_wins: profile.duelStats?.wins || 0,
           duels_losses: profile.duelStats?.losses || 0,
@@ -133,7 +134,7 @@ export default function UserProfilePage() {
         } catch (parseError) {
           console.warn('Error parsing ELO response, using fallback:', parseError);
           eloDataToSet = {
-            elo: profile.elo || 1000,
+            elo: profile.elo || STARTING_ELO,
             rank: profile.rank || 0,
             duels_wins: profile.duelStats?.wins || 0,
             duels_losses: profile.duelStats?.losses || 0,
@@ -143,7 +144,44 @@ export default function UserProfilePage() {
         }
       }
 
-      setProfileData(profile);
+      // ── Season 0 / OG normalisation.
+      //
+      // `seasonPeakElo`, `seasonPeakLeague` and `ogAccount` live on the User doc,
+      // but this page assembles its view from TWO endpoints (publicProfile and
+      // eloRank) and they have historically disagreed about who owns which
+      // field. Pinning the badges to one endpoint means the day the other one
+      // starts carrying them the badges silently stay dark. So: take the first
+      // payload that actually has each field, once, here at the fetch boundary,
+      // and hand components/publicProfile.js one settled shape.
+      //
+      // NOTHING IS INVENTED. A missing peak stays undefined and the badge does
+      // not render — it is never back-filled from the current rating, which is
+      // on a different scale entirely and would print a fictional career high.
+      const firstNumber = (...vals) => {
+        for (const v of vals) {
+          const n = Number(v);
+          if (Number.isFinite(n) && n > 0) return n;
+        }
+        return undefined;
+      };
+      const firstString = (...vals) => {
+        for (const v of vals) {
+          if (typeof v === 'string' && v.trim() !== '') return v;
+        }
+        return undefined;
+      };
+
+      setProfileData({
+        ...profile,
+        seasonPeakElo: firstNumber(profile.seasonPeakElo, profile.season0?.peakElo, eloDataToSet?.seasonPeakElo),
+        seasonPeakLeague: firstString(profile.seasonPeakLeague, profile.season0?.peakLeague, eloDataToSet?.seasonPeakLeague),
+        // `=== true` on every source: the badge is permanent, so nothing but a
+        // real boolean true may grant it. WHO QUALIFIES is not decided here —
+        // api/publicProfile.js resolves it (shared/season0/rank.js `hasSeason0`,
+        // every account that was here for Season 0) and publishes one boolean.
+        // This only picks whichever payload carried it.
+        ogAccount: profile.ogAccount === true || eloDataToSet?.ogAccount === true,
+      });
       setEloData(eloDataToSet);
       setLoading(false);
     } catch (err) {
@@ -188,6 +226,55 @@ export default function UserProfilePage() {
     fetchPublicProfile({ username: extractedUsername, id: extractedId });
   }, [router.query.u, router.query.id, fetchPublicProfile]);
 
+  // THE BACKGROUND OF THIS PAGE BELONGS TO ITS SUBJECT, NOT ITS READER.
+  //
+  // `--site-bg` is a per-VISITOR value: pages/_app.js writes it from the signed
+  // in user's own equipped sku, so a page about somebody else was painted in
+  // whatever city the reader happened to have bought. On the one screen that
+  // exists to show off a player, that is backwards.
+  //
+  // Scoped to this page's shell and nowhere else — one custom property on the
+  // element, which its ::before inherits — so it cannot leak into the menus or
+  // survive a route change the way writing `--site-bg` on <html> would. The
+  // reader's own background stays exactly as it was everywhere else on the site.
+  //
+  // Null (unknown sku, nothing equipped, still loading, portal build) leaves the
+  // property unset and the CSS falls through to `var(--site-bg)`, which is the
+  // behaviour this page has always had.
+  const profileBackground = useMemo(
+    () => backgroundUrlForSku(profileData?.cosmetics?.equipped?.background),
+    [profileData]
+  );
+
+  // AND SO DO ITS COLOURS. The photograph moved to the subject above and the
+  // chrome on top of it did not, which left a purple New York profile wearing
+  // WorldGuessr green buttons — the exact mismatch the accent system was built
+  // to end, just pointed at the wrong person.
+  //
+  // SAME SCOPING RULE, SAME REASON. These go inline on the shell beside
+  // --profile-bg, NOT through applySiteAccent: that writes <html>, which is the
+  // READER's slot, so a stranger's colours would repaint the reader's own menus
+  // and outlive the route change. .user-profile-page is in the accent scope in
+  // styles/globals.scss, so declaring them here is all it takes, and nothing
+  // outside this element can see them.
+  //
+  // Null (nothing equipped, unknown sku, still loading, portal build) leaves all
+  // seven unset and the scope's own fallbacks — the green literals — stand.
+  const profileAccent = useMemo(
+    () => accentStyleVars(accentForSku(profileData?.cosmetics?.equipped?.background)),
+    [profileData]
+  );
+
+  // One object or none: React re-runs the whole inline style on identity change,
+  // and `undefined` is what this page has always passed when it has nothing.
+  const shellStyle = useMemo(() => {
+    if (!profileBackground && !profileAccent) return undefined;
+    return {
+      ...(profileBackground ? { '--profile-bg': `url("${profileBackground}")` } : null),
+      ...profileAccent,
+    };
+  }, [profileBackground, profileAccent]);
+
   return (
     <>
       <Head>
@@ -197,7 +284,10 @@ export default function UserProfilePage() {
 
       <Navbar />
 
-      <div className="user-profile-page">
+      <div
+        className="user-profile-page"
+        style={shellStyle}
+      >
         {loading && (
           <div className="loading-container">
             <div className="loading-card">
@@ -249,8 +339,8 @@ export default function UserProfilePage() {
         /* Page shell.
            Was \`background-attachment: fixed\` on this element, which is also the
            scroll container. Firefox cannot composite a fixed-attachment
-           background, so it re-rasterised the full-viewport street2 image plus
-           the gradient on every scroll frame. The artwork now lives in a
+           background, so it re-rasterised the full-viewport site background
+           image plus the gradient on every scroll frame. The artwork now lives in a
            \`position: fixed\` ::before layer: identical visual, rasterised once.
            Same fix as Leaderboard.module.css and accountModal.css. */
         .user-profile-page {
@@ -280,13 +370,29 @@ export default function UserProfilePage() {
           content: '';
           position: fixed;
           inset: 0;
+          /* --profile-bg is the PROFILE OWNER's equipped background, set inline
+             on .user-profile-page above; --site-bg is the visitor's own and is
+             only the fallback while the profile loads (or when its owner has
+             nothing equipped). This layer is position:fixed inset:0, so it also
+             sits behind the transparent navbar — the whole viewport reads as
+             one background rather than splitting at the bar.
+
+             THE MID STOP FOLLOWS THE SUBJECT TOO. It was rgba(20, 26, 57) — a
+             navy that appears nowhere else on the site, picked as a neutral back
+             when this wash had no way of knowing whose page it was on. It does
+             now: --washChannels resolves against the seven --acc* properties set
+             inline above, so the wash IS the equipped background's own colour.
+             With nothing equipped it falls back to the site wash like every
+             other modal, which is a change from the navy and a deliberate one —
+             one page wearing a colour the rest of the site never uses was the
+             oddity, not the fix. */
           background: linear-gradient(
             135deg,
             rgba(0, 0, 0, 0.9) 0%,
-            rgba(20, 26, 57, 0.8) 50%,
+            rgba(var(--washChannels), 0.8) 50%,
             rgba(0, 0, 0, 0.9) 100%
           ),
-          url("${asset('/street2.webp')}");
+          var(--profile-bg, var(--site-bg));
           background-size: cover;
           background-position: center;
           pointer-events: none;

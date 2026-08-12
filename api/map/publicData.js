@@ -32,6 +32,9 @@ export default async function handler(req, res) {
         description_short: cntryMap.shortDescription,
         description_long: cntryMap.longDescription,
         created_by: "WorldGuessr",
+        // Not an account, so there is nothing equipped. Stated rather than
+        // omitted: the client reads this field on every map.
+        created_by_glow: null,
         in_review: false,
         rejected: false
       }
@@ -74,6 +77,9 @@ export default async function handler(req, res) {
   const responseData = {
     ...map,
     created_by: authorUser?.username,
+    // The author document is already loaded above (for the creator/staff
+    // permission check), so the glow costs nothing extra here.
+    created_by_glow: authorUser?.cosmetics?.equipped?.nameGlow || null,
     created_at: msToTime(Date.now() - map.created_at),
     locationcnt: locationcnt,
     hearted

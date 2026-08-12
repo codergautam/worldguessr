@@ -68,6 +68,7 @@ export default function AccountScreen() {
       onBack={() => router.navigate('/(tabs)/home')}
       onRefreshUser={loadSession}
       onNavigateToUser={(username) => router.push(`/user/${username}`)}
+      onTabChange={(nextTab) => router.setParams({ tab: nextTab })}
       initialTab={initialTab}
     />
   );

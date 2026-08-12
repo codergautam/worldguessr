@@ -58,8 +58,21 @@ interface Props {
    * keys (live session id / history accountId).
    */
   myId?: string | null;
+  /**
+   * The viewer's own equipped pin sku. The live WebView has no web session, and
+   * the results map draws the viewer outside round.players, so both routes need
+   * this explicit identity prop. Every other player's skin rides on their
+   * multiplayer/round entry.
+   */
+  myMarkerSkin?: string | null;
   /** Highlighted player id from the Final Scores list; filters results pins. */
   selectedPlayer?: string | null;
+
+  /* NO `myNameGlow` COUNTERPART, deliberately. It used to cross this bridge on
+   * both routes to dress the "Your guess" pin label; that label wears no glow,
+   * because a glow says WHOSE pin this is and your own label says "Your guess",
+   * not a name. Opponents' labels still glow — their sku rides on their entry
+   * in `rounds[].players`, which is inside the payload already. */
 
   // ── live map (route='map') ──────────────────────────────────────────────
   /** The answer/panorama location ({lat,long}); drives reveal + hint. */
@@ -110,6 +123,7 @@ export default function EmbeddedMap({
   isDuel,
   teams,
   myId,
+  myMarkerSkin,
   selectedPlayer,
   location,
   guessPosition,
@@ -172,6 +186,7 @@ export default function EmbeddedMap({
         rounds: rounds ?? [],
         activeRound: activeRound ?? null,
         myId: myId ?? '',
+        myMarkerSkin: myMarkerSkin ?? null,
         isDuel: !!isDuel,
         teams: teams ?? null,
         selectedPlayer: selectedPlayer ?? null,
@@ -185,6 +200,7 @@ export default function EmbeddedMap({
       // volume model of its own.
       sfxGain: toGain(sfxVolume),
       options: { mapType },
+      myMarkerSkin: myMarkerSkin ?? null,
       pinPoint: guessPosition ? { lat: guessPosition.lat, lng: guessPosition.lng } : null,
       answerShown: !!isShowingResult,
       location: location ? { lat: location.lat, long: location.long } : null,
@@ -223,6 +239,7 @@ export default function EmbeddedMap({
     isDuel,
     teams,
     myId,
+    myMarkerSkin,
     selectedPlayer,
   ]);
 

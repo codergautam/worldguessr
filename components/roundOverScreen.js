@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
+import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
-import { getPinIcons } from '@/lib/markerIcons';
+import { getPinIcons, markerSkinIconKey } from '@/lib/markerIcons';
 import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag, FaCrown } from "react-icons/fa";
 import msToTime from "./msToTime";
@@ -11,8 +11,12 @@ import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
-import UsernameWithFlag from './utils/usernameWithFlag';
+import UsernameWithFlag, { GlowName, nameGlowProps, cachedNameGlowProps, GLOW_DARK, GLOW_LIGHT } from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import GuessPinLabel from './utils/guessPinLabel';
+import StampMark from './shop/StampMark';
+import { resolveLeague } from './utils/leagues';
+import { STAMP_REASON_KEYS, mergeStampLines } from '@/shared/stamps/receipt';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
 import openInStreetView from './utils/openInStreetView';
@@ -28,6 +32,58 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((module) => module.TileLayer),
   { ssr: false }
 );
+
+/* ── DUEL RATING COUNT-UP (rating v2) ──────────────────────────────────────
+ *
+ * FIXED DURATION, NOT FIXED STEP SIZE. Every earlier version of this counter
+ * derived its cadence from the size of the swing, and every one of them broke
+ * when the scale changed:
+ *
+ *   v1 (original)  period = 1500 / |Δ|, stepping ±1 per tick. Tuned for the old
+ *                  inflating ladder where a duel moved 60-600 points. On the v2
+ *                  scale a Δ of 3 makes that a 500ms tick: the number LURCHES
+ *                  three times over a second and a half instead of counting.
+ *   v1 (patched)   a 33ms interval, linear. Killed the 100-renders/sec problem
+ *                  but still committed React state 30 times a second, which
+ *                  re-rendered this entire summary tree (map, pins, breakdown)
+ *                  through the heaviest window of the duel.
+ *
+ * This version is time-driven and magnitude-independent: ELO_COUNT_MS start to
+ * finish whether the swing is 1 or 300, eased, on requestAnimationFrame, and
+ * written straight to the DOM node through a ref — zero React commits per frame
+ * (only the two that flip the flourish class on and off).
+ *
+ * WHY TWO CURVES. Under v2 a routine transfer is ±1-40, so for a small swing
+ * there are only a handful of digit transitions available and the CURVE decides
+ * whether they read as motion. easeOutCubic front-loads: with Δ=1 the single
+ * change lands at ~20% (185ms) and the rest of the second is dead air — an
+ * instant snap with a pause after it. easeInOutCubic puts that change at the
+ * midpoint, and the CSS flourish (.elo-value--counting, styles/season1Badges.css)
+ * carries the deliberate motion around it. Big swings keep the classic
+ * front-loaded count-up they have always had.
+ */
+const ELO_COUNT_MS = 1000;
+/** Let the result title and badge paint before the digits begin moving. */
+const ELO_COUNT_DELAY_MS = 250;
+/** Below this |Δ| the digits alone cannot carry the motion — see WHY TWO CURVES. */
+const ELO_SMALL_DELTA = 8;
+
+/* Reason labels and the repeated-reason merge live in shared/stamps/receipt.js
+ * — mobile's results screen imports the SAME module through its @shared alias,
+ * so the two platforms cannot drift into showing different breakdowns for the
+ * same game. */
+const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
+const easeInOutCubic = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+
+const prefersReducedMotion = () => {
+  try {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch (e) {
+    return false;
+  }
+};
 
 // Component to handle map events and store map reference
 const MapEvents = ({ mapRef, onMapReady, history, onUserInteraction }) => {
@@ -92,6 +148,7 @@ const GameSummary = ({
     hidden,
     multiplayerState,
     session,
+    viewerMarkerSkin,
     gameId,
     options,
     // Matchmade team duels only (passed by the LIVE mounts, never history):
@@ -119,14 +176,39 @@ const GameSummary = ({
   const src2IconRef = useRef(null);
   const srcBigIconRef = useRef(null);
   const src2BigIconRef = useRef(null);
+  const allIconsRef = useRef(null);
   const roundsContainerRef = useRef(null);
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const [pointsAnimating, setPointsAnimating] = useState(false);
-  const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
-  const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
+
+  // ── Rating count-up plumbing (see the header comment on ELO_COUNT_MS).
+  // `eloNode` is STATE, not a ref, deliberately: the animation must not be able
+  // to start before the span exists. This screen renders a placeholder branch
+  // while Leaflet loads, so a ref-only version would run its whole rAF loop into
+  // a null node and the count-up would simply never be seen. A callback ref
+  // re-runs the effect at the exact commit the node attaches.
+  const [eloNode, setEloNode] = useState(null);
+  // The value on screen. The JSX renders FROM this ref (never from state), so an
+  // unrelated re-render — a round click, mobileExpanded, a selectedPlayer change,
+  // all of which fire constantly on this screen — reconciles the span's text to
+  // the value the animation last wrote instead of snapping it back to a stale one.
+  const eloShownRef = useRef(typeof data?.oldElo === 'number' ? data.oldElo : 0);
+  const eloRafRef = useRef(0);
+  const [eloCounting, setEloCounting] = useState(false);
+
+  // ── Stamps receipt plumbing ───────────────────────────────────────────────
+  // The receipt lands on its own ws message after the ledger applies it. Do not
+  // reserve a blank row while it is in flight: the header stays compact, then
+  // renders the authoritative total immediately when it exists.
+  const stampsReceipt = multiplayerState?.gameData?.stampsEarned || null;
+  const stampsTotal = typeof stampsReceipt?.total === 'number' ? stampsReceipt.total : 0;
+  const stampsLines = useMemo(() => mergeStampLines(stampsReceipt?.lines), [stampsReceipt]);
+  // Pointer hover/focus reveals the out-of-flow tooltip in CSS. This state is
+  // the touch fallback, where tapping the amount toggles the same tooltip.
+  const [stampsBreakdownOpen, setStampsBreakdownOpen] = useState(false);
 
 
 
@@ -140,6 +222,10 @@ const GameSummary = ({
         src2IconRef.current = icons.src2;
         srcBigIconRef.current = icons.srcBig;
         src2BigIconRef.current = icons.src2Big;
+        // Keep the whole set: purchased pin skins are looked up by key
+        // (markerSkinIconKey) rather than having one ref per sku, same as
+        // components/Map.js does for the in-game map.
+        allIconsRef.current = icons;
         setLeafletReady(true);
       } else {
         setTimeout(checkLeaflet, 100);
@@ -189,37 +275,78 @@ const GameSummary = ({
     }
   }, [points, duel]);
 
-  // Animation for elo in duels
+  // Animation for elo in duels. Fixed duration, eased, rAF-driven, written
+  // straight to the DOM. See the ELO_COUNT_MS header comment for the why.
   useEffect(() => {
-    if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number" && !eloAnimationComplete) {
-      const { oldElo, newElo } = data;
-      // ±0 change: nothing to count. Without this bail the ±1 stepping below
-      // starts at oldElo, immediately steps PAST newElo and never equals it
-      // again — a 0ms interval re-rendering this whole summary forever.
-      if (oldElo === newElo) {
-        setAnimatedElo(newElo);
-        setEloAnimationComplete(true);
-        return;
-      }
-      const duration = 1500;
-      const startTime = Date.now();
+    if (!eloNode || !duel || !data) return;
+    const oldElo = data.oldElo;
+    const newElo = data.newElo;
+    if (typeof oldElo !== 'number' || typeof newElo !== 'number') return;
 
-      // Time-based at 30Hz. The old ±1-per-tick stepping made the interval
-      // period 1500/|Δelo| — a 150-elo swing meant a 10ms interval driving
-      // 100 re-renders/sec of this whole end screen, right through the
-      // heaviest window of the duel (the t=120-124s 93-dropped-frames zone).
-      const interval = setInterval(() => {
-        const progress = Math.min((Date.now() - startTime) / duration, 1);
-        setAnimatedElo(Math.round(oldElo + (newElo - oldElo) * progress));
-        if (progress >= 1) {
-          clearInterval(interval);
-          setEloAnimationComplete(true); // Mark animation as complete
-        }
-      }, 33);
+    const write = (v) => {
+      eloShownRef.current = v;
+      // textContent, not state: a per-frame setState here re-renders the whole
+      // summary (map + pins + breakdown) 60 times a second.
+      eloNode.textContent = String(v);
+    };
 
-      return () => clearInterval(interval);
+    // KILL THE PREVIOUS LOOP BEFORE STARTING ONE. A fast round transition or a
+    // second duel on the same mount re-runs this effect, and two rAF loops
+    // writing the same node is exactly the leak class that has cost this
+    // codebase frames before. The cleanup below covers unmount; this covers the
+    // re-trigger, because React runs the cleanup of the PREVIOUS effect first
+    // and belt-and-braces is cheap.
+    if (eloRafRef.current) {
+      cancelAnimationFrame(eloRafRef.current);
+      eloRafRef.current = 0;
     }
-  }, [duel, data?.oldElo, data?.newElo, eloAnimationComplete]); // Use specific properties instead of entire data object
+
+    const delta = newElo - oldElo;
+    // ±0 change (a v2 draw between evenly matched players transfers nothing):
+    // there is nothing to count, so don't fake a count.
+    if (delta === 0 || prefersReducedMotion()) {
+      write(newElo);
+      setEloCounting(false);
+      return;
+    }
+
+    const ease = Math.abs(delta) < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
+    let last = oldElo;
+    write(oldElo);
+    setEloCounting(false);
+
+    const startTimer = window.setTimeout(() => {
+      const start = performance.now();
+      setEloCounting(true);
+      const step = (now) => {
+        const progress = Math.min((now - start) / ELO_COUNT_MS, 1);
+        const value = Math.round(oldElo + delta * ease(progress));
+        // Only touch the DOM when a digit actually changes. On the v2 scale most
+        // frames of a ±3 swing produce the same integer, so this skips ~57 of the
+        // 60 writes and the text node is left alone.
+        if (value !== last) {
+          last = value;
+          write(value);
+        }
+        if (progress < 1) {
+          eloRafRef.current = requestAnimationFrame(step);
+          return;
+        }
+        eloRafRef.current = 0;
+        write(newElo);
+        setEloCounting(false);
+      };
+      eloRafRef.current = requestAnimationFrame(step);
+    }, ELO_COUNT_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(startTimer);
+      if (eloRafRef.current) {
+        cancelAnimationFrame(eloRafRef.current);
+        eloRafRef.current = 0;
+      }
+    };
+  }, [eloNode, duel, data?.oldElo, data?.newElo]); // Use specific properties instead of entire data object
 
   // Handle scroll to make header compact
   useEffect(() => {
@@ -456,6 +583,9 @@ const GameSummary = ({
                     username={player.username}
                     countryCode={player.countryCode}
                     isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                    // Dark overlay (.round-item sits on the summary's dark
+                    // glass) → the dark glow variant.
+                    nameGlow={glowOf[player.playerId]}
                   />
                   {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
                   {isReportedUser && <span style={{ color: '#f44336', fontStyle: 'italic', marginLeft: '4px' }}>(reported)</span>}
@@ -751,6 +881,42 @@ const GameSummary = ({
     : (multiplayerState?.gameData?.players || []);
   const teamOf = {};
   gamePlayers.forEach(p => { teamOf[p.id] = p.team; });
+  // Equipped name-glow sku by player id, read off the SAME roster the teams
+  // come from. Per-round guess entries (round.players[id]) are guess records —
+  // they carry username/points/lat/long and nothing cosmetic — so every glow on
+  // this screen resolves through here, never through the round data.
+  const glowOf = {};
+  gamePlayers.forEach(p => { if (p.nameGlow) glowOf[p.id] = p.nameGlow; });
+  // Equipped pin sku, resolved off the roster for exactly the same reason as
+  // the glow above. Without this the reveal map drew every guess with the stock
+  // src/src2 pins while the in-game map (Map.js) drew the purchased one, so a
+  // pin vanished the moment the round ended.
+  const skinOf = {};
+  gamePlayers.forEach(p => { if (p.markerSkin) skinOf[p.id] = p.markerSkin; });
+  // History passes the account modal's live shop state (falling back to the
+  // API-joined cosmetic) because solo modes have no multiplayer roster and an
+  // auth session may predate the latest equip.
+  // `undefined` means live mode (use its existing session/roster resolution);
+  // explicit null means the historical perspective player has no pin equipped.
+  const myMarkerSkin = viewerMarkerSkin !== undefined
+    ? viewerMarkerSkin
+    : (session?.token?.cosmetics?.equipped?.markerSkin
+      ?? skinOf[multiplayerState?.gameData?.myId]
+      ?? null);
+  // And the VIEWER's own glow, for the same reason and in the same order — in
+  // singleplayer the roster is empty and `myId` is undefined, so the session is
+  // the only source that exists in every mode. It dresses YOUR NAME on this
+  // screen's dark summary rows. It does NOT dress the "Your guess" pin label,
+  // which wears no glow at all: myPinLabelProps below has the rule and the why.
+  const myNameGlow = session?.token?.cosmetics?.equipped?.nameGlow
+    ?? glowOf[multiplayerState?.gameData?.myId]
+    ?? null;
+  // Same story for flags: the roster is the only place a country code is
+  // guaranteed to live on BOTH the live path and the history rebuild, so the
+  // pin labels resolve through here first and fall back to the round's own
+  // guess record (older saved games).
+  const countryOf = {};
+  gamePlayers.forEach(p => { if (p.countryCode) countryOf[p.id] = p.countryCode; });
   // No 'a' default on lookup miss: that silently INVERTS the Victory/Defeat
   // headline and every pin color for a team-b player whose id hasn't landed
   // in the roster yet. Null = neutral until the roster resolves.
@@ -845,6 +1011,36 @@ const GameSummary = ({
     );
   }
 
+  /* ── Permanent pin labels ───────────────────────────────────────────────
+   * Purchasable marker skins broke the old "blue pin = you, green pin = them"
+   * read on these maps — a skinned pin keeps its skin, not its team colour —
+   * so a HIGHLIGHTED round (or a player picked out of the scoreboard) names
+   * its pins instead. Never all rounds at once: a label per guess per round
+   * buries the pins under a wall of white boxes. Recipe lives in
+   * components/utils/guessPinLabel.js; the live map (Map.js) already labels
+   * the same way during the round reveal.
+   *
+   * Mod view inspects SOMEONE ELSE's perspective, so the "your guess" pin is
+   * really that player's — label it with their name + flag there.
+   *
+   * AND THAT IS THE ONE CASE WHERE THIS LABEL WEARS A GLOW. The rule is that a
+   * glow follows a NAME: it says whose pin this is. In mod view the label IS a
+   * name (the inspected player's), so it glows exactly like every opponent pin
+   * on the map. Everywhere else the label reads "Your guess" — chrome, not
+   * identity, on your own pin, which you already know is yours — so it gets
+   * nothing. Both branches are decided HERE, together, because the two used to
+   * be decided in different places and that is precisely how the "Your guess"
+   * halo got in.
+   */
+  const viewerId = multiplayerState?.gameData?.myId;
+  const myPinLabelProps = (round) => (options?.isModView
+    ? {
+        label: round?.players?.[viewerId]?.username || text("player"),
+        countryCode: countryOf[viewerId] || round?.players?.[viewerId]?.countryCode || null,
+        nameGlow: glowOf[viewerId] ?? round?.players?.[viewerId]?.nameGlow ?? null,
+      }
+    : { label: text("yourGuess"), countryCode: null, nameGlow: null });
+
   // Helper function to open report modal
   const handleReportUser = (accountId, username) => {
     setReportTarget({ accountId, username });
@@ -864,6 +1060,16 @@ const GameSummary = ({
     const draw = isCumulativeTeam ? !!data.draw : data.draw;
     const { oldElo, newElo } = data;
     const eloChange = newElo - oldElo;
+
+    // Rating-v2 placement: this game SEEDED the rating instead of transferring
+    // it. Stamped by the server on duelEnd (ws/classes/Game.js) and, for a
+    // replayed game, carried on the saved doc (models/Game.js `placement`).
+    // Only p1 can ever be in a placement — p2 is the throwing bot.
+    const isPlacement = data.placement === true;
+    const isLivePlacement = isPlacement && !options?.isHistoryView;
+    // Resolved with the server's tier when it sent one, so a seasonal re-anchor
+    // does not need a web deploy to label this correctly.
+    const placementLeague = isPlacement ? resolveLeague(newElo, data.league) : null;
 
     // Opponent(s): every player NOT on my team (teams), or the single other
     // player (1v1). Collected from round data so mid-game leavers still count.
@@ -911,6 +1117,10 @@ const GameSummary = ({
         .map(p => ({
           accountId: p.accountId ?? null,
           username: p.username,
+          // PROJECTION, not a comparison: anything not copied here is gone by
+          // the time the modal renders the candidate. Cosmetics ride along so
+          // a glowing name still glows in the report picker.
+          nameGlow: p.nameGlow ?? null,
           relationshipLabel: p.team ? (p.team === mine ? text('yourTeam') : text('enemyTeam')) : null
         }));
     })();
@@ -981,6 +1191,10 @@ const GameSummary = ({
                 const showsPlayer = (playerId) => !selectedPlayer || playerId === selectedPlayer;
                 // Team games: each team's closest guesser gets the enlarged pin.
                 const bestIds = bestTeamGuesserIds(round);
+                // Name labels while a round or a player is highlighted — see
+                // myPinLabelProps above. Used to be team-games-only (identical
+                // pins on a team); marker skins made it necessary everywhere.
+                const showLabels = activeRound === index || !!selectedPlayer;
 
                 return (
                   <React.Fragment key={index}>
@@ -1026,23 +1240,16 @@ const GameSummary = ({
                       <>
                         <Marker
                           position={[round.guessLat, round.guessLong]}
-                          icon={bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current}
+                          icon={
+                            allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, bestIds?.has(multiplayerState?.gameData?.myId) ? 'Big' : '')]
+                            || (bestIds?.has(multiplayerState?.gameData?.myId) ? srcBigIconRef.current : srcIconRef.current)
+                          }
                         >
-                          {/* Team games: teammates share identical pins, so a
-                              focused round shows permanent name labels (same
-                              affordance as the Map.js round reveal) instead of
-                              relying on click-popups to tell guesses apart. */}
-                          {isTeamGame && activeRound === index && (
-                            <Tooltip
-                              direction="top"
-                              offset={[0, bestIds?.has(multiplayerState?.gameData?.myId) ? -55 : -45]}
-                              opacity={1}
-                              permanent
-                            >
-                              <span style={{ color: 'black' }}>
-                                {options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}
-                              </span>
-                            </Tooltip>
+                          {showLabels && (
+                            <GuessPinLabel
+                              {...myPinLabelProps(round)}
+                              big={!!bestIds?.has(viewerId)}
+                            />
                           )}
                           <Popup>
                             <div>
@@ -1079,6 +1286,10 @@ const GameSummary = ({
                       }
 
                       const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
+                      // Popup chrome is white too — LIGHT variant, class AND
+                      // style so an animated sku actually moves (the keyframes
+                      // only exist on the class). See guessPinLabel.js.
+                      const popupGlow = cachedNameGlowProps(glowOf[playerId], GLOW_LIGHT, { ownBox: true });
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
                           {/* Team games: teammates share YOUR (blue src) pin,
@@ -1087,29 +1298,33 @@ const GameSummary = ({
                               closest guesser renders enlarged. */}
                           <Marker
                             position={[player.lat, player.long]}
-                            icon={isMyTeammate(playerId)
-                              ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
-                              : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current)}
+                            icon={
+                              // Purchased skin wins over the team pin, matching
+                              // Map.js: the skin IS that player's identity, and
+                              // the pin label already says whose guess it is.
+                              allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], bestIds?.has(playerId) ? 'Big' : '')]
+                              || (isMyTeammate(playerId)
+                                ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
+                                : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current))
+                            }
                           >
-                            {isTeamGame && activeRound === index && (
-                              <Tooltip
-                                direction="top"
-                                offset={[0, bestIds?.has(playerId) ? -55 : -45]}
-                                opacity={1}
-                                permanent
-                              >
-                                <span style={{ color: 'black' }}>
-                                  {player.username || text("opponent")}
-                                </span>
-                              </Tooltip>
+                            {showLabels && (
+                              <GuessPinLabel
+                                label={player.username || text("opponent")}
+                                countryCode={countryOf[playerId] || player.countryCode || null}
+                                nameGlow={glowOf[playerId]}
+                                big={!!bestIds?.has(playerId)}
+                              />
                             )}
                             <Popup>
                               <div>
                                 <strong
+                                  className={popupGlow?.className}
                                   style={{
                                     cursor: 'default',
                                     textDecoration: 'none',
-                                    color: 'inherit'
+                                    color: 'inherit',
+                                    ...popupGlow?.style
                                   }}
                                 >
                                   {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
@@ -1142,7 +1357,13 @@ const GameSummary = ({
           <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
             <div className={`summary-header duel-header ${headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? 'compact' : ''}`}>
               <h1 className="summary-title">
-                {draw ? text("draw") : winner ? text("victory") : text("defeat")}
+                {isPlacement
+                  ? text("placementCompleteTitle")
+                  : draw
+                    ? text("draw")
+                    : winner
+                      ? text("victory")
+                      : text("defeat")}
               </h1>
 
               {/* Cumulative team parties: final team totals under the verdict */}
@@ -1163,26 +1384,111 @@ const GameSummary = ({
                 </div>
               )}
 
-              {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
-                <div className="elo-container">
-                  <span className="elo-title">{text("elo")}:</span>
-                  <div className="elo-display">
-                    <span className="elo-value">{animatedElo}</span>
-                    <span
-                      className="elo-change"
-                      style={{ color: eloChange >= 0 ? "green" : "red" }}
+              <div className="duel-header__meta">
+                {typeof data.oldElo === "number" && typeof data.newElo === "number" && (isPlacement ? (
+                  <div className="placement-result">
+                    <div
+                      className="placement-rating-badge"
+                      style={{ '--placement-accent': placementLeague?.light ?? placementLeague?.color }}
+                      aria-label={`${text("placementLeagueResult", { league: placementLeague?.name })}. ${newElo} ${text("elo")}`}
                     >
-                      {eloChange > 0 ? `+${eloChange}` : eloChange}
-                    </span>
+                      <span className="placement-rating-badge__emblem" aria-hidden="true">
+                        {placementLeague?.emoji}
+                      </span>
+                      <span className="placement-rating-badge__body" aria-hidden="true">
+                        <span className="placement-rating-badge__result">
+                          {text("placementLeagueResult", { league: placementLeague?.name })}
+                        </span>
+                        <span className="placement-rating-badge__rating">
+                          <span
+                            ref={setEloNode}
+                            className={`elo-value placement-rating-badge__value${eloCounting ? ' elo-value--counting' : ''}`}
+                          >
+                            {eloShownRef.current}
+                          </span>
+                          <span className="placement-rating-badge__unit">{text("elo")}</span>
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="elo-container">
+                    <span className="elo-title">{text("elo")}:</span>
+                    <div className="elo-display">
+                      <span
+                        ref={setEloNode}
+                        className={`elo-value${eloCounting ? ' elo-value--counting' : ''}`}
+                      >
+                        {eloShownRef.current}
+                      </span>
+                      <span
+                        className={`elo-change ${eloChange > 0 ? 'elo-change--up' : eloChange < 0 ? 'elo-change--down' : 'elo-change--flat'}`}
+                      >
+                        {eloChange > 0 ? `+${eloChange}` : eloChange}
+                      </span>
+                    </div>
+                  </div>
+                ))}
 
-              {data.timeElapsed > 0 && (
-                <div className="time-elapsed">
-                  <FaClock /> {text("time")}: {msToTime(data.timeElapsed)}
-                </div>
-              )}
+                {/* Placement keeps one focused onboarding message. Rewards
+                    still reach the wallet, but the receipt waits for later
+                    ranked results instead of competing with the league reveal. */}
+                {!isPlacement && stampsTotal > 0 && (
+                  <div
+                    className={`stamps-earned${stampsBreakdownOpen ? ' stamps-earned--open' : ''}`}
+                    onMouseLeave={() => setStampsBreakdownOpen(false)}
+                  >
+                    <button
+                      type="button"
+                      className="stamps-earned__trigger"
+                      aria-label={`${text("shopStampsUnit")}: +${stampsTotal}`}
+                      aria-describedby={stampsLines.length > 0 ? 'stamps-earned-breakdown' : undefined}
+                      aria-expanded={stampsLines.length > 0 ? stampsBreakdownOpen : undefined}
+                      onClick={() => {
+                        if (stampsLines.length > 0) {
+                          setStampsBreakdownOpen((v) => !v);
+                        }
+                      }}
+                      onBlur={() => setStampsBreakdownOpen(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setStampsBreakdownOpen(false);
+                        }
+                      }}
+                    >
+                        <span className="stamps-earned__mark">
+                          <StampMark />
+                        </span>
+                        <span className="stamps-earned__value">+{stampsTotal}</span>
+                    </button>
+
+                    {stampsLines.length > 0 && (
+                      <div
+                        id="stamps-earned-breakdown"
+                        className="stamps-earned__lines"
+                        role="tooltip"
+                      >
+                        {stampsLines.map((line) => (
+                          <span className="stamps-earned__line" key={line.reason}>
+                            {STAMP_REASON_KEYS[line.reason] && (
+                              <span className="stamps-earned__line-label">
+                                {text(STAMP_REASON_KEYS[line.reason])}
+                              </span>
+                            )}
+                            <span className="stamps-earned__line-amount">+{line.amount}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isPlacement && data.timeElapsed > 0 && (
+                  <div className="time-elapsed">
+                    <FaClock /> {text("time")}: {msToTime(data.timeElapsed)}
+                  </div>
+                )}
+              </div>
 
               {/* {gameId && (
                 <div className="game-id-container" style={{
@@ -1215,7 +1521,12 @@ const GameSummary = ({
                 </div>
               )} */}
 
-              <div className="summary-actions">
+              <div className={`summary-actions${isLivePlacement ? ' summary-actions--placement' : ''}`}>
+                {isLivePlacement && button1Text && (
+                  <button className="action-btn primary placement-replay" onClick={button1Press}>
+                    {text("startDueling")}
+                  </button>
+                )}
                 <button
                   className="action-btn mobile-expand-btn"
                   onClick={() => setMobileExpanded(!mobileExpanded)}
@@ -1261,7 +1572,7 @@ const GameSummary = ({
                     </>
                   );
                 })() : (
-                  button1Text && (
+                  button1Text && !isLivePlacement && (
                     <button className="action-btn primary" onClick={button1Press}>
                       {button1Text}
                     </button>
@@ -1365,9 +1676,24 @@ const GameSummary = ({
                       <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{label}</span>
                       {bestPlayer && (
                         <span style={{ fontSize: '0.8em', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {bestPlayer.username}
-                          </span>
+                          {/* wg-name-clip UNCONDITIONALLY — glow or not. It is
+                              the surface's truncation recipe (the identical
+                              three inline properties that used to be here) plus
+                              the halo's clip relief, and applying it either way
+                              is what keeps buying a glow from changing this box.
+                              ownBox: this span IS the element, so the boxless
+                              carrier is dropped and only the paint arrives. */}
+                          {(() => {
+                            const g = nameGlowProps(glowOf[bestPlayer.id], GLOW_DARK, { ownBox: true });
+                            return (
+                              <span
+                                className={g?.className ? `wg-name-clip ${g.className}` : 'wg-name-clip'}
+                                style={g?.style}
+                              >
+                                {bestPlayer.username}
+                              </span>
+                            );
+                          })()}
                           {bestPlayer.countryCode && <CountryFlag countryCode={bestPlayer.countryCode} style={{ fontSize: '1em' }} />}
                           {bestPlayer.id === myId && !options?.isModView && <span style={{ fontStyle: 'italic', opacity: 0.7 }}>({text("you")})</span>}
                         </span>
@@ -1564,7 +1890,19 @@ const GameSummary = ({
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                               <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                {/* THE BOXLESS CARRIER HERE, not wg-name-clip.
+                                    This span is display:flex, where
+                                    text-overflow is inert anyway, so there is
+                                    no truncation to own — and GlowName's
+                                    display:contents wrapper leaves the text as
+                                    the same anonymous flex item it already was,
+                                    so the row's `gap` does not start firing on
+                                    people who bought a glow. "You" is still YOUR
+                                    name for glow purposes; the label being a
+                                    pronoun does not change whose row it is. */}
+                                <GlowName glow={nameGlowProps(myNameGlow, GLOW_DARK)}>
+                                  {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                </GlowName>
                                 {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
@@ -1597,7 +1935,9 @@ const GameSummary = ({
                                 }}
 
                               >
-                                {opponentData?.username || text("opponent")}
+                                <GlowName glow={nameGlowProps(glowOf[opponentId], GLOW_DARK)}>
+                                  {opponentData?.username || text("opponent")}
+                                </GlowName>
                                 {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {isOpponentReported && ' (reported)'}
                               </span>
@@ -1686,6 +2026,10 @@ const GameSummary = ({
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
+            // Name the pins only while a round or a player is highlighted —
+            // this map draws EVERY round at once, so labelling unconditionally
+            // would stack five rounds' worth of white boxes over the pins.
+            const showLabels = activeRound === index || !!selectedPlayer;
 
             return (
               <React.Fragment key={index}>
@@ -1726,8 +2070,16 @@ const GameSummary = ({
                   <>
                     <Marker
                       position={[round.guessLat, round.guessLong]}
-                      icon={srcIconRef.current}
+                      icon={
+                        allIconsRef.current?.[markerSkinIconKey(myMarkerSkin, '')]
+                        || srcIconRef.current
+                      }
                     >
+                      {showLabels && (
+                        <GuessPinLabel
+                          {...myPinLabelProps(round)}
+                        />
+                      )}
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
                           <div className="popup-round">{text("roundNumber", {round: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
@@ -1774,19 +2126,33 @@ const GameSummary = ({
                     }
 
                     const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
+                    // White popup chrome — LIGHT variant, class AND style.
+                    const popupGlow = cachedNameGlowProps(glowOf[playerId], GLOW_LIGHT, { ownBox: true });
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
                           position={[player.lat, player.long]}
-                          icon={src2IconRef.current}
+                          icon={
+                            allIconsRef.current?.[markerSkinIconKey(skinOf[playerId], '')]
+                            || src2IconRef.current
+                          }
                         >
+                          {showLabels && (
+                            <GuessPinLabel
+                              label={player.username || text("opponent")}
+                              countryCode={countryOf[playerId] || player.countryCode || null}
+                              nameGlow={glowOf[playerId]}
+                            />
+                          )}
                           <Popup>
                             <div>
                               <strong
+                                className={popupGlow?.className}
                                 style={{
                                   cursor:  'default',
                                   textDecoration:  'none',
-                                  color: 'inherit'
+                                  color: 'inherit',
+                                  ...popupGlow?.style
                                 }}
                               >
                                 {player.username || text("opponent")}{isPlayerReported && ' (reported)'}

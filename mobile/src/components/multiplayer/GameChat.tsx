@@ -68,10 +68,20 @@ function MessageRow({ msg, onMute }: { msg: ChatMessage; onMute: (m: ChatMessage
             gap={4}
             textStyle={styles.msgName}
             style={styles.msgNameRow}
+            glow={msg.nameGlow}
+            // STATIC, deliberately, while the leaderboards animate (Aug 11
+            // second pass): chat overlays a LIVE round, and web's answer —
+            // rest until hover (`wg-glowHover`) — has no touch equivalent.
+            // Resting is the whole design there too, so static IS the parity.
+            // The panel also clips (styles.panel overflow:hidden), so a halo
+            // on the first or last visible row shears at the edge — expected
+            // in a scroll container, and not worth restructuring the panel
+            // over.
+            glowMotion="static"
           />
           {msg.teamChat && (
             <View style={styles.msgTeamTag}>
-              <Text style={styles.msgTeamTagText}>{t('chatChannelTeam', undefined, 'Team')}</Text>
+              <Text style={styles.msgTeamTagText}>{t('chatChannelTeam')}</Text>
             </View>
           )}
         </View>
@@ -162,9 +172,9 @@ export default function GameChat({
 
   const confirmMute = (msg: ChatMessage) => {
     haptics.light();
-    Alert.alert(t('mutePlayer', undefined, 'Mute player'), msg.name, [
-      { text: t('cancel', undefined, 'Cancel'), style: 'cancel' },
-      { text: t('mutePlayer', undefined, 'Mute player'), style: 'destructive', onPress: () => muteChatSender(msg.senderId) },
+    Alert.alert(t('mutePlayer'), msg.name, [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('mutePlayer'), style: 'destructive', onPress: () => muteChatSender(msg.senderId) },
     ]);
   };
 
@@ -217,8 +227,8 @@ export default function GameChat({
   const typers = chatTyping.filter((e) => e.until > now);
   const typingLine =
     typers.length === 0 ? '' :
-    typers.length === 1 ? t('isTyping', { name: typers[0].name }, `${typers[0].name} is typing...`) :
-    t('areTyping', { count: String(typers.length) }, `${typers.length} players are typing...`);
+    typers.length === 1 ? t('isTyping', { name: typers[0].name }) :
+    t('areTyping', { count: String(typers.length) });
 
   // Guest-hosted party: no chat surface at all (server drops messages
   // room-wide; the FAB would be a dead button). After hooks — RN hook rules.
@@ -269,7 +279,7 @@ export default function GameChat({
       >
         <View style={styles.panel}>
           <View style={styles.header}>
-            <Text style={styles.title}>{teamCapable && teamChannel ? t('teamChat', undefined, 'Team Chat') : t('chat', undefined, 'Chat')}</Text>
+            <Text style={styles.title}>{teamCapable && teamChannel ? t('teamChat') : t('chat')}</Text>
             {teamCapable && (
               <View style={styles.channelSeg}>
                 <Pressable
@@ -277,20 +287,20 @@ export default function GameChat({
                   onPress={() => setTeamChannel(true)}
                   style={[styles.channelBtn, teamChannel && styles.channelBtnActive]}
                 >
-                  <Text style={styles.channelBtnText}>{t('chatChannelTeam', undefined, 'Team')}</Text>
+                  <Text style={styles.channelBtnText}>{t('chatChannelTeam')}</Text>
                 </Pressable>
                 <Pressable
                   sfx="none"
                   onPress={() => setTeamChannel(false)}
                   style={[styles.channelBtn, !teamChannel && styles.channelBtnActive]}
                 >
-                  <Text style={styles.channelBtnText}>{t('chatChannelAll', undefined, 'All')}</Text>
+                  <Text style={styles.channelBtnText}>{t('chatChannelAll')}</Text>
                 </Pressable>
               </View>
             )}
             {mutedCount > 0 && (
               <Pressable sfx="none" onPress={unmuteAllChat} style={styles.mutedChip} hitSlop={6}>
-                <Text style={styles.mutedChipText}>{t('chatMutedCount', { count: String(mutedCount) }, `${mutedCount} muted`)}</Text>
+                <Text style={styles.mutedChipText}>{t('chatMutedCount', { count: String(mutedCount) })}</Text>
               </Pressable>
             )}
             <Pressable
@@ -324,7 +334,7 @@ export default function GameChat({
               onChangeText={onDraftChange}
               editable={canSend}
               maxLength={CHAT_MAX_LEN}
-              placeholder={canSend ? t('chatPlaceholder', undefined, 'Type a message...') : t('loginToChat', undefined, 'Log in to chat')}
+              placeholder={canSend ? t('chatPlaceholder') : t('loginToChat')}
               placeholderTextColor="rgba(255,255,255,0.45)"
               returnKeyType="send"
               onSubmitEditing={send}

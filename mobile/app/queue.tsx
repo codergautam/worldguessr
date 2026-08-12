@@ -14,12 +14,12 @@ import {
   Animated,
   Easing,
   Image,
-  ImageBackground,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../src/components/SiteBackground';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -32,6 +32,12 @@ import { useSettingsStore } from '../src/store/settingsStore';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
 import GameChat from '../src/components/multiplayer/GameChat';
+
+// Plate fill for the segmented data strip. Neutral by ruling (see
+// styles/queueScreen.css's header): the site's own panel colour — accountModal
+// paints its surface as rgba(0,30,15) over black — darkened, NOT the strongly
+// green --primaryTransparent the .timer recipe uses.
+const SURFACE = 'rgba(14, 34, 23, 0.52)';
 
 const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
 
@@ -81,6 +87,33 @@ function PulseRings({ accent, size }: { accent: string; size: number }) {
   );
 }
 
+/** One cell of the data plate, fading and sliding in on mount. */
+function QueueCell({ divided, children }: { divided: boolean; children: React.ReactNode }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [v]);
+  return (
+    <Animated.View
+      style={[
+        styles.dataCell,
+        divided && styles.dataCellDivided,
+        {
+          opacity: v,
+          transform: [{ translateX: v.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -98,14 +131,53 @@ export default function QueueScreen() {
   // just dims the button while the server round-trips the lobby restore.
   const [cancelling, setCancelling] = useState(false);
 
-  const [elapsed, setElapsed] = useState(0);
+  // The interval is a RE-RENDER PUMP, not the clock. This used to be a
+  // `setElapsed(e => e + 1)` counter, which silently under-reports: React
+  // Native suspends JS timers while the app is backgrounded, so a minute spent
+  // in another app simply never got counted and there was no state to recover
+  // it from. The value is now DERIVED from the server's join instant on every
+  // render, which is immune to that, to a screen remount, and to clock skew.
+  const queuedAt = useMultiplayerStore((s) => s.queuedAt);
+  const queueEta = useMultiplayerStore((s) => s.queueEta);
+  // This ranked queue resolves into the placement seeding match (server
+  // follow-up `queuePlacement`). Overrides the no-eyebrow ruling below and
+  // swaps the data plate for the one-line explainer.
+  const placementPending = useMultiplayerStore((s) => s.placementPending);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
+  const elapsedMs = queuedAt
+    ? Math.max(0, Date.now() + wsService.timeOffset - queuedAt)
+    : 0;
+  const elapsed = Math.floor(elapsedMs / 1000);
   const mm = Math.floor(elapsed / 60);
   const ss = elapsed % 60;
   const elapsedStr = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
+
+  // How long this queue USUALLY takes in total, from the moment you joined —
+  // not a countdown, and deliberately static (the server latches it for the
+  // session). Ranked 1v1 only; 'unknown' renders nothing, because no data is a
+  // reason to say nothing rather than to invent a number.
+  //
+  // 'rough' is a MODELLED estimate, not an observed one. It gets vague wording
+  // and the neutral chip style — a guess from a hardcoded table may never wear
+  // the visual confidence of a measured median.
+  const ROUGH_KEYS = { short: 'queueEtaRoughShort', mid: 'queueEtaRoughMid', long: 'queueEtaRoughLong' } as const;
+  const etaRough = queueEta?.state === 'rough' && !!queueEta.tier;
+  // Render from the local 1s clock as soon as the server-provided deadline is
+  // crossed. Waiting for the 5s ETA beat could otherwise leave an already-
+  // expired quote visible for several seconds.
+  const etaPastThreshold = typeof queueEta?.longAfterSeconds === 'number'
+    && elapsedMs > queueEta.longAfterSeconds * 1000;
+  const etaStr = queueEta?.state === 'long' || etaPastThreshold
+    ? t('queueEtaLong')
+    : etaRough
+      ? t(ROUGH_KEYS[queueEta!.tier as keyof typeof ROUGH_KEYS])
+      : queueEta?.state === 'ok' && queueEta.value !== null
+        ? t(queueEta.unit === 'min' ? 'queueEtaMinutes' : 'queueEtaSeconds', { v: queueEta.value })
+        : null;
 
   // Radar scales to the shorter axis so it never crowds the rest of the screen.
   // Landscape is height-bound; portrait stays comfortably under the ceiling.
@@ -214,6 +286,7 @@ export default function QueueScreen() {
   };
 
   const isRanked = gameQueued === 'publicDuel';
+  const isPlacement = isRanked && placementPending;
   const theme = isRanked
     ? {
         accent: '#fbbf24',
@@ -286,16 +359,33 @@ export default function QueueScreen() {
     </Text>
   );
 
-  const eloEl =
-    isRanked && publicDuelRange ? (
-      <View style={styles.eloChip}>
-        <Ionicons name="podium-outline" size={15} color={theme.accent} />
-        <Text style={styles.eloLabel}>{t('eloRange')}</Text>
-        <Text style={[styles.eloValue, { color: theme.accent }]}>
-          {publicDuelRange[0]} – {publicDuelRange[1]}
-        </Text>
-      </View>
-    ) : null;
+  // ONE plate holding every value, on the .timer HUD recipe (--gradLight over
+  // --primaryTransparent, 2px --primary, 16px radius). Mirrors web exactly.
+  // The divider between cells is the house frame colour and only renders when
+  // there are two cells to divide.
+  const cells = [
+    isRanked && publicDuelRange
+      ? { key: 'elo', label: t('eloRange'), value: `${publicDuelRange[0]} – ${publicDuelRange[1]}`, rough: false }
+      : null,
+    etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
+  ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
+
+  // Placement skips the data plate because its bot match begins immediately.
+  const dataEl = !isPlacement && cells.length ? (
+    <View style={styles.dataPlate}>
+      {cells.map((c, i) => (
+        // The typical-wait cell arrives LATE (the server's first ETA push is up
+        // to 5s after the join), so without this it snapped into an
+        // already-drawn plate. Mirrors web's wgQueueCellIn. Layout width is not
+        // animated here — RN width animation on a flex row is finicky and the
+        // fade+slide reads as the same reveal.
+        <QueueCell key={c.key} divided={i > 0}>
+          <Text style={styles.dataLabel}>{c.label}</Text>
+          <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
+        </QueueCell>
+      ))}
+    </View>
+  ) : null;
 
   const timerEl = (
     <View style={styles.timerRow}>
@@ -306,12 +396,7 @@ export default function QueueScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <LinearGradient
         colors={['rgba(6, 16, 10, 0.72)', 'rgba(6, 16, 10, 0.86)', 'rgba(6, 16, 10, 0.96)']}
         style={StyleSheet.absoluteFillObject}
@@ -334,7 +419,7 @@ export default function QueueScreen() {
           <View style={[styles.infoLandscape, { maxWidth: width * 0.46 }]}>
             {pillEl}
             {titleEl}
-            {eloEl}
+            {dataEl}
             {timerEl}
           </View>
         </View>
@@ -344,7 +429,7 @@ export default function QueueScreen() {
           <View style={styles.radarSpacer}>{radarEl}</View>
           <View style={styles.infoPortrait}>
             {titleEl}
-            {eloEl}
+            {dataEl}
             {timerEl}
           </View>
         </View>
@@ -437,31 +522,57 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     flexShrink: 1,
   },
-  eloChip: {
+  // Flat neutral fill, no frame. Separation comes from the fill's contrast
+  // against the veil plus a neutral drop shadow — fewer outlines was the point.
+  dataPlate: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'stretch',
+    backgroundColor: SURFACE,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  dataCell: {
+    gap: 3,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 10,
   },
-  eloLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
+  // A SEAM, not an outline: a shade darker than the fill, so it reads as the
+  // plate being segmented rather than another border drawn on top of it.
+  dataCellDivided: {
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(0, 0, 0, 0.45)',
   },
-  eloValue: {
+  dataLabel: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontSize: fontSizes.xs,
+    fontFamily: 'Lexend-SemiBold',
+    letterSpacing: 0.2,
+  },
+  dataValue: {
+    color: colors.white,
     fontSize: fontSizes.sm,
     fontFamily: 'Lexend-Bold',
+    fontVariant: ['tabular-nums'],
+  },
+  // A MODELLED estimate reads dimmer and lighter than a measured one. That
+  // difference is load-bearing: it is what stops a guess from a hardcoded table
+  // wearing the confidence of an observed median.
+  dataValueRough: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontFamily: 'Lexend-Medium',
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
+  // Secondary live status. Tabular figures prevent the row from breathing as
+  // the digits change, while the softer color keeps the headline in charge.
   timerText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: fontSizes.sm,

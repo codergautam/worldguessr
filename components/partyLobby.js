@@ -128,8 +128,14 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
       key={p.id}
       className={`party-lobby__player ${compact ? 'party-lobby__player--compact' : ''} ${movedIds.has(p.id) ? 'party-lobby__player--moved' : ''}`}
     >
-      <span className="party-lobby__player-name">
-        <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH} />
+      {/* wg-glow-room: this row clips (globals.scss) and an unrelieved clip
+          shears an equipped halo flush with the letterforms. Unconditional, so
+          the row is the same row whether or not anyone here owns a glow. */}
+      <span className="party-lobby__player-name wg-glow-room">
+        {/* Dark card → the dark glow variant. The halo idiom below the name is
+            the SAME one the "(elo)" suffix uses. */}
+        <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+          nameGlow={p.nameGlow} />
         {/* League-colored "(elo)" like the duel HP bars; guests carry no elo
             (and the pending-shell placeholder row has none) so it just skips. */}
         {typeof p.elo === 'number' && (

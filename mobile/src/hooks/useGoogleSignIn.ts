@@ -38,9 +38,9 @@ type TokenResult =
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 
 const genericError = () =>
-  t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.');
+  t('googleSignInFailed');
 const noTokenError = () =>
-  t('googleNoSignInToken', undefined, 'Google did not return a sign in token.');
+  t('googleNoSignInToken');
 
 /**
  * Turn a native Google Sign-In error into a clear, user-facing message instead of
@@ -53,17 +53,15 @@ const noTokenError = () =>
 function describeNativeError(e: any, statusCodes: any): string {
   const code = e?.code != null ? String(e.code) : 'unknown';
   if (statusCodes && e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-    return t('googleSignInNoPlayServices', undefined,
-      'Google Play Services is unavailable or out of date. Update it and try again.');
+    return t('googleSignInNoPlayServices');
   }
   if (code === '7') { // GoogleSignInStatusCodes NETWORK_ERROR
-    return t('errorNetworkRequest', undefined, 'Network error. Check your connection and try again.');
+    return t('errorNetworkRequest');
   }
   if (code === '10') { // DEVELOPER_ERROR — signing SHA-1 / client id not registered
     return __DEV__
       ? 'Google sign-in misconfigured (DEVELOPER_ERROR / code 10): the app’s signing SHA-1 or client ID is not registered in Google Cloud for this package.'
-      : t('googleSignInUnavailable', undefined,
-          'Google sign-in is temporarily unavailable. Please try again later.');
+      : t('googleSignInUnavailable');
   }
   const base = genericError();
   return __DEV__ ? `${base} (${code})` : base;

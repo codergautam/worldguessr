@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
-import { View, ImageBackground, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import { LinearGradient } from 'expo-linear-gradient';
 import { dailyColors } from './styles';
 
@@ -39,11 +40,7 @@ export default function DailyBackground({ children, style, variant = 'solid' }: 
           />
         ) : (
           <>
-            <ImageBackground
-              source={require('../../../assets/street2.jpg')}
-              resizeMode="cover"
-              style={StyleSheet.absoluteFill}
-            />
+            <SiteBackground style={StyleSheet.absoluteFill}/>
             <View style={[StyleSheet.absoluteFill, styles.darkOverlay]} />
             <LinearGradient
               colors={GREEN_GRADIENT}

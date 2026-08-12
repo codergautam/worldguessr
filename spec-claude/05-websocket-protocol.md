@@ -213,8 +213,7 @@ Sent every 5 seconds when player is not in a game.
       "final": false,              // has finalized guess this round
       "latLong": null,             // guess coordinates [lat, lon]
       "elo": 1500,
-      "countryCode": "US",
-      "supporter": false
+      "countryCode": "US"
     }
   ],
   "locations": [                   // all locations for the game
@@ -363,16 +362,15 @@ Sent every 5 seconds when player is not in a game.
     {
       "id": "account-id",
       "name": "FriendName",
-      "supporter": false,
       "online": true,
       "socketId": "player-uuid"
     }
   ],
   "sentRequests": [
-    { "id": "account-id", "name": "UserName", "supporter": false }
+    { "id": "account-id", "name": "UserName" }
   ],
   "receivedRequests": [
-    { "id": "account-id", "name": "UserName", "supporter": false }
+    { "id": "account-id", "name": "UserName" }
   ],
   "allowFriendReq": true
 }

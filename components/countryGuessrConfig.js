@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { asset } from '@/lib/basePath';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
 import ContinentIcon from './ContinentIcon';
@@ -31,9 +30,12 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
     }
   }
 
+  // --site-bg is the one owner of the site background (lib/siteBackground.js):
+  // it already carries the basePath and it already reflects a purchased
+  // background, which a path resolved here would not.
   return (
     <div className="countryGuessr-config" style={{
-      backgroundImage: `url("${asset('/street2.webp')}")`,
+      backgroundImage: 'var(--site-bg)',
     }}>
       <div className="countryGuessr-config__sidebar">
         <h1 className="home__title g2_nav_title">{text("countryGuesser")}</h1>

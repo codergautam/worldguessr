@@ -1,7 +1,7 @@
 import User from '../models/User.js';
 import Game from '../models/Game.js';
 import UserStats from '../models/UserStats.js';
-import { leagues } from '../components/utils/leagues.js';
+import { leagues, getActiveLeagues } from '../components/utils/leagues.js';
 
 /**
  * Shared ELO-refund helpers.
@@ -132,8 +132,20 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
     }
   }
 
-  // Get MAX_ELO from leagues
-  const MAX_ELO = leagues.nomad.max;
+  // Ceiling a refund may credit up to, or null when the live ladder has none.
+  //
+  // This used to be a flat `leagues.nomad.max` — 20,000, the top of the RETIRED
+  // Season 0 scale. On a v2 ladder that tops out near 1,600 that cap sat about
+  // 12x above anything reachable, so it never bound and was a backstop in name
+  // only.
+  //
+  // The v2 answer is not "a smaller number", it is "there is no ceiling". The
+  // top tier (Legend) is deliberately unbounded, so any finite cap invented here
+  // would be a rating limit nobody designed. Read the active table: clamp only
+  // if its top tier really is finite (as Season 0's 20,000 Nomad ceiling was),
+  // otherwise skip the clamp entirely rather than fabricate one.
+  const topTier = Object.values(getActiveLeagues()).pop();
+  const MAX_ELO = Number.isFinite(topTier?.max) ? topTier.max : null;
 
   // Apply ELO refunds + win/loss reversals to every affected opponent — the union
   // of those owed ELO and those whose duel counters need fixing (a draw's
@@ -151,18 +163,23 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
     applyPromises.push((async () => {
       const refundAmount = opponentRefunds[opponentAccountId] || 0;
 
-      // --- ELO refund: atomic add, capped at MAX_ELO (the SAME cap as the original
-      //     Math.min — unchanged). The atomic $add only changes how the write is
-      //     applied: two refund passes on the SAME opponent (a mod ban racing the
-      //     cron grace-purge — both now reachable) compose instead of lost-updating.
+      // --- ELO refund: atomic add, clamped to the ladder ceiling when there is
+      //     one. The atomic $add only changes how the write is applied: two
+      //     refund passes on the SAME opponent (a mod ban racing the cron
+      //     grace-purge — both now reachable) compose instead of lost-updating.
       //     Identical to the original read-then-$set in the non-concurrent case.
       //     Only opponents who actually lost ELO. ---
       if (refundAmount > 0) {
         const before = await User.findById(opponentAccountId).select('elo').lean();
         if (before) {
+          const credited = { $add: [{ $ifNull: ['$elo', 0] }, refundAmount] };
+          // No $min at all on an unbounded ladder. Wrapping this in a fabricated
+          // ceiling would be a rating cap nobody designed, and Infinity does not
+          // survive into a Mongo expression.
+          const nextElo = MAX_ELO === null ? credited : { $min: [MAX_ELO, credited] };
           const updatedUser = await User.findByIdAndUpdate(
             opponentAccountId,
-            [{ $set: { elo: { $min: [MAX_ELO, { $add: [{ $ifNull: ['$elo', 0] }, refundAmount] }] } } }],
+            [{ $set: { elo: nextElo } }],
             { new: true },
           );
 

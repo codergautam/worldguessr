@@ -6,7 +6,8 @@ import { disconnectedPlayers, games, players } from "../../serverUtils/states.js
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
-import { MIN_ELO } from "../../components/utils/eloSystem.js";
+import { MIN_ELO, clampRating } from "../../components/utils/eloSystem.js";
+import { RATING_V2 } from "../../components/utils/ratingFlags.js";
 import { createUUID } from "../../components/createUUID.js";
 import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
@@ -21,7 +22,6 @@ export default class Player {
     this.lastMessage = 0;
     this.lastTypingPing = 0;
     this.verified = false;
-    this.supporter = false;
     this.screen = "home";
     this.league = null;
 
@@ -46,10 +46,41 @@ export default class Player {
     this.disconnected = false;
     this.disconnectTime =0;
 
+    // Location ids served to this player in recent duels, oldest first (see
+    // shared/locations/repeatGuard.js). Capped at SERVER_CAP = 10 matches,
+    // measured at ~1.1KB per player, and it dies with the Player. The
+    // matchmaker unions both sides' rings so back-to-back duels cannot land on
+    // the same spot. In memory only: nothing about it is persisted or sent.
+    this.recentLocs = [];
+
     // Server-driven duel bot (ws stays null). Gates the tickBots lifecycle
     // sweep + guess driver, and exempts them from human-only paths
     // (player counts, restart-recovery reconnect bookkeeping).
     this.isBot = false;
+
+    // ── RATING V2 ──────────────────────────────────────────────────────────
+    // Count of RATED games (see models/User.js). Drives the v2 K schedule, and
+    // it is read off this object at match creation so the matchmaker never
+    // pays a DB round trip per pairing. 0 is the schema default and the
+    // correct value for bots and guests.
+    this.ratedGames = 0;
+    // Tri-state, and the third state is load-bearing: undefined means "the
+    // read is still IN FLIGHT". chooseDuelPairs holds undefined out of pairing
+    // for a tick rather than treating it as "not pending" — an unplaced rating
+    // in the pool is a garbage match. botUtils.refreshBotEligibility stamps a
+    // resolved boolean on EVERY outcome (missing doc / DB error → false).
+    this.placementPending = undefined;
+
+    // ── COSMETICS ──────────────────────────────────────────────────────────
+    // Equipped items, mirrored in memory so the game roster and the emote
+    // ownership check never hit the DB on a hot path. Re-stamped on verify, on
+    // reconnect, and by the /cosmetics-updated push endpoint in ws.js.
+    this.nameGlow = null;
+    this.markerSkin = null;
+    // Owned skus (cosmetics.owned). The emote handler checks paid emotes
+    // against this; an empty array denies every paid emote, which is the right
+    // failure direction.
+    this.ownedCosmetics = [];
 
     this.rejoinCode = createUUID();
   }
@@ -66,7 +97,6 @@ export default class Player {
       inQueue: false,
       lastMessage: this.lastMessage,
       verified: this.verified,
-      supporter: this.supporter,
       screen: this.screen,
       friends: this.friends,
       sentReq: this.sentReq,
@@ -83,6 +113,19 @@ export default class Player {
       // Must survive gamestate restarts: a restored bot that loses this flag
       // becomes a permanent zombie (never guesses, never reaped).
       isBot: this.isBot,
+      // Same bug class as isBot: a restored player who loses ratedGames drops
+      // to 0 and silently gets the K_NEW factor (40) again after every deploy,
+      // so a veteran's rating starts swinging like a rookie's. Cosmetics have
+      // the milder version of it — a restored player renders with no glow and
+      // loses their paid emotes until the next verify.
+      ratedGames: this.ratedGames,
+      nameGlow: this.nameGlow,
+      markerSkin: this.markerSkin,
+      ownedCosmetics: this.ownedCosmetics,
+      // NOT persisted on purpose: placementPending must re-read from the DB
+      // after a restart. undefined ("read in flight") is the safe restored
+      // value — chooseDuelPairs holds it out until the next queue join stamps
+      // a resolved answer.
     }
   }
 
@@ -100,9 +143,38 @@ export default class Player {
     }
     // Keep the in-memory rating on the same floor the DB write enforces —
     // 0 is falsy and would void this player's next ranked queue/matchup.
-    newElo = Math.max(MIN_ELO, Math.round(newElo));
+    // v2 floors at RATING_FLOOR (100) via clampRating, matching setElo in
+    // api/eloRank.js; v1 keeps MIN_ELO (1) byte-for-byte.
+    newElo = RATING_V2 ? clampRating(newElo) : Math.max(MIN_ELO, Math.round(newElo));
     this.elo = newElo;
     this.league = getLeague(newElo).name;
+
+    // MIRROR THE DB $inc, OR THE K SCHEDULE NEVER STEPS.
+    //
+    // api/eloRank.js setElo() increments `ratedGames` on the document for every
+    // rated game. Nothing was incrementing it HERE, and here is what the
+    // matchmaker actually reads: ws.js stampRatingV2() takes its K inputs from
+    // `p1.ratedGames` / `p2.ratedGames` on these in-memory Player objects,
+    // precisely so pairing costs no database round trip.
+    //
+    // The field was only ever written at verify() and on the reconnect refresh,
+    // so it was pinned to its login value for the whole session. A player
+    // sitting at 29 rated games who played 100 in one sitting played ALL of
+    // them at K_NEW (40) instead of stepping to K_MID at 31 and K_VET at 101 —
+    // four times the intended volatility, for as long as the socket stayed up.
+    // Migrated veterans backfilled to 70 never reached K_VET without
+    // reconnecting.
+    //
+    // Zero-sum was never at risk (pairK hands both sides the same K), but the
+    // taper is the entire point of the schedule.
+    //
+    // Placements and bot games do NOT come through here — they book counters
+    // via Game.applyUnratedCounters() with rated:false — so this matches the
+    // `rated` default in api/eloRank.js: rated unless the caller says otherwise.
+    if (RATING_V2 && (gameData?.rated ?? true)) {
+      this.ratedGames = (Number(this.ratedGames) || 0) + 1;
+    }
+
     setElo(this.accountId, newElo, gameData);
 
     this.send({
@@ -129,11 +201,25 @@ export default class Player {
       const dcPlayer = players.get(dcPlayerId);
       if(dcPlayer && this.ws) {
 
+      // They came back inside the grace window, so the dodge latched when their
+      // socket closed was a connection blip, not an abandonment. Clear it before
+      // anything else can await: the purge charges this latch, and a slow
+      // ban-check below must not leave a window where it still looks armed.
+      //
+      // No exploit here — clearing it requires actually rejoining the game,
+      // which is the outcome the dodge penalty exists to encourage.
+      dcPlayer.pendingDodge = false;
+
       // Re-check ban status from database on reconnect
       // This ensures users banned/forced to change name while disconnected are properly blocked
       if (accountId) {
         try {
-          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode username');
+          // ratedGames / cosmetics / elo are on this select for a reason: a
+          // purchase or a rating change that lands MID-SESSION lives only on
+          // the Player object, and the reconnect path REPLACES that object's
+          // state from this doc. Leaving them off silently reverted a bought
+          // glow and reset the K-factor input on the first reconnect.
+          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode username ratedGames cosmetics elo');
           if (freshUserData) {
             let isBanned = freshUserData.banned;
 
@@ -160,6 +246,19 @@ export default class Player {
             // a doc without a name never wipes an existing one.
             if (freshUserData.username) {
               dcPlayer.username = freshUserData.username;
+            }
+            // Rating + cosmetics re-stamp (same "the DB is the truth on
+            // reattach" rule as countryCode/username above). Guarded with ??
+            // so a doc predating a field can never wipe a live value.
+            dcPlayer.ratedGames = freshUserData.ratedGames ?? dcPlayer.ratedGames ?? 0;
+            if (freshUserData.elo !== undefined && freshUserData.elo !== null) {
+              dcPlayer.elo = freshUserData.elo;
+              dcPlayer.league = getLeague(freshUserData.elo).name;
+            }
+            if (freshUserData.cosmetics) {
+              dcPlayer.nameGlow = freshUserData.cosmetics.equipped?.nameGlow ?? null;
+              dcPlayer.markerSkin = freshUserData.cosmetics.equipped?.markerSkin ?? null;
+              dcPlayer.ownedCosmetics = freshUserData.cosmetics.owned ?? [];
             }
             // Also set banned if pending name change
             if (dcPlayer.pendingNameChange) {
@@ -219,6 +318,12 @@ export default class Player {
             key: 'reconnected',
           });
         }
+      } else if (dcPlayer.gameId) {
+        // The game died while they were away (lobby dissolved into a match,
+        // pregame cancel, purge race). This reused Player object is about to
+        // become the live session — a dangling id here rides through every
+        // future refresh and silently gates all queue/create entries.
+        dcPlayer.gameId = null;
       }
 
       // destroy this player
@@ -316,11 +421,16 @@ export default class Player {
               }
             }
             this.verified = true;
-            this.supporter = valid.supporter;
             this.username = valid.username;
             this.accountId = valid._id.toString();
             this.countryCode = valid.countryCode;
             this.elo = valid.elo;
+            // serverUtils/validateSecret.js does a bare findOne with NO
+            // .select(), so the whole doc is already here — these are free.
+            this.ratedGames = valid.ratedGames ?? 0;
+            this.nameGlow = valid.cosmetics?.equipped?.nameGlow ?? null;
+            this.markerSkin = valid.cosmetics?.equipped?.markerSkin ?? null;
+            this.ownedCosmetics = valid.cosmetics?.owned ?? [];
 
             // Check ban status - handle temp bans that may have expired
             let isBanned = valid.banned;
@@ -408,13 +518,22 @@ export default class Player {
           this.sentReq = valid.sentReq.map((id)=>({id}));
           this.receivedReq = valid.receivedReq.map((id)=>({id}));
 
+          // `nameGlow` on all three lists costs NOTHING here — these loops
+          // already fetch the whole user document, so it is a property read on
+          // data that has been in memory all along. For the FRIENDS list this is
+          // only the seed: sendFriendsData re-resolves it on every push (live
+          // Player for online, the lastSeen lookup for offline), so a friend who
+          // equips mid-session updates without either of you reconnecting.
+          // The two REQUEST lists keep the value latched here, which is right —
+          // they change only when a request is sent or answered, and both of
+          // those re-hydrate this block.
           const friendsWithNames = [];
           // player.friends = valid.friends;
           for(let id of valid.friends) {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              friendsWithNames.push({name: user.username, id, supporter: user.supporter});
+              friendsWithNames.push({name: user.username, id, nameGlow: user.cosmetics?.equipped?.nameGlow ?? null});
             }
           }
           this.friends = friendsWithNames;
@@ -424,7 +543,7 @@ export default class Player {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              sentReqWithNames.push({name: user.username, id, supporter: user.supporter});
+              sentReqWithNames.push({name: user.username, id, nameGlow: user.cosmetics?.equipped?.nameGlow ?? null});
             }
           }
           this.sentReq = sentReqWithNames;
@@ -434,7 +553,7 @@ export default class Player {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              receivedReqWithNames.push({name: user.username, id, supporter: user.supporter});
+              receivedReqWithNames.push({name: user.username, id, nameGlow: user.cosmetics?.equipped?.nameGlow ?? null});
             }
           }
           this.receivedReq = receivedReqWithNames;
@@ -506,6 +625,10 @@ export default class Player {
     if(player) {
       f.online = true;
       f.socketId = player.id;
+      // Live copy beats the verify-time seed: an online friend's Player is
+      // what /cosmetics-updated/ writes to, so an equip they make right now
+      // shows up on your friends list at the next push.
+      f.nameGlow = player.nameGlow ?? null;
     } else {
       f.online = false;
       f.socketId = null;
@@ -523,12 +646,18 @@ export default class Player {
     // .lean() is load-bearing: hydration applies schema defaults, so a dormant
     // user with no stored lastLogin would read as Date.now() and show
     // "last seen just now". Lean returns only what's actually stored.
+    // One more projected field on a query this block already makes: an offline
+    // friend's equipped glow, refreshed on every push so the list never shows a
+    // sku they took off days ago. hideLastSeen deliberately does NOT gate it —
+    // that setting hides PRESENCE, and a cosmetic is public on every board and
+    // profile in the app.
     const docs = await User.find({ _id: { $in: offlineFriends.map((f) => f.id) } })
-      .select('lastSeen hideLastSeen lastLogin')
+      .select('lastSeen hideLastSeen lastLogin cosmetics.equipped.nameGlow')
       .lean();
     const docById = new Map(docs.map((d) => [d._id.toString(), d]));
     for (const f of offlineFriends) {
       const doc = docById.get(f.id);
+      f.nameGlow = doc?.cosmetics?.equipped?.nameGlow ?? null;
       // Real presence stamps only: disconnect stamp → last session start.
       // A user with neither just shows plain "Offline" — created_at is NOT a
       // fallback (account age masquerading as presence would be a lie).

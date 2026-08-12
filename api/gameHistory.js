@@ -1,5 +1,13 @@
 import Game from '../models/Game.js';
 import User from '../models/User.js';
+// THE one live-cosmetics join, shared with api/gameDetails.js and
+// api/mod/gameDetails.js. It used to live here privately, which is precisely
+// why the two DETAIL endpoints never got it: this list glowed, opening a row
+// from it did not, and nothing anywhere said the two were the same fact. The
+// whole rationale (current identity here, frozen match cosmetics in details,
+// ObjectId.isValid filtering, and fail-open behaviour) lives in
+// serverUtils/userCosmetics.js.
+import { cosmeticsForGames, cosmeticsReader } from '../serverUtils/userCosmetics.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -59,6 +67,10 @@ export default async function handler(req, res) {
     const hasNextPage = pageNum < totalPages;
     const hasPrevPage = pageNum > 1;
 
+    // One lookup for the whole page, before the synchronous format pass below.
+    const cosmeticsOf = cosmeticsReader(await cosmeticsForGames(games));
+    const glowOf = (accountId) => cosmeticsOf(accountId).nameGlow;
+
     // Format games for frontend
     const formattedGames = games.map(game => {
       // Find the user's player data  
@@ -82,7 +94,8 @@ export default async function handler(req, res) {
         const rosterEntry = (p) => ({
           username: p.username,
           accountId: p.accountId || null,
-          countryCode: p.countryCode ?? null
+          countryCode: p.countryCode ?? null,
+          nameGlow: glowOf(p.accountId)
         });
         teammates = game.players
           .filter(p => p.team === userPlayer.team && p.accountId !== user._id.toString())
@@ -150,6 +163,7 @@ export default async function handler(req, res) {
           username: opponentPlayer.username,
           accountId: opponentPlayer.accountId || null,
           countryCode: opponentPlayer.countryCode ?? null,
+          nameGlow: glowOf(opponentPlayer.accountId),
           totalPoints: opponentPlayer.totalPoints || 0,
           finalRank: opponentPlayer.finalRank || 2,
           elo: opponentPlayer.elo || null

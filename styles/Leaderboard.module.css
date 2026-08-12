@@ -1,7 +1,7 @@
 /* Page shell.
    Was `background-attachment: fixed` on this same element, which is also the
    scroll container. Firefox cannot composite a fixed-attachment background —
-   it re-rasterises the full-viewport street2 image plus the gradient on EVERY
+   it re-rasterises the full-viewport site background plus the gradient on EVERY
    scroll frame, and re-invalidates it whenever any descendant changes. That is
    the reported "menus are laggy in Firefox" bug.
    Replacement: paint the artwork into a `position: fixed` ::before layer. The
@@ -44,7 +44,7 @@
     rgba(0, 0, 0, 0.78) 0%,
     rgba(0, 30, 15, 0.58) 100%
   ),
-  var(--bg-street2);
+  var(--site-bg);
   background-size: cover;
   background-position: center;
   pointer-events: none;

@@ -1,5 +1,6 @@
 import UserStats from '../../models/UserStats.js';
 import User from '../../models/User.js';
+import { STARTING_ELO } from './ratingFlags.js';
 
 class UserStatsService {
 
@@ -19,7 +20,7 @@ class UserStatsService {
       }
 
       // Use provided newElo if available (avoids race condition with setElo)
-      const eloToRecord = gameData.newElo ?? user.elo ?? 1000;
+      const eloToRecord = gameData.newElo ?? user.elo ?? STARTING_ELO;
 
       // Get current rankings
       const xpRank = await this.calculateXPRank(user.totalXp || 0);

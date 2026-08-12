@@ -30,13 +30,15 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Animated, Easing, Pressable, Alert } from 'react-native';
+import { StyleSheet, Animated, Easing, Pressable, Alert, useWindowDimensions } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { wsService } from '../../services/websocket';
 import { t } from '../../shared';
+import { homeCornerHeight } from '../home/PlayerCard';
+import { spacing } from '../../styles/theme';
 
 const COLOR_CONNECTED = '#22c55e';
 const COLOR_CONNECTING = '#f59e0b';
@@ -44,6 +46,8 @@ const COLOR_DISCONNECTED = '#ef4444';
 
 export default function WsIndicator() {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const shortestSide = Math.min(width, height);
   const connected = useMultiplayerStore((s) => s.connected);
   const connecting = useMultiplayerStore((s) => s.connecting);
   const connectionDropped = useMultiplayerStore((s) => s.connectionDropped);
@@ -297,7 +301,14 @@ export default function WsIndicator() {
       style={[
         styles.container,
         {
-          top: insets.top + 100,
+          // BELOW THE HOME CORNER, measured, not guessed. This was a flat
+          // `insets.top + 100` — a hardcoded stand-in for whatever happened to
+          // be stacked above it, which stopped clearing that stack the moment
+          // the corner gained the Community Maps button. homeCornerHeight()
+          // derives it from the same metrics table the card is built from.
+          // The 100 floor is what every OTHER screen gets: there is no corner
+          // there, and it is the value this line already used.
+          top: insets.top + Math.max(100, spacing.md + homeCornerHeight(shortestSide) + 10),
           transform: [{ translateX: slideAnim }, { scale: pulseAnim }],
         },
       ]}

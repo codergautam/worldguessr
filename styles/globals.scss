@@ -141,10 +141,42 @@
     line-gap-override: 0%;
 }
 
-:root {
-    --r: 20;
-    --g: 65;
-    --b: 25;
+/* ===========================================================================
+ *  EVERY GRADIENT THAT IS BUILT OUT OF --r/--g/--b, AS A MIXIN.
+ *
+ *  THIS IS A MIXIN AND NOT A PLAIN :root BLOCK BECAUSE OF ONE CSS RULE, and
+ *  getting it wrong produces a half-recoloured menu rather than an error:
+ *  var() inside a custom property is substituted at the element where the
+ *  property is DECLARED, not where it is finally used. Declared on :root,
+ *  --gradTopBase is resolved there, against :root's --r/--g/--b, and every
+ *  descendant inherits the finished green string. Overriding --r further down
+ *  the tree does not reach back and change it.
+ *
+ *  So any scope that wants a different base colour has to RE-DECLARE the whole
+ *  derived chain on itself. This mixin is that chain, included in both places
+ *  so the two can never drift — see .home__content/.hudCorner below.
+ *
+ *  Anything that does NOT read a base colour stays out: --gradRed, --gradBlue
+ *  and --darkTransparent are fixed, and re-emitting them per scope would be
+ *  bytes bought for nothing.
+ *
+ *  TWO BASES, NOT ONE, because the palette has always had two. --r/--g/--b is
+ *  the deep wash the big gradients are cut from; --surfChannels is the lighter
+ *  tone every filled button face and card shadow uses. They are held as bare
+ *  channel lists rather than colours for the same reason: rgba() needs numbers
+ *  to make a per-stop alpha out of them, and a hex cannot be reopened.
+ *
+ *  THE SURFACE TONE IS THREE NUMBERS AND A LIST BUILT FROM THEM, not a list.
+ *  --surfChannels used to BE the base, written out as "36, 87, 52", which is
+ *  fine for rgba() and useless for anything that has to do arithmetic on a
+ *  single channel: a comma list cannot be indexed and cannot be fed to calc().
+ *  --primaryLight below needs exactly that, so the three numbers are the base
+ *  now and the list is derived. Every existing rgba(var(--surfChannels), x)
+ *  consumer is untouched — it resolves to the same string it always did.
+ * ======================================================================== */
+@mixin wg-theme-derived {
+    --surfChannels: var(--surfR), var(--surfG), var(--surfB);
+
     --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.612) 50%, rgba(255,255,255,0) 100%;
     --gradTopBase: rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%;
     --grad1: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
@@ -155,14 +187,136 @@
     --gradDouble: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 15%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(var(--r), var(--g), var(--b), 0.6) 85%, rgba(var(--r), var(--g), var(--b), 1) 100%);
     --gradLight: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.52) 0%, rgba(var(--r), var(--g), var(--b), 0.28) 57%, rgba(255,255,255,0) 100%);
     --gradFull: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.72) 0%, rgba(var(--r), var(--g), var(--b), 0.38) 57%, rgba(var(--r), var(--g), var(--b), 0.3) 100%);
-    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
-    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
     --gradGreenBtn: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 57%, rgba(255, 255, 255, 0) 100%);
 
-    --primary: #245734;
+    --primary: rgb(var(--surfChannels));
+    --primaryTransparent: rgba(var(--surfChannels), 0.85);
+    /* One step ABOVE the surface tone, for the hover rims and light borders the
+       maps page has always drawn.
+       THE FACTOR IS PINNED TO GREEN. Its one consumer, the maps page's old
+       --map-primary-light, was #3a7a52 = rgb(58, 122, 82), hand-picked against
+       rgb(36, 87, 52) — and no single multiplier reproduces all three channels
+       (they scale by 1.61 / 1.40 / 1.58). 1.4 lands the GREEN channel exactly
+       and the other two within nine points, which on a 1px hover rim is nothing;
+       matching all three would mean three factors, which is three numbers to
+       re-tune and exactly the drift --surfR/G/B exist to end.
+       calc() per channel is why those three are numbers rather than a list:
+       there is no way to lighten a comma list, and color-mix() fails the whole
+       declaration on browsers that lack it — which would leave half a page
+       green, the same half-applied failure lib/siteBackground.js refuses. */
+    --primaryLight: rgb(calc(var(--surfR) * 1.4), calc(var(--surfG) * 1.4), calc(var(--surfB) * 1.4));
+}
+
+:root {
+    /* THE BASE TONES STAY LITERAL GREEN HERE and must never be rewritten to
+       read --acc*. The accent properties are declared on :root too (that is
+       the only place the pre-paint script can reach before any element
+       exists), so wiring them in at this level would repaint the entire site —
+       the leaderboard, the daily, every pixel of the in-game HUD — off a menu
+       cosmetic. The opt-in happens one block down, on a named list of menu
+       roots, and nowhere else. Widening the tint means adding a selector
+       THERE. It never means touching these six lines. */
+    --r: 20;
+    --g: 65;
+    --b: 25;
+    --surfR: 36;
+    --surfG: 87;
+    --surfB: 52;
+    /* THE THIRD BASE: the wash under a full-screen modal, and it is its own tone
+       rather than a dimmer --r/--g/--b. Every modal on the site paints
+       `rgba(0, 30, 15, x)` over the site background — accountModal, settings,
+       the maps modal, /user — hand-copied into ten files at four different
+       alphas and two different angles, which is why it is channels and not a
+       finished gradient: each site keeps its own alpha and its own angle and
+       only the colour comes from here. rgb(0,30,15) is NOT rgb(20,65,25)
+       dimmed; it is bluer and darker, and substituting one for the other is
+       visible on a photograph. */
+    --washChannels: 0, 30, 15;
     --primaryDark: #112b18;
-    --primaryTransparent: rgb(36, 87, 52, 0.85);
+    @include wg-theme-derived;
+
+    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
+    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
     --darkTransparent: rgb(0, 0, 0, 0.4);
+}
+
+/* ===========================================================================
+ *  THE MENU WEARS ITS BACKGROUND'S COLOURS. GAMEPLAY NEVER DOES.
+ *
+ *  A player who buys the New York background gets a dark purple photograph,
+ *  and the green menu wash on top of it read as a broken skin rather than a
+ *  purchase. Each background therefore carries a three-tone palette
+ *  (shared/shop/catalog.js), lib/siteBackground.js writes it to <html> as the
+ *  --accWashR/G/B, --accSurfR/G/B and --accDeep properties, and THIS BLOCK IS
+ *  THE ONLY THING IN THE CODEBASE THAT READS THEM. One list, one opt-in.
+ *
+ *  EVERY SELECTOR HERE IS A MENU OR PAGE ROOT THAT CANNOT REACH GAMEPLAY, and
+ *  that is the whole admission test. `main.home` would fail it: .home exists
+ *  for the entire session and wraps the Street View pano, so scoping there
+ *  drags the tint into a round. What is listed instead:
+ *
+ *    .home__content        mounted only while screen === "home" (components/home.js)
+ *    .hudCorner            home and the matchmaking queue (components/ui/hudCorner.js) —
+ *                          the queue sits on the same photograph, so that is
+ *                          correct rather than a leak
+ *    .account-modal        the profile modal (components/accountModal.js). Also
+ *                          the only way the shop's wallet chip gets tinted: it
+ *                          renders inside this subtree, not inside .shop
+ *                          (see the note at the top of styles/shop.css)
+ *    .settingsPage         the settings modal shell (components/settingsModal.js)
+ *    .shop                 the storefront (styles/shop.css)
+ *    the shop's PLATE      `.modal-backdrop .modal:has(>.modal-content>.shop)`,
+ *                          which is ui/Modal's dialog node — an ANCESTOR of
+ *                          .shop, not a descendant, so .shop could never reach
+ *                          it. It carries the panel fill and the 2px --primary
+ *                          frame, i.e. the two biggest surfaces in the shop.
+ *                          The :has() is what keeps this off every OTHER dialog
+ *                          ui/Modal renders (the daily leaderboard, the party
+ *                          lobby, a report), none of which are in this list.
+ *    .map-modal-content    the maps modal (components/maps/mapsModal.js)
+ *    .maps-page            the standalone /maps page (pages/maps.js)
+ *    .user-profile-page    a PUBLIC profile, and the one member of this list
+ *                          whose accent is not the viewer's. pages/user.js
+ *                          writes the --acc* properties inline from the SUBJECT's
+ *                          equipped sku, so this scope resolves to the player
+ *                          being looked at while the rest of the site stays on
+ *                          the viewer's own. That is only possible because the
+ *                          properties are read here and not at :root.
+ *
+ *  THE FALLBACKS ARE THE GREEN VALUES VERBATIM, which is what makes this free:
+ *  with nothing equipped — very nearly every visitor — this block computes to
+ *  exactly what :root already said, and an unequip needs no reset rules.
+ *
+ *  Deliberately NOT retinted, because they are status and not chrome: the
+ *  ranked red, the 2v2 pink, the daily streak pill, the singleplayer hover,
+ *  the WS connection dot (a child of .navbar, so this scope structurally
+ *  cannot reach it even though it looks like part of the corner), and every
+ *  win/loss tick, +XP figure and "equipped" ring inside the surfaces above.
+ *  Green there means GOOD, not WorldGuessr, and a purple tick beside a red one
+ *  says nothing.
+ * ======================================================================== */
+.home__content,
+.hudCorner,
+.account-modal,
+.settingsPage,
+.shop,
+.modal-backdrop .modal:has(>.modal-content>.shop),
+.map-modal-content,
+.maps-page,
+.user-profile-page {
+    --r: var(--accWashR, 20);
+    --g: var(--accWashG, 65);
+    --b: var(--accWashB, 25);
+    --surfR: var(--accSurfR, 36);
+    --surfG: var(--accSurfG, 87);
+    --surfB: var(--accSurfB, 52);
+    /* Same three source properties as --r/--g/--b, DIFFERENT fallbacks, because
+       the stock modal wash is its own tone (see --washChannels at :root). An
+       equipped background has one wash colour and both bases take it; stock
+       keeps the two literals it always had. */
+    --washChannels: var(--accWashR, 0), var(--accWashG, 30), var(--accWashB, 15);
+    --primaryDark: var(--accDeep, #112b18);
+    @include wg-theme-derived;
 }
 
 
@@ -586,7 +740,7 @@ html {
   pointer-events: none;
   background:
     linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 30, 15, 0.58) 100%),
-    var(--bg-street2);
+    var(--site-bg);
   background-size: cover;
   background-position: center;
   opacity: 1;
@@ -1281,10 +1435,13 @@ html {
     background-color: #485522;
 }
 
+// NO FIXED COORDINATES. On the home screen this button is a child of the
+// .hudCorner flex column (styles/playerCard.css) and on onboarding it sits in
+// .onboardingTopRightBtns — both lay it out. It used to be `position: fixed;
+// top: 50px; right: 50px`, overridden to `top: 10px; right: 70px` when signed
+// in and re-overridden at two breakpoints, all of it hand-matched against a
+// friends button and a Maps button it knew nothing about.
 .accountBtn {
-    position: fixed;
-    right: 50px;
-    top: 50px;
     width: auto;
     z-index: 101;
     font-size: 1.5em;
@@ -1295,11 +1452,6 @@ html {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     padding: 1px 10px;
     transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
-}
-
-.accountBtn.loggedIn {
-    top: 10px;
-    right: 70px;
 }
 
 .friendBtn {
@@ -1321,13 +1473,11 @@ html {
     background: var(--primary);
 }
 
-.friendBtnFixed {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    aspect-ratio: inherit;
-
-}
+// .friendBtnFixed and .friendBtnIconFixed are GONE. They pinned this button to
+// top:10px/right:10px on the home screen with three breakpoints of hand-tuned
+// height; home's friends entry point is a row in the player card's menu now.
+// What survives is the plain .friendBtn, which has always been an ordinary
+// in-flow child of .navbar__right on the multiplayer sub-screens.
 .friendBtnIcon {
         width: 40px;
         height: 40px;
@@ -1337,33 +1487,11 @@ html {
     .accountBtn {
         font-size: 1.2em;
     }
-    .accountBtn.loggedIn {
-        right: 62px;
-    }
-    .friendBtn.friendBtnFixed {
-        height: 36px;
-    }
-    .friendBtnIcon.friendBtnIconFixed {
-        width: 35px;
-        height: 35px;
-    }
 }
 //less than 600px
 @media screen and (max-width: 600px) {
 .accountBtn {
         font-size: 1.0em;
-        top: 10px;
-        right: 20px;
-    }
-    .accountBtn.loggedIn {
-        right: 58px;
-    }
-    .friendBtn.friendBtnFixed {
-        height: 30px;
-    }
-    .friendBtnIcon.friendBtnIconFixed {
-        width: 30px;
-        height: 30px;
     }
 }
 
@@ -1408,8 +1536,14 @@ html {
         background-color 0.25s ease;
 }
 
+/* WAS a hardcoded #2c6a3f, which is --primary times 1.22 and nothing else.
+   Spelt as a brightness filter instead of a second colour so the hover follows
+   whatever palette the home screen is wearing — a literal here stayed green
+   under a purple button. Same idiom as .stampsTile:hover, which already
+   brightens rather than reskins. */
 .accountBtn:not(.loggedIn):hover {
-    background: #2c6a3f;
+    background: var(--primary);
+    filter: brightness(1.22);
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
     transform: translateY(-1px) scale(1.02);
 }
@@ -1422,7 +1556,7 @@ html {
 .accountBtn:not(.loggedIn):focus-visible {
     outline: none;
     box-shadow:
-        0 0 0 3px rgba(36, 87, 52, 0.55),
+        0 0 0 3px rgba(var(--surfChannels), 0.55),
         0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
@@ -1441,46 +1575,12 @@ html {
     }
 }
 
-/* Logged-in pill (the username + flag chip in the top-right).
-   The "glitched" hover came from the generic `.accountBtn:hover` swapping
-   the gradient `var(--gradGreenBtn)` for the flat color `var(--primary)`,
-   which read as a brief flash. Match the FriendBtn's green palette for
-   consistency: solid `--primaryTransparent` base (no gradient → no swap
-   glitch) and `--primary` on hover, just like .friendBtn. */
-.accountBtn.loggedIn {
-    background: var(--primaryTransparent);
-    border: 1.4px solid var(--primaryDark);
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.25s ease,
-        background-color 0.25s ease;
-}
-
-.accountBtn.loggedIn:hover {
-    background: var(--primary);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-    transform: translateY(-1px) scale(1.03);
-}
-
-.accountBtn.loggedIn:active {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-}
-
-.accountBtn.loggedIn:focus-visible {
-    outline: none;
-    box-shadow:
-        0 0 0 3px rgba(74, 154, 105, 0.55),
-        0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .accountBtn.loggedIn:hover {
-        transform: none;
-    }
-}
+/* THE LOGGED-IN PILL'S SKIN IS GONE with the pill. `.accountBtn.loggedIn` is
+   now unreachable: home renders AccountBtn only while signed OUT (the player
+   card owns the signed-in corner) and onboarding renders it with
+   navbarMode={true}, which is `.navBtn`. Dead rules in here are exactly what
+   the `.wsIcon { top: 40px; left: 20px }` block was — a skin for an element
+   that no selector can reach — so it goes rather than lingering. */
 
 .navBtn {
     font-size: 1.0em;
@@ -1935,10 +2035,29 @@ h1, h2, h3, span, label {
     top: 50px;
     right: 0;
     font-size: clamp(1.1rem, 2vw, 1.5rem);
+    /* NO backdrop-filter — same ruling as .g2_container and .health-bar-bg.
+       A backdrop-filter region is re-sampled and re-blurred every time the
+       pixels behind it change, and this chip is fixed over the LIVE Street View
+       pano AND rewrites its own text every tenth of a second in the last 10s.
+       That is a forced re-blur per digit, on the frames the player cares about
+       most. The blur is not coming back.
+
+       AND THE DARK UNDERLAY THAT REPLACED IT IS NOT COMING BACK EITHER. When the
+       blur came out, a flat `linear-gradient(rgba(6,16,10,0.55))` layer went in
+       to "do the frost's legibility job". It was compensating for nothing:
+       --primaryTransparent is rgba(36,87,52,0.85), so this pill was already 85%
+       opaque and the blur had almost no backdrop left to soften. All the layer
+       actually did was drop a 55% black sheet over the green and turn a light
+       HUD chip into a dark one. Removing the blur cost no legibility; adding
+       that did cost the look, and the owner said so.
+
+       What carries the text now is what carried it before the blur ever
+       existed: an 85% opaque plate, a 2px --primary frame and the text-shadow at
+       the bottom of this rule. If a future pano genuinely proves too bright for
+       it, raise --primaryTransparent's alpha or the text-shadow — do NOT stack a
+       black sheet on top, and do NOT reintroduce backdrop-filter. */
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
     padding: 12px 20px;
     border: 2px solid var(--primary);
     border-radius: 16px;
@@ -1988,11 +2107,16 @@ h1, h2, h3, span, label {
 // static styles own it.
 // .timer is deliberately NOT here: its shown flag round-trips at round
 // boundaries and the entrance replayed every time (see .timer above).
+// .hudCorner is ONE entry for the whole top-right column — the card, the login
+// button and the stamps tile enter together because their container does. It
+// replaces four separate entries (.navbar .accountBtn, the fixed .friendBtn,
+// .leagueBtn, and the Maps button that has since moved to the footer), two of
+// which never actually ran this animation: .leagueBtn's own `animation: bounce`
+// was declared later in this file and won, so the corner visibly disagreed with
+// itself on every open.
 .navbar .navBtn,
-.navbar .accountBtn,
 .navbar .friendBtn,
-.leagueBtn,
-.daily-community-maps-btn,
+.hudCorner,
 // Restored Aug 2 with the Nitro revenue stopgap (Playwire swap parked on
 // branch playwire-v2 — that branch styles .playwire-ad-slot instead).
 .nitro-ad-slot {
@@ -2010,10 +2134,15 @@ h1, h2, h3, span, label {
 // slide-out (.g2_slide_out) never touched it — it hard-popped at the screen
 // flip while the footer glided. Mirror the footer's fade off the same signal;
 // by the time the screen flips and these unmount, they're already invisible.
-body:has(.g2_slide_out) .navbar .accountBtn,
-body:has(.g2_slide_out) .navbar .friendBtn,
-body:has(.g2_slide_out) .leagueBtn,
-body:has(.g2_slide_out) .daily-community-maps-btn {
+//
+// .hudCorner IS NO LONGER FADED FROM HERE. This selector could not tell a
+// destination that unmounts the column from the one that keeps it: the
+// matchmaking queue holds the same element and only pulls it further into the
+// corner, so the blanket fade turned a 28px move into a disappearance followed
+// by a reappearance somewhere else. That column now takes the signal as a prop
+// and only from the buttons that really are leaving it behind
+// (.hudCorner--leaving, styles/playerCard.css; navSlideOutThen in home.js).
+body:has(.g2_slide_out) .navbar .friendBtn {
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
 }
@@ -2073,6 +2202,38 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     transform: translateX(50%);
     margin-right: 0;
     top: 100px;
+}
+
+// Ranked duel hierarchy (user ruling Aug 6: "timer can be way bigger than rnd
+// num here"). The HP bars already carry the state that matters in a duel, so
+// the round line is deliberately pushed further back than the shared 0.7em /
+// 0.75 opacity, and the clock is scaled up until it is unmistakably the
+// subject of the pill.
+//
+// 1.5em, TRIMMED FROM 1.9em (Aug 9). The base pill caps at 24px on any viewport
+// past 1200px, so 1.9em was a 45.6px readout — half again the size of the same
+// clock in the app (mobile GameTimer duelCountdown is fontSizes['3xl'] = 30
+// against an xs = 12 label) and a 3.2x label ratio where that client runs 2.5x.
+// Web was the outlier on both the absolute size and the ratio. 1.5em lands the
+// desktop clock at 36px and puts the two clients on the SAME 2.5x hierarchy,
+// which is still way bigger than the round number, as ruled.
+.timer.duel .timer__round-label {
+    font-size: 0.6em;
+    opacity: 0.55;
+}
+
+.timer.duel .timer__main-row {
+    font-size: 1.5em;
+    line-height: 1.05;
+}
+
+// The digits are already tabular-nums, so a `ch` floor here stops the pill
+// breathing as the readout goes 100s -> 47s -> 9.9s. This matters far more on
+// the duel timer than anywhere else: it is the only centered one, so a width
+// change pushes both edges outward at once, and that shimmer reads as width
+// even when the pill is narrow.
+.timer.duel .timer__countdown {
+    min-width: 4ch;
 }
 
 // (Mobile health-bar compaction lives in the single 830px block further down,
@@ -2158,6 +2319,11 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 
 // Critical timer states for under 5 seconds - softer red
 .timer.critical {
+    /* The dark underlay came out here with the one on .timer itself. This red is
+       0.9 alpha over an 85% opaque plate, so the sheet behind it was doing
+       almost nothing except making the last five seconds a shade muddier than
+       the fifty before them — on the one state that is supposed to read hotter,
+       not darker. */
     background: linear-gradient(135deg, rgba(220, 100, 100, 0.9) 0%, rgba(200, 80, 80, 0.9) 100%);
     border-color: rgba(255, 200, 200, 0.5);
     box-shadow:
@@ -2165,8 +2331,31 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
         0 4px 20px rgba(220, 100, 100, 0.4),
         0 0 25px rgba(220, 100, 100, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    animation: timerPulse 1s ease-in-out infinite;
     transform: translateY(0) scale(1.05);
+}
+
+/* Last-5s pulse. This used to animate box-shadow (4-5 layers, up to 60px blur)
+   AND filter: brightness() directly on .timer at 60fps. Neither is a compositor
+   property, so it forced a full repaint of the chip every frame for 5 seconds
+   straight — stacked on the backdrop-filter re-blur that used to live here and
+   on the digits changing 10x/sec. All three costs multiplied, in the exact
+   window the player is staring at the timer.
+   Now the extra glow is its own layer and OPACITY is the only thing that moves,
+   which the compositor handles without ever repainting. The shadow is outer, so
+   it paints outside the border box and can never cover the digits. */
+.timer.critical::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 6px 30px rgba(220, 100, 100, 0.6),
+        0 0 40px rgba(220, 100, 100, 0.5),
+        0 0 60px rgba(220, 100, 100, 0.2);
+    opacity: 0;
+    animation: timerPulse 1s ease-in-out infinite;
 }
 
 .timer.duel.critical {
@@ -2187,32 +2376,10 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 //     border: 8px solid transparent;
 // }
 
+// Compositor-only: opacity on .timer.critical::after, nothing else.
 @keyframes timerPulse {
-    0% {
-        box-shadow:
-            0 8px 32px rgba(0, 0, 0, 0.4),
-            0 4px 20px rgba(220, 100, 100, 0.4),
-            0 0 25px rgba(220, 100, 100, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        filter: brightness(1);
-    }
-    50% {
-        box-shadow:
-            0 12px 40px rgba(0, 0, 0, 0.5),
-            0 6px 30px rgba(220, 100, 100, 0.6),
-            0 0 40px rgba(220, 100, 100, 0.5),
-            0 0 60px rgba(220, 100, 100, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
-        filter: brightness(1.1);
-    }
-    100% {
-        box-shadow:
-            0 8px 32px rgba(0, 0, 0, 0.4),
-            0 4px 20px rgba(220, 100, 100, 0.4),
-            0 0 25px rgba(220, 100, 100, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.15);
-        filter: brightness(1);
-    }
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
 }
 
 // @keyframes screenPulse {
@@ -2263,7 +2430,12 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
     position: relative;
     display: inline-block;
     font-variant-numeric: tabular-nums;
-    transition: all 0.3s ease;
+    /* `all` forced the browser to diff every animatable property on each style
+       recalc, and this element's text is rewritten 30x/sec during a count-up.
+       Colour is the only thing that ever transitions here (the green flash
+       itself lives on .counter-value's own animation). Same fix already applied
+       to .health-bar-container.modern and #miniMapArea.answerNotShown. */
+    transition: color 0.3s ease;
 }
 
 .animated-counter.animating .counter-value {
@@ -2567,14 +2739,27 @@ body:has(.g2_slide_out) .daily-community-maps-btn {
 
 
 #miniMapArea.shown {
-    // Full alpha keeps labels legible; compositing the whole map at 50%
-    // made otherwise sharp tiles look washed out against Street View.
-    opacity: 100%;
+    // Resting translucency. This is the long-standing look: while you are still
+    // panning Street View the corner map sits half-visible on top of it, and it
+    // clears to full alpha the moment it expands. (Briefly flipped to 100% in
+    // 59bd6ebe1 on the grounds that 50% looked washed out — but at rest nobody
+    // is reading the corner map, and the resting box covers a fifth of the
+    // pano.)
+    opacity: 50%;
     // `none` (rather than an identity transform) releases the extra ancestor
     // compositing layer once the slide-in finishes. Leaflet owns the transforms
     // inside the map and should be the only persistent transformed layer.
     transform: none;
     pointer-events: auto;
+}
+
+// Expanded IS the state you read the map in, so it goes full alpha. Keyed on
+// the class (gameUI's miniMapExpanded), never on :hover — touch panels that
+// report a fine pointer get the desktop layout, and their sticky :hover
+// outlives the tap, which left the map opaque after it had already collapsed.
+// The class is the one source of truth for "the player is using the map".
+#miniMapArea.shown.mapExpanded {
+    opacity: 100%;
 }
 
 #miniMapArea.forceHidden {
@@ -3637,7 +3822,7 @@ canvas.streetview.dragging {
 // Perfect-round chip: a flat 5000 replaces the plain points text in the end
 // banner. Same pill construction as .streakBadge above (tinted glass +
 // 1px border + one-shot entrance) so the two badges sharing this banner
-// read as one system — gold is the sanctioned crown/supporter accent.
+// read as one system — gold is the sanctioned crown/highlight accent.
 // Its host line is bumped to headline scale: .motivation's 0.8em undersold
 // the moment (and the duel personal line dims to 0.8 on top of that).
 .perfect5kLine {
@@ -3833,11 +4018,11 @@ canvas.streetview.dragging {
     }
 }
 
-#miniMapArea:hover {
-    transition: all 250ms ease;
-    opacity: 100%;
-}
-
+// (Removed: `#miniMapArea:hover { transition: all; opacity: 100% }`. Full alpha
+// now rides .mapExpanded — see #miniMapArea.shown.mapExpanded — which hover
+// sets anyway and touch can set too. The `all` also silently overrode the
+// explicit transition list on .answerNotShown for the whole hover, which is
+// exactly the per-recalc property diffing that list exists to avoid.)
 
 #mapControlsAbove {
     position: absolute;
@@ -4008,7 +4193,7 @@ canvas.streetview.dragging {
    Layout: code hero → flat roster → (party settings line) → ONE primary
    button → at most one status line. Near-opaque panel: the glass gradient is
    unreadable over the busy street backdrop. */
-// Dim the street2 backdrop behind any lobby/join card for readability.
+// Dim the site background behind any lobby/join card for readability.
 // The dim must FADE across the whole viewport — override the nav slide
 // that g2_slide_in applies to direct children (the card inside still gets
 // its own slideInUp motion).
@@ -4250,12 +4435,32 @@ canvas.streetview.dragging {
     white-space: nowrap;
 }
 
+// A SCROLLPORT MEASURES PADDING, NOT MARGINS. Every player row carries
+// `.wg-glow-room` (34px padding / -34px margin, styles/nameGlow.css) to keep an
+// equipped halo out of the row's own clip. The negative margin gives the LAYOUT
+// space back — the card's height is unchanged, which is why this looked fine —
+// but scrollable overflow is computed from descendants' PADDING boxes and
+// ignores negative margins entirely. So the first row's relief hung 34px above
+// the scrollport and the last row's 34px below it, and the roster reported ~68px
+// of scrollable content with one player in it: a scrollbar with plenty of room.
+//
+// `padding-block` of the same 34px absorbs the overhang INSIDE the scrollport,
+// and the equal negative `margin-block` hands that space back to the card, so
+// the resting look is byte-identical. Do NOT "fix" this by clipping the relief
+// away (overflow:clip / removing wg-glow-room) — that re-shears the halo and
+// re-opens the Aug 8 "I bought a glow and see no difference" bug.
+//
+// Keyed to the relief constant: if nameGlow.css's 34px moves, this moves.
+$glow-clip-relief: 34px;
+
 .party-lobby__roster {
     display: flex;
     flex-direction: column;
     gap: 10px;
     max-height: min(38svh, 300px);
     overflow-y: auto;
+    padding-block: $glow-clip-relief;
+    margin-block: -$glow-clip-relief;
 }
 
 .party-lobby__player {
@@ -4287,13 +4492,28 @@ canvas.streetview.dragging {
     gap: 8px;
 }
 
+// THE CLIP IS THIS BOX'S JOB, NOT THE GLOW'S. `overflow: hidden` + `nowrap` is
+// how a long username has always been kept out of the tags beside it, and it is
+// declared here — unconditionally, for every player — rather than being smuggled
+// onto the name by whatever it happens to be wearing. A truncation that only
+// appears once something is equipped is a purchase that changes the layout, and
+// that is precisely the "my name got narrower" bug.
+//
+// `wg-glow-room` on the element (components/partyLobby.js) is what stops this
+// rule shearing a halo: `overflow` clips at the PADDING box, so 34px of padding
+// and the same back as negative margin buys the paint room without moving the
+// margin box a pixel. styles/nameGlow.css has the arithmetic.
+//
+// `text-overflow: ellipsis` is NOT restated: it is inert on a flex container and
+// always was, so this clips mid-character exactly as it did before glows existed.
+// `white-space: nowrap` is not inert — it inherits, and it is what keeps a long
+// name on one line to be clipped in the first place.
 .party-lobby__player-name {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -4320,7 +4540,7 @@ canvas.streetview.dragging {
 }
 
 .party-lobby__crown {
-    // gold matches the supporter accent — the one deliberate off-green
+    // gold matches the crown/highlight accent — the one deliberate off-green
     color: #ffc107;
     font-size: 1rem;
 }
@@ -4431,6 +4651,10 @@ canvas.streetview.dragging {
     }
 }
 
+// Same glow-relief overflow as .party-lobby__roster — see the note there. The
+// team columns hold the same rows, so a 1v1 team lobby scrolled for the same
+// reason. Block axis only: `overflow-x: hidden` already contains the inline
+// relief, and padding the inline axis would indent the columns.
 .party-lobby__teams {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4438,6 +4662,8 @@ canvas.streetview.dragging {
     max-height: min(42svh, 340px);
     overflow-y: auto;
     overflow-x: hidden;
+    padding-block: $glow-clip-relief;
+    margin-block: -$glow-clip-relief;
 }
 
 // Narrow screens: one team under the other instead of two squished columns.
@@ -4455,7 +4681,7 @@ canvas.streetview.dragging {
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    align-content: start;
+    align-content: flex-start;
 }
 
 .party-lobby__team--mine {
@@ -4555,10 +4781,20 @@ canvas.streetview.dragging {
     display: flex;
     align-items: center;
     gap: 28px;
+    /* NO backdrop-filter — same ruling as .timer, .g2_container and
+       .health-bar-bg. This bar is fixed over the live pano AND its numbers are
+       rewritten by AnimatedCounter, so the blur region was being re-sampled on
+       every score change.
+
+       AND NO DARK UNDERLAY EITHER, for the reason argued in full on .timer: the
+       flat 55% black sheet that went in when the blur came out was compensating
+       for legibility this pill never lost (--primaryTransparent is already 85%
+       opaque), and it turned a light HUD chip dark. This bar copies .timer's
+       recipe on purpose — same plate, same frame, same shadow — so it takes the
+       correction at the same time rather than drifting into being the one dark
+       pill on the HUD. */
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
     padding: 8px 24px;
     border: 2px solid var(--primary);
     border-radius: 16px;
@@ -4709,7 +4945,7 @@ canvas.streetview.dragging {
     }
 }
 
-// ≥1150px with no ad SHOWING (supporters, embeds without the band, unfit
+// ≥1150px with no ad SHOWING (embeds without the band, unfit
 // sizes): the 100px clearance protects nothing — join the timer's top line.
 // The 1150px threshold is the measured navbar-cluster clearance point (the
 // centered bar grazes the cluster at ~930px on desktop windows); this rule
@@ -4905,7 +5141,12 @@ canvas.streetview.dragging {
     font-size: 16px;
     white-space: nowrap;
     animation: emoteFloatRise 3.2s ease-out forwards;
-    backdrop-filter: blur(4px);
+    /* NO backdrop-filter: this element TRAVELS 240px across the live pano over
+       3.2s, with several in flight at once, so the compositor was re-sampling
+       and re-blurring a moving region the whole way. The 0.55-alpha background
+       (and the team tints below, which are heavier still) already carries the
+       contrast — .noName has run with `backdrop-filter: none` all along, which
+       is why ranked 1v1 never had this cost and 2v2 / party did. */
 }
 
 // No `.self` rule any more: own bubbles are ALWAYS blue (.teamMine), matching
@@ -4934,6 +5175,57 @@ canvas.streetview.dragging {
     font-size: 48px;
     line-height: 1;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+/* ---------------------------------------------------------------------------
+ *  EMOTE EFFECTS — the `fx` field in shared/emotes/catalog.js, drawn.
+ *
+ *  DEFINED ONCE, HERE, and applied by every surface that draws a glyph: the
+ *  shop card, the shop's wheel cell, the in-game picker button and the reaction
+ *  that floats up mid-duel. The class name is built from the catalogue value
+ *  (`emoteFx emoteFx--<fx>`), so adding an effect to another emote one day is a
+ *  data change plus one rule in this block, and never a special case in four
+ *  components.
+ *
+ *  IT IS `filter`, NOT `text-shadow`. An emoji is a colour glyph, and a
+ *  text-shadow on one paints a flat silhouette behind it that reads as a smear;
+ *  drop-shadow() traces the actual alpha of the picture. Two stacked drop
+ *  shadows give the tight core and the loose bloom, and they compose with the
+ *  existing drop-shadow on .emoteFloatGlyph rather than fighting it.
+ *
+ *  EMBER: the skull, the top of the emote shelf (200 Stamps against a ladder
+ *  that otherwise stops at 150). Cursed-fire orange breathing into
+ *  red, plus a slow rise-and-fall, so it is unmistakably not one of the
+ *  50-Stamp faces beside it. Composited properties only (filter and transform),
+ *  because in game there can be several of these on screen over a live pano. */
+.emoteFx--ember {
+    animation: emoteEmber 2.4s ease-in-out infinite;
+}
+
+@keyframes emoteEmber {
+
+    0%,
+    100% {
+        filter:
+            drop-shadow(0 0 6px rgba(255, 138, 42, 0.85)) drop-shadow(0 0 16px rgba(214, 40, 40, 0.55));
+        transform: translateY(0) scale(1);
+    }
+
+    50% {
+        filter:
+            drop-shadow(0 0 11px rgba(255, 196, 84, 0.95)) drop-shadow(0 0 30px rgba(230, 57, 70, 0.75));
+        transform: translateY(-2px) scale(1.05);
+    }
+}
+
+/* The burn is the whole point of the emote, so it does not go entirely — but the
+   movement does, and a still frame at the bright end is the better one to hold. */
+@media (prefers-reduced-motion: reduce) {
+    .emoteFx--ember {
+        animation: none;
+        filter:
+            drop-shadow(0 0 9px rgba(255, 170, 60, 0.9)) drop-shadow(0 0 22px rgba(230, 57, 70, 0.65));
+    }
 }
 
 .emoteFloatItem.noName .emoteFloatGlyph {
@@ -5510,6 +5802,9 @@ canvas.streetview.dragging {
     border-left: 4px solid #28a745;
 }
 
+// Clips here, on the row, with wg-glow-room for the halo — see
+// .party-lobby__player-name above for the whole reasoning. These are the
+// between-rounds cards, so the glow they draw is the LIGHT variant.
 .multiplayerLeaderboard__player__username {
     font-size: clamp(14px, 3.5vw, 16px);
     font-weight: 600;
@@ -5520,7 +5815,6 @@ canvas.streetview.dragging {
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -5633,6 +5927,10 @@ canvas.streetview.dragging {
     }
 }
 
+// Same move as the two rules above: the clip that used to live here is now the
+// inner text box's job, so a team member's glow is not sheared off.
+// Same contract as .multiplayerLeaderboard__player__username above: the row
+// clips, wg-glow-room keeps the halo out of the clip.
 .multiplayerLeaderboard__memberName {
     color: #000;
     font-size: 0.85rem;
@@ -5642,7 +5940,6 @@ canvas.streetview.dragging {
     gap: 6px;
     min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -7417,14 +7714,10 @@ body.leaflet-dragging .hintCircle {
     }
 }
 
-.wsIcon {
-    position: fixed;
-    z-index: 1000;
-    top: 40px;
-    left: 20px;
-    width: 50px;
-    height: 50px;
-}
+// (Removed) `.wsIcon { position: fixed; top: 40px; left: 20px; … }` — dead CSS.
+// components/wsIcon.js has always styled itself with inline styles and never
+// emitted this class, and the real element is in the top-RIGHT corner, not the
+// left. It sat here matching nothing.
 
 
 
@@ -7834,80 +8127,28 @@ div[dir="ltr"] {
     z-index: 1200;
 }
 
-.leagueBtn {
-    position: fixed;
-    top: 60px;
-    width: 70px;
-    height: min-content;
-    right: 10px;
-    animation: bounce 0.5s;
-    z-index: 1000;
-    width: fit-content;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2em;
-    text-align: center;
-    padding: 0px;
-    padding-left: 15px;
-    padding-right: 15px;
-    border-radius: 8px;
-    margin: 0;
-    background-color: var(--primaryTransparent);
-    padding-top: 5px;
-    padding-bottom: 5px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-// less than 1280px
-@media (max-width: 1280px) {
-    .leagueBtn {
-        top: 50px;
-    }
-}
-// less than 900px
-@media (max-width: 600px) {
-    .leagueBtn {
-        top: 45px;
-    }
-
-}
-
-.leagueBtn:hover {
-    filter: brightness(1.2);
-}
-
-@keyframes bounce {
-    0% {
-        scale: 1;
-    }
-
-    50% {
-        scale: 1.1;
-    }
-
-    100% {
-        scale: 1;
-    }
-}
-
-.badge {
-    // style={{background: 'gold', color: 'black', padding: '3px', borderRadius: '10px'}}
-    background: gold;
-    padding: 3px;
-    border-radius: 10px;
-    margin-left: 5px;
-    color: black;
-    font-size: 0.8em;
-}
-
-.supporterBtn {
-    background: gold;
-}
-
-.supporterBtn:hover {
-    background: #d4af37;
-}
+// THE LEAGUE / ELO CHIP IS GONE, and so is its whole support cast: the fixed
+// top:60px/right:10px plus two breakpoint overrides of that top, the `bounce`
+// entrance that disagreed with every other HUD element's `hudEnter`, and the
+// @keyframes bounce that only it and the Stamps button ever ran. The rating,
+// the tier and the balance all live in the player card now
+// (components/ui/playerCard.js), which is laid out by a flex column instead of
+// by coordinates.
+//
+// ONE THING FROM HERE WAS WORTH KEEPING and moved with it — .pcard__leagueEmoji
+// in styles/playerCard.css inherits this block's optical-alignment knob:
+//
+//   An emoji glyph is drawn centred in its own em box, so its optical centre
+//   sits roughly halfway between ascender and descender. "ELO" is three
+//   capitals with no descender, so ITS optical centre is half a cap-height
+//   above the baseline, which is higher. Share a baseline and any emoji reads
+//   low. It only ever got reported for Legend because the crown is the one
+//   SHORT glyph in the set — boot, compass, ship and globe fill their em box
+//   top to bottom. The fix is `position: relative; top: -0.08em`: paint-only
+//   (the badge stays in the same text run, so no line box or height changes)
+//   and in em, so it tracks the font size at every breakpoint instead of being
+//   a pixel that only holds at one. Nudge that number if it needs re-tuning;
+//   never add a second mechanism.
 
 // (Removed) `.leaflet-zoom-anim .leaflet-zoom-animated { duration: 100ms }`
 // override desynced tile zoom from overlay-pane zoom — Leaflet manages its

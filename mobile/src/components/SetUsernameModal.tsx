@@ -113,7 +113,7 @@ export default function SetUsernameModal() {
     const result = await setUsernameApi(username.trim());
 
     if (!result.success) {
-      setError(result.error || t('error', undefined, 'An error occurred'));
+      setError(result.error || t('error'));
       setIsLoading(false);
       return;
     }

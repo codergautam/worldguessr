@@ -3,6 +3,7 @@ import AccountView from "./accountView";
 import EloView from "./eloView";
 import { useTranslation } from '@/components/useTranslations';
 import CountryFlag from './utils/countryFlag';
+import { nameGlowProps, GlowName } from './utils/usernameWithFlag';
 
 export default function PublicProfile({ profileData, eloData }) {
     const { t: text } = useTranslation("common");
@@ -20,7 +21,6 @@ export default function PublicProfile({ profileData, eloData }) {
                     <div className="profile-content">
                         <AccountView
                             accountData={profileData}
-                            supporter={profileData?.supporter}
                             eloData={eloData}
                             session={null}
                             isPublic={true}
@@ -46,16 +46,10 @@ export default function PublicProfile({ profileData, eloData }) {
         }
     };
 
-    const badgeStyle = {
-        marginLeft: '15px',
-        color: 'black',
-        fontSize: '0.7rem',
-        background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
-        padding: '4px 12px',
-        borderRadius: '15px',
-        fontWeight: 'bold',
-        textShadow: 'none'
-    };
+    // Dark profile chrome → the dark variant. api/publicProfile.js returns only
+    // the equipped nameGlow under `cosmetics`; nothing else about a stranger's
+    // inventory is public and nothing else is read here.
+    const headerGlow = nameGlowProps(profileData?.cosmetics?.equipped?.nameGlow);
 
     return (
         <div className="public-profile-container">
@@ -63,13 +57,12 @@ export default function PublicProfile({ profileData, eloData }) {
                 {/* Header */}
                 <div className="public-profile-header">
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {profileData?.username}
+                        {/* ANIMATED HERE. This is one name on a page nobody
+                            scrolls a hundred of — the exact opposite of the
+                            leaderboard, and the surface a player links people to
+                            when they want the thing they bought to be seen. */}
+                        <GlowName glow={headerGlow}>{profileData?.username}</GlowName>
                         {profileData?.countryCode && <CountryFlag countryCode={profileData.countryCode} style={{ fontSize: '0.9em' }} />}
-                        {profileData?.supporter && (
-                            <span style={badgeStyle}>
-                                SUPPORTER
-                            </span>
-                        )}
                     </h1>
                 </div>
 

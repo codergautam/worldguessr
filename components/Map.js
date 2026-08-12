@@ -2,12 +2,13 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, memo } fr
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
-import { getPinIcons } from '@/lib/markerIcons';
+import { getPinIcons, markerSkinIconKey, MARKER_SKIN_ICONS } from '@/lib/markerIcons';
 import calcPoints, { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
-import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
+import { cachedNameGlowProps, GLOW_LIGHT } from './utils/usernameWithFlag';
+import { guessPinLabelNode } from './utils/guessPinLabel';
 import SafeMapContainer from './SafeMapContainer';
 import getMyTeam from './utils/getMyTeam';
 import { playSfx, preloadSfx } from './utils/audio';
@@ -1492,12 +1493,22 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
     if (!map) return;
     return () => { try { map.stop(); } catch {} };
   }, [map]);
-  // DEV-ONLY white-lines forensics: run __dumpMap() in the console the moment
-  // seams are visible (before the zoom-in-out cure), then again after. The
-  // diff of zoom/origin/transform/zIndex/tile counts between the two dumps
-  // names the guilty subsystem outright.
+  // Map forensics: run __dumpMap() in the console the moment something looks
+  // wrong (seams, blur, wrong camera), and again after any cure. The diff of
+  // zoom/origin/transform/zIndex/tile counts between two dumps names the
+  // guilty subsystem outright.
+  //
+  // Dev by default, plus `?mapdebug=1` anywhere: these bugs surface during real
+  // multiplayer play on prod, which is the one place a dev-only tool can never
+  // reach. Opt-in per URL, same pattern the (since-removed) ?pinprobe=1 phone
+  // overlay used. Read-only DOM/Leaflet state, no listeners, no side effects.
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production' || !map || typeof window === 'undefined') return;
+    if (!map || typeof window === 'undefined') return;
+    const optedIn = (() => {
+      try { return new URLSearchParams(window.location.search).get('mapdebug') === '1'; }
+      catch { return false; }
+    })();
+    if (process.env.NODE_ENV === 'production' && !optedIn) return;
     window.__dumpMap = () => {
       const out = {
         zoom: map.getZoom(),
@@ -1511,17 +1522,81 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
         panePos: (() => { try { return L.DomUtil.getPosition(map._mapPane); } catch { return null; } })(),
         pixelOrigin: map.getPixelOrigin(),
         suspendTileUpdates: !!map._suspendTileUpdates,
+        animatingZoom: !!map._animatingZoom,
+        // BLUR FORENSICS (Aug 10). On desktop every tile pixel is painted by
+        // the canvas compositor, so "imagery soft but pins sharp" lives here.
+        // backing must equal rect * dpr: if it is SMALLER the bitmap is being
+        // stretched to fit (deterministic blur, fix the sizing); if it MATCHES
+        // and the imagery is still soft, the pixels are right and the layer's
+        // GPU texture is degraded (the backing-churn family — a display
+        // none/restore toggle on the canvas cures that and proves it).
+        compositor: (() => {
+          try {
+            const c = map._wgCompositor;
+            const el = map.getContainer()?.querySelector('.wg-tile-compositor');
+            if (!el) return { present: false, alive: !!(c && c._map === map) };
+            const r = el.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            return {
+              present: true,
+              alive: !!(c && c._map === map),
+              classOnContainer: !!map.getContainer()?.classList.contains('wg-canvas-tiles'),
+              backing: [el.width, el.height],
+              styleSize: [el.style.width, el.style.height],
+              rect: [+r.width.toFixed(1), +r.height.toFixed(1)],
+              expectBacking: [Math.round(r.width * dpr), Math.round(r.height * dpr)],
+              // Allocation vs content: divergence here is EXPECTED and healthy
+              // (that is the reuse working); it is only a bug if styleSize
+              // stops matching backing/dpr.
+              alloc: c ? [c._allocW, c._allocH] : null,
+              content: c ? [c._lastW, c._lastH] : null,
+              drawnAtDpr: c ? c._lastDpr : null,
+              liveDpr: dpr,
+              transform: el.style.transform,
+              drawnZoom: c ? c._drawnZoom : null,
+              shrinkPending: !!(c && c._shrinkTimer),
+            };
+          } catch (e) { return { error: String(e) }; }
+        })(),
+        heapMB: (() => {
+          try { return Math.round(performance.memory.usedJSHeapSize / 1e6); }
+          catch { return null; }
+        })(),
         layers: [],
       };
       map.eachLayer((layer) => {
         if (!(layer instanceof L.GridLayer)) return;
         const tiles = Object.values(layer._tiles || {});
+        // Tile SOURCE resolution. `scale=2` in the Google vt URL should make
+        // every tile 512px natural; a histogram showing 256s means the imagery
+        // itself arrived degraded and the renderer is innocent.
+        const byNaturalWidth = {};
+        // Which LEVEL the loaded tiles actually sit at, vs tileZoom. This is
+        // the discriminator for "blurry but the pixels are fine" vs "genuinely
+        // coarse content": if the corner map rests at zoom 2 and the loaded
+        // tiles are mostly z0/z1, the imagery IS upscaled — either the
+        // ancestor-cover pass standing in for tiles that never arrived, or a
+        // retained coarse level drawing above the current one (compare the
+        // per-level zIndex + children below). Neither is a texture fault, so
+        // __blurTest would not cure those; they need the load/prune path.
+        const byZ = {};
+        for (const t of tiles) {
+          const w = t.el?.naturalWidth;
+          if (w != null) byNaturalWidth[w] = (byNaturalWidth[w] || 0) + 1;
+          const z = t.coords?.z;
+          if (z != null) {
+            const k = t.loaded ? `z${z}` : `z${z}-pending`;
+            byZ[k] = (byZ[k] || 0) + 1;
+          }
+        }
         const info = {
           tileZoom: layer._tileZoom,
           noPrune: !!layer._noPrune,
           tiles: tiles.length,
           current: tiles.filter((t) => t.current).length,
           loaded: tiles.filter((t) => t.loaded).length,
+          byNaturalWidth,
+          byZ,
           levels: {},
         };
         for (const z in (layer._levels || {})) {
@@ -1539,7 +1614,43 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
       console.log('[__dumpMap]', JSON.stringify(out, null, 1));
       return out;
     };
-    return () => { try { delete window.__dumpMap; } catch {} };
+
+    // BLUR TRIAGE: run while the imagery looks soft. Each step is a strictly
+    // bigger hammer, so the FIRST one that cures it names the cause:
+    //  1 redraw  — repaints the same camera. Cure = stale/insufficient draw.
+    //  2 relayer — hides/reshows the canvas for two frames. Touches ZERO
+    //              pixels; only forces Chrome to drop and re-upload the
+    //              layer's GPU texture. Cure = texture degradation, i.e. the
+    //              backing-churn family (that is what _resizeBacking targets).
+    //  3 realloc — rebuilds the backing store itself. Cure here but not at 2
+    //              points at the buffer contents rather than the texture.
+    window.__blurTest = (step = 2) => {
+      const c = map._wgCompositor;
+      const el = map.getContainer()?.querySelector('.wg-tile-compositor');
+      if (!el || !c) return 'no compositor on this map (DOM tile fallback)';
+      if (step === 1) {
+        try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+        c.draw();
+        return 'redrew same camera — cured? => stale draw';
+      }
+      if (step === 3) {
+        c._allocW = 0;
+        c._allocH = 0;
+        c._lastDpr = 0;
+        c.draw();
+        return 'reallocated backing — cured? => buffer contents, not texture';
+      }
+      el.style.display = 'none';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.display = '';
+        console.log('[__blurTest] layer texture re-uploaded — cured? => GPU texture degradation');
+      }));
+      return 'relayering...';
+    };
+    return () => {
+      try { delete window.__dumpMap; } catch {}
+      try { delete window.__blurTest; } catch {}
+    };
   }, [map]);
   return null;
 });
@@ -1595,6 +1706,12 @@ const DestMarker = memo(function DestMarker({ location, icon }) {
   a.location?.long === b.location?.long
 );
 
+// NO GLOW ON THIS LABEL, DELIBERATELY. Opponents' labels are NAMES and carry
+// the owner's glow off their roster entry (PlayerLine below); this one says
+// "Your guess", which is chrome, not identity — there is nobody to identify on
+// your own pin. It briefly wore the viewer's sku, threaded all the way in from
+// the session and across the mobile bridge, and it was the loudest thing on the
+// map for the least information. See components/utils/guessPinLabel.js.
 const YourGuessLayer = memo(function YourGuessLayer({
   pinPoint, location, icon, polylineRenderer, showLine, tooltipText,
 }) {
@@ -1610,25 +1727,30 @@ const YourGuessLayer = memo(function YourGuessLayer({
     return [[pinLat, pinLng], [locationLat, locationLng]];
   }, [showLine, pinLat, pinLng, locationLat, locationLng]);
 
+  // A NODE, not a string: Leaflet renders string content through innerHTML and
+  // an element is appended as-is, so nothing here can ever become a markup
+  // path. Recreated only when the text changes — see guessPinLabelNode.
+  const tooltipContent = useMemo(() => guessPinLabelNode(tooltipText), [tooltipText]);
+
   if (!pinPoint) return null;
   return (
     <>
       <Marker position={pinPoint} icon={icon}>
-        {/* Text goes in via Leaflet's `content` option, NOT React children:
+        {/* Content goes in via Leaflet's `content` option, NOT React children:
             react-leaflet portals children into the tooltip only after it has
             opened and been positioned, so the first paint centers an EMPTY
             box — the text then lands half a width to the right until a
             post-paint update() re-centers it. `content` is measured before
             the first _setPosition, so frame 1 is correct. Keyed on the text
             because react-leaflet never syncs option changes to a live
-            instance. */}
+            instance — a fresh node with a stale key is never shown. */}
         <Tooltip
           key={tooltipText}
           direction="top"
           offset={[0, -45]}
           opacity={1}
           permanent
-          content={tooltipText}
+          content={tooltipContent}
           position={{ lat: pinPoint.lat, lng: pinPoint.lng }}
         />
       </Marker>
@@ -1654,6 +1776,11 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
     ];
   }, [guessLat, guessLng, locationLat, locationLng]);
 
+  // Same node-not-string content as YourGuessLayer, and for the same reason:
+  // this is the country/continent mode's version of your own guess label. No
+  // glow here either — same label, same rule.
+  const tooltipContent = useMemo(() => guessPinLabelNode(tooltipText), [tooltipText]);
+
   if (!countryGuessPin || !location) return null;
   return (
     <>
@@ -1669,7 +1796,7 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
           offset={[0, -45]}
           opacity={1}
           permanent
-          content={tooltipText}
+          content={tooltipContent}
           position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}
         />
       </Marker>
@@ -1686,6 +1813,11 @@ const CountryGuessLayer = memo(function CountryGuessLayer({
  */
 const PlayerLine = memo(function PlayerLine({
   playerId, displayName, countryCode, guess, dest, icon, polylineRenderer,
+  // Equipped name-glow sku. ⚠ A new per-player field has to be added in BOTH
+  // places — the prop list here AND the comparator at the bottom of this
+  // component. Miss the comparator and the pin renders once with whatever the
+  // field was on first mount and never updates again, with no error anywhere.
+  nameGlow = null,
   // Faded pins mark guesses still in motion (interim teammate placements).
   markerOpacity = 1,
 }) {
@@ -1696,6 +1828,7 @@ const PlayerLine = memo(function PlayerLine({
   const linePositions = useMemo(() => (
     destLat != null && destLng != null ? [[guessLat, guessLng], [destLat, destLng]] : null
   ), [guessLat, guessLng, destLat, destLng]);
+  const glow = cachedNameGlowProps(nameGlow, GLOW_LIGHT, { ownBox: true });
 
   return (
     <>
@@ -1707,7 +1840,18 @@ const PlayerLine = memo(function PlayerLine({
           permanent
           position={{ lat: guess[0], lng: guess[1] }}
         >
-          <span style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {/* Leaflet's tooltip chrome is WHITE and this text is forced black,
+              so the glow takes the LIGHT variant — the dark neon is invisible
+              here. CLASS *AND* INLINE STYLE, both: the inline stack is the
+              static halo, the class is the only thing carrying the @keyframes
+              (styles/nameGlow.css). This wore the shadow alone and so every
+              animated sku sat still on the live map. A tooltip is portalled out
+              of the React tree, not out of the document, so a global class
+              reaches it; the mobile embed injects nameGlow.css itself
+              (embed/entry.jsx). `ownBox` because this span is already a flex
+              box. See components/utils/guessPinLabel.js — same label, one
+              recipe. */}
+          <span className={glow?.className} style={{ color: "black", display: 'flex', alignItems: 'center', gap: '4px', ...glow?.style }}>
             {displayName}
             {countryCode && (
               <CountryFlag countryCode={countryCode} style={{ fontSize: '0.9em', marginRight: '0' }} />
@@ -1728,6 +1872,7 @@ const PlayerLine = memo(function PlayerLine({
   a.playerId === b.playerId &&
   a.displayName === b.displayName &&
   a.countryCode === b.countryCode &&
+  a.nameGlow === b.nameGlow &&
   a.guess[0] === b.guess[0] &&
   a.guess[1] === b.guess[1] &&
   a.dest?.lat === b.dest?.lat &&
@@ -1737,7 +1882,10 @@ const PlayerLine = memo(function PlayerLine({
 );
 
 const MultiplayerLayer = memo(function MultiplayerLayer({
-  players, myId, dest, srcIcon, polandballIcon, polylineRenderer, isCoolMath,
+  players, myId, dest, srcIcon, polylineRenderer, isCoolMath,
+  // The whole memoized icon set, so an equipped marker skin can be resolved by
+  // key (markerSkinIconKey) instead of needing one more prop per sku.
+  icons = null,
   // Team games: teammates render with YOUR (blue src) pin so the map reads
   // team-vs-team, and each team's closest guesser renders ENLARGED so the
   // counting guess pops out. Callers pass ids + the matching icons.
@@ -1757,15 +1905,20 @@ const MultiplayerLayer = memo(function MultiplayerLayer({
     const isTeammate = teammateIcon && teammateIds?.has?.(player.id);
     const base = isTeammate ? teammateIcon : srcIcon;
     const big = isTeammate ? bigTeammateIcon : bigSrcIcon;
-    const icon = customPins[displayName] === "polandball"
-      ? polandballIcon
-      : (big && bestIds?.has?.(player.id) ? big : base);
+    const isBest = !!bestIds?.has?.(player.id);
+    // Pin priority: the player's purchased skin beats the stock team pin. A
+    // skinned pin gives up the blue/green team colour by design: the skin IS
+    // that player's identity, and the permanent name label on the tooltip
+    // already says whose guess it is.
+    const skinIcon = icons?.[markerSkinIconKey(player.markerSkin, isBest ? 'Big' : 'Small')];
+    const icon = skinIcon || (big && isBest ? big : base);
     return (
       <PlayerLine
         key={player.id}
         playerId={player.id}
         displayName={displayName}
         countryCode={player.countryCode}
+        nameGlow={player.nameGlow ?? null}
         guess={player.guess}
         dest={lineIds && !lineIds.has(player.id) ? null : dest}
         icon={icon}
@@ -1806,11 +1959,20 @@ function copyCountryGuessPin(countryGuessPin) {
   return { lat: countryGuessPin.lat, lng: countryGuessPin.lng };
 }
 
+// ⚠ This is a PROJECTION, not a comparator. The reveal renders from THIS
+// snapshot, not from the live roster, so a per-player field that is not copied
+// here is simply gone by the time a pin is drawn — no error, no warning, just
+// a plain pin and an unglowing tooltip on the one screen where a cosmetic is
+// most visible. Copy the field; do not merely remember to compare it.
 function copyMultiplayerAnswerPlayers(multiplayerState) {
   return (multiplayerState?.gameData?.players || []).map((player) => ({
     id: player.id,
     username: player.username,
     countryCode: player.countryCode,
+    // Cosmetics frozen with the pins for the same reason `team` is: the reveal
+    // must keep showing exactly what was on screen when the round ended.
+    nameGlow: player.nameGlow ?? null,
+    markerSkin: player.markerSkin ?? null,
     // Team frozen with the pins: a teammate disconnecting mid-reveal must not
     // flip their still-visible pin from teammate-blue to enemy-green.
     team: player.team ?? null,
@@ -1836,6 +1998,7 @@ const MapComponent = ({
   options,
   ws,
   session,
+  myMarkerSkin: suppliedMarkerSkin,
   pinPoint,
   setPinPoint,
   answerShown,
@@ -1924,18 +2087,56 @@ const MapComponent = ({
   // prevents Marker children from seeing a "new icon" on every render.
   const icons = useMemo(() => {
     const shared = getPinIcons() || {};
+    // Shop marker skins are carried through under the EXACT key
+    // markerSkinIconKey() emits, so resolving a sku is a plain lookup and a
+    // new sku added to the catalogue needs no change here.
+    const skins = {};
+    Object.values(MARKER_SKIN_ICONS).forEach((k) => {
+      skins[`${k}Small`] = shared[`${k}Small`];
+      skins[`${k}Mid`] = shared[`${k}Mid`];
+      skins[`${k}Big`] = shared[`${k}Big`];
+    });
     return {
-      dest: shared.destSmall,
-      src: shared.srcSmall,
-      src2: shared.src2Small,
+      destSmall: shared.destSmall,
+      destMid: shared.destMid,
+      srcSmall: shared.srcSmall,
+      srcMid: shared.srcMid,
+      src2Small: shared.src2Small,
       srcBig: shared.srcBig,
       src2Big: shared.src2Big,
-      polandball: shared.polandball,
+      ...skins,
     };
   }, []);
 
-  const myUsername = session?.token?.username;
-  const myIconKey = customPins[myUsername] === "polandball" ? "polandball" : "src";
+  // MY equipped skin. Mobile's WebView cannot carry the web session object, so
+  // its host sends the sku explicitly. Web keeps resolving from the session,
+  // and the multiplayer roster remains the final backfill for either client.
+  const myMarkerSkin = suppliedMarkerSkin
+    ?? session?.token?.cosmetics?.equipped?.markerSkin
+    ?? multiplayerState?.gameData?.players?.find((p) => p.id === multiplayerState?.gameData?.myId)?.markerSkin
+    ?? null;
+  // THERE IS NO `myNameGlow` HERE ANY MORE, and it is not an oversight. The
+  // viewer's glow was resolved exactly like the skin above (session, then a
+  // host-supplied prop for the mobile WebView, then the roster) for one
+  // consumer: the "Your guess" pin label. That label does not wear a glow —
+  // it is chrome, not a name — so the whole chain came out, from here back
+  // through the embed bridge. The SKIN stays: a pin is identity, a label that
+  // says "Your guess" is not.
+  // Same priority as MultiplayerLayer: purchased skin > stock pin. Falls back
+  // whenever the skin's icon is missing (unknown sku, or Leaflet not loaded yet
+  // and getPinIcons() returned nothing).
+  const pinKeyFor = (skin, tier, fallbackKey) => {
+    const key = markerSkinIconKey(skin, tier);
+    return (key && icons[key]) ? key : fallbackKey;
+  };
+  // Singleplayer reveals hold exactly two markers, so your pin and the dest
+  // wear the Mid 28x46 tier. Multiplayer keeps the Small tier: a full-roster
+  // reveal is a pin CLUSTER, and Small is what keeps it readable.
+  const inMultiplayer = Boolean(multiplayerState?.inGame);
+  const myIconKey = inMultiplayer
+    ? pinKeyFor(myMarkerSkin, 'Small', 'srcSmall')
+    : pinKeyFor(myMarkerSkin, 'Mid', 'srcMid');
+  const myBigIconKey = pinKeyFor(myMarkerSkin, 'Big', 'srcBig');
   const myIcon = icons[myIconKey];
 
   // Distance reporting: when reveal lands and we have both points, compute km.
@@ -2065,16 +2266,15 @@ const MapComponent = ({
       <ContainerResizeBridge resizingRef={resizingRef} />
 
       {answerShown && (
-        <DestMarker location={answerLocation} icon={icons.dest} />
+        <DestMarker location={answerLocation} icon={inMultiplayer ? icons.destSmall : icons.destMid} />
       )}
 
       <YourGuessLayer
         pinPoint={renderedPinPoint}
         location={answerLocation}
-        // Your pin enlarges too when YOU are your team's closest guesser
-        // (custom polandball pins are already oversized — leave them be).
-        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && myIconKey !== 'polandball' && icons.srcBig
-          ? icons.srcBig
+        // Your pin enlarges too when YOU are your team's closest guesser.
+        icon={teamRevealCtx?.bestIds?.has(teamRevealCtx.myId) && icons[myBigIconKey]
+          ? icons[myBigIconKey]
           : myIcon}
         polylineRenderer={canvasRenderer}
         // Best-guess team reveals: your line only draws if YOUR guess counted.
@@ -2098,14 +2298,14 @@ const MapComponent = ({
           players={answerPlayers}
           myId={multiplayerState?.gameData?.myId}
           dest={answerLocation}
-          srcIcon={icons.src2}
+          srcIcon={icons.src2Small}
           teammateIds={teamRevealCtx?.teammateIds || null}
-          teammateIcon={icons.src}
+          teammateIcon={icons.srcSmall}
           bestIds={teamRevealCtx?.bestIds || null}
           lineIds={teamRevealCtx?.lineIds || null}
           bigSrcIcon={icons.src2Big}
           bigTeammateIcon={icons.srcBig}
-          polandballIcon={icons.polandball}
+          icons={icons}
           polylineRenderer={canvasRenderer}
           isCoolMath={isCoolMath}
         />
@@ -2126,8 +2326,8 @@ const MapComponent = ({
             myId={myId}
             dest={null}
             // This layer only ever contains teammates — blue, same as you.
-            srcIcon={icons.src}
-            polandballIcon={icons.polandball}
+            srcIcon={icons.srcSmall}
+            icons={icons}
             polylineRenderer={canvasRenderer}
             isCoolMath={isCoolMath}
             // A locked teammate pin is a commitment; a faded one is still

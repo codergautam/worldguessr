@@ -75,13 +75,13 @@ export default function DiscourseSsoScreen() {
         {status === 'working' && (
           <>
             <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
-            <Text style={styles.message}>{t('forumSigningIn', undefined, 'Loading…')}</Text>
+            <Text style={styles.message}>{t('forumSigningIn')}</Text>
           </>
         )}
 
         {status === 'done' && (
           <Text style={styles.message}>
-            {t('forumReturnToBrowser', undefined, 'Done! Continue in your browser.')}
+            {t('forumReturnToBrowser')}
           </Text>
         )}
 
@@ -95,7 +95,7 @@ export default function DiscourseSsoScreen() {
               )}
             </Text>
             <Pressable style={styles.button} onPress={() => router.replace('/')}>
-              <Text style={styles.buttonText}>{t('forumOpenApp', undefined, 'Open WorldGuessr')}</Text>
+              <Text style={styles.buttonText}>{t('forumOpenApp')}</Text>
             </Pressable>
           </>
         )}
@@ -103,10 +103,10 @@ export default function DiscourseSsoScreen() {
         {status === 'error' && (
           <>
             <Text style={[styles.message, styles.errorText]}>
-              {t('forumLoginFailed', undefined, 'Forum login failed — try again from the forum.')}
+              {t('forumLoginFailed')}
             </Text>
             <Pressable style={styles.button} onPress={() => router.replace('/')}>
-              <Text style={styles.buttonText}>{t('backToGame', undefined, 'Back to the game')}</Text>
+              <Text style={styles.buttonText}>{t('backToGame')}</Text>
             </Pressable>
           </>
         )}

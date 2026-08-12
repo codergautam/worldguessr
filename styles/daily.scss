@@ -46,103 +46,15 @@
   50% { filter: brightness(1.25); }
 }
 
-.daily-community-maps-btn {
-  position: fixed;
-  top: 100px;
-  right: 10px;
-  z-index: 999;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 10px;
-  border: 1.4px solid var(--primaryDark);
-  background: var(--gradGreenBtn);
-  background-color: var(--primaryTransparent);
-  color: white;
-  cursor: pointer;
-  font-size: 1.1em;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, filter 0.2s ease;
-  white-space: nowrap;
-  animation: dailyMapsBtnBounce 0.55s ease;
-}
-.daily-community-maps-btn:hover {
-  background-color: var(--primary);
-  filter: brightness(1.12);
-  transform: scale(1.06);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-}
-.daily-community-maps-btn:focus-visible {
-  outline: 2px solid white;
-  outline-offset: 2px;
-}
-.daily-community-maps-btn svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-.daily-community-maps-btn__label {
-  font-family: inherit;
-  line-height: 1;
-}
+/* (Removed) `.daily-community-maps-btn`, its hover/focus rules, its svg and
+   label rules, and the component that rendered it
+   (components/daily/DailyCommunityMapsButton.js). Community Maps is a footer
+   button now — one of .footer_btns' square icon buttons, styled by that row
+   like every other button in it, so none of this markup or CSS has a second
+   home to keep in sync.
 
-@media (max-width: 1280px) {
-  .daily-community-maps-btn {
-    top: 90px;
-    height: 36px;
-    font-size: 1em;
-    padding: 0 14px;
-  }
-}
-
-@media (max-width: 600px) {
-  .daily-community-maps-btn {
-    top: 85px;
-    right: 10px;
-    height: 32px;
-    font-size: 0.95em;
-    padding: 0 12px;
-    gap: 6px;
-  }
-  .daily-community-maps-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-}
-
-/* Logged-out variant: pin directly under the (bigger) Login button so the
-   two top-right CTAs read as a stacked pair. The Login button (.accountBtn:
-   not(.loggedIn)) lives at right:50px/top:50px on desktop, right:20px/top:10px
-   on small screens, and is sized via padding 12px 28px. We match its `right`
-   anchor and offset `top` so this button sits ~8px below it across breakpoints. */
-.daily-community-maps-btn--below-login {
-  top: 110px;
-  right: 50px;
-}
-@media (max-width: 1280px) {
-  .daily-community-maps-btn--below-login {
-    top: 100px;
-    right: 50px;
-  }
-}
-@media (max-width: 600px) {
-  .daily-community-maps-btn--below-login {
-    top: 60px;
-    right: 20px;
-  }
-}
-
-@keyframes dailyMapsBtnBounce {
-  0% { transform: scale(0.85); opacity: 0; }
-  60% { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-}
+   (Removed earlier) `.daily-community-maps-btn--below-login` and
+   `@keyframes dailyMapsBtnBounce`. */
 
 /* In-game HUD — sits below the top navbar (which is 50px tall at z-index 1120)
    and is horizontally centered so it doesn't collide with the WorldGuessr
@@ -1267,7 +1179,7 @@
 }
 
 /* Landing — uses fixed positioning so the flex-row `.home` parent can't squeeze it.
-   Background comes from home.js's street2.webp (fixed, always rendered). */
+   Background comes from home.js's site-background layer (fixed, always rendered). */
 .daily-page-backdrop {
   position: fixed;
   inset: 0;

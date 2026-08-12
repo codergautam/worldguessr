@@ -8,9 +8,9 @@ import PersonalRecordsCard from './PersonalRecordsCard';
 import DailyHistoryBars14 from './DailyHistoryBars14';
 import DailyLeaderboardModal from './DailyLeaderboardModal';
 import { derivePercentile } from '@/shared/daily/percentile';
-import { HIDE_ACCOUNT_UI } from '@/components/utils/accountUi';
+import { HIDE_ACCOUNT_UI, ACCOUNT_SITE_URL, openAccountSite } from '@/components/utils/accountUi';
 
-export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
+export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false, ownNameGlow = null }) {
   const { t: text } = useTranslation();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -62,20 +62,24 @@ export default function DailyLanding({ today, distribution = null, userData = nu
           {userData?.streak > 0 && (
             <DailyStreakBadge streak={userData.streak} size="lg" variant={graceDay ? 'at-risk' : (playedToday ? 'done' : 'pulsing')} />
           )}
-          {!isLoggedIn && !HIDE_ACCOUNT_UI && (
+          {/* CoolMath has no login of its own (onSignIn arrives undefined), but
+              it CAN hand the player over to the main site — ACCOUNT_SITE_URL is
+              set only there, and the button opens worldguessr.com in a new tab
+              instead of running OAuth inside the iframe. */}
+          {!isLoggedIn && (!HIDE_ACCOUNT_UI || ACCOUNT_SITE_URL) && (
             <span style={{ color: 'rgba(255,255,255,0.8)' }}>
               {userData?.streak > 0
                 ? text('dailyLandingLockInStreak', { streak: userData.streak })
                 : text('dailyLandingLoggedOutPrompt')}
-              {onSignIn && (
+              {(onSignIn || ACCOUNT_SITE_URL) && (
                 <>
                   {' '}
                   <button
                     className="g2_green_button3"
                     style={{ padding: '4px 14px', borderRadius: 10, marginLeft: 8 }}
-                    onClick={onSignIn}
+                    onClick={ACCOUNT_SITE_URL ? openAccountSite : onSignIn}
                   >
-                    {text('signIn')}
+                    {text('signIn')}{ACCOUNT_SITE_URL ? ' ↗' : ''}
                   </button>
                 </>
               )}
@@ -191,6 +195,7 @@ export default function DailyLanding({ today, distribution = null, userData = nu
         date={today}
         userData={userData}
         isLoggedIn={isLoggedIn}
+        ownNameGlow={ownNameGlow}
         onSignIn={onSignIn ? () => { setShowLeaderboard(false); onSignIn(); } : undefined}
       />
     </div>

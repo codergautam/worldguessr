@@ -1,8 +1,12 @@
 import { useTranslation } from '@/components/useTranslations'
 import { FaCrown } from 'react-icons/fa6';
-import UsernameWithFlag from './utils/usernameWithFlag';
+import UsernameWithFlag, { GLOW_LIGHT } from './utils/usernameWithFlag';
 import getMyTeam from './utils/getMyTeam';
 
+// NOTE ON GLOWS: every row here is BLACK TEXT ON A WHITE CARD, so both name
+// sites pass GLOW_LIGHT. The dark variant is a neon tuned for the HUD's dark
+// glass and reads as a smudge on white.
+//
 // Between-rounds leaderboard for multiplayer games, mounted from gameUI during
 // getready (game-over screens are owned by RoundOverScreen). Styling here is
 // intentionally untouched from the original leaderboard look (white rows,
@@ -41,27 +45,20 @@ export default function PlayerList({ multiplayerState, fadingOut }) {
 
   const renderRow = (player, rank) => (
     <div key={player.id ?? rank} className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''}`}>
-      <div className="multiplayerLeaderboard__player__username">#{rank + 1} - <UsernameWithFlag
+      {/* wg-glow-room: the row clips (globals.scss); without the relief every
+          glow on this card is sheared into the same 1px rim. */}
+      <div className="multiplayerLeaderboard__player__username wg-glow-room">#{rank + 1} - <UsernameWithFlag
           username={player.username}
           countryCode={player.countryCode}
           isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+          nameGlow={player.nameGlow}
+          glowSurface={GLOW_LIGHT}
         />
       {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
         color: "#28a745",
         fontWeight: "600",
         fontSize: "12px"
       }}> ({text("you")})</span>}
-      {player.supporter && <span style={{
-        marginLeft: "6px",
-        backgroundColor: "#ffc107",
-        color: "#000",
-        padding: "2px 8px",
-        borderRadius: "4px",
-        fontSize: "11px",
-        fontWeight: "700",
-        textTransform: "uppercase"
-      }}>{text("supporter")}</span>}
-
       </div>
       <div className="multiplayerLeaderboard__player__score">{player.score}</div>
     </div>
@@ -95,8 +92,9 @@ export default function PlayerList({ multiplayerState, fadingOut }) {
       <div key={teamKey} className="multiplayerLeaderboard__memberColumn">
         {shown.map((p) => (
           <div key={p.id} className={`multiplayerLeaderboard__member ${p.id === myId ? 'me' : ''}`}>
-            <span className="multiplayerLeaderboard__memberName">
-              <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH} />
+            <span className="multiplayerLeaderboard__memberName wg-glow-room">
+              <UsernameWithFlag username={p.username} countryCode={p.countryCode} isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                nameGlow={p.nameGlow} glowSurface={GLOW_LIGHT} />
             </span>
             <span className="multiplayerLeaderboard__memberScore">{p.score}</span>
           </div>

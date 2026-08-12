@@ -799,15 +799,6 @@
   font-weight: 700;
 }
 
-.supporterBadge {
-  background: #ffa657;
-  color: #0d1117;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
 .bannedBadge {
   background: #f85149;
   color: white;

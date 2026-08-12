@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import CountryFlag from '@/components/utils/countryFlag';
 import { useTranslation } from '@/components/useTranslations';
+import { HoverGlowName } from '@/components/utils/usernameWithFlag';
 
 const MAX_MESSAGES = 100;
 const MAX_LEN = 200;
@@ -113,6 +114,12 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           senderId: data.id,
           name: data.name || '',
           countryCode: data.countryCode || null,
+          // Latched at receipt, exactly like `tint` above: a message keeps the
+          // presentation it arrived with for life. An equip made mid-game shows
+          // up on the sender's NEXT message, which is the honest reading — and
+          // it means a hundred-row log never re-renders because somebody
+          // visited the shop.
+          nameGlow: data.nameGlow || null,
           team: data.team || null,
           teamChat: !!data.teamChat,
           text: data.message,
@@ -152,9 +159,10 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   // Per-ROOM clearing (July 30 ruling, supersedes the July 26 "log survives
   // staging→match" design): a fresh room means a fresh log — staging→match
   // clears, match→back-to-staging clears, so last match's messages never
-  // haunt the next one. Compare DEFINED codes only: the stage-2 queue wipes
-  // gameData (code=undefined) while chat rides the persisting staging room —
-  // that wipe is a state flicker, not a room change, and must not clear.
+  // haunt the next one. `roomCode` is the server's gameId (see home.js).
+  // Compare DEFINED keys only: the stage-2 queue wipes gameData (key
+  // undefined) while chat rides the persisting staging room — that wipe is a
+  // state flicker, not a room change, and must not clear.
   // The allegiance latch resets with the room: new room, new teams.
   const lastRoomRef = useRef(null);
   useEffect(() => {
@@ -305,13 +313,21 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
             <button className="chatCloseBtn" type="button" aria-label={text('close')} onClick={() => setOpen(false)}>✕</button>
           </div>
           <div className="chatMessages" ref={listRef} onScroll={onListScroll}>
-            {visible.map(m => (
+            {visible.map(m => {
+              // REST-UNTIL-HOVER (`wg-glowHover` on the row). Chat is the one
+              // glow surface that animates OVER a live round, so HoverGlowName
+              // keeps a static shadow at rest and cross-fades to a paint-only
+              // animated layer under the pointer. Mouse-out fades back to the
+              // static halo instead of leaving the animation frozen mid-bloom.
+              // Props are cached inside the helper; the halo still clips at
+              // the scroll container's edges, as expected.
+              return (
               // Tint was stamped at RECEIVE time (see the subscribe handler)
               // and never changes afterwards — render-time team comparison is
-              // what let state wipes repaint the whole log.
-              <div key={m.key} className={`chatMsg ${m.tint || ''}`}>
+                // what let state wipes repaint the whole log.
+              <div key={m.key} className={`chatMsg wg-glowHover ${m.tint || ''}`}>
                 <span className="chatMsgName">
-                  {m.name}
+                  <HoverGlowName sku={m.nameGlow}>{m.name}</HoverGlowName>
                   {m.countryCode && <CountryFlag countryCode={m.countryCode} style={{ fontSize: '0.85em', marginLeft: '4px' }} />}
                   {m.teamChat && <span className="chatMsgTeamTag">{text('chatChannelTeam')}</span>}
                 </span>
@@ -327,7 +343,8 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
           <div className="chatTypingLine">{typingLine}</div>
           <div className="chatInputRow">

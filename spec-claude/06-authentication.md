@@ -66,7 +66,6 @@ Both methods result in a `secret` token (UUID) stored client-side for session pe
     email: "user@email.com",
     staff: false,
     canMakeClues: false,
-    supporter: false,
     accountId: "mongodb-id",
     countryCode: "US",
     banned: false,

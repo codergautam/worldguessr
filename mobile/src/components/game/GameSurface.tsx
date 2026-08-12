@@ -32,6 +32,7 @@ import ReloadButton from '../ui/ReloadButton';
 import { haptics } from '../../services/haptics';
 import { playSfx, preloadSfx, stopSfx } from '../../services/sound';
 import { calcPoints } from '../../shared/game/calcPoints';
+import { useAuthStore } from '../../store/authStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
@@ -262,6 +263,7 @@ function GameSurface(
 ) {
   const insets = useSafeAreaInsets();
   const streetViewRef = useRef<StreetViewHandle>(null);
+  const myMarkerSkin = useAuthStore((s) => s.user?.cosmetics?.equipped?.markerSkin ?? null);
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const { width, height } = useWindowDimensions();
@@ -860,6 +862,7 @@ function GameSurface(
                 route="map"
                 mapType={mapType}
                 lang={language}
+                myMarkerSkin={myMarkerSkin}
                 location={location}
                 guessPosition={isCountryVariant ? null : computedGuessPosition}
                 onGuessPositionChange={

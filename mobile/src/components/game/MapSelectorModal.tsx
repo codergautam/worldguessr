@@ -37,14 +37,14 @@ export type SvMode = 'moving' | 'noMove' | 'nmpz';
 /** Label for a Street View mode. NMPZ is a proper noun everywhere, untranslated. */
 const svModeLabel = (mode: SvMode) =>
   mode === 'nmpz' ? 'NMPZ'
-    : mode === 'noMove' ? t('noMove', undefined, 'No moving')
-      : t('moving', undefined, 'Moving');
+    : mode === 'noMove' ? t('noMove')
+      : t('moving');
 
 /** Label for a comms mode — shared by the dropdown trigger and its menu rows. */
 const commsLabel = (mode?: 'chat' | 'emotes' | 'none') =>
-  mode === 'emotes' ? t('emotes', undefined, 'Emotes')
-    : mode === 'none' ? t('commsOff', undefined, 'Off')
-      : t('chat', undefined, 'Chat');
+  mode === 'emotes' ? t('emotes')
+    : mode === 'none' ? t('commsOff')
+      : t('chat');
 
 /**
  * Inline dropdown option row: label left, compact current-value trigger right —
@@ -529,7 +529,7 @@ export default function MapSelectorModal({
         ]}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>{t('gameOptions', undefined, 'Game Options')}</Text>
+              <Text style={styles.headerTitle}>{t('gameOptions')}</Text>
               <Pressable
                 style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
                 onPress={() => animateClose()}
@@ -653,12 +653,12 @@ export default function MapSelectorModal({
                     the web dropdown offers (mapView.js). */}
                 <OptionDropdown
                   icon="footsteps-outline"
-                  label={t('mode', undefined, 'Mode')}
+                  label={t('mode')}
                   value={svMode}
                   options={[
                     { key: 'moving', label: svModeLabel('moving') },
                     { key: 'noMove', label: svModeLabel('noMove') },
-                    { key: 'nmpz', label: 'NMPZ', sub: t('nmpzExpansion', undefined, '(No Move, Pan, Zoom)') },
+                    { key: 'nmpz', label: 'NMPZ', sub: t('nmpzExpansion') },
                   ] as const}
                   open={svModeOpen}
                   onToggle={() => { setSvModeOpen((o) => !o); setCommsOpen(false); }}
@@ -709,7 +709,7 @@ export default function MapSelectorModal({
                     <View style={styles.divider} />
                     <OptionDropdown
                       icon="chatbubble-ellipses-outline"
-                      label={t('communication', undefined, 'Communication')}
+                      label={t('communication')}
                       value={comms ?? 'chat'}
                       options={commsChoices.map((mode) => ({ key: mode, label: commsLabel(mode) }))}
                       open={commsOpen}
@@ -728,7 +728,7 @@ export default function MapSelectorModal({
                     <View style={styles.optionRow}>
                       <View style={styles.optionLabel}>
                         <Ionicons name="person-add-outline" size={20} color="#fff" />
-                        <Text style={styles.optionText}>{t('allowGuests', undefined, 'Allow guests')}</Text>
+                        <Text style={styles.optionText}>{t('allowGuests')}</Text>
                       </View>
                       <Switch
                         value={allowGuests !== false}
@@ -745,7 +745,7 @@ export default function MapSelectorModal({
               {/* ── Map Selection ── */}
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionAccent} />
-                <Text style={styles.sectionHeaderText}>{t('selectMap', undefined, 'Select Map')}</Text>
+                <Text style={styles.sectionHeaderText}>{t('selectMap')}</Text>
               </View>
 
               {/* Search — ABOVE the mode tiles. Mode tiles (World / Country
@@ -826,7 +826,7 @@ export default function MapSelectorModal({
                 <View style={{ minHeight: SHEET_HEIGHT }}>
                   <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
+                    <Text style={styles.loadingText}>{t('loadingMaps')}</Text>
                   </View>
                 </View>
               ) : isSearching ? (
@@ -847,7 +847,7 @@ export default function MapSelectorModal({
                       <>
                         {countryResults.length > 0 && (
                           <MapSection
-                            title={t('countries', undefined, 'Countries')}
+                            title={t('countries')}
                             maps={countryResults}
                             isCountry
                             onMapPress={handleMapPress}
@@ -872,7 +872,7 @@ export default function MapSelectorModal({
                   {!searchLoading && searchResults.length === 0 && (
                     <View style={styles.centered}>
                       <Ionicons name="search" size={32} color="rgba(255,255,255,0.3)" />
-                      <Text style={styles.loadingText}>{t('noMapsFound', undefined, 'No maps found')}</Text>
+                      <Text style={styles.loadingText}>{t('noMapsFound')}</Text>
                     </View>
                   )}
                   {searchLoading && (
@@ -925,7 +925,7 @@ export default function MapSelectorModal({
               slug={(selectedMap || selectedMapRef.current)!.slug}
               onBack={hideDetail}
               onPlay={handleDetailPlay}
-              playLabel={t('selectMap', undefined, 'Select Map')}
+              playLabel={t('selectMap')}
               initialHearts={(selectedMap || selectedMapRef.current)!.hearts}
               initialHearted={(selectedMap || selectedMapRef.current)!.hearted}
             />

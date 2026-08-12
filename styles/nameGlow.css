@@ -1,0 +1,862 @@
+/* ── Shop name glows (animated skus only) ───────────────────────────────────
+   The STATIC halo every glow renders is an inline text-shadow emitted by
+   components/utils/usernameWithFlag.js (nameGlowShadow), NOT a class: the same
+   recipe has to work inside Leaflet tooltips in the mobile embed, and
+   globals.scss never reaches that bundle (embed/build.mjs bundles JS only).
+   The classes below exist purely to put the animated skus in motion on top of
+   that inline stack.
+
+   Keyframed declarations sit ABOVE normal author declarations in the cascade
+   (inline style included), so each keyframe's text-shadow replaces the inline
+   one for as long as the animation runs. Nothing here touches `color` — the
+   name's fill is RANK INFORMATION (white on dark HUDs, league-coloured on rank
+   surfaces) and a purchasable fill could impersonate a league. Every bit of
+   character therefore comes out of the halo: colour, blur, opacity and — for
+   the comet — the x/y OFFSETS of individual shadow layers.
+
+   THE RULE THAT COST TWO SKUS: AMPLITUDE AND TRAVEL READ, BLINKING DOES NOT.
+   A "Neon Flicker" (a failing tube) and an "Electric Arc" (a crackling
+   discharge) shipped here and were deleted. Both were STROBES: a mostly-still
+   halo interrupted by hard on/off hits. Up close they were fine; from the
+   distance a shop card is actually looked at they read as a rendering glitch or
+   as nothing at all, because a 60ms blackout is below what the eye tracks as
+   MOTION. What the eye does track is a radius that travels a long way, smoothly,
+   without stopping. Everything in this file now moves that way. Do not add a
+   sku whose signature is "off, then on".
+
+   THE RULE THAT COST THREE MORE: EVERY SKU IS A DIFFERENT IDEA, NOT A DIFFERENT
+   AMOUNT. A "Sonar Ping" (1,200) and a "Shockwave" (2,200) replaced the two
+   strobes, and both were deleted in turn because they were the same motion as
+   each other — an expanding ring, once as a linear flight and once as a double
+   thump. "Spectrum Nova" (3,500) went the same way: a hue ladder plus a
+   breathing radius, i.e. Prism with two of its numbers turned up (180
+   degrees of core-to-bloom offset instead of 120, four blooms a lap instead of
+   three). Standing next to the 2,500 item it did not look like a different
+   thing, it looked like the same thing with a bigger price, and two skus a
+   shopper cannot tell apart do not make a ladder — they make the dearer one look
+   like a con. Prism inherited the job and was sped up and hardened to do
+   it properly, which is the honest version of what Nova was there for.
+
+   What is left is four unrelated motions: a breath, a fire, a spectrum sweep and
+   an orbit. Before adding a fifth, say out loud what it does that none of those
+   four already does.
+
+   SEVEN RULES EVERY SKU IN HERE FOLLOWS. Break one and it is a live bug on the
+   duel HUD, not just in the shop:
+
+   1. EVERY DARK KEYFRAME RE-STATES `0 2px 4px rgba(0,0,0,0.85)`. A keyframed
+      text-shadow REPLACES the inline stack outright, and losing that layer
+      leaves white HUD names soft over a bright map backdrop for the length of
+      the animation (i.e. always). It is the exact trailing layer
+      nameGlowShadow() emits for the dark surface, so the animation starts from
+      whatever the static halo was already painting.
+
+   2. LIGHT KEYFRAMES DELIBERATELY DO NOT CARRY IT. nameGlowShadow(sku,'light')
+      is `0 0 2px c, 0 0 3.5px c8C, 0 0 6px c2E, 0 0 9px c12` and ends there on
+      purpose — the light surface draws DARK text, where a black drop shadow is
+      dirt, not legibility. Adding one here would be a regression, not belt and
+      braces.
+
+   2b. THE WHOLE LIGHT TIER IS QUIETER THAN THE DARK ONE, AND BY MORE THAN YOU
+      WOULD GUESS — IT HAS NOW BEEN PULLED IN TWICE OFF THE SAME REPORT. Round
+      one took ~30% of the reach and half the outer alpha ("the glows are too
+      strong on white, like on pins"); round two took another ~25-30% of the
+      reach off the WIDE layers, because the pin tooltips were still the
+      surface where it showed. Cumulatively every light variant is now roughly
+      HALF the reach it shipped with. A dark HUD name floats on a big sheet of
+      glass and a halo has room to bloom into it; the light surfaces are SMALL
+      and WHITE — a Leaflet guess-pin tooltip is about 90x22px of chrome — so a
+      halo tuned to the dark side's amplitude does not read as a halo there at
+      all, it reads as the label leaking. Judge a light keyframe inside a pin
+      tooltip, never on a shop card, and never against its own dark twin.
+
+      AND IF IT IS EVER REPORTED LOUD AGAIN, TAKE IT OUT OF THE OUTERMOST
+      RADIUS BEFORE THE ALPHA. Dropping alpha on a wide layer leaves a wash of
+      the same SIZE and only makes it fainter, and a faint wash as big as the
+      tooltip still reads as leakage. Radius first, then alpha to match.
+
+   3. LAYER COUNT IS CONSTANT INSIDE ONE @keyframes BLOCK. Shadow lists only
+      interpolate componentwise when they are the same length; a keyframe that
+      adds or drops a layer makes the whole transition a discrete swap. Most
+      skus run 3 glow layers + the black one on dark and 3 on light, which for
+      the comet are a head, a trail and a halo and for everything else are the
+      opaque core, the carrier and the wide falloff. THE FLAME IS THE EXCEPTION
+      AND IT IS DELIBERATE: 7 on dark, 5 on light, because its three (dark) /
+      two (light) SPARK layers have to exist in every stop of the loop even
+      while they are invisible. A spark is switched off by taking its alpha to
+      00, never by dropping the layer — dropping it is exactly the discrete
+      swap this rule bans, and it would turn a rising ember into a hard jump.
+      7 is the ceiling on dark. Do not go past it without deleting something.
+
+   3b. EVERY LIGHT KEYFRAME OPENS WITH A FULLY OPAQUE CORE, exactly as the dark
+      ones and the inline stack do. The light variants used to start at 99/A6/BF
+      alpha, and a translucent innermost ring on a WHITE card resolves toward
+      the card: every hue turns into the same grey rim and the shopper cannot
+      tell one sku from another. Opacity at the glyph edge is what makes the
+      hue survive; radius and alpha further out are what make it a halo. If a
+      light keyframe here ever needs to look softer, take it out of the WIDE
+      layers, never out of the core.
+
+   4. A SKU THAT USES ITS OWN COLOURS NEEDS A LIGHT VARIANT.
+      --wg-glow / --wg-glow-soft arrive from nameGlowProps already carrying the
+      right dark/light value, so anything driven purely by those two is
+      surface-correct for free. The moment a sku hard-codes hexes — the prism's
+      spectrum, the flame's drift — it needs its own `.wg-nameglow--light` rule,
+      or it is invisible inside a white Leaflet tooltip. A var-driven sku can
+      STILL need one: the deleted pulse was surface-correct for free and had a
+      light variant anyway, because its dark amplitude (26px) read as a smudge
+      on white. Amplitude is a surface concern too, not just hue.
+
+   5. RADII ARE BOUNDED AT 32px, AND THE PRISM NOW SPENDS EXACTLY THAT. These run
+      on in-game HUD names during live duels, not only in the shop. text-shadow
+      is paint-only (no layout, no compositing churn) but the repainted rectangle
+      grows with the widest blur, so a name box grows by at most 64px in each
+      axis — on a ~120x24px name that is a 184x88px repaint, an order of
+      magnitude under anything the HUD does per frame already. The bound is a
+      CONTRACT with every layer that clips these names (the shop stage's 34px
+      padding, the HUD's own boxes): 32 is the ceiling, not a suggestion, and the
+      prism's peak sitting ON it means the next sku that wants more impact has to
+      take it out of COLOUR and CONTRAST instead — alpha climb, hue offset,
+      trough depth. There is no headroom left in reach.
+
+   5b. THE COST IS IN THE BLUR, NOT IN THE LAYER COUNT — BUT A TIGHT LAYER IS
+      CHEAP, NOT FREE, AND THE DIFFERENCE IS WHAT NEARLY SANK THE SPARKS. Each
+      shadow layer blurs a copy of the text over a box inflated by roughly 1.5x
+      its blur radius on every side, so on a ~120x24px HUD name a 19px layer
+      covers ~14,300px and a 2px layer still covers ~3,800px. One wide layer buys
+      you about three tight ones — a real budget, not a blank cheque. The first
+      draft of the flame's sparks was three layers lit most of the loop and it
+      measured 13% MORE expensive per frame than the fourteen-stop version it
+      replaced, which is how the design ended up where it is: one lit keyframe
+      per flight, so each spark layer sits at alpha 00 for three stops in five.
+      A fully transparent source-over draw is skipped outright, so those stops
+      cost nothing at all. THE RULE FOR THE NEXT SKU: budget by what is LIT at
+      once, not by how many layers are declared; take the room out of the widest
+      layer first; and sample the cost CONTINUOUSLY around the loop, because a
+      layer fading between two stops is billed for the whole segment and a
+      stop-by-stop tally will not see it.
+
+   6. AN INVISIBLE LAYER MAY TELEPORT; A VISIBLE ONE MAY NOT. The flame is the
+      sku that needs this: a spark that has burnt out at the top of its travel
+      has to get back down to the bottom to be born again, and it does that in
+      one keyframe segment where BOTH ends sit at alpha 00. That is legal
+      precisely because a fully transparent shadow paints nothing at any radius
+      or offset. Move a layer while any part of that segment is visible and you
+      get a bright point sliding backwards down the name.
+
+   7. TWO HUES AT ONCE GO CORE-AND-BLOOM, NEVER TWO RINGS. The 2px core is what
+      pins a hue against the letterform (see nameGlowShadow); the outward layers
+      are where a second colour has room to be seen as a colour rather than as a
+      fringe. The prism is the only sku that does this now — it holds its two
+      hues a FIXED 120 degrees apart and rotates the pair, so the halo is
+      two-tone at every instant of the loop instead of cross-fading through grey
+      at the handover. The static gradient tier that used to share this rule
+      (Sunset, Venom, Nebula, Magma) has been deleted, along with the two-colour
+      shadow path in nameGlowShadow that painted it.
+
+   prefers-reduced-motion kills every one of them at the bottom of this file.
+   The static inline halo is already painted underneath, so that is a clean
+   fallback rather than "the glow disappeared".
+
+   NO TWO SKUS SHARE A DURATION: 2.6 / 4.4 / 4.6 / 4.8s, and no ratio between any
+   two of them is a whole number — 4.4/2.6 = 1.69, 4.6/2.6 = 1.77, 4.8/2.6 =
+   1.85, 4.6/4.4 = 1.05, 4.8/4.4 = 1.09, 4.8/4.6 = 1.04. Two animated names side
+   by side on a duel HUD drift apart instead of marching in step. This is the
+   check to re-run when a period changes, and it is why the prism landed on 4.4
+   rather than the 4.6 or 4.8 that were also inside its target window.
+
+   Blocks below are in PRICE ORDER, the same order the storefront shelves them.
+   ────────────────────────────────────────────────────────────────────────── */
+
+
+/* ── THE TWO CARRIERS, AND THE RULE THEY BOTH SERVE ────────────────────────
+
+   A GLOW IS A `text-shadow` AND NOTHING ELSE. Equipping one must not move,
+   shrink, re-wrap or re-truncate the name by a single pixel — same font, same
+   box, same ellipsis point, plus a halo. That is not a nicety; it is the only
+   way a cosmetic can be sold without also selling a layout change.
+
+   IT WAS BROKEN, AND THIS IS HOW. The clip-relief class below used to be
+   emitted onto EVERY glowing node — including the many where the glow's span is
+   the only reason a box exists at all — and it carried `min-width: 0`, while
+   the wrapper it landed on carried a whole truncation recipe
+   (`display: inline-block; max-width: 100%; overflow: hidden; text-overflow:
+   ellipsis; white-space: nowrap`). Every one of those is a LAYOUT declaration:
+   `min-width: 0` lets a flex item shrink past its min-content floor, which bare
+   text never does; `inline-block` + `nowrap` turns "wraps to a second line"
+   into "ellipsises"; and a bare text node promoted to a real element stops
+   sharing an anonymous flex item with the text beside it, so a row's `gap`
+   starts firing where it never did. Net effect, reported exactly as it looked:
+   "buying a glow makes my name a bit narrower."
+
+   SO THE TWO JOBS ARE NOW ON TWO DIFFERENT BOXES.
+
+   .wg-nameglow is the glow. It generates NO BOX — `display: contents` — so it
+   cannot participate in layout even in principle. `text-shadow` is an INHERITED
+   property, so the halo (static or keyframed) reaches the text through the
+   cascade while the text itself lays out as a direct child of whatever the
+   parent was, byte for byte as it did before the purchase. Animations run on
+   boxless elements; only `display: none` cancels them.
+
+   .wg-name-clip is the truncation, and it belongs to the SURFACE, not to the
+   purchase — so it is applied whether or not a glow is equipped, which is what
+   makes it invisible in a diff of "before I bought" against "after". It is the
+   one recipe for "a username that must ellipsise", replacing the identical
+   four-property inline object that had been copy-pasted into four files.
+
+   .wg-glow-room is that same relief WITHOUT the truncation, for the handful of
+   name boxes that already declare their own `overflow: hidden` in a stylesheet
+   (.emoteFloatName, .shopPrev__name).
+
+   WHY EITHER NEEDS RELIEF AT ALL: `overflow: hidden` is how an ellipsis is
+   done, and it clips the element's own text-shadow flush with the letterforms.
+   Unrelieved, every sku collapsed into the same 1px rim and "I bought a glow
+   and my name looks exactly the same" was a correct bug report.
+
+   HOW THE RELIEF WORKS: `overflow` clips at the PADDING box, not the content
+   box. So padding buys paint area, and an equal negative margin hands the
+   layout space straight back — the element's MARGIN box, which is what the
+   parent lays out against, is byte-for-byte the size it was. Same trick
+   mobile/src/components/multiplayer/PlayerList.tsx has used since the glows
+   shipped.
+
+   34px = the 32px painted-radius ceiling rule 5 contracts to, plus the comet's
+   5px of orbital travel, rounded down to the number the shop stage already pads
+   by. Do not raise it without raising rule 5 first.
+
+   THE FLEX MATH COMES OUT EXACTLY, which is why the ellipsis still works. For a
+   flex item: outer = border - 68. Unconstrained, border = content + 68, so outer
+   = content and nothing moves. Squeezed, the item shrinks to border box B, its
+   content box is B - 68 and its outer box is also B - 68 — identical, so
+   `text-overflow: ellipsis` triggers at precisely the width the row can spare.
+   `min-width: 0` is what lets it shrink at all; without it the padding box
+   becomes the min-content floor and the row blows out by 68px. It lives on
+   .wg-name-clip ONLY, where the box is unconditional — never on a box that
+   exists because something was bought.
+
+   POINTER-EVENTS: NONE IS LOAD-BEARING, NOT TIDINESS. Hit-testing uses the
+   PADDING box, which we just grew by 34px on every side — and several of these
+   spans sit inside a profile <a> on the duel HUD, which is fixed over the Street
+   View canvas. Left alone this would be a 68px dead zone around the opponent's
+   name, eating pans that used to reach the panorama. Switching the span off
+   hands hits to the ANCESTOR, whose own box is the span's margin box — i.e. the
+   original text bounds — so the link keeps exactly the click target it had. The
+   only thing given up is selecting the username with a mouse drag.
+
+   It stays on under prefers-reduced-motion: the static halo is what a
+   reduced-motion user is left with, and it needs the room more, not less.
+
+   box-sizing: content-box FOR THE SAME REASON .shopPrev__name DECLARES IT. The
+   app has a border-box reset, and under border-box a `max-width: 120px` on a box
+   that suddenly has 68px of padding leaves 52px of text — so an emote bubble's
+   name would ellipsise at less than half the width it used to. Content-box
+   keeps every declared width/max-width meaning what its author meant, and makes
+   the relief purely additive. */
+.wg-nameglow {
+    display: contents;
+}
+
+.wg-glow-room,
+.wg-name-clip {
+    box-sizing: content-box;
+    padding: 34px;
+    margin: -34px;
+    pointer-events: none;
+}
+
+.wg-name-clip {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* ===========================================================================
+ *  BLAZE — glow_ember_flame, 2,500
+ *  Motion signature: a warm halo breathing unevenly, THROWING SPARKS. Small
+ *  bright points appear at varying offsets around the name, rise, curl sideways
+ *  and burn out before they reach the top of their travel. Nothing else in the
+ *  shop has a directional bias; that upward bias is the entire difference
+ *  between "a fire" and "a name with twinkles on it".
+ *
+ *  WHAT IT USED TO BE, AND WHY THAT WAS NOT ENOUGH. It was fourteen stops of
+ *  radius jitter and colour drift — a fire-COLOURED glow that wobbled. Wobble is
+ *  a texture, not an event, and a halo with no events in it stops being looked
+ *  at after two seconds. The base survives unchanged in character (the irregular
+ *  breath is the bed the sparks come off); what is new is that things now
+ *  HAPPEN in it, six times a lap, at six different places.
+ *
+ *  HOW A SPARK IS BUILT. Same trick as the comet, different physics: a
+ *  text-shadow layer carries its own x/y offset and those offsets interpolate,
+ *  so a tight 2px layer walked from (+3, +3) to (+5, -4) to (+4, -10) IS an
+ *  ember leaving the name and rising off the top of it. Positive y is DOWN in a
+ *  text-shadow, so every spark's y runs from a small positive number to a large
+ *  negative one. Five states, of which exactly ONE is visible:
+ *
+ *    LOW    2.5px, alpha 00, at the launch point, below the letterform
+ *    PEAK   2px,   alpha FF, the lit stop: tightest blur, hottest colour
+ *    HIGH   3px,   alpha 00, burnt out at the top of travel
+ *    RESET  2.5px, alpha 00, teleported to the next launch point
+ *    HOLD   2.5px, alpha 00, waiting there
+ *
+ *  ONE LIT KEYFRAME IS A WHOLE SPARK, and that is the trick that made three of
+ *  them affordable. The layer is visible across the two segments either side of
+ *  PEAK: it fades UP out of nothing as it rises, and fades back to nothing as it
+ *  keeps rising. Appear, climb, gone — which is what an ember does, and which is
+ *  also why the spark cannot look like a stuck pixel. HIGH -> RESET is the
+ *  teleport, alpha 00 at both ends so there is nothing on screen to be seen
+ *  sliding backwards (rule 6). The layer NEVER leaves the list; dropping it
+ *  would break interpolation for every other layer in the stop.
+ *
+ *  THEY DECELERATE, AND THEY DO NOT TRAVEL IN PARALLEL. All six flights are
+ *  slower in the second half than the first — 21.7 -> 11.9 px/s, 14.5 -> 9.3,
+ *  16.9 -> 10.0, 14.8 -> 8.5, 17.7 -> 10.9, 12.5 -> 9.3 — because a real ember
+ *  loses to drag, and because a constant-velocity point reads as a UI element
+ *  sliding rather than as something thrown. That fell straight out of the uneven
+ *  stop grid rather than being dialled in. The horizontal drift differs per
+ *  flight and differs in SHAPE per flight: three bow outward then curl back in,
+ *  three run monotonically away from the name, and the two flights of any one
+ *  layer go to opposite sides at different distances (x=3..5 against x=-3.5..-7).
+ *  Parallel lines are what makes a particle effect look cheap.
+ *
+ *  THE STOP GRID IS THE TIMING, so it is uneven on purpose: 0 / 7 / 18 / 27 /
+ *  40 / 48 / 60 / 67 / 78 / 87 / 100, i.e. segments of 7, 11, 9, 13, 8, 12, 7,
+ *  11, 9, 13 percent. ELEVEN STOPS, DOWN FROM FOURTEEN. Each layer's cycle is
+ *  five stops and so fires twice a lap, but the two halves of the loop are not
+ *  the same LENGTHS (7/11/9/13 against 12/7/11/9), so a layer's second flight is
+ *  a different DURATION from its first even though it spans the same number of
+ *  stops — and its side, drift shape, apex height and peak hue all differ too.
+ *  Nothing lands on a beat. The three layers are staggered two stops apart,
+ *  which lights a new spark every 0.6-1.1s and leaves one or two in the air at
+ *  every instant of the loop: never three, and never none.
+ *
+ *  THE BASE FLARES WHERE THE SPARKS ARE THINNEST. 27% and 78% are where the halo
+ *  swells widest (19px and 17px) and they are also single-spark moments. That is
+ *  a paint-budget decision before it is an aesthetic one — the most expensive
+ *  base frame is deliberately the cheapest spark frame, which is how the loop's
+ *  WORST frame ends up cheaper than the old loop's worst frame — but it is also
+ *  how a fire behaves: it gathers, then it throws.
+ *
+ *  IT COSTS LESS TO PAINT THAN THE VERSION IT REPLACES, and this was measured
+ *  rather than asserted. Modelling every layer as a blurred copy of the text over
+ *  a box inflated 1.5x its blur per side, sampled continuously around the loop
+ *  (not just at the stops, so a mid-segment spike cannot hide) on a 120x24px HUD
+ *  name: WORST frame 37,458 -> 35,847 units (-4.3%), MEAN frame 30,902 -> 30,500
+ *  (-1.3%). The budget came from the base, exactly as rule 5b requires: the
+ *  widest layer pulled IN from 24px to 19px and the carrier from 13px to 11px.
+ *  Every spark layer is 2px, 2.5px or 3px of blur — all UNDER the 4px the black
+ *  legibility shadow has always cost — and the furthest any spark reaches is
+ *  10px + 3px = 13px, INSIDE the 19px box the base halo already invalidates, so
+ *  the repaint rectangle does not grow at all. It shrank, by 5px in every
+ *  direction. Fewer stops (11 vs 14) is three fewer interpolation segments a lap
+ *  on top of that.
+ *
+ *  COLOUR: THE SPARKS TOOK THE WHITE-HOT AND THE BASE GAVE IT UP. Spark PEAKs
+ *  are #FFF3C4 / #FFF7D4 / #FFEFB0 (88%, 92% and 85% lightness) and they are
+ *  allowed to be that pale for exactly the reason the comet's head is allowed to
+ *  be #EEF0FF: they are 2px layers, and at 2px a pale colour is a POINT OF LIGHT
+ *  rather than a wash. Those three hexes appear at no other radius. The base's
+ *  own hottest core came DOWN, from #FFEFB0 to #FFE0A0, so the sparks are
+ *  unambiguously the hottest thing in the halo — which is the whole read.
+ *  Everything at 6px and wider stays saturated orange in the 50-55% band; a pale
+ *  colour out there is the pastel-blooms-to-white bug this palette fixed once.
+ *  The LOW / HIGH / RESET stops carry the same hex as their flight's PEAK with
+ *  an alpha of 00, so a browser interpolating without premultiplying still fades
+ *  through the spark's own colour instead of through grey.
+ *
+ *  THE 0%/100% CORE IS THE SKU'S CATALOGUE COLOUR, NOT AN INDEPENDENT CHOICE.
+ *  It moved amber -> true orange (#FFA31A -> #FF7D1A dark, #DC7309 -> #DC6409
+ *  light) when the palette was re-spread across nine glows: Blaze and
+ *  Gold were the tightest pair on BOTH columns and orange had further to give
+ *  than yellow did. That anchor is UNTOUCHED by the spark rework — the fallback
+ *  a mobile client and a reduced-motion user get is the same hex it was. If
+ *  glowDark/glowLight change again in shared/shop/catalog.js, these two stops
+ *  change with them, or the animation starts on a colour the static halo
+ *  underneath it never painted.
+ *
+ *  LAYER ORDER IS core, carrier, spark A, spark B, spark C, wide falloff,
+ *  black. The first shadow in a list paints on TOP, so this puts the sparks
+ *  above the wide falloff — a 30-48% red wash over a white-hot point is what
+ *  turns a spark into a smudge — while still opening the stop with the opaque
+ *  core the way every other sku in this file does.
+ * ======================================================================== */
+.wg-nameglow--flame {
+    animation: wgNameGlowFlame 4.6s linear infinite;
+}
+
+/* SEVEN LAYERS, in this order at every stop:
+     1  core          0-offset, 2-3px,  opaque, the sku's hue pinned to the glyph
+     2  carrier       0-offset, 6-11px, orange at C4-F0
+     3  spark A       offset, 2/2.5/3px    lit at 7%  and 60%
+     4  spark B       offset, 2/2.5/3px    lit at 27% and 78%
+     5  spark C       offset, 2/2.5/3px    lit at 0%/100% and 48%
+     6  wide falloff  0-offset, 10-19px, deep orange at 52-7A
+     7  black legibility shadow, restated in every single stop (rule 1)
+
+   READ A SPARK COLUMN DOWNWARDS AND IT IS A FLIGHT. Five stops per cycle, two
+   cycles per lap, six flights in the loop:
+     LOW    alpha 00, sitting at the launch point below the name
+     PEAK   alpha FF, the ONE lit stop — tightest blur, hottest colour
+     HIGH   alpha 00, burnt out at the top of its travel
+     RESET  alpha 00, teleported to the next launch point (legal: rule 6)
+     HOLD   alpha 00, waiting there
+   The spark is therefore VISIBLE across exactly two segments: it fades up out of
+   nothing while it rises, and fades back to nothing while it keeps rising. That
+   is both the physics and the paint budget — the three RESET/HOLD/LOW stops are
+   a genuinely transparent run, and a fully transparent source-over draw is
+   skipped by the compositor, so those layers cost nothing for 3 of every 5 stops.
+   Billed spark layers per segment: 2,1,1,1,1,2,1,1,1,1. Never three, never zero:
+   the six flights overlap just enough that something is always in the air. */
+@keyframes wgNameGlowFlame {
+    /* C mid-flight across the loop seam, out at x=-8; A at its launch point */
+    0%      { text-shadow: 0 0 2px #FF7D1A, 0 0 8px #FF6A00CC, 3px 3px 2.5px #FFF3C400, -2px 3px 2.5px #FFF3C400, -8px -5px 2px #FFF7D4, 0 0 12px #FF3D0070, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    7%      { text-shadow: 0 0 3px #FFB347, 0 0 7px #FF7A1AD9, 5px -4px 2px #FFF3C4, -2px 3px 2.5px #FFF3C400, -6px -8px 3px #FFF7D400, 0 0 13px #FF470078, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    18%     { text-shadow: 0 0 2px #FF8A14, 0 0 10px #FF5E00C4, 4px -10px 3px #FFF3C400, -2px 3px 2.5px #FFF3C400, 1.5px 3px 2.5px #FFF3C400, 0 0 10px #FF3D0052, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    /* THE FLARE. Widest the halo ever gets, and only one spark is being billed */
+    27%     { text-shadow: 0 0 3px #FFE0A0, 0 0 11px #FFA31AF0, -3.5px 2px 2.5px #FFF7D400, -4.5px -4px 2px #FFF3C4, 1.5px 3px 2.5px #FFF3C400, 0 0 19px #FF52007A, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    40%     { text-shadow: 0 0 2px #FF9421, 0 0 6px #FF6A00CC, -3.5px 2px 2.5px #FFF7D400, -3.5px -10px 3px #FFF3C400, 1.5px 3px 2.5px #FFF3C400, 0 0 11px #FF3D006B, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    48%     { text-shadow: 0 0 3px #FFC257, 0 0 9px #FF8A1AD9, -3.5px 2px 2.5px #FFF7D400, 5px 2px 2.5px #FFEFB000, 3px -3.5px 2px #FFF3C4, 0 0 12px #FF470073, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    60%     { text-shadow: 0 0 2px #FF8F1E, 0 0 7px #FF5E00C4, -5.5px -6px 2px #FFF7D4, 5px 2px 2.5px #FFEFB000, 4.5px -9.5px 3px #FFF3C400, 0 0 15px #FF3D0057, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    67%     { text-shadow: 0 0 2px #FFA331, 0 0 8px #FF7A1AD9, -7px -9px 3px #FFF7D400, 5px 2px 2.5px #FFEFB000, -6.5px 2.5px 2.5px #FFF7D400, 0 0 10px #FF47005E, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    /* the lesser flare, and the furthest a spark travels sideways: B out at x=7 */
+    78%     { text-shadow: 0 0 3px #FFD98A, 0 0 10px #FFA31AE6, 3px 3px 2.5px #FFF3C400, 7px -5.5px 2px #FFEFB0, -6.5px 2.5px 2.5px #FFF7D400, 0 0 17px #FF5A0073, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    87%     { text-shadow: 0 0 2px #FF9E28, 0 0 6px #FF6A00CC, 3px 3px 2.5px #FFF3C400, 8px -9px 3px #FFEFB000, -6.5px 2.5px 2.5px #FFF7D400, 0 0 11px #FF3D0066, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    /* byte-identical to 0%: every spark is at the same point of the same flight */
+    100%    { text-shadow: 0 0 2px #FF7D1A, 0 0 8px #FF6A00CC, 3px 3px 2.5px #FFF3C400, -2px 3px 2.5px #FFF3C400, -8px -5px 2px #FFF7D4, 0 0 12px #FF3D0070, 0 2px 4px rgba(0, 0, 0, 0.85); }
+}
+
+/* On white the drift runs through MID-BAND orange and gold rather than through
+   the deep end of those hues. It used to be #B45309 / #9A3412 / #A16207 at
+   99-CC alpha: three browns a few degrees apart, at partial opacity, over a
+   white card — which is a fire you can only find by being told it is there.
+   Restless spacing, an opaque core so the hue is pinned to the letterform, and
+   a red-orange wide layer so the drift has somewhere to go.
+
+   THE SPARKS COME ACROSS, RESTRAINED, AND THE RESTRAINT IS FOUR SEPARATE
+   THINGS.
+
+   TWO layers instead of three, phased so that AT MOST ONE is ever in the air. A
+   white card has no black to hide a busy frame in, and two hot points on a
+   tooltip is confetti.
+
+   THEY FIRE AT DIFFERENT RATES. Spark P runs a four-stop cycle and so flies
+   twice a lap; spark Q flies ONCE, dropped into the gap between P's two
+   flights. Three flights a lap at 0-23%, 23-50% and 50-75%, and then a quarter
+   of the loop — 1.15s — with no spark at all, just the halo breathing. That
+   quiet beat is deliberate: it is what stops three evenly spaced events from
+   turning into a metronome, and it is a quarter of the loop this side does not
+   have to pay for.
+
+   THEY ARE DARKER THAN THE BASE, NOT BRIGHTER. #C2410C / #B23A0B / #A8380A sit
+   at 35-40% lightness against the base's 45%, because on white a spark reads by
+   being DENSER than what surrounds it, and a pale point on a pale card is
+   nothing at all. That inverts the dark variant, where the sparks are the
+   hottest thing in the stack. Same object, opposite background.
+
+   AND THEY ARE TIGHTER: 1.5px lit, 2px as they die, against dark's 2/2.5/3, with
+   10.5px of reach against dark's 13.
+
+   Layer order matches dark: core, carrier, spark P, spark Q, wide falloff. NO
+   BLACK LAYER (rule 2). The widest layer is 7px and the carrier is 3.5-5.5px —
+   both pulled in TWICE with the whole light tier when the halos were reported as
+   too strong on white, the second time because the pin tooltips were still where
+   it showed. The sparks kept every number they had, both times: the trim came out
+   of the two layers that wash, which is the same rule 5b budget move the sparks
+   were originally PAID for out of. */
+.wg-nameglow--flame.wg-nameglow--light {
+    animation-name: wgNameGlowFlameLight;
+}
+
+/* FIVE LAYERS: core, carrier, spark P, spark Q, wide falloff. Same LOW / PEAK /
+   HIGH / RESET flight as dark, one lit stop apiece. P is lit at 9% and 60%,
+   Q at 34%, and 75-100% is the quiet beat.
+
+   PULLED IN TWICE WITH THE REST OF THE LIGHT TIER (see the block comment on
+   nameGlowShadow's light branch): the carrier runs 3.5-5.5px at 80-95 where it
+   shipped at 6-9px at CC-ED, and the wide falloff 4-7px at 1D-25 where it
+   shipped at 8-15px at 61-7A. Half the reach it launched with, and the second
+   pass is the one that made it sit inside a guess-pin tooltip instead of across
+   it. THE CORE AND THE SPARKS ARE UNTOUCHED, BOTH TIMES — the core because a
+   translucent innermost ring is how every sku turns into the same grey rim on
+   white (rule 3b), and the sparks because they are 1.5-2px points, i.e. the
+   one part of this halo that was never the thing bleeding across the card.
+   Trimming them would have cost the sku its identity and bought nothing: a
+   1.5px point does not reach past the chrome no matter what its alpha is. */
+@keyframes wgNameGlowFlameLight {
+    0%      { text-shadow: 0 0 2px #DC6409, 0 0 4px #DC640982, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 5px #F645311E; }
+    9%      { text-shadow: 0 0 3px #DC8809, 0 0 3.5px #DC88098C, 3.5px -3px 1.5px #C2410C, -1.5px 2px 1.5px #A8380A00, 0 0 4px #F6523120; }
+    23%     { text-shadow: 0 0 2px #F0660A, 0 0 5.5px #F0660A80, 2.5px -8px 2px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 6.5px #F63F3125; }
+    34%     { text-shadow: 0 0 2px #DCA409, 0 0 3.5px #DCA40995, -4px 2px 1.5px #B23A0B00, -2.5px -3px 1.5px #A8380A, 0 0 4.5px #F65F311D; }
+    50%     { text-shadow: 0 0 2px #DC7D09, 0 0 4.5px #DC7D098C, -4px 2px 1.5px #B23A0B00, -1.5px -8px 2px #A8380A00, 0 0 6px #F64C3122; }
+    60%     { text-shadow: 0 0 3px #E66D0A, 0 0 3.5px #E66D0A82, -5px -3.5px 1.5px #B23A0B, -1.5px 2px 1.5px #A8380A00, 0 0 4.5px #F6423120; }
+    /* the quiet beat starts here: both sparks sit at alpha 00 until the loop turns */
+    75%     { text-shadow: 0 0 2px #DC9609, 0 0 5.5px #DC960995, -3.5px -8.5px 2px #B23A0B00, -1.5px 2px 1.5px #A8380A00, 0 0 5.5px #F659311F; }
+    86%     { text-shadow: 0 0 3px #E6730A, 0 0 4px #E6730A8C, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 7px #F64A3123; }
+    /* byte-identical to 0% */
+    100%    { text-shadow: 0 0 2px #DC6409, 0 0 4px #DC640982, 2.5px 2px 1.5px #C2410C00, -1.5px 2px 1.5px #A8380A00, 0 0 5px #F645311E; }
+}
+
+
+/* ===========================================================================
+ *  PRISM — glow_cycle_prism, 2,500
+ *  Motion signature: the whole colour wheel, walked once every 4.4s by TWO hues
+ *  held a third of a turn apart, while the halo breathes 14px <-> 32px three
+ *  times over the same loop.
+ *
+ *  WHAT WAS WRONG WITH IT, TWICE OVER.
+ *
+ *  FIRST TIME: it swept six hues at ONE radius. A colour change with no size
+ *  change is the weakest signal a halo can send — peripheral vision is far
+ *  better at motion and luminance than at hue — so from a metre away the
+ *  2,500-Stamp item was a violet name that occasionally looked blue. Twelve
+ *  hues, a 120-degree offset between core and bloom, and a three-per-lap breath
+ *  fixed that.
+ *
+ *  SECOND TIME, AND THIS PASS: it was still too SLOW and too QUIET, and both
+ *  problems were hiding behind an animation that was technically correct. At
+ *  6.4s a full lap is 533ms per hue, which is a drift rather than a sweep: watch
+ *  it for two seconds and it has moved a third of the way round, which the eye
+ *  reads as "that name is greenish" and not as "that name is cycling". And on
+ *  the DARK surface — the HUD, where this actually gets worn — an 18->30px
+ *  breath at 4D->8C alpha is a soft wash that a bright map backdrop swallows.
+ *
+ *  WHAT CHANGED, and every number is on the dark side except the last:
+ *
+ *    4.4s, DOWN FROM 6.4. 31% faster, 367ms a hue, which is fast enough that
+ *    the handover is visible as movement while still being a sweep rather than
+ *    the strobe this file bans. It is inside the 4.2-4.6s window and it is
+ *    UNIQUE: the four periods are now 2.6 / 4.4 / 4.6 / 4.8s and no ratio
+ *    between any two of them is a whole number, so two animated names on one
+ *    HUD drift apart instead of marching in step.
+ *
+ *    THE BREATH NEARLY DOUBLED: 18->30px becomes 14->32px on the outer layer,
+ *    9->16 becomes 8->22 on the middle, 2->4 becomes 2->5 on the core. An 18px
+ *    swing against the old 12. 32px is the CEILING this file contracts to (see
+ *    rule 5) and the number the shop stage's 34px padding and the HUD clipping
+ *    audit are both calibrated against, so it is spent, not exceeded.
+ *
+ *    THE TROUGH GOT DEEPER AND THE PEAK GOT SOLID. Outer alpha runs 40 -> A6
+ *    where it used to run 4D -> 8C, and the middle layer runs D9 -> FF where it
+ *    used to run CC -> F2. That is what "more apparent" actually buys you: the
+ *    contrast BETWEEN the peak and the trough of each hue handover, not a
+ *    uniformly louder halo. A halo that is always loud reads as static.
+ *
+ *    THE CORE GETS BRIGHTER AT THE PEAK, NOT PALER. It stays fully opaque and
+ *    fully saturated and simply widens 2 -> 5px while the middle layer goes to
+ *    FF underneath it. Whitening a core is the pastel-blooms-to-white bug;
+ *    taking a saturated hue to full opacity is the same brightness gain with
+ *    none of the wash-out.
+ *
+ *  WHAT DID NOT CHANGE, because it is the item:
+ *
+ *    TWELVE HUES, 30 degrees a stop, so the sweep is continuous rather than a
+ *    series of recognisable cross-fades.
+ *
+ *    THE OUTER LAYER RUNS FOUR STOPS (120 degrees) AHEAD OF THE CORE. The halo
+ *    shows TWO colours at once, always, and they chase each other around the
+ *    spectrum — magenta core inside a lime bloom, orange inside spring green,
+ *    sky blue inside magenta. A single-hue sweep is one colour changing. This
+ *    is a gradient rotating, and it is the only two-colours-at-once effect left
+ *    in the shop now that the gradient tier has been deleted.
+ *
+ *    THE HUE PERIOD AND THE SIZE PERIOD STAY DIFFERENT. One lap of hue, three
+ *    breaths, so the item never settles into a rhythm the eye can predict and
+ *    then stop watching.
+ * ======================================================================== */
+.wg-nameglow--cycle {
+    animation: wgNameGlowCycle 4.4s linear infinite;
+}
+
+@keyframes wgNameGlowCycle {
+    0%      { text-shadow: 0 0 2px #FF3BD4, 0 0 8px #FF3BD4D9, 0 0 14px #C2FF3340, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    8.33%   { text-shadow: 0 0 3px #FF335C, 0 0 15px #FF335CF2, 0 0 23px #5CFF3373, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    16.66%  { text-shadow: 0 0 5px #FF7033, 0 0 22px #FF7033FF, 0 0 32px #33FF70A6, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    25%     { text-shadow: 0 0 3px #FFD633, 0 0 15px #FFD633F2, 0 0 23px #33FFD673, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    33.33%  { text-shadow: 0 0 2px #C2FF33, 0 0 8px #C2FF33D9, 0 0 14px #33C2FF40, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    41.66%  { text-shadow: 0 0 3px #5CFF33, 0 0 15px #5CFF33F2, 0 0 23px #335CFF73, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    50%     { text-shadow: 0 0 5px #33FF70, 0 0 22px #33FF70FF, 0 0 32px #7033FFA6, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    58.33%  { text-shadow: 0 0 3px #33FFD6, 0 0 15px #33FFD6F2, 0 0 23px #D633FF73, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    66.66%  { text-shadow: 0 0 2px #33C2FF, 0 0 8px #33C2FFD9, 0 0 14px #FF3BD440, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    75%     { text-shadow: 0 0 3px #335CFF, 0 0 15px #335CFFF2, 0 0 23px #FF335C73, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    83.33%  { text-shadow: 0 0 5px #7033FF, 0 0 22px #7033FFFF, 0 0 32px #FF7033A6, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    91.66%  { text-shadow: 0 0 3px #D633FF, 0 0 15px #D633FFF2, 0 0 23px #FFD63373, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    /* identical to 0%: the wheel has turned exactly once, with no seam */
+    100%    { text-shadow: 0 0 2px #FF3BD4, 0 0 8px #FF3BD4D9, 0 0 14px #C2FF3340, 0 2px 4px rgba(0, 0, 0, 0.85); }
+}
+
+/* White cards / white tooltip chrome: the same twelve hues at neon weight are
+   invisible, so the light variant is pitched into the MID band — 45-58%
+   lightness at high saturation — instead of neon.
+   IT USED TO RUN AT 30% LIGHTNESS AND THAT WAS THE BUG. Twelve hues that dark,
+   painted at 99-BF alpha over white, are twelve shades of the same grey-brown:
+   the sweep was still happening, and nobody could see it happening. Lightness
+   is not what makes a colour visible against white — CHROMA is, and chroma is
+   what a colour loses on its way to black. Same twelve hues, same 30-degree
+   ladder, now at a lightness where they are still colours.
+
+   THE SPEED-UP IS SHARED; THE PUNCH-UP IS NOT, AND THAT IS DELIBERATE. Both
+   variants run the same 4.4s lap, because a sku that cycles at two different
+   rates depending on which surface it lands on is two skus. But the dark
+   variant's reach (32px peak) would be a wash over black glyphs here, so this
+   side takes its lift where a white card can absorb it: the core widens
+   2 -> 4px and stays FULLY OPAQUE at every stop, which is where the hue
+   actually lives on this surface.
+
+   THE BLOOM CAME IN TWICE, AND THIS WAS THE LOUDEST THING IN THE LIGHT TIER
+   BOTH TIMES. It shipped at 10/15/20px at 38/5E/85 — a 20px halo at 52% alpha,
+   on a white guess-pin tooltip barely bigger than the name itself, which is
+   what "the glows are too strong on white" was mostly describing. It went to
+   6.5/10/13px at 19/2A/3C, and that was STILL the thing you noticed on a pin,
+   because 13px around a ~22px-tall tooltip is a bloom the size of the chrome
+   itself. It is now 4.5/7/9px at 12/1E/2B, with the middle layer following it
+   down each time (6/9/12px at C4/E0/F7, then 4.5/6.5/8.5px at 8D/A1/B2, now
+   3.5/5/6.5px at 78/8A/9C).
+   THE BREATH IS UNTOUCHED IN SHAPE THROUGH ALL OF IT — trough to peak is still
+   a doubling of radius and a 2.4x of alpha — so the sku still visibly swells
+   three times a lap; it just does it inside a box the chrome can hold. That is
+   the whole trick of trimming an animated sku: keep the RATIOS between the
+   stops and the motion survives intact, shrink the absolute numbers and the
+   only thing lost is the wash. Scaling the dark numbers down by a constant was
+   never the answer in either direction: the two surfaces need different
+   amounts, not the same amount at different sizes.
+   The core keeps its 2/3/4px and its full opacity, untouched by both passes
+   (rule 3b), and the 120-degree offset between core and bloom SURVIVES on both
+   surfaces. It is the item, not a flourish. */
+.wg-nameglow--cycle.wg-nameglow--light {
+    animation-name: wgNameGlowCycleLight;
+}
+
+@keyframes wgNameGlowCycleLight {
+    0%      { text-shadow: 0 0 2px #F631C5, 0 0 3.5px #F631C578, 0 0 4.5px #9CC52012; }
+    8.33%   { text-shadow: 0 0 3px #F63163, 0 0 5px #F631638A, 0 0 7px #43D2141E; }
+    16.66%  { text-shadow: 0 0 4px #F65F2C, 0 0 6.5px #F65F2C9C, 0 0 9px #12D3432B; }
+    25%     { text-shadow: 0 0 3px #DCA809, 0 0 5px #DCA8098A, 0 0 7px #17CFA11E; }
+    33.33%  { text-shadow: 0 0 2px #9CC520, 0 0 3.5px #9CC52078, 0 0 4.5px #09A8DC12; }
+    41.66%  { text-shadow: 0 0 3px #43D214, 0 0 5px #43D2148A, 0 0 7px #3163F61E; }
+    50%     { text-shadow: 0 0 4px #12D343, 0 0 6.5px #12D3439C, 0 0 9px #6331F62B; }
+    58.33%  { text-shadow: 0 0 3px #17CFA1, 0 0 5px #17CFA18A, 0 0 7px #C531F61E; }
+    66.66%  { text-shadow: 0 0 2px #09A8DC, 0 0 3.5px #09A8DC78, 0 0 4.5px #F631C512; }
+    75%     { text-shadow: 0 0 3px #3163F6, 0 0 5px #3163F68A, 0 0 7px #F631631E; }
+    83.33%  { text-shadow: 0 0 4px #6331F6, 0 0 6.5px #6331F69C, 0 0 9px #F65F2C2B; }
+    91.66%  { text-shadow: 0 0 3px #C531F6, 0 0 5px #C531F68A, 0 0 7px #DCA8091E; }
+    /* identical to 0%: the wheel has turned exactly once, with no seam */
+    100%    { text-shadow: 0 0 2px #F631C5, 0 0 3.5px #F631C578, 0 0 4.5px #9CC52012; }
+}
+
+
+/* ===========================================================================
+ *  SHADOW (sold as Comet until Aug 2026) — glow_orbit_comet, 3,000
+ *  Motion signature: a bright, tight point of light ORBITS the name while a
+ *  soft indigo halo stays centred and still. Nothing else in the app moves
+ *  like this.
+ *
+ *  HOW IT WORKS, BECAUSE IT IS NOT OBVIOUS. text-shadow layers each carry their
+ *  own x/y offset, and offsets interpolate. So layer 1 is walked around a
+ *  5px circle in eight 45-degree steps — (5,0), (3.5,3.5), (0,5) ... — and
+ *  layer 2 is the same walk held ONE STEP BEHIND on a 4px circle at triple the
+ *  blur, which is the trail. Layer 3 is a fixed centred 20px halo and never
+ *  moves, so the name stays lit while the spark travels. Layer 4 is the black
+ *  legibility shadow.
+ *
+ *  Straight-line interpolation between eight points is an octagon, not a
+ *  circle, but at r=5px the deviation is 0.38px. Nobody is measuring it.
+ *
+ *  Cost: the head and trail add 5px of travel to a 9px blur, so the repaint
+ *  box grows by 14px — comfortably inside the halo the prism already paints. An
+ *  orbit is not more expensive than a bloom, it is just rarer.
+ *
+ *  #EEF0FF ON THE HEAD IS THE ONE SANCTIONED NEAR-WHITE IN THIS FILE, and what
+ *  sanctions it is its RADIUS, not its price: a 3px blur is a spark, and a spark
+ *  is white. The same colour on the 20px halo would be the exact
+ *  pastel-blooms-to-white failure the palette rules exist to prevent, which is
+ *  why layer 3 is the saturated indigo instead.
+ * ======================================================================== */
+.wg-nameglow--orbit {
+    animation: wgNameGlowOrbit 4.8s linear infinite;
+}
+
+@keyframes wgNameGlowOrbit {
+    0%      { text-shadow: 5px 0 3px #EEF0FF, 2.8px -2.8px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    12.5%   { text-shadow: 3.5px 3.5px 3px #EEF0FF, 4px 0 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    25%     { text-shadow: 0 5px 3px #EEF0FF, 2.8px 2.8px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    37.5%   { text-shadow: -3.5px 3.5px 3px #EEF0FF, 0 4px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    50%     { text-shadow: -5px 0 3px #EEF0FF, -2.8px 2.8px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    62.5%   { text-shadow: -3.5px -3.5px 3px #EEF0FF, -4px 0 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    75%     { text-shadow: 0 -5px 3px #EEF0FF, -2.8px -2.8px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    87.5%   { text-shadow: 3.5px -3.5px 3px #EEF0FF, 0 -4px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+    100%    { text-shadow: 5px 0 3px #EEF0FF, 2.8px -2.8px 9px #8E7BFFB3, 0 0 20px #6D5BFF4D, 0 2px 4px rgba(0, 0, 0, 0.85); }
+}
+
+/* A near-white spark is invisible on a white tooltip, so on light the orbiting
+   point is the sku's own indigo, tightened to 2px so it reads as a point next
+   to dark glyphs rather than as a bruise. Same eight-step walk, same one-step
+   lag on the trail.
+   The indigo moved #4338CA -> #3138F6 with the rest of the light palette (same
+   hue family, far more chroma) and then #3138F6 -> #4531F6 when nine glows were
+   re-spread across the wheel: 238 -> 246 degrees, which is exactly where its own
+   DARK value already sat, so the sku reads as one hue on both surfaces. The
+   clearance that move was bought for went to Azure, which has since been
+   deleted; 246 stays because agreeing with its own dark value is the better
+   reason of the two. It is the ONE light value in
+   the shop that sits well past the 2.0:1 contrast floor rather than on it —
+   indigo is intrinsically dark, so at the 58% lightness cap it still lands near
+   7:1. That is fine and it is not the old bug: the old bug was greyness, not
+   darkness. */
+.wg-nameglow--orbit.wg-nameglow--light {
+    animation-name: wgNameGlowOrbitLight;
+}
+
+/* THE ORBITING POINT HAS KEPT EVERY NUMBER IT HAD THROUGH BOTH PULLS-IN of the
+   light tier, and it is the only sku where that is true. A 2px layer at 5px of
+   travel is not a wash — it is the ITEM, and the whole read of this sku is one
+   small hard point going round a name. What came in, twice, is the two layers
+   that were painting AREA: the trail 7px -> 5px -> 4px at 80 -> 5C -> 4A, and
+   the still halo 12px -> 10px -> 8px at 40 -> 30 -> 24. The comet was already
+   the quietest thing in the light tier, so it is also the smallest correction
+   both times — and now that the still halo is 8px it is genuinely a rim around
+   the glyphs, which is what leaves the travelling point as the only thing on
+   this surface with any size to it. That is the sku working as designed. */
+@keyframes wgNameGlowOrbitLight {
+    0%      { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    12.5%   { text-shadow: 3.5px 3.5px 2px #4531F6, 4px 0 4px #4531F64A, 0 0 8px #4531F624; }
+    25%     { text-shadow: 0 5px 2px #4531F6, 2.8px 2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    37.5%   { text-shadow: -3.5px 3.5px 2px #4531F6, 0 4px 4px #4531F64A, 0 0 8px #4531F624; }
+    50%     { text-shadow: -5px 0 2px #4531F6, -2.8px 2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    62.5%   { text-shadow: -3.5px -3.5px 2px #4531F6, -4px 0 4px #4531F64A, 0 0 8px #4531F624; }
+    75%     { text-shadow: 0 -5px 2px #4531F6, -2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+    87.5%   { text-shadow: 3.5px -3.5px 2px #4531F6, 0 -4px 4px #4531F64A, 0 0 8px #4531F624; }
+    100%    { text-shadow: 5px 0 2px #4531F6, 2.8px -2.8px 4px #4531F64A, 0 0 8px #4531F624; }
+}
+
+
+/* ── Reduced motion ────────────────────────────────────────────────────────
+   EVERY animated sku, no exceptions: a user who asked the OS for less motion
+   did not exclude the one they happen to have bought. Dropping the animation
+   uncovers the inline static halo nameGlowProps already painted, so the item
+   is still visibly there and still the right colour on both surfaces. This is a
+   fallback, not a removal.
+
+   THREE CLASSES, MATCHING THE THREE SKUS ABOVE AND THE THREE ENTRIES IN
+   ANIMATED_GLOW_CLASS (components/utils/usernameWithFlag.js). The list is
+   hand-maintained on both sides, so an animated sku added to one and forgotten
+   here keeps animating for a user who asked the OS to stop. It was four until
+   Aurora Pulse was deleted; `--pulse` came out of this list in the same edit,
+   because a reduced-motion rule for a class nothing emits is dead weight that
+   still reads as coverage.
+
+   THERE IS NO `will-change` TO UNDO ANY MORE. The three rules above used to
+   hint `will-change: text-shadow`, which bought nothing on any machine:
+   text-shadow is not a compositable property, so the hint cannot promote
+   anything — and the carrier these classes now land on generates no box at all
+   (`display: contents`), so there is nothing left to promote even in theory. */
+/* --------------------------------------------------------------------------
+   REST-UNTIL-HOVER (`wg-glowHover`), for the surfaces where an always-on
+   animation would run OVER live gameplay or a flooded grid: the in-game chat
+   log (a round is rendering behind it) and the community-maps tile wall
+   (five sections of a hundred tiles).
+
+   A PAUSED KEYFRAME CANNOT BE THE RESTING VISUAL. The first version merely
+   toggled `animation-play-state`; mouse-out therefore stranded whatever large
+   bloom or offset happened to be on screen at that instant. `HoverGlowName`
+   now renders the readable name once plus two aria-hidden, shadow-only copies
+   in the same box. The static copy owns the resting halo. Hover cross-fades it
+   into the animated copy; mouse-out pauses that copy immediately and fades its
+   frozen frame back into the canonical static stack. Nothing ticks at rest,
+   but the exit still reads as the light dying away instead of getting stuck.
+
+   The host is present for glowing and non-glowing names alike, so this real
+   positioning box cannot make an equipped name wrap or align differently. The
+   `.wg-name-clip` variant repeats its 34px padding on the absolute paint copies:
+   their text gets the same ellipsis width as the readable copy while their
+   shadows are clipped only at the outer padding edge, not at the glyphs.
+
+   Hover activation is gated on a real hover-capable pointer and normal motion
+   preference. Touch and reduced-motion users therefore keep the static layer,
+   matching mobile's deliberate `animated={false}` on these two surfaces. */
+.wg-glowHoverName {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: baseline;
+    /* Keep the paint-only copies behind this name, never behind neighbouring
+       row/tile content when their explicit z-index is applied below. */
+    isolation: isolate;
+}
+
+/* Text-shadow normally paints behind its own glyph. The cross-fade shadows
+   live on separate, later DOM siblings, so without explicit stacking their
+   blur paints OVER the readable glyph instead — most visibly darkening Blaze,
+   whose animation carries seven layers. Restore native text-shadow ordering. */
+.wg-glowCrossfade__content {
+    position: relative;
+    z-index: 1;
+}
+
+.wg-glowCrossfade__shadow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    min-width: 0;
+    pointer-events: none;
+    user-select: none;
+    color: transparent !important;
+    background: transparent !important;
+    transition: opacity 180ms ease-out;
+}
+
+/* Search highlighting adds a padded child span. Duplicate the geometry so its
+   shadows stay registered with the readable copy, but never duplicate its fill
+   or orange highlight plate. */
+.wg-glowCrossfade__shadow * {
+    color: transparent !important;
+    background: transparent !important;
+}
+
+.wg-name-clip.wg-glowCrossfade .wg-glowCrossfade__shadow {
+    box-sizing: border-box;
+    padding: 34px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wg-glowCrossfade__static {
+    opacity: 1;
+}
+
+.wg-glowCrossfade__animated {
+    opacity: 0;
+}
+
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--flame,
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--cycle,
+.wg-glowHover .wg-glowCrossfade__animated.wg-nameglow--orbit {
+    animation-play-state: paused;
+}
+
+@media (any-hover: hover) and (prefers-reduced-motion: no-preference) {
+    .wg-glowHover:hover .wg-glowCrossfade__static {
+        opacity: 0;
+    }
+
+    .wg-glowHover:hover .wg-glowCrossfade__animated {
+        opacity: 1;
+    }
+
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--flame,
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--cycle,
+    .wg-glowHover:hover .wg-glowCrossfade__animated.wg-nameglow--orbit {
+        animation-play-state: running;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .wg-nameglow--flame,
+    .wg-nameglow--cycle,
+    .wg-nameglow--orbit {
+        animation: none;
+    }
+}

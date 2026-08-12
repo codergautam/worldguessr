@@ -1,7 +1,15 @@
 /* Maps Page Styles */
+
+/* THESE THREE ARE THE STOCK GREEN AND NOTHING ELSE READS THEM. They stay
+   literal here for the same reason :root's --r/--g/--b do (styles/globals.scss):
+   a value declared on :root is resolved on :root, so pointing them at
+   var(--primary) HERE would just bake in the green --primary happens to be at
+   the root and no accent would ever reach them. The accent override is the
+   scoped block directly below, and that is the only place these three change.
+
+   --map-primary-dark is GONE, not ported: it had zero references. */
 :root {
   --map-primary: #245734;
-  --map-primary-dark: #112b18;
   --map-primary-light: #3a7a52;
   --map-bg-overlay: rgba(36, 87, 52, 0.05);
   --map-card-bg: rgba(0, 0, 0, 0.3);
@@ -9,6 +17,24 @@
   --map-border-radius: 8px;
   --map-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --map-animation-duration: 0.25s;
+}
+
+/* THE MAPS PALETTE IS THE SITE PALETTE, ONE INDIRECTION LATER.
+ *
+ * This file shipped with its own green (#245734 / #3a7a52) hand-matched to the
+ * site's, which meant the maps page was the one surface that could not follow an
+ * equipped background: 23 rules read var(--map-primary*) and every one of them
+ * bottomed out at a literal.
+ *
+ * Both selectors are in the accent scope in styles/globals.scss, so --primary
+ * and --primaryLight are ALREADY the equipped background's tones by the time
+ * these three resolve — and with nothing equipped they are the green above,
+ * verbatim. Not one of the 23 consumers changes. */
+.map-modal-content,
+.maps-page {
+  --map-primary: var(--primary);
+  --map-primary-light: var(--primaryLight);
+  --map-bg-overlay: rgba(var(--surfChannels), 0.05);
 }
 
 /* Fullscreen map modal — open/close on the actual react-responsive-modal dialog node */
@@ -106,7 +132,7 @@
   padding: 0 20px 100px;
   background:
     linear-gradient(180deg, rgba(8, 18, 12, 0.78) 0%, rgba(5, 12, 8, 0.82) 100%),
-    linear-gradient(135deg, rgba(36, 87, 52, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
+    linear-gradient(135deg, rgba(var(--surfChannels), 0.12) 0%, rgba(0, 0, 0, 0) 60%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--map-border-radius);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -213,7 +239,7 @@
 
 .map-create-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(36, 87, 52, 0.3);
+  box-shadow: 0 6px 20px rgba(var(--surfChannels), 0.3);
 }
 
 /* Search Section */
@@ -247,7 +273,7 @@
 .map-search-input:focus {
   outline: none;
   border-color: var(--map-primary);
-  box-shadow: 0 0 0 3px rgba(36, 87, 52, 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--surfChannels), 0.2);
 }
 
 .map-search-icon {
@@ -608,7 +634,7 @@
      the initial scrollbar. */
   content-visibility: auto;
   contain-intrinsic-size: auto 220px;
-  background: linear-gradient(135deg, rgba(36, 87, 52, 0.20) 0%, rgba(0, 0, 0, 0.58) 100%);
+  background: linear-gradient(135deg, rgba(var(--surfChannels), 0.20) 0%, rgba(0, 0, 0, 0.58) 100%);
   border-radius: var(--map-border-radius);
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -751,13 +777,18 @@
   white-space: nowrap;
 }
 
-/* Username — shrinks and ellipses before the location count is touched. */
+/* Username — shrinks and ellipses before the location count is touched.
+   The `overflow: hidden; text-overflow: ellipsis` pair that used to live here
+   is gone, for the reason it left .account-modal-title: this element is
+   `display: inline-flex`, so the ellipsis has never fired (text-overflow needs
+   a block container), and all the overflow did was shear the creator's equipped
+   name glow flush with the letterforms. The truncation moved onto the name's
+   own span in mapTile.js as the shared .wg-name-clip recipe, where the ellipsis
+   is real and the clip edge sits 34px out. */
 .map-tile__author .map-tile__username {
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1210,7 +1241,7 @@
 .make-map-form textarea:focus {
   outline: none;
   border-color: var(--map-primary);
-  box-shadow: 0 0 0 3px rgba(36, 87, 52, 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--surfChannels), 0.2);
   background: rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
 }
@@ -1257,7 +1288,7 @@
 .url-input:focus {
   outline: none;
   border-color: var(--map-primary);
-  box-shadow: 0 0 0 2px rgba(36, 87, 52, 0.15);
+  box-shadow: 0 0 0 2px rgba(var(--surfChannels), 0.15);
   background: rgba(255, 255, 255, 0.16);
 }
 
@@ -1351,7 +1382,7 @@
 
 .add-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(36, 87, 52, 0.3);
+  box-shadow: 0 6px 20px rgba(var(--surfChannels), 0.3);
 }
 
 .add-button:active {
@@ -1393,7 +1424,7 @@
 
 .make-map-form button[type="submit"]:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(36, 87, 52, 0.4);
+  box-shadow: 0 8px 25px rgba(var(--surfChannels), 0.4);
 }
 
 .make-map-form button:disabled {

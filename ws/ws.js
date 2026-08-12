@@ -1,6 +1,31 @@
+// FIRST IMPORT, AND IT MUST STAY FIRST. `dotenv/config` loads .env as an import
+// SIDE EFFECT, which is the only form that runs early enough to be useful here.
+//
+// This used to be `import { config } from 'dotenv'` with a `config()` call in
+// the module body, and that is a trap with teeth: ESM evaluates every imported
+// module BEFORE the first line of the importer's body. So `./classes/Game.js`
+// below (and everything it pulls in) ran while .env had not been read yet, and
+// any module that reads process.env at import time froze the WRONG value for
+// the life of the process.
+//
+// It cost the entire stamps economy. serverUtils/stamps/config.js used to do
+// `export const STAMPS_ENABLED = process.env.STAMPS_ENABLED === 'true'` at
+// import time, Game.js imports it, so STAMPS_ENABLED was permanently false in
+// this process even with STAMPS_ENABLED=true in .env — grantGameStamps returned
+// on its first line for every game ever played. Zero game_base rows existed in
+// the database.
+//
+// That flag now DEFAULTS ON and only an explicit "false" disables it, so the
+// same mistiming would fail loud-and-open instead of silent-and-off. Do not
+// read that as the trap being fixed: it is one flag that stopped being
+// vulnerable. MONGODB, MAINTENANCE_SECRET and every other env read below still
+// depend entirely on this line running first.
+//
+// Anything env-gated imported below inherits this fix for free. Do not convert
+// this back to the function form.
+import 'dotenv/config';
 import uws from 'uWebSockets.js';
 import fs from 'fs';
-import { config } from 'dotenv';
 import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
 import User, { USERNAME_COLLATION } from '../models/User.js';
@@ -13,17 +38,40 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange, leagues } from '../components/utils/leagues.js';
-import calculateOutcomes from '../components/utils/eloSystem.js';
+import { getLeagueRange, leagues, getStrictFloor, getActiveLeagues } from '../components/utils/leagues.js';
+import calculateOutcomes, {
+  ENTRY_RATING, calculateTransfer, pairK
+} from '../components/utils/eloSystem.js';
+import { RATING_V2 } from '../components/utils/ratingFlags.js';
+import {
+  windowFor, chooseDuelPairs,
+  recordDodge, dodgeRemaining, sweepDodges,
+  decayMultiplier, readPairWins, bumpPairWins
+} from './matchmakingV2.js';
+import {
+  createEtaStore, recordSample, sweepSamples, estimateWait, bootstrapEstimate,
+  nextShownEta, snapshotStore, restoreStore, QUERY_PLAN
+} from './queueEta.js';
+// EVERY timer in this file goes through safeInterval. An uncaught throw in a
+// timer callback reaches the uncaughtException handler below, which exits the
+// process and ends the game for every connected player. See ws/safeTimers.js.
+import { safeInterval } from './safeTimers.js';
+import { canJoinUnrankedRound, UNRANKED_ROUND_TIME_MS } from './unrankedMatchmaking.js';
+import { startLeagueConfigRefresh } from '../serverUtils/loadLeagueConfig.js';
+import { checkMigrationAt } from '../serverUtils/checkMigrationAt.js';
+import QueueEtaSnapshot from '../models/QueueEtaSnapshot.js';
+import PairWins from '../models/PairWins.js';
+import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
+import { getEmote, byLegacyIndex } from '../shared/emotes/catalog.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
+import { SERVER_CAP, locKey, pushSeenLoc, sampleDistinct } from '../shared/locations/repeatGuard.js';
 import {
   BOTS_ENABLED, BOTS_INSTANT,
   createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
 } from './botUtils.js';
 import { Filter } from 'bad-words';
-config();
 
 console.log("[INFO] Starting ws.js")
 global.serverStartTime = Date.now();
@@ -60,28 +108,61 @@ function normalizeArbLoc(r) {
   return loc;
 }
 
-function pick5RandomArb() {
-  const rand = new Set();
-  while(rand.size < 5) {
-    rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
+// Cross-match repeat guard for duels. Every Player carries a ring of the
+// location ids they were recently served (Player.recentLocs); a match picks
+// around the union of its participants' rings, then stamps back what it picked.
+//
+// Duels only, 1v1 and 2v2. Public FFA and party rooms seat up to 200 players,
+// where a union of everyone's history is both enormous and meaningless, and
+// their within-match distinctness is already guaranteed.
+function seenUnion(players) {
+  const seen = new Set();
+  for (const p of players) {
+    for (const id of p?.recentLocs || []) seen.add(id);
   }
-  return [...rand].map(normalizeArbLoc);
+  return seen;
+}
+
+function stampSeen(players, locations) {
+  if (!locations || locations.length === 0) return;
+  for (const p of players) {
+    if (!p) continue;
+    if (!p.recentLocs) p.recentLocs = [];
+    for (const loc of locations) pushSeenLoc(p.recentLocs, loc, SERVER_CAP);
+  }
+}
+
+function pick5RandomArb(seenIds) {
+  return sampleDistinct(arbitraryWorld, 5, seenIds).map(normalizeArbLoc);
 }
 
 // 2v2 team duels: each round draws 50/50 from the standard world pool and the
 // arbitrary pool (the harder map high-elo 1v1 duels play on). A coin flip per
 // round rather than a pool merge, so the mix holds regardless of pool sizes.
-function pick5WorldArbMix(worldPool) {
-  const seen = new Set();
+// Dedupe is by location id, not object identity. The old Set-of-objects could
+// not see that world-main and world-arbitrary share 510 coordinates as separate
+// objects, so one match could serve the same spot from both pools.
+function pick5WorldArbMix(worldPool, seenIds) {
+  const seen = seenIds instanceof Set ? seenIds : new Set();
+  const taken = new Set();
   const locs = [];
-  while (locs.length < 5) {
-    const fromArb = Math.random() < 0.5;
-    const pool = fromArb ? arbitraryWorld : worldPool;
-    const r = pool[Math.floor(Math.random() * pool.length)];
-    if (seen.has(r)) continue;
-    seen.add(r);
-    locs.push(fromArb ? normalizeArbLoc(r) : r);
+  // Pass 0 avoids what these players just had, pass 1 accepts anything.
+  for (let pass = 0; pass < 2 && locs.length < 5; pass++) {
+    const skipSeen = pass === 0 && seen.size > 0;
+    for (let tries = 0; locs.length < 5 && tries < 200; tries++) {
+      const fromArb = Math.random() < 0.5;
+      const pool = fromArb ? arbitraryWorld : worldPool;
+      const r = pool[Math.floor(Math.random() * pool.length)];
+      const key = locKey(r);
+      if (taken.has(key)) continue;
+      if (skipSeen && seen.has(key)) continue;
+      taken.add(key);
+      locs.push(fromArb ? normalizeArbLoc(r) : r);
+    }
   }
+  // Unreachable with a 260k arbitrary pool, but never hand back a short round
+  // list: the old loop would have spun forever here instead.
+  while (locs.length < 5) locs.push(normalizeArbLoc(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]));
   return locs;
 }
 
@@ -105,6 +186,248 @@ const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same mat
 // ALLOW_REMATCH=true disables rematch avoidance (1v1 + 2v2) so the same two
 // players can be paired back-to-back — testing only, never set in prod.
 const ALLOW_REMATCH = process.env.ALLOW_REMATCH === 'true';
+
+// ── RATING V2: dodge cooldowns (see ws/matchmakingV2.js) ───────────────────
+// accountId (or socket id for a guest) -> { until, lastAt, count }. In-memory
+// and restart-tolerant on purpose: a cooldown lost to a deploy costs one
+// skipped punishment. Only written under RATING_V2; with the flag off the map
+// stays empty and nothing reads it, so queue behaviour is untouched.
+const dodgeCooldowns = new Map();
+
+// ── QUEUE WAIT TELEMETRY (see ws/queueEta.js) ─────────────────────────────
+// Completed human ranked waits from the last hour, bucketed by 100 ELO.
+const etaStore = createEtaStore();
+const ETA_MAX_AGE_MS = QUERY_PLAN[QUERY_PLAN.length - 1].ageMs;
+const dodgeKeyFor = (player) => player?.accountId || player?.id || null;
+
+/**
+ * Is bailing out of THIS game, right now, a queue dodge?
+ *
+ * The dodge is leaving a match you were already paired into, during the getready
+ * window before round 1 has been played. That is the move that costs a real
+ * opponent a whole game.
+ *
+ * Cancelling the QUEUE is deliberately not a dodge: nobody has been matched, so
+ * nobody paid anything, and punishing Cancel would make the button hostile.
+ *
+ * Placement matches are EXEMPT. A placement is a brand-new account's first game
+ * against a bot that throws on purpose — locking them out of ranked for backing
+ * out of it is the worst possible first impression, and there is no opponent to
+ * compensate.
+ */
+function isDodgeableExit(game) {
+  return !!(RATING_V2 && game && game.duel && game.public && !game.isPlacement
+    && game.state === 'getready' && game.curRound <= 1);
+}
+
+/**
+ * Book a dodge for `player` if leaving `game` now qualifies.
+ *
+ * SHARED BY THE LEAVE BUTTON AND THE DISCONNECT PURGE, and that is the whole
+ * point. This only ever fired from the explicit `leaveGame` message, so the
+ * penalty landed on the honest player who pressed the button while the one who
+ * killed the tab walked away free — punishing the more considerate of two
+ * identical actions, and the easier one to perform was the one that cost
+ * nothing.
+ *
+ * Keyed through dodgeKeyFor, which prefers accountId, so a cooldown survives the
+ * reconnect that follows a tab close.
+ */
+function recordDodgeIfApplicable(player, game, reason) {
+  if (!isDodgeableExit(game)) return 0;
+  return chargeDodge(player, reason);
+}
+
+/** Unconditional charge, for callers that already decided this is a dodge. */
+function chargeDodge(player, reason) {
+  const penalty = recordDodge(dodgeCooldowns, dodgeKeyFor(player));
+  console.log('[RATING_V2] dodge:', player?.username || player?.id, `${penalty}ms`, `(${reason})`, currentDate());
+  return penalty;
+}
+
+/**
+ * Rating both players must clear for the ARBITRARY (hard) world map.
+ *
+ * THIS SHIPPED AT 1800 AND SILENTLY RETIRED THE MAP. The comment it replaces
+ * correctly warned that reusing the v1 constant "would put the gate above the
+ * top of the live ladder and silently retire the map" — and then set the gate
+ * to 1800, which is leaguesV2.legendV2.min. Legend starts EMPTY at migration by
+ * design, and the migrated #1 lands at ~1600. So nobody on the ladder could
+ * clear it and the hard map stopped appearing for everyone, with no error and
+ * no log.
+ *
+ * The v1 gate was `both players > 2000`, which was exactly the old Explorer
+ * league line (leagues.trekker.min, displayed as Explorer). Re-keying to the v2
+ * Explorer line keeps the RULE identical across the migration — "Explorer and
+ * above get the hard map" — instead of trying to preserve a number from a scale
+ * that no longer exists. For reference the frozen conversion table maps old
+ * 2000 to 875, so this is within 60 points of exact numeric parity too.
+ *
+ * Resolved from the ACTIVE tier table so a seasonal re-anchor carries it along.
+ */
+const ARB_MAP_TIER_NAME = 'Explorer';
+function arbMapMinRating() {
+  const tier = Object.values(getActiveLeagues()).find((l) => l.name === ARB_MAP_TIER_NAME);
+  // Fail CLOSED to the same place the old bug landed rather than to 0: a table
+  // with no Explorer tier means we cannot say who qualifies, and handing the
+  // hard map to EVERYONE is the worse mistake.
+  return typeof tier?.min === 'number' && Number.isFinite(tier.min) ? tier.min : Infinity;
+}
+
+/**
+ * Book one directional (winner, loser) win for the anti-farm decay counter.
+ * v2 only, and RATED HUMAN 1v1s only: an unrated game (bot duel, placement)
+ * moves no rating, so counting it would let a player burn their own decay
+ * budget on games that never paid out.
+ *
+ * The winner is taken from the same snapshot-aware scores finishSoloDuel
+ * resolves on, so a leaver still counts by their real final score. An exact
+ * score tie books nothing — a draw has no farm direction.
+ */
+function bumpPairWinsForGame(game) {
+  try {
+    if (!game.duel || game.teamDuel || !game.public) return;
+    if (game.isBotGame || game.isPlacement || !game.ratingV2) return;
+
+    const accountP1 = game.accountIds?.p1;
+    const accountP2 = game.accountIds?.p2;
+    if (!accountP1 || !accountP2) return;
+
+    const p1 = game.getPlayerData(Object.values(game.players).find((p) => p.tag === 'p1'), 'p1');
+    const p2 = game.getPlayerData(Object.values(game.players).find((p) => p.tag === 'p2'), 'p2');
+    const s1 = Number(p1?.score) || 0;
+    const s2 = Number(p2?.score) || 0;
+    if (s1 === s2) return;
+
+    const p1Won = s1 > s2;
+    const winner = p1Won ? accountP1 : accountP2;
+    const loser = p1Won ? accountP2 : accountP1;
+    bumpPairWins(PairWins, dayKeyUTC(), winner, loser).catch((e) => {
+      console.error('[RATING_V2] bumpPairWins failed:', e?.message || e);
+    });
+  } catch (e) {
+    console.error('[RATING_V2] bumpPairWinsForGame failed:', e?.message || e);
+  }
+}
+
+// Does this account own the emote? Free entries are owned by everybody. Paid
+// entries are checked against the in-memory sku list stamped at verify /
+// reconnect and refreshed by /cosmetics-updated, so the emote hot path never
+// touches the DB. An entry with no sku can only be reached by a catalogue
+// typo — fail closed rather than hand out a free paid emote.
+function ownsEmote(player, emoteDef) {
+  if (emoteDef.free) return true;
+  if (!emoteDef.sku) return false;
+  return Array.isArray(player.ownedCosmetics) && player.ownedCosmetics.includes(emoteDef.sku);
+}
+
+// The `publicDuelRange` the client renders while queued, derived from the v2
+// rating window instead of a league band. Floored at 0 because the client
+// treats the pair as a display range; the real pairing test is the symmetric
+// window inside chooseDuelPairs.
+function rangeForRatingV2(rating, waitedMs, strict = false) {
+  const r = Number.isFinite(rating) ? rating : ENTRY_RATING;
+  const half = windowFor(waitedMs);
+  // A strict player's lower bound is the Voyager floor, not r - half: pairing
+  // will not go below it, so showing a band that reaches into Trekker would be
+  // advertising opponents this queue can never produce.
+  const floor = strict ? getStrictFloor() : 0;
+  const lo = Math.max(0, Number.isFinite(floor) ? floor : 0, Math.round(r - half));
+  return [lo, Math.round(r + half)];
+}
+
+/**
+ * Precompute the v2 rating outcomes for one ranked duel and stamp them on the
+ * game. Game.js APPLIES these at the end; it recomputes nothing.
+ *
+ * Three numbers cover every outcome, all off ONE shared K (pairK), which is
+ * what makes the result zero-sum:
+ *   transfers[p1.id] — magnitude moved to p1 when p1 wins
+ *   transfers[p2.id] — magnitude moved to p2 when p2 wins
+ *   transfers.draw   — SIGNED from p1's perspective (a draw between mismatched
+ *                      ratings still moves the ladder, and which way depends on
+ *                      who was favoured, so this one cannot be a magnitude)
+ *
+ * ANTI-FARM DECAY IS READ ASYNCHRONOUSLY, and that needs explaining. This
+ * function must stay synchronous: it runs inside the 500ms matchmaking tick,
+ * and an await here would let addPlayer / playersInQueue.delete / game.start()
+ * slide into a later tick, where the same two players can be paired a second
+ * time. So the game is stamped immediately at decay 1 and the pair-wins rows
+ * (both directions — farming is directional) are read in the background; the
+ * transfers are then re-stamped in place. The read is one indexed findOne per
+ * direction and the shortest possible duel is still tens of seconds, so it
+ * always lands long before Game.js reads the transfers. If the read FAILS the
+ * decay-1 stamp stands: full rating, no anti-farm. That is the right failure
+ * direction — a DB blip must not quietly delete a player's rating.
+ */
+function stampRatingV2(game, p1, p2) {
+  const rgP1 = Number(p1.ratedGames) || 0;
+  const rgP2 = Number(p2.ratedGames) || 0;
+  // ONE K for both sides. Per-player Ks would hand a rookie 40 points and take
+  // 10 from the veteran they beat.
+  const k = pairK(rgP1, rgP2);
+
+  const build = (decayP1, decayP2) => {
+    const common = {
+      ratingA: p1.elo, ratingB: p2.elo,
+      ratedGamesA: rgP1, ratedGamesB: rgP2,
+      k
+    };
+    const p1Win = calculateTransfer({ ...common, outcome: 1, decay: decayP1 });
+    const p2Win = calculateTransfer({ ...common, outcome: 0, decay: decayP2 });
+    // A draw belongs to neither farming direction, so it takes the harsher of
+    // the two multipliers: a pair grinding each other must not keep full value
+    // by drawing.
+    const drawRes = calculateTransfer({ ...common, outcome: 0.5, decay: Math.min(decayP1, decayP2) });
+    return {
+      version: 2,
+      k,
+      base: { p1: p1.elo, p2: p2.elo },
+      ratedGames: { p1: rgP1, p2: rgP2 },
+      decay: { [p1.id]: decayP1, [p2.id]: decayP2 },
+      transfers: {
+        [p1.id]: p1Win.transfer,
+        [p2.id]: p2Win.transfer,
+        draw: drawRes.deltaA
+      }
+    };
+  };
+
+  game.ratingV2 = build(1, 1);
+
+  // Bots and guests have no accountId, so there is no pair to decay.
+  if (!p1.accountId || !p2.accountId) return;
+
+  const day = dayKeyUTC();
+
+  // The promise is PARKED ON THE GAME so finishSoloDuel can await it.
+  //
+  // The original reasoning was that "the shortest possible duel is still tens
+  // of seconds", so this read always lands first. True of a duel that is
+  // PLAYED, false of one that is RESOLVED: an instant forfeit or a pregame
+  // disconnect ends the game in well under a second, and the transfers are read
+  // at whatever decay is stamped at that moment — which is 1. Those are exactly
+  // the games a farming pair would use, so the control was missing precisely
+  // where it was needed.
+  //
+  // Still fire-and-forget for the normal case: the re-stamp below happens on
+  // its own and nothing blocks on it. Game.js awaits this handle only at the
+  // finish line, and only with a short timeout, so a slow database delays a
+  // result by milliseconds rather than holding a game open.
+  game.ratingV2Ready = Promise.all([
+    readPairWins(PairWins, day, p1.accountId, p2.accountId),
+    readPairWins(PairWins, day, p2.accountId, p1.accountId)
+  ]).then(([winsP1OverP2, winsP2OverP1]) => {
+    // The game can be gone by the time this lands. `state === 'end'` is NOT a
+    // reason to bail any more: finishSoloDuel awaits this before reading the
+    // transfers, so a game that has just ended is the case that needs the
+    // re-stamp most.
+    if (games.get(game.id) !== game) return;
+    game.ratingV2 = build(decayMultiplier(winsP1OverP2), decayMultiplier(winsP2OverP1));
+  }).catch((e) => {
+    console.error('[RATING_V2] pair decay read failed, keeping decay 1:', e?.message || e);
+  });
+}
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -139,7 +462,7 @@ const generateMainLocations = async () => {
 };
 
 setTimeout(generateMainLocations, 2000);
-setInterval(generateMainLocations, 1000 * 10);
+safeInterval('locations', 1000 * 10, generateMainLocations);
 
 // helpers
 function joinGameByCode(code, onFull, onInvalid, onSuccess) {
@@ -202,6 +525,36 @@ if (!process.env.MONGODB) {
       dbEnabled = false;
     }
   }
+}
+
+// Restore the queue-wait samples a previous process collected. Best-effort by
+// design: restoreStore() turns null, garbage or a partial doc into an empty
+// store, and an empty store just means the ETA falls back to its modelled prior
+// until live samples arrive. This may never be able to stop the server booting.
+if (dbEnabled) {
+  try {
+    const snap = await QueueEtaSnapshot.findOne({ key: 'ranked1v1' }).lean();
+    const restored = restoreStore(snap?.data, Date.now(), ETA_MAX_AGE_MS);
+    for (const [idx, ring] of restored.buckets) etaStore.buckets.set(idx, ring);
+    const n = [...etaStore.buckets.values()].reduce((sum, r) => sum + r.items.length, 0);
+    console.log(`[queueEta] restored ${n} wait samples across ${etaStore.buckets.size} rating buckets`);
+  } catch (e) {
+    console.error('[queueEta] snapshot restore failed, starting cold:', e?.message || e);
+  }
+
+  // Seasonal league tiers, then a periodic re-check so a mid-season re-anchor
+  // lands without a restart. AWAITED before the port opens: the strict
+  // matchmaking floor and the hard-map gate both resolve through the active tier
+  // table, so pairing on the built-in table for the first few seconds would
+  // quietly apply last season's cutoffs. Never throws — a bad doc keeps the
+  // built-in table.
+  await startLeagueConfigRefresh(safeInterval, { label: 'ws' });
+
+  // Is MIGRATION_AT actually this database's migration instant? A stale value
+  // makes pre-migration accounts placement-eligible, and a placement OVERWRITES
+  // a rating. Warns loudly, never blocks boot. This process is the one that
+  // routes players into placements, so it is the one that has to shout.
+  await checkMigrationAt('ws');
 }
 function log(...args) {
   console.log(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }), ...args);
@@ -299,8 +652,19 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  // LOG ONLY. This deliberately does NOT call stop().
+  //
+  // stop() serialises EVERY game and EVERY player and does a SYNCHRONOUS
+  // fs.writeFileSync. An unhandled rejection is not a shutdown — this file is
+  // full of fire-and-forget promises (stamp grants, pair-decay reads, forum
+  // sync), so a database blip can fire this handler repeatedly while the server
+  // is perfectly healthy. Dumping full state on each one blocks the event loop
+  // for every connected player, over and over, and clobbers the restart-recovery
+  // file with mid-session state that nothing is going to restore from.
+  //
+  // The gamestate dump belongs to the real shutdown paths only: SIGTERM, SIGINT
+  // and uncaughtException, all above.
   console.error('Unhandled rejection', reason, promise, currentDate());
-  stop('unhandledRejection');
 });
 // uWebSockets.js
 let app = uws.App({
@@ -532,15 +896,101 @@ if (process.env.MAINTENANCE_SECRET) {
     }));
   });
 
+  // Cosmetics push: the HTTP purchase/equip route calls this so a live ws
+  // session picks the change up immediately instead of on the next reconnect.
+  //
+  // SYNCHRONOUS, DELIBERATELY, and it must stay that way. uWS can discard the
+  // res object during an await and then crash the process on
+  // "Invalid access of discarded" when the handler finally writes. There is
+  // therefore NO DB read here: the caller (which just wrote the doc and holds
+  // the new values) passes them in the query string. If this ever has to
+  // await, add res.onAborted() BEFORE the first await and check the flag
+  // before every write — do not simply add `async`.
+  //
+  //   /cosmetics-updated/<secret>/<accountId>?nameGlow=<sku>&markerSkin=<sku>&owned=<csv>
+  //
+  // Absent params are left ALONE (a partial update must not wipe the other
+  // fields); an explicitly empty value clears that field.
+  app.get(`/cosmetics-updated/${maintenanceSecret}/:accountId`, (res, req) => {
+    // Read everything off `req` FIRST: a uWS request object is only valid
+    // inside the synchronous body of its handler.
+    const accountId = req.getParameter(0);
+    const query = new URLSearchParams(req.getQuery() || '');
+
+    if (!accountId) {
+      // writeStatus BEFORE writeHeader, always — uWS writes them in call order
+      // and a status after a header is a protocol error.
+      setCorsHeaders(res);
+      res.writeStatus('400 Bad Request');
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, error: 'Account ID required', playerFound: false }));
+      return;
+    }
+
+    const player = Array.from(players.values()).find(p => p.accountId === accountId);
+    if (!player) {
+      // Offline is the NORMAL case for a shop purchase (most buying happens
+      // outside a live game), so this is a 200 with playerFound:false — not an
+      // error the caller has to special-case or retry.
+      setCorsHeaders(res);
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, playerFound: false, broadcast: false }));
+      return;
+    }
+
+    if (query.has('nameGlow')) player.nameGlow = query.get('nameGlow') || null;
+    if (query.has('markerSkin')) player.markerSkin = query.get('markerSkin') || null;
+    if (query.has('owned')) {
+      const raw = query.get('owned') || '';
+      player.ownedCosmetics = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    }
+
+    // The buyer's own UI, whether or not they're in a game.
+    player.send({
+      type: 'cosmetics',
+      nameGlow: player.nameGlow,
+      markerSkin: player.markerSkin,
+      owned: player.ownedCosmetics
+    });
+
+    // Everyone else in their game gets a PARTIAL patch. Never a whole player
+    // object: `action:'update'` with a full replace would stomp live roster
+    // fields (score, guess, final, disconnected) with whatever this endpoint
+    // happened to know, mid-round.
+    let broadcast = false;
+    const game = player.gameId ? games.get(player.gameId) : null;
+    if (game && game.players[player.id]) {
+      // Write the SERVER's roster copy too, not just the wire patch. game.players
+      // holds a curated object (Game.addPlayer) and it is what every full state
+      // send is built from — getInitialSendState on a rejoin, and the roster a
+      // late joiner receives. Patching only the wire meant an equip made
+      // mid-game reverted for everyone the moment anybody reconnected.
+      game.players[player.id].nameGlow = player.nameGlow;
+      game.players[player.id].markerSkin = player.markerSkin;
+
+      game.sendAllPlayers({
+        type: 'player',
+        action: 'update',
+        id: player.id,
+        patch: { nameGlow: player.nameGlow, markerSkin: player.markerSkin }
+      });
+      broadcast = true;
+    }
+
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: true, playerFound: true, broadcast }));
+  });
+
 }
 
 const bannedIps = new Set();
 const ipConnectionCount = new Map();
 const ipDuelRequestsLast10 = new Map();
 
-setInterval(() => {
+safeInterval('ipDuelReqReset', 10000, () => {
   ipDuelRequestsLast10.clear();
-}, 10000);
+});
 
 function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat) {
           // maxDist no longer required-> can be pulled from community map
@@ -704,12 +1154,43 @@ app.ws('/wg', {
         player.setScreen(json.screen);
       }
 
+      // Repair a dangling gameId before the queue/create gates below. The id
+      // can outlive its game — Game.removePlayer early-returns without
+      // clearing it when the roster seat was already pruned, and reconnect
+      // re-adopts the same Player object across refreshes — and these gates
+      // read a truthy gameId as "already playing", silently dropping the
+      // message. For an affected player that is ranked, unranked, party
+      // create and 2v2 all dead at once (no error, no ack) until the 30s
+      // purge mints them a fresh Player. Raw types on purpose: the
+      // create2v2Lobby → createPrivateGame rewrite happens further down.
+      // Scoped to the entry gates — every mid-game handler already no-ops on
+      // a dead id via its own games.has() guard, and joinPrivateGame
+      // self-heals (games.get miss + addPlayer restamp). playAgain2v2 /
+      // teamDuelBack carry their own tolerant guard.
+      if (player.gameId && !games.has(player.gameId)
+        && ['unrankedDuel', 'publicDuel', 'createPrivateGame', 'create2v2Lobby'].includes(json.type)) {
+        player.gameId = null;
+      }
+
       if((json.type === 'unrankedDuel') && !player.gameId) {
         if (blockUnnamed(player)) return;
         if(player.banned) {
           player.send({
             type: 'toast',
             key: 'unableToJoinDuel',
+            toastType: 'error'
+          });
+          return;
+        }
+
+        // Migration day depends on this gate: the queue must be drainable
+        // (ELO_MIGRATION_PLAN Phase 0 — "zero live ranked games" before the
+        // elo snapshot pass). Private games and 2v2 already refuse under
+        // maintenance; the solo queues were the gap.
+        if (maintenanceMode) {
+          player.send({
+            type: 'toast',
+            key: 'maintenanceModeStarted',
             toastType: 'error'
           });
           return;
@@ -726,7 +1207,12 @@ app.ws('/wg', {
         // actually registered. Without this the unranked queue sent nothing back
         // and the client would spin on the matchmaking screen forever if the join
         // was dropped (e.g. socket hiccup) or silently rejected.
-        player.send({ type: 'queueJoined', ranked: false });
+        //
+        // queuedAt is the SERVER's join instant. Both clients render the
+        // elapsed timer from it against their existing clock offset, so nobody
+        // keeps a client-side queue-start timestamp that a remount or a
+        // backgrounded JS timer can silently corrupt.
+        player.send({ type: 'queueJoined', ranked: false, queuedAt: queueDetails.queueTime });
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
           const ipOctets = player.ip.split('.').slice(0, 3).join('.');
@@ -770,13 +1256,65 @@ app.ws('/wg', {
           return;
 
         }
+        // Migration day depends on this gate: the ranked queue must be
+        // drainable (ELO_MIGRATION_PLAN Phase 0 — "zero live ranked games"
+        // before the elo snapshot pass). Private games and 2v2 already refuse
+        // under maintenance; the solo queues were the gap.
+        if (maintenanceMode) {
+          player.send({
+            type: 'toast',
+            key: 'maintenanceModeStarted',
+            toastType: 'error'
+          });
+          return;
+        }
+        // v2 dodge cooldown. Abandoning a match you were matched into costs
+        // the opponent a whole game, so the queue is closed for a bit. v1 has
+        // no such concept, hence the flag gate.
+        if (RATING_V2) {
+          const remaining = dodgeRemaining(dodgeCooldowns, dodgeKeyFor(player));
+          if (remaining > 0) {
+            player.send({
+              type: 'toast',
+              // Sentence-as-key: reads verbatim on any client whose locale
+              // table predates this string (t() falls back to the key).
+              key: `Ranked queue locked for ${Math.ceil(remaining / 1000)}s after leaving a match early`,
+              toastType: 'error'
+            });
+            return;
+          }
+        }
         if (BOTS_INSTANT && !player.elo) player.elo = 1000;
         // get range of league
         player.inQueue = true;
+        // Invalidate the previous answer BEFORE re-reading. Without this the
+        // stale `true` from the placement they just finished is still sitting
+        // on the Player when the next tick runs, and the backfill would hand
+        // them a second placement against a throwing bot. undefined is the
+        // "read in flight" state: chooseDuelPairs holds them out for a tick
+        // and the placement branch requires an explicit true.
+        // botEligibility gets the SAME invalidation for the same event: a
+        // just-placed player requeuing inside the DB round-trip still carries
+        // ranked:true from the pre-placement read, and the legacy backfill
+        // branch would hand them a regular bot instead of human matchmaking.
+        if (RATING_V2) {
+          player.placementPending = undefined;
+          player.botEligibility = undefined;
+        }
         // Bot backfill: stamp fresh W/L eligibility on the Player (async,
         // fire-and-forget — backfill only trusts an explicit true, so it
-        // kicks in on the first tick after this read resolves).
-        refreshBotEligibility(player);
+        // kicks in on the first tick after this read resolves). The placement
+        // announcement rides a follow-up message rather than the queueJoined
+        // ack below: placementPending is ALWAYS undefined at ack time (the
+        // invalidate above), and delaying the ack by a DB round trip is worse
+        // than a second message. Guarded on still-being-in-the-ranked-queue so
+        // a player who bailed before the read landed gets no stale banner.
+        refreshBotEligibility(player).then(() => {
+          if (RATING_V2 && player.placementPending === true && player.inQueue
+              && playersInQueue.get(player.id)?.duel) {
+            player.send({ type: 'queuePlacement', placement: true });
+          }
+        });
 
         if(!player.league) {
 
@@ -787,11 +1325,23 @@ app.ws('/wg', {
           }
           playersInQueue.set(player.id, queueDetails);
           // No league => no publicDuelRange below, so this is the only join ack
-          // the client gets for this case.
-          player.send({ type: 'queueJoined', ranked: true });
+          // the client gets for this case. No rating either, so no ETA — but
+          // the elapsed timer still works off queuedAt.
+          player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
 
         } else {
-          const range = getLeagueRange(player.league);
+          // v2 queues on a RATING WINDOW, not a league band: the entry carries
+          // the raw rating plus queueTime, and the window is recomputed from
+          // windowFor(waited) on every tick of the matchmaking loop. The
+          // league range is still what the client is sent as publicDuelRange
+          // so old bundles keep rendering something sensible.
+          // Resolved BEFORE the range: a strict player's displayed band is
+          // floored at the Voyager line, so the range depends on this.
+          const strictQueue = !!(player.strictMatchmaking && player.elo >= getStrictFloor());
+
+          const range = RATING_V2
+            ? rangeForRatingV2(player.elo, 0, strictQueue)
+            : getLeagueRange(player.league);
 
 
         const queueDetails = {
@@ -801,11 +1351,26 @@ app.ws('/wg', {
           guest: false,
           queueTime: Date.now(),
           duel: true,
-          // Voyager+ opt-in: the 10s widening below floors at the Voyager
-          // minimum instead of 0, so this player only ever meets Voyagers and
-          // Nomads. Eligibility re-checked here (not just at settings time)
+          // v2 only: the authoritative value the matchmaker pairs on. Kept
+          // separate from `elo` so nothing v1 accidentally reads it.
+          ...(RATING_V2 ? { rating: player.elo, window: windowFor(0) } : {}),
+          // Voyager+ opt-in: this player is never matched below the Voyager
+          // line. Eligibility is re-checked HERE and not just at settings time,
           // so a derank quietly returns them to the normal pool.
-          strict: !!(player.strictMatchmaking && player.elo >= leagues.voyager.min)
+          //
+          // THE FLOOR MUST COME FROM getStrictFloor(), NOT `leagues.voyager.min`.
+          // That constant is 5,000 on the retired Season 0 scale, and a v2
+          // rating tops out near 1,600 — so this expression was false for every
+          // account on the ladder and the entry was never stamped strict. The
+          // setting was dead end to end (hidden in both clients, rejected by the
+          // server, ignored by the matchmaker) while its User field and its
+          // "5000+ ELO" copy kept shipping.
+          //
+          // Under v2 the flag is enforced inside chooseDuelPairs from the very
+          // first tick, not only at widening: the window is a symmetric +/-150
+          // around your rating, so a 945-rated strict player reaches down into
+          // Trekker immediately without it.
+          strict: strictQueue
         }
         playersInQueue.set(player.id, queueDetails);
 
@@ -816,7 +1381,7 @@ app.ws('/wg', {
         });
         // Uniform join ack across all queue branches (publicDuelRange alone is
         // ELO-display info; queueJoined is the canonical "you're queued" signal).
-        player.send({ type: 'queueJoined', ranked: true });
+        player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
       }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
@@ -953,25 +1518,63 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final, round);
       }
 
+      // Emotes. DUAL WIRE FORMAT: new clients send `emoteId` (a stable string
+      // id from shared/emotes/catalog.js), every shipped mobile build and any
+      // cached web bundle still sends `emote` (the legacy integer index into
+      // components/emoteReactions.js). emoteId wins when both are present.
       if (json.type === 'emote' && player.gameId && games.has(player.gameId)) {
-        const emote = json.emote;
-        if (!Number.isInteger(emote) || emote < 0 || emote > 9) return;
         const lastEmote = player.lastEmote || 0;
         if (Date.now() - lastEmote < 1500) return;
         const game = games.get(player.gameId);
         // Host muted emotes for this game — drop server-side too (clients hide
         // the FAB, but raw messages and stale clients must not bypass it).
+        // MUTE AND RATE LIMIT COME FIRST, BEFORE ANY CATALOGUE OR OWNERSHIP
+        // WORK: a paid emote must never be able to buy its way past a host
+        // mute or spam a room faster than a free one.
         if (game.disableEmotes) return;
+
+        // Catalogue membership replaces the old `0..9` range check, which
+        // accepted two indices (8 and 9) that no client has ever defined —
+        // those rendered as undefined on every receiver.
+        const emoteDef = typeof json.emoteId === 'string'
+          ? getEmote(json.emoteId)
+          : byLegacyIndex(json.emote);
+        if (!emoteDef) return;
+
+        // Ownership. The null-accountId case (bots and guests) SKIPS the
+        // lookup entirely — there is no account to own anything — but the line
+        // above confines it to free emotes, so skipping grants nothing. Bots
+        // send hardcoded legacy indices 0-7, all free, so they are correct by
+        // construction.
+        if (!emoteDef.free && !player.accountId) return;
+        if (player.accountId && !ownsEmote(player, emoteDef)) return;
+
         player.lastEmote = Date.now();
         game.sendAllPlayers({
           type: 'emote',
           id: player.id,
           name: player.username,
           countryCode: player.countryCode || null,
+          // The equipped glow rides ON THE MESSAGE rather than being looked up
+          // client-side off the roster, and the reason is the client, not the
+          // server. Both receivers latch a message's presentation once at
+          // receipt and never recompute it (see the `tint` discipline in
+          // components/gameChat.js) — resolving a glow at render would mean
+          // threading the roster into two components that home.js memoises on
+          // explicit dep lists, and a roster-derived object rebuilt per render
+          // defeats both memos in the hottest component in the app. One nullable
+          // sku string on a message the user had to type, at 1/sec, is cheaper
+          // than that by any measure. It also survives the sender leaving.
+          nameGlow: player.nameGlow ?? null,
           // 'a' | 'b' in team modes (2v2 duels + team parties), null otherwise —
           // clients color the reaction bubble by allegiance.
           team: game.players[player.id]?.team ?? null,
-          emote
+          // A paid emote has NO legacy index, so old receivers get -1, fail
+          // their `emote >= 0` check and render NOTHING. That is the intended
+          // degradation: showing nothing is strictly better than showing the
+          // wrong glyph, which is what any index-remapping scheme would do.
+          emote: emoteDef.legacyIndex ?? -1,
+          emoteId: emoteDef.id
         });
       }
 
@@ -1015,6 +1618,9 @@ app.ws('/wg', {
           id: player.id,
           name: player.username,
           countryCode: player.countryCode || null,
+          // Same reasoning as the emote payload above: latched at receipt by the
+          // client, so it has to arrive with the message.
+          nameGlow: player.nameGlow ?? null,
           team: game.players[player.id]?.team ?? null,
           teamChat: teamOnly, // clients badge team-channel messages
           message,
@@ -1072,6 +1678,23 @@ app.ws('/wg', {
 
       if (json.type === 'leaveGame' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
+        // DODGE (v2 only). "Pre-game leave" = walking out of a ranked duel you
+        // were already matched into, during the getready window before round 1
+        // has been played. That is the move that costs a real opponent a whole
+        // game, and it is what the cooldown exists to price.
+        //
+        // Cancelling the QUEUE is deliberately NOT a dodge: nobody has been
+        // matched yet, so nobody paid anything, and punishing Cancel would
+        // make the button hostile.
+        //
+        // Placement matches are EXEMPT. A placement is a brand-new account's
+        // very first game against a bot that throws — locking them out of
+        // ranked for backing out of it is the worst possible first impression,
+        // and there is no opponent to compensate.
+        //
+        // The rule itself lives in recordDodgeIfApplicable so the socket-close
+        // path books the identical dodge: closing the tab used to be free.
+        recordDodgeIfApplicable(player, game, 'leaveGame');
         game.removePlayer(player);
       }
 
@@ -1348,7 +1971,7 @@ app.ws('/wg', {
       // could otherwise park itself in a pool it doesn't belong to. OFF is
       // always allowed (deranked players must be able to clear it).
       if (json.type === "setStrictMatchmaking" && typeof json.strict === 'boolean' && player.accountId) {
-        if (json.strict && (!player.elo || player.elo < leagues.voyager.min)) {
+        if (json.strict && (!player.elo || player.elo < getStrictFloor())) {
           player.sendFriendData(); // snap the optimistic client back
           return;
         }
@@ -1863,7 +2486,7 @@ app.ws('/wg', {
           await User.updateOne({ _id: friend._id }, { $push: { receivedReq: player.accountId } });
 
           // update player
-          player.sentReq.push({ id: friend._id.toString(), name: friend.username, supporter: friend.supporter });
+          player.sentReq.push({ id: friend._id.toString(), name: friend.username });
           player.sendFriendData();
           player.send({ type: 'friendReqState', state: 1 })
 
@@ -1872,7 +2495,7 @@ app.ws('/wg', {
           if (friendPlayer) {
             friendPlayer.send({ type: 'friendReq', id: player.accountId, name: player.username });
 
-            friendPlayer.receivedReq.push({ id: player.accountId, name: player.username, supporter: player.supporter });
+            friendPlayer.receivedReq.push({ id: player.accountId, name: player.username });
             friendPlayer.sendFriendData();
           }
         }).catch((e) => {
@@ -1931,7 +2554,7 @@ app.ws('/wg', {
           const exists = friendPlayer.sentReq.findIndex((f) => f.id === player.accountId);
           if (exists > -1) {
             friendPlayer.sentReq.splice(exists, 1);
-            friendPlayer.friends.push({ id: player.accountId, name: player.username.toString(), supporter: player.supporter });
+            friendPlayer.friends.push({ id: player.accountId, name: player.username.toString() });
             friendPlayer.sendFriendData();
             // friendPlayer.send({type:'newFriend', id: player.accountId, name: player.username});
             friendPlayer.send({ type: 'toast', key: 'newFriend', name: player.username, toastType: 'success' });
@@ -2020,6 +2643,12 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
+    // Guarded for the same reason every timer goes through safeInterval (see
+    // ws/safeTimers.js): an uncaught throw here reaches uncaughtException →
+    // process.exit(1), ending the game for every connected player because ONE
+    // disconnect hit a bad edge. The dodge latch, roster mutation and
+    // removePlayer below are exactly the kind of surface that grows edges.
+    try {
     const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
     const durationSeconds = (connectionDuration / 1000).toFixed(1);
 
@@ -2067,6 +2696,27 @@ app.ws('/wg', {
       // recompute to the same numbers until the purge trims the roster).
       if (player.gameId && games.has(player.gameId)) {
         const dcGame = games.get(player.gameId);
+
+        // DODGE ON DISCONNECT — ARMED HERE, CHARGED AT THE PURGE.
+        //
+        // The penalty only ever fired from the explicit `leaveGame` message, so
+        // it punished the player who pressed the button and let the one who
+        // force-quit walk. Between two identical actions the ruder one was the
+        // one that cost nothing, which is exactly backwards, and killing the tab
+        // is the easier of the two.
+        //
+        // But charging it right here would also punish a WIFI BLIP. The state
+        // test (`getready`, round 1) can only be evaluated now — 30 seconds
+        // later the game has moved on or ended — while the question it answers
+        // ("did they actually abandon?") is not settled until the reconnect
+        // grace expires. So latch the verdict now and resolve it later: the
+        // purge charges it, and handleReconnect clears it if they come back.
+        //
+        // Not persisted in Player.toJSON on purpose: a restored process has no
+        // pending disconnect to resolve, and a stale latch would charge someone
+        // for a deploy.
+        if (isDodgeableExit(dcGame)) player.pendingDodge = true;
+
         const dcTeam = dcGame.players[player.id]?.team;
         if (dcGame.teamDuel && dcGame.state === 'end' && dcTeam) {
           dcGame.sendPlayAgainState(dcTeam);
@@ -2109,10 +2759,18 @@ app.ws('/wg', {
       }
       }
     }
-    if (playersInQueue.has(ws.id)) {
-      playersInQueue.delete(ws.id);
+    } catch (e) {
+      console.error('[ws:close] handler threw for', ws?.id, e?.stack || e);
+    } finally {
+      // Never let a queue entry outlive its socket — even when the body above
+      // threw or returned early. The matchmaking tick dereferences these
+      // entries every 500ms. (The stale-close early return relied on an
+      // explicit delete before this moved into a finally; both paths land
+      // here.)
+      if (ws?.id && playersInQueue.has(ws.id)) {
+        playersInQueue.delete(ws.id);
+      }
     }
-
   }
 });
 
@@ -2190,20 +2848,90 @@ try {
 
 
   // update player count
-  setInterval(() => {
+  safeInterval('beat5s', 5000, () => {
+
+    // v2 dodge cooldowns: drop entries older than the 1h memory window. Safe
+    // on any cadence — the longest cooldown (2m) is far shorter than the
+    // window, so this can never evict someone still serving one. Runs on the
+    // 5s beat rather than the 500ms matchmaking tick because it walks the
+    // whole map and nothing depends on it being current to the tick.
+    if (RATING_V2) sweepDodges(dodgeCooldowns);
+
+    // ── QUEUE ETA PUSH ────────────────────────────────────────────────────
+    // Rides the existing 5s beat rather than adding a timer. Iterates
+    // playersInQueue (a handful of entries) instead of players (potentially
+    // thousands), and Player.send already no-ops on a dead socket.
+    //
+    // The value is the TOTAL typical wait for this player's rating band — not
+    // a countdown — and it is LATCHED for the queue session by nextShownEta.
+    {
+      const now = Date.now();
+      sweepSamples(etaStore, now, ETA_MAX_AGE_MS);
+      for (const [id, q] of playersInQueue) {
+        // Per-player guard: an estimate is a nicety, a queue is not. One
+        // malformed sample ring must never cost the rest of the queue their ETA.
+        try {
+        if (q.duel !== true) continue;
+        if (!Number.isFinite(q.rating)) continue; // guest/unrated: timer only, no ETA
+        const player = players.get(id);
+        if (!player || player.gameId) continue;
+
+        // Live data first; the modelled prior only fills the gap it leaves.
+        // bootstrapEstimate stamps `modelled: true`, which is what makes
+        // nextShownEta downgrade the wording to a vague band — a number this
+        // server invented must never be phrased like one it measured.
+        let est = estimateWait(etaStore, { rating: q.rating, now, strict: !!q.strict });
+        if (est.status !== 'ok') est = bootstrapEstimate(q.rating, !!q.strict);
+
+        const shown = nextShownEta(q.etaShown, est, now - q.queueTime);
+        const changed = !q.etaShown
+          || q.etaShown.state !== shown.state
+          || q.etaShown.seconds !== shown.seconds
+          || q.etaShown.tier !== shown.tier
+          || q.etaShown.longAfterMs !== shown.longAfterMs;
+        q.etaShown = shown;
+        if (!changed) continue; // same as last beat — don't spam the client
+
+        player.send({
+          type: 'queueEta',
+          state: shown.state,
+          value: shown.value,
+          unit: shown.unit,
+          seconds: shown.seconds,
+          // Lets the 1s client clock replace the quote immediately instead of
+          // waiting up to five seconds for this server beat to notice it.
+          longAfterSeconds: Number.isFinite(shown.longAfterMs)
+            ? shown.longAfterMs / 1000
+            : null,
+          // Only set when state is 'rough': 'short' | 'mid' | 'long'.
+          tier: shown.tier
+        });
+        } catch (e) {
+          console.error('[tick:beat5s] queueEta push threw for', id, e?.stack || e);
+        }
+      }
+    }
 
     const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
-      if (player.verified && !player.gameId) {
+      // Per-player guard: this is a broadcast, so a throw on ONE socket used to
+      // cost every player after it in the map their count update AND their time
+      // sync. The time sync is what verifyLiveness keys off, so a single bad
+      // socket could get healthy players marked dead.
+      try {
+        if (player.verified && !player.gameId) {
+          player.send({
+            type: 'cnt',
+            c: activePlayerCount
+          });
+        }
         player.send({
-          type: 'cnt',
-          c: activePlayerCount
+          type: 't',
+          t: Date.now()
         });
+      } catch (e) {
+        console.error('[tick:beat5s] broadcast threw for', player?.id, e?.stack || e);
       }
-      player.send({
-        type: 't',
-        t: Date.now()
-      });
     }
 
     if(maintenanceMode) {
@@ -2221,7 +2949,7 @@ try {
       console.log('Unstarted games', unstartedGames);
 
     }
-  }, 5000);
+  });
 
   function findDuelPairs(duelQueue) {
     const pairs = [];
@@ -2306,6 +3034,48 @@ try {
     }
 
     return pairs;
+  }
+
+  // v2 ONLY. Flatten the ranked 1v1 queue into the plain entry objects
+  // ws/matchmakingV2.js takes. That module is deliberately pure — it never
+  // imports states.js — so the join between the queue entry (rating,
+  // queueTime) and the Player (accountId, placement/bot flags) happens here.
+  //
+  // The three carve-out fields mirror v1's findDuelPairs filter:
+  //   botEligible      newbies are served a bot, never a human.
+  //   placementPending undefined = the DB read is still in flight, and
+  //                    chooseDuelPairs holds those out for a tick. Guests are
+  //                    exempt there (no account, so no read can be pending).
+  //   lastOpponentId   lastDuelOpponent holds accountIds and carries NO
+  //                    timestamp; wasRecentOpponent reads a missing
+  //                    lastOpponentAt as "still blocked", which is exactly
+  //                    v1's identity-only rule. The 60s wait waiver is the
+  //                    escape hatch in both.
+  function buildDuelEntriesV2() {
+    const entries = [];
+    for (const [id, q] of playersInQueue) {
+      if (!q.duel) continue;
+      const p = players.get(id);
+      if (!p) continue;
+      const guest = !!q.guest;
+      entries.push({
+        id,
+        rating: Number.isFinite(q.rating) ? q.rating : (Number(p.elo) || ENTRY_RATING),
+        guest,
+        queueTime: q.queueTime,
+        accountId: p.accountId || null,
+        placementPending: guest ? false : p.placementPending,
+        // Strict matchmaking opt-in, stamped at queue join. Guests can never be
+        // strict: they have no account to hold the setting and no rating to
+        // clear the floor with.
+        strict: guest ? false : !!q.strict,
+        botEligible: BOTS_ENABLED && !BOTS_INSTANT && !!p.accountId
+          && p.botEligibility?.ranked === true,
+        lastOpponentId: p.accountId ? (lastDuelOpponent.get(p.accountId) || null) : null,
+        lastOpponentAt: undefined
+      });
+    }
+    return entries;
   }
 
   // Queue every connected member of a staging lobby for 2v2 — the single
@@ -2508,14 +3278,53 @@ try {
   //     synthesized from roster data).
   //   - lastDuelOpponent is never stamped for bot games: a bot is always a
   //     valid next opponent.
-  function createRankedDuelGame(p1, p2, { isBotGame = false } = {}) {
+  //   - isPlacement (v2 only) marks a brand-new account's seeding match. It is
+  //     always ALSO a bot game, the human is always p1, and Game.js tests
+  //     isPlacement BEFORE isBotGame so the placement branch wins.
+  function createRankedDuelGame(p1, p2, { isBotGame = false, isPlacement = false } = {}) {
     const gameId = uuidv4();
-    const game = new Game(gameId, { public: true, allLocations, duel: true });
+    const game = new Game(gameId, { public: true, allLocations, duel: true, seenIds: seenUnion([p1, p2]) });
     if (isBotGame) game.isBotGame = true;
+    // Only ever stamped under v2 — Game.js's placement branch is itself
+    // RATING_V2-gated, and leaving the field off entirely with the flag down
+    // keeps a v1 game object byte-identical to what it is today.
+    if (RATING_V2 && isPlacement) game.isPlacement = true;
     games.set(gameId, game);
 
     game.addPlayer(p1, undefined, "p1");
     game.addPlayer(p2, undefined, "p2");
+
+    // ── QUEUE WAIT TELEMETRY ────────────────────────────────────────────
+    // MUST run before the deletes below: the entries are still live here, so
+    // queueTime is the exact join instant. This is the only construction path
+    // for ranked 1v1, so hooking it covers the human pairing pass, the newbie
+    // bot backfill and the placement match in one place.
+    //
+    // Bot and placement matches are NOT recorded. They resolve within a tick
+    // or two by construction, so feeding them in would drag every low-band
+    // estimate toward zero and quote a wait no human pairing can deliver. The
+    // watch entry is dropped either way, or the reaper would file a completed
+    // match as an abandonment.
+    const matchedAt = Date.now();
+    const queueWaits = {};
+    for (const [tag, p] of [['p1', p1], ['p2', p2]]) {
+      const q = playersInQueue.get(p.id);
+      if (!q || q.duel !== true) continue;
+      queueWaits[tag] = matchedAt - q.queueTime;
+      if (isBotGame || isPlacement) continue;
+      if (!Number.isFinite(q.rating)) continue; // unrated/guest entry, no band
+      recordSample(etaStore, {
+        rating: q.rating,
+        waitMs: queueWaits[tag],
+        at: matchedAt,
+        strict: !!q.strict,
+        matchId: gameId,
+      });
+    }
+    // Rides onto the saved game doc so the estimate can be checked against
+    // what players actually experienced (models/Game.js playerSummarySchema).
+    game.queueWaitMs = queueWaits;
+
     playersInQueue.delete(p1.id);
     playersInQueue.delete(p2.id);
 
@@ -2531,10 +3340,18 @@ try {
         p2: p2.accountId
       }
 
-      // Track last opponent to prevent same matchup twice in a row
-      // whenever at least one side is below 5000 elo (Voyager-vs-Voyager is
-      // exempt: that pool is thin enough that blocking rematches can strand it)
-      if (p1.elo < leagues.voyager.min || p2.elo < leagues.voyager.min) {
+      // Track last opponent to prevent the same matchup twice in a row, unless
+      // BOTH sides are Voyager+ — that pool is thin enough that blocking
+      // rematches can strand it.
+      //
+      // THE EXEMPTION WAS DEAD. This read `leagues.voyager.min`, which is 5,000
+      // on the retired Season 0 scale, so under v2 the condition was true for
+      // every duel ever played and the carve-out never fired. Nomads and future
+      // Legends — the 20-60 accounts whose quietest hours see roughly one
+      // same-band arrival a week — ate the full rematch block, escaping only via
+      // the 60s waiver in matchmakingV2. Exactly backwards from the intent.
+      const rematchExemptFloor = getStrictFloor();
+      if (p1.elo < rematchExemptFloor || p2.elo < rematchExemptFloor) {
         lastDuelOpponent.set(p1.accountId, p2.accountId);
         lastDuelOpponent.set(p2.accountId, p1.accountId);
       }
@@ -2546,7 +3363,38 @@ try {
     // bots always have one, so it's equivalent today — and if an elo-less
     // player ever reaches a bot game, skipping the wiring (guest-duel
     // semantics) beats computing NaN deltas.
-    if (p1.elo && p2.elo) {
+    if (p1.elo && p2.elo && RATING_V2) {
+      // ── RATING V2 PRECOMPUTE ─────────────────────────────────────────────
+      // Game.js applies these at the end; nothing is recomputed there. Three
+      // numbers cover every outcome, all derived from ONE shared K so the
+      // result is zero-sum by construction.
+      //
+      // Bot games are UNRATED under v2, so a plain bot backfill gets NO
+      // ratingV2 stamp at all and Game.js's bot branch skips rating entirely.
+      // A PLACEMENT is a bot game too, but it still gets the stamp: it is
+      // cheap, it keeps the object shape uniform for anything reading game
+      // state, and Game.js's placement branch (which seeds instead of
+      // transferring) is tested first so the transfers go unused.
+      if (!isBotGame || isPlacement) {
+        stampRatingV2(game, p1, p2);
+      }
+
+      game.oldElos = {
+        p1: p1.elo,
+        p2: p2.elo
+      }
+
+      if (process.env.DEBUG_ELO_CHANGES === 'true') {
+        console.log('game.ratingV2', game.ratingV2, game.oldElos);
+      }
+
+      // v2 scale: see arbMapMinRating(). Never true for a bot game (bots sit
+      // at ENTRY_RATING ± 30, well under the Explorer line).
+      const arbMin = arbMapMinRating();
+      if (p1.elo > arbMin && p2.elo > arbMin) {
+        game.locations = pick5RandomArb(game.seenIds);
+      }
+    } else if (p1.elo && p2.elo) {
       // calculate elo change if p1 wins,loses,draws
       // calculate elo change if p2 wins,loses,draws
       const eloP1Win = calculateOutcomes(p1.elo, p2.elo, 1);
@@ -2577,7 +3425,7 @@ try {
       // Both high-elo → the harder arbitrary world map (structurally never
       // true for bot games: bots sit at 800-1000).
       if(p1.elo > 2000 && p2.elo > 2000) {
-        game.locations = pick5RandomArb();
+        game.locations = pick5RandomArb(game.seenIds);
       }
     }
 
@@ -2585,6 +3433,10 @@ try {
       p1: p1.id,
       p2: p2.id
     }
+
+    // Remember what this match served so the next duel for either player picks
+    // around it. Read after any arbitrary-map override above, never before.
+    stampSeen([p1, p2], game.locations);
 
     game.start();
     return game;
@@ -2612,15 +3464,17 @@ try {
     }
 
     const gameId = uuidv4();
+    const roster = [...rosterA, ...rosterB];
     // public=true (loop manages lifecycle like a public duel), teamDuel=true.
-    const game = new Game(gameId, { public: true, allLocations, teamDuel: true });
+    const game = new Game(gameId, { public: true, allLocations, teamDuel: true, seenIds: seenUnion(roster) });
     // Comms XOR (user ruling): 2v2 has chat, so emotes are off — matchmade
     // games have no host to choose. FFA/1v1 keep emotes (no chat there).
     game.disableEmotes = true;
     // Matchmade 2v2s play a world + arbitrary-map mix (same override
     // pattern as the high-elo 1v1 path — constructor generation of the
     // "all" pool is synchronous, so replacing here is safe).
-    game.locations = pick5WorldArbMix(allLocations);
+    game.locations = pick5WorldArbMix(allLocations, game.seenIds);
+    stampSeen(roster, game.locations);
     if (isBotGame) game.isBotGame = true;
     game.autoPairedTeams = autoPairedTeams;
     game.teamHostIds = teamHostIds;
@@ -2635,7 +3489,11 @@ try {
   }
 
   // queue handler
-  setInterval(() => {
+  //
+  // Guarded at the timer AND inside every loop below. The outer guard keeps the
+  // process alive; the inner ones keep one bad player from costing everyone
+  // else their pass. See safeInterval's header for why both layers exist.
+  safeInterval('queue', 500, () => {
 
     // Duel bots: drive scheduled guesses, tear down bot-only ended games,
     // reap bots whose game is gone.
@@ -2710,6 +3568,23 @@ try {
         }
       }
 
+      // ── RATING V2 anti-farm bookkeeping ──────────────────────────────────
+      // The pair-wins counter is READ at match start (stampRatingV2) and
+      // INCREMENTED here at match end. That read-then-write gap is only safe
+      // because a player can be in exactly ONE ranked game at a time, so no
+      // two increments for the same pair can ever interleave with a read that
+      // matters. If concurrent ranked games per player ever become possible,
+      // this scheme has to move to a single atomic read-modify-write.
+      //
+      // Latched on the game object so it fires exactly once, on the first tick
+      // after the game reaches 'end' — every route into 'end' (timer, HP race,
+      // forfeit via removePlayer) passes through this state, so hooking the
+      // state instead of the callers cannot be bypassed.
+      if (RATING_V2 && game.state === 'end' && !game.pairWinsBumped) {
+        game.pairWinsBumped = true;
+        bumpPairWinsForGame(game);
+      }
+
       if(game.state === 'end' && Date.now() > game.nextEvtTime) {
         // remove game if public
         if(game.public) {
@@ -2725,6 +3600,11 @@ try {
 
       // find games that can be joined
       // unranked (meaning non duel) public games
+      // Maintenance drain: existing games play out (state machine above), but
+      // nobody new is seated into them and nothing new is created below.
+      if (maintenanceMode) {
+        continue;
+      }
       if (playersInQueue.size < 1) {
         continue;
       }
@@ -2734,7 +3614,7 @@ try {
       if (game.rounds - game.curRound < minRoundsRemaining) {
         continue;
       }
-      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 3) {
+      if (!canJoinUnrankedRound(game)) {
         continue;
       }
       if (playerCnt >= game.maxPlayers) {
@@ -2768,10 +3648,11 @@ try {
 
     }
 
-    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
+    if (!maintenanceMode && playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
       // create a new public game (non duel)
       const gameId = uuidv4();
       const game = new Game(gameId, { public: true, allLocations });
+      game.timePerRound = UNRANKED_ROUND_TIME_MS;
       games.set(gameId, game);
 
       let playersCanJoin = game.maxPlayers;
@@ -2804,7 +3685,7 @@ try {
     //   lobby and shown their team for a beat before auto-queueing as a duo;
     //   stage 2 — find opponents: two intact duos pair into a 4-player game.
     // Players who queue from a full duo skip stage 1 entirely.
-    if (playersInQueue.size >= 1) {
+    if (!maintenanceMode && playersInQueue.size >= 1) {
       pair2v2Solos(playersInQueue);
       const teams = build2v2Teams(playersInQueue);
 
@@ -2941,9 +3822,41 @@ try {
       }
     }
 
-    if (playersInQueue.size >= 1) {
-      const pairs = findDuelPairs(playersInQueue);
+    // !maintenanceMode: migration day drains through here — existing games
+    // play out via the state machine above, but no pairing and no bot
+    // backfill may seat a queued player into a NEW game. Queue entries are
+    // kept (old clients have no wire message for a server-side eject; they
+    // can cancel, and pairing resumes if maintenance lifts without a restart).
+    if (!maintenanceMode && playersInQueue.size >= 1) {
+      // ── PAIRING PASS ─────────────────────────────────────────────────────
+      // v2 pairs by CLOSEST rating inside a symmetric, time-widening window
+      // (ws/matchmakingV2.js). v1's first-fit league-band pass below is kept
+      // intact and byte-for-byte, so RATING_V2=false is today's behaviour.
+      // Degrade to "no pairs this tick" rather than skipping the rest of the
+      // tick: the widen loop and the bot backfill below are what keep a queued
+      // player's UI moving and what serves placements, and neither depends on
+      // this having succeeded.
+      let pairs = [];
+      try {
+        pairs = RATING_V2
+          ? chooseDuelPairs(buildDuelEntriesV2(), {
+              now: Date.now(),
+              allowRematch: ALLOW_REMATCH,
+              // Resolved per tick from the ACTIVE tier table, so a seasonal
+              // re-anchor moves the strict floor with the leagues instead of
+              // stranding it on a stale number.
+              strictFloor: getStrictFloor()
+            })
+              .map(({ a, b }) => [a.id, b.id])
+          : findDuelPairs(playersInQueue);
+      } catch (e) {
+        console.error('[tick:queue] pair selection threw, no pairs this tick:', e?.stack || e);
+      }
       for(const pair of pairs) {
+        // Per-pair guard: createRankedDuelGame constructs a Game, seats both
+        // rosters, stamps the rating transfers and calls start(). A throw on one
+        // pair must not cost every other pair the matchmaker just solved for.
+        try {
         const [id1, id2] = pair;
         const p1 = players.get(id1);
         const p2 = players.get(id2);
@@ -2958,8 +3871,49 @@ try {
         }
 
         createRankedDuelGame(p1, p2);
+        } catch (e) {
+          console.error('[tick:queue] pairing threw for', pair, e?.stack || e);
+        }
       }
 
+      if (RATING_V2) {
+        // ── v2 WINDOW WIDENING ─────────────────────────────────────────────
+        // Recomputed from scratch EVERY tick out of windowFor(now - queueTime)
+        // — there is no widen-once latch, because the window keeps growing
+        // (uncapped past 75s) rather than jumping to a single wide band. The
+        // widened bounds are display only: chooseDuelPairs computes the real,
+        // symmetric window itself. queueTime is NEVER touched, same rule as
+        // v1: it has to keep meaning "when I joined" or the 60s rematch waiver
+        // can never be reached.
+        //
+        // `strict` is not consulted here. Under v2 it is inert — see the queue
+        // join handler.
+        const now = Date.now();
+        for (const [playerId, queueData] of playersInQueue) {
+          // The `if (!player) continue` below was the ONE hand-patched instance
+          // of this bug class. The try/catch generalises it: any throw in here,
+          // not just a vanished player, is now one player's problem.
+          try {
+          const player = players.get(playerId);
+          // Same vanish guard as v1: a .send() on a missing player throws and
+          // would kill the widen pass for everyone else still queued.
+          if (!player) continue;
+          if (queueData.guest || !queueData.duel) continue;
+          const half = windowFor(now - queueData.queueTime);
+          if (half === queueData.window) continue; // unchanged — don't spam the client
+          queueData.window = half;
+          const range = rangeForRatingV2(queueData.rating, now - queueData.queueTime, queueData.strict);
+          queueData.min = range[0];
+          queueData.max = range[1];
+          player.send({
+            type: 'publicDuelRange',
+            range
+          });
+          } catch (e) {
+            console.error('[tick:queue] v2 widen threw for', playerId, e?.stack || e);
+          }
+        }
+      } else {
       // remaining players in queue check if wait was longer than 10 seconds, in that case set their elo range to infinity
       // — unless the player opted into strict matchmaking (Voyager+ setting):
       // their widened floor is the Voyager minimum, so the pool stays
@@ -2970,9 +3924,21 @@ try {
       // which made the rematch block permanent and could starve a two-player
       // pool).
       for(const playerId of playersInQueue) {
+        try {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
+        // The player can vanish between the pairing pass above and this loop
+        // (disconnect / leave queue). players.get() then returns undefined and
+        // the .send() below throws, killing the whole widen pass for everyone
+        // else still queued. Skip them; the normal queue-cleanup paths remove
+        // the stale entry.
+        if(!player) continue;
         if(!queueData.guest && queueData.duel && !queueData.widened && Date.now() - queueData.queueTime > 10000) {
+          // v1 BRANCH. `leagues.voyager.min` (5,000) and the 20,000 ceiling
+          // below are CORRECT here and must not be "fixed" to v2 values: this
+          // whole else-branch only runs with RATING_V2 off, on the Season 0
+          // scale, where those are the real numbers. The v2 path above resolves
+          // its floor through getStrictFloor() instead.
           const widenedMin = queueData.strict ? leagues.voyager.min : 0;
           playersInQueue.set(playerId[0], { ...queueData, min: widenedMin, max: 20000, widened: true });
 
@@ -2981,6 +3947,10 @@ try {
             range: [widenedMin, 20000]
           });
         }
+        } catch (e) {
+          console.error('[tick:queue] v1 widen threw for', playerId?.[0], e?.stack || e);
+        }
+      }
       }
 
       // Bot backfill (ranked 1v1): a player with 0 ranked wins or a
@@ -2990,12 +3960,41 @@ try {
       // eligible player each tick, not just pairing leftovers.
       if (BOTS_ENABLED) {
         for (const [playerId, queueData] of playersInQueue) {
+          // HIGHEST-BLAST-RADIUS GUARD IN THE TICK. This branch CONSTRUCTS
+          // games: createBotPlayer builds a Player, createRankedDuelGame builds
+          // a Game, seats two rosters, stamps rating transfers and calls
+          // start(). A throw anywhere in that chain used to abandon the backfill
+          // pass for every other queued player, and reach the process-level
+          // handler that exits. One player's bad state must cost that player a
+          // tick, nothing more.
+          try {
           if (!queueData.duel) continue;
+          const player = players.get(playerId);
+
+          // PLACEMENT FIRST, AND UNCONDITIONALLY (v2). A brand-new account's
+          // seeding match outranks every other gate here:
+          //   - `strict` is ignored: it is inert under v2 anyway, and a
+          //     placement is not a ladder match to be filtered.
+          //   - botEligibility is ignored: placementPending is its own,
+          //     stricter signal (verified account, created post-migration,
+          //     never seeded) and it is what decides this.
+          // The human is seated as p1 because Game.js's placement branch reads
+          // pIds.p1 for the seed and only p1 can win a placement.
+          if (RATING_V2 && player && player.placementPending === true
+              && player.inQueue && !player.gameId && player.elo) {
+            const bot = createBotPlayer({ placement: true });
+            console.log('[RATING_V2] placement match:', player.username || player.id, 'vs', bot.username);
+            // isBotGame stays TRUE: the save gate, the null accountIds.p2 and
+            // the synthesized bot side all depend on it. Game.js tests
+            // isPlacement before isBotGame, so the placement branch wins.
+            createRankedDuelGame(player, bot, { isBotGame: true, isPlacement: true });
+            continue;
+          }
+
           // Strict players opted into a 5000+ pool; bots sit at 800-1000.
           // (Structurally near-impossible anyway — Voyagers aren't newbie-
-          // eligible — but the guard states the intent.)
+          // eligible — but the guard states the intent.) Inert under v2.
           if (queueData.strict) continue;
-          const player = players.get(playerId);
           if (!player || !player.inQueue || player.gameId || !player.elo) continue;
           if (!BOTS_INSTANT && !player.accountId) continue;
           if (!BOTS_INSTANT && player.botEligibility?.ranked !== true) continue;
@@ -3004,12 +4003,20 @@ try {
           console.log('[BOTS] ranked backfill:', bot.username, 'vs', player.username || player.id);
 
           createRankedDuelGame(player, bot, { isBotGame: true });
+          } catch (e) {
+            console.error('[tick:queue] bot backfill threw for', playerId, e?.stack || e);
+          }
         }
       }
     }
 
     // loop through disconnected players and remove them if they have been disconnected for more than 30 seconds
     for(const [accountId, playerId] of disconnectedPlayers) {
+      // Per-entry guard: this calls game.removePlayer(), which can end and
+      // resolve a whole duel (rating writes, results broadcast, save). One
+      // dropout whose teardown throws must not strand every other disconnected
+      // player in the map forever.
+      try {
       const player = players.get(playerId);
       if(!player) {
         disconnectedPlayers.delete(accountId);
@@ -3045,6 +4052,16 @@ try {
           continue;
         }
         disconnectedPlayers.delete(accountId);
+
+        // The reconnect grace expired without them coming back, so the dodge
+        // latched at socket close is now confirmed as a real abandonment rather
+        // than a connection blip. Charged BEFORE removePlayer, which can end and
+        // dissolve the game out from under this. See the note at the latch site.
+        if (player.pendingDodge) {
+          player.pendingDodge = false;
+          chargeDodge(player, 'disconnect');
+        }
+
         if (player.gameId) {
           const game = games.get(player.gameId);
           if (game) {
@@ -3057,15 +4074,29 @@ try {
         playersInQueue.delete(playerId);
         players.delete(playerId);
       }
+      } catch (e) {
+        console.error('[tick:queue] disconnect purge threw for', accountId, e?.stack || e);
+      }
     }
 
-  }, 500);
+  });
 
 
 
+
+  // Preserve the rolling hour across deploys without changing shutdown.
+  if (dbEnabled) {
+    safeInterval('etaSnapshot', 5 * 60 * 1000, () => {
+      QueueEtaSnapshot.updateOne(
+        { key: 'ranked1v1' },
+        { $set: { key: 'ranked1v1', data: snapshotStore(etaStore, Date.now()), updatedAt: new Date() } },
+        { upsert: true }
+      ).catch((e) => console.error('[queueEta] snapshot write failed:', e?.message || e));
+    });
+  }
 
   if(!dev && dbEnabled) {
-    setInterval(() => {
+    safeInterval('memsave', 10000, () => {
 
       const memUsage = process.memoryUsage().heapUsed;
       const gameCnt = games.size;
@@ -3080,11 +4111,11 @@ try {
       });
       mem.save().then(() => [
       ])
-    }, 10000);
+    });
   }
 
 
-  setInterval(() => {
+  safeInterval('statsLog', 10000, () => {
     // log player count, game count, memory usage
     let memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;
@@ -3092,4 +4123,4 @@ try {
 
      memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
-  }, 10000)
+  })

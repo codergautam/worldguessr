@@ -1,7 +1,7 @@
 import { FaTowerBroadcast } from "react-icons/fa6";
 import { useState, useEffect, useRef } from "react";
 
-export default function WsIcon({ connected, shown, onClick, connecting, loggedOut }) {
+export default function WsIcon({ connected, shown, onClick, connecting }) {
   const [showIcon, setShowIcon] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
   const [isSlideIn, setIsSlideIn] = useState(false);
@@ -152,11 +152,17 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
         onClick={onClick}
         style={{
           position: 'fixed',
-          // When logged out, the bigger Login button + the Maps CTA stacked
-          // under it occupy the top-right corner down to ~148px. Drop the
-          // WsIcon below them so it stops clipping the buttons.
-          top: loggedOut ? '170px' : '125px',
-          right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
+          // BELOW WHATEVER THE CORNER ACTUALLY HOLDS, measured, not guessed.
+          // This used to be `loggedOut ? '170px' : '125px'` — two hardcoded
+          // measurements of the buttons stacked above, which went stale every
+          // time one of them changed size or a breakpoint moved. The home
+          // column publishes its real height as --hudCornerH
+          // (components/ui/hudCorner.js) and its inset as --hudInsetY. The
+          // 125px floor is what non-home screens get: there is no column
+          // there, and it is the value this line already used — it clears the
+          // in-game timer.
+          top: 'max(125px, calc(var(--hudInsetY, 50px) + var(--hudCornerH, 0px) + 10px))',
+          right: 'var(--hudInsetX, 15px)',
           zIndex: 10000,
           width: '50px',
           height: '50px',
@@ -168,11 +174,14 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
           justifyContent: 'center',
           cursor: onClick ? 'pointer' : 'default',
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-          transition: 'right 0.4s ease-in-out, transform 0.4s ease-in-out, all 0.3s ease',
+          transition: 'transform 0.4s ease-in-out, all 0.3s ease',
           border: `3px solid ${getColor()}`,
           pointerEvents: 'auto',
           animation: (!isSliding && !isSlideIn) ? getAnimation() : 'none',
-          transform: isSlideIn ? 'translateX(100px)' : 'translateX(0)'
+          // The slide is ONE property now. It used to be a `right: -85px` and
+          // a `translateX(100px)` fighting over the same 400ms, which is also
+          // why `right` could not become a variable.
+          transform: (isSliding || isSlideIn) ? 'translateX(120px)' : 'translateX(0)'
         }}
         onMouseEnter={(e) => {
           if (!connecting) {

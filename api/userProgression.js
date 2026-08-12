@@ -1,7 +1,11 @@
 import mongoose from 'mongoose';
+import fs from 'fs';
+import path from 'path';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { rateLimit } from '../utils/rateLimit.js';
+import { convertRating, convertDelta, normalizeConversionTable } from '../components/utils/ratingConversion.js';
+import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
 
 
 // gautam note: this doesnt make any sense at all, ai slop.
@@ -17,23 +21,195 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 // MongoDB ObjectId validation regex
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
+/* ------------------------------------------------------------------ *
+ * Season 0 -> Season 1 read-time rating conversion
+ * ------------------------------------------------------------------ *
+ * Historical UserStats rows carry Season 0 ratings (0..20,000); rows written
+ * after the migration carry v2 ratings (100..1600). Drawn raw, one graph holds
+ * both and every veteran sees a cliff from 12,000 to 1,300.
+ *
+ * So pre-migration points are converted HERE, at read time, through the SAME
+ * frozen table the migration wrote with (scripts/migrateRatingV2.js). The last
+ * pre-migration point therefore lands on exactly the value the migration stamped
+ * as the live rating: no seam, by construction. ~6.3M UserStats docs are never
+ * rewritten, and old mobile builds get continuous graphs for free because none
+ * of this is release-bound.
+ *
+ * eloRank needs nothing: the map is non-decreasing, so stored ranks stay
+ * consistent with the converted ratings.
+ * ------------------------------------------------------------------ */
+
+// Same file, same accepted shapes as the migration's --map default.
+const CONVERSION_MAP_PATH = path.join(process.cwd(), 'data', 'elo-conversion-map.json');
+
+// undefined = never attempted, null = absent/unusable. Parsed ONCE per process:
+// this endpoint is on the profile hot path and the table is tens of thousands of
+// entries. Never per request.
+let conversionTableCache;
+let missingInstantLogged = false;
+
+function getConversionTable() {
+  if (conversionTableCache !== undefined) return conversionTableCache;
+
+  // Set first so a throw below can never cause a re-read (and re-log) per request.
+  conversionTableCache = null;
+
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(CONVERSION_MAP_PATH, 'utf8'));
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      console.warn(
+        `[userProgression] RATING CONVERSION DISABLED: ${CONVERSION_MAP_PATH} NOT FOUND. ` +
+        'Rating history is being served UNCONVERTED, so pre-migration points stay on the ' +
+        'Season 0 scale and graphs will show the migration cliff. Place the FROZEN ' +
+        'elo-conversion-map.json (the same file scripts/migrateRatingV2.js ran with) at ' +
+        'that path and restart to enable read-time conversion.'
+      );
+    } else {
+      console.warn(
+        `[userProgression] RATING CONVERSION DISABLED: ${CONVERSION_MAP_PATH} could not be read/parsed ` +
+        `(${error?.message}). Serving rating history UNCONVERTED.`
+      );
+    }
+    return conversionTableCache;
+  }
+
+  const table = normalizeConversionTable(raw);
+  if (!table) {
+    console.warn(
+      `[userProgression] RATING CONVERSION DISABLED: ${CONVERSION_MAP_PATH} is not a usable dense ` +
+      'lookup keyed by old elo (see the CONVERSION TABLE FORMAT header in ' +
+      'scripts/migrateRatingV2.js). Serving rating history UNCONVERTED.'
+    );
+    return conversionTableCache;
+  }
+
+  conversionTableCache = table;
+  console.log(
+    `[userProgression] rating conversion ENABLED: ${CONVERSION_MAP_PATH} ` +
+    `(${table.size} entries, old elo ${table.minOld}..${table.maxOld})`
+  );
+  if (table.nonMonotonicCount > 0) {
+    console.warn(
+      `[userProgression] WARNING: conversion table has ${table.nonMonotonicCount} decreasing steps. ` +
+      'A non-monotone map swaps two players\' relative order, so stored eloRank values will ' +
+      'disagree with the converted ratings on those points.'
+    );
+  }
+  return conversionTableCache;
+}
+
 /**
- * Sanitize progression data by removing sensitive fields
+ * The conversion is live only when ALL THREE hold:
+ *   - RATING_V2 is on. Rolling back (scripts/rollbackRatingV2.js restores elo_s0)
+ *     puts live ratings back on the Season 0 scale, and history must follow it
+ *     back automatically — flipping the flag off is the whole revert.
+ *   - the migration instant is known (accounts' points are split by it).
+ *   - the frozen table loaded.
+ * Any one missing = pass records through untouched = today's behaviour.
+ */
+function getConversionContext() {
+  if (!RATING_V2) return null;
+
+  const cutoffMs = MIGRATION_AT instanceof Date && !Number.isNaN(MIGRATION_AT.getTime())
+    ? MIGRATION_AT.getTime()
+    : null;
+  if (cutoffMs === null) {
+    if (!missingInstantLogged) {
+      missingInstantLogged = true;
+      console.warn(
+        '[userProgression] RATING CONVERSION DISABLED: RATING_V2 is on but ' +
+        'RATING_V2_MIGRATION_AT is unset/unparseable, so there is no instant to split ' +
+        'old-scale points from new-scale ones. Serving rating history UNCONVERTED.'
+      );
+    }
+    return null;
+  }
+
+  const table = getConversionTable();
+  if (!table) return null;
+
+  return { table, cutoffMs };
+}
+
+function timestampMs(timestamp) {
+  if (timestamp instanceof Date) return timestamp.getTime();
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * Sanitize progression data by removing sensitive fields, and convert
+ * pre-migration ratings onto the v2 scale in the SAME pass.
+ *
+ * Exported so test/ratingConversion.test.js can drive the real shaping code with
+ * a synthetic conversion context (no database, no map file) — the delta rule and
+ * the migration-boundary step are exactly the things that must not silently
+ * regress.
+ *
  * @param {Array} progression - Raw progression data
  * @param {boolean} isPublic - Whether this is a public (username-based) request
+ * @param {object|null} conversion - { table, cutoffMs } from getConversionContext(), or null
  * @returns {Array} Sanitized progression data
  */
-function sanitizeProgression(progression, isPublic = false) {
+export function sanitizeProgression(progression, isPublic = false, conversion = null) {
+  const table = conversion ? conversion.table : null;
+  const cutoffMs = conversion ? conversion.cutoffMs : 0;
+
+  // Which scale the PREVIOUS point was on. eloChange is a consecutive difference
+  // (userStatsService.getUserProgression), so `elo - eloChange` is literally the
+  // previous point's stored rating and has to be mapped on the previous point's
+  // terms — that is the one step that crosses the migration instant.
+  let prevIsPreMigration = null;
+
+  // Single pass: the conversion is folded into the existing shape loop, no
+  // second traversal of the records.
   return progression.map(stat => {
+    let elo = stat.elo;
+    let eloChange = stat.eloChange || 0;
+
+    const rawElo = Number(stat.elo);
+    if (conversion && Number.isFinite(rawElo)) {
+      const rawChange = Number(stat.eloChange) || 0;
+      const ts = timestampMs(stat.timestamp);
+      const isPre = ts !== null && ts < cutoffMs;
+      // First record has no predecessor (and a 0 change): treat it as its own era.
+      const prevIsPre = prevIsPreMigration === null ? isPre : prevIsPreMigration;
+
+      elo = isPre ? convertRating(rawElo, table) : rawElo;
+
+      if (isPre && prevIsPre) {
+        // Both ends of the step are old-scale. RE-DERIVED as f(elo) - f(elo - change),
+        // never f(change): the map is nonlinear, so +60 near 15,000 is worth about
+        // +8 while +60 near 1,000 is worth about +25.
+        eloChange = convertDelta(rawElo, rawChange, table);
+      } else if (!isPre && !prevIsPre) {
+        // Both ends already v2. Nothing to do.
+        eloChange = rawChange;
+      } else {
+        // THE BOUNDARY STEP: exactly one end predates the migration. Map each end
+        // on its own scale, then subtract. Without this, the first post-migration
+        // point reports a delta like 1305 - 12000 = -10695.
+        const prevRaw = rawElo - rawChange;
+        eloChange = elo - (prevIsPre ? convertRating(prevRaw, table) : prevRaw);
+      }
+
+      prevIsPreMigration = isPre;
+    }
+
     const sanitized = {
       timestamp: stat.timestamp,
       totalXp: stat.totalXp,
       xpRank: stat.xpRank,
-      elo: stat.elo,
+      elo: elo,
       eloRank: stat.eloRank,
+      // triggerEvent is deliberately NOT sent. It was added so the graphs could
+      // label the Season 1 XP grant instead of drawing an unexplained cliff;
+      // that grant was cut before it shipped, so no client reads it any more.
       // Calculated fields
       xpGain: stat.xpGain || 0,
-      eloChange: stat.eloChange || 0,
+      eloChange: eloChange,
       rankImprovement: stat.rankImprovement || 0
     };
 
@@ -43,7 +219,10 @@ function sanitizeProgression(progression, isPublic = false) {
     }
 
     // Never expose gameId, eloRefundDetails, or other sensitive fields
-    // These are intentionally excluded for security
+    // These are intentionally excluded for security.
+    // (If a refund AMOUNT is ever surfaced here it must go through
+    // convertDelta(elo, amount, table) — a refund is a delta, and mapping a
+    // delta directly through f() produces garbage.)
 
     return sanitized;
   });
@@ -140,13 +319,20 @@ export default async function handler(req, res) {
     // Get user's stats progression
     const progression = await UserStatsService.getUserProgression(user._id);
 
-    // Sanitize progression data - remove gameId and other sensitive fields
-    const sanitizedProgression = sanitizeProgression(progression, isPublicRequest);
+    // Sanitize progression data - remove gameId and other sensitive fields,
+    // and convert pre-migration ratings onto the v2 scale as they are shaped.
+    const conversion = getConversionContext();
+    const sanitizedProgression = sanitizeProgression(progression, isPublicRequest, conversion);
 
     // Build response
     const response = {
       progression: sanitizedProgression,
-      username: user.username
+      username: user.username,
+      // True only when EVERY point in this payload is on the v2 scale (100..1600).
+      // False means the payload is untouched Season 0 data, or a mix of both
+      // because the conversion map is unavailable — clients use it to pick
+      // scale-dependent thresholds instead of hardcoding 1000.
+      ratingScaleV2: !!conversion
     };
 
     // Only include userId for authenticated requests (not public)

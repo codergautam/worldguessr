@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { FaHeart, FaTrash, FaUser, FaMapMarkerAlt } from "react-icons/fa";
 import formatNumber from "../utils/fmtNumber";
 import { FaPencil } from "react-icons/fa6";
+import { GLOW_DARK, HoverGlowName } from "../utils/usernameWithFlag";
 
 function MapTile({
     onPencilClick,
@@ -131,7 +132,7 @@ function MapTile({
 
     return (
         <div
-            className={`map-tile ${country ? 'country' : ''} ${!imageUrl ? 'no-image' : ''}`}
+            className={`map-tile wg-glowHover ${country ? 'country' : ''} ${!imageUrl ? 'no-image' : ''}`}
             onClick={onSelect ? () => onSelect(map) : onClick}
             // The whole tile acts as a button; role="button" also opts it into
             // the app-wide delegated click sound (audio.js watches [role="button"]).
@@ -255,7 +256,19 @@ function MapTile({
                                 <span className="map-tile__username">
                                     {map.accepted && <>&nbsp;•&nbsp;</>}
                                     <FaUser size={12} />
-                                    &nbsp;{highlightMatch(map.created_by_name, searchTerm)}
+                                    &nbsp;
+                                    {/* The real name box owns truncation whether or not a glow is
+                                        equipped. Animated glows rest as a static shadow, cross-fade
+                                        in while this tile is hovered, then fade smoothly back out;
+                                        ownBox keeps both paint layers inside the 34px clip relief. */}
+                                    <HoverGlowName
+                                        sku={map.created_by_glow}
+                                        surface={GLOW_DARK}
+                                        ownBox
+                                        className="wg-name-clip"
+                                    >
+                                        {highlightMatch(map.created_by_name, searchTerm)}
+                                    </HoverGlowName>
                                 </span>
                             )}
                         </div>

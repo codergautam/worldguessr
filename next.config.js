@@ -49,6 +49,13 @@ const nextConfig = {
     env: {
         NEXT_PUBLIC_COMMIT_HASH: getCommitHash(),
         NEXT_PUBLIC_BUILD_TIME: getBuildTime(),
+        // RATING_V2 used to be forwarded here because Next only inlines
+        // NEXT_PUBLIC_* into the client bundle, so the browser read an
+        // unresolved process.env.RATING_V2 and getActiveLeagues() fell back to
+        // the Season 0 table (a 1247 rating rendering as Trekker instead of
+        // Voyager, Legend unreachable). It is now a hardcoded `true` in
+        // components/utils/ratingFlags.js, so the client gets the right value
+        // by construction and this forward is no longer needed.
     },
     webpack: (config, { webpack }) => {
         return config

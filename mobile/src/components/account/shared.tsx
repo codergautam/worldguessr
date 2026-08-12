@@ -237,10 +237,10 @@ export function ProgressionGraph({
   // other half is reserving the plot area below (GRAPH_PLOT_RESERVED_HEIGHT).
   const filterSuffix =
     dateFilter === '7days'
-      ? t('graphFilter7Days', undefined, ' (7 Days)')
+      ? t('graphFilter7Days')
       : dateFilter === '30days'
-        ? t('graphFilter30Days', undefined, ' (30 Days)')
-        : t('graphFilterAllTime', undefined, ' (All Time)');
+        ? t('graphFilter30Days')
+        : t('graphFilterAllTime');
   const baseTitle =
     mode === 'xp'
       ? isRankMode ? t('rankOverTime') : t('xpOverTime')
@@ -508,10 +508,10 @@ export function ProgressionGraph({
                   ]}
                 >
                   {f === '7days'
-                    ? t('graphRange7DShort', undefined, '7D')
+                    ? t('graphRange7DShort')
                     : f === '30days'
-                      ? t('graphRange30DShort', undefined, '30D')
-                      : t('graphRangeAllShort', undefined, 'All')}
+                      ? t('graphRange30DShort')
+                      : t('graphRangeAllShort')}
                 </Text>
               </Pressable>
             ))}

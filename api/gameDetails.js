@@ -1,5 +1,11 @@
 import Game from '../models/Game.js';
 import User from '../models/User.js';
+import {
+  cosmeticsForGames,
+  cosmeticsForSavedPlayer,
+  cosmeticsReader,
+} from '../serverUtils/userCosmetics.js';
+import { stampReceiptForGame } from '../serverUtils/stamps/gameReceipt.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -39,6 +45,15 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'Game not found or access denied' });
     }
 
+    // One lookup for the whole roster, before the synchronous format pass.
+    const cosmeticsOf = cosmeticsReader(await cosmeticsForGames([game]));
+
+    // What this game paid the VIEWER, rebuilt from the ledger. Scoped to the
+    // requester on purpose even for mods: a receipt is one player's wallet, not
+    // part of the match record, and there is no screen that shows someone
+    // else's. Null when nothing was paid — the row then does not render at all.
+    const stampsEarned = await stampReceiptForGame(user._id.toString(), game.gameId);
+
     // Format the game data for roundOverScreen
     const formattedGame = {
       gameId: game.gameId,
@@ -46,6 +61,11 @@ export default async function handler(req, res) {
       startedAt: game.startedAt,
       endedAt: game.endedAt,
       totalDuration: game.totalDuration,
+      // Rating-v2 placement match. Without this the history view has no way to
+      // tell a seeding game from a duel, and renders the seed as a signed
+      // rating change. Absent on every doc saved before the field existed,
+      // which reads as false — correct, none of them were placements.
+      placement: game.placement === true,
 
       // Game settings
       settings: game.settings,
@@ -113,11 +133,19 @@ export default async function handler(req, res) {
         finalRank: player.finalRank,
         // Team assignment for team modes ('a' | 'b'); null on solo modes.
         team: player.team ?? null,
-        elo: player.elo
+        elo: player.elo,
+        // Match-time cosmetics from the saved roster. Legacy games have no
+        // snapshot, so the helper falls back to the live account join above.
+        ...cosmeticsForSavedPlayer(player, cosmeticsOf(player.accountId))
       })),
 
       // Game result
       result: game.result,
+
+      // What the game paid the requesting player, in the SAME shape the live
+      // `stampsEarned` socket message carries ({ total, lines }) so the summary
+      // renders history and live from one code path. Null = nothing paid.
+      stampsEarned,
 
       // Multiplayer info
       multiplayer: game.multiplayer,

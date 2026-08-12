@@ -2,11 +2,13 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
-import { getPinIcons } from '@/lib/markerIcons';
+import { getPinIcons, markerSkinIconKey } from '@/lib/markerIcons';
 import { findDistance, pickBestTeamGuessIds } from './calcPoints';
 import 'leaflet/dist/leaflet.css';
 import SafeMapContainer from './SafeMapContainer';
 import openInStreetView from './utils/openInStreetView';
+import { cachedNameGlowProps, GLOW_LIGHT } from './utils/usernameWithFlag';
+import GuessPinLabel from './utils/guessPinLabel';
 import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
 import { googleTileScale } from '@/lib/googleTileScale';
 
@@ -106,6 +108,18 @@ export default function ResultsMap({
   rounds,
   activeRound = null,
   myId = null,
+  // Equipped pin sku for the CURRENT player. Their own guess is drawn from
+  // round.guessLat/Long rather than from round.players, so unlike everyone
+  // else's skin it cannot be read off a guess entry. Multiplayer still resolves
+  // it from round.players[myId] when present; this prop is what covers
+  // singleplayer, where there is no players map at all.
+  myMarkerSkin = null,
+  // NO `myNameGlow` COUNTERPART, and the asymmetry with myMarkerSkin above is
+  // the point. A skin dresses your PIN, which is identity — you have to be able
+  // to pick yours out of five. A glow dresses a NAME, and your own pin's label
+  // is not a name: it reads "Your guess". So opponents' labels glow off their
+  // round.players entry and yours never does. This prop existed for one render
+  // and was deleted with it.
   // Highlighted player from the Final Scores list. When set, only that player's
   // guesses render (the current player's always do, separately), so the two can
   // be compared; selecting yourself matches no opponent, hiding them all. Unset
@@ -135,6 +149,7 @@ export default function ResultsMap({
   const src2IconRef = useRef(null);
   const srcBigIconRef = useRef(null);
   const src2BigIconRef = useRef(null);
+  const allIconsRef = useRef(null);
 
   const finalHistory = useMemo(() => (Array.isArray(rounds) ? rounds : []), [rounds]);
 
@@ -173,6 +188,10 @@ export default function ResultsMap({
         src2IconRef.current = icons.src2;
         srcBigIconRef.current = icons.srcBig;
         src2BigIconRef.current = icons.src2Big;
+        // Whole set kept so a purchased pin sku resolves by key, same as
+        // components/Map.js. `markerSkin` rides on the round's player entry
+        // exactly like `nameGlow` does.
+        allIconsRef.current = icons;
         setLeafletReady(true);
       } else {
         setTimeout(checkLeaflet, 100);
@@ -351,6 +370,12 @@ export default function ResultsMap({
         const shouldShowDestination = activeRound === null || activeRound === index;
         // Team games: each team's closest guesser gets the enlarged pin.
         const bestIds = bestTeamGuesserIds(round);
+        // Permanent name labels only while something is HIGHLIGHTED — a focused
+        // round, or a player picked out of the Final Scores list. Labelling all
+        // rounds at once buries the pins under a wall of white boxes. See
+        // components/utils/guessPinLabel.js for why the labels exist at all
+        // (marker skins killed the blue-you / green-them colour read).
+        const showLabels = activeRound === index || !!selectedPlayer;
 
         return (
           <React.Fragment key={index}>
@@ -397,8 +422,28 @@ export default function ResultsMap({
                 <>
                   <Marker
                     position={[round.guessLat, round.guessLong]}
-                    icon={bestIds?.has(myId) ? srcBigIconRef.current : srcIconRef.current}
+                    icon={
+                      // Tier MUST match the stock pin on the fallback line
+                      // below, or a skinned pin renders a different size than
+                      // everyone else's. This map draws the FULL-size pins
+                      // (icons.src / icons.dest, 30x49), so the base tier is
+                      // '' — 'Small' is the 25x41 set only components/Map.js
+                      // uses, where every pin is small.
+                      allIconsRef.current?.[markerSkinIconKey(
+                        round.players?.[myId]?.markerSkin ?? myMarkerSkin,
+                        bestIds?.has(myId) ? 'Big' : ''
+                      )]
+                      || (bestIds?.has(myId) ? srcBigIconRef.current : srcIconRef.current)
+                    }
                   >
+                    {showLabels && (
+                      <GuessPinLabel
+                        label={text("yourGuess")}
+                        // No nameGlow: this label is a UI string, not a name.
+                        // See the prop list at the top of this file.
+                        big={!!bestIds?.has(myId)}
+                      />
+                    )}
                     <Popup>
                       <div>
                         <strong>{text("yourGuess")}</strong><br />
@@ -433,23 +478,46 @@ export default function ResultsMap({
                   return null;
                 }
 
+                const popupGlow = cachedNameGlowProps(player.nameGlow, GLOW_LIGHT, { ownBox: true });
+
                 return (
                   <React.Fragment key={`${index}-${playerId}`}>
                     {/* Teammates blue (your pin), enemies green; each team's
                         closest guesser enlarged. */}
                     <Marker
                       position={[player.lat, player.long]}
-                      icon={isMyTeammate(playerId)
-                        ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
-                        : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current)}
+                      icon={
+                        // Purchased skin wins over the team pin, matching Map.js.
+                        allIconsRef.current?.[markerSkinIconKey(player.markerSkin, bestIds?.has(playerId) ? 'Big' : '')]
+                        || (isMyTeammate(playerId)
+                          ? (bestIds?.has(playerId) ? srcBigIconRef.current : srcIconRef.current)
+                          : (bestIds?.has(playerId) ? src2BigIconRef.current : src2IconRef.current))
+                      }
                     >
+                      {showLabels && (
+                        <GuessPinLabel
+                          label={player.username || text("opponent")}
+                          countryCode={player.countryCode || null}
+                          nameGlow={player.nameGlow ?? null}
+                          big={!!bestIds?.has(playerId)}
+                        />
+                      )}
                       <Popup>
                         <div>
                           <strong
+                            // Leaflet popup chrome is WHITE, so this takes the
+                            // LIGHT glow variant — class AND inline style, the
+                            // same pair the pin label wears, because the class
+                            // is what carries the @keyframes for an animated
+                            // sku. `ownBox` since this <strong> is the box.
+                            // `nameGlow` rides on the round's player entry —
+                            // absent (older hosts) simply means no glow.
+                            className={popupGlow?.className}
                             style={{
                               cursor: 'default',
                               textDecoration: 'none',
-                              color: 'inherit'
+                              color: 'inherit',
+                              ...popupGlow?.style
                             }}
                           >
                             {player.username || text("opponent")}

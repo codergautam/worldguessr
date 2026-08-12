@@ -1,0 +1,755 @@
+/* ===========================================================================
+ *  SEASON 0 HALL OF FAME
+ *
+ *  A separate stylesheet imported from pages/_app.js next to shop.css,
+ *  accountModal.css, duel.css and mapModal.css. globals.scss is ~9,570 lines
+ *  and is not growing for this.
+ *
+ *  NOTHING HERE INVENTS A NEW LOOK. Every surface is one the site already has:
+ *
+ *    header card, podium,    the .timer HUD pill recipe: var(--gradLight) over
+ *    "you" strip, list       a dark underlay, background-color
+ *                            var(--primaryTransparent), 2px solid
+ *                            var(--primary), 16px radius, and the three-part
+ *                            shadow (drop + green cast + inset top highlight).
+ *                            Identical to the Season 1 notice modal's stat
+ *                            blocks and to shop.css's cards, because a player
+ *                            sees the notice modal and then this page in the
+ *                            same minute and they must read as one system.
+ *
+ *    rows                    the notice modal's .s1__gift insert: flat
+ *                            rgba(0,0,0,.28) on a 1px white hairline at 12px
+ *                            radius. Rows are inserts INSIDE the list card,
+ *                            not cards of their own. 1000 competing cards is
+ *                            how a leaderboard turns into soup.
+ *
+ *    buttons                 .account-nav-item: translucent white pill, 1px
+ *                            white border, var(--gradGreenBtn) + --primary
+ *                            border when primary.
+ *
+ *  NO backdrop-filter anywhere, same ruling as .timer, .g2_container and
+ *  shop.css: this sits over a full-bleed background image, and a blur region is
+ *  re-sampled whenever anything behind it moves. Leaderboard.module.css already
+ *  paid for that lesson twice (the sticky header and the 100-row list).
+ *
+ *  tabular-nums on every number. A rating column that is not tabular makes a
+ *  1000-row list visibly ripple as you page through it.
+ * ======================================================================== */
+
+/* --------------------------------------------------------------------------
+ *  PAGE SHELL
+ *  Artwork goes in a position:fixed ::before layer, NOT background-attachment:
+ *  fixed on the scroller. Firefox cannot composite a fixed-attachment
+ *  background and re-rasterises it on every scroll frame — the documented
+ *  "menus are laggy in Firefox" bug. Same fix as accountModal.css and
+ *  Leaderboard.module.css.
+ * ----------------------------------------------------------------------- */
+.hof-page {
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100vw;
+    background-color: #000000;
+    color: #ffffff;
+    /* z-index 0 (not auto) so this is a stacking context. Without it the
+       z-index:-1 ::before escapes to the root and paints UNDER the black
+       background: a solid black page. */
+    z-index: 0;
+    position: relative;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
+}
+
+.hof-page::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.80) 0%,
+        rgba(0, 30, 15, 0.60) 100%
+    ),
+    var(--site-bg);
+    background-size: cover;
+    background-position: center;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.hof-main {
+    max-width: 1000px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+}
+
+.hof {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* --------------------------------------------------------------------------
+ *  HEADER
+ * ----------------------------------------------------------------------- */
+.hof-header {
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.55), rgba(6, 16, 10, 0.55));
+    background-color: var(--primaryTransparent);
+    border: 2px solid var(--primary);
+    border-radius: 16px;
+    padding: 24px 26px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.hof-title {
+    margin: 0;
+    font-size: clamp(1.7rem, 4vw, 2.6rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.hof-subtitle {
+    margin: 8px 0 0 0;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.hof-notes {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hof-note {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.hof-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+/* --------------------------------------------------------------------------
+ *  BUTTONS  (copied from .account-nav-item so the chrome matches)
+ * ----------------------------------------------------------------------- */
+.hof-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    background: var(--gradGreenBtn);
+    background-color: var(--primaryTransparent);
+    border: 1px solid var(--primary);
+    border-radius: 25px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.hof-btn:hover:not(:disabled) {
+    border-color: #4ade80;
+    transform: translateY(-1px);
+}
+
+.hof-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.hof-btn--ghost {
+    background: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hof-btn--ghost:hover {
+    background: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.hof-btn--small {
+    padding: 7px 14px;
+    font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+ *  LOADING / EMPTY
+ *  The empty state is the NORMAL state until migration day, so it is designed,
+ *  not a fallback: a centred card that explains itself. Never a blank page.
+ * ----------------------------------------------------------------------- */
+.hof-loading,
+.hof-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding: 48px 26px;
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.55), rgba(6, 16, 10, 0.55));
+    background-color: var(--primaryTransparent);
+    border: 2px solid var(--primary);
+    border-radius: 16px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.hof-loading p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.hof-empty__mark {
+    font-size: 2.6rem;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+
+.hof-empty__title {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.hof-empty__body {
+    margin: 0;
+    max-width: 460px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.hof-spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #4ade80;
+    border-radius: 50%;
+    animation: hofSpin 1s linear infinite;
+}
+
+@keyframes hofSpin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hof-spinner { animation-duration: 3s; }
+    .hof-btn:hover:not(:disabled) { transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+ *  PODIUM
+ *  The top three are the point of the page, so they get real estate rather
+ *  than a gold tint on a list row. Metal colours are the same three the
+ *  leaderboard medals already use (#FFD700 / #C0C0C0 / #CD7F32).
+ * ----------------------------------------------------------------------- */
+.hof-podium {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.hof-podium__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+    padding: 22px 16px;
+    border-radius: 16px;
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.62), rgba(6, 16, 10, 0.62));
+    background-color: var(--primaryTransparent);
+    border: 2px solid var(--primary);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    min-width: 0;
+}
+
+/* First place sits taller and warmer than the other two. Order is set here
+   rather than in the markup so the DOM stays rank-ordered for screen readers
+   and for anyone reading the page with styles off. */
+.hof-podium__card--gold {
+    order: 2;
+    border-color: rgba(255, 215, 0, 0.55);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 4px 18px rgba(255, 215, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.hof-podium__card--silver {
+    order: 1;
+    border-color: rgba(192, 192, 192, 0.45);
+    margin-top: 18px;
+}
+
+.hof-podium__card--bronze {
+    order: 3;
+    border-color: rgba(205, 127, 50, 0.45);
+    margin-top: 18px;
+}
+
+.hof-podium__card--me {
+    border-color: #4ade80;
+}
+
+.hof-podium__medal {
+    font-size: 2.1rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+.hof-podium__card--gold .hof-podium__medal {
+    font-size: 2.8rem;
+}
+
+.hof-podium__rank {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+}
+
+.hof-podium__name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hof-podium__rating {
+    font-size: 1.9rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.hof-podium__card--gold .hof-podium__rating {
+    font-size: 2.3rem;
+    color: #ffd700;
+    text-shadow: 0 0 18px rgba(255, 215, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.hof-podium__league {
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+    padding: 3px 12px;
+}
+
+.hof-podium__meta {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+ *  "YOU" STRIP
+ * ----------------------------------------------------------------------- */
+.hof-you {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.55), rgba(6, 16, 10, 0.55));
+    background-color: var(--primaryTransparent);
+    border: 2px solid #4ade80;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.hof-you__label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.hof-you__rank {
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.hof-you__name {
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hof-you__meta {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.62);
+    font-variant-numeric: tabular-nums;
+}
+
+.hof-you__rating {
+    margin-left: auto;
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.025em;
+}
+
+.hof-notonboard {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* --------------------------------------------------------------------------
+ *  TOOLBAR
+ * ----------------------------------------------------------------------- */
+.hof-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.hof-search {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 11px 16px;
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.hof-search::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hof-search:focus {
+    border-color: #4ade80;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.hof-count {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+ *  LIST
+ *  The card is the list. Rows are inserts inside it.
+ * ----------------------------------------------------------------------- */
+.hof-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--gradLight), linear-gradient(rgba(6, 16, 10, 0.58), rgba(6, 16, 10, 0.58));
+    background-color: var(--primaryTransparent);
+    border: 2px solid var(--primary);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Five columns, and the header row uses the SAME grid so the labels sit over
+   their values. Widths are fixed (not fr) on every numeric column so paging
+   from rank 9 to rank 1000 cannot shift the layout. */
+.hof-row {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr) 116px 108px 112px;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    /* Named properties only. `transition: all` on a list this long makes the
+       style system diff every animatable property per row on each recalc —
+       the exact wart called out in Leaderboard.module.css. */
+    transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.hof-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* No background, no border, no hover: this is a legend, not an entry. */
+.hof-row--head {
+    background: none;
+    border-color: transparent;
+    padding-top: 4px;
+    padding-bottom: 8px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hof-row--head:hover {
+    background: none;
+    border-color: transparent;
+}
+
+.hof-row--me {
+    background: rgba(74, 222, 128, 0.12);
+    border-color: #4ade80;
+}
+
+.hof-row--me:hover {
+    background: rgba(74, 222, 128, 0.18);
+    border-color: #4ade80;
+}
+
+.hof-row__rank {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.hof-row__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hof-name {
+    color: #fff;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.hof-name--link:hover {
+    color: #4ade80;
+    text-decoration: underline;
+}
+
+.hof-row__league {
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.hof-row__games {
+    font-size: 0.86rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.hof-row__rating {
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    text-align: right;
+}
+
+/* The inline "games" word. Redundant on desktop, where the column header says
+   it; the mobile collapse below turns it on. */
+.hof-row__unit {
+    display: none;
+}
+
+/* Season 0 tier colours, straight from the v1 leagues table. Hardcoded here
+   rather than imported: leagues.js resolves to the V2 table once the rating v2
+   flag is on, and a permanent Season 0 board must not restyle itself because a
+   live flag flipped. */
+.hof-league--nomad    { color: #b9f2ff; }
+.hof-league--voyager  { color: #ffd700; }
+.hof-league--explorer { color: #cd7f32; }
+.hof-league--trekker  { color: #b8b8b8; }
+
+.hof-row--head .hof-row__league,
+.hof-row--head .hof-row__games,
+.hof-row--head .hof-row__rating {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7rem;
+    font-weight: 400;
+}
+
+.hof-noresults {
+    padding: 28px 14px;
+    text-align: center;
+}
+
+.hof-noresults p {
+    margin: 0 0 4px 0;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.92rem;
+}
+
+/* --------------------------------------------------------------------------
+ *  PAGER + FOOTNOTE
+ * ----------------------------------------------------------------------- */
+.hof-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.hof-pager__label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-variant-numeric: tabular-nums;
+    min-width: 120px;
+    text-align: center;
+}
+
+.hof-footnote {
+    margin: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+ *  RESPONSIVE
+ * ----------------------------------------------------------------------- */
+@media (max-width: 860px) {
+    .hof-row {
+        grid-template-columns: 64px minmax(0, 1fr) 100px 88px 96px;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 720px) {
+    .hof-main {
+        padding: 20px 12px 48px;
+    }
+
+    .hof-header {
+        padding: 18px 16px;
+    }
+
+    /* Podium stacks. Order is reset so first place leads, since the visual
+       "middle is tallest" arrangement only reads as a podium side by side. */
+    .hof-podium {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .hof-podium__card--gold,
+    .hof-podium__card--silver,
+    .hof-podium__card--bronze {
+        order: 0;
+        margin-top: 0;
+    }
+
+    /* Rows collapse from a grid to a wrapping flex line. The rating carries
+       margin-left:auto, which eats the remaining space on line one and pushes
+       league + games onto line two — no media-query-only DOM, no JS width
+       branch, and the header row is simply hidden because a legend cannot
+       align to a wrapped layout. */
+    .hof-row--head {
+        display: none;
+    }
+
+    .hof-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 10px;
+        row-gap: 2px;
+        padding: 10px 12px;
+    }
+
+    .hof-row__rank {
+        flex: 0 0 auto;
+        min-width: 46px;
+    }
+
+    .hof-row__name {
+        flex: 1 1 auto;
+    }
+
+    .hof-row__rating {
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
+
+    .hof-row__league,
+    .hof-row__games {
+        flex: 0 0 auto;
+        font-size: 0.76rem;
+        text-align: left;
+    }
+
+    .hof-row__league {
+        margin-left: 56px;
+    }
+
+    .hof-row__unit {
+        display: inline;
+    }
+
+    .hof-you__rating {
+        margin-left: 0;
+    }
+
+    .hof-toolbar {
+        gap: 8px;
+    }
+}
+
+@media (max-width: 420px) {
+    .hof-title {
+        font-size: 1.5rem;
+    }
+
+    .hof-row__league {
+        margin-left: 0;
+    }
+}

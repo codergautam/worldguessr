@@ -27,6 +27,7 @@ import { GlassCard, sharedStyles, formatTimeAgo } from './shared';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import type { FriendReqState } from '../../store/multiplayerStore';
 import { t } from '../../shared';
+import PlayerName from '../PlayerName';
 
 /**
  * FriendsTab has no props — the parent only renders it when the viewer is on
@@ -121,11 +122,11 @@ export default function FriendsTab() {
 
   const handleRemove = (id: string, name: string) => {
     Alert.alert(
-      t('removeFriendTitle', undefined, 'Remove friend'),
-      t('removeFriendConfirm', { name }, 'Remove {{name}} from your friends list?'),
+      t('removeFriendTitle'),
+      t('removeFriendConfirm', { name }),
       [
         { text: t('cancel'), style: 'cancel' },
-        { text: t('remove', undefined, 'Remove'), style: 'destructive', onPress: () => removeFriend(id) },
+        { text: t('remove'), style: 'destructive', onPress: () => removeFriend(id) },
       ],
     );
   };
@@ -200,10 +201,13 @@ export default function FriendsTab() {
           </Text>
           {receivedRequests.map((req) => (
             <View key={req.id} style={styles.userRow}>
-              <Text style={styles.userName} numberOfLines={1}>
-                {req.name}
-                {req.supporter && <Text style={styles.supporter}> ★</Text>}
-              </Text>
+              <PlayerName
+                name={req.name}
+                textStyle={styles.userName}
+                style={styles.reqNameRow}
+                numberOfLines={1}
+                glow={req.nameGlow}
+              />
               <Pressable
                 onPress={() => acceptFriend(req.id)}
                 style={({ pressed }) => [styles.iconBtn, styles.iconBtnAccept, pressed && { opacity: 0.8 }]}
@@ -231,10 +235,13 @@ export default function FriendsTab() {
           </Text>
           {sentRequests.map((req) => (
             <View key={req.id} style={styles.userRow}>
-              <Text style={styles.userName} numberOfLines={1}>
-                {req.name}
-                {req.supporter && <Text style={styles.supporter}> ★</Text>}
-              </Text>
+              <PlayerName
+                name={req.name}
+                textStyle={styles.userName}
+                style={styles.reqNameRow}
+                numberOfLines={1}
+                glow={req.nameGlow}
+              />
               <Pressable
                 onPress={() => cancelFriendRequest(req.id)}
                 style={({ pressed }) => [styles.iconBtn, styles.iconBtnNeutral, pressed && { opacity: 0.8 }]}
@@ -268,11 +275,15 @@ export default function FriendsTab() {
                 />
                 <View style={styles.friendNameCol}>
                   {/* userName's flex:1 is for the plain request rows — inside
-                      this column the width bound comes from friendNameCol */}
-                  <Text style={[styles.userName, { flex: 0 }]} numberOfLines={1}>
-                    {friend.name}
-                    {friend.supporter && <Text style={styles.supporter}> ★</Text>}
-                  </Text>
+                      this column the width bound comes from friendNameCol.
+                      Static glow: a roster caps at 100 and this is a scroll
+                      list. */}
+                  <PlayerName
+                    name={friend.name}
+                    textStyle={[styles.userName, { flex: 0 }]}
+                    numberOfLines={1}
+                    glow={friend.nameGlow}
+                      />
                   {/* lastSeen is null for friends who opted out (hideLastSeen) —
                       they read as plain offline (dot only), mirroring web */}
                   {!friend.online && friend.lastSeen != null && (
@@ -414,8 +425,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     fontSize: 14,
   },
-  supporter: {
-    color: '#fbbf24',
+  // userName's `flex: 1` used to make the request row's <Text> eat the space
+  // left over by the action buttons. It is now INSIDE <PlayerName>, where it
+  // flexes against PlayerName's own row instead of against .userRow — so the
+  // flex has to be restated one level up or every request row collapses to the
+  // width of the name and the buttons slide left.
+  reqNameRow: {
+    flex: 1,
   },
   iconBtn: {
     paddingHorizontal: 10,

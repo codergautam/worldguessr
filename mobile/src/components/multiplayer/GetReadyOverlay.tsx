@@ -19,11 +19,12 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, getLeague, t } from '../../shared';
+import { colors, resolveLeague, t } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import getMyTeam from '../../shared/game/getMyTeam';
+import { GLOW_CLIP_RELIEF } from '../../shared/glowKeyframes';
 import WgWordmark from '../ui/WgWordmark';
 import PlayerName from '../PlayerName';
 
@@ -42,6 +43,9 @@ interface GetReadyOverlayProps {
   timeOffset: number;
   /** Number of locations generated so far */
   generated: number;
+  /** Placement seeding match — announces itself under the VS (web parity:
+   *  the hb-vs-placement tag in gameUI.js's VS chrome). */
+  isPlacement?: boolean;
 }
 
 const COUNTDOWN_WINDOW = 5;
@@ -55,6 +59,7 @@ export default function GetReadyOverlay({
   nextEvtTime,
   timeOffset,
   generated,
+  isPlacement,
 }: GetReadyOverlayProps) {
   const [seconds, setSeconds] = useState(COUNTDOWN_WINDOW);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -142,12 +147,17 @@ export default function GetReadyOverlay({
                 side="left"
               />
             ) : (
-              <PlayerColumn players={me ? [me] : []} label={t('you', undefined, 'You')} side="left" />
+              <PlayerColumn players={me ? [me] : []} label={t('you')} side="left" />
             )}
             <Reanimated.View
               entering={ZoomIn.delay(200).duration(380).reduceMotion(ReduceMotion.Never)}
             >
               <Text style={styles.vsText}>VS</Text>
+              {/* Placement seeding match: announced under the VS so the very
+                  first thing a new player reads is what this game IS. */}
+              {isPlacement && (
+                <Text style={styles.placementTag}>{t('placementMatch').toUpperCase()}</Text>
+              )}
             </Reanimated.View>
             {team2v2 ? (
               <PlayerColumn
@@ -197,7 +207,12 @@ function PlayerColumn({
     // as direct children of the animated column — no extra wrapper (a nested
     // styles.player would double-apply the column layout).
     const p = players[0];
-    const league = p.elo !== undefined ? getLeague(p.elo) : null;
+    // resolveLeague, not getLeague: MPPlayer.league carries the tier the
+    // SERVER resolved, and only the server ever sees a seasonal re-anchor —
+    // this bundle ships a frozen copy of the tier table and a store release
+    // is the only way to change it. Falls back to the local table when the
+    // field is absent (older server, or a payload predating it).
+    const league = p.elo !== undefined ? resolveLeague(p.elo, p.league) : null;
     const accent = league?.light ?? league?.color ?? '#cbd5e1';
     return (
       <Reanimated.View
@@ -211,6 +226,7 @@ function PlayerColumn({
           flagStyle={styles.flag}
           textStyle={styles.name}
           style={styles.nameRow}
+          glow={p.nameGlow}
         />
         {p.elo !== undefined && (
           <View style={styles.eloRow}>
@@ -228,18 +244,19 @@ function PlayerColumn({
     >
       {teamTitle && <Text style={styles.teamTitle}>{teamTitle}</Text>}
       {players.map((p) => {
-        const league = p.elo !== undefined ? getLeague(p.elo) : null;
+        const league = p.elo !== undefined ? resolveLeague(p.elo, p.league) : null;
         const accent = league?.light ?? league?.color ?? '#cbd5e1';
         return (
           // Team rows: compact name + inline elo, stacked 1–2 per side.
           <View key={p.id} style={styles.nameRow}>
             <PlayerName
-              name={p.id === myId ? t('you', undefined, 'You') : p.username}
+              name={p.id === myId ? t('you') : p.username}
               countryCode={p.countryCode}
               flagSize={14}
               flagStyle={styles.flag}
               textStyle={styles.name}
               style={styles.nameRow}
+              glow={p.nameGlow}
             >
               {p.elo !== undefined && (
                 <Text style={[styles.eloText, styles.eloInline, { color: accent }]}>({p.elo})</Text>
@@ -304,14 +321,14 @@ function Countdown({
       style={styles.countdown}
       entering={FadeIn.delay(320).duration(420).reduceMotion(ReduceMotion.Never)}
     >
-      <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
+      <Text style={styles.getReady}>{t('getReady')}</Text>
 
       <View style={styles.track}>
         <Animated.View style={[styles.fill, { width: barWidth }]} />
       </View>
 
       <Text style={styles.roundText}>
-        {t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}
+        {t('round', { r: round, mr: totalRounds })}
         {generated < totalRounds
           ? `  ·  ${t(
               'loadingLocationsProgress',
@@ -340,8 +357,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   body: {
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    // The matchup columns can shrink names to the edge on narrow phones. Keep
+    // that edge at least one full halo reach inside the native screen canvas.
+    paddingHorizontal: GLOW_CLIP_RELIEF,
   },
   // ── Opponent-introduction matchup ───────────────────────────────
   matchup: {
@@ -403,6 +423,17 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowRadius: 8,
     textShadowOffset: { width: 0, height: 0 },
+  },
+  // Placement announcement under the VS — same treatment as web's
+  // .elo-placement-label (small, muted, uppercase, tight tracking).
+  placementTag: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Lexend-Medium',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginTop: 4,
+    marginHorizontal: spacing.sm,
   },
   // ── Understated round countdown ─────────────────────────────────
   countdown: {

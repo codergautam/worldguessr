@@ -15,7 +15,6 @@
 | totalXp | Number | Cumulative XP earned |
 | totalGamesPlayed | Number | Total games played |
 | elo | Number | ELO rating (default: 1000) |
-| supporter | Boolean | Premium supporter status |
 | staff | Boolean | Moderator flag |
 
 ### Duel Statistics

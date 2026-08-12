@@ -12,13 +12,13 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  ImageBackground,
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -82,12 +82,7 @@ export default function PartyJoinScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[

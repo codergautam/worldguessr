@@ -19,48 +19,278 @@
 
 .duel-header .summary-title {
   font-size: 2.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.35rem;
 }
 
-.elo-container {
+.duel-header__meta {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 1rem 0;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0.65rem 0 1.25rem;
+  font-size: 1rem;
+  line-height: 1.3;
 }
 
-.elo-title {
-  font-size: 1.2rem;
-  color: #ccc;
-  margin-bottom: 0.5rem;
+.duel-header__meta:empty {
+  display: none;
 }
 
-.elo-display {
+.duel-header .elo-container {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem 0.45rem;
+  margin: 0;
 }
 
-.elo-value {
+.duel-header .placement-result {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.duel-header .placement-rating-badge {
+  --placement-accent: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: min(15rem, 100%);
+  max-width: 28rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--placement-accent);
+  border-radius: 16px;
+  background: var(--gradLight), rgba(8, 8, 8, 0.92);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(36, 87, 52, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #fff;
+  text-align: left;
+}
+
+.placement-rating-badge__emblem {
+  flex: 0 0 auto;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.placement-rating-badge__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.placement-rating-badge__result {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.placement-rating-badge__rating {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.duel-header .placement-rating-badge__value {
+  color: var(--placement-accent);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.placement-rating-badge__unit {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.summary-actions--placement {
+  align-items: stretch;
+}
+
+.summary-actions--placement .placement-replay {
+  min-width: min(12rem, 100%);
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.duel-header .elo-title {
+  font-size: inherit;
+  color: rgba(255, 255, 255, 0.68);
+  margin: 0;
+}
+
+.duel-header .elo-display {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.duel-header .elo-value {
   font-size: 2rem;
   font-weight: bold;
   color: #fff;
 }
 
-.elo-change {
-  font-size: 1.5rem;
+.duel-header .elo-change {
+  font-size: inherit;
   font-weight: bold;
 }
 
-.time-elapsed {
+/* The paid amount is one fact in the compact header summary. It only mounts
+   once the authoritative receipt exists; no pending placeholder reserves room. */
+.stamps-earned {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.stamps-earned__trigger {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: help;
+}
+
+/* This header is intentionally denser than balance surfaces. Keep the shared
+   stamp artwork everywhere else at its canonical 45px size. */
+.duel-header .stamps-earned .stampMark {
+  width: 34px;
+  height: 34px;
+}
+
+/* The total is present immediately; only the artwork travels. It enters like a
+   passport stamp being set onto the receipt, then stops cleanly without a
+   spring or a second pulse competing with the ELO animation. */
+.stamps-earned__mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  transform-origin: 50% 64%;
+  animation: stampsMarkFlyIn 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes stampsMarkFlyIn {
+  from {
+    opacity: 0.2;
+    filter: blur(2px);
+    transform: translate3d(-42px, -28px, 0) rotate(-18deg) scale(0.72);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+  }
+}
+
+.stamps-earned__trigger:focus-visible {
+  outline: 2px solid rgba(255, 215, 0, 0.9);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.stamps-earned__value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffd700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The receipt breakdown is a tooltip: useful on demand, zero layout footprint
+   while hidden. Hover and keyboard focus reveal it; touch uses --open. */
+.stamps-earned__lines {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.65rem);
+  left: 50%;
+  width: max-content;
+  min-width: 11rem;
+  max-width: min(18rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(8, 8, 8, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, -4px);
+  transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
+}
+
+/* Pointer devices only. Without the query, a tap on a phone leaves the row
+   stuck in :hover afterwards (mobile browsers latch it until you tap
+   elsewhere), which fights the explicit --open toggle. */
+@media (hover: hover) {
+
+  .stamps-earned:hover .stamps-earned__lines {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition-delay: 0s;
+  }
+}
+
+.stamps-earned--open .stamps-earned__lines,
+.stamps-earned:focus-within .stamps-earned__lines {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+
+.stamps-earned__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.stamps-earned__line-amount {
+  flex-shrink: 0;
+  color: #ffd700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .stamps-earned__mark {
+    animation: none;
+  }
+
+  .stamps-earned__lines {
+    transition: none;
+  }
+}
+
+.duel-header .time-elapsed {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-size: 1rem; /* was in globals.scss — the one declaration there that wasn't shadowed */
-  color: #ccc;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.35rem;
+  font-size: inherit;
+  color: rgba(255, 255, 255, 0.68);
+  margin: 0;
 }
 
 .duel-rounds {
@@ -198,21 +428,20 @@
 
   .duel-header .summary-title {
     font-size: 1.5rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-
-  .elo-container {
-    margin: 0.5rem 0 !important;
-  }
-
-  .elo-title {
-    font-size: 1rem !important;
     margin-bottom: 0.25rem !important;
   }
 
-  .time-elapsed {
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.5rem !important;
+  .duel-header__meta {
+    gap: 0.35rem;
+    margin: 0.4rem 0 0.9rem;
+  }
+
+  .duel-header .elo-container {
+    margin: 0 !important;
+  }
+
+  .duel-header .time-elapsed {
+    margin: 0 !important;
   }
 
   .duel-round-details {
@@ -224,17 +453,13 @@
     order: 2;
   }
 
-  .elo-display {
-    flex-direction: column;
-    gap: 0.5rem;
+  .duel-header .elo-display {
+    flex-direction: row;
+    gap: 0.4rem;
   }
 
-  .elo-value {
-    font-size: 1.5rem;
-  }
-
-  .elo-change {
-    font-size: 1.2rem;
+  .duel-header .stamps-earned {
+    margin: 0;
   }
 }
 
@@ -260,25 +485,16 @@
     margin-bottom: 0.3rem !important;
   }
 
-  .elo-container {
-    margin: 0.3rem 0 !important;
+  .duel-header__meta {
+    gap: 0.3rem;
+    margin: 0.3rem 0 0.75rem;
   }
 
-  .elo-title {
-    font-size: 0.9rem !important;
+  .duel-header .elo-container {
+    margin: 0 !important;
   }
 
-  .elo-value {
-    font-size: 1.3rem !important;
-  }
-
-  .elo-change {
-    font-size: 1rem !important;
-  }
-
-  .time-elapsed {
-    margin-top: 0.3rem !important;
-    margin-bottom: 0.3rem !important;
-    font-size: 0.9rem;
+  .duel-header .time-elapsed {
+    margin: 0 !important;
   }
 }

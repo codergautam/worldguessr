@@ -91,11 +91,11 @@ export default function CountrySelectorModal({
         onSelect(code);
         onClose();
       } else {
-        Alert.alert(t('error'), t('failedToUpdateCountry', undefined, 'Failed to update country'));
+        Alert.alert(t('error'), t('failedToUpdateCountry'));
       }
     } catch (error) {
       console.error('Failed to update country:', error);
-      Alert.alert(t('error'), t('errorUpdatingFlag', undefined, 'An error occurred while updating your flag'));
+      Alert.alert(t('error'), t('errorUpdatingFlag'));
     } finally {
       setSaving(false);
     }

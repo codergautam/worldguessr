@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { View, StyleSheet, ImageBackground } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,11 +32,7 @@ export default function MapDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <LinearGradient
         colors={['rgba(0,0,0,0.9)', 'rgba(0,30,15,0.8)', 'rgba(0,0,0,0.9)']}
         start={{ x: 0, y: 0 }}

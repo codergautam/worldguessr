@@ -17,6 +17,7 @@ import { nameFromCode } from '../../shared/data/countryHelpers';
 import StreetViewWebView from '../game/StreetViewWebView';
 import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
+import PlayerName from '../PlayerName';
 
 function formatNumber(n: number): string {
   if (!n || isNaN(n)) return '0';
@@ -161,7 +162,7 @@ export default function MapDetailView({
     return (
       <View style={styles.centered}>
         <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.4)" />
-        <Text style={styles.errorText}>{t('mapNotFound', undefined, 'Map not found')}</Text>
+        <Text style={styles.errorText}>{t('mapNotFound')}</Text>
         <Pressable style={styles.backBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>{t('back')}</Text>
         </Pressable>
@@ -183,12 +184,12 @@ export default function MapDetailView({
       {/* Status messages */}
       {mapData.in_review && (
         <View style={styles.statusBanner}>
-          <Text style={styles.statusText}>{t('mapUnderReview', undefined, 'This map is currently under review.')}</Text>
+          <Text style={styles.statusText}>{t('mapUnderReview')}</Text>
         </View>
       )}
       {mapData.reject_reason && (
         <View style={[styles.statusBanner, { backgroundColor: 'rgba(220,53,69,0.2)' }]}>
-          <Text style={styles.statusText}>{t('mapRejectedReason', { reason: mapData.reject_reason }, 'Rejected: {{reason}}')}</Text>
+          <Text style={styles.statusText}>{t('mapRejectedReason', { reason: mapData.reject_reason })}</Text>
         </View>
       )}
 
@@ -248,14 +249,14 @@ export default function MapDetailView({
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>👥</Text>
             <Text style={styles.statValue}>{formatNumber(mapData.plays)}</Text>
-            <Text style={styles.statLabel}>{t('plays', undefined, 'Plays')}</Text>
+            <Text style={styles.statLabel}>{t('plays')}</Text>
           </View>
         )}
         {(mapData.locationcnt || mapData.data) && (
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>📍</Text>
             <Text style={styles.statValue}>{formatNumber(mapData.locationcnt || mapData.data?.length || 0)}</Text>
-            <Text style={styles.statLabel}>{t('locations', undefined, 'Locations')}</Text>
+            <Text style={styles.statLabel}>{t('locations')}</Text>
           </View>
         )}
         {typeof mapData.hearts !== 'undefined' && (
@@ -266,7 +267,7 @@ export default function MapDetailView({
           >
             <Ionicons name={hearted ? 'heart' : 'heart-outline'} size={24} color={hearted ? '#ff4d6d' : '#fff'} />
             <Text style={styles.statValue}>{formatNumber(hearts)}</Text>
-            <Text style={styles.statLabel}>{t('hearts', undefined, 'Hearts')}</Text>
+            <Text style={styles.statLabel}>{t('hearts')}</Text>
           </Pressable>
         )}
       </View>
@@ -274,16 +275,30 @@ export default function MapDetailView({
       {/* Description */}
       {mapData.description_long && (
         <View style={styles.descriptionCard}>
-          <Text style={styles.descriptionTitle}>{t('aboutThisMap', undefined, 'About this map')}</Text>
+          <Text style={styles.descriptionTitle}>{t('aboutThisMap')}</Text>
           {mapData.description_long.split('\n').map((line: string, i: number) => (
             <Text key={i} style={styles.descriptionText}>{line}</Text>
           ))}
           {mapData.created_by && (
             <View style={styles.authorRow}>
-              <Text style={styles.authorText}>
-                {t('createdByLabel', undefined, 'Created by')} <Text style={styles.authorName}>{mapData.created_by}</Text>
-                {mapData.created_at ? ` ${mapData.created_at} ${t('ago')}` : ''}
-              </Text>
+              {/* A ROW OF REAL NODES, not one <Text> with a nested <Text>: the
+                  halo is absolutely positioned copies of the name drawn
+                  underneath it, and nested inline text has no box to hang them
+                  on. One name on the screen and nothing virtualised, so this
+                  one keeps the motion it was sold — unlike the tiles. */}
+              <View style={styles.authorLine}>
+                <Text style={styles.authorText}>{t('createdByLabel')}</Text>
+                <PlayerName
+                  name={mapData.created_by}
+                  glow={mapData.created_by_glow}
+                  gap={0}
+                  textStyle={[styles.authorText, styles.authorName]}
+                  numberOfLines={1}
+                />
+                {mapData.created_at ? (
+                  <Text style={styles.authorText}>{`${mapData.created_at} ${t('ago')}`}</Text>
+                ) : null}
+              </View>
             </View>
           )}
         </View>
@@ -478,6 +493,15 @@ export const mapDetailStyles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  // Carries the word spacing the single <Text> used to get for free from its
+  // literal spaces. Wrapping so a long username still pushes "3 days ago" onto
+  // a second line instead of squeezing itself.
+  authorLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 5,
   },
   authorText: {
     fontSize: 14,

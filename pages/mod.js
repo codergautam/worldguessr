@@ -128,7 +128,10 @@ export default function ModPage() {
             overflow: auto !important;
             background-color: #0d1117 !important;
           }
-          body::before {
+          /* BOTH background layers: body::before at rest, html::before during
+             a crossfade. See lib/siteBackground.js. */
+          body::before,
+          html::before {
             display: none !important;
           }
         `}

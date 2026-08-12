@@ -41,16 +41,13 @@ export default function DangerZoneSection() {
 
   // Layer 1: warning Alert. On "Continue", open the type-to-confirm modal.
   const startDelete = () => {
-    const supporterWarning = user?.supporter
-      ? '\n\n' + t('deleteAccountWarningSupporter', undefined, 'You are a Supporter — deleting your account permanently removes your ad-free perk and badge. This cannot be restored even on a new account.')
-      : '';
     Alert.alert(
-      t('deleteAccountConfirmTitle', undefined, 'Delete your account?'),
-      t('deleteAccountConfirmBody', { days: 30 }, 'Your account will be permanently deleted in {{days}} days. Log back in before then to restore it. You will lose your XP, ELO, friends, and created maps.') + supporterWarning,
+      t('deleteAccountConfirmTitle'),
+      t('deleteAccountConfirmBody', { days: 30 }),
       [
         { text: t('cancel'), style: 'cancel' },
         {
-          text: t('continue', undefined, 'Continue'),
+          text: t('continue'),
           style: 'destructive',
           onPress: () => { setDeleteConfirmText(''); setDeleteModalVisible(true); },
         },
@@ -68,7 +65,7 @@ export default function DangerZoneSection() {
       await logout();
       router.navigate('/(tabs)/home');
     } catch (e: any) {
-      Alert.alert(t('error', undefined, 'Error'), e?.message || String(e));
+      Alert.alert(t('error'), e?.message || String(e));
       setDeleting(false);
     }
   };
@@ -81,11 +78,11 @@ export default function DangerZoneSection() {
       await api.cancelDeletion(secret);
       updateUser({ pendingDeletion: false, scheduledDeletionAt: undefined });
       Alert.alert(
-        t('accountRestoredTitle', undefined, 'Account Restored'),
-        t('accountRestoredBody', undefined, 'Your account is no longer scheduled for deletion.'),
+        t('accountRestoredTitle'),
+        t('accountRestoredBody'),
       );
     } catch (e: any) {
-      Alert.alert(t('error', undefined, 'Error'), e?.message || String(e));
+      Alert.alert(t('error'), e?.message || String(e));
     } finally {
       setRestoring(false);
     }
@@ -97,8 +94,8 @@ export default function DangerZoneSection() {
         <>
           <Text style={[styles.dangerDesc, { color: '#e0e0e0' }]}>
             {user?.scheduledDeletionAt
-              ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() }, 'Your account is scheduled for deletion on {{date}}.')
-              : t('accountScheduledForDeletionShort', undefined, 'Your account is scheduled for deletion.')}
+              ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() })
+              : t('accountScheduledForDeletionShort')}
           </Text>
           <Pressable
             style={({ pressed }) => [styles.restoreAccountButton, pressed && { opacity: 0.85 }, restoring && { opacity: 0.6 }]}
@@ -108,20 +105,20 @@ export default function DangerZoneSection() {
             {restoring ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.restoreAccountButtonText}>{t('restoreAccount', undefined, 'Restore Account')}</Text>
+              <Text style={styles.restoreAccountButtonText}>{t('restoreAccount')}</Text>
             )}
           </Pressable>
         </>
       ) : (
         <>
           <Text style={styles.dangerDesc}>
-            {t('dangerZoneSubtitle', undefined, 'Sensitive account actions. Proceed with care.')}
+            {t('dangerZoneSubtitle')}
           </Text>
           <Pressable
             style={({ pressed }) => [styles.deleteAccountButton, pressed && { opacity: 0.85 }]}
             onPress={startDelete}
           >
-            <Text style={styles.deleteAccountButtonText}>{t('deleteAccount', undefined, 'Delete Account')}</Text>
+            <Text style={styles.deleteAccountButtonText}>{t('deleteAccount')}</Text>
           </Pressable>
         </>
       )}
@@ -137,10 +134,10 @@ export default function DangerZoneSection() {
         <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteModalCard}>
             <Text style={styles.deleteModalTitle}>
-              {t('deleteAccountFinalTitle', undefined, 'Confirm account deletion')}
+              {t('deleteAccountFinalTitle')}
             </Text>
             <Text style={styles.deleteModalText}>
-              {t('deleteAccountTypeToConfirm', { username: username || '' }, 'To confirm, type your username {{username}} below.')}
+              {t('deleteAccountTypeToConfirm', { username: username || '' })}
             </Text>
             <TextInput
               style={styles.deleteModalInput}
@@ -168,7 +165,7 @@ export default function DangerZoneSection() {
                 {deleting ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.deleteModalBtnText}>{t('deleteAccountPermanently', undefined, 'Permanently Delete')}</Text>
+                  <Text style={styles.deleteModalBtnText}>{t('deleteAccountPermanently')}</Text>
                 )}
               </Pressable>
             </View>

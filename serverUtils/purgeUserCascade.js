@@ -9,6 +9,8 @@ import NameChangeRequest from '../models/NameChangeRequest.js';
 import DailyChallengeScore from '../models/DailyChallengeScore.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import GuestProfile from '../models/GuestProfile.js';
+import StampLedger from '../models/StampLedger.js';
+import StampQuests from '../models/StampQuests.js';
 import { addBannedIdentity } from './bannedIdentities.js';
 import { refundEloForReportedGames } from './eloRefunds.js';
 import { anonymizeForumUser } from './syncForumUser.js';
@@ -74,6 +76,8 @@ export async function purgeUserCascade(
     dailyChallengeScoresDeleted: 0,
     dailyLeaderboardsScrubbed: 0,
     guestProfilesUnclaimed: 0,
+    stampLedgerDeleted: 0,
+    stampQuestsDeleted: 0,
     userAccountDeleted: 0,
   };
 
@@ -271,6 +275,21 @@ export async function purgeUserCascade(
       { claimedBy: accountObjectId },
       { $set: { claimedBy: null, claimedAt: null } },
     )).modifiedCount || 0;
+
+  // 9d. Stamps economy: the currency ledger and the per-period quest counters.
+  //     Both userId columns are true ObjectId refs (unlike UserStats/Map above),
+  //     so these match on the ObjectId, not the string id.
+  //
+  //     StampLedger's header forbids a TTL index because expiring rows would
+  //     destroy the audit trail. That rule is about EXPIRY, not erasure: when
+  //     the account itself is gone there is nothing left to audit, and keeping
+  //     per-user financial history for a deleted account is exactly what the
+  //     30-day-grace deletion promise says we won't do. The balance those rows
+  //     describe (User.stamps) dies with the User row in step 12.
+  deletionStats.stampLedgerDeleted =
+    (await StampLedger.deleteMany({ userId: accountObjectId })).deletedCount || 0;
+  deletionStats.stampQuestsDeleted =
+    (await StampQuests.deleteMany({ userId: accountObjectId })).deletedCount || 0;
 
   // 10. Permanent audit record (ModerationLog is never deleted). Best-effort: a
   //     logging failure must not abort the purge. moderator.{accountId,username}

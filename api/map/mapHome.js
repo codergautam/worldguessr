@@ -4,6 +4,26 @@ import User from "../../models/User.js";
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 import shuffle from "../../utils/shuffle.js";
 import { registerStat } from '../../serverUtils/statRegistry.js';
+import { cosmeticsForUserIds } from '../../serverUtils/userCosmetics.js';
+
+/* Creator name-glows for a batch of maps: ONE query for the whole section,
+ * never one per tile. A discovery section is up to 100 maps and this endpoint
+ * is on the home screen's critical path.
+ *
+ * The result is baked into the section BEFORE it goes in mapCache below, which
+ * is deliberate: the alternative is a 100-id $in on every single mapHome
+ * request, which is a real cost paid on a hot path to shave hours off the
+ * staleness of a decoration. The creator's NAME is already denormalised onto
+ * the Map document and just as stale, so the glow ages with the name it sits
+ * next to rather than out of step with it.
+ */
+async function creatorGlows(maps) {
+  const cosmetics = await cosmeticsForUserIds(maps.map((m) => m.created_by));
+  return (map) => ({
+    username: map.map_creator_name,
+    nameGlow: cosmetics.get(String(map.created_by))?.nameGlow || null,
+  });
+}
 
 let mapCache = {
   popular: {
@@ -113,7 +133,9 @@ export default async function handler(req, res) {
       resubmittable: 1,
       locationsCnt: 1,
     }).lean();
-    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
+    // Creator is the requesting user — no lookup, the glow is already in hand.
+    const me = { username: user.username, nameGlow: user.cosmetics?.equipped?.nameGlow || null };
+    myMaps = myMaps.map((map) => sendableMap(map, me, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;
     timings.myMaps = Date.now() - startMyMaps;
@@ -122,18 +144,16 @@ export default async function handler(req, res) {
     // find maps liked by user
     const startLikedMaps = Date.now();
     const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
+    const likedCreator = await creatorGlows(likedMaps);
     let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
-      let owner;
       if(!map.map_creator_name) {
-      owner = await User.findById(map.created_by);
-      // save map creator name
-      map.map_creator_name = owner.username;
-      await map.save();
-
-      } else {
-        owner = { username: map.map_creator_name };
+        // Legacy orphan only — map_creator_name is `required` on the schema.
+        // Backfill the denormalised name so the next read is a field read.
+        const owner = await User.findById(map.created_by);
+        map.map_creator_name = owner.username;
+        await map.save();
       }
-      return sendableMap(map, owner, true, user.staff, map.created_by === user._id.toString());
+      return sendableMap(map, likedCreator(map), true, user.staff, map.created_by === user._id.toString());
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
@@ -182,6 +202,11 @@ export default async function handler(req, res) {
           plays: 1,
           description_short: 1,
           map_creator_name: 1,
+          // The join key for the creator's name glow. The other two sections
+          // pull whole documents, so this projection is the only place it can
+          // go missing — and it going missing looks exactly like "glows work
+          // in Recent and Spotlight but not in Popular".
+          created_by: 1,
           in_review: 1,
           official: 1,
           accepted: 1,
@@ -196,17 +221,15 @@ export default async function handler(req, res) {
         maps = await Map.find({ accepted: true, spotlight: true }).limit(100).allowDiskUse(true);
       }
 
+      const sectionCreator = await creatorGlows(maps);
       let sendableMaps = await Promise.all(maps.map(async (map) => {
-        let owner;
         if(!map.map_creator_name && map.data) {
-         owner = await User.findById(map.created_by);
-          // save map creator name
+          // Legacy orphan backfill — see the liked-maps branch above.
+          const owner = await User.findById(map.created_by);
           map.map_creator_name = owner.username;
           await map.save();
-        } else {
-          owner = { username: map.map_creator_name };
         }
-        return sendableMap(map, owner,hearted_maps?hearted_maps.has(map._id.toString()):false);
+        return sendableMap(map, sectionCreator(map),hearted_maps?hearted_maps.has(map._id.toString()):false);
       }));
 
       response[method] = sendableMaps;

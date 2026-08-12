@@ -12,24 +12,51 @@ import lookup from "coordinate_to_country";
 import calcPoints from "../../components/calcPoints.js";
 import { boundingExtent } from "ol/extent.js";
 import { fromLonLat } from "ol/proj.js";
-import { setElo } from "../../api/eloRank.js";
-import { MIN_ELO } from "../../components/utils/eloSystem.js";
+import { setElo, applyPlacementSeed, duelCounterIncs } from "../../api/eloRank.js";
+import { MIN_ELO, RATING_FLOOR, clampRating, placementSeed } from "../../components/utils/eloSystem.js";
+import { RATING_V2 } from "../../components/utils/ratingFlags.js";
+import { getLeague } from "../../components/utils/leagues.js";
+
+// How long finishSoloDuel will wait for the anti-farm pair-decay read before
+// applying the transfers anyway. Two indexed findOnes that were issued when the
+// match STARTED, so in practice this has already resolved and the race returns
+// immediately; the bound exists so a database stall delays a result screen by a
+// blink instead of holding the game open.
+const RATING_DECAY_WAIT_MS = 750;
 import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
+import StampQuests from "../../models/StampQuests.js";
+import { STAMPS_ENABLED } from "../../serverUtils/stamps/config.js";
+import { dayKeyUTC, weekKeyUTC } from "../../serverUtils/stamps/periods.js";
+import { grantStamps } from "../../serverUtils/stamps/grantStamps.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
+import { sampleDistinct } from "../../shared/locations/repeatGuard.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
-// Sample `count` distinct locations from the pool. Tops up with duplicates only
-// if the pool itself has fewer than `count` entries (e.g. the ws boot fallback
-// pool before the first /allCountries.json fetch lands).
-function pickDistinctLocations(pool, count) {
-  const picks = shuffle(pool).slice(0, count);
-  while (picks.length < count && pool.length > 0) {
-    picks.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
-  return picks;
-}
+// ---- Stamps payout table (game-finish earns) --------------------------------
+// The AMOUNTS live here; the CEILINGS live in serverUtils/stamps/reasons.js and
+// are enforced on every write by assertReason. Keeping the whole per-game
+// payout in one block is what makes "what does a game pay?" answerable without
+// reading the grant code.
+const STAMP_BOT_DAY_CAP = 30;                                       // bot-game stamps per UTC day, per user
+// Ceiling on the human game_base+game_win stream (ranked duels AND 2v2), per
+// UTC day. ~50 games' worth at full price — above any real session, a hard
+// wall for a farming pair. The ladder bonus already stops at 30 games; this
+// stops the one stream that had no stop.
+const STAMP_DUEL_DAY_CAP = 150;
+const STAMP_DAILY_LADDER = [[5, 5], [10, 10], [20, 15], [30, 20]];  // [gamesPlayed reached, reward]
+const STAMP_WEEKLY_QUESTS = [
+  { key: 'play20', reason: 'weekly_play20', reward: 25, met: (d) => (d?.gamesPlayed || 0) >= 20 },
+  { key: 'win10',  reason: 'weekly_win10',  reward: 25, met: (d) => (d?.gamesWon || 0) >= 10 },
+  { key: 'days4',  reason: 'weekly_days4',  reward: 15, met: (d) => (d?.daysPlayed?.length || 0) >= 4 },
+];
+
+// Locations for a match come from sampleDistinct: distinct within the match,
+// and outside `this.seenIds` (the participants' recent spots) where the caller
+// supplies one. It is O(count), which matters because the public branch below
+// calls it up to 50 times per match hunting for continent spread; the helper it
+// replaced shuffled a full copy of the 2,000-entry pool on every one of those.
 
 export default class Game {
   constructor(id, {
@@ -38,6 +65,10 @@ export default class Game {
     rounds = 5,
     allLocations = null,
     duel = false,
+    // Set of location ids the participants have seen in recent matches, so a
+    // duel does not re-serve a spot either side just played. Duels only: the
+    // caller builds it from the Player rings (ws.js seenUnion).
+    seenIds = null,
     teamDuel = false,   // two teams 'a'/'b' with shared HP (implies duel)
     is2v2Lobby = false, // private staging lobby for the 2v2 queue (never plays)
     maxPlayers,         // optional override; defaults: lobby→2, teamDuel→4, else 200
@@ -110,6 +141,8 @@ export default class Game {
       this.npz = false;
     }
 
+    this.seenIds = seenIds;
+
     if(allLocations) this.generateLocations(allLocations);
   }
 
@@ -160,10 +193,18 @@ export default class Game {
       pIds: this.pIds,
       accountIds: this.accountIds,
       oldElos: this.oldElos,
+      queueWaitMs: this.queueWaitMs,
       // finishSoloDuel's save gate keys on this for bot duels (accountIds.p2
       // is null by construction there) — Player.isBot's game-side twin; a
       // restored bot game without it finishes but never saves to history.
       isBotGame: this.isBotGame,
+      // Same bug class as isBotGame: the v2 rating apply is PRECOMPUTED at
+      // match creation (ws.js) and never recomputed at finish time. A restart
+      // that loses these silently downgrades a live v2 match to the legacy
+      // path — or, worse, drops a placement match's placement semantics and
+      // lets the normal apply overwrite a brand-new account's rating.
+      ratingV2: this.ratingV2,
+      isPlacement: this.isPlacement,
       gameCount: this.gameCount,
       saveInProgress: this.saveInProgress,
       // 2v2 staging-lobby matchmaking state: without these, a restart mid
@@ -175,8 +216,10 @@ export default class Game {
       autoPairedTeams: this.autoPairedTeams,
       teamHostIds: this.teamHostIds,
       playAgainAcks: this.playAgainAcks,
-      // Known gap: persistentPlayerData is not serialized, so a restart-recovery
-      // mid-duel loses leaver records for that game only (pre-existing).
+      // Durable roster, including players who have already left. Without this,
+      // restoring a short-handed team match drops the leaver from both the end
+      // payload and the saved history (including their frozen cosmetics).
+      persistentPlayerData: this.persistentPlayerData,
     }
   }
   static fromJSON(json) {
@@ -194,6 +237,32 @@ export default class Game {
     // Object.assign'd over the constructor-set values.
     gObj.teamDuel = json.teamDuel ?? json.team2v2 ?? false;
     delete gObj.team2v2;
+    // Snapshots written before persistentPlayerData was serialized still need
+    // a durable copy of every player who remains in the restored roster. A
+    // player who left before that old snapshot was written is unrecoverable,
+    // but nobody present at restore time may disappear from a later result.
+    gObj.persistentPlayerData = json.persistentPlayerData
+      && typeof json.persistentPlayerData === 'object'
+      && !Array.isArray(json.persistentPlayerData)
+      ? { ...json.persistentPlayerData }
+      : {};
+    if (gObj.duel || gObj.teamDuel || gObj.teamGame) {
+      for (const [id, player] of Object.entries(gObj.players || {})) {
+        if (gObj.persistentPlayerData[id]) continue;
+        const score = Number.isFinite(player.score) ? player.score : 0;
+        gObj.persistentPlayerData[id] = {
+          accountId: player.accountId,
+          username: player.username,
+          countryCode: player.countryCode,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
+          tag: player.tag,
+          team: player.team,
+          score,
+          initialScore: score,
+        };
+      }
+    }
     // A snapshot can be written mid-save; the restored process has no
     // in-flight promise to ever flip this back, and a stuck `true` disables
     // the shutdown save-gate for this game. The interrupted write is lost
@@ -219,10 +288,30 @@ export default class Game {
       id: player.id,
       score: this.teamDuel ? (this.teamScores?.[team] ?? 5000) : (this.duel ? 5000 : 0),
       host: host && !this.public,
-      supporter: player.supporter,
       elo: player.elo,
+      // THE TIER NAME, RESOLVED SERVER-SIDE. Clients must not derive this from
+      // `elo` themselves: the browser and app bundles only ever hold the
+      // hardcoded tier table, so a seasonal re-anchor (RatingConfig, loaded by
+      // every server process) would move the badges on every server-rendered
+      // surface while the in-duel HUD kept painting last season's cutoffs until
+      // a web deploy AND a store release. Sending the name makes the HUD agree
+      // with the leaderboard for free. resolveLeague() on both clients prefers
+      // this and falls back to the local table for old payloads.
+      league: player.elo != null ? getLeague(player.elo).name : null,
       tag,
       team, // 'a' | 'b' for team duels, undefined otherwise
+      // COSMETICS TRAVEL WITH THE ROSTER. This object — not the Player
+      // instance — is what every other client receives and renders from, and
+      // the renderers read these two fields directly off it:
+      // components/Map.js resolves the guess pin from `player.markerSkin` and
+      // the tooltip glow from `player.nameGlow`, and duelHealthbar/gameUI read
+      // `nameGlow` for the HP name plates. Omitting them here is invisible to
+      // the buyer (their own client reads their session) and total for
+      // everybody else: opponents fell back to the default src/src2 pins and
+      // an unglowed name, so a purchased cosmetic was only ever visible to the
+      // person who bought it.
+      nameGlow: player.nameGlow ?? null,
+      markerSkin: player.markerSkin ?? null,
     };
     this.sendAllPlayers({
       type: 'player',
@@ -244,6 +333,8 @@ export default class Game {
         accountId: player.accountId,
         username: player.username,
         countryCode: player.countryCode,
+        nameGlow: playerObj.nameGlow,
+        markerSkin: playerObj.markerSkin,
         tag: tag,
         team: team,
         initialScore: playerObj.score
@@ -256,6 +347,10 @@ export default class Game {
   getInitialSendState(player) {
     return {
       type: 'game',
+      // Room identity — see getSendableState's note. Both `game` payloads must
+      // carry it or the client sees the key appear and vanish and clears on
+      // every alternation.
+      gameId: this.id,
       state: this.state,
       timePerRound: this.timePerRound,
       waitBetweenRounds: this.waitBetweenRounds,
@@ -268,6 +363,9 @@ export default class Game {
       myId: player.id,
       public: this.public,
       duel: this.duel,
+      // Placement seeding game — clients label the queue/VS/HUD off this.
+      // Distinct from duelEnd's end-of-game `placement` field (seed reveal).
+      isPlacement: !!this.isPlacement,
       team2v2: this.teamDuel, // wire name kept for shipped clients
       is2v2Lobby: this.is2v2Lobby,
       teamScores: this.teamScores ?? null,
@@ -766,6 +864,17 @@ export default class Game {
   getSendableState(includeLocations=false) {
     const state = {
       type: 'game',
+      // THE ROOM IDENTITY, ON EVERY GAME PAYLOAD. Clients clear per-room state
+      // (the chat log) when this changes, so it has to be present in BOTH game
+      // messages and be stable for a room's whole life. `code` and `startTime`
+      // were tried and both fail here: this payload carries neither, and
+      // startTime is stamped in start() which runs AFTER addPlayer, so the
+      // initial state ships null and no later message ever corrects it — the
+      // client's key collapsed to a constant and last match's chat survived
+      // into the rematch. game.id is a uuid per Game object: stable across a
+      // party's resetGame replays (so party chat still spans play-agains) and
+      // fresh for every matchmade match (so those clear).
+      gameId: this.id,
       state: this.state,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
@@ -796,7 +905,10 @@ export default class Game {
       maxDist: this.maxDist,
       showRoadName: !!this.showRoadName,
       nm: !!this.nm,
-      npz: !!this.npz
+      npz: !!this.npz,
+      // Same cold-reconnect reasoning as maxDist above: a reconnect only
+      // replays this state, and the placement HUD tag must survive it.
+      isPlacement: !!this.isPlacement
     };
     if (includeLocations) {
       state.locations = this.locations;
@@ -820,6 +932,11 @@ export default class Game {
 
   removePlayer(player, socketClosed=false) {
     if (!this.players[player.id]) {
+      // Seat already pruned (direct roster deletes never touch the Player):
+      // still clear the back-pointer, or the id dangles after this game dies
+      // and gates every queue/create entry. Own-game check so a player who
+      // has since joined ANOTHER game never gets that id wiped.
+      if (player.gameId === this.id) player.gameId = null;
       return;
     }
     if(!socketClosed) {
@@ -855,6 +972,8 @@ export default class Game {
     // not their join-time score.
     if (this.persistentPlayerData[player.id]) {
       this.persistentPlayerData[player.id].score = this.players[player.id].score;
+      this.persistentPlayerData[player.id].nameGlow = this.players[player.id].nameGlow ?? null;
+      this.persistentPlayerData[player.id].markerSkin = this.players[player.id].markerSkin ?? null;
     }
 
     delete this.players[player.id];
@@ -1076,6 +1195,8 @@ export default class Game {
           accountId: p.accountId,
           username: p.username,
           countryCode: p.countryCode,
+          nameGlow: p.nameGlow ?? null,
+          markerSkin: p.markerSkin ?? null,
           team: p.team,
           score: 0,
           initialScore: 0
@@ -1344,7 +1465,7 @@ export default class Game {
       let bestContinentCount = 0;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const candidate = pickDistinctLocations(allLocations, this.rounds);
+        const candidate = sampleDistinct(allLocations, this.rounds, this.seenIds);
         const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
         if (continents.size >= MIN_CONTINENTS) {
           bestPick = candidate;
@@ -1364,8 +1485,9 @@ export default class Game {
         })
       }
     } else {
-      // Duels: random sample, no repeats within a game
-      for (const loc of pickDistinctLocations(allLocations, this.rounds)) {
+      // Duels: random sample, no repeats within a game and none from either
+      // player's recent matches
+      for (const loc of sampleDistinct(allLocations, this.rounds, this.seenIds)) {
         this.locations.push(loc);
         this.sendAllPlayers({
           type: 'generating',
@@ -1502,6 +1624,8 @@ export default class Game {
       id: p.id,
       username: p.username,
       countryCode: p.countryCode || null,
+      nameGlow: p.nameGlow ?? null,
+      markerSkin: p.markerSkin ?? null,
       team: p.team || null,
       score: p.score || 0
     }));
@@ -1556,7 +1680,16 @@ export default class Game {
     for (const [id, data] of Object.entries(this.persistentPlayerData)) {
       // score: removePlayer keeps the snapshot's score current at leave-time,
       // so cumulative-team results/persistence see a leaver's real total.
-      byId[id] = { id, username: data.username, countryCode: data.countryCode, accountId: data.accountId, team: data.team, score: data.score ?? 0 };
+      byId[id] = {
+        id,
+        username: data.username,
+        countryCode: data.countryCode,
+        accountId: data.accountId,
+        nameGlow: data.nameGlow ?? null,
+        markerSkin: data.markerSkin ?? null,
+        team: data.team,
+        score: data.score ?? 0,
+      };
     }
     for (const player of Object.values(this.players)) {
       byId[player.id] = player;
@@ -1586,7 +1719,9 @@ export default class Game {
     // tell reportable players from fake-success targets.
     const rosterSnapshot = this.getFinalRoster().map(p => ({
       id: p.id, username: p.username, countryCode: p.countryCode || null, team: p.team || null,
-      accountId: p.accountId ?? null
+      accountId: p.accountId ?? null,
+      nameGlow: p.nameGlow ?? null,
+      markerSkin: p.markerSkin ?? null
     }));
 
     // Frozen end payload (mirrors finishTeamParty's lastTeamEnd): replayed to
@@ -1618,6 +1753,7 @@ export default class Game {
           ...this.lastTeamEnd,
           autoPaired: !!this.autoPairedTeams?.[player.team],
           teamHostId: this.teamHostIds?.[player.team] || null,
+          ...(this.stampsExpected ? { stampsPending: true } : {}),
           winner: !draw && player.team === winningTeam
         });
       } catch (e) {}
@@ -1714,6 +1850,34 @@ export default class Game {
     return lobby;
   }
 
+  // Does a finished game of THIS shape expect to pay stamps? Rides duelEnd as
+  // `stampsPending` so the end screen can RESERVE the receipt row's height
+  // instead of having it appear under the player's thumb half a second later
+  // and shove Play Again down (same layout-stability rule as the profile
+  // graph's reserved min-height).
+  //
+  // It is an EXPECTATION, not a promise, and the difference is the whole reason
+  // it is computed here rather than assumed by the client: with the economy
+  // killed, or a bot duel, or a guest opponent, the flag is simply absent and
+  // the screen reserves nothing. The only way to reserve a row that never fills
+  // is a save replayed for an already-paid gameId, where every grant collapses
+  // onto its idempotency key.
+  get stampsExpected() {
+    if (!STAMPS_ENABLED) return false;
+    // Matchmade 2v2 pays; cumulative team parties are saved through the
+    // unranked path, which passes no stampContext at all.
+    if (this.teamDuel) return !!this.public;
+    if (!this.duel) return false;
+    // A bot duel is NOT excluded here even though it is unrated: it still pays
+    // the capped bot trickle, and a payout the player can see in their balance
+    // but not on the end screen is the exact confusion this whole row exists to
+    // remove. Its own edge (the 30/day cap refusing to pay, leaving the row
+    // reserved and empty) costs a gap for someone grinding their 31st bot game
+    // of the day, which is a better trade than every other player's buttons
+    // jumping.
+    return this.isBotGame ? !!this.accountIds?.p1 : !!this.accountIds?.p2;
+  }
+
   // Ranked/unranked 1v1 duel finisher: forfeit resolution, ELO application,
   // per-player duelEnd sends, and the conditional ranked save. Awaited by
   // end() so the trailing full-state update fires after the DB reads.
@@ -1779,8 +1943,144 @@ export default class Game {
 
       let p1NewElo = p1OldElo;
       let p2NewElo = p2OldElo;
+
+      // True only when a placement seed WRITE actually landed. The duelEnd
+      // payload's placement fields key on this — an abandoned/drawn/failed
+      // placement must not show the "Placement match" seed reveal, because
+      // no seed exists and the account re-gates into another placement.
+      let placementSeeded = false;
+
+      // Only a RESOLVED game books anything. With neither a winner nor a draw
+      // (both sides gone, no snapshot to resolve from) there is nothing to pay
+      // out and nothing to charge — and no counters either, since booking a
+      // "loss" for both players is not a thing that happened.
+      const resolved = draw || !!winner;
+
+      // ── RATING APPLY ────────────────────────────────────────────────────
+      // Four mutually exclusive worlds, and the ORDER is load-bearing:
+      //   1. placement       — a placement match IS a bot game, so it must be
+      //                        tested before the bot branch swallows it.
+      //   2. unrated bot     — under v2 a bot can never move the ladder.
+      //   3. v2 transfer     — the precomputed zero-sum apply.
+      //   4. legacy v1       — untouched, and unreachable while RATING_V2 is on
+      //                        for a game that was wired with ratingV2.
+      if (RATING_V2 && this.isPlacement) {
+        // ---- PLACEMENT ---------------------------------------------------
+        // The human is p1 by construction, and wins by construction: the
+        // placement bot scores 0 every round, so the only way p1 does not win
+        // is by abandoning or disconnecting.
+        const p1Id = this.pIds?.p1;
+        // Mean over the rounds this player ACTUALLY PLAYED. The HP race can
+        // end a duel at round 2, so roundHistory.length is not 5 and dividing
+        // by this.rounds would seed a fast, perfect winner as if they had
+        // scored 0 on the rounds that never happened.
+        const played = this.roundHistory.filter((r) => r.players?.[p1Id]);
+        const avgRoundPoints = played.length
+          ? played.reduce((sum, r) => sum + (r.players[p1Id].points || 0), 0) / played.length
+          : 0;
+
+        if (winner?.tag === 'p1' && this.accountIds?.p1) {
+          const seed = placementSeed(avgRoundPoints);
+          // applyPlacementSeed is gated on ratedGames:0 server-side and only
+          // reports true when the write actually landed — mirror the rating
+          // into the end payload only then.
+          const seeded = await applyPlacementSeed(this.accountIds.p1, seed, p1obj);
+          if (seeded) {
+            p1NewElo = clampRating(seed);
+            placementSeeded = true;
+          }
+        }
+        // A loss, draw, abandon or disconnect grants NOTHING: the rating stays
+        // at entry and ratedGames stays 0, so the next queue join re-gates this
+        // account into ANOTHER placement match. That is precisely why quitting
+        // cannot be used to reroll a bad seed — bailing out does not discard a
+        // seed, it just declines to earn one, and the seed is a pure function
+        // of the round points of the run that WINS.
+        //
+        // Counters still book: a placement win is a real game in duels_wins.
+        // rated:false keeps ratedGames at 0 (the K schedule starts at game 2),
+        // and going through the counter path directly instead of setElo is
+        // deliberate — setElo also writes elo, and that second, UNGATED write
+        // would defeat applyPlacementSeed's ratedGames:0 filter.
+        if (resolved) {
+          await this.applyUnratedCounters(this.accountIds?.p1, { winner: winner?.tag === 'p1', draw });
+        }
+      } else if (RATING_V2 && this.isBotGame) {
+        // ---- BOT GAME (v2) -----------------------------------------------
+        // Bot duels are UNRATED: no rating moves, in either direction, for
+        // either side. Skipping the apply entirely is the point — a bot that
+        // could give rating is a bot that will be farmed. Counters still book
+        // the game so profile/history surfaces don't lose it, at rated:false.
+        if (resolved) {
+          await this.applyUnratedCounters(this.accountIds?.p1, { winner: winner?.tag === 'p1', draw });
+        }
+      } else if (RATING_V2 && this.ratingV2 && resolved && p1OldElo && p2OldElo) {
+        // ---- v2 ZERO-SUM TRANSFER ----------------------------------------
+        // The transfers were precomputed at match creation (ws.js) against the
+        // match-start ratings; only the APPLY happens here, against the fresh
+        // DB read above.
+
+        // WAIT FOR THE ANTI-FARM DECAY READ BEFORE READING THE TRANSFERS.
+        //
+        // ws.js stamps the game synchronously at decay 1 and re-stamps once the
+        // two PairWins reads land, on the argument that "the shortest possible
+        // duel is still tens of seconds". That holds for a duel that is PLAYED
+        // and fails for one that is RESOLVED: an instant forfeit or a pregame
+        // disconnect finishes in well under a second and would read the decay-1
+        // stamp — handing full rating on exactly the games a farming pair would
+        // use.
+        //
+        // Bounded, because a result must never hang on the database. If the
+        // read has not landed in time the decay-1 stamp stands, which is the
+        // same fail-open direction ws.js already documents: a DB blip must not
+        // quietly delete a player's rating.
+        if (this.ratingV2Ready) {
+          try {
+            await Promise.race([
+              this.ratingV2Ready,
+              new Promise((resolve) => setTimeout(resolve, RATING_DECAY_WAIT_MS)),
+            ]);
+          } catch (e) {
+            // ws.js already logs and swallows the read failure; this only
+            // guards against the handle itself being a rejected promise.
+          }
+        }
+
+        const transfers = this.ratingV2.transfers || {};
+        // Outcome → the transfer for it, normalised to P1's PERSPECTIVE:
+        // positive moves rating to p1, negative moves it away. The draw entry
+        // carries its own sign (a draw between mismatched ratings moves the
+        // ladder); win entries are keyed by ws player id (same convention as
+        // the legacy eloChanges map) and are re-signed from the winner's tag,
+        // so a producer that stored plain magnitudes cannot invert the ladder.
+        const winnerKey = winner ? (winner.tag === 'p1' ? this.pIds?.p1 : this.pIds?.p2) : null;
+        const rawTransfer = Number(draw ? transfers.draw : (winnerKey != null ? transfers[winnerKey] : 0)) || 0;
+        const signed = draw
+          ? rawTransfer
+          : (winner?.tag === 'p1' ? Math.abs(rawTransfer) : -Math.abs(rawTransfer));
+
+        // ONE applied magnitude for BOTH sides. This is the whole fix: the v1
+        // path below re-clamps each side independently, so when the loser
+        // would breach the floor their loss gets truncated while the winner
+        // still banks the full gain — the ladder mints rating out of nothing.
+        // Cap the magnitude by what the loser can actually pay, THEN mirror it.
+        const loserFresh = signed > 0 ? p2OldElo : p1OldElo;
+        const applied = Math.min(Math.abs(signed), Math.max(0, loserFresh - RATING_FLOOR));
+        const dP1 = Math.sign(signed) * applied;
+        p1NewElo = clampRating(p1OldElo + dP1);
+        p2NewElo = clampRating(p2OldElo - dP1);
+
+        // rated:true — this is a real human ranked game: it books ratedGames
+        // (K schedule) and lastRankedAt (leaderboard inactivity).
+        const p1Data = { winner: winner?.tag === 'p1', draw, oldElo: p1OldElo, rated: true };
+        const p2Data = { winner: winner?.tag === 'p2', draw, oldElo: p2OldElo, rated: true };
+        if (p1obj) p1obj.setElo(p1NewElo, p1Data);
+        else setElo(this.accountIds.p1, p1NewElo, p1Data);
+        if (p2obj) p2obj.setElo(p2NewElo, p2Data);
+        else setElo(this.accountIds.p2, p2NewElo, p2Data);
+      }
       // elo changes
-      if(this.eloChanges && p1OldElo && p2OldElo) {
+      else if(this.eloChanges && p1OldElo && p2OldElo) {
         if(draw) {
 
           const changes = this.eloChanges.draw;
@@ -1832,6 +2132,14 @@ export default class Game {
       // have code=null) plus the opponent's account identity (null accountId
       // = bot/guest → the client fakes the report instead of sending one).
       const historyGameId = `duel_${this.id}`;
+      const rosterSnapshot = this.getFinalRoster().map((p) => ({
+        id: p.id,
+        username: p.username,
+        countryCode: p.countryCode || null,
+        accountId: p.accountId ?? null,
+        nameGlow: p.nameGlow ?? null,
+        markerSkin: p.markerSkin ?? null,
+      }));
 
       if(p1obj && leftUser !== 'p1') {
         try {
@@ -1842,7 +2150,27 @@ export default class Game {
         newElo: p1NewElo,
         timeElapsed: this.endTime - this.startTime,
         oldElo: p1OldElo,
+        // Placement flag drives the client's seed reveal. Additive: an old
+        // client ignores it and renders oldElo→newElo as a normal elo change,
+        // which is exactly what a seed is from its point of view. Only p1 can
+        // ever be in a placement (p2 is the placement bot).
+        //
+        // `league` rides along because a placement shows the TIER instead of a
+        // signed delta (a seed is not won off an opponent, so there is nothing
+        // to sign). Sending it keeps the label on the server's tier table, so a
+        // seasonal re-anchor does not need a web deploy or a store release to
+        // stop mislabelling the most memorable screen a new player sees.
+        //
+        // Gated on the seed WRITE landing, not on isPlacement alone: an
+        // abandon/disconnect/draw grants no seed and re-gates the account into
+        // another placement — showing the seed reveal there would tell the
+        // player they placed when they didn't.
+        ...(RATING_V2 && this.isPlacement && placementSeeded
+          ? { placement: true, league: getLeague(p1NewElo) }
+          : {}),
+        ...(this.stampsExpected ? { stampsPending: true } : {}),
         historyGameId,
+        players: rosterSnapshot,
         opponent: { accountId: this.accountIds.p2 ?? null, username: p2?.username ?? null }
       });
         } catch(e){}
@@ -1857,7 +2185,9 @@ export default class Game {
         newElo: p2NewElo,
         timeElapsed: this.endTime - this.startTime,
         oldElo: p2OldElo,
+        ...(this.stampsExpected ? { stampsPending: true } : {}),
         historyGameId,
+        players: rosterSnapshot,
         opponent: { accountId: this.accountIds.p1 ?? null, username: p1?.username ?? null }
       });
       } catch(e) {
@@ -1884,6 +2214,28 @@ export default class Game {
           console.error('Error saving duel game to MongoDB:', error);
           this.saveInProgress = false;
         });
+    }
+  }
+
+  // Book a finished duel's W/L/T counters WITHOUT touching the rating — the
+  // two UNRATED v2 paths (placements and bot games) both need the game to
+  // exist in a player's record without it existing on the ladder.
+  //
+  // Deliberately NOT setElo: setElo always writes elo, and on a placement that
+  // second write is UNGATED, so it would defeat the ratedGames:0 filter inside
+  // applyPlacementSeed and stamp a rating the filter had just refused.
+  // rated:false keeps ratedGames at 0, which is what holds both the K schedule
+  // and the placement re-gate honest, and it also leaves lastRankedAt alone so
+  // farming bots can't hold a leaderboard slot open.
+  async applyUnratedCounters(accountId, { winner = false, draw = false } = {}) {
+    if (!accountId) return;
+    try {
+      await User.updateOne(
+        { _id: accountId },
+        { $inc: duelCounterIncs({ winner, draw, rated: false }) }
+      );
+    } catch (error) {
+      console.error('applyUnratedCounters failed for', accountId, error?.message || error);
     }
   }
 
@@ -1985,7 +2337,10 @@ export default class Game {
     };
   }
 
-  async persistGame({ gameId, gameType, official, participants, playerSummaries, result, multiplayer, userIncs = [], statsRecords = [] }) {
+  // stampContext is OPTIONAL and defaults to null, which means ZERO grants.
+  // Absence is the safe state: casual, party and unranked games pass nothing
+  // and therefore cannot pay out even by accident (see saveUnrankedMultiplayerToMongoDB).
+  async persistGame({ gameId, gameType, official, participants, playerSummaries, result, multiplayer, userIncs = [], statsRecords = [] }, stampContext = null) {
     const gameDoc = new GameModel({
       gameId,
       gameType,
@@ -1996,7 +2351,13 @@ export default class Game {
       rounds: this.buildRoundDocs(participants),
       players: playerSummaries,
       result,
-      multiplayer
+      multiplayer,
+      // Stamped here rather than at the one ranked-duel call site so it can
+      // never be forgotten by a future save path. `!!` because isPlacement is
+      // only ever SET on a placement (ws.js leaves it undefined otherwise) and
+      // the schema wants a real boolean. See models/Game.js for why the saved
+      // row has to carry this at all.
+      placement: !!this.isPlacement
     });
     await gameDoc.save();
 
@@ -2005,10 +2366,267 @@ export default class Game {
     await Promise.all(userIncs.map(({ accountId, inc }) =>
       User.updateOne({ _id: accountId }, { $inc: inc })
     ));
+
+    // Stamps earn hook. Sits INSIDE persistGame and is awaited on purpose: the
+    // callers wrap this whole method in the saveInProgress window that the ws
+    // shutdown path waits on, so a fire-and-forget grant could be killed by a
+    // deploy mid-payout. Its OWN try/catch with its OWN log tag is equally
+    // deliberate — the currency economy may never be able to take game
+    // persistence down with it.
+    try {
+      // The RECEIPT is what the end screen renders. It is derived from what the
+      // ledger actually applied, never from the payout table: a duplicate grant
+      // (replayed save, cron sweep) reports 0 because grantStamps reports 0, so
+      // the number on screen can never claim currency the player did not get.
+      await this.sendStampEarnings(await this.grantGameStamps(stampContext), gameId);
+    } catch (error) {
+      console.error(`[stamps] earn hook failed (${stampContext?.mode || 'none'}, ${gameId}):`, error?.message || error);
+    }
+
     await Promise.all(statsRecords.map(({ accountId, payload }) =>
       UserStatsService.recordGameStats(accountId, gameId, payload)
     ));
     return gameDoc;
+  }
+
+  // ---- Stamps: the game-finish earns --------------------------------------
+  // stampContext = {
+  //   mode: 'ranked_duel' | '2v2',
+  //   isBot: boolean,        // see the bot gate at each call site
+  //   gameId: string,        // the saved doc's id — the idempotency anchor
+  //   entries: [{ accountId, won, drew, myElo, opponentElo, stampDecay }]
+  // }
+  // Every payout is idempotent through grantStamps' ledger key, so re-running
+  // this for the same gameId pays nothing twice.
+  //
+  // RETURNS the receipt: { [accountId]: { total, lines: [{reason, amount}] } },
+  // built ONLY from grants that actually landed (`applied === true`). A duplicate
+  // key, a refused cap or a disabled economy all contribute nothing, which is
+  // what lets sendStampEarnings put the number on screen without a second read
+  // of the ledger and without ever over-reporting.
+  async grantGameStamps(stampContext) {
+    // Kill switch and the null-context rule: both are total no-ops.
+    if (!STAMPS_ENABLED || !stampContext) return null;
+
+    const { isBot, gameId, entries = [] } = stampContext;
+    if (!gameId) return null; // no anchor = no idempotency = no payout
+
+    const payouts = {};
+    // Every grant in this method goes through here instead of calling
+    // grantStamps directly, so a future earn source cannot be added to the
+    // payout table and silently left off the receipt.
+    const pay = async (accountId, amount, reason, key, meta = {}) => {
+      // meta.gameId is stamped HERE, not at call sites: the history receipt
+      // (stampReceiptForGame) filters the ledger on meta.gameId while the live
+      // end-screen is built from these same calls via `payouts` — so any row
+      // paid at this game's end (including period bonuses: first win of the
+      // day, ladder tiers, weekly quests, and back-pays of tiers a crash ate)
+      // must carry this game's id or history shows less than the end-screen
+      // did.
+      const result = await grantStamps(accountId, amount, reason, key, { gameId, ...meta });
+      if (!result?.applied) return result;
+      const uid = String(accountId);
+      const bucket = payouts[uid] || (payouts[uid] = { total: 0, lines: [] });
+      bucket.total += amount;
+      bucket.lines.push({ reason, amount });
+      return result;
+    };
+
+    const now = Date.now();
+    const dayKey = dayKeyUTC(now);
+    const weekKey = weekKeyUTC(now);
+
+    for (const entry of entries) {
+      const accountId = entry?.accountId;
+      if (!accountId) continue; // bots and guests own no balance
+      const uid = String(accountId);
+      // A draw is never a win, whatever the caller put in `won`.
+      const won = !!entry.won && !entry.drew;
+
+      if (isBot) {
+        // ---- BOT GAME: capped trickle, nothing else ----------------------
+        // The cap doc must EXIST before the conditional $inc below can match
+        // it, and that $inc deliberately does not upsert: an upsert whose
+        // filter excludes an existing doc races straight into a duplicate-key
+        // error on the unique (userId, periodType, periodKey) index, which is
+        // indistinguishable from a real failure. So: create-if-missing first
+        // (zeroed, no counters moved), then the atomic cap-then-pay.
+        // Without the create step a player's FIRST bot game of the day would
+        // find no doc, read as "capped", and never pay.
+        await StampQuests.updateOne(
+          { userId: accountId, periodType: 'day', periodKey: dayKey },
+          { $setOnInsert: { botStampsAwarded: 0 } },
+          { upsert: true }
+        );
+        // ONE atomic conditional increment: the counter only moves while it is
+        // still under the cap, so N concurrent bot finishes can never overshoot.
+        const capped = await StampQuests.findOneAndUpdate(
+          { userId: accountId, periodType: 'day', periodKey: dayKey, botStampsAwarded: { $lt: STAMP_BOT_DAY_CAP } },
+          { $inc: { botStampsAwarded: 1, botGamesPlayed: 1 } },
+          { new: true }
+        );
+        // null = cap reached. Skip ENTIRELY, without even writing a ledger
+        // row: an unapplied row would be picked up by cron's reconciliation
+        // sweep and turned into the payment the cap just refused.
+        if (!capped) continue;
+
+        await pay(accountId, 1, 'bot_game', `g:${gameId}:${uid}:bot`);
+        // No win bonus, no daily ladder credit, no weekly quest credit. A bot
+        // is not an opponent; beating one must never be worth farming.
+        continue;
+      }
+
+      // ---- HUMAN GAME --------------------------------------------------
+      // Daily counters FIRST: the upsert guarantees the day doc exists for
+      // the cap gate below, and the zero-$inc materialises duelStampsAwarded
+      // on day docs created before that field shipped — a $lte range query
+      // never matches a missing field, and a missing counter must read as 0,
+      // not as "capped". gamesWon increments by 0 on a loss rather than being
+      // omitted, so the field is always present on the returned doc.
+      const dayDoc = await StampQuests.findOneAndUpdate(
+        { userId: accountId, periodType: 'day', periodKey: dayKey },
+        { $inc: { gamesPlayed: 1, gamesWon: won ? 1 : 0, duelStampsAwarded: 0 } },
+        { new: true, upsert: true }
+      );
+
+      // The PairWins decay that shrinks the ELO transfer for the Nth win over
+      // the same opponent today shrinks the stamp earn with it. It existed
+      // for ELO while stamps rode at full price — exactly what a wintrading
+      // pair farms. Floor, never round: the decayed 1-stamp win bonus must
+      // not round back up to full price. 2v2 entries carry no stampDecay
+      // (no PairWins there) and default to 1.
+      const stampDecay = Number.isFinite(entry.stampDecay)
+        ? Math.min(1, Math.max(0, entry.stampDecay))
+        : 1;
+      const baseAmount = Math.floor(2 * stampDecay);
+      const winAmount = won ? Math.floor(1 * stampDecay) : 0;
+      const earnTotal = baseAmount + winAmount;
+
+      // Daily ceiling on the base+win stream — the bot cap's twin, same
+      // atomic shape, sized so it can never overshoot ($lte cap - amount,
+      // not $lt cap; earns are 1-3 stamps, not always 1). One shared ceiling
+      // for ranked duels and 2v2: both modes flow through this path. A
+      // refused cap skips the pays ENTIRELY, without writing ledger rows —
+      // an unapplied row would be turned into the payment the cap just
+      // refused by cron's reconciliation sweep.
+      let underDayCap = false;
+      if (earnTotal > 0) {
+        const capDoc = await StampQuests.findOneAndUpdate(
+          {
+            userId: accountId, periodType: 'day', periodKey: dayKey,
+            duelStampsAwarded: { $lte: STAMP_DUEL_DAY_CAP - earnTotal },
+          },
+          { $inc: { duelStampsAwarded: earnTotal } },
+          { new: true }
+        );
+        underDayCap = !!capDoc;
+      }
+
+      if (underDayCap) {
+        await pay(accountId, baseAmount, 'game_base', `g:${gameId}:${uid}:base`, {
+          ...(typeof entry.myElo === 'number' ? { myElo: entry.myElo } : {}),
+          ...(typeof entry.opponentElo === 'number' ? { opponentElo: entry.opponentElo } : {}),
+        });
+        if (winAmount > 0) {
+          await pay(accountId, winAmount, 'game_win', `g:${gameId}:${uid}:win`);
+        }
+      }
+
+      // First win of the UTC day. Keyed off the counter reaching exactly 1
+      // rather than a "already awarded" flag — payment state lives in the
+      // ledger and nowhere else (see models/StampQuests.js).
+      if (won && dayDoc?.gamesWon === 1) {
+        await pay(accountId, 5, 'first_win_day', `d:${dayKey}:${uid}:firstwin`, { periodKey: dayKey });
+      }
+
+      // Daily ladder: EVERY tier is re-evaluated on EVERY game, not just the
+      // one that was crossed. That is the self-healing property — a grant lost
+      // to a crash, a DB blip or a ws restart back-pays on the player's next
+      // game, and the ledger key makes the repeat attempts free. Do NOT
+      // "optimise" this into granting only the tier just crossed: that turns
+      // every transient failure into a permanently missing payout.
+      for (const [tier, reward] of STAMP_DAILY_LADDER) {
+        if ((dayDoc?.gamesPlayed || 0) >= tier) {
+          await pay(accountId, reward, 'daily_ladder', `d:${dayKey}:${uid}:ladder:${tier}`, { periodKey: dayKey, tier });
+        }
+      }
+
+      // Weekly counters. daysPlayed is a SET of UTC day keys (the "play on 4
+      // distinct days" quest); $addToSet is what makes replaying the same day
+      // cost nothing.
+      const weekUpdate = {
+        $inc: { gamesPlayed: 1, gamesWon: won ? 1 : 0 },
+        $addToSet: { daysPlayed: dayKey }
+      };
+      const weekDoc = await StampQuests.findOneAndUpdate(
+        { userId: accountId, periodType: 'week', periodKey: weekKey },
+        weekUpdate,
+        { new: true, upsert: true }
+      );
+
+      // All four weekly quests, every game — same self-healing rule as the
+      // daily ladder, with week-scoped idempotency keys.
+      for (const quest of STAMP_WEEKLY_QUESTS) {
+        if (quest.met(weekDoc)) {
+          await pay(accountId, quest.reward, quest.reason, `w:${weekKey}:${uid}:${quest.key}`, { periodKey: weekKey });
+        }
+      }
+    }
+
+    return payouts;
+  }
+
+  // Push the receipt to whoever is still connected, so the end screen can show
+  // what the game paid.
+  //
+  // WHY A SEPARATE MESSAGE AND NOT A FIELD ON duelEnd: the grants happen inside
+  // persistGame, which finishSoloDuel deliberately runs AFTER the duelEnd sends
+  // (the end screen must not wait on a DB write to appear). Folding stamps into
+  // duelEnd would mean holding the entire results screen behind the ledger. So
+  // the screen paints immediately and the stamps row animates in a beat later,
+  // which is also just a better reveal.
+  //
+  // Silence is a valid outcome and must stay cheap: economy disabled, nothing
+  // applied, or the player already walked away all send nothing at all. The
+  // ledger is the record either way — this message is presentation.
+  async sendStampEarnings(payouts, gameId) {
+    if (!payouts) return;
+    const paid = Object.entries(payouts).filter(([, receipt]) => receipt?.total > 0);
+    if (!paid.length) return;
+
+    for (const [accountId, receipt] of paid) {
+      // Same lookup ws.js /cosmetics-updated uses. Offline is NORMAL (rage
+      // quit, closed tab): they were still paid, and the wallet shows it next
+      // time they open the shop.
+      const sock = Array.from(players.values()).find((p) => p.accountId === accountId);
+      if (!sock) continue;
+
+      // The AUTHORITATIVE balance, re-read rather than taken from the grant's
+      // `balanceAfter` — that field is explicitly advisory (a purchase landing
+      // mid-payout makes it stale, see grantStamps). One read per paid player
+      // per game, and the wallet is the one number a player will call us liars
+      // over.
+      let balance = null;
+      try {
+        const fresh = await User.findById(accountId).select('stamps').lean();
+        if (typeof fresh?.stamps === 'number') balance = fresh.stamps;
+      } catch (e) {
+        // A failed read costs the balance patch, not the receipt.
+      }
+
+      try {
+        sock.send({
+          type: 'stampsEarned',
+          // Lets a client drop a receipt that belongs to a previous match.
+          gameId,
+          total: receipt.total,
+          lines: receipt.lines,
+          ...(balance !== null ? { balance } : {})
+        });
+      } catch (e) {
+        // Socket died between the find and the send. Nothing to do.
+      }
+    }
   }
 
   async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp = 0, p2Xp = 0) {
@@ -2040,11 +2658,18 @@ export default class Game {
         username: participant.username || 'Player',
         countryCode: participant.countryCode || null,
         accountId: participant.accountId,
+        nameGlow: data.nameGlow ?? null,
+        markerSkin: data.markerSkin ?? null,
         totalPoints: data.score,
         totalXp: xp,
         averageTimePerRound: this.calculateAverageTime(data.id),
         finalRank: winner?.tag === tag ? 1 : (draw ? 1 : 2),
-        elo: { before: oldElo, after: newElo, change: newElo ? (newElo - oldElo) : 0 }
+        elo: { before: oldElo, after: newElo, change: newElo ? (newElo - oldElo) : 0 },
+        // Stamped at match creation by ws.js (createRankedDuelGame). Absent on
+        // a game restored from a gamestate save, which is why it defaults to
+        // null rather than 0 — "we don't know" and "matched instantly" are very
+        // different facts to the ETA validation this field exists for.
+        queueWaitMs: this.queueWaitMs?.[tag] ?? null
       });
 
       await this.persistGame({
@@ -2076,6 +2701,52 @@ export default class Game {
         ]
         // Duel stats snapshots run separately via createDuelUserStats, chained
         // after this save in finishSoloDuel.
+      }, {
+        mode: 'ranked_duel',
+        // THE bot gate. `official` is NOT usable here: it is hardcoded true
+        // for this save, bot duels included, so gating on it would pay full
+        // human rate for beating a bot. isBotGame is the explicit stamp, and
+        // an account-less p2 is the structural tell (bot duels are built with
+        // accountIds.p2 === null).
+        isBot: !!this.isBotGame || !this.accountIds?.p2,
+        gameId: `duel_${this.id}`,
+        // PRE-game elos on purpose: the post-game values have already had the
+        // transfer applied, which flips a near-equal matchup into a false
+        // upset (winner ends above the loser by definition).
+        //
+        // stampDecay mirrors the ELO transfer's PairWins decay onto the earn:
+        // the winner's direction sets the game's multiplier (a draw takes the
+        // harsher of the two, same rule as the transfer's draw entry). Both
+        // seats carry the SAME value — a farming pair must not keep full
+        // participation pay while the win pay decays.
+        entries: (() => {
+          const decayMap = this.ratingV2?.decay || null;
+          const dP1 = Number.isFinite(decayMap?.[this.pIds?.p1]) ? decayMap[this.pIds.p1] : 1;
+          const dP2 = Number.isFinite(decayMap?.[this.pIds?.p2]) ? decayMap[this.pIds.p2] : 1;
+          const stampDecay = draw ? Math.min(dP1, dP2)
+            : winner?.tag === 'p2' ? dP2
+            : dP1;
+          return [
+            {
+              accountId: this.accountIds.p1,
+              won: winner?.tag === 'p1',
+              drew: draw,
+              myElo: p1OldElo ?? null,
+              opponentElo: p2OldElo ?? null,
+              stampDecay
+            },
+            ...(this.accountIds.p2
+              ? [{
+                  accountId: this.accountIds.p2,
+                  won: winner?.tag === 'p2',
+                  drew: draw,
+                  myElo: p2OldElo ?? null,
+                  opponentElo: p1OldElo ?? null,
+                  stampDecay
+                }]
+              : [])
+          ];
+        })()
       });
 
       console.log(`Saved duel game duel_${this.id} between ${user1.username} and ${user2?.username ?? `${player2Data.username} [bot]`} (XP: ${p1Xp}, ${p2Xp})`);
@@ -2108,6 +2779,8 @@ export default class Game {
           username: player.username || 'Player',
           countryCode: player.countryCode || null,
           accountId: player.accountId || null,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
           totalPoints: player.score || 0,
           totalXp: (awardXp && player.accountId) ? this.calculatePlayerXp(player.id) : 0,
           averageTimePerRound: this.calculateAverageTime(player.id),
@@ -2165,6 +2838,12 @@ export default class Game {
               playerCount: playerSummaries.length
             }
           }))
+        // NO stampContext, deliberately. Casual public games and private
+        // parties earn zero stamps, and the way that is enforced is by never
+        // handing persistGame a context at all: absence is the safe default,
+        // so no future edit to the payout table can accidentally make a party
+        // game pay. Party games are also replayable in place (gameCount), so
+        // paying here would be a farm with no cap on it.
       });
 
       console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)`);
@@ -2196,6 +2875,8 @@ export default class Game {
           username: player.username || 'Player',
           countryCode: player.countryCode || null,
           accountId: player.accountId || null,
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null,
           totalPoints: personalPoints(player.id),
           totalXp: player.accountId ? this.calculatePlayerXp(player.id) : 0,
           averageTimePerRound: this.calculateAverageTime(player.id),
@@ -2253,6 +2934,23 @@ export default class Game {
               playerCount: allPlayers.length
             }
           }))
+      }, {
+        mode: '2v2',
+        // Bot gate, 2v2 flavour: isBotGame ONLY. Team duels never populate
+        // this.accountIds (there are no p1/p2 tags in team mode — the roster
+        // carries the account ids), so the ranked-duel `!accountIds?.p2`
+        // clause would read as true for EVERY 2v2 and pay every human team
+        // the capped bot trickle instead of the real payout.
+        isBot: !!this.isBotGame,
+        gameId: `2v2_${this.id}`,
+        // 2v2 has no individual rating, so no ELO metadata is attached.
+        entries: validPlayersWithAccounts.map(player => ({
+          accountId: player.accountId,
+          won: !draw && player.team === winningTeam,
+          drew: draw,
+          myElo: null,
+          opponentElo: null
+        }))
       });
 
       console.log(`✅ Saved 2v2 game 2v2_${this.id} (${validPlayersWithAccounts.length} registered / ${allPlayers.length} total, winner: ${draw ? 'draw' : winningTeam})`);

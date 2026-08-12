@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { MapItem } from '../../services/api';
 import { formatCompact as formatNumber } from '../../shared';
+import PlayerName from '../PlayerName';
 
 export default function MapTile({
   map,
@@ -83,9 +84,16 @@ export default function MapTile({
           <View style={styles.tileBottom}>
             <View style={styles.tileAuthorRow}>
               <Ionicons name="person" size={11} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.tileAuthor} numberOfLines={1}>
-                {map.created_by_name}
-              </Text>
+              {/* Large tile grids keep animated glow SKUs static for paint cost. */}
+              <PlayerName
+                name={map.created_by_name}
+                glow={map.created_by_glow}
+                glowMotion="static"
+                glowRadius={6}
+                gap={0}
+                textStyle={styles.tileAuthor}
+                numberOfLines={1}
+              />
               {map.locations != null && (
                 <>
                   <Text style={styles.tileDot}> · </Text>

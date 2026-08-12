@@ -7,16 +7,16 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  ImageBackground,
   Share,
   Platform,
 } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { api } from '../../services/api';
-import { t } from '../../shared';
+import { t, STARTING_ELO } from '../../shared';
 import { ProgressionEntry } from './shared';
 import PlayerName from '../PlayerName';
 import ProfileTab from './ProfileTab';
@@ -25,8 +25,21 @@ import GameHistoryTab from './GameHistoryTab';
 import FriendsTab from './FriendsTab';
 import ModerationTab from './ModerationTab';
 import CountrySelectorModal from './CountrySelectorModal';
+import { siteAccentFor } from '../../services/siteBackground';
+import { useSiteAccent } from '../../store/siteBackgroundStore';
 
 type TabKey = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
+
+// NO MIGRATION MARKER LIVES HERE ANY MORE.
+//
+// This file used to render a Season1MilestoneNote card under the chart, mirroring
+// the dashed gold rule the web chart drew in-canvas. Both existed for one reason:
+// the migration granted up to ~2.35M XP as a single UserStats row, so totalXp
+// leapt in one step and the chart had to explain itself.
+//
+// That XP grant was cut before it shipped, so there is no step left to explain.
+// Ratings never needed one either: api/userProgression.js converts pre-migration
+// points onto the v2 scale server-side, so the elo curve has no seam at all.
 
 interface Tab {
   key: TabKey;
@@ -59,7 +72,6 @@ interface ProfileData {
   createdAt?: string;
   profileViews?: number;
   countryCode?: string;
-  supporter?: boolean;
   rank?: number;
   canChangeUsername?: boolean;
   daysUntilNameChange?: number;
@@ -72,11 +84,35 @@ interface ProfileData {
     ties: number;
     winRate: number;
   };
+  /**
+   * Equipped cosmetics, as api/publicProfile.js and api/publicAccount.js both
+   * return them. Only the two WORN cosmetics are public — `nameGlow` for the
+   * username and `background` for this screen's photograph and colours. Nothing
+   * else about an inventory leaves the server on this route.
+   */
+  cosmetics?: { equipped?: { nameGlow?: string | null; background?: string | null } };
+  /**
+   * Season 0 record, feeding the OG badge in <ProfileTab> (see the prop docs
+   * there). Both fetch paths carry them: the public one passes the payload
+   * straight through, the own-profile one maps them by hand.
+   */
+  seasonPeakElo?: number | null;
+  seasonPeakLeague?: string | null;
+  season0Elo?: number | null;
+  season0Rank?: number | null;
+  ogAccount?: boolean;
 }
 
 interface EloData {
   elo: number;
   rank: number;
+  /**
+   * Whole league object from api/eloRank.js. Declared here so it SURVIVES the
+   * hop into <EloTab>, which prefers it over the local cutoff table — the
+   * server already knows the tier for this rating, and trusting it means a
+   * seasonal re-anchor needs no store release.
+   */
+  league?: { name?: string; min?: number; max?: number; emoji?: string; color?: string; light?: string };
   duels_wins: number;
   duels_losses: number;
   duels_tied: number;
@@ -93,7 +129,6 @@ interface ProfileViewProps {
     totalXp?: number;
     totalGamesPlayed?: number;
     countryCode?: string;
-    supporter?: boolean;
     staff?: boolean;
     banned?: boolean;
     banType?: string;
@@ -114,6 +149,8 @@ interface ProfileViewProps {
   // Navigation
   onBack?: () => void;
   onNavigateToUser?: (username: string) => void;
+  /** Keeps the account route's tab parameter aligned with direct tab presses. */
+  onTabChange?: (tab: TabKey) => void;
   /** Optional initial tab to preselect (e.g. via a route param). Falls back to 'profile'. */
   initialTab?: TabKey;
 }
@@ -127,6 +164,7 @@ export default function ProfileView({
   username: publicUsername,
   onBack,
   onNavigateToUser,
+  onTabChange,
   initialTab,
 }: ProfileViewProps) {
   const resolvedUsername = isOwnProfile ? user?.username : publicUsername;
@@ -139,16 +177,14 @@ export default function ProfileView({
     : 'profile';
   const [activeTab, setActiveTab] = useState<TabKey>(safeInitialTab);
 
-  // If the caller swaps `initialTab` while mounted (deep link from a different screen),
-  // honor that and switch tabs — but don't loop on every render.
-  const lastInitialTabRef = useRef<TabKey | undefined>(initialTab);
-  useEffect(() => {
-    if (initialTab && initialTab !== lastInitialTabRef.current
-      && tabs.some((tab) => tab.key === initialTab)) {
-      lastInitialTabRef.current = initialTab;
-      setActiveTab(initialTab);
-    }
-  }, [initialTab, tabs]);
+  // Account stays mounted behind Home. Synchronize a new route request during
+  // render so React retries before commit; an effect would paint the retained
+  // tab once and visibly switch sections during the native tab transition.
+  const [appliedInitialTab, setAppliedInitialTab] = useState<TabKey | undefined>(initialTab);
+  if (initialTab !== appliedInitialTab) {
+    setAppliedInitialTab(initialTab);
+    setActiveTab(safeInitialTab);
+  }
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [eloData, setEloData] = useState<EloData | null>(null);
   const [progression, setProgression] = useState<ProgressionEntry[]>([]);
@@ -157,6 +193,23 @@ export default function ProfileView({
   const [error, setError] = useState<string | null>(null);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // THIS SCREEN BELONGS TO WHOEVER IT IS ABOUT.
+  //
+  // One component serves two people: your own profile (isOwnProfile) and a
+  // stranger's. The photograph and the colours have to follow the SUBJECT, not
+  // the reader — showing off a player against the reader's purchase is the one
+  // place that gets it exactly backwards, and on a public profile the reader's
+  // own sku is simply the wrong answer.
+  //
+  // useSiteAccent() is still called unconditionally (it is a hook), and its
+  // result is only USED on your own profile; a public one resolves the subject's
+  // sku through the same plain function the hook wraps. Null anywhere along the
+  // way — still loading, nothing equipped, a sku this build does not know — lands
+  // on the stock green, which is what this screen has always rendered.
+  const ownAccent = useSiteAccent();
+  const subjectSku = profileData?.cosmetics?.equipped?.background ?? null;
+  const accent = isOwnProfile ? ownAccent : siteAccentFor(subjectSku);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -186,7 +239,7 @@ export default function ProfileView({
         ]);
 
         if (account.status === 'rejected') {
-          setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
+          setError(t('failedToLoadProfile'));
           setLoading(false);
           return;
         }
@@ -194,24 +247,32 @@ export default function ProfileView({
         const accountVal = account.value;
         setProfileData({
           username: accountVal.username,
-          elo: user?.elo ?? 1000,
+          elo: user?.elo ?? STARTING_ELO,
           totalXp: accountVal.totalXp,
           gamesLen: accountVal.gamesLen,
           createdAt: accountVal.createdAt,
           countryCode: accountVal.countryCode ?? user?.countryCode,
-          supporter: user?.supporter,
           canChangeUsername: accountVal.canChangeUsername,
           daysUntilNameChange: accountVal.daysUntilNameChange,
           recentChange: accountVal.recentChange,
           pendingNameChange: user?.pendingNameChange,
           pendingNameChangePublicNote: user?.pendingNameChangePublicNote,
+          // Season 0 record. This mapping is hand-written field by field, so a
+          // field the API adds is invisible here until it is listed — which is
+          // exactly how a veteran ended up being the one person who could not
+          // see their own OG badge. api/publicAccount.js carries all four.
+          seasonPeakElo: accountVal.seasonPeakElo,
+          seasonPeakLeague: accountVal.seasonPeakLeague,
+          season0Elo: accountVal.season0Elo,
+          season0Rank: accountVal.season0Rank,
+          ogAccount: accountVal.ogAccount,
         });
 
         if (elo.status === 'fulfilled') {
           setEloData(elo.value);
         } else {
           setEloData({
-            elo: user?.elo || 1000,
+            elo: user?.elo || STARTING_ELO,
             rank: 0,
             duels_wins: 0,
             duels_losses: 0,
@@ -241,7 +302,7 @@ export default function ProfileView({
           setEloData(elo.value);
         } else {
           setEloData({
-            elo: profileVal.elo || 1000,
+            elo: profileVal.elo || STARTING_ELO,
             rank: profileVal.rank || 0,
             duels_wins: profileVal.duelStats?.wins || 0,
             duels_losses: profileVal.duelStats?.losses || 0,
@@ -251,7 +312,7 @@ export default function ProfileView({
         }
       }
     } catch (e) {
-      setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
+      setError(t('failedToLoadProfile'));
     } finally {
       setLoading(false);
     }
@@ -376,21 +437,23 @@ export default function ProfileView({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Background Image */}
-      <ImageBackground
-        source={require('../../../assets/street2.jpg')}
+    // accent.deep under the photograph, not a literal #112b18: this colour is
+    // only ever seen for the frame before the image paints and during a nav
+    // slide, and on a public profile that frame should already be the subject's.
+    <View style={[styles.container, { backgroundColor: accent.deep }]}>
+      {/* THE SUBJECT'S photograph on a public profile, the reader's own on
+          theirs. Passing undefined (not null) on your own profile is what hands
+          the choice back to the store — see the prop docs on SiteBackground. */}
+      <SiteBackground
         style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
+        sku={isOwnProfile ? undefined : subjectSku}
       />
 
-      {/* Dark overlay keeps the street2 backdrop subtle, matching the rest of the app */}
+      {/* Dark overlay keeps the backdrop subtle, matching the rest of the app —
+          and its middle stop is the same person's wash colour, so the plate
+          cannot go green over a purple photograph. */}
       <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.9)',
-          'rgba(0, 30, 15, 0.8)',
-          'rgba(0, 0, 0, 0.9)',
-        ]}
+        colors={accent.modalWash}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -408,7 +471,7 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>{t('loadingProfile', undefined, 'Loading profile...')}</Text>
+              <Text style={styles.loadingText}>{t('loadingProfile')}</Text>
             </View>
           </View>
         )}
@@ -419,7 +482,7 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle}>{error}</Text>
-              <Text style={styles.errorSubtext}>{t('profileCouldNotLoad', undefined, 'The profile could not be loaded.')}</Text>
+              <Text style={styles.errorSubtext}>{t('profileCouldNotLoad')}</Text>
               <View style={styles.errorActions}>
                 <Pressable
                   style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.8 }]}
@@ -460,21 +523,14 @@ export default function ProfileView({
                 <PlayerName
                   name={profileData.username}
                   countryCode={profileData.countryCode}
+                  // ANIMATED: one name, on the screen a player links people to
+                  // when they want the thing they bought to be seen.
+                  glow={profileData.cosmetics?.equipped?.nameGlow}
                   flagSize={24}
                   gap={10}
                   numberOfLines={0}
                   textStyle={styles.usernameText}
                 />
-                {profileData.supporter && (
-                  <LinearGradient
-                    colors={['#ffd700', '#ffed4e']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.supporterBadge}
-                  >
-                    <Text style={styles.supporterText}>{t('supporter').toUpperCase()}</Text>
-                  </LinearGradient>
-                )}
                 {/* Share Profile Link */}
                 <Pressable
                   style={({ pressed }) => [styles.shareButton, pressed && { opacity: 0.7 }]}
@@ -499,8 +555,26 @@ export default function ProfileView({
               {tabs.map((tab) => (
                 <Pressable
                   key={tab.key}
-                  style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}
-                  onPress={() => setActiveTab(tab.key)}
+                  style={[
+                    styles.tabButton,
+                    // The selected tab is chrome, so it wears the accent — web's
+                    // .public-profile-nav-item.active does the same with
+                    // var(--gradGreenBtn). The GLOW comes too: it spreads
+                    // outside the button, so a green one left behind would ring
+                    // a purple tab in the old brand colour.
+                    activeTab === tab.key && [
+                      styles.tabButtonActive,
+                      {
+                        backgroundColor: accent.primary,
+                        borderColor: accent.primary,
+                        shadowColor: accent.primaryTransparent,
+                      },
+                    ],
+                  ]}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    onTabChange?.(tab.key);
+                  }}
                 >
                   <Text style={styles.tabIcon}>{tab.icon}</Text>
                   <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
@@ -671,16 +745,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
   },
-  supporterBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-  },
-  supporterText: {
-    color: '#000',
-    fontSize: 11,
-    fontFamily: 'Lexend-Bold',
-  },
   shareButton: {
     width: 32,
     height: 32,
@@ -710,9 +774,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   tabButtonActive: {
-    backgroundColor: '#245734',
-    borderColor: '#245734',
-    shadowColor: 'rgba(36, 87, 52, 0.3)',
+    // The three COLOURS are applied inline at the call site: they follow the
+    // equipped background and a StyleSheet is frozen at module load. What is
+    // left here is the geometry, which never changes.
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 15,

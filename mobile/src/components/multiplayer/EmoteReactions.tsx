@@ -10,7 +10,7 @@
  * so it stays smooth even with the device's Reduce Motion setting on.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import Animated, {
@@ -27,9 +27,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes } from '../../styles/theme';
-import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
+import { EMOTE_TTL_MS, EMOTE_COOLDOWN_MS, resolveEmoteBar } from '../../shared/emotes';
+import { useAuthStore } from '../../store/authStore';
 import getMyTeam from '../../shared/game/getMyTeam';
 import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayerStore';
+import EmberGlow from '../shop/EmberGlow';
 import PlayerName from '../PlayerName';
 
 const NEVER = ReduceMotion.Never;
@@ -78,7 +80,21 @@ function FloatingEmote({
     <Animated.View
       style={[styles.floatItem, teamStyle, hideName && styles.floatItemNoName, style]}
     >
-      <Text style={[styles.floatGlyph, hideName && styles.floatGlyphNoName]}>{reaction.emote}</Text>
+      {/* THE ONE EMOTE WITH AN EFFECT burns here too, not just in the shop that
+          sold it — a cosmetic that only looks special where it is on sale is a
+          bait. EmberGlow is the same component the shop's wheel and shelf mount;
+          the static half of the burn is the text shadow below it. Sized to the
+          glyph it sits behind, which is bigger in a duel (no name row). */}
+      {reaction.fx === 'ember' ? <EmberGlow size={hideName ? 72 : 48} /> : null}
+      <Text
+        style={[
+          styles.floatGlyph,
+          hideName && styles.floatGlyphNoName,
+          reaction.fx === 'ember' && styles.floatGlyphEmber,
+        ]}
+      >
+        {reaction.emote}
+      </Text>
       {!hideName && !!reaction.name && (
         <PlayerName
           name={reaction.name}
@@ -87,6 +103,10 @@ function FloatingEmote({
           gap={4}
           textStyle={styles.floatName}
           style={styles.floatNameRow}
+          // Animated: a bubble lives 3.2s and only a handful are ever in the
+          // air, so the cost is bounded by the emote cooldown rather than by
+          // how long the game has been running.
+          glow={reaction.nameGlow}
         />
       )}
     </Animated.View>
@@ -114,6 +134,24 @@ export default function EmoteReactions({
     s.gameData?.team2v2 || s.gameData?.teamGame
       ? getMyTeam(s.gameData.players, s.gameData.myId)
       : null,
+  );
+  // THE PICKER RENDERS THE PLAYER'S BAR — `cosmetics.emoteOrder`, resolved by
+  // the shared model (src/shared/emotes.ts), which is the same call web makes.
+  //
+  // It used to render getAvailableEmotes(): everything you own, in catalogue
+  // order, with emoteOrder ignored outright. So arranging a bar changed nothing
+  // here, and once you owned a few emotes the two platforms showed different
+  // pickers for the same account. An empty order still resolves to the free
+  // set, so nothing changes for an account that has never arranged one.
+  //
+  // Guests have neither field, which resolves to free-only — the server enforces
+  // ownership anyway, so offering an unowned emote would only produce a button
+  // whose every press is silently dropped.
+  const ownedCosmetics = useAuthStore((s) => s.user?.cosmetics?.owned);
+  const emoteOrder = useAuthStore((s) => s.user?.cosmetics?.emoteOrder);
+  const available = useMemo(
+    () => resolveEmoteBar(emoteOrder, ownedCosmetics),
+    [emoteOrder, ownedCosmetics],
   );
   const [open, setOpen] = useState(false);
   // Cooldown feedback (mirrors web): disable buttons until the next send is allowed.
@@ -155,12 +193,12 @@ export default function EmoteReactions({
     return () => clearInterval(id);
   }, [inCooldown]);
 
-  const handleSend = (index: number) => {
+  const handleSend = (emoteId: string) => {
     if (inCooldown) return;
     // Click sound rides SfxPressable (the buttons are disabled in cooldown,
     // so a dead press stays silent — web disabled-button parity).
     haptics.light();
-    sendEmote(index);
+    sendEmote(emoteId);
     setCooldownUntil(Date.now() + EMOTE_COOLDOWN_MS);
     setNow(Date.now());
     setOpen(false);
@@ -184,14 +222,17 @@ export default function EmoteReactions({
 
       {/* Emote bar — always mounted, fades/scales in above the toggle */}
       <Animated.View style={[styles.bar, barStyle]} pointerEvents={open ? 'auto' : 'none'}>
-        {EMOTES.map((e, i) => (
+        {available.map((e) => (
           <Pressable
-            key={e}
-            onPress={() => handleSend(i)}
+            key={e.id}
+            onPress={() => handleSend(e.id)}
             disabled={inCooldown}
             style={({ pressed }) => [styles.emoteBtn, inCooldown && styles.emoteBtnDisabled, pressed && { opacity: 0.5 }]}
           >
-            <Text style={styles.emoteGlyph}>{e}</Text>
+            {/* The picker button gets the burn too, so the thing you paid for
+                looks paid-for at the moment you reach for it. */}
+            {e.fx === 'ember' ? <EmberGlow size={40} /> : null}
+            <Text style={[styles.emoteGlyph, e.fx === 'ember' && styles.emoteGlyphEmber]}>{e.glyph}</Text>
           </Pressable>
         ))}
       </Animated.View>
@@ -271,6 +312,14 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
+  // The ember replaces the black lift rather than stacking on it: one text
+  // shadow per Text is all RN gives you, and a warm glow is a better read on a
+  // pano than a drop shadow anyway. EmberGlow behind it does the breathing.
+  floatGlyphEmber: {
+    textShadowColor: 'rgba(255, 138, 42, 0.95)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
   floatGlyphNoName: {
     fontSize: 52,
   },
@@ -310,6 +359,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    // Keeps the ember disc inside the button rather than bleeding onto its
+    // neighbours in a 4-across row.
+    overflow: 'hidden',
   },
   emoteBtnDisabled: {
     opacity: 0.35,
@@ -318,6 +370,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.white,
     fontFamily: 'Lexend-Bold',
+  },
+  emoteGlyphEmber: {
+    textShadowColor: 'rgba(255, 138, 42, 0.95)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 9,
   },
   toggle: {
     width: TOGGLE_SIZE,

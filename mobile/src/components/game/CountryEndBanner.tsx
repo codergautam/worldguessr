@@ -114,7 +114,7 @@ export default function CountryEndBanner({
   // guess" note when the round timed out with no pick (parity with classic SP).
   // Onboarding hides it wholesale via hideQuip (shows a landmark fact instead).
   const forgotToGuess = picked == null;
-  const noteText = forgotToGuess ? t('didntGuess', undefined, "You didn't guess") : message;
+  const noteText = forgotToGuess ? t('didntGuess') : message;
   const showNote = !hideQuip;
 
   // Slide-up entrance
@@ -187,7 +187,7 @@ export default function CountryEndBanner({
         </View>
         <View style={styles.textCol}>
           <Text style={[styles.smallLabel, { fontSize: sc(fontSizes.xs) }]}>
-            {t('round', { r: round, mr: totalRounds })} · {isCorrect ? t('correctExclaim', undefined, 'Correct!') : t('notQuite', undefined, 'Not quite')}
+            {t('round', { r: round, mr: totalRounds })} · {isCorrect ? t('correctExclaim') : t('notQuite')}
           </Text>
           <Text style={[styles.title, { fontSize: sc(fontSizes.lg) }]} numberOfLines={1}>
             {correctName}

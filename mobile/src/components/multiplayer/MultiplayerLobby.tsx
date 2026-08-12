@@ -14,7 +14,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ImageBackground,
   ActivityIndicator,
   Alert,
   Animated,
@@ -24,6 +23,7 @@ import {
   Share,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../SiteBackground';
 import ReAnimated, {
   Easing as ReEasing,
   FadeIn,
@@ -392,7 +392,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
   const handleStart = () => {
     if (!players || players.length < 2) {
-      Alert.alert(t('needPlayersTitle', undefined, 'Need Players'), t('needMorePlayers'));
+      Alert.alert(t('needPlayersTitle'), t('needMorePlayers'));
       return;
     }
     if (teamBlocked) {
@@ -430,8 +430,8 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
     ]).start();
     try {
       await Share.share({
-        message: t('shareJoinPartyMessage', { link: getPartyLink(gameCode) }, 'Join my WorldGuessr party: {{link}}'),
-        title: t('sharePartyInviteTitle', undefined, 'WorldGuessr Party Invite'),
+        message: t('shareJoinPartyMessage', { link: getPartyLink(gameCode) }),
+        title: t('sharePartyInviteTitle'),
       });
     } catch {
       // User cancelled the share sheet — no-op.
@@ -440,12 +440,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-        fadeDuration={0}
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
       <View style={styles.darkOverlay} />
       <LinearGradient
         colors={[
@@ -481,7 +476,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
               ? t('twovtwoTeamLobby')
               : isHost
                 ? t('yourPrivateGame')
-                : t('gameLobby', undefined, 'Game Lobby')}
+                : t('gameLobby')}
           </Text>
           {/* Sound settings — the header slot mirrors web's navbar speaker
               (private waiting lobbies only, guests included). */}
@@ -581,7 +576,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
               </Animated.View>
             </Pressable>
             <Text style={styles.codeHint}>
-              {t('tapToShareInviteLink', undefined, 'Tap to share invite link')}
+              {t('tapToShareInviteLink')}
             </Text>
           </View>
 
@@ -592,8 +587,8 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
                 {teamGame
                   ? t('teams')
                   : is2v2
-                    ? t('playersCount', { cnt: `${playerCount}/${seatCount}` }, 'Players ({{cnt}})')
-                    : t('playersCount', { cnt: playerCount }, 'Players ({{cnt}})')}
+                    ? t('playersCount', { cnt: `${playerCount}/${seatCount}` })
+                    : t('playersCount', { cnt: playerCount })}
               </Text>
               {teamGame && isHost && (
                 <Pressable
@@ -716,12 +711,12 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
                 const rawSecs = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
                 const tSecs = rawSecs >= 60 * 60 * 24 ? 0 : rawSecs;
                 const dispTimer = tSecs > 0
-                  ? t('secondsShort', { secs: tSecs }, '{{secs}}s')
-                  : t('timerOff', undefined, 'Timer Off');
+                  ? t('secondsShort', { secs: tSecs })
+                  : t('timerOff');
                 // Label the ACTUAL SV mode: a No Move party read "NMPZ" here.
                 const dispSv = isHost ? svMode : (serverNpz ? 'nmpz' : serverNm ? 'noMove' : 'moving');
                 const dispNmpz = dispSv === 'nmpz' ? 'NMPZ'
-                  : dispSv === 'noMove' ? t('noMove', undefined, 'No moving') : null;
+                  : dispSv === 'noMove' ? t('noMove') : null;
                 // Mode chip copy (web partyLobby.js): Team Duel shows its
                 // scoring flavor; Classic stays implicit (no chip noise).
                 const dispMode = teamGame
@@ -730,7 +725,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
                 return (
                   <Text style={styles.settingsPreviewText}>
                     {dispMode}
-                    {t('lobbySettingsPreview', { map: dispMap, rounds: dispRounds, timer: dispTimer }, '{{map}} · {{rounds}} rounds · {{timer}}')}
+                    {t('lobbySettingsPreview', { map: dispMap, rounds: dispRounds, timer: dispTimer })}
                     {dispNmpz ? ` · ${dispNmpz}` : ''}
                   </Text>
                 );
@@ -783,7 +778,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
               disabled={partyFull || teammateSearch}
             >
               <Ionicons name="people" size={18} color={colors.white} />
-              <Text style={styles.optionsBtnText}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
+              <Text style={styles.optionsBtnText}>{t('inviteFriends')}</Text>
             </Pressable>
             </ReAnimated.View>
           )}
@@ -851,7 +846,7 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
             >
               <Text style={styles.startBtnText}>
                 {playerCount < 2
-                  ? t('waitingForPlayersShort', undefined, 'Waiting for players...')
+                  ? t('waitingForPlayersShort')
                   : teamBlocked
                     ? t('teamNeedsPlayers')
                     : generatingBlocked

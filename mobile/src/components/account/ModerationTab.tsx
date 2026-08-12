@@ -68,7 +68,7 @@ export default function ModerationTab({
         const result = await api.userModerationData(secret);
         setData(result);
       } catch (err: any) {
-        setError(err.message || t('failedToLoad', undefined, 'Failed to load'));
+        setError(err.message || t('failedToLoad'));
       } finally {
         setLoading(false);
       }
@@ -212,7 +212,7 @@ export default function ModerationTab({
             </View>
           )}
           <Text style={[styles.suspensionExplanation, { color: '#e0e0e0' }]}>
-            {t('usernameFlaggedGoToProfileTab', undefined, 'Your username has been flagged. Please change it from the Profile tab.')}
+            {t('usernameFlaggedGoToProfileTab')}
           </Text>
         </View>
       )}
@@ -245,9 +245,9 @@ export default function ModerationTab({
         <View style={styles.subTabRow}>
           {(['refunds', 'history', 'reports'] as SubTab[]).map((tab) => {
             const labels: Record<SubTab, string> = {
-              refunds: t('eloRefundsTabCount', { count: data?.eloRefunds?.length || 0 }, 'ELO Refunds ({{count}})'),
-              history: t('historyTabCount', { count: data?.moderationHistory?.length || 0 }, 'History ({{count}})'),
-              reports: t('myReportsTabCount', { count: data?.submittedReports?.length || 0 }, 'My Reports ({{count}})'),
+              refunds: t('eloRefundsTabCount', { count: data?.eloRefunds?.length || 0 }),
+              history: t('historyTabCount', { count: data?.moderationHistory?.length || 0 }),
+              reports: t('myReportsTabCount', { count: data?.submittedReports?.length || 0 }),
             };
             return (
               <Pressable
@@ -277,10 +277,10 @@ export default function ModerationTab({
                 <View key={refund.id} style={styles.listItem}>
                   <View>
                     <Text style={{ color: '#4caf50', fontFamily: 'Lexend-Bold', fontSize: 16 }}>
-                      {t('eloRefundAmount', { amount: refund.amount }, '+{{amount}} ELO')}
+                      {t('eloRefundAmount', { amount: refund.amount })}
                     </Text>
                     <Text style={{ color: '#888', fontSize: 12, fontFamily: 'Lexend', marginTop: 4 }}>
-                      {t('fromLabel', undefined, 'From:')} <Text style={{ color: '#f44336' }}>{refund.bannedUsername}</Text>
+                      {t('fromLabel')} <Text style={{ color: '#f44336' }}>{refund.bannedUsername}</Text>
                     </Text>
                   </View>
                   <Text style={{ color: '#888', fontSize: 12, fontFamily: 'Lexend' }}>

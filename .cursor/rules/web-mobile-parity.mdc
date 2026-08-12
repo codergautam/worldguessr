@@ -1,0 +1,10 @@
+---
+description: Require user-visible frontend changes to ship on web and native mobile together
+alwaysApply: true
+---
+
+# Web and Mobile Parity
+
+- Every user-visible web change must be implemented and verified in `mobile/` in the same task.
+- Every user-visible mobile change must be checked against web and mirrored when the experience exists there.
+- Do not call frontend work complete while one platform still differs unintentionally.

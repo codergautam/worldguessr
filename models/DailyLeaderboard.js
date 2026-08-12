@@ -23,8 +23,7 @@ const dailyLeaderboardSchema = new mongoose.Schema({
     delta: { type: Number, required: true }, // XP or ELO gained today
     currentValue: { type: Number, required: true }, // Current total XP or ELO
     rank: { type: Number, required: true },
-    countryCode: { type: String },
-    supporter: { type: Boolean, default: false }
+    countryCode: { type: String }
   }],
 
   // Total number of users who gained XP/ELO today (for stats)

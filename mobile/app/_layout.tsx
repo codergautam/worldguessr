@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, InteractionManager } from 'react-native';
 import { useFonts } from 'expo-font';
 import { JockeyOne_400Regular } from '@expo-google-fonts/jockey-one';
 import {
@@ -16,6 +16,7 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
+import { hydrateSiteBackground } from '../src/store/siteBackgroundStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useSettingsStore } from '../src/store/settingsStore';
 import { initSoundSystem } from '../src/services/sound';
@@ -52,12 +53,19 @@ SplashScreen.preventAutoHideAsync();
 // this fade runs, so app-open reads as one continuous reveal.
 SplashScreen.setOptions({ duration: 400, fade: true });
 
-// Preload all runtime image assets during startup
+// Preload all runtime image assets during startup.
+//
+// The stock background only. A PURCHASED background is a network fetch and is
+// deliberately NOT in this list: it is warmed in the background by
+// hydrateSiteBackground() below, and gating the splash on it would hold the app
+// closed behind somebody's hotel wifi. Until it lands, SiteBackground paints
+// this file — which is why it stays bundled even for owners.
 const imageAssets = [
   require('../assets/street2.jpg'),
 ];
 
 export default function RootLayout() {
+  const pathname = usePathname();
   const [fontsLoaded] = useFonts({
     JockeyOne: JockeyOne_400Regular,
     Lexend: Lexend_400Regular,
@@ -67,6 +75,8 @@ export default function RootLayout() {
   });
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [rootViewLaidOut, setRootViewLaidOut] = useState(false);
+  const splashHiddenRef = useRef(false);
   // User preferences (units / map type / language / emotes). Gating the splash
   // on this means the i18n table is primed before the first screen renders, so
   // the (tabs) navigator mounts in the right language with no remount flash.
@@ -88,7 +98,9 @@ export default function RootLayout() {
   const updateRequired = useForceUpdate();
 
   useEffect(() => {
-    Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
+    Asset.loadAsync(imageAssets)
+      .catch(() => { /* The bundled image still has SiteBackground's fallback. */ })
+      .finally(() => setAssetsLoaded(true));
   }, []);
 
   // Load auth session + user preferences on app start
@@ -97,12 +109,23 @@ export default function RootLayout() {
     useOnboardingStore.getState().loadFlag();
     useSettingsStore.getState().loadSettings();
     useReviewPromptStore.getState().load();
+    // Replays this device's last equipped background so an owner's first frame
+    // is their own city rather than the stock one, and starts tracking the
+    // session so the answer is corrected the moment auth resolves. NOT awaited
+    // and NOT gated on: it decides which photograph is prettier, never whether
+    // the app opens.
+    hydrateSiteBackground();
   }, []);
 
-  // Initialize native services (ads, analytics)
+  // Ads and analytics are not launch-critical. Initializing their native SDKs
+  // during the first navigation wave can steal the exact frames the user sees,
+  // so let the entrance interaction complete before waking them up.
   useEffect(() => {
-    initAnalytics();
-    initAds().then(() => preloadInterstitial());
+    const task = InteractionManager.runAfterInteractions(() => {
+      initAnalytics();
+      initAds().then(() => preloadInterstitial());
+    });
+    return () => task.cancel();
   }, []);
 
   // Boot the sound system once persisted volumes are known (a pre-load start
@@ -110,16 +133,32 @@ export default function RootLayout() {
   // asked for). Music is allowed on ALL app routes (user sign-off), so the
   // root layout owns the one-time start + lifecycle wiring.
   useEffect(() => {
-    if (settingsLoaded) initSoundSystem();
+    if (!settingsLoaded) return;
+    const task = InteractionManager.runAfterInteractions(() => initSoundSystem());
+    return () => task.cancel();
   }, [settingsLoaded]);
 
-  useEffect(() => {
-    if (fontsLoaded && assetsLoaded && settingsLoaded && onboardingLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, assetsLoaded, settingsLoaded, onboardingLoaded]);
+  const bootReady = fontsLoaded && assetsLoaded && settingsLoaded && onboardingLoaded;
+  const handleRootLayout = useCallback(() => setRootViewLaidOut(true), []);
 
-  if (!fontsLoaded || !assetsLoaded || !settingsLoaded || !onboardingLoaded) {
+  useEffect(() => {
+    // `/` is only the redirector. Wait until the actual destination has
+    // committed and the native root has dimensions, otherwise the splash fade
+    // exposes one frame of the brand-colour placeholder between screens.
+    if (
+      !splashHiddenRef.current &&
+      bootReady &&
+      rootViewLaidOut &&
+      pathname !== '/'
+    ) {
+      splashHiddenRef.current = true;
+      SplashScreen.hideAsync().catch(() => {
+        // Native may already have dismissed it during a development reload.
+      });
+    }
+  }, [bootReady, pathname, rootViewLaidOut]);
+
+  if (!bootReady) {
     return (
       <View style={[styles.container, styles.loading]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -128,7 +167,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <GestureHandlerRootView style={styles.container} onLayout={handleRootLayout}>
       <SafeAreaProvider>
         <StatusBar style="light" />
         {/* Catch any render/commit-phase throw so a single screen crash shows a
@@ -176,6 +215,7 @@ export default function RootLayout() {
             <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
             <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen name="shop" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding/play" options={{ headerShown: false }} />
           </Stack>
           <ToastProvider />

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ImageBackground,
   Linking,
   ScrollView,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import SiteBackground from '../src/components/SiteBackground';
 import { Pressable } from '../src/components/ui/SfxPressable';
 import Animated, { FadeInDown, FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,12 +26,13 @@ import { borderRadius, fontSizes, spacing } from '../src/styles/theme';
 import { useSettingsStore, type MapType } from '../src/store/settingsStore';
 import { useAuthStore } from '../src/store/authStore';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
-import { leagues } from '../src/shared/user/leagues';
+import { getStrictFloor } from '../src/shared/user/leagues';
 import SegmentedControl from '../src/components/settings/SegmentedControl';
 import DangerZoneSection from '../src/components/settings/DangerZoneSection';
 import VolumeSliders from '../src/components/VolumeSliders';
 import ReviewPromptModal from '../src/components/ReviewPromptModal';
 import { useManualReviewPrompt } from '../src/hooks/useReviewPrompt';
+import { useSiteAccent } from '../src/store/siteBackgroundStore';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -108,7 +109,10 @@ export default function SettingsScreen() {
   const setStrictMatchmakingOnServer = useMultiplayerStore((s) => s.setStrictMatchmakingOnServer);
   // Voyager+ only (web settingsModal parity; the server enforces it too) —
   // below the floor the row hides entirely rather than showing a disabled tease.
-  const strictEligible = (user?.elo ?? 0) >= leagues.voyager.min;
+  // getStrictFloor(), NOT leagues.voyager.min — see the web note in
+  // components/settingsModal.js. The v1 constant is 5,000 on a scale that no
+  // longer exists, so this row was hidden from everybody.
+  const strictEligible = (user?.elo ?? 0) >= getStrictFloor();
   const [strictInfoShown, setStrictInfoShown] = useState(false);
 
   // Hydrate both toggles. Keyed on `verified` (not just mount): a send before
@@ -145,19 +149,23 @@ export default function SettingsScreen() {
   // never counts as a decline.
   const rate = useManualReviewPrompt();
 
+  // THIS SCREEN WEARS THE EQUIPPED BACKGROUND'S COLOURS, like every other menu.
+  // The scrim, the switch tracks and the selected map tile all come from here
+  // rather than from `colors`, because a StyleSheet is built once at module load
+  // and cannot follow an equip — which is why the retinted values live inline
+  // below and the static ones stay in StyleSheet.create. With nothing equipped
+  // every one of them is the green literal it replaced.
+  const accent = useSiteAccent();
+
   return (
     <View style={styles.root}>
-      <ImageBackground
-        source={require('../assets/street2.jpg')}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      >
+      <SiteBackground style={StyleSheet.absoluteFill}>
         <LinearGradient
-          colors={['rgba(0, 30, 15, 0.62)', 'rgba(6, 18, 11, 0.86)', 'rgba(0, 0, 0, 0.92)']}
+          colors={accent.screenWash}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
-      </ImageBackground>
+      </SiteBackground>
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         {/* Header */}
@@ -218,7 +226,13 @@ export default function SettingsScreen() {
                     }}
                     style={({ pressed }) => [
                       styles.tile,
-                      active && styles.tileActive,
+                      // The selected tile's fill AND rim follow the equipped
+                      // background. The rim used to be colors.success, which is
+                      // the "on" green — but the tick below already says
+                      // selected, so the rim was chrome wearing a status colour,
+                      // and left alone it would have put a lime border around a
+                      // purple tile. The tick itself stays green.
+                      active && { backgroundColor: accent.primaryTransparent, borderColor: accent.primary },
                       pressed && styles.tilePressed,
                     ]}
                   >
@@ -271,11 +285,11 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Multiplayer */}
-          <Section title={t('multiplayer', undefined, 'Multiplayer')} icon="happy-outline" index={4}>
+          <Section title={t('multiplayer')} icon="happy-outline" index={4}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('emoteReactions', undefined, 'Emote reactions')}
+                  {t('emoteReactions')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -291,7 +305,7 @@ export default function SettingsScreen() {
                   haptics.selection();
                   setEmotesEnabled(v);
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -299,7 +313,7 @@ export default function SettingsScreen() {
             <View style={[styles.row, styles.rowDivider]}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('multiplayerChat', undefined, 'In-game chat')}
+                  {t('multiplayerChat')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -315,7 +329,7 @@ export default function SettingsScreen() {
                   haptics.selection();
                   setChatEnabled(v);
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -323,11 +337,11 @@ export default function SettingsScreen() {
           </Section>
 
           {/* Haptics */}
-          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={5}>
+          <Section title={t('haptics')} icon="phone-portrait-outline" index={5}>
             <View style={styles.row}>
               <View style={styles.rowTextWrap}>
                 <Text style={styles.rowLabel}>
-                  {t('hapticFeedback', undefined, 'Haptic feedback')}
+                  {t('hapticFeedback')}
                 </Text>
                 <Text style={styles.rowSub}>
                   {t(
@@ -345,7 +359,7 @@ export default function SettingsScreen() {
                   setHapticsEnabled(v);
                   haptics.selection();
                 }}
-                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                 thumbColor={colors.white}
                 ios_backgroundColor="rgba(255,255,255,0.18)"
               />
@@ -366,7 +380,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setAllowFriendReqOnServer(v);
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -382,7 +396,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setHideLastSeenOnServer(v); // optimistic in the store; echo reconciles
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -391,7 +405,7 @@ export default function SettingsScreen() {
               <>
               <View style={[styles.row, styles.rowDivider, accountSettingsLocked && styles.rowLocked]}>
                 <View style={[styles.rowTextWrap, styles.rowLabelWithInfo]}>
-                  <Text style={styles.rowLabel}>{t('strictMatchmaking', undefined, 'Avoid lower skill duels')}</Text>
+                  <Text style={styles.rowLabel}>{t('strictMatchmaking')}</Text>
                   <Pressable hitSlop={8} onPress={() => setStrictInfoShown((v) => !v)}>
                     <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.55)" />
                   </Pressable>
@@ -403,7 +417,7 @@ export default function SettingsScreen() {
                     haptics.selection();
                     setStrictMatchmakingOnServer(v); // optimistic in the store; echo reconciles
                   }}
-                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                  trackColor={{ false: 'rgba(255,255,255,0.18)', true: accent.primary }}
                   thumbColor={colors.white}
                   ios_backgroundColor="rgba(255,255,255,0.18)"
                 />
@@ -411,7 +425,7 @@ export default function SettingsScreen() {
               {strictInfoShown && (
                 <View style={styles.infoCard}>
                   <Text style={styles.infoCardText}>
-                    {t('strictMatchmakingHint', undefined, 'Ranked duels will only match you with Voyager and Nomad players (5000+ ELO). Queue times may be longer.')}
+                    {t('strictMatchmakingHint')}
                   </Text>
                 </View>
               )}
@@ -420,22 +434,29 @@ export default function SettingsScreen() {
             </Section>
           )}
 
+          {/* NO SHOP SECTION HERE. The shop is reached from the Stamps button
+              beside the league pill on the home header (app/(tabs)/home.tsx),
+              which is where the balance already lives. The row that used to sit
+              here was a stopgap from before that button existed; a storefront
+              buried three taps deep inside Settings is a storefront nobody
+              opens. The route (/shop) is unchanged. */}
+
           {/* Danger Zone — account deletion (moved here from the account
               moderation tab; web parity: sits right under Account settings) */}
           {user?.accountId && (
-            <Section title={t('dangerZone', undefined, 'Danger Zone')} icon="warning-outline" index={7}>
+            <Section title={t('dangerZone')} icon="warning-outline" index={7}>
               <DangerZoneSection />
             </Section>
           )}
 
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={8}>
+          <Section title={t('about')} icon="shield-checkmark-outline" index={8}>
             <Pressable
               onPress={rate.open}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowLabel}>
-                {t('rateUs', undefined, 'Rate WorldGuessr')}
+                {t('rateUs')}
               </Text>
               <Ionicons name="star-outline" size={20} color={colors.textMuted} />
             </Pressable>
@@ -444,7 +465,7 @@ export default function SettingsScreen() {
               style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowLabel}>
-                {t('termsAndPrivacy', undefined, 'Terms & Privacy')}
+                {t('termsAndPrivacy')}
               </Text>
               <Ionicons name="open-outline" size={20} color={colors.textMuted} />
             </Pressable>
@@ -536,10 +557,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  tileActive: {
-    backgroundColor: colors.primaryTransparent,
-    borderColor: colors.success,
-  },
+  /* tileActive is GONE from here: both of its properties follow the equipped
+     background now, and a StyleSheet is frozen at module load. See the inline
+     object at the Pressable above. */
   tilePressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],

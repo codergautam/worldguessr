@@ -7,9 +7,9 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
   useWindowDimensions,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -21,6 +21,7 @@ import { api, MapItem } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { onHeartUpdate, emitHeartUpdate } from '../../src/store/heartSync';
 import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../../src/components/maps/MapSection';
+import { useSiteAccent } from '../../src/store/siteBackgroundStore';
 
 // ── Main Screen ─────────────────────────────────────────────
 export default function MapsScreen() {
@@ -218,20 +219,21 @@ export default function MapsScreen() {
 
   const isSearching = searchQuery.trim().length >= 3;
 
+  const accent = useSiteAccent();
+
   return (
     <View style={styles.container}>
       {/* Background */}
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
+      {/* The shared plate wash, so this screen follows an equipped background
+          like every other menu. The middle stop used to be rgba(20, 26, 57) — a
+          navy that appears nowhere else in the app, picked as a neutral back
+          when this wash had no way to know what was behind it. With nothing
+          equipped it is now the site wash, which is a change from the navy and a
+          deliberate one: one screen wearing a colour the rest of the app never
+          uses was the oddity. Web made the same swap on its /user page. */}
       <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.9)',
-          'rgba(20, 26, 57, 0.8)',
-          'rgba(0, 0, 0, 0.9)',
-        ]}
+        colors={accent.modalWash}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -279,9 +281,9 @@ export default function MapsScreen() {
         ) : error ? (
           <View style={styles.centered}>
             <Ionicons name="cloud-offline" size={48} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.errorText}>{t('failedToLoadMaps', undefined, 'Failed to load maps')}</Text>
+            <Text style={styles.errorText}>{t('failedToLoadMaps')}</Text>
             <Pressable style={styles.retryBtn} onPress={() => fetchMapHome(true)}>
-              <Text style={styles.retryBtnText}>{t('retry', undefined, 'Retry')}</Text>
+              <Text style={styles.retryBtnText}>{t('retry')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -320,7 +322,7 @@ export default function MapsScreen() {
                   return (
                     <View style={styles.centered}>
                       <ActivityIndicator size="large" color="white" />
-                      <Text style={styles.loadingText}>{t('searching', undefined, 'Searching...')}</Text>
+                      <Text style={styles.loadingText}>{t('searching')}</Text>
                     </View>
                   );
                 }
@@ -331,7 +333,7 @@ export default function MapsScreen() {
                       <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
                       <Text style={styles.emptyTitle}>{t('noResultsFound')}</Text>
                       <Text style={styles.emptySubtext}>
-                        {t('tryAdjustingSearchTerms', undefined, 'Try adjusting your search terms')}
+                        {t('tryAdjustingSearchTerms')}
                       </Text>
                     </View>
                   );
@@ -350,7 +352,7 @@ export default function MapsScreen() {
                     )}
                     {hasCommunity && (
                       <MapSection
-                        title={t('searchResults', undefined, 'Search Results')}
+                        title={t('searchResults')}
                         maps={searchResults}
                         onMapPress={handleMapPress}
                         onHeartMap={secret ? handleHeartMap : undefined}
@@ -392,7 +394,7 @@ export default function MapsScreen() {
                 ) && (
                   <View style={styles.emptyState}>
                     <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.emptyTitle}>{t('noMapsAvailable', undefined, 'No maps available')}</Text>
+                    <Text style={styles.emptyTitle}>{t('noMapsAvailable')}</Text>
                   </View>
                 )}
               </>

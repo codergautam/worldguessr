@@ -47,6 +47,10 @@ import EmbeddedMap from '../../src/components/game/EmbeddedMap';
 import GameSurface, { GameSurfaceHandle, getExpandedMapHeight, useMapRowHudClearance } from '../../src/components/game/GameSurface';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
+import { isOfficialMapSlug, orderByFreshness } from '@shared/locations/repeatGuard';
+import { hydrateSeenLocs, markSeenLoc, seenLocs } from '../../src/services/seenLocations';
+import { clearPool, fillPool, takeRounds, type PoolMeta } from '../../src/services/locationPool';
+import { shuffle } from '../../src/shared/data/countryHelpers';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal, { SvMode } from '../../src/components/game/MapSelectorModal';
@@ -152,6 +156,9 @@ interface PlayerGuessMarker {
   lat: number;
   lng: number;
   username: string;
+  /** Flag shown on the embed's pin label. Survives a mid-game leaver, whose
+   *  roster row is gone by the reveal but whose round record still has it. */
+  countryCode?: string;
   points?: number;
   color: string;
 }
@@ -178,6 +185,7 @@ function buildHistoryPlayerGuesses(history: RoundHistoryEntry | undefined): Play
       lat: player.lat!,
       lng: player.long!,
       username: player.username,
+      countryCode: player.countryCode,
       points: player.points,
       color: getPlayerColor(playerId),
     }));
@@ -191,6 +199,7 @@ function buildCurrentPlayerGuesses(players: MPPlayer[], actualLocation: Location
       lat: player.latLong![0],
       lng: player.latLong![1],
       username: player.username,
+      countryCode: player.countryCode,
       points: actualLocation
         ? calcPoints({
             lat: actualLocation.lat,
@@ -419,8 +428,14 @@ export default function GameScreen() {
   // opens in the middle. When that gap is wide enough (landscape, tablets, large
   // phones) we float the round timer UP into it instead of below the bars — that
   // reclaims a strip of vertical space for the Street View.
-  const duelHudInnerWidth =
-    width - Math.max(insets.left, spacing.md) - Math.max(insets.right, spacing.md);
+  // Keep the HUD anchored to the physical safe-area corners. Glow paint room is
+  // owned by NameGlowHalo's absolute canvas and must never become exterior
+  // padding here: doing that subtracts 68dp from the row, pushes both bars
+  // toward the middle, and makes BAR_MAX_FRACTION shrink them on narrow phones.
+  // This one shared row serves ranked 1v1 and matchmade 2v2.
+  const duelHudLeftInset = Math.max(insets.left, spacing.md);
+  const duelHudRightInset = Math.max(insets.right, spacing.md);
+  const duelHudInnerWidth = width - duelHudLeftInset - duelHudRightInset;
   const duelBarWidth = Math.min(DUEL_BAR_WIDTH, duelHudInnerWidth * DUEL_BAR_MAX_FRACTION);
   const duelMiddleGap = duelHudInnerWidth - duelBarWidth * 2;
   // ~200px duel pill + breathing room on each side before it's allowed to nest.
@@ -428,6 +443,7 @@ export default function GameScreen() {
   const isSingleplayer = id === 'singleplayer';
   const isMultiplayer = !isSingleplayer;
   const secret = useAuthStore((s) => s.secret);
+  const myMarkerSkin = useAuthStore((s) => s.user?.cosmetics?.equipped?.markerSkin ?? null);
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
@@ -446,9 +462,11 @@ export default function GameScreen() {
   const [loadNonce, setLoadNonce] = useState(0);
   const handleRetryLoad = useCallback(() => {
     setLoadError(null);
+    // A retry means the pool in memory is suspect (or the fetch that would have
+    // filled it failed): start clean.
+    clearPool();
     setLoadNonce((n) => n + 1);
   }, []);
-  const [allLocations, setAllLocations] = useState<Location[]>([]);
   const roundStartTimeRef = useRef<number>(Date.now());
 
   // Track whether we already sent a guess this round (multiplayer). The UI lock
@@ -1163,6 +1181,23 @@ export default function GameScreen() {
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
+    // Shared tail for both paths below: the rounds this game will play.
+    function applyRounds(locs: any[], meta: PoolMeta) {
+      setCurrentMapName(meta.name);
+      setGameState((prev) => ({
+        ...prev,
+        locations: locs,
+        maxDist: meta.maxDist,
+        extent: meta.extent,
+      }));
+      setHintShown(false);
+      setHintsUsed(0);
+      setIsLoading(false);
+      roundStartTimeRef.current = Date.now();
+      // Track map play (matches web behavior — skip default "all" map)
+      if (currentMapSlug !== 'all') api.trackMapPlay(currentMapSlug);
+    }
+
     async function fetchLocations(attempt = 1) {
       try {
         setIsLoading(true);
@@ -1170,10 +1205,25 @@ export default function GameScreen() {
 
         let data: any;
         const mapSlug = currentMapSlug;
+        const totalRounds = gameState.totalRounds;
 
+        // The ring has to be in memory before the pool can be ordered against
+        // it. Resolves instantly after the first game.
+        await hydrateSeenLocs();
+
+        // Walk what is left of the last fetch before going back to the network.
+        // Those spots are already ordered and already unplayed, and inside the
+        // CDN window a refetch would hand back the identical array anyway.
+        const cached = takeRounds(mapSlug, totalRounds);
+        if (cached) {
+          applyRounds(cached.locs, cached.meta);
+          return;
+        }
+
+        let mapName = mapSlug;
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
-          setCurrentMapName(t('world'));
+          mapName = t('world');
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
           // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
@@ -1182,16 +1232,16 @@ export default function GameScreen() {
             getCountryMaxDists(),
           ]);
           const countryEntry = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
-          setCurrentMapName(countryEntry?.name || mapSlug);
+          mapName = countryEntry?.name || mapSlug;
           // Attach maxDist so it's picked up below
           data.maxDist = countryMaxDists[mapSlug] ?? DEFAULT_GAME_OPTIONS.maxDist;
         } else {
           data = await api.fetchMapLocations(mapSlug);
-          setCurrentMapName((data as any).name || mapSlug);
+          mapName = (data as any).name || mapSlug;
         }
 
         if (!data.ready || !data.locations || data.locations.length === 0) {
-          throw new Error(t('noLocationsForMap', undefined, 'No locations available for this map'));
+          throw new Error(t('noLocationsForMap'));
         }
 
         const normalizedLocations = data.locations.map((loc: any) => ({
@@ -1203,9 +1253,13 @@ export default function GameScreen() {
           pitch: loc.pitch,
         }));
 
-        const shuffled = [...normalizedLocations].sort(() => Math.random() - 0.5);
-        const totalRounds = gameState.totalRounds;
-        const selectedLocations = shuffled.slice(0, totalRounds);
+        // Official maps: spots this player has never seen come first, then the
+        // ones they saw longest ago. Community maps keep a plain shuffle (and
+        // it is a real Fisher-Yates now: `.sort(() => Math.random() - 0.5)` is
+        // not a uniform shuffle, it mostly leaves entries near where they were).
+        const ordered = isOfficialMapSlug(mapSlug)
+          ? orderByFreshness(normalizedLocations, seenLocs())
+          : shuffle(normalizedLocations);
 
         // Compute extent based on map type
         let extent: Extent = null;
@@ -1228,22 +1282,15 @@ export default function GameScreen() {
           ];
         }
 
-        setAllLocations(shuffled);
-        setGameState((prev) => ({
-          ...prev,
-          locations: selectedLocations,
+        const meta: PoolMeta = {
           maxDist: data.maxDist ?? DEFAULT_GAME_OPTIONS.maxDist,
           extent,
-        }));
-        setHintShown(false);
-        setHintsUsed(0);
-        setIsLoading(false);
-        roundStartTimeRef.current = Date.now();
-
-        // Track map play (matches web behavior — skip default "all" map)
-        if (mapSlug !== 'all') {
-          api.trackMapPlay(mapSlug);
-        }
+          name: mapName,
+        };
+        fillPool(mapSlug, ordered, meta);
+        // Everything the pool can serve is taken off the front; a map too small
+        // for a full game (community maps can be) just plays what it has.
+        applyRounds(takeRounds(mapSlug, totalRounds)?.locs ?? ordered.slice(0, totalRounds), meta);
       } catch (error) {
         if (attempt < MAX_RETRIES) {
           console.warn(`Failed to fetch locations (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
@@ -1251,7 +1298,7 @@ export default function GameScreen() {
           return;
         }
         console.error('Failed to fetch locations after all retries:', error);
-        setLoadError(error instanceof Error ? error.message : t('failedToLoadGame', undefined, 'Failed to load game'));
+        setLoadError(error instanceof Error ? error.message : t('failedToLoadGame'));
         setIsLoading(false);
       }
     }
@@ -1266,6 +1313,18 @@ export default function GameScreen() {
   // (curRound overshoots to rounds+1); on an early end it does not (see below).
   const effectiveRoundIndex = Math.min(gameState.currentRound, gameState.totalRounds) - 1;
   const currentLocation = gameState.locations[Math.max(0, effectiveRoundIndex)];
+
+  // Every spot the player actually lands on, on an official map, goes into the
+  // shared ring so the next fetch orders around it. One choke-point, same as
+  // web's latLong effect, so it covers singleplayer rounds and multiplayer
+  // rounds pushed by the server alike. Multiplayer reads the server's map slug;
+  // the route never carries one.
+  useEffect(() => {
+    if (!currentLocation || currentLocation.lat == null || currentLocation.long == null) return;
+    const slug = isMultiplayer ? gameData?.map : currentMapSlug;
+    if (!isOfficialMapSlug(slug)) return;
+    markSeenLoc(currentLocation);
+  }, [currentLocation?.lat, currentLocation?.long]);
 
   // Both MP reveals — the between-rounds answer card AND the final reveal — show the round
   // that was just PLAYED, which is always curRound-1: the server bumps curRound exactly
@@ -1320,10 +1379,19 @@ export default function GameScreen() {
     () => new Map((gameData?.players ?? []).map((p) => [p.id, p])),
     [gameData?.players],
   );
+  // ⚠ This is a PROJECTION into the web's gameData.players shape, not a filter:
+  // a field left out here is simply ABSENT inside the embed, with no error. The
+  // pin labels (Map.js PlayerLine) render `countryCode` as a flag and
+  // `nameGlow`/`markerSkin` as the player's cosmetics — omitting them is why
+  // mobile pins showed a bare name with no flag while web showed both. Keep this
+  // list in step with Map.js copyMultiplayerAnswerPlayers.
   const revealGuessRows = (showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses)
     .map((p) => ({
       id: p.id,
       username: p.username,
+      countryCode: p.countryCode ?? rosterById.get(p.id)?.countryCode,
+      nameGlow: rosterById.get(p.id)?.nameGlow ?? null,
+      markerSkin: rosterById.get(p.id)?.markerSkin ?? null,
       guess: [p.lat, p.lng] as [number, number] | null,
       final: rosterById.get(p.id)?.final ?? true,
       team: rosterById.get(p.id)?.team,
@@ -1346,6 +1414,9 @@ export default function GameScreen() {
       .map((p) => ({
         id: p.id,
         username: p.username,
+        countryCode: p.countryCode,
+        nameGlow: p.nameGlow ?? null,
+        markerSkin: p.markerSkin ?? null,
         guess: null as [number, number] | null,
         final: true, // reveal = round locked; only pin-bearing rows ever fade
         team: p.team,
@@ -2023,13 +2094,13 @@ export default function GameScreen() {
     const isMatchmadeDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
     if (isMatchmadeDuel) {
       Alert.alert(
-        t('forfeitGameTitle', undefined, 'Forfeit game?'),
+        t('forfeitGameTitle'),
         gd?.team2v2
-          ? t('forfeit2v2Warning', undefined, 'Leaving now forfeits the match for your teammate and ends the game for all 4 players. Your team takes the loss.')
-          : t('forfeitGameMessage', undefined, 'Leaving now will count as a loss.'),
+          ? t('forfeit2v2Warning')
+          : t('forfeitGameMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
-          { text: t('forfeit', undefined, 'Forfeit'), style: 'destructive', onPress: doLeave },
+          { text: t('forfeit'), style: 'destructive', onPress: doLeave },
         ],
       );
       return;
@@ -2078,11 +2149,11 @@ export default function GameScreen() {
   useEffect(() => {
     const confirmLeave = (onLeave: () => void) => {
       Alert.alert(
-        t('leaveGameTitle', undefined, 'Leave game?'),
-        t('leaveGameMessage', undefined, 'Your current game will be lost.'),
+        t('leaveGameTitle'),
+        t('leaveGameMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
-          { text: t('leaveGameConfirm', undefined, 'Leave'), style: 'destructive', onPress: onLeave },
+          { text: t('leaveGameConfirm'), style: 'destructive', onPress: onLeave },
         ],
       );
     };
@@ -2394,7 +2465,7 @@ export default function GameScreen() {
               >
                 <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
                 <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
-                  {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove', undefined, 'No moving')}` : ''}
+                  {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove')}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
               </Pressable>
@@ -2505,6 +2576,7 @@ export default function GameScreen() {
       timeOffset={timeOffset}
       criticalEnabled={gameData.state === 'guess'}
       hasGuess={!!guessPosition}
+      isPlacement={gameData.isPlacement === true}
     />
   ) : null;
 
@@ -2666,7 +2738,10 @@ export default function GameScreen() {
           && (gameData.state === 'guess' || gameData.state === 'getready')
           && !showDuelMatchupIntro && (
           <SafeAreaView
-            style={[styles.duelHudContainer, { paddingLeft: Math.max(insets.left, spacing.md), paddingRight: Math.max(insets.right, spacing.md) }]}
+            style={[
+              styles.duelHudContainer,
+              { paddingLeft: duelHudLeftInset, paddingRight: duelHudRightInset },
+            ]}
             edges={['top']}
             pointerEvents="box-none"
           >
@@ -2711,6 +2786,7 @@ export default function GameScreen() {
                 route="map"
                 mapType={mapType}
                 lang={language}
+                myMarkerSkin={myMarkerSkin}
                 mapBandFraction={miniFraction}
                 onRevealReady={handleRevealReady}
                 location={embedLocation}
@@ -2746,6 +2822,12 @@ export default function GameScreen() {
                       : (gameData?.players ?? []).map((p) => ({
                           id: p.id,
                           username: p.username,
+                          // Cosmetics + flag ride along on the guess phase too:
+                          // team modes paint teammate pins live, and those pins
+                          // carry the same name label as the reveal.
+                          countryCode: p.countryCode,
+                          nameGlow: p.nameGlow ?? null,
+                          markerSkin: p.markerSkin ?? null,
                           guess: p.latLong ?? null,
                           final: !!p.final,
                           team: p.team,
@@ -3064,6 +3146,7 @@ export default function GameScreen() {
               nextEvtTime={gameData.nextEvtTime}
               timeOffset={timeOffset}
               generated={gameData.generated ?? gameData.rounds}
+              isPlacement={gameData.isPlacement === true}
             />
           </Reanimated.View>
         )}

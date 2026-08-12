@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js --watch api --watch serverUtils --watch models --watch components/utils\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon authServer.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch authServer.js --watch api/googleAuth.js --watch api/setName.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
-    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js --watch api --watch serverUtils --watch models --watch components/utils\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon authServer.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch authServer.js --watch api/googleAuth.js --watch api/setName.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
+    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --watch ws/ws.js\" \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api/googleAuth.js --watch api/setName.js --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
+    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api/googleAuth.js --watch api/setName.js --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true pnpm dev",
     "dev:poki": "cross-env NEXT_PUBLIC_POKI=true pnpm dev",
     "build": "cross-env next build",
@@ -16,7 +16,9 @@
     "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
     "start-cron": "cross-env NODE_ENV=production node cron.js",
-    "heroku-postbuild": "cross-env  next build"
+    "heroku-postbuild": "cross-env  next build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -87,6 +89,7 @@
     "eslint-config-next": "14.2.1",
     "google-translate-free": "^2.4.5",
     "mapcheckr-cli": "^1.1.2",
-    "nodemon": "^3.1.3"
+    "nodemon": "^3.1.3",
+    "vitest": "^4.1.10"
   }
 }

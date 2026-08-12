@@ -81,8 +81,8 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
     if (!gameCode) return;
     try {
       await Share.share({
-        message: t('shareJoinPartyMessage', { link: getPartyLink(gameCode) }, 'Join my WorldGuessr party: {{link}}'),
-        title: t('sharePartyInviteTitle', undefined, 'WorldGuessr Party Invite'),
+        message: t('shareJoinPartyMessage', { link: getPartyLink(gameCode) }),
+        title: t('sharePartyInviteTitle'),
       });
     } catch {
       // User cancelled the share sheet — no-op.
@@ -117,15 +117,15 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>
-            <Text style={styles.title}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
+            <Text style={styles.title}>{t('inviteFriends')}</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={24} color="rgba(255,255,255,0.7)" />
             </Pressable>
           </View>
           <Text style={styles.sub}>
             {onlineFriends.length === 1
-              ? t('friendOnlineCount', { cnt: onlineFriends.length }, '{{cnt}} friend online')
-              : t('friendsOnlineCount', { cnt: onlineFriends.length }, '{{cnt}} friends online')}
+              ? t('friendOnlineCount', { cnt: onlineFriends.length })
+              : t('friendsOnlineCount', { cnt: onlineFriends.length })}
           </Text>
 
           <Pressable
@@ -133,15 +133,15 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
             style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.85 }]}
           >
             <Ionicons name="share-outline" size={18} color={colors.white} />
-            <Text style={styles.shareBtnText}>{t('shareInviteLink', undefined, 'Share invite link')}</Text>
+            <Text style={styles.shareBtnText}>{t('shareInviteLink')}</Text>
           </Pressable>
 
           <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: spacing.lg }}>
             {onlineFriends.length === 0 ? (
               <View style={styles.empty}>
                 <Ionicons name="people-outline" size={36} color="rgba(255,255,255,0.3)" />
-                <Text style={styles.emptyText}>{t('noOnlineFriends', undefined, 'No online friends right now')}</Text>
-                <Text style={styles.emptyHint}>{t('shareGameCodeHint', undefined, 'Share the game code with anyone you want to invite.')}</Text>
+                <Text style={styles.emptyText}>{t('noOnlineFriends')}</Text>
+                <Text style={styles.emptyHint}>{t('shareGameCodeHint')}</Text>
               </View>
             ) : (
               onlineFriends.map((friend) => (
@@ -149,7 +149,6 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
                   <View style={styles.statusDot} />
                   <Text style={styles.name} numberOfLines={1}>
                     {friend.name}
-                    {friend.supporter && <Text style={styles.supporter}> ★</Text>}
                   </Text>
                   <Pressable
                     onPress={() => handleInvite(friend)}
@@ -266,7 +265,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.sm,
   },
-  supporter: { color: '#fbbf24' },
   inviteBtn: {
     flexDirection: 'row',
     alignItems: 'center',

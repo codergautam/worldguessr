@@ -1,5 +1,10 @@
 import Game from '../../models/Game.js';
 import User from '../../models/User.js';
+import {
+  cosmeticsForGames,
+  cosmeticsForSavedPlayer,
+  cosmeticsReader,
+} from '../../serverUtils/userCosmetics.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -46,6 +51,9 @@ export default async function handler(req, res) {
       const firstAccountPlayer = game.players.find(p => p.accountId);
       perspectiveUserId = firstAccountPlayer?.accountId || game.players[0]?.playerId;
     }
+
+    // One lookup for the whole roster, before the synchronous format pass.
+    const cosmeticsOf = cosmeticsReader(await cosmeticsForGames([game]));
 
     // Format the game data for HistoricalGameView
     const formattedGame = {
@@ -122,7 +130,10 @@ export default async function handler(req, res) {
         finalRank: player.finalRank,
         // Team assignment for team modes ('a' | 'b'); null on solo modes.
         team: player.team ?? null,
-        elo: player.elo
+        elo: player.elo,
+        // Match-time cosmetics from the saved roster, with a current-account
+        // fallback for legacy game documents that predate the snapshot.
+        ...cosmeticsForSavedPlayer(player, cosmeticsOf(player.accountId))
       })),
 
       // Game result
@@ -150,4 +161,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

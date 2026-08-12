@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { season0RankOf, hasSeason0 } from '../shared/season0/rank.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
 
@@ -150,7 +152,7 @@ export default async function handler(req, res) {
       memberSince: memberSince,
       lastLogin: user.lastLogin || user.created_at,
       profileViews: profileViews,
-      elo: user.elo || 1000,
+      elo: user.elo || STARTING_ELO,
       rank: rank,
       league: {
         name: league.name,
@@ -158,14 +160,55 @@ export default async function handler(req, res) {
         color: league.color,
         minElo: league.minElo
       },
+      // Season 0 commemorative fields. seasonPeakElo is the HIGHEST rating ever
+      // reached on the old scale, which is a different number from `elo` above
+      // (the current Season 1 rating) and must be labelled as such wherever it
+      // renders, or players read it as a live rating and dispute it.
+      // Falls back to elo_s0 (the closing rating) when the peak table missed.
+      seasonPeakElo: user.seasonPeakElo ?? user.elo_s0 ?? null,
+      seasonPeakLeague: user.seasonPeakLeague || null,
+      // Closing rating on the old scale, for the OG badge's Season 0 card.
+      // Safe to publish: the Hall of Fame already ranks the whole top board by
+      // this exact number, and seasonPeakElo above (always the LARGER figure
+      // from the same retired era) has been public since migration. Null on
+      // every account the migration never touched.
+      season0Elo: user.elo_s0 ?? null,
+      // Where this account finished on the closing Season 0 ladder, from the
+      // frozen table (shared/season0/rankTable.js) — never a live count, so it
+      // is the same number today and in two years, and the same number the Hall
+      // of Fame prints. Ties share the better rank.
+      season0Rank: season0RankOf(user),
+      // THE OG BADGE, resolved here and nowhere else. It is no longer the
+      // `ogAccount` stamp alone (created before 2025-08-01) — every account that
+      // was here for Season 0 gets it, and `elo_s0` is what records that. Web
+      // and mobile both read this one boolean, so they cannot drift apart over
+      // who counts as a veteran. See shared/season0/rank.js.
+      ogAccount: hasSeason0(user),
       duelStats: {
         wins: user.duels_wins || 0,
         losses: user.duels_losses || 0,
         ties: user.duels_tied || 0,
         winRate: parseFloat(winRate.toFixed(3))
       },
-      supporter: user.supporter === true,
-      countryCode: user.countryCode || null
+      countryCode: user.countryCode || null,
+      // Equipped name glow, mirroring what api/publicAccount.js already returns
+      // for the signed-in view of the same screen. Both the web profile header
+      // and mobile's ProfileView render the username from this payload, so
+      // without it a player's own profile page was the one place their purchase
+      // could never show. Public presentation, exactly like countryCode above —
+      // nothing else under `cosmetics` is exposed here.
+      //
+      // `background` is here for the same reason and is used the same way:
+      // pages/user.js paints THIS user's city behind their profile, so a
+      // visitor reads the page in the owner's colours rather than their own.
+      // It is a sku string from a public catalogue, not an entitlement — it
+      // says what is on show, never what the account owns.
+      cosmetics: {
+        equipped: {
+          nameGlow: user.cosmetics?.equipped?.nameGlow || null,
+          background: user.cosmetics?.equipped?.background || null
+        }
+      }
     };
 
     // Cache the response using userId

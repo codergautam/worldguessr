@@ -1,4 +1,9 @@
 import mongoose from 'mongoose';
+// Re-exported so the many callers that already import User do not each need a
+// second import for the one constant they use beside it. The definition and the
+// reasoning live in components/utils/ratingFlags.js.
+import { STARTING_ELO } from '../components/utils/ratingFlags.js';
+export { STARTING_ELO };
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -203,15 +208,26 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  // RETIRED: the paid supporter tier was discontinued and has zero members.
+  // Every read/render/transport path for it is gone (API responses, websocket
+  // payloads, web + mobile UI); the Ad-Free Pass (adFreeUntil) replaces it.
+  // The field is left dormant on purpose so a rollback never has to restore a
+  // column. Slated for removal in a later cleanup once that window closes.
   supporter: {
     type: Boolean,
     default: false,
   },
   elo: {
     type: Number,
-    default: 1000,
+    default: STARTING_ELO,
     // 0 is falsy and voids the ranked elo/save gates (ws.js, Game.js);
     // every write path clamps to >= 1, this backstops document validation.
+    //
+    // Deliberately still 1 and NOT the v2 RATING_FLOOR (100): mongoose runs
+    // this validator on document saves, and tightening it would start
+    // rejecting saves of any legacy doc that predates the migration rather
+    // than fixing it. The real v2 floor is enforced at every write path by
+    // clampRating().
     min: 1,
   },
   elo_today: {
@@ -238,6 +254,89 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+
+  // ===== RANKED SEASON / ECONOMY FIELDS =====
+  // Count of RATED HUMAN games only. Drives both the K-factor schedule and the
+  // placement trigger. Deliberately NOT duels_played — that counter includes bot
+  // games and the entire legacy era, so it would mis-classify veterans.
+  // The migration backfills this to min(duels_wins + duels_losses + duels_tied, 70).
+  // A default of 0 landing on an EXISTING account would make that account
+  // placement-eligible again and destroy its migrated rating, so the backfill
+  // must cover every pre-existing doc before placements go live.
+  ratedGames: {
+    type: Number,
+    default: 0,
+  },
+  lastRankedAt: {
+    type: Date,
+    default: null,
+  },
+  // Pre-migration ELO snapshot: the rollback anchor. Never written after the
+  // one-time migration stamps it.
+  elo_s0: {
+    type: Number,
+    default: null,
+  },
+  seasonPeakElo: {
+    type: Number,
+    default: null,
+  },
+  seasonPeakLeague: {
+    type: String,
+    default: null,
+  },
+  // Season 1 first-login notice bookkeeping. null = the account has never been
+  // shown the migration modal. Stamped ONCE by api/eloNoticeAck.js when the user
+  // dismisses it, and that stamp is what makes the modal a once-per-account
+  // event rather than a once-per-device one.
+  //
+  // Deliberately a Date and not a Boolean: it doubles as the "when did this
+  // account first come back after migration" signal for the 14-day monitoring
+  // window, and a re-run of the notice for a later season only needs the field
+  // cleared, not re-typed.
+  //
+  // The read path (api/googleAuth.js) also requires elo_s0 != null, so a null
+  // here on an account created AFTER migration never produces a notice.
+  eloNoticeSeenAt: {
+    type: Date,
+    default: null,
+  },
+  // Permanent "was here before the saved ranked era" badge, stamped once by
+  // scripts/grantSeason1Compensation.js for accounts created before 2025-08-01.
+  //
+  // MUST be declared here. The grant script writes it via bulkWrite $set, and
+  // mongoose runs bulkWrite under strict mode by default, so an undeclared path
+  // is stripped from the update SILENTLY: the script would report badges it
+  // never wrote and the notice modal's OG line would never render, with no
+  // error anywhere. Both the grant script and the modal abort on its absence.
+  ogAccount: {
+    type: Boolean,
+    default: false,
+  },
+  // Soft currency balance. min: 0 is a DOCUMENT-VALIDATION backstop only and is
+  // BYPASSED by updateOne($inc) — mongoose does not run schema validators on
+  // update operators. The real guard against going negative is the conditional
+  // { stamps: { $gte: price } } filter on the debit path's findOneAndUpdate.
+  stamps: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  cosmetics: {
+    owned: { type: [String], default: [] },
+    equipped: {
+      background: { type: String, default: null },
+      nameGlow: { type: String, default: null },
+      markerSkin: { type: String, default: null },
+    },
+    emoteOrder: { type: [String], default: [] },
+  },
+  adFreeUntil: {
+    type: Date,
+    default: null,
+  },
+  // ===== END RANKED SEASON / ECONOMY FIELDS =====
+
   // 2v2 team mode stats (unranked, no ELO). Defaults keep all existing docs valid.
   team2v2_wins: {
     type: Number,
@@ -303,7 +402,16 @@ userSchema.index({ totalXp: -1 });
 userSchema.index({ elo: -1 });
 // Compound indexes for filtering banned/pending users while sorting (covers common query patterns)
 userSchema.index({ banned: 1, pendingNameChange: 1, totalXp: -1 });
-userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1 });
+// ELO board index, ESR order (equality: banned+pendingNameChange, sort: elo,
+// range: lastRankedAt). The trailing lastRankedAt exists for the ranked
+// activity window (api/leaderboard.js activeRankedFilter, live 14 days after
+// MIGRATION_AT): the top-100 walk and the "better users" count both filter on
+// it, and without it in the index every dormant high-elo account forces a
+// document fetch — at millions of users that walks past maxTimeMS(5000).
+// Every prefix query the old {banned, pendingNameChange, elo:-1} index served
+// is served identically by this one; drop the old index from the DB manually
+// (mongoose never auto-drops).
+userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1, lastRankedAt: 1 });
 
 // ===== ACCOUNT DELETION INDEXES =====
 // Background purge query: { scheduledDeletionAt: { $ne: null, $lte: now } }
@@ -314,6 +422,14 @@ userSchema.index({ scheduledDeletionAt: 1 });
 userSchema.index({ friends: 1 });
 userSchema.index({ sentReq: 1 });
 userSchema.index({ receivedReq: 1 });
+
+// ===== COSMETICS INDEX =====
+// Multikey index for ownership checks ("who owns this sku") and for the equip
+// path's "does this user already own it" guard.
+// NOTE: deliberately NO index on `stamps` — no leaderboard sorts by it, and User
+// is the hottest collection in the deployment (~2M docs); every extra index is
+// paid on every write.
+userSchema.index({ 'cosmetics.owned': 1 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

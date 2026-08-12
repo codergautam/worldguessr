@@ -113,6 +113,9 @@ export default function DailyChallengeScreen({
   // sign-in BUTTONS (landing, results, leaderboard modal). The copy AROUND
   // those buttons ("Sign in to save your streak") is a separate gate inside
   // each component — it used to render happily with the button gone.
+  // CoolMath is the exception: DailyLanding keeps that prompt and swaps the
+  // button for a new tab to worldguessr.com (ACCOUNT_SITE_URL in accountUi).
+  // That branch is intentional, don't re-gate it on HIDE_ACCOUNT_UI.
   const today = getClientLocalDate();
   const { locationData, locationError, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
 
@@ -546,6 +549,11 @@ export default function DailyChallengeScreen({
         distribution={results?.distribution || null}
         userData={results?.user || landingBootstrap?.userData}
         isLoggedIn={!!session?.token?.secret}
+        // Read off the session rather than added to the daily results payload:
+        // the top-100 rows carry their own sku from the leaderboard endpoint,
+        // and the ONLY row that needs this is the viewer's own fallback row when
+        // they placed outside it. One prop beats a fourth API touching glows.
+        ownNameGlow={session?.token?.cosmetics?.equipped?.nameGlow || null}
         onStartChallenge={handleStart}
         onSignIn={HIDE_ACCOUNT_UI ? undefined : () => signIn()}
         animateEntrance={phase === 'landing' && landingEntranceActive}

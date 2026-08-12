@@ -6,8 +6,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
 } from 'react-native';
+import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,6 +24,8 @@ interface LeaderboardEntry {
   elo?: number;
   totalXp?: number;
   countryCode?: string;
+  /** Equipped name-glow sku (api/leaderboard.js sendableUser). */
+  nameGlow?: string | null;
 }
 
 interface LeaderboardData {
@@ -32,6 +34,22 @@ interface LeaderboardData {
   myElo?: number;
   myXp?: number;
   myCountryCode?: string;
+  /**
+   * The VIEWER's own glow, for the "Your Rank" card. It cannot be read off
+   * `leaderboard` — the point of that card is that the viewer is usually not
+   * in the top 100.
+   */
+  myNameGlow?: string | null;
+  /**
+   * Present ONLY on the all-time ranked board (api/leaderboard.js): rows whose
+   * owner has not finished a ranked match inside this window are filtered out
+   * server-side. Its presence is the signal that the window applies — the rule
+   * itself is not duplicated here, so a change to the window never needs an app
+   * release.
+   */
+  activityWindowDays?: number;
+  /** True when the VIEWER is the one the window is hiding. */
+  myRankHidden?: boolean;
 }
 
 type LeaderboardMode = 'elo' | 'xp';
@@ -119,6 +137,13 @@ export default function LeaderboardScreen() {
             flagSize={18}
             textStyle={styles.username}
             style={styles.usernameRow}
+            glow={item.nameGlow}
+            // Animated (Aug 11, "animated nametag not working in places like
+            // leaderboard" — the owner's ruling, same flip as web). The cost
+            // model that kept this static priced a hundred animated rows;
+            // virtualisation mounts ~15 and only rows WEARING an animated sku
+            // stack blurred copies, which is a handful. PlayerName's
+            // `animated` prop remains the dial if a potato phone disagrees.
           />
         </View>
 
@@ -133,8 +158,44 @@ export default function LeaderboardScreen() {
     );
   };
 
+  // The 14-day ranked activity window is applied SERVER-SIDE (api/leaderboard.js)
+  // and this screen adds no client-side list processing on top: `data.leaderboard`
+  // is passed to FlatList verbatim, ranks come from the array index, and nothing
+  // merges the signed-in user into the rows. So there is no path by which a
+  // filtered-out player can be re-added here. All this needs to do is EXPLAIN the
+  // absence, which is otherwise indistinguishable from a bug.
+  const showActivityNote = !isDailyLeaderboard && (data.activityWindowDays ?? 0) > 0;
+
   const ListHeader = () => (
     <>
+      {showActivityNote && (
+        <View style={styles.activityNote}>
+          <Ionicons
+            name="information-circle-outline"
+            size={15}
+            color="rgba(255,255,255,0.6)"
+            style={styles.activityNoteIcon}
+          />
+          <Text style={styles.activityNoteText}>
+            {t(
+              'leaderboardInactiveNote',
+              { days: data.activityWindowDays },
+              'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
+            )}
+            {session && data.myRankHidden ? (
+              <Text style={styles.activityNoteYou}>
+                {' '}
+                {t(
+                  'leaderboardInactiveYou',
+                  undefined,
+                  'That includes you right now. Play a ranked match to reappear.',
+                )}
+              </Text>
+            ) : null}
+          </Text>
+        </View>
+      )}
+
       {/* My Rank Card — renders when user is logged in and has a rank */}
       {session && data.myRank && (
         <View style={styles.myRankCard}>
@@ -148,13 +209,17 @@ export default function LeaderboardScreen() {
               flagSize={18}
               textStyle={styles.playerName}
               style={styles.usernameRow}
+              // ANIMATED, unlike the rows above: this is exactly one card,
+              // pinned outside the list, and it is the card the buyer came to
+              // look at.
+              glow={data.myNameGlow}
             />
             <Text style={styles.playerScore}>
               {formatScore(mode === 'elo' ? data.myElo : data.myXp, isDailyLeaderboard)}
               <Text style={styles.scoreType}> {t(mode === 'elo' ? 'ELO' : 'xp')}</Text>
             </Text>
           </View>
-          <Text style={styles.myRankLabel}>{t('yourRank', undefined, 'Your Rank')}</Text>
+          <Text style={styles.myRankLabel}>{t('yourRank')}</Text>
         </View>
       )}
     </>
@@ -163,11 +228,7 @@ export default function LeaderboardScreen() {
   return (
     <View style={styles.container}>
       {/* Background Image */}
-      <ImageBackground
-        source={require('../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <SiteBackground style={StyleSheet.absoluteFillObject}/>
 
       {/* Dark overlay matching web: rgba(0,0,0,0.9) → rgba(20,26,57,0.8) → rgba(0,0,0,0.9) */}
       <LinearGradient
@@ -275,7 +336,7 @@ export default function LeaderboardScreen() {
         {/* Error State */}
         {error && (
           <View style={styles.errorMessage}>
-            <Text style={styles.errorText}>{t('errorFetchingLeaderboard', undefined, 'Error fetching leaderboard data')}</Text>
+            <Text style={styles.errorText}>{t('errorFetchingLeaderboard')}</Text>
           </View>
         )}
 
@@ -306,7 +367,7 @@ export default function LeaderboardScreen() {
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Ionicons name="trophy-outline" size={64} color="rgba(255,255,255,0.4)" />
-                  <Text style={styles.emptyText}>{t('noEntriesYet', undefined, 'No entries yet')}</Text>
+                  <Text style={styles.emptyText}>{t('noEntriesYet')}</Text>
                 </View>
               }
             />
@@ -464,6 +525,34 @@ const styles = StyleSheet.create({
   },
 
   // ── My Rank Card ──────────────────────────────────────────
+  // Deliberately quieter than myRankCard below: an explanation, not a result.
+  // Same 15px radius and translucent-fill vocabulary as the rest of this screen.
+  activityNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
+    marginBottom: 12,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+  },
+  activityNoteIcon: {
+    marginTop: 1,
+  },
+  activityNoteText: {
+    flex: 1,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'Lexend-Regular',
+  },
+  activityNoteYou: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontFamily: 'Lexend-SemiBold',
+  },
   myRankCard: {
     flexDirection: 'row',
     alignItems: 'center',

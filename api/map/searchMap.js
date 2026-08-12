@@ -2,6 +2,7 @@
 import sendableMap from "../../components/utils/sendableMap.js";
 import Map from "../../models/Map.js";
 import User from "../../models/User.js";
+import { cosmeticsForUserIds } from "../../serverUtils/userCosmetics.js";
 
 export default async function searchMaps(req, res) {
   // only allow POST
@@ -100,6 +101,13 @@ export default async function searchMaps(req, res) {
     // JSON.stringify → JSON.parse, which turns Dates into ISO strings. With
     // .lean() there's no schema to re-hydrate them, so sendableMap's
     // .getTime() call would throw on cache hits.
+    //
+    // Creator name-glows for the whole result page in ONE query. Search caps at
+    // 50 rows, so this is a single $in of at most 50 ids — without it every
+    // result renders its author plain while the same author glows in the
+    // discovery sections right above the search box.
+    const cosmetics = await cosmeticsForUserIds(maps.map((m) => m.created_by));
+
     const sendableMaps = maps.map((raw) => {
       const map = {
         ...raw,
@@ -107,7 +115,10 @@ export default async function searchMaps(req, res) {
           ? raw.created_at
           : new Date(raw.created_at),
       };
-      const owner = { username: map.map_creator_name || 'Unknown' };
+      const owner = {
+        username: map.map_creator_name || 'Unknown',
+        nameGlow: cosmetics.get(String(map.created_by))?.nameGlow || null,
+      };
       return sendableMap(
         map,
         owner,

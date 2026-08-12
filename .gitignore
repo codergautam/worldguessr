@@ -86,3 +86,12 @@ embed/node_modules/
 
 # Platform submission builds (Poki/CMG zips + exports) — generated, never commit
 builds-submission/
+
+# Impeccable skill install (local tooling; .claude copy already covered by /.claude)
+.github/skills/impeccable/
+.github/agents/impeccable-*.agent.md
+.github/hooks/impeccable.json
+
+ELO_DEPLOYMENT_AUDIT.md
+
+.agents/

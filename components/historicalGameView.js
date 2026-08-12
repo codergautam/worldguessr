@@ -45,7 +45,7 @@ const GameSummary = dynamic(() => import('./roundOverScreen'), {
   },
 });
 
-export default function HistoricalGameView({ game, session, onBack, options, onUsernameLookup }) {
+export default function HistoricalGameView({ game, session, viewerMarkerSkin, onBack, options, onUsernameLookup }) {
   const { t: text } = useTranslation("common");
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,7 +247,9 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
 
     // For duels and multiplayer, include players data
     let players = {};
-    if (round.allGuesses && round.allGuesses.length > 0) {
+    if (fullGameData.gameType !== 'singleplayer'
+        && fullGameData.gameType !== 'daily_challenge'
+        && round.allGuesses?.length > 0) {
       round.allGuesses.forEach(guess => {
         players[guess.playerId] = {
           username: guess.username,
@@ -332,6 +334,17 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         duelData.oldElo = eloData.before || eloData.oldElo || 0;
         duelData.newElo = eloData.after || eloData.newElo || 0;
         duelData.eloDiff = eloData.change || 0;
+        // Rating-v2 placement, off the saved doc (models/Game.js `placement`).
+        // Without it a replayed placement renders as an ordinary rating change
+        // here — a signed delta for a game that SEEDED the rating rather than
+        // transferring it. Games saved before the field existed default false,
+        // which is the correct reading for all of them.
+        // AND-ed with the win, mirroring the live duelEnd gate: an abandoned/
+        // drawn placement granted no seed, so its replay must not wear the
+        // seed reveal either. Draw excluded explicitly — finalRank semantics
+        // on a drawn doc are not a contract this gate should lean on.
+        duelData.placement = fullGameData.placement === true
+          && duelData.winner === true && duelData.draw !== true;
       }
     }
   }
@@ -355,8 +368,22 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
           rank: player.finalRank,
           // Team assignment ('a' | 'b') — drives team pin colors and the
           // team round breakdown, exactly like the live gameData shape.
-          team: player.team ?? null
+          team: player.team ?? null,
+          // Cosmetics. This rebuild is a PROJECTION of the saved game doc into
+          // the live gameData shape: a field left out here is simply absent
+          // downstream, with no error — the summary just renders a plain name
+          // and a default pin, which reads as "my glow does not work in
+          // history". Nulls are harmless when the saved doc predates the field.
+          nameGlow: player.nameGlow ?? null,
+          markerSkin: player.markerSkin ?? null
         })),
+        // The stamps receipt, in the SAME slot the live end screen reads it
+        // from (roundOverScreen `multiplayerState.gameData.stampsEarned`). Live
+        // it arrives on its own ws message; here the endpoint rebuilt it from
+        // the ledger. One renderer, two sources — which is why the row needs no
+        // history-specific branch. Absent on a pre-rebuild server → undefined →
+        // the row simply does not render, exactly as it did before.
+        stampsEarned: fullGameData.stampsEarned ?? null,
         duel: isDuel,
         // Wire names kept in sync with the live gameData: team2v2 = 2v2 HP
         // model, teamGame = cumulative party team mode.
@@ -433,6 +460,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         button2Text=""
         hidden={false}
         session={session}
+        // The saved match snapshot wins. viewerMarkerSkin is only a legacy
+        // fallback for payloads produced before player summaries stored pins.
+        viewerMarkerSkin={perspectivePlayer?.markerSkin !== undefined
+          ? perspectivePlayer.markerSkin
+          : viewerMarkerSkin}
         gameId={game?.gameId || game?._id}
         options={{
           ...options,

@@ -28,7 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { withRepeat, withSequence, withTiming } from '../daily/anims';
-import { colors, getHealthColor, getLeague, t, HEALTH_GRADIENTS } from '../../shared';
+import { colors, getHealthColor, resolveLeague, t, HEALTH_GRADIENTS } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer, TeamScores } from '../../store/multiplayerStore';
@@ -131,7 +131,10 @@ function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
   return (
     <View style={styles.teamNames}>
       {players.map((p) => {
-        const league = typeof p.elo === 'number' ? getLeague(p.elo) : null;
+        // resolveLeague, not getLeague: the roster carries the tier the SERVER
+        // resolved, and only the server sees a seasonal re-anchor. Same rule
+        // as web duelHealthbar.js and every other mobile call site.
+        const league = typeof p.elo === 'number' ? resolveLeague(p.elo, p.league) : null;
         const eloColor = league?.light ?? league?.color ?? '#60a5fa';
         const isSelf = p.id === myId;
         const row = (
@@ -145,6 +148,7 @@ function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
               flagSize={12}
               gap={4}
               textStyle={[styles.username, !isSelf && !!p.accountId && styles.usernameOpponent]}
+              glow={p.nameGlow}
             >
               {typeof p.elo === 'number' && (
                 <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>
@@ -290,7 +294,8 @@ function HealthBar({
   }));
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: popScale.value }] }));
 
-  const league = player.elo !== undefined ? getLeague(player.elo) : null;
+  // resolveLeague for the same reason as TeamNames above — server tier wins.
+  const league = player.elo !== undefined ? resolveLeague(player.elo, player.league) : null;
   const eloColor = league?.light ?? league?.color ?? '#60a5fa';
 
   // Web parity (duelHealthbar.js hasProfile = !!accountId): bots and guests
@@ -305,6 +310,7 @@ function HealthBar({
       flagSize={14}
       textStyle={[styles.username, hasProfile && styles.usernameOpponent]}
       gap={5}
+      glow={player.nameGlow}
     >
       {player.elo !== undefined && (
         <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>
