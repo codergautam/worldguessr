@@ -1,9 +1,11 @@
 import L from 'leaflet';
 // esbuild inlines these as data URLs (loader: { '.png': 'dataurl' }) so the pin
-// images ship inside the bundle — no fetch('/dest.png'), no server needed.
-import destUrl from '@/public/dest.png';
-import srcUrl from '@/public/src.png';
-import src2Url from '@/public/src2.png';
+// images ship inside the bundle — no fetch('/dest-v2.png'), no server needed.
+// The stock files are `-v2` — the old /src|src2|dest.png urls are burned by
+// years of cached 87x131 edge-to-edge copies (see lib/markerIcons.js).
+import destUrl from '@/public/dest-v2.png';
+import srcUrl from '@/public/src-v2.png';
+import src2Url from '@/public/src2-v2.png';
 import neonOrangePinUrl from '@/public/pins/neonorange.png';
 import neonPinkPinUrl from '@/public/pins/neonpink.png';
 import skyPinUrl from '@/public/pins/sky.png';

@@ -10,9 +10,9 @@ const CANVAS = { width: 150, height: 163 };
 const MAX_PIN_BYTES = 64 * 1024;
 
 const PINS = [
-  { web: 'public/src.png', mobile: 'mobile/assets/pins/src.png' },
-  { web: 'public/src2.png' },
-  { web: 'public/dest.png' },
+  { web: 'public/src-v2.png', mobile: 'mobile/assets/pins/src.png' },
+  { web: 'public/src2-v2.png' },
+  { web: 'public/dest-v2.png' },
   { web: 'public/pins/neonorange.png', mobile: 'mobile/assets/pins/neonorange.png' },
   { web: 'public/pins/neonpink.png', mobile: 'mobile/assets/pins/neonpink.png' },
   { web: 'public/pins/sky.png', mobile: 'mobile/assets/pins/sky.png' },
@@ -20,7 +20,7 @@ const PINS = [
   { web: 'public/pins/rainbow.png', mobile: 'mobile/assets/pins/rainbow.png' },
 ];
 
-const PREVIEWS = ['src', 'neonorange', 'neonpink', 'sky', 'emerald', 'rainbow'];
+const PREVIEWS = ['src-v2', 'neonorange', 'neonpink', 'sky', 'emerald', 'rainbow'];
 
 async function alphaBounds(file) {
   const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });

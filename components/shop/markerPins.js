@@ -5,7 +5,7 @@ import { MARKER_SKIN_ICONS, PIN_PATHS } from '@/lib/markerIcons';
  *  Marker-skin preview images.
  *
  *  THE SHOP NO LONGER SHOWS THE MAP'S OWN ASSETS, and sharpness is the whole
- *  reason. The map pins live on src.png's 150x163 canvas and get stretched to
+ *  reason. The map pins live on the stock pin's 150x163 canvas and get stretched to
  *  the 30x49 icon box by Leaflet; the shop card imitated that by handing the
  *  full-size PNG to a 44x72 <img>, which left the BROWSER to do a ~3.4x
  *  non-uniform downscale. On the flat stock pin that mush is invisible — on
@@ -74,7 +74,7 @@ export function loadMarkerSkinUrls() {
       const path = PATH_BY_KEY.get(key);
       if (path) urls[sku] = previewUrls(path);
     });
-    urls[STOCK_PIN_KEY] = previewUrls(PATH_BY_KEY.get('src') || '/src.png');
+    urls[STOCK_PIN_KEY] = previewUrls(PATH_BY_KEY.get('src') || '/src-v2.png');
     return urls;
   })().catch(() => ({}));
 

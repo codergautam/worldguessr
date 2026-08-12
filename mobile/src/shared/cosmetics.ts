@@ -189,9 +189,11 @@ export function resolveGlowColor(
  * get. `require` returns Metro's asset handle, which is what <Image source>
  * wants.
  *
- * The files are copies of the web ones (public/pins/sky.png, public/src.png)
+ * The files are copies of the web ones (public/pins/sky.png, public/src-v2.png)
  * because Metro only watches mobile/ and /shared — it cannot reach public/.
- * Re-copy them if the web art changes.
+ * Re-copy them if the web art changes. The mobile copies keep their plain
+ * names on purpose: Metro fingerprints bundled assets, so the web-side `-v2`
+ * cache-bust rename has no reason to exist here.
  */
 export const MARKER_PIN_IMAGES: Record<string, number> = {
   marker_neon_orange_pin: require('../../assets/pins/neonorange.png'),

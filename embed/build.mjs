@@ -12,7 +12,7 @@ const outDir = path.join(root, 'mobile/src/generated');
 const resolveExtensions = ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'];
 
 // Shims must win over generic @/ resolution (e.g. @/lib/markerIcons → the
-// inlined-PNG shim, NOT the original which fetches /dest.png at runtime).
+// inlined-PNG shim, NOT the original which fetches /dest-v2.png at runtime).
 const SHIMS = {
   'next/dynamic': path.join(root, 'embed/shims/nextDynamic.js'),
   'next/router': path.join(root, 'embed/shims/nextRouter.js'),
