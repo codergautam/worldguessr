@@ -51,6 +51,13 @@
  *   node scripts/bumpMigratedVeteransK.js            (dry run)
  *   node scripts/bumpMigratedVeteransK.js --apply
  *   node scripts/bumpMigratedVeteransK.js --apply --verbose
+ *   node scripts/bumpMigratedVeteransK.js --inspect  (dump whatever tripped
+ *                                                     the elo_s0 gate; never
+ *                                                     writes, ignores --apply)
+ *   node scripts/bumpMigratedVeteransK.js --apply --skip-unmigrated
+ *                                                    (bump everyone with an
+ *                                                     elo_s0, leave the rest
+ *                                                     at K_NEW, log their ids)
  */
 
 import 'dotenv/config';
@@ -68,7 +75,49 @@ export function scopeFilter(migrationAt = MIGRATION_AT) {
   };
 }
 
-export async function run({ apply = false, verbose = false } = {}) {
+/**
+ * Read-only dump of whatever tripped the elo_s0 safety gate. The gate can only
+ * ever report a count, and the decision it blocks ("is this account's rating
+ * provenance real?") needs the document. Writes nothing, ever.
+ *
+ * created_at defaults to Date.now in the schema, so an in-scope account is
+ * NOT explainable as a normal new signup. The shapes worth telling apart:
+ *   - created_at missing entirely -> legacy doc predating the field. Rating is
+ *     real; it is the migration's own filter that skipped it.
+ *   - created_at present and < MIGRATION_AT, elo_s0 null -> the account
+ *     existed and the migration missed it. Ask why before reshaping its K.
+ *   - scheduledDeletionAt / deletionRequestedAt set -> it was mid-deletion
+ *     during the migration window, which is a benign reason to have been
+ *     skipped, and a reason to leave it alone now too.
+ */
+export async function inspect() {
+  const filter = { ...scopeFilter(), elo_s0: null };
+  const docs = await User.find(filter).limit(50).lean();
+  console.log(`[bumpVetK] ${docs.length} in-scope account(s) with no elo_s0 snapshot\n`);
+  for (const u of docs) {
+    const hasCreated = Object.prototype.hasOwnProperty.call(u, 'created_at') && u.created_at != null;
+    console.log(`_id                 ${u._id}`);
+    console.log(`username            ${u.username ?? '(none)'}`);
+    console.log(`created_at          ${hasCreated ? new Date(u.created_at).toISOString() : '*** MISSING / NULL ***'}`);
+    console.log(`ratedGames          ${u.ratedGames}`);
+    console.log(`elo                 ${u.elo}`);
+    console.log(`elo_s0              ${u.elo_s0 ?? 'null'}`);
+    console.log(`seasonPeakElo       ${u.seasonPeakElo ?? 'null'}`);
+    console.log(`lastRankedAt        ${u.lastRankedAt ? new Date(u.lastRankedAt).toISOString() : 'null'}`);
+    console.log(`lastLogin           ${u.lastLogin ? new Date(u.lastLogin).toISOString() : 'null'}`);
+    console.log(`duels W/L/T         ${u.duels_wins ?? 0}/${u.duels_losses ?? 0}/${u.duels_tied ?? 0}`);
+    console.log(`totalGamesPlayed    ${u.totalGamesPlayed ?? 0}`);
+    console.log(`banned              ${u.banned ?? false}${u.banType ? ` (${u.banType})` : ''}`);
+    console.log(`deletionRequestedAt ${u.deletionRequestedAt ? new Date(u.deletionRequestedAt).toISOString() : 'null'}`);
+    console.log(`scheduledDeletionAt ${u.scheduledDeletionAt ? new Date(u.scheduledDeletionAt).toISOString() : 'null'}`);
+    console.log(`fields present      ${Object.keys(u).sort().join(' ')}`);
+    console.log('');
+  }
+  if (docs.length === 0) console.log('Nothing to inspect — the gate would pass.');
+  return docs;
+}
+
+export async function run({ apply = false, verbose = false, skipUnmigrated = false } = {}) {
   // K_NEW_UNTIL must still land in the K_MID tier of the schedule. If the
   // schedule constants ever move so that K_NEW_UNTIL >= K_MID_UNTIL, this
   // script would overshoot straight into K_VET — refuse instead.
@@ -85,7 +134,7 @@ export async function run({ apply = false, verbose = false } = {}) {
   console.log(`[bumpVetK] scope             : pre-migration accounts with ratedGames 1..${K_NEW_UNTIL - 1}\n`);
 
   const total = await User.countDocuments({});
-  const matched = await User.countDocuments(filter);
+  let matched = await User.countDocuments(filter);
   // Informational: the population deliberately left alone.
   const newAccountsInTier = await User.countDocuments({
     created_at: { $gte: MIGRATION_AT },
@@ -120,11 +169,31 @@ export async function run({ apply = false, verbose = false } = {}) {
   // either created_at lies or the account skipped the migration — unknown
   // rating provenance either way. Refuse rather than reshape its K schedule.
   const unsafe = await User.countDocuments({ ...filter, elo_s0: null });
-  if (unsafe > 0) {
+  if (unsafe > 0 && !skipUnmigrated) {
     throw new Error(
       `${unsafe} in-scope account(s) have no elo_s0 snapshot — pre-migration by ` +
-      'created_at but never migrated. Investigate before writing.'
+      'created_at but never migrated. Investigate before writing:\n' +
+      '  node scripts/bumpMigratedVeteransK.js --inspect\n' +
+      'Then re-run with --skip-unmigrated to bump everyone else and leave them at K_NEW.'
     );
+  }
+
+  // The override. Excluding these is not merely the safe choice, it is the
+  // correct one: this whole script exists to spare accounts whose MIGRATED
+  // rating already encodes a ladder position. An account with no elo_s0 has no
+  // migrated rating, so its `elo` carries no ladder information, and K_NEW's
+  // fast convergence is the right schedule for it — the same reasoning that
+  // leaves zero-duel veterans alone.
+  if (unsafe > 0 && skipUnmigrated) {
+    filter.elo_s0 = { $ne: null };
+    const skipped = await User.find({ ...scopeFilter(), elo_s0: null })
+      .select('_id username created_at ratedGames elo').limit(50).lean();
+    console.log(`[bumpVetK] --skip-unmigrated: leaving ${unsafe} account(s) at K_NEW:`);
+    for (const u of skipped) {
+      console.log(`  ${u._id}  ${(u.username || '(unnamed)').padEnd(20)} ratedGames=${u.ratedGames} elo=${u.elo} created ${u.created_at ? new Date(u.created_at).toISOString() : '(missing)'}`);
+    }
+    matched = await User.countDocuments(filter);
+    console.log(`[bumpVetK] ${matched} account(s) remain in scope after the exclusion\n`);
   }
 
   if (!apply) {
@@ -147,19 +216,22 @@ export async function run({ apply = false, verbose = false } = {}) {
 }
 
 async function main() {
-  const apply = process.argv.includes('--apply');
+  const inspectOnly = process.argv.includes('--inspect');
+  const apply = !inspectOnly && process.argv.includes('--apply');
   const verbose = process.argv.includes('--verbose');
+  const skipUnmigrated = process.argv.includes('--skip-unmigrated');
 
   if (!process.env.MONGODB) {
     console.error('MONGODB env variable not set');
     process.exit(1);
   }
 
-  console.log(`Connecting to MongoDB...${apply ? ' (APPLY MODE — THIS WRITES)' : ' (dry run)'}`);
+  console.log(`Connecting to MongoDB...${inspectOnly ? ' (inspect — read only)' : apply ? ' (APPLY MODE — THIS WRITES)' : ' (dry run)'}`);
   await mongoose.connect(process.env.MONGODB);
   console.log('Connected!\n');
   try {
-    await run({ apply, verbose });
+    if (inspectOnly) await inspect();
+    else await run({ apply, verbose, skipUnmigrated });
   } finally {
     await mongoose.disconnect();
   }
