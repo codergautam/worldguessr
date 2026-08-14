@@ -8431,20 +8431,29 @@ div[dir="ltr"] {
 }
 
 // Full-bleed veil matching QueueScreen's .wgQueue__veil (styles/queueScreen.css,
-// rgba(0,0,0,0.34)) so the queue→getready seam is pixel-identical: the queue's
-// veil unmounts in the same commit this mounts, and the background never
-// changes. Lives INSIDE .hb-vs-chrome (not a sibling) so the existing 600ms
-// --exiting fade dissolves it with the VS text — one clock, nothing to sync.
-// NO entrance animation on THIS veil, ever: it must be at full alpha on frame
-// one to meet the queue veil bit for bit. (The queue veil DOES fade in on
-// menu→queue — that is entry polish, and it is safe because pairing takes at
-// least one 500ms matchmaking tick, so its 0.32s fade is always settled long
-// before any handoff to this one.)
+// rgba(0,0,0,0.34)). It exists ONLY to hand off the queue screen's darkness:
+// the queue's veil unmounts in the same commit this mounts, this one meets it
+// bit for bit, and then it DISSOLVES — the countdown itself runs LIGHT (user
+// ruling Aug 14: the get-ready must not sit dark for its whole 5 seconds; the
+// background change is what needed to be smooth, not permanent).
+//
+// The `both` fill + 250ms delay keep it at FULL alpha on frame one — that
+// hold IS the seam cover, do not shorten it to zero — and the 700ms ease out
+// is the queue's darkness melting into the round. No entrance animation ever:
+// frame one must match the queue veil exactly. Lives INSIDE .hb-vs-chrome
+// (not a sibling) so an early exit still dissolves whatever alpha remains via
+// the 600ms --exiting fade — one clock, nothing to sync.
 .hb-vs-veil {
     position: absolute;
     inset: 0;
     background: rgba(0, 0, 0, 0.34);
     z-index: -1; // behind the VS label / countdown / placement text
+    animation: hbVsVeilOut 700ms ease 250ms both;
+}
+
+@keyframes hbVsVeilOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
 }
 
 // Content-only entrance so the VS/countdown text doesn't hard-pop over the
@@ -8466,6 +8475,10 @@ div[dir="ltr"] {
 
 @media (prefers-reduced-motion: reduce) {
     .hb-vs-content { animation: none; }
+    // A cut instead of a fade: straight to the light countdown. Killing the
+    // animation alone would strand the veil at full alpha for all 5 seconds —
+    // the opacity:0 is what actually honours the light-get-ready ruling here.
+    .hb-vs-veil { animation: none; opacity: 0; }
 }
 
 // Invisible flex spacers in .hb-bars / under it so the real chrome paints in

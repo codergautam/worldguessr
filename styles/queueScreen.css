@@ -401,16 +401,19 @@
   font-weight: 500;
 }
 
-/* The ELO band's widen swap: old value fades out, text swaps, new fades back
-   in (queueScreen.js owns the timing; the 140ms here must match its
-   RANGE_FADE_MS). Opacity only — the value must never move or resize, that
-   would be the layout jitter this screen exists to avoid. */
-.wgQueue__cellValue--fades {
-  transition: opacity 140ms ease;
+/* First-arrival fade for a reserved cell's value (queueScreen.js
+   ReservedValue): plays ONCE when the blank placeholder becomes the first real
+   value, via a keyed remount. Later changes (widen steps, the long-wait flip)
+   swap instantly with no animation — the per-change fade dance read as
+   flicker (user ruling Aug 14). Opacity only — the value must never move or
+   resize, that would be the layout jitter this screen exists to avoid. */
+.wgQueue__cellValue--arrive {
+  animation: wgValueArrive 260ms ease-out both;
 }
 
-.wgQueue__cellValue--faded {
-  opacity: 0;
+@keyframes wgValueArrive {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* --- elapsed ------------------------------------------------------------ */
@@ -454,12 +457,62 @@
 
 /* --- motion ------------------------------------------------------------- */
 
+/* --- exit ghost --------------------------------------------------------- */
+
+/* The queue's final frame dissolving under the incoming get-ready
+   (multiplayerHome keeps the screen mounted ~320ms with frozen props — the
+   JS timeout there outlives this 300ms fade on purpose, so the unmount always
+   lands on an already-invisible ghost). The ghost sits at .multiplayerHome's
+   z-index 101, BELOW the duel intro chrome at 1002: its content recedes
+   behind the get-ready veil while the VS fades in above — a real crossfade.
+
+   Higher specificity than the entrance rules (0,2,0 over 0,1,0), so mounting
+   the ghost cannot replay wgQueueIn on the stage. */
+.wgQueue--exiting .wgQueue__stage {
+  animation: wgQueueOut 300ms ease both;
+}
+
+@keyframes wgQueueOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Ranked and 2v2 hand the background to the duel intro's own veil
+   (.hb-vs-veil, identical 0.34, mounted in the same commit) — a second copy
+   here would stack to ~0.56 and pulse the screen darker at the exact handoff
+   the veils exist to hide. */
+.wgQueue--exiting .wgQueue__veil {
+  display: none;
+}
+
+/* Unranked has no duel intro, so there is no veil to hand off to: keep this
+   one and melt it with the content, or the background snaps light in one
+   frame — the exact jolt the ghost exists to remove. */
+.wgQueue--exiting.wgQueue--unrankedDuel .wgQueue__veil {
+  display: block;
+  animation: wgQueueOut 300ms ease both;
+}
+
+/* A ghost mounts fresh, so every child entrance would replay inside a
+   dissolving frame — cells sliding in while the stage fades out. Freeze all
+   of it: the ghost is a photograph, not a scene. */
+.wgQueue--exiting .wgQueue__cell,
+.wgQueue--exiting .wgQueue__cellValue--arrive {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wgQueue__ring { animation: none; opacity: 0.2; }
   .wgQueue__cell { animation: none; }
   /* The wrapper is unconditionally animation:none (split so veil and stage
      can time independently); the entrance fades live on those two, so they
-     are what this media rule has to kill. */
+     are what this media rule has to kill. Arriving values just appear. */
   .wgQueue__stage,
-  .wgQueue__veil { animation: none; }
+  .wgQueue__veil,
+  .wgQueue__cellValue--arrive { animation: none; }
+  /* Reduced motion means cuts, not fades: no ghost at all. display:none
+     rather than animation:none — a ghost whose fade is killed would sit at
+     full opacity for its whole 320ms and then pop, which is worse than the
+     plain cut it replaces. */
+  .wgQueue--exiting { display: none; }
 }

@@ -259,7 +259,11 @@ const userSchema = new mongoose.Schema({
   // Count of RATED HUMAN games only. Drives both the K-factor schedule and the
   // placement trigger. Deliberately NOT duels_played — that counter includes bot
   // games and the entire legacy era, so it would mis-classify veterans.
-  // The migration backfills this to min(duels_wins + duels_losses + duels_tied, 70).
+  // The migration backfills this to
+  // min(duels_wins + duels_losses + duels_tied, RATED_GAMES_BACKFILL_CAP) via
+  // backfillRatedGames() in components/utils/placementGates.js. The cap is named,
+  // not repeated here: it is a tuning knob (it sets how fast the migrated ladder
+  // re-sorts) and this comment previously said 70 while the constant was 15.
   // A default of 0 landing on an EXISTING account would make that account
   // placement-eligible again and destroy its migrated rating, so the backfill
   // must cover every pre-existing doc before placements go live.

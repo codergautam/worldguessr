@@ -120,66 +120,54 @@ function QueueCell({ divided, children }: { divided: boolean; children: React.Re
 }
 
 /**
- * What the reserved ELO cell shows before the server's range lands — the same
- * "..." web's PlayerCard and queue screen use for a pending value. NEVER an
- * optimistic client-computed range (user ruling Aug 13: stale cached elo made
+ * What a reserved cell shows before its value lands: a BLANK that holds the
+ * line box (nbsp — a plain space can collapse to nothing), not a glyph.
+ * "..." was tried and rejected (user ruling Aug 14): on a queue whose data
+ * arrives one RTT in, the dots painted for a fraction of a second and then
+ * switched, which reads as flicker, not as pending. NEVER an optimistic
+ * client-computed range either (user ruling Aug 13: stale cached elo made
  * the guess visibly self-correct when the authoritative range arrived).
  */
-const ELO_PLACEHOLDER = '...';
+const VALUE_PLACEHOLDER = ' ';
 
 /**
- * The ELO cell's value swap: old value fades out, the text swaps, it fades
- * back in — mirrors web's .wgQueue__cellValue--fades exactly (a fade, NOT a
- * digit count-up: user ruling Aug 13). Placeholder→first range and every
- * widen step all take the same path. The displayed string is STATE,
- * deliberately decoupled from the prop; mount paints instantly because
- * QueueCell's own entrance animation covers it. `dimStyle` applies while the
- * SHOWN string (not the prop) is still the placeholder, so the dimming fades
- * out with it.
+ * A reserved cell's value: blank until the first real value, ONE soft fade-in
+ * when it arrives, then INSTANT swaps for every later change — mirrors web's
+ * ReservedValue / .wgQueue__cellValue--arrive exactly. The per-change
+ * fade-out/fade-in dance was the "random switch" flicker (user ruling
+ * Aug 14); the elapsed clock beside this updates instantly every second, so
+ * instant swaps are the screen's native language. `dimStyle` tracks the
+ * CURRENT value (rough ETA wording stays dimmed after arrival).
  */
-function FadingValue({ value, style, dimStyle }: {
+function ReservedValue({ value, style, dimStyle }: {
   value: string;
   style: StyleProp<TextStyle>;
   dimStyle?: StyleProp<TextStyle>;
 }) {
-  const [shown, setShown] = useState(value);
-  const opacity = useRef(new Animated.Value(1)).current;
-  // The fade-IN lives in the EFFECT's steady-state branch, not in the
-  // fade-out's completion callback. This is what makes an interrupted
-  // fade-out self-healing: a value that reverts mid-fade re-runs the effect
-  // straight into `value === shown` with opacity frozen partway, and this
-  // branch glides it back to 1. Callback-owned fade-in left that path
-  // returning early with the text stuck half-transparent forever (verified
-  // against RN's TimingAnimation: stop() freezes the value in place). On a
-  // normal swap the same branch runs right after setShown — one owner for
-  // every path back to fully-visible.
+  const pending = value === VALUE_PLACEHOLDER;
+  // The Animated value is bound UNCONDITIONALLY — a conditional binding that
+  // consults a ref at render time misses the ref flip (refs don't re-render)
+  // and the arrival pops instead of fading. Seeded 0 when mounted pending
+  // (the invisible nbsp still holds the line box), 1 when mounted with a
+  // value already in the store (re-entering the screen replays no arrival).
+  const opacity = useRef(new Animated.Value(pending ? 0 : 1)).current;
+  const arrivedRef = useRef(!pending);
   useEffect(() => {
-    if (value === shown) {
-      const restore = Animated.timing(opacity, {
-        toValue: 1,
-        duration: 160,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      });
-      restore.start();
-      return () => restore.stop();
-    }
-    const out = Animated.timing(opacity, {
-      toValue: 0,
-      duration: 140,
+    if (pending || arrivedRef.current) return;
+    // First real value: the one and only animation this component runs.
+    arrivedRef.current = true;
+    const arrive = Animated.timing(opacity, {
+      toValue: 1,
+      duration: 260,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
-    // Interrupted (a newer value re-ran this effect) → finished:false → the
-    // new run owns the swap from the already-dimmed opacity.
-    out.start(({ finished }) => {
-      if (finished) setShown(value);
-    });
-    return () => out.stop();
-  }, [value, shown, opacity]);
+    arrive.start();
+    return () => arrive.stop();
+  }, [pending, opacity]);
   return (
-    <Animated.Text style={[style, shown === ELO_PLACEHOLDER && dimStyle, { opacity }]}>
-      {shown}
+    <Animated.Text style={[style, dimStyle, { opacity }]}>
+      {value}
     </Animated.Text>
   );
 }
@@ -436,43 +424,44 @@ export default function QueueScreen() {
   // --primaryTransparent, 2px --primary, 16px radius). Mirrors web exactly.
   // The divider between cells is the house frame colour and only renders when
   // there are two cells to divide.
+  // RESERVED for signed-in ranked from the screen's first frame — BOTH cells,
+  // not just the range. The range and the ETA arrive together one RTT after
+  // join (the server pushes the first ETA on the join itself), so reserving
+  // only the first meant the plate widened and grew a divider a fraction of a
+  // second after mount — half of the "flicker then random switch" complaint
+  // (user ruling Aug 14, mirrors web). The plate's full geometry exists from
+  // frame one, blank, and the values fade into place without anything moving.
+  // Guests never receive a range or an ETA, so they never reserve anything.
+  const reserve = isRanked && signedIn;
   const cells = [
-    // RESERVED for signed-in ranked from the screen's first frame: the cell
-    // exists holding a placeholder and the server's authoritative range fades
-    // into it — the plate never mounts late and shoves the timer (layout
-    // shift), and no guessed numbers ever paint. Guests never receive a
-    // range, so they never reserve the cell.
-    isRanked && (publicDuelRange || signedIn)
+    isRanked && (publicDuelRange || reserve)
       ? {
           key: 'elo',
           label: t('eloRange'),
           value: publicDuelRange
             ? `${publicDuelRange[0]} – ${publicDuelRange[1]}`
-            : ELO_PLACEHOLDER,
-          rough: !publicDuelRange,
+            : VALUE_PLACEHOLDER,
+          rough: false,
         }
       : null,
-    etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
+    etaStr || reserve
+      ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr ?? VALUE_PLACEHOLDER, rough: etaRough }
+      : null,
   ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
 
   // Placement skips the data plate because its bot match begins immediately.
   const dataEl = !isPlacement && cells.length ? (
     <View style={styles.dataPlate}>
       {cells.map((c, i) => (
-        // The typical-wait cell arrives LATE (the server's first ETA push is up
-        // to 5s after the join), so without this it snapped into an
-        // already-drawn plate. Mirrors web's wgQueueCellIn. Layout width is not
-        // animated here — RN width animation on a flex row is finicky and the
-        // fade+slide reads as the same reveal.
         <QueueCell key={c.key} divided={i > 0}>
           <Text style={styles.dataLabel}>{c.label}</Text>
-          {c.key === 'elo' ? (
-            // Placeholder→range and widen steps all fade through, mirroring
-            // web's FadingValue. Dimming tracks the SHOWN string inside.
-            <FadingValue value={c.value} style={styles.dataValue} dimStyle={styles.dataValueRough} />
-          ) : (
-            <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
-          )}
+          {/* Blank until the value lands, one fade-in, instant swaps after —
+              mirrors web's ReservedValue exactly. */}
+          <ReservedValue
+            value={c.value}
+            style={styles.dataValue}
+            dimStyle={c.rough ? styles.dataValueRough : undefined}
+          />
         </QueueCell>
       ))}
     </View>
