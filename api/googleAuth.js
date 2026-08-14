@@ -7,7 +7,7 @@ import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
-import { RATING_V2, STARTING_ELO as DEFAULT_ELO } from '../components/utils/ratingFlags.js';
+import { STARTING_ELO as DEFAULT_ELO } from '../components/utils/ratingFlags.js';
 import { hasSeason0, season0RankOf } from '../shared/season0/rank.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
@@ -85,14 +85,13 @@ async function readSeason1Stamps(userId) {
  * modal can show it. This path must NEVER grant or write anything.
  *
  * Three gates, all required:
- *   1. RATING_V2 is on            - pre-flip, nobody sees a Season 1 anything.
- *   2. elo_s0 is non-null         - only the migration stamps it, so this is the
+ *   1. elo_s0 is non-null         - only the migration stamps it, so this is the
  *                                   proof the account existed before migration.
  *                                   A post-migration signup has null here and
  *                                   gets no notice, which is correct: they never
  *                                   lost a number.
- *   3. eloNoticeSeenAt is null    - the once-per-account latch (api/eloNoticeAck).
- *   4. elo_s0 > 1000              - the account actually played ranked. 1000 is
+ *   2. eloNoticeSeenAt is null    - the once-per-account latch (api/eloNoticeAck).
+ *   3. elo_s0 > 1000              - the account actually played ranked. 1000 is
  *                                   the old default rating, and on the dev set
  *                                   50,202 of 50,217 accounts sit on it exactly:
  *                                   they never queued, never had a rating to
@@ -113,7 +112,6 @@ async function readSeason1Stamps(userId) {
 const ELO_NOTICE_MIN_S0 = 1000;
 
 async function buildEloNotice(user) {
-  if (!RATING_V2) return null;
   if (user.elo_s0 === null || user.elo_s0 === undefined) return null;
   if (!(Number(user.elo_s0) > ELO_NOTICE_MIN_S0)) return null;
   if (user.eloNoticeSeenAt) return null;

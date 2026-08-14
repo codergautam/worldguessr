@@ -1,29 +1,18 @@
-// Rating v2 rollout flags. Every env read for the rating system lives HERE and
-// nowhere else: components/utils/eloSystem.js must stay a pure math module with
-// no imports and no process, because that purity is the only reason its
-// transfer arithmetic can be unit tested (and diffed against v1) at all.
+// Rating v2 rollout constants. Every env read for the rating system lives HERE
+// and nowhere else: components/utils/eloSystem.js must stay a pure math module
+// with no imports and no process, because that purity is the only reason its
+// transfer arithmetic can be unit tested at all.
 //
 // This file may import eloSystem (pure, importless) but NOTHING may import this
 // file from eloSystem, or that purity is gone.
-import { ENTRY_RATING, Ra0 } from './eloSystem.js';
+import { ENTRY_RATING } from './eloSystem.js';
 //
-// RATING_V2            switches ranked writes onto the v2 transfer model.
-//                      ON UNCONDITIONALLY as of the Aug 7 2026 migration — the
-//                      rollout flag is spent. It is no longer read from the env,
-//                      so nothing has to be set to run the game: a dev box, a
-//                      fresh clone and the browser bundle all agree by default,
-//                      which is exactly what the old env read could not do
-//                      (Next only inlines NEXT_PUBLIC_*, so the client silently
-//                      saw `undefined` and fell back to the Season 0 league
-//                      table unless next.config.js forwarded it by hand).
-//
-//                      Turning ranked back off is now a code change, and that is
-//                      deliberate: after the migration the DB holds v2 ratings,
-//                      so a flag flip alone would NOT restore v1 behaviour — it
-//                      would run v1 arithmetic over a v2 scale. The real revert
-//                      is scripts/rollbackRatingV2.js (restores elo from
-//                      elo_s0) and then this constant.
-export const RATING_V2 = true;
+// There is no RATING_V2 flag any more. The rollout finished with the Aug 12
+// 2026 migration and the flag (hardcoded `true` since then) was retired along
+// with the v1 engine and every dead `RATING_V2 ? : ` branch. Reverting to
+// Season 0 was never a flag flip anyway — the DB holds v2 ratings, so the real
+// revert is scripts/rollbackRatingV2.js (restores elo from elo_s0) plus a code
+// revert from git history.
 
 // MIGRATION_AT         The instant the one-time migration ran. Accounts created
 //                      at or after it are the ONLY ones allowed into placements
@@ -88,4 +77,4 @@ export const MIGRATION_AT = new Date('2026-08-12T15:31:45.000Z');
 //                   Both scales are named, never typed, so this can never drift
 //                   from the engine again. Anything that needs "the default
 //                   rating" imports this.
-export const STARTING_ELO = RATING_V2 ? ENTRY_RATING : Ra0;
+export const STARTING_ELO = ENTRY_RATING;

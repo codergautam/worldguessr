@@ -6,8 +6,7 @@ import { disconnectedPlayers, games, players } from "../../serverUtils/states.js
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
-import { MIN_ELO, clampRating } from "../../components/utils/eloSystem.js";
-import { RATING_V2 } from "../../components/utils/ratingFlags.js";
+import { clampRating } from "../../components/utils/eloSystem.js";
 import { createUUID } from "../../components/createUUID.js";
 import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
@@ -143,9 +142,9 @@ export default class Player {
     }
     // Keep the in-memory rating on the same floor the DB write enforces —
     // 0 is falsy and would void this player's next ranked queue/matchup.
-    // v2 floors at RATING_FLOOR (100) via clampRating, matching setElo in
-    // api/eloRank.js; v1 keeps MIN_ELO (1) byte-for-byte.
-    newElo = RATING_V2 ? clampRating(newElo) : Math.max(MIN_ELO, Math.round(newElo));
+    // Floors at RATING_FLOOR (100) via clampRating, matching setElo in
+    // api/eloRank.js.
+    newElo = clampRating(newElo);
     this.elo = newElo;
     this.league = getLeague(newElo).name;
 
@@ -165,13 +164,13 @@ export default class Player {
     // Migrated veterans backfilled to 70 never reached K_VET without
     // reconnecting.
     //
-    // Zero-sum was never at risk (pairK hands both sides the same K), but the
-    // taper is the entire point of the schedule.
+    // Each side now uses its own K, so a stale counter directly gives THIS
+    // player the wrong volatility. The taper depends on this mirror.
     //
     // Placements and bot games do NOT come through here — they book counters
     // via Game.applyUnratedCounters() with rated:false — so this matches the
     // `rated` default in api/eloRank.js: rated unless the caller says otherwise.
-    if (RATING_V2 && (gameData?.rated ?? true)) {
+    if (gameData?.rated ?? true) {
       this.ratedGames = (Number(this.ratedGames) || 0) + 1;
     }
 

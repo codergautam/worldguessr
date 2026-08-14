@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Player from '../ws/classes/Player.js';
-import { kFactor, pairK, K_NEW, K_MID, K_VET, K_NEW_UNTIL, K_MID_UNTIL } from '../components/utils/eloSystem.js';
+import { kFactor, K_NEW, K_MID, K_VET, K_NEW_UNTIL, K_MID_UNTIL } from '../components/utils/eloSystem.js';
 
 // THE BUG THESE TESTS PIN
 // -----------------------
@@ -20,8 +20,8 @@ import { kFactor, pairK, K_NEW, K_MID, K_VET, K_NEW_UNTIL, K_MID_UNTIL } from '.
 //   - a migrated veteran backfilled into the settling window never reached
 //     K_VET without reconnecting.
 //
-// Zero-sum was never at risk — pairK hands both sides the same K — but the taper
-// is the whole point of the schedule.
+// Each player now applies their own K, so keeping this in-memory counter fresh
+// is what makes the schedule real during a long websocket session.
 //
 // Player.setElo also fires a DB write through api/eloRank.js. There is no mongo
 // connection here, that call is async with its own try/catch, and nothing below
@@ -119,12 +119,12 @@ describe('the K schedule actually steps within one session', () => {
     expect(kFactor(p.ratedGames)).toBe(K_VET);
   });
 
-  it('both sides still share one K, so the fix cannot break zero-sum', () => {
+  it('keeps each player on their own K schedule', () => {
     const rookie = ratedPlayer(0);
     const vet = ratedPlayer(500);
     for (let i = 0; i < 40; i++) rookie.setElo(800, ratedGame);
 
-    // Whatever the counters are, pairK is symmetric and identical for both.
-    expect(pairK(rookie.ratedGames, vet.ratedGames)).toBe(pairK(vet.ratedGames, rookie.ratedGames));
+    expect(kFactor(rookie.ratedGames)).toBe(K_MID);
+    expect(kFactor(vet.ratedGames)).toBe(K_VET);
   });
 });

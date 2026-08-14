@@ -34,6 +34,7 @@ import { DUEL_INTRO_EXIT_MS } from "./utils/duelIntroTiming";
 import Countdown, { DIGIT_SLOT } from "./roundTimer";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
+const SPACE_REPLAY_QUIET_MS = 400;
 
 // Module constants, not inline literals in JSX. A fresh array every render gave
 // the ad components a changing prop identity, which defeated React.memo on them
@@ -124,6 +125,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // lib/adFree.js; it lapses on its own when the pass runs out.
   const adFree = useAdFree(session);
   const onboardingRevealStartedAt = useRef(0);
+  // React state does not update between keydown events in the same render.
+  // Claim each keyboard phase synchronously so Space spam cannot submit one
+  // guess twice or advance the same answer twice before the commit lands.
+  const spaceActionPhaseRef = useRef(null);
+  const lastSpaceKeydownAtRef = useRef(0);
 
   function logOnboardingAdvance(event, details = {}) {
     if (process.env.NEXT_PUBLIC_COOLMATH !== "true") return;
@@ -826,27 +832,65 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [onboarding?.round])
 
+  // A committed phase change is the only unlock. Unrelated renders leave the
+  // synchronous claim intact, while guess -> answer -> next round each gets
+  // one fresh Space action (including later games that reuse round numbers).
+  useEffect(() => {
+    spaceActionPhaseRef.current = null;
+  }, [showAnswer, singlePlayerRound?.round, singlePlayerRound?.done, onboarding?.round, onboarding?.completed]);
 
   useEffect(() => {
     function keydown(e) {
       // Don't trigger game actions if user is typing in an input field
-      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'SELECT' || e.target.isContentEditable) {
         return;
       }
 
       if(explanationModalShown) return;
       // Don't handle space during onboarding completion - let home button handle it
       if(onboarding?.completed) return;
-      if(singlePlayerRound?.done && e.key === ' ') {
+      if(e.key !== ' ') return;
+      const now = Date.now();
+      const quietMs = now - lastSpaceKeydownAtRef.current;
+      lastSpaceKeydownAtRef.current = now;
+      if (!multiplayerState?.inGame && (loading || mapFadingOut || mapResetting)) {
+        e.preventDefault();
+        return;
+      }
+
+      const roundKey = singlePlayerRound
+        ? `singleplayer:${singlePlayerRound.round}`
+        : onboarding ? `onboarding:${onboarding.round}` : 'singleplayer';
+      const claimSpaceAction = (phase) => {
+        // This fix is deliberately SP-only. Preserve the existing no-op path
+        // through advanceRound during multiplayer answer reveals.
+        if (multiplayerState?.inGame) return true;
+        // Prevent browser auto-repeat and the native Space activation of a
+        // focused button from dispatching a second action on keyup.
+        e.preventDefault();
+        if (e.repeat || spaceActionPhaseRef.current === phase) return false;
+        spaceActionPhaseRef.current = phase;
+        return true;
+      };
+
+      if(singlePlayerRound?.done) {
+        // A continuing burst that just crossed View Results must not become a
+        // Play Again command. One deliberate press after the burst still does.
+        if (!multiplayerState?.inGame && quietMs < SPACE_REPLAY_QUIET_MS) {
+          e.preventDefault();
+          return;
+        }
+        if (!claimSpaceAction(`${roundKey}:done`)) return;
         // Space substitutes for a button press here — sound it like one
         // (the delegated click listener only hears real clicks).
         playSfx('click_2');
         advanceRound("space-singleplayer-done")
         return;
       }
-      if(pinPoint && e.key === ' ' && !showAnswer) {
+      if(pinPoint && latLong?.lat != null && latLong?.long != null && !showAnswer) {
+        if (!claimSpaceAction(`${roundKey}:guess`)) return;
         guess();
-      } else if(showAnswer && e.key === ' ') {
+      } else if(showAnswer) {
         if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
           const elapsedMs = onboardingRevealStartedAt.current ? Date.now() - onboardingRevealStartedAt.current : 0;
           logOnboardingAdvance("blocked-space-advance", {
@@ -856,8 +900,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             targetTag: e.target?.tagName,
             activeTag: document.activeElement?.tagName,
           });
-          if (elapsedMs < ONBOARDING_MIN_MANUAL_ADVANCE_MS) return;
+          if (elapsedMs < ONBOARDING_MIN_MANUAL_ADVANCE_MS) {
+            e.preventDefault();
+            return;
+          }
         }
+        if (!claimSpaceAction(`${roundKey}:answer`)) return;
         // Space = Next Round / View Results press; the delegated click
         // listener can't hear keyboard advances, so sound it explicitly.
         playSfx('click_2');
@@ -869,7 +917,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound])
+  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound, latLong?.lat, latLong?.long, multiplayerState?.inGame, loading, mapFadingOut, mapResetting])
 
   // Onboarding keeps the guess map available while the pano is still loading:
   // a brand-new player beelining for the map shouldn't have to wait on Street

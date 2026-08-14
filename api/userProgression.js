@@ -5,7 +5,7 @@ import User, { USERNAME_COLLATION } from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { convertRating, convertDelta, normalizeConversionTable } from '../components/utils/ratingConversion.js';
-import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
 
 
 // gautam note: this doesnt make any sense at all, ai slop.
@@ -101,17 +101,12 @@ function getConversionTable() {
 }
 
 /**
- * The conversion is live only when ALL THREE hold:
- *   - RATING_V2 is on. Rolling back (scripts/rollbackRatingV2.js restores elo_s0)
- *     puts live ratings back on the Season 0 scale, and history must follow it
- *     back automatically — flipping the flag off is the whole revert.
+ * The conversion is live only when BOTH hold:
  *   - the migration instant is known (accounts' points are split by it).
  *   - the frozen table loaded.
- * Any one missing = pass records through untouched = today's behaviour.
+ * Either missing = pass records through untouched.
  */
 function getConversionContext() {
-  if (!RATING_V2) return null;
-
   const cutoffMs = MIGRATION_AT instanceof Date && !Number.isNaN(MIGRATION_AT.getTime())
     ? MIGRATION_AT.getTime()
     : null;
@@ -119,9 +114,9 @@ function getConversionContext() {
     if (!missingInstantLogged) {
       missingInstantLogged = true;
       console.warn(
-        '[userProgression] RATING CONVERSION DISABLED: RATING_V2 is on but ' +
-        'RATING_V2_MIGRATION_AT is unset/unparseable, so there is no instant to split ' +
-        'old-scale points from new-scale ones. Serving rating history UNCONVERTED.'
+        '[userProgression] RATING CONVERSION DISABLED: MIGRATION_AT is ' +
+        'unset/unparseable, so there is no instant to split old-scale points ' +
+        'from new-scale ones. Serving rating history UNCONVERTED.'
       );
     }
     return null;

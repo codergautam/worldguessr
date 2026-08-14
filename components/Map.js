@@ -258,6 +258,12 @@ function hasRenderSize(map) {
   }
 }
 
+// Hidden tabs freeze requestAnimationFrame, so every rAF-driven camera
+// choreography in this file has to be able to ask.
+function isDocumentHidden() {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+}
+
 function stopMapAnimations(map) {
   if (!map) return;
   try { clearTimeout(map._sizeTimer); } catch {}
@@ -268,15 +274,18 @@ function stopMapAnimations(map) {
   // (the map collapsed between rounds) that finaliser projects onto a degenerate
   // viewport and parks the camera at a garbage centre (~72–88°N) — the long-hunted
   // "stuck north on next round" carry-over. Frame cancels are safe at any size.
+  let cancelledMotion = false;
   try {
     if (map._flyToFrame != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._flyToFrame);
+      cancelledMotion = true;
     }
     map._flyToFrame = null;
   } catch {}
   try {
     if (map._animRequest != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._animRequest);
+      cancelledMotion = true;
     }
     map._animRequest = null;
   } catch {}
@@ -284,6 +293,9 @@ function stopMapAnimations(map) {
     // Pan inertia (PosAnimation): cancel its frame without _complete()'ing, which
     // would otherwise run the garbage 0×0 setView described above.
     if (map._panAnim && map._panAnim._animId != null && L?.Util?.cancelAnimFrame) {
+      // _animId survives a completed pan (stale, already-fired id), so only a
+      // still-_inProgress animation counts as cancelled motion.
+      if (map._panAnim._inProgress) cancelledMotion = true;
       L.Util.cancelAnimFrame(map._panAnim._animId);
       map._panAnim._inProgress = false;
     }
@@ -292,6 +304,7 @@ function stopMapAnimations(map) {
     if (map.touchZoom?._animRequest != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map.touchZoom._animRequest);
       map.touchZoom._animRequest = null;
+      cancelledMotion = true;
     }
   } catch {}
 
@@ -307,7 +320,48 @@ function stopMapAnimations(map) {
   // zoomend/moveend) by the patched map._stop() above — see
   // lib/leafletSettleZoomAnim.js. The manual _animatingZoom flag-clearing
   // that used to live here is unreachable now and was removed.
-  try { map.stop(); } catch {}
+  //
+  // Deliberately NOT map.stop(). Its only contribution beyond the _stop()
+  // already called above is setZoom(_limitZoom(_zoom)) — and with zoomSnap 1
+  // (app-wide, SafeMapContainer) a fractional mid-flight zoom makes that a
+  // REAL zoom change, which setZoom (options.animate unset) hands to
+  // _tryAnimatedZoom: a 250ms zoom ANIMATION scheduled on a requestAnimFrame
+  // whose id Leaflet never stores — uncancellable. Every caller here issues
+  // its own camera write immediately after this function returns, so that
+  // orphan fires one frame later (or on refocus, if the tab is hidden) and
+  // yanks the camera back to its dead target via a suppressed _move that
+  // rewrites _pixelOrigin with NO broadcast (markers/tooltips restamp only on
+  // zoom/viewreset). The settle patch can't catch it either: _animatingZoom
+  // is not set until the parked frame actually runs. Snap ourselves via a
+  // bare _move: it fires 'zoom' (restamps markers/tooltips, reprojects
+  // vectors through the patched _onZoom, reconciles every GridLayer via
+  // _resetView, redraws the compositor) and 'move' — WITHOUT setView's
+  // _resetView → viewprereset → _invalidateAll full tile teardown (the
+  // 100-125ms GC-pause class forceCrispViewReset documents) and without a
+  // moveend that would re-enter _panInsideMaxBounds while bounds are armed.
+  // An already-integral zoom snaps nothing.
+  let snappedZoom = false;
+  try {
+    const snapped = map._limitZoom(map.getZoom());
+    if (snapped !== map.getZoom()) {
+      map._move(map.getCenter(), snapped);
+      snappedZoom = true;
+    }
+  } catch {}
+  // map.stop()'s zero-offset setZoom also FINALIZED a cancellation: its stray
+  // moveend was what made grouped tiles load the resting view and renderers
+  // re-baseline after a killed flight, and not every caller follows with a
+  // camera write of its own (CameraAnimationStopper's deferred invalidateSize
+  // no-ops when the size is unchanged). Preserve exactly that finalization —
+  // but only when real motion was actually cancelled, and not when the snap's
+  // 'zoom' broadcast just reconciled everything anyway. Strictly fewer events
+  // than map.stop()'s broadcast-on-every-call. (Caveat: _flyToFrame and
+  // touchZoom._animRequest survive naturally-COMPLETED animations as stale
+  // ids, so the first stop after one may fire a single unearned moveend —
+  // harmless, still a strict subset of the old traffic.)
+  if (cancelledMotion && !snappedZoom) {
+    try { map.fire('moveend'); } catch {}
+  }
 }
 
 // Handlers a user can still be holding when the reveal ends (drag / pinch /
@@ -906,9 +960,25 @@ const ExtentFitter = memo(function ExtentFitter({
           // needs none of this: its setView rebuilds everything at rest.
           try {
             stopMapAnimations(map);
-            if (map.getZoom() !== target.zoom
-              || !map.getCenter().equals(L.latLng(target.center))) {
+            // cameraRestsAt, not LatLng.equals: landCamera's invalidateSize
+            // nulls _lastCenter, so getCenter() recomputes through the
+            // ROUNDED pixel origin and differs from the flight's stored
+            // centre by up to half a pixel on EVERY landing — equals()
+            // (1e-9°) read that residual as a miss, so the _move ran each
+            // time: a silent sub-pixel _pixelOrigin rewrite (the
+            // marker-strand class). Within 0.5px there is nothing to
+            // correct: skip the write entirely.
+            if (!cameraRestsAt(map, target.center, target.zoom)) {
+              const zoomChanged = map.getZoom() !== target.zoom;
               map._move(target.center, target.zoom);
+              // _move rewrites _pixelOrigin but broadcasts 'zoom' only when
+              // the zoom actually changed, and never 'moveend'. A same-zoom
+              // nudge therefore slides the projection out from under DOM
+              // markers and permanent tooltips (they restamp on
+              // zoom/viewreset ONLY). Broadcast once, exactly as
+              // leafletSettleZoomAnim does after a forced settle; _move
+              // already fired 'move'.
+              if (!zoomChanged) map.fire('zoom');
             }
             rebirthTiles(map);
           } catch {}
@@ -925,8 +995,8 @@ const ExtentFitter = memo(function ExtentFitter({
       // Hidden-tab bounds rule: keep options.maxBounds SET (drag viscosity
       // reads it) but leave the moveend enforcement listener DETACHED until
       // the tab is visible again. While hidden every moveend is
-      // machine-generated (map.stop()'s no-op pan, restore-time
-      // invalidateSize churn) and _panInsideMaxBounds clamping against a
+      // machine-generated (stopMapAnimations' cancellation finalizer,
+      // restore-time invalidateSize churn) and _panInsideMaxBounds clamping against a
       // stale/mid-transition viewport was the equator-drift family. An
       // earlier attempt "fixed" that by writing the corner size into
       // map._size instead — the ResizeObserver then charged the lie back on
@@ -1361,6 +1431,19 @@ const RevealController = memo(function RevealController({
     let rafId = null;
     let resizeCapTimer = null;
     let flyTimer = null;
+    // Hidden-tab hardening state. A hidden tab freezes rAF: the resize tick
+    // below can't tick and flyTo parks on its first frame, so the choreography
+    // cannot run. settledWhileHidden: the reveal camera was landed without
+    // animating and one verify is owed on refocus (the landing's fit target was
+    // derived from a container box that may have been frozen mid-transition).
+    // hardeningDone: that verify ran — the camera belongs to the player again,
+    // so a later hide/show must not yank it.
+    let settledWhileHidden = false;
+    let hardeningDone = false;
+    let onVisibility = null;
+    let verifyRafId = null;
+    let flyStartedAt = null;
+    let flyDurationMs = 0;
     // maxBounds applies to programmatic camera moves too (Leaflet enforces
     // it on every center change). During reveal we run resize -> invalidate
     // loop -> flyTo; lifting the constraint prevents panInsideBounds from
@@ -1369,32 +1452,118 @@ const RevealController = memo(function RevealController({
     setMaxBoundsWithoutAutoPan(map, null);
 
     const cleanup = () => {
+      if (onVisibility != null) {
+        try { document.removeEventListener('visibilitychange', onVisibility); } catch {}
+        onVisibility = null;
+      }
       if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+      if (verifyRafId != null) { cancelAnimationFrame(verifyRafId); verifyRafId = null; }
       if (resizeCapTimer != null) { clearTimeout(resizeCapTimer); resizeCapTimer = null; }
       if (flyTimer != null) { clearTimeout(flyTimer); flyTimer = null; }
       stopMapAnimations(map);
       resizingRef.current = false;
     };
 
+    // ONE derivation of the reveal's destination framing. startFly animates to
+    // it; landRevealCamera snaps to it. Two derivations would be two bugs
+    // waiting to disagree.
+    const revealFlight = () => {
+      if (pinPoint) {
+        return {
+          durationSec: REVEAL.flyDurations.pin,
+          bounds: L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5),
+        };
+      }
+      if (countryGuessPin) {
+        return {
+          durationSec: REVEAL.flyDurations.country,
+          bounds: L.latLngBounds(
+            [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
+          ).pad(0.5),
+        };
+      }
+      return { durationSec: REVEAL.flyDurations.world, center: [dest.lat, dest.long], zoom: 5 };
+    };
+
     const startFly = () => {
       if (cancelled) return;
+      flyTimer = null;
       try { map.invalidateSize(); } catch {}
-      let durationSec = REVEAL.flyDurations.world;
       try {
-        if (pinPoint) {
-          durationSec = REVEAL.flyDurations.pin;
-          const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
-          flyToBoundsAtWholeZoom(map, bounds, { duration: durationSec });
-        } else if (countryGuessPin) {
-          durationSec = REVEAL.flyDurations.country;
-          const bounds = L.latLngBounds(
-            [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
-          ).pad(0.5);
-          flyToBoundsAtWholeZoom(map, bounds, { duration: durationSec });
+        const flight = revealFlight();
+        flyStartedAt = performance.now();
+        flyDurationMs = flight.durationSec * 1000;
+        if (flight.bounds) {
+          flyToBoundsAtWholeZoom(map, flight.bounds, { duration: flight.durationSec });
         } else {
-          map.flyTo([dest.lat, dest.long], 5, { duration: durationSec });
+          map.flyTo(flight.center, flight.zoom, { duration: flight.durationSec });
         }
       } catch {}
+    };
+
+    // Land the exact camera the flight would have ended on, without animating.
+    // flyToBounds resolves its destination synchronously via
+    // _getBoundsCenterZoom, and getWholeZoomBoundsTarget runs that same call
+    // under the same zoomSnap=1 override flyToBoundsAtWholeZoom uses — this IS
+    // the flight's endpoint, not an approximation. Re-derived on every call
+    // because getBoundsZoom reads getSize(): a target fitted against a frozen
+    // mid-transition container is exactly what the refocus verify corrects.
+    const landRevealCamera = () => {
+      try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+      if (!hasRenderSize(map)) return false;
+      try {
+        const flight = revealFlight();
+        const target = flight.bounds
+          ? getWholeZoomBoundsTarget(map, flight.bounds)
+          : { center: L.latLng(flight.center[0], flight.center[1]), zoom: flight.zoom };
+        // A redundant reset has nothing to reset (forceCrispViewReset's own
+        // rule): on the refocus verify the camera usually already rests on
+        // this exact target — skip the reset:true tile teardown on the first
+        // frame the player sees after returning to the tab.
+        if (cameraRestsAt(map, target.center, target.zoom)) return true;
+        stopMapAnimations(map);
+        // reset:true, not a plain animate:false. Only the _resetView path fires
+        // 'viewreset' unconditionally, and 'viewreset' is the one broadcast
+        // that both restamps DOM markers/permanent tooltips AND repairs a
+        // marker set already stranded by an earlier suppressed _move (a plain
+        // same-zoom setView takes _tryAnimatedPan, which fires neither zoom
+        // nor viewreset). maxBounds is lifted for the whole reveal, so
+        // _limitCenter is a pass-through and this lands the flight's
+        // destination exactly.
+        map.setView(target.center, target.zoom, { animate: false, reset: true });
+        // Report where the camera actually IS, not that setView didn't throw:
+        // a listener throwing mid-storm can leave the landing incomplete, and
+        // the refocus verify stands down on this return value.
+        return cameraRestsAt(map, target.center, target.zoom);
+      } catch { return false; }
+    };
+
+    // True while the reveal still owes camera work: tracking the resize,
+    // waiting out the pre-fly delay, or mid-flight. After the flight completes
+    // on a visible tab the reveal is static and the player owns the camera —
+    // hiding the tab then must not re-land it. (map._flyToFrame can't answer
+    // this: Leaflet leaves the already-fired frame id behind after a completed
+    // fly, so completion is judged by wall clock.)
+    const choreographyActive = () =>
+      resizingRef.current
+      || flyTimer != null
+      || (flyStartedAt != null && (performance.now() - flyStartedAt) < flyDurationMs + 300);
+
+    // Hidden tab: cancel the choreography, release the resize lock, tell the
+    // host it may unclip, and land the final camera now. Same ruling as the
+    // reveal-exit fitter: nobody is watching, so there is nothing to animate.
+    const settleReveal = () => {
+      if (cancelled || hardeningDone) return;
+      if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+      if (verifyRafId != null) { cancelAnimationFrame(verifyRafId); verifyRafId = null; }
+      if (resizeCapTimer != null) { clearTimeout(resizeCapTimer); resizeCapTimer = null; }
+      if (flyTimer != null) { clearTimeout(flyTimer); flyTimer = null; }
+      resizingRef.current = false;
+      // Before any camera work, so a throwing land can't strand a mobile host
+      // clipped waiting on the ready signal.
+      signalReady();
+      settledWhileHidden = true;
+      landRevealCamera();
     };
 
     const finishResize = () => {
@@ -1414,9 +1583,82 @@ const RevealController = memo(function RevealController({
       flyTimer = setTimeout(startFly, remaining);
     };
 
+    // Refocus verify. visibilitychange:'visible' fires BEFORE layout settles —
+    // the CSS resize may still be replaying and the ResizeObserver has not
+    // delivered yet, so landing immediately would fit against a box that is
+    // stale one frame later. rAF runs again (the tab is visible): wait for a
+    // stable, non-zero container box across real frames, THEN land, and stand
+    // down only on a landing that succeeded. Capped so a pathological
+    // container can never spin the loop forever — at the cap, land once
+    // regardless and stand down. Per-frame cost is two clientWidth/Height
+    // reads, same as the resize tick, and only ever after a hidden reveal.
+    const REFOCUS_VERIFY_STABLE_FRAMES = 3;
+    const REFOCUS_VERIFY_FRAME_CAP = 90;
+    const armRefocusVerify = () => {
+      if (verifyRafId != null) return;
+      let lastVW = -1;
+      let lastVH = -1;
+      let stable = 0;
+      let attempts = 0;
+      const step = () => {
+        verifyRafId = null;
+        if (cancelled || hardeningDone) return;
+        attempts++;
+        const w = container ? container.clientWidth : 0;
+        const h = container ? container.clientHeight : 0;
+        stable = (w > 0 && h > 0 && w === lastVW && h === lastVH) ? stable + 1 : 0;
+        lastVW = w;
+        lastVH = h;
+        const capped = attempts >= REFOCUS_VERIFY_FRAME_CAP;
+        if (stable >= REFOCUS_VERIFY_STABLE_FRAMES || capped) {
+          if (landRevealCamera()) {
+            // The player owns the camera from here: a later hide/show cycle
+            // must not yank a pan they made on the settled reveal.
+            hardeningDone = true;
+            return;
+          }
+          if (capped) {
+            // The landing never succeeded (degenerate box for the whole
+            // window). Stop burning frames, but keep the recovery ARMED —
+            // standing down here would permanently kill it. The next
+            // visibility flip re-enters armRefocusVerify and tries again.
+            settledWhileHidden = true;
+            return;
+          }
+          stable = 0; // landing refused (degenerate size) — keep watching
+        }
+        verifyRafId = requestAnimationFrame(step);
+      };
+      verifyRafId = requestAnimationFrame(step);
+    };
+
+    onVisibility = () => {
+      if (cancelled) return;
+      if (isDocumentHidden()) {
+        if (choreographyActive()) settleReveal();
+      } else if (settledWhileHidden) {
+        settledWhileHidden = false;
+        armRefocusVerify();
+      }
+    };
+
     if (!container) {
+      // No container, nothing to settle or verify against — skip the
+      // visibility hardening entirely (onVisibility stays unregistered;
+      // cleanup's removal null-guards).
       signalReady();
       flyTimer = setTimeout(startFly, baseDelay);
+      return () => { cancelled = true; cleanup(); };
+    }
+
+    try { document.addEventListener('visibilitychange', onVisibility); } catch {}
+
+    if (isDocumentHidden()) {
+      // Reveal starting in a hidden tab: rAF is frozen, so the tick loop below
+      // would never run and the 320ms cap would fly against a stale box. Land
+      // everything now; the visibilitychange verify above re-lands against the
+      // true size on refocus.
+      settleReveal();
       return () => { cancelled = true; cleanup(); };
     }
 

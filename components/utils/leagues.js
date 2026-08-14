@@ -1,4 +1,3 @@
-import { RATING_V2 } from './ratingFlags.js';
 import { EXPLORER_MIN, VOYAGER_MIN, NOMAD_MIN, LEGEND_MIN } from './eloSystem.js';
 
 // KNOWN WART, DO NOT "FIX" HERE: the object keys and the display `.name` values
@@ -102,10 +101,9 @@ export const setLeagueConfig = (tiers) => {
     }
   }
 
-  // Fill in cosmetics the config doc omits from whichever hardcoded table the
-  // flag says is current, so a bounds-only config never renders an undefined
-  // colour or a missing emoji.
-  const cosmeticSource = RATING_V2 ? leaguesV2 : leagues;
+  // Fill in cosmetics the config doc omits from the hardcoded v2 table, so a
+  // bounds-only config never renders an undefined colour or a missing emoji.
+  const cosmeticSource = leaguesV2;
   const next = {};
   tiers.forEach((tier, i) => {
     const fallback = Object.values(cosmeticSource).find(l => l.name === tier.name) || {};
@@ -133,11 +131,12 @@ export const clearLeagueConfig = () => {
 
 /**
  * The table every lookup reads: config doc if one was installed, else the v2
- * table when RATING_V2 is on, else v1.
+ * table. (The retired Season 0 `leagues` table above is data for the Season 0
+ * scripts only — no lookup ever resolves against it.)
  */
 export const getActiveLeagues = () => {
   if (configuredLeagues) return configuredLeagues;
-  return RATING_V2 ? leaguesV2 : leagues;
+  return leaguesV2;
 };
 
 export const getLeague = (elo) => {

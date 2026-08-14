@@ -13,8 +13,7 @@ import calcPoints from "../../components/calcPoints.js";
 import { boundingExtent } from "ol/extent.js";
 import { fromLonLat } from "ol/proj.js";
 import { setElo, applyPlacementSeed, duelCounterIncs } from "../../api/eloRank.js";
-import { MIN_ELO, RATING_FLOOR, clampRating, placementSeed } from "../../components/utils/eloSystem.js";
-import { RATING_V2 } from "../../components/utils/ratingFlags.js";
+import { RATING_FLOOR, clampRating, placementSeed } from "../../components/utils/eloSystem.js";
 import { getLeague } from "../../components/utils/leagues.js";
 
 // How long finishSoloDuel will wait for the anti-farm pair-decay read before
@@ -180,7 +179,6 @@ export default class Game {
       npz: this.npz,
       showRoadName: this.showRoadName,
       calculationDone: this.calculationDone,
-      eloChanges: this.eloChanges,
       pIds: this.pIds,
       accountIds: this.accountIds,
       oldElos: this.oldElos,
@@ -1953,14 +1951,14 @@ export default class Game {
       const resolved = draw || !!winner;
 
       // ── RATING APPLY ────────────────────────────────────────────────────
-      // Four mutually exclusive worlds, and the ORDER is load-bearing:
+      // Three mutually exclusive worlds, and the ORDER is load-bearing:
       //   1. placement       — a placement match IS a bot game, so it must be
       //                        tested before the bot branch swallows it.
-      //   2. unrated bot     — under v2 a bot can never move the ladder.
-      //   3. v2 transfer     — the precomputed zero-sum apply.
-      //   4. legacy v1       — untouched, and unreachable while RATING_V2 is on
-      //                        for a game that was wired with ratingV2.
-      if (RATING_V2 && this.isPlacement) {
+      //   2. unrated bot     — a bot can never move the ladder.
+      //   3. v2/v3 rating    — the precomputed apply. Payload v3 uses each
+      //                        player's own K; v2 remains readable across a
+      //                        rolling restart and keeps its zero-sum apply.
+      if (this.isPlacement) {
         // ---- PLACEMENT ---------------------------------------------------
         // The human is p1 by construction, and wins by construction: the
         // placement bot scores 0 every round, so the only way p1 does not win
@@ -2001,8 +1999,8 @@ export default class Game {
         if (resolved) {
           await this.applyUnratedCounters(this.accountIds?.p1, { winner: winner?.tag === 'p1', draw });
         }
-      } else if (RATING_V2 && this.isBotGame) {
-        // ---- BOT GAME (v2) -----------------------------------------------
+      } else if (this.isBotGame) {
+        // ---- BOT GAME ----------------------------------------------------
         // Bot duels are UNRATED: no rating moves, in either direction, for
         // either side. Skipping the apply entirely is the point — a bot that
         // could give rating is a bot that will be farmed. Counters still book
@@ -2010,8 +2008,8 @@ export default class Game {
         if (resolved) {
           await this.applyUnratedCounters(this.accountIds?.p1, { winner: winner?.tag === 'p1', draw });
         }
-      } else if (RATING_V2 && this.ratingV2 && resolved && p1OldElo && p2OldElo) {
-        // ---- v2 ZERO-SUM TRANSFER ----------------------------------------
+      } else if (this.ratingV2 && resolved && p1OldElo && p2OldElo) {
+        // ---- v2/v3 PRECOMPUTED RATING APPLY ------------------------------
         // The transfers were precomputed at match creation (ws.js) against the
         // match-start ratings; only the APPLY happens here, against the fresh
         // DB read above.
@@ -2042,29 +2040,42 @@ export default class Game {
           }
         }
 
-        const transfers = this.ratingV2.transfers || {};
-        // Outcome → the transfer for it, normalised to P1's PERSPECTIVE:
-        // positive moves rating to p1, negative moves it away. The draw entry
-        // carries its own sign (a draw between mismatched ratings moves the
-        // ladder); win entries are keyed by ws player id (same convention as
-        // the legacy eloChanges map) and are re-signed from the winner's tag,
-        // so a producer that stored plain magnitudes cannot invert the ladder.
         const winnerKey = winner ? (winner.tag === 'p1' ? this.pIds?.p1 : this.pIds?.p2) : null;
-        const rawTransfer = Number(draw ? transfers.draw : (winnerKey != null ? transfers[winnerKey] : 0)) || 0;
-        const signed = draw
-          ? rawTransfer
-          : (winner?.tag === 'p1' ? Math.abs(rawTransfer) : -Math.abs(rawTransfer));
+        let dP1 = 0;
+        let dP2 = 0;
 
-        // ONE applied magnitude for BOTH sides. This is the whole fix: the v1
-        // path below re-clamps each side independently, so when the loser
-        // would breach the floor their loss gets truncated while the winner
-        // still banks the full gain — the ladder mints rating out of nothing.
-        // Cap the magnitude by what the loser can actually pay, THEN mirror it.
-        const loserFresh = signed > 0 ? p2OldElo : p1OldElo;
-        const applied = Math.min(Math.abs(signed), Math.max(0, loserFresh - RATING_FLOOR));
-        const dP1 = Math.sign(signed) * applied;
+        if (this.ratingV2.version >= 3 && this.ratingV2.outcomes) {
+          // Current payload: each player owns an independently calculated
+          // signed delta from their own K-factor. Re-cap only LOSSES against
+          // the fresh DB rating; the other player's gain remains independent.
+          const outcome = draw
+            ? this.ratingV2.outcomes.draw
+            : (winnerKey != null ? this.ratingV2.outcomes[winnerKey] : null);
+          const readDelta = (value) => {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : 0;
+          };
+          const capLoss = (delta, rating) => delta < 0
+            ? -Math.min(Math.abs(delta), Math.max(0, rating - RATING_FLOOR))
+            : delta;
+          dP1 = capLoss(readDelta(outcome?.p1), p1OldElo);
+          dP2 = capLoss(readDelta(outcome?.p2), p2OldElo);
+        } else {
+          // Legacy payload v2: one magnitude was mirrored to keep the match
+          // zero-sum. Retain this path for games restored during deployment.
+          const transfers = this.ratingV2.transfers || {};
+          const rawTransfer = Number(draw ? transfers.draw : (winnerKey != null ? transfers[winnerKey] : 0)) || 0;
+          const signed = draw
+            ? rawTransfer
+            : (winner?.tag === 'p1' ? Math.abs(rawTransfer) : -Math.abs(rawTransfer));
+          const loserFresh = signed > 0 ? p2OldElo : p1OldElo;
+          const applied = Math.min(Math.abs(signed), Math.max(0, loserFresh - RATING_FLOOR));
+          dP1 = Math.sign(signed) * applied;
+          dP2 = -dP1;
+        }
+
         p1NewElo = clampRating(p1OldElo + dP1);
-        p2NewElo = clampRating(p2OldElo - dP1);
+        p2NewElo = clampRating(p2OldElo + dP2);
 
         // rated:true — this is a real human ranked game: it books ratedGames
         // (K schedule) and lastRankedAt (leaderboard inactivity).
@@ -2075,53 +2086,6 @@ export default class Game {
         if (p2obj) p2obj.setElo(p2NewElo, p2Data);
         else setElo(this.accountIds.p2, p2NewElo, p2Data);
       }
-      // elo changes
-      else if(this.eloChanges && p1OldElo && p2OldElo) {
-        if(draw) {
-
-          const changes = this.eloChanges.draw;
-          // { newRating1, newRating2 }
-
-          // Deltas were computed against match-start elo but apply to the
-          // fresh DB read above — re-clamp so the result can never hit the
-          // MIN_ELO floor's void (0 is falsy and breaks the gates below).
-          p1NewElo = Math.max(MIN_ELO, p1NewElo + changes.newRating1);
-          p2NewElo = Math.max(MIN_ELO, p2NewElo + changes.newRating2);
-
-          if(p1obj) {
-
-          p1obj.setElo(p1NewElo, { draw: true, oldElo: p1OldElo });
-          } else {
-            setElo(this.accountIds.p1, p1NewElo, { draw: true, oldElo: p1OldElo });
-          }
-
-          if(p2obj) {
-          p2obj.setElo(p2NewElo, { draw: true, oldElo: p2OldElo });
-        } else {
-          setElo(this.accountIds.p2, p2NewElo, { draw: true, oldElo: p2OldElo });
-        }
-        } else if(winner) {
-
-          const changes = this.eloChanges[winner.id];
-          // { newRating1, newRating2 }
-          p1NewElo = Math.max(MIN_ELO, p1NewElo + changes.newRating1);
-          p2NewElo = Math.max(MIN_ELO, p2NewElo + changes.newRating2);
-
-          if(p1obj) {
-          p1obj.setElo(p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
-          } else {
-            setElo(this.accountIds.p1, p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
-          }
-
-          if(p2obj) {
-          p2obj.setElo(p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
-          } else {
-            setElo(this.accountIds.p2, p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
-          }
-
-        }
-
-    }
 
       // Report plumbing on the end screen: the saved history doc's id (the
       // roster only knows the live ws id / private code, and matchmade games
@@ -2161,7 +2125,7 @@ export default class Game {
         // abandon/disconnect/draw grants no seed and re-gates the account into
         // another placement — showing the seed reveal there would tell the
         // player they placed when they didn't.
-        ...(RATING_V2 && this.isPlacement && placementSeeded
+        ...(this.isPlacement && placementSeeded
           ? { placement: true, league: getLeague(p1NewElo) }
           : {}),
         ...(this.stampsExpected ? { stampsPending: true } : {}),

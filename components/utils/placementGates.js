@@ -78,8 +78,8 @@ export function isPlacementEligible(user, migrationAt) {
  * Migrated ratings are ORDER-PRESERVING, not honest. The analysis behind the
  * migration is explicit that Season 0 elo ranked play TIME, not skill
  * (Spearman rho 0.897 against career duel count), so day one is a faithful copy
- * of a ladder that does not rank players. Zero-sum play is what sorts it, and
- * how fast it sorts is exactly K.
+ * of a ladder that does not rank players. Rated play is what sorts it, and how
+ * fast each player sorts is exactly that player's K.
  *
  * The cap was 70, which put every veteran in K_MID (20) for 30 games and then
  * K_VET (10) forever. Measured against a player parked 400 points below their

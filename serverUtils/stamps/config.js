@@ -12,10 +12,11 @@
 // mode it was guarding against — a deploy carrying the code but not the config —
 // is now the DEFAULT deploy, because the config no longer exists.
 //
-// The kill switch itself is kept, unlike RATING_V2 (components/utils/
-// ratingFlags.js) which is hardcoded true. The two are not symmetric:
-//   - Flipping RATING_V2 off would run v1 arithmetic over a v2 rating scale, so
-//     it is not a lever, it is a bug. The real revert is rollbackRatingV2.js.
+// The kill switch itself is kept, unlike the retired RATING_V2 rollout flag
+// (deleted with the v1 engine after the Aug 2026 migration). The two were not
+// symmetric:
+//   - Flipping RATING_V2 off would have run v1 arithmetic over a v2 rating
+//     scale — not a lever, a bug. The real revert is rollbackRatingV2.js.
 //   - Flipping this off is safe at ANY instant: grantStamps() short-circuits
 //     before it makes contact with the database, so nothing is minted, nothing
 //     is half-written, and no ledger key is burned. That is a lever worth

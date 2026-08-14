@@ -10,57 +10,18 @@ export interface League {
   light?: string;
 }
 
-// ── v1 (LEGACY SCALE) ────────────────────────────────────────────────────────
-// KNOWN WART, mirrored deliberately: the object keys and the display `.name`
-// values are swapped for the first two tiers (key `explorer` displays as
-// "Trekker", key `trekker` displays as "Explorer"). Strict matchmaking no
-// longer gates on this table (app/settings.tsx and the server both resolve
-// getStrictFloor() from the ACTIVE table now); the v1 table survives only as
-// data, mirroring the web module, because Season 0 history renders with these
-// cutoffs. Display runs on v2.
-export const leagues: Record<string, League> = {
-  'explorer': {
-    min: 0,
-    max: 1999,
-    name: 'Trekker',
-    emoji: '🥾',
-    color: '#808080', // grey
-    light: '#d3d3d3' // light grey
-  },
-  'trekker': {
-    min: 2000,
-    max: 4999,
-    name: 'Explorer',
-    emoji: '🧭',
-    color: '#cd7f32' // bronze
-  },
-  'voyager': {
-    min: 5000,
-    max: 7999,
-    name: 'Voyager',
-    emoji: '🚢',
-    color: '#ffd700' // gold
-  },
-  'nomad': {
-    min: 8000,
-    max: 20000,
-    name: 'Nomad',
-    emoji: '🌍',
-    color: '#b9f2ff' // diamond
-  },
-};
-
 // ── v2 (CURRENT SCALE) ───────────────────────────────────────────────────────
-// Cutoffs sit on the rating-v2 scale, which is a DIFFERENT SCALE entirely from
-// v1: these numbers are NOT v1 numbers rescaled, so never compare a v1 elo
-// against a v2 bound. Keys are suffixed `V2` so nothing can accidentally read a
-// v2 tier through a v1 key lookup while both tables ship.
+// Cutoffs sit on the rating-v2 scale. The retired Season 0 (v1) table is NOT
+// mirrored here: no mobile surface renders Season 0 cutoffs (the peak badge
+// arrives as a server-computed NAME), so the app carries only the live table.
+// Keys keep the `V2` suffix so they line up with the web module's.
 //
 // `light` (not `lightColor`) — web's duelHealthbar.js/partyLobby.js read `.light`
 // for the name glow, and mobile's DuelHUD/GetReadyOverlay do the same.
 // Cutoffs are IMPORTED from ./eloSystem, never typed here: the same numbers
-// drive the K_VET rating lock (kFactor), so a band moved in one place and not
-// the other would silently split the K schedule from the tier display.
+// drive the server's K_VET rating lock (kFactor in the web module), so a band
+// moved in one place and not the other would silently split the K schedule
+// from the tier display.
 export const leaguesV2: Record<string, League> = {
   trekkerV2:  { name: 'Trekker',  min: 0,            max: EXPLORER_MIN - 1, emoji: '🥾', color: '#808080', light: '#d3d3d3' },
   explorerV2: { name: 'Explorer', min: EXPLORER_MIN, max: VOYAGER_MIN - 1,  emoji: '🧭', color: '#cd7f32' },
@@ -90,21 +51,6 @@ export function getLeague(elo: number): League {
   }
   // Return first league as default
   return table[Object.keys(table)[0]];
-}
-
-/**
- * Get rating range for a league by name. Called with names that arrive straight
- * off a websocket message, so an unknown or stale name must NOT throw: fall
- * back to the lowest tier (mirrors getLeagueRange in components/utils/leagues.js).
- */
-export function getLeagueRange(name: string): [number, number] {
-  const table = getActiveLeagues();
-  const league = Object.values(table).find(league => league.name === name);
-  if (!league) {
-    const lowest = table[Object.keys(table)[0]];
-    return lowest ? [lowest.min, lowest.max] : [0, EXPLORER_MIN - 1];
-  }
-  return [league.min, league.max];
 }
 
 /**

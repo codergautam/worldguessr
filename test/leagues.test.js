@@ -42,11 +42,11 @@ const V2_TIERS = [
   { name: 'Legend', min: 1800, max: Infinity, emoji: '👑', color: '#dc143c' },
 ];
 
-// RATING_V2 is now hardcoded `true` (components/utils/ratingFlags.js): the
-// rollout flag is spent, so with no config doc installed the ACTIVE table is
-// v2, not v1. These assertions used to describe the flag-off default and are
-// re-pointed at v2 rather than deleted, because "what does an unconfigured
-// process bucket a rating as" is exactly the question that must stay covered.
+// The RATING_V2 rollout flag is retired (the v1 engine is deleted), so with no
+// config doc installed the ACTIVE table is v2, unconditionally. These
+// assertions used to describe the flag-off default and are re-pointed at v2
+// rather than deleted, because "what does an unconfigured process bucket a
+// rating as" is exactly the question that must stay covered.
 // The v1 table is still exported and still asserted below, since the Season 0
 // Hall of Fame derives its league names from it.
 describe('default behaviour with no config doc installed (v2 is active)', () => {
@@ -211,7 +211,7 @@ describe('malformed configs are REJECTED and the previous table survives', () =>
   it('rejects a bad config against the DEFAULT table too', () => {
     const { result } = captureWarnings(() => setLeagueConfig([]));
     expect(result).toBe(false);
-    // The surviving table is the v2 default, not v1: RATING_V2 is hardcoded on.
+    // The surviving table is the v2 default, not v1 (the flag era is over).
     expect(getActiveLeagues()).toBe(leaguesV2);
     expect(getLeague(1500).name).toBe('Nomad'); // v2 bounds intact
   });

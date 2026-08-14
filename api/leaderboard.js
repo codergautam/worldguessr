@@ -1,7 +1,7 @@
 import User, { USERNAME_COLLATION, STARTING_ELO } from '../models/User.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
-import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
 
 // Cache for leaderboard data
 const CACHE_DURATION = 60000; // 1 minute cache
@@ -11,10 +11,10 @@ registerStat('api/leaderboard.cache', () => cache.size);
 /**
  * ALL-TIME RANKED BOARD: 14-DAY ACTIVITY WINDOW
  *
- * Rating v2 is zero-sum, so a rating is only meaningful while its owner is still
- * putting it at risk. Under the old inflating ladder a player could stop playing
- * at 20,000 and sit on the board forever; under v2 the top of the board would
- * freeze solid within weeks, occupied by accounts that can no longer lose.
+ * Rating v2 is a competitive ladder, so a rating is only meaningful while its
+ * owner is still putting it at risk. Under the old inflating ladder a player
+ * could stop playing at 20,000 and sit on the board forever; under v2 the top
+ * would freeze solid within weeks, occupied by accounts that can no longer lose.
  *
  * THIS IS A QUERY-SIDE FILTER AND NOTHING ELSE. It hides rows. It NEVER writes,
  * never decays and never touches a rating — an inactive player's number is
@@ -53,8 +53,7 @@ const RANKED_ACTIVITY_WINDOW_MS = RANKED_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1
  * RANKED_ACTIVITY_WINDOW_DAYS, by which point every player who is still playing
  * has been stamped by api/eloRank.js setElo() and the transition is invisible.
  *
- * THREE WAYS THIS STAYS OFF, all failing towards "show the board":
- *   - RATING_V2 off      pre-flip there is no zero-sum ladder and no rule.
+ * TWO WAYS THIS STAYS OFF, both failing towards "show the board":
  *   - MIGRATION_AT null  we cannot know how long we have been live. Note this
  *                        is the OPPOSITE polarity to placementGates.js, where
  *                        null fails closed: there, closed means "grant nothing",
@@ -66,7 +65,6 @@ const RANKED_ACTIVITY_WINDOW_MS = RANKED_ACTIVITY_WINDOW_DAYS * 24 * 60 * 60 * 1
  * no-op rather than a bug — it just stops mattering.
  */
 function rankedActivityFilterActive() {
-  if (!RATING_V2) return false;
   if (!MIGRATION_AT || Number.isNaN(MIGRATION_AT.getTime())) return false;
   return Date.now() - MIGRATION_AT.getTime() >= RANKED_ACTIVITY_WINDOW_MS;
 }

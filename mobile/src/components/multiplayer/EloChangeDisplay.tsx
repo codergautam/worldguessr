@@ -8,9 +8,9 @@
  *
  * RATING V2. This component used to style itself off `elo < 2000`, which was
  * the v1 "quadruple the winner's gain" ramp. That zone NO LONGER EXISTS: v2
- * computes ONE integer transfer and hands it to both players with opposite
- * signs, so a win of +N always pairs with a loss of -N. Under the new scale the
- * whole ladder lives roughly in 100..1800 and even the top player is ~1600 —
+ * gives each player an integer delta from that player's own K-factor. Gains
+ * and losses therefore need not match. Under the new scale the whole ladder
+ * lives roughly in 100..1800 and even the top player is ~1600 —
  * every single player would have fallen inside the old `< 2000` branch, making
  * the "you're in the boost zone" styling a permanent lie. It is gone. Nothing
  * here may key off an absolute rating threshold again.
@@ -175,8 +175,8 @@ export default function EloChangeDisplay({
     transform: [{ scale: scale.value }],
   }));
 
-  // Colour purely by SIGN — the transfer is symmetric, so there is no third
-  // case to style and no magnitude threshold worth reacting to.
+  // Colour purely by SIGN. Each result is player-specific, and there is no
+  // magnitude threshold worth reacting to.
   const deltaColor = delta > 0 ? colors.success : delta < 0 ? colors.error : colors.textSecondary;
   const deltaText = delta > 0 ? `+${delta}` : `${delta}`;
 

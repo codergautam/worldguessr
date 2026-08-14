@@ -166,7 +166,7 @@ export async function run({
   if (!apply) {
     console.log('\nDRY RUN — nothing was written. Re-run with --apply to roll back.');
   } else {
-    console.log('\nRollback applied. Confirm RATING_V2 is off before ranked writes resume.');
+    console.log('\nRollback applied. The v1 engine is deleted from the codebase — revert the v2 rating code from git history before ranked writes resume.');
   }
 
   return { apply, snapshotted, differing, matched, modified };

@@ -20,12 +20,10 @@ import { dayKeyUTC } from './serverUtils/stamps/periods.js';
 // Timers go through safeInterval so one throwing job cannot take the whole cron
 // process down and silently stop every OTHER job with it. See ws/safeTimers.js.
 import { safeInterval } from './ws/safeTimers.js';
-// RATING_V2 is a plain constant, but STAMPS_ENABLED DOES read the env at
-// import time (serverUtils/stamps/config.js) — it is the emergency kill switch
-// for the stamps economy. It only sees .env because `dotenv/config` is this
-// file's first import; keep it that way.
+// STAMPS_ENABLED reads the env at import time (serverUtils/stamps/config.js) —
+// it is the emergency kill switch for the stamps economy. It only sees .env
+// because `dotenv/config` is this file's first import; keep it that way.
 import { STAMPS_ENABLED } from './serverUtils/stamps/config.js';
-import { RATING_V2 } from './components/utils/ratingFlags.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
@@ -96,13 +94,13 @@ const updateAllUserStats = async () => {
     ]);
 
     const fetchTime = Date.now() - fetchStart;
-    
+
     // Handle case where no users are found
     if (usersByXp.length === 0) {
       console.log(`[FETCH] ⚠️ No users found in database (fetched in ${fetchTime}ms) - skipping UserStats update`);
       return;
     }
-    
+
     console.log(`[FETCH] ✅ Fetched ${usersByXp.length} users in ${fetchTime}ms (${(fetchTime/usersByXp.length).toFixed(2)}ms/user)`);
 
     // STEP 2: Create rank lookup maps (O(n) instead of O(n²))
@@ -112,12 +110,36 @@ const updateAllUserStats = async () => {
     const xpRankMap = new Map();
     const eloRankMap = new Map();
 
+    // COMPETITION RANKING, NOT ORDINAL. Tied scores must share the rank of the
+    // first user in the tie block ("1224" style), because that is what the
+    // per-game path computes: userStatsService.calculateELORank is
+    // count(elo > yours) + 1, so everyone tied at a score gets the same rank.
+    //
+    // index + 1 here silently broke that for ties. 3.7M accounts sit at exactly
+    // elo 670 (the migrated old-default mass), so a player at 670 got ~474k
+    // from every game snapshot and then anywhere up to ~4.2M from the weekly
+    // snapshot, purely by where the sort happened to place them inside the tie
+    // block. On the profile rank graph that renders as a one-point cliff of
+    // ~3.4M that "recovers" at their next game, and the y-axis stretches to fit
+    // it. Same bug for xpRank (mass at 0 XP).
+    let prevXp = Symbol();
+    let prevXpRank = 0;
     usersByXp.forEach((user, index) => {
-      xpRankMap.set(user._id.toString(), index + 1);
+      if (user.totalXp !== prevXp) {
+        prevXp = user.totalXp;
+        prevXpRank = index + 1;
+      }
+      xpRankMap.set(user._id.toString(), prevXpRank);
     });
 
+    let prevElo = Symbol();
+    let prevEloRank = 0;
     usersByElo.forEach((user, index) => {
-      eloRankMap.set(user._id.toString(), index + 1);
+      if (user.elo !== prevElo) {
+        prevElo = user.elo;
+        prevEloRank = index + 1;
+      }
+      eloRankMap.set(user._id.toString(), prevEloRank);
     });
 
     const rankTime = Date.now() - rankStart;
@@ -188,7 +210,7 @@ const updateAllUserStats = async () => {
     console.log('━'.repeat(60));
     console.log(`[COMPLETE] 🚀 ULTRA-FAST update completed!`);
     console.log(`[STATS] ${totalUpdated} users updated in ${totalTimeMs}ms (${totalTimeSec}s, ${totalTimeMin}m)`);
-    
+
     // Only show performance stats if users were actually updated (avoid division by zero)
     if (totalUpdated > 0) {
       const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
@@ -241,14 +263,9 @@ const computeDailyLeaderboards = async () => {
     const now = new Date();
     const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-    // ELO rows written before the v2 migration instant are on the RETIRED
-    // Season 0 scale (thousands, not hundreds). A 24h window that straddles
-    // the instant reads a veteran's day as "4200 -> 1050", a huge negative
-    // delta, and the > 0 filter then drops every veteran from the board —
-    // leaving only post-migration accounts. Clamp the ELO window start to the
-    // migration instant; Math.max makes this inert once the instant is more
-    // than a day old, and it self-arms again if MIGRATION_AT is ever bumped
-    // for a future re-anchor. XP was never rescaled, so its window stays raw.
+    // ELO rows written before the v2 migration instant are on the retired
+    // Season 0 scale. Keep a window that straddles the migration from mixing
+    // incompatible ratings; this also self-arms for any future re-anchor.
     const eloWindowStart = new Date(Math.max(dayAgo.getTime(), MIGRATION_AT.getTime()));
 
     // Get start of day (midnight UTC) for consistent date keys
@@ -310,19 +327,9 @@ const computeLeaderboardForMode = async (mode, windowStart) => {
   // per user without a global blocking $sort over the whole 24h slice. The
   // pipeline becomes a streaming hash aggregation with one-doc accumulators.
   const deltaField = mode === 'xp' ? 'xpDelta' : 'eloDelta';
-
-  // XP: every completed game moves XP, so every game row feeds the delta.
-  //
-  // ELO: ONLY ranked duels move rating, but single-player (api/storeGame.js)
-  // and 2v2 rows also carry the player's CURRENT elo as a passive snapshot.
-  // Letting those into the window made a brand-new account's pre-placement
-  // rows (entry rating 500) the day's baseline, so the placement seed jump
-  // itself (up to +400) scored as a "daily gain" and the board filled with
-  // fresh placements instead of actual ladder movement. Restrict the ELO
-  // delta to rows that represent rating-bearing events: ranked-duel rows
-  // (the `duel_` gameIds createDuelUserStats writes — a placement's own row
-  // then becomes the BASELINE, so the seed never counts as a gain) plus
-  // elo_refund rows (real rating movement from moderation remediation).
+  // XP can move in every completed game. ELO moves only in ranked duels and
+  // moderation refunds; other game rows merely carry passive ELO snapshots.
+  // Including those snapshots makes placement seeding look like daily gain.
   const eventMatch = mode === 'xp'
     ? { triggerEvent: { $in: ['game_completed', 'elo_refund'] } }
     : {
@@ -331,7 +338,6 @@ const computeLeaderboardForMode = async (mode, windowStart) => {
           { triggerEvent: 'game_completed', gameId: { $regex: '^duel_' } }
         ]
       };
-
   const pipeline = [
     {
       $match: {
@@ -489,7 +495,7 @@ startAccountDeletionPurgeTimer();
 // would move "midnight" to 18:00 forever. These jobs use scheduleAligned,
 // which recomputes the delay from the wall clock on every arm.
 //
-// The STAMPS_ENABLED / RATING_V2 gates below are STATIC imports at the top of
+// The STAMPS_ENABLED gate below is a STATIC import at the top of
 // this file. STAMPS_ENABLED still reads process.env at import time — that is
 // safe here only because `dotenv/config` is this file's FIRST import, so .env
 // is loaded before any other module evaluates. Any NEW env-reading module gets
@@ -569,10 +575,6 @@ const startAlignedJob = (job, nextFn, keyFn, run) => {
 // DAILY elo_today RESET (00:00 UTC)
 // elo_today is $inc'd on every ranked game and was reset NOWHERE, so the
 // "daily" ELO board has been showing lifetime drift since it shipped.
-//
-// Gated behind RATING_V2 rather than shipped bare: zeroing this changes what
-// the daily board MEANS, so it flips over together with the new ladder instead
-// of silently redefining the current one mid-season.
 // ============================================================================
 
 const resetEloToday = async () => {
@@ -584,10 +586,6 @@ const resetEloToday = async () => {
 };
 
 const startEloTodayResetTimer = () => {
-  if (!RATING_V2) {
-    console.log('[CRON:eloTodayReset] Disabled (RATING_V2 off) - not armed');
-    return;
-  }
   startAlignedJob('eloTodayReset', nextUtcMidnight, dayKeyUTC, resetEloToday);
 };
 
@@ -595,11 +593,6 @@ startEloTodayResetTimer();
 
 // ============================================================================
 // STAMPS PERIOD ROLLOVER (daily 00:00 UTC)
-//
-// DAILY ONLY. The weekly quests were removed with the rest of the quest system,
-// so 'day' is now the only periodType anything writes (ws Game.js's bot cap,
-// api/stampShop.js's ad-free pass cap). The weekly job that used to run beside
-// this one is gone with them.
 //
 // !!! DO NOT "FIX" THIS BY ADDING A PER-USER COUNTER RESET SWEEP !!!
 //
@@ -615,7 +608,7 @@ startEloTodayResetTimer();
 // CURRENT period's docs (a late-firing pass, a missed-boundary recovery run)
 // would destroy live progress that the key-based model cannot lose.
 //
-// All this job does is set expiresAt on the docs of periods that are over, so
+// This job sets expiresAt on the docs of periods that are over, so
 // the TTL index on StampQuests reaps them. Nothing is recomputed, and payment
 // state is untouched: that lives exclusively in StampLedger's idempotencyKey.
 // ============================================================================
@@ -636,18 +629,9 @@ const expireStampQuests = async (currentDayKey) => {
     { $set: { expiresAt } },
   );
 
-  // LEGACY DRAIN, and it has to live here. Killing the weekly job orphaned any
-  // 'week' doc that was still OPEN when it went away: closed ones were already
-  // marked by past runs and the TTL will take them, but an unmarked one has
-  // nothing left in the process that would ever mark it, so it would sit in the
-  // collection forever. No periodKey comparison, because there is no current
-  // week any more — every 'week' doc is closed by definition.
-  //
-  // Self-terminating: the `expiresAt: null` filter makes marking one-way, so
-  // this matches the remainder once and zero thereafter. Kept on the periodType
-  // index prefix rather than folded into the query above, which would have cost
-  // the index and turned a targeted update into a collection scan. Safe to
-  // delete once the logged count has been 0 for a 30-day TTL cycle.
+  // Weekly quests no longer exist, but old open documents still need a
+  // one-way expiry mark or they remain forever. This drain self-terminates once
+  // every legacy row has expiresAt set.
   const week = await StampQuests.updateMany(
     { periodType: 'week', expiresAt: null },
     { $set: { expiresAt } },

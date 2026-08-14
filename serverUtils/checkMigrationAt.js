@@ -1,5 +1,5 @@
 import User from '../models/User.js';
-import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
 
 /**
  * Boot-time sanity check on MIGRATION_AT.
@@ -36,7 +36,6 @@ import { RATING_V2, MIGRATION_AT } from '../components/utils/ratingFlags.js';
  * process down.
  */
 export async function checkMigrationAt(label = 'rating') {
-  if (!RATING_V2) return true;
   if (!MIGRATION_AT || Number.isNaN(MIGRATION_AT.getTime())) {
     console.warn(`[${label}] MIGRATION_AT is unset or unparseable — placements are disabled and the leaderboard activity filter stays off.`);
     return false;

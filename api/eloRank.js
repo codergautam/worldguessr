@@ -1,8 +1,7 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
-import { MIN_ELO, clampRating } from '../components/utils/eloSystem.js';
-import { RATING_V2 } from '../components/utils/ratingFlags.js';
+import { clampRating } from '../components/utils/eloSystem.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { syncForumUser } from '../serverUtils/syncForumUser.js';
 
@@ -112,8 +111,8 @@ export async function setElo(accountId, newElo, gameData) {
 
     // Last line of defense: a stored elo of 0 (falsy) voids the ranked
     // gates in ws.js/Game.js, so the floor is enforced at the write itself.
-    // v2 floors at RATING_FLOOR (100) rather than v1's MIN_ELO (1).
-    newElo = RATING_V2 ? clampRating(newElo) : Math.max(MIN_ELO, Math.round(newElo));
+    // Floors at RATING_FLOOR (100) via clampRating.
+    newElo = clampRating(newElo);
 
     // Bot games are unrated under v2, so the caller decides. Default rated.
     const rated = gameData.rated ?? true;
