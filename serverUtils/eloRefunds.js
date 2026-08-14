@@ -2,6 +2,9 @@ import User from '../models/User.js';
 import Game from '../models/Game.js';
 import UserStats from '../models/UserStats.js';
 import { leagues, getActiveLeagues } from '../components/utils/leagues.js';
+import { convertDelta } from '../components/utils/ratingConversion.js';
+import { getConversionTable } from './conversionTable.js';
+import { MIGRATION_AT, RATING_V2 } from '../components/utils/ratingFlags.js';
 
 /**
  * Shared ELO-refund helpers.
@@ -94,12 +97,55 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
 
       const change = player.elo && typeof player.elo.change === 'number' ? player.elo.change : null;
 
-      // ELO refund — UNCHANGED selection/math: only players who actually LOST ELO.
+      // ELO refund — selection UNCHANGED (only players who actually LOST ELO),
+      // but the AMOUNT is re-derived onto the live scale before it is credited.
+      //
+      // THE SCALE TRAP. `player.elo.change` is whatever scale the game was
+      // played on. A game from before MIGRATION_AT carries a Season 0 delta
+      // (0..20,000 scale); `user.elo` is now on the v2 scale (100..1600). Adding
+      // one to the other credits an old-scale number onto a v2 rating — a player
+      // who dropped 60 points at Season 0 15,000 is owed about 2 v2 points and
+      // was being handed 60, a 30x over-credit that mints rating out of nothing
+      // on a ladder that is otherwise zero-sum.
+      //
+      // AND THE DELTA MUST BE RE-DERIVED, NEVER MAPPED (ratingConversion.js
+      // "THE DELTA TRAP"): f is nonlinear, so f(change) is meaningless. The
+      // correct value is f(after) - f(before), which is exactly what
+      // convertDelta(absoluteRatingAfterTheChange, change, table) computes.
       if (change !== null && change < 0) {
-        const refundAmount = Math.abs(change);
-        opponentRefunds[player.accountId] = (opponentRefunds[player.accountId] || 0) + refundAmount;
-        totalRefunded += refundAmount;
-        gamesProcessed++;
+        let refundAmount = Math.abs(change);
+
+        if (RATING_V2 && game.createdAt && game.createdAt < MIGRATION_AT) {
+          const table = getConversionTable();
+          // No table means we cannot know what this old-scale number is worth
+          // now. Crediting it raw is the bug; guessing is worse. Skip the leg —
+          // an un-refunded victim is recoverable by re-running a repair, an
+          // over-credited ladder is not.
+          // elo.after is the absolute OLD-scale rating after the loss. Fall back
+          // to before+change for legacy docs that only stored one side.
+          const after = typeof player.elo.after === 'number'
+            ? player.elo.after
+            : (typeof player.elo.before === 'number' ? player.elo.before + change : null);
+
+          if (!table || after === null) {
+            // Zero the ELO leg ONLY — never `continue`, because the win/loss
+            // reversal below is a separate remedy this player is still owed.
+            console.warn(
+              `[eloRefunds] cannot convert pre-migration delta for ${player.accountId} ` +
+              `on game ${game._id} (${!table ? 'no conversion table' : 'no absolute elo'}); ` +
+              'skipping the ELO leg, still reversing win/loss'
+            );
+            refundAmount = 0;
+          } else {
+            refundAmount = Math.abs(convertDelta(after, change, table));
+          }
+        }
+
+        if (refundAmount > 0) {
+          opponentRefunds[player.accountId] = (opponentRefunds[player.accountId] || 0) + refundAmount;
+          totalRefunded += refundAmount;
+          gamesProcessed++;
+        }
       }
 
       // Win/loss reversal — undo exactly what setElo recorded at game end. setElo

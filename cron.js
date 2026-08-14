@@ -112,12 +112,36 @@ const updateAllUserStats = async () => {
     const xpRankMap = new Map();
     const eloRankMap = new Map();
 
+    // COMPETITION RANKING, NOT ORDINAL. Tied scores must share the rank of the
+    // first user in the tie block ("1224" style), because that is what the
+    // per-game path computes: userStatsService.calculateELORank is
+    // count(elo > yours) + 1, so everyone tied at a score gets the same rank.
+    //
+    // index + 1 here silently broke that for ties. 3.7M accounts sit at exactly
+    // elo 670 (the migrated old-default mass), so a player at 670 got ~474k
+    // from every game snapshot and then anywhere up to ~4.2M from the weekly
+    // snapshot, purely by where the sort happened to place them inside the tie
+    // block. On the profile rank graph that renders as a one-point cliff of
+    // ~3.4M that "recovers" at their next game, and the y-axis stretches to fit
+    // it. Same bug for xpRank (mass at 0 XP).
+    let prevXp = Symbol();
+    let prevXpRank = 0;
     usersByXp.forEach((user, index) => {
-      xpRankMap.set(user._id.toString(), index + 1);
+      if (user.totalXp !== prevXp) {
+        prevXp = user.totalXp;
+        prevXpRank = index + 1;
+      }
+      xpRankMap.set(user._id.toString(), prevXpRank);
     });
 
+    let prevElo = Symbol();
+    let prevEloRank = 0;
     usersByElo.forEach((user, index) => {
-      eloRankMap.set(user._id.toString(), index + 1);
+      if (user.elo !== prevElo) {
+        prevElo = user.elo;
+        prevEloRank = index + 1;
+      }
+      eloRankMap.set(user._id.toString(), prevEloRank);
     });
 
     const rankTime = Date.now() - rankStart;
