@@ -62,10 +62,20 @@ const userStatsSchema = new mongoose.Schema({
     moderationLogId: { type: String, default: null }   // Reference to moderation log
   },
   
+  // Set once by scripts/repairRefundUserStats.js on a row whose `elo` was
+  // inflated by the pre-migration refund scale bug and has since been corrected.
+  //
+  // THE ONLY THING MAKING THAT REPAIR RE-RUNNABLE. The correction is derived
+  // from the refunded games, which never change, so without a marker a second
+  // run recomputes the same debit against the already-corrected value and
+  // applies it twice. Pinning the write to the expected value stops a race, not
+  // a re-run.
+  refundScaleCorrected: { type: Boolean, default: false },
+
   // Metadata
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 

@@ -197,6 +197,17 @@ const gameSchema = new mongoose.Schema({
   // that ambiguity is exactly what made the v1 offender-repair forensic, so
   // every new stamp records its author.
   winLossAdjustedBy: { type: String, default: null },
+  // Set once by scripts/repairPreMigrationRefunds.js. This game's refund credited
+  // a Season 0 delta onto a v2 rating (see that script's header) and the
+  // over-credit has been debited back from the affected opponents.
+  //
+  // THE ONLY THING MAKING THAT REPAIR RE-RUNNABLE. The debit is derived from
+  // this game's stored deltas, which never change, so without a marker a second
+  // run recomputes the same debit against the already-corrected rating and
+  // applies it twice. Pinning the write to the expected rating stops a race, not
+  // a re-run.
+  refundScaleRepaired: { type: Boolean, default: false },
+  refundScaleRepairedAt: { type: Date, default: null },
 
   // Indexes for efficient querying
   createdAt: { type: Date, default: Date.now }
