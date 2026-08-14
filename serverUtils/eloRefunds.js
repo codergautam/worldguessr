@@ -4,7 +4,7 @@ import UserStats from '../models/UserStats.js';
 import { leagues, getActiveLeagues } from '../components/utils/leagues.js';
 import { convertDelta } from '../components/utils/ratingConversion.js';
 import { getConversionTable } from './conversionTable.js';
-import { MIGRATION_AT, RATING_V2 } from '../components/utils/ratingFlags.js';
+import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
 
 /**
  * Shared ELO-refund helpers.
@@ -115,7 +115,7 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
       if (change !== null && change < 0) {
         let refundAmount = Math.abs(change);
 
-        if (RATING_V2 && game.createdAt && game.createdAt < MIGRATION_AT) {
+        if (game.createdAt && game.createdAt < MIGRATION_AT) {
           const table = getConversionTable();
           // No table means we cannot know what this old-scale number is worth
           // now. Crediting it raw is the bug; guessing is worse. Skip the leg —
