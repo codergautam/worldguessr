@@ -49,31 +49,26 @@ const TileLayer = dynamic(
  *                  through the heaviest window of the duel.
  *
  * This version is time-driven and magnitude-independent: ELO_COUNT_MS start to
- * finish whether the swing is 1 or 300, eased, on requestAnimationFrame, and
+ * finish whether the swing is 1 or 300, LINEAR, on requestAnimationFrame, and
  * written straight to the DOM node through a ref — zero React commits per frame
  * (only the two that flip the flourish class on and off).
  *
- * WHY TWO CURVES. Under v2 a routine transfer is ±1-40, so for a small swing
- * there are only a handful of digit transitions available and the CURVE decides
- * whether they read as motion. easeOutCubic front-loads: with Δ=1 the single
- * change lands at ~20% (185ms) and the rest of the second is dead air — an
- * instant snap with a pause after it. easeInOutCubic puts that change at the
- * midpoint, and the CSS flourish (.elo-value--counting, styles/season1Badges.css)
- * carries the deliberate motion around it. Big swings keep the classic
- * front-loaded count-up they have always had.
+ * LINEAR, BY RULING (Aug 14). An eased two-curve version shipped briefly
+ * (easeOutCubic for big swings, easeInOutCubic under |Δ| 8) and was rolled
+ * back the same day: front-loading burned most of the digits in the first
+ * ~300ms and read as "too fast — doesn't show the beauty". The steady
+ * v1-patched cadence is the intended feel; only the DELIVERY (rAF + direct
+ * DOM writes instead of 30 React commits/sec) stays modern. Do not
+ * re-introduce an easing curve here without a new ruling.
  */
-const ELO_COUNT_MS = 1000;
+const ELO_COUNT_MS = 1500;
 /** Let the result title and badge paint before the digits begin moving. */
 const ELO_COUNT_DELAY_MS = 250;
-/** Below this |Δ| the digits alone cannot carry the motion — see WHY TWO CURVES. */
-const ELO_SMALL_DELTA = 8;
 
 /* Reason labels and the repeated-reason merge live in shared/stamps/receipt.js
  * — mobile's results screen imports the SAME module through its @shared alias,
  * so the two platforms cannot drift into showing different breakdowns for the
  * same game. */
-const easeOutCubic = (p) => 1 - Math.pow(1 - p, 3);
-const easeInOutCubic = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 
 const prefersReducedMotion = () => {
   try {
@@ -310,7 +305,6 @@ const GameSummary = ({
       return;
     }
 
-    const ease = Math.abs(delta) < ELO_SMALL_DELTA ? easeInOutCubic : easeOutCubic;
     let last = oldElo;
     write(oldElo);
     setEloCounting(false);
@@ -320,7 +314,8 @@ const GameSummary = ({
       setEloCounting(true);
       const step = (now) => {
         const progress = Math.min((now - start) / ELO_COUNT_MS, 1);
-        const value = Math.round(oldElo + delta * ease(progress));
+        // Linear on purpose — see the ELO_COUNT_MS header ruling.
+        const value = Math.round(oldElo + delta * progress);
         // Only touch the DOM when a digit actually changes. On the v2 scale most
         // frames of a ±3 swing produce the same integer, so this skips ~57 of the
         // 60 writes and the text node is left alone.

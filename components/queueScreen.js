@@ -89,11 +89,28 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset, signed
   // server's queuedAt on every render instead of being accumulated, so a
   // throttled background tab cannot silently lose seconds — there would be no
   // state to recover them from.
+  //
+  // PHASE-LOCKED to the queuedAt second boundary, not a bare setInterval(1000).
+  // The displayed digit flips when floor(elapsed) crosses a boundary, and that
+  // boundary is phased to queuedAt — while a fixed interval is phased to MOUNT.
+  // Any unrelated re-render landing between the two phases (an ETA push, a
+  // widen step — under second-precision ETAs that is nearly every 5s beat)
+  // showed the next second EARLY, and the following interval tick then held it
+  // LONG: the stopwatch visibly stuttered and sprinted (user report Aug 14).
+  // Re-arming a timeout for just past each boundary makes every second last
+  // exactly one second regardless of what else renders in between.
   const [, setTick] = useState(0);
+  const queuedAtForPump = multiplayerState?.queuedAt;
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+    if (typeof queuedAtForPump !== "number") return; // nothing displayed yet
+    let id;
+    const arm = () => {
+      const ms = Math.max(0, Date.now() + (timeOffset || 0) - queuedAtForPump);
+      id = setTimeout(() => { setTick((n) => n + 1); arm(); }, 1000 - (ms % 1000) + 5);
+    };
+    arm();
+    return () => clearTimeout(id);
+  }, [queuedAtForPump, timeOffset]);
 
   const { Icon, labelKey, titleKey } = MODES[mode] || MODES.unrankedDuel;
 

@@ -55,11 +55,6 @@ interface EloChangeDisplayProps {
   placement?: boolean;
 }
 
-/** Ease-out cubic — the classic count-up curve, front-loaded. */
-const easeOutCubic = (p: number) => 1 - Math.pow(1 - p, 3);
-/** Ease-in-out cubic — puts a single digit change at the MIDPOINT. See below. */
-const easeInOutCubic = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
-
 /**
  * How much sparkle a win earns: the league's position in the ladder, 1-based.
  * Derived from the ACTIVE table's ordering rather than hardcoded thresholds, so
@@ -95,24 +90,21 @@ export default function EloChangeDisplay({
   // DURATION / steps`), which was fine when a duel moved 60-600 points but is
   // wrong on the v2 scale: a Δ of 1 collapsed to a SINGLE 1200ms tick, i.e. the
   // number sat still for one and a half seconds and then teleported. Now the
-  // count always takes COUNT_MS regardless of the swing, and the curve does the
-  // work the digits cannot.
+  // count always takes COUNT_MS regardless of the swing.
   //
-  // WHY TWO CURVES: easeOutCubic front-loads, so with Δ=1 the only digit change
-  // lands at ~20% and the rest is dead air. Below SMALL_DELTA we use
-  // easeInOutCubic, which puts that change at the midpoint of the pop-in
-  // flourish below. Large swings (a placement seed jumps ~300 at once) keep the
-  // classic front-loaded count-up.
+  // LINEAR, BY RULING (Aug 14, mirrors web): an eased two-curve version
+  // shipped briefly and was rolled back the same day — front-loading burned
+  // most of the digits in the first ~300ms and read as too fast. The steady
+  // linear count is the intended feel; do not re-introduce an easing curve
+  // here without a new ruling.
   const [animatedElo, setAnimatedElo] = useState(oldElo);
   useEffect(() => {
     if (reduceMotion || oldElo === newElo) {
       setAnimatedElo(newElo);
       return;
     }
-    const COUNT_MS = 1000;
+    const COUNT_MS = 1500;
     const START_DELAY = 250; // let the result title and badge paint first
-    const SMALL_DELTA = 8;
-    const ease = Math.abs(delta) < SMALL_DELTA ? easeInOutCubic : easeOutCubic;
 
     let interval: ReturnType<typeof setInterval> | null = null;
     let last = oldElo;
@@ -125,7 +117,7 @@ export default function EloChangeDisplay({
       // results screen's reanimated work.
       interval = setInterval(() => {
         const progress = Math.min((Date.now() - startedAt) / COUNT_MS, 1);
-        const value = progress >= 1 ? newElo : Math.round(oldElo + delta * ease(progress));
+        const value = progress >= 1 ? newElo : Math.round(oldElo + delta * progress);
         // Only commit when a digit actually changes. On the v2 scale a ±3 swing
         // is 3 commits across the whole second instead of 30.
         if (value !== last) {
