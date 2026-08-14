@@ -1,5 +1,7 @@
 import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import SiteBackground from '../SiteBackground';
+import { MATCHMAKING_VEIL_COLORS } from '../../styles/matchmakingBackdrop';
 import { Pressable } from '../ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -79,7 +81,18 @@ export default function GameLoadingOverlay({
       pointerEvents={interactive ? 'auto' : 'none'}
     >
       <SiteBackground style={StyleSheet.absoluteFillObject}/>
-      <View style={styles.dim} />
+      {/* Countdown mode is a CONTINUATION OF THE QUEUE SCREEN, so it wears the
+          queue's exact veil (shared constant — identical pixels are what make
+          the 300ms route cross-fade invisible). Plain loading/error modes are
+          mid-game covers, not queue continuations: they keep the flat dim. */}
+      {showCountdown ? (
+        <LinearGradient
+          colors={MATCHMAKING_VEIL_COLORS}
+          style={StyleSheet.absoluteFillObject}
+        />
+      ) : (
+        <View style={styles.dim} />
+      )}
       {showCountdown ? (
         // During the countdown the wordmark sits top-left; when the round is
         // bailable (unranked) the back button shares that row, mirroring the

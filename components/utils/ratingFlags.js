@@ -72,7 +72,7 @@ export const MIGRATION_AT = new Date('2026-08-12T15:31:45.000Z');
 //                   IT LIVES HERE BECAUSE IT WAS TYPED AS A LITERAL IN ~15
 //                   PLACES AND ALL OF THEM WERE WRONG AFTER THE MIGRATION.
 //                   `1000` was correct on the Season 0 scale. On v2 it sits
-//                   inside VOYAGER (945-1269), above the median of 800 and
+//                   inside VOYAGER (1000-1299), above the median of 800 and
 //                   above roughly 85% of the ladder. Two consequences, both
 //                   shipped:
 //

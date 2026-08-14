@@ -3,6 +3,7 @@ import NextImage from "next/image";
 import { IoTrophy, IoShield, IoFlash, IoTimeOutline } from "react-icons/io5";
 import { asset } from "@/lib/basePath";
 import { useTranslation } from "@/components/useTranslations";
+import { formatQueueEta } from "@/shared/time/queueEta";
 
 /**
  * The matchmaking screen: ranked 1v1, unranked 1v1, and 2v2 stage 2.
@@ -48,7 +49,59 @@ const MODES = {
 
 const ROUGH_KEYS = { short: "queueEtaRoughShort", mid: "queueEtaRoughMid", long: "queueEtaRoughLong" };
 
-export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
+// How long the old value takes to fade out; the fade back in rides the CSS
+// transition on the same class.
+const RANGE_FADE_MS = 140;
+
+// What the reserved ELO cell shows before the server's range lands. The SAME
+// "..." PlayerCard shows while eloData is loading — an honest "pending", never
+// an invented number. NO client-side guess stands in for it: an optimistic
+// range computed from cached elo was tried and rejected (user ruling Aug 13) —
+// stale elo / league-table drift made it visibly self-correct one RTT in,
+// which is worse than a quiet placeholder.
+const RANGE_PLACEHOLDER = "...";
+
+// The ELO cell's value FADES between every change instead of snapping (a digit
+// count-up was tried and rejected — fade, not count): placeholder→first range
+// and every widen step all take the same 140ms-out/swap/fade-in path. The
+// displayed string is STATE, deliberately decoupled from the prop; mount
+// paints instantly (the cell's own entrance animation covers arrival).
+function FadingValue({ value }) {
+  const [shown, setShown] = useState(value);
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    if (value === shown) { setHidden(false); return; }
+    // Reduced motion swaps with no fade, matching the CSS media rule this
+    // screen already honours for its other animations. setHidden(false) is NOT
+    // redundant: a fade-out interrupted by this branch (the preference flipped
+    // mid-fade) would otherwise leave `hidden` latched true with nothing left
+    // to clear it — mobile's FadingValue heals this in its steady-state branch,
+    // and this is web's equivalent.
+    const reduce = typeof window !== "undefined"
+      && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce) { setShown(value); setHidden(false); return; }
+    setHidden(true);
+    // A newer value landing mid-fade re-runs this effect, clears this timer
+    // and arms a fresh one — the swap always lands on the newest value.
+    const id = setTimeout(() => {
+      setShown(value);
+      setHidden(false);
+    }, RANGE_FADE_MS);
+    return () => clearTimeout(id);
+  }, [value, shown]);
+
+  const pending = shown === RANGE_PLACEHOLDER;
+  return (
+    <span
+      className={`wgQueue__cellValue wgQueue__cellValue--fades${hidden ? " wgQueue__cellValue--faded" : ""}${pending ? " wgQueue__cellValue--rough" : ""}`}
+    >
+      {shown}
+    </span>
+  );
+}
+
+export default function QueueScreen({ mode, multiplayerState, timeOffset, signedIn }) {
   const { t: text } = useTranslation("common");
 
   // A RE-RENDER PUMP, not a clock. The elapsed value is derived from the
@@ -83,6 +136,17 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
   const range = mode === "publicDuel" ? multiplayerState?.publicDuelRange : null;
   const eta = mode === "publicDuel" ? multiplayerState?.queueEta : null;
 
+  // THE PLATE'S LAYOUT IS RESERVED, NOT DATA-DRIVEN, for a signed-in ranked
+  // queue: the ELO cell exists from the screen's first frame holding a quiet
+  // placeholder, and the server's authoritative range fades into it one RTT
+  // later. The plate popping in when data arrived was a layout shift that
+  // shoved the elapsed clock — and no client-side guess can close that gap
+  // honestly (see RANGE_PLACEHOLDER). Guests never receive a range, so they
+  // never reserve the cell.
+  const rangeStr = range
+    ? `${range[0]} – ${range[1]}`
+    : (mode === "publicDuel" && signedIn ? RANGE_PLACEHOLDER : null);
+
   // 'rough' is a MODELLED estimate: vague wording, and a dimmer value style.
   // 'unknown' renders nothing at all — no data is a reason to say nothing,
   // never a reason to invent a number.
@@ -98,8 +162,8 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
   } else if (eta?.state === "rough" && ROUGH_KEYS[eta.tier]) {
     etaStr = text(ROUGH_KEYS[eta.tier]);
     etaRough = true;
-  } else if (eta?.state === "ok" && eta.value !== null) {
-    etaStr = text(eta.unit === "min" ? "queueEtaMinutes" : "queueEtaSeconds", { v: eta.value });
+  } else if (eta?.state === "ok" && Number.isFinite(eta.seconds)) {
+    etaStr = formatQueueEta(text, eta.seconds);
   }
 
   return (
@@ -146,12 +210,12 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset }) {
           {/* One plate, one cell per value. The divider between cells is a CSS
               sibling rule, so a single value renders with no stray edge.
               Placement skips the plate because its bot match begins immediately. */}
-          {!isPlacement && (range || etaStr) && (
+          {!isPlacement && (rangeStr || etaStr) && (
             <div className="wgQueue__data">
-              {range && (
+              {rangeStr && (
                 <div className="wgQueue__cell">
                   <span className="wgQueue__cellLabel">{text("eloRange")}</span>
-                  <span className="wgQueue__cellValue">{range[0]} – {range[1]}</span>
+                  <FadingValue value={rangeStr} />
                 </div>
               )}
               {etaStr && (

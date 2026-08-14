@@ -1,5 +1,6 @@
 // Hand-maintained mirror of components/utils/leagues.js. THESE HAVE DRIFTED
 // BEFORE — when the web table changes, change this file in the same commit.
+import { EXPLORER_MIN, VOYAGER_MIN, NOMAD_MIN, LEGEND_MIN } from './eloSystem';
 export interface League {
   min: number;
   max: number;
@@ -12,10 +13,11 @@ export interface League {
 // ── v1 (LEGACY SCALE) ────────────────────────────────────────────────────────
 // KNOWN WART, mirrored deliberately: the object keys and the display `.name`
 // values are swapped for the first two tiers (key `explorer` displays as
-// "Trekker", key `trekker` displays as "Explorer"). The KEYS are what callers
-// read — app/settings.tsx gates strict matchmaking on `leagues.voyager.min`,
-// mirroring ws/ws.js:1672, which still reads the v1 table for that gate. So the
-// v1 table stays here, unchanged, even though display now runs on v2.
+// "Trekker", key `trekker` displays as "Explorer"). Strict matchmaking no
+// longer gates on this table (app/settings.tsx and the server both resolve
+// getStrictFloor() from the ACTIVE table now); the v1 table survives only as
+// data, mirroring the web module, because Season 0 history renders with these
+// cutoffs. Display runs on v2.
 export const leagues: Record<string, League> = {
   'explorer': {
     min: 0,
@@ -56,12 +58,15 @@ export const leagues: Record<string, League> = {
 //
 // `light` (not `lightColor`) — web's duelHealthbar.js/partyLobby.js read `.light`
 // for the name glow, and mobile's DuelHUD/GetReadyOverlay do the same.
+// Cutoffs are IMPORTED from ./eloSystem, never typed here: the same numbers
+// drive the K_VET rating lock (kFactor), so a band moved in one place and not
+// the other would silently split the K schedule from the tier display.
 export const leaguesV2: Record<string, League> = {
-  trekkerV2:  { name: 'Trekker',  min: 0,    max: 814,      emoji: '🥾', color: '#808080', light: '#d3d3d3' },
-  explorerV2: { name: 'Explorer', min: 815,  max: 944,      emoji: '🧭', color: '#cd7f32' },
-  voyagerV2:  { name: 'Voyager',  min: 945,  max: 1269,     emoji: '🚢', color: '#ffd700' },
-  nomadV2:    { name: 'Nomad',    min: 1270, max: 1799,     emoji: '🌍', color: '#b9f2ff' },
-  legendV2:   { name: 'Legend',   min: 1800, max: Infinity, emoji: '👑', color: '#dc143c' },
+  trekkerV2:  { name: 'Trekker',  min: 0,            max: EXPLORER_MIN - 1, emoji: '🥾', color: '#808080', light: '#d3d3d3' },
+  explorerV2: { name: 'Explorer', min: EXPLORER_MIN, max: VOYAGER_MIN - 1,  emoji: '🧭', color: '#cd7f32' },
+  voyagerV2:  { name: 'Voyager',  min: VOYAGER_MIN,  max: NOMAD_MIN - 1,    emoji: '🚢', color: '#ffd700' },
+  nomadV2:    { name: 'Nomad',    min: NOMAD_MIN,    max: LEGEND_MIN - 1,   emoji: '🌍', color: '#b9f2ff' },
+  legendV2:   { name: 'Legend',   min: LEGEND_MIN,   max: Infinity,         emoji: '👑', color: '#dc143c' },
 };
 
 /**
@@ -97,7 +102,7 @@ export function getLeagueRange(name: string): [number, number] {
   const league = Object.values(table).find(league => league.name === name);
   if (!league) {
     const lowest = table[Object.keys(table)[0]];
-    return lowest ? [lowest.min, lowest.max] : [0, 814];
+    return lowest ? [lowest.min, lowest.max] : [0, EXPLORER_MIN - 1];
   }
   return [league.min, league.max];
 }

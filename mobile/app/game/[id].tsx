@@ -816,9 +816,27 @@ export default function GameScreen() {
     mpInitialGetReady,
   );
 
-  // Animation values
-  const loadingOpacity = useRef(new Animated.Value(1)).current;
-  const sceneOpacity = useRef(new Animated.Value(0)).current;
+  // Animation values.
+  // loadingOpacity/sceneOpacity are SEEDED FROM REALITY, not hardcoded 1/0: a
+  // matched ranked duel mounts this screen with showLoadingBanner already
+  // false (state is 'getready' from the very first render), and the old
+  // unconditional seeds meant an opaque, WRONG "Loading…" cover fading out
+  // over ~1s while the whole scene — GetReadyOverlay included — faded up from
+  // nothing underneath it. When nothing needs covering, the cover starts
+  // gone and the scene starts visible; the route-level fade from /queue is
+  // the one and only reveal.
+  const loadingOpacity = useRef(new Animated.Value(showLoadingBanner ? 1 : 0)).current;
+  const sceneOpacity = useRef(new Animated.Value(showLoadingBanner ? 0 : 1)).current;
+  // "Has the loading cover ever actually been shown?" — the fade-out branch
+  // below must only run for a cover that was genuinely on screen (e.g. the
+  // private-lobby 'waiting' beat before Play Again), never for one that
+  // started hidden.
+  const loadingBannerEverShownRef = useRef(showLoadingBanner);
+  // The overlay's own visibility CLOCK, as state so render-time conditions
+  // (mpRound1Reveal below) can follow it: true from show until the fade-out
+  // finishes. Keying content on any other clock is how the countdown ring
+  // used to swap to a "Loading…" spinner mid-fade.
+  const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(showLoadingBanner);
   const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   // Map overlay opacity. Normally 1; used to FADE the full-screen between-rounds
   // answer map out (instead of sliding its height down) when the next round's
@@ -857,7 +875,9 @@ export default function GameScreen() {
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
   const singleplayerTopRightAnim = useRef(new Animated.Value(1)).current;
-  const hasCompletedInitialReveal = useRef(false);
+  // Seeded true when the scene starts revealed (duel getready mount) — the
+  // 550ms initial reveal is a no-op there by design.
+  const hasCompletedInitialReveal = useRef(!showLoadingBanner);
 
   // Round-1 reveal: keep the start countdown ring on the loading overlay from the
   // getready countdown through the brief handoff into 'guess'. The round-1 pano
@@ -867,11 +887,18 @@ export default function GameScreen() {
   // instead of swapping to the "Loading…" spinner for the overlay's fade-out.
   // If the pano isn't ready yet we fall through to the spinner via
   // showLoadingBanner, exactly like a later round whose preload didn't finish.
+  //
+  // HELD ON THE OVERLAY'S OWN CLOCK (loadingOverlayVisible), not the scene
+  // reveal's: the old `!hasCompletedInitialReveal.current` term expired when
+  // the 550ms scene ramp finished, while the overlay itself stayed visible
+  // until ~1s (400ms delay + 600ms fade) — and in that gap the still-visible
+  // overlay swapped the ring for the "Loading…" spinner over the live pano.
+  // The ring must persist for exactly as long as the overlay can be seen.
   const mpRound1Reveal = !!(isMultiplayer && gameData && !gameData.duel
     && gameData.curRound === 1
     && gameData.state === 'guess'
     && streetViewLoaded
-    && !hasCompletedInitialReveal.current);
+    && loadingOverlayVisible);
 
   // Mount map eagerly once game loads — prevents first-touch being swallowed
   // by a freshly-mounted MapView when showing the first round's result
@@ -912,12 +939,14 @@ export default function GameScreen() {
     }
 
     if (showLoadingBanner) {
+      loadingBannerEverShownRef.current = true;
+      setLoadingOverlayVisible(true);
       Animated.timing(loadingOpacity, {
         toValue: 1,
         duration: 200,
         useNativeDriver: true,
       }).start();
-    } else {
+    } else if (loadingBannerEverShownRef.current) {
       // Delay before fading out so the StreetView has time to paint its first frame
       fadeOutTimer.current = setTimeout(() => {
         Animated.timing(loadingOpacity, {
@@ -925,9 +954,15 @@ export default function GameScreen() {
           duration: 600,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start();
+        }).start(({ finished }) => {
+          // The overlay is only "gone" when the fade actually completes — an
+          // interrupted fade (banner re-shown mid-flight) keeps it visible.
+          if (finished) setLoadingOverlayVisible(false);
+        });
       }, 400);
     }
+    // else: the cover was never shown (screen mounted straight into a duel
+    // getready) — loadingOpacity was seeded 0, there is nothing to fade.
 
     return () => {
       if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);

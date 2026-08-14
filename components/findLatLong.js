@@ -9,6 +9,16 @@ const loader = new Loader({
   libraries: ["places"]
 });
 
+// The bearing at the centre of the panorama tiles, which getPanorama already
+// hands back for free. For car coverage that is the direction of travel, so it
+// looks down the road. A location that ships without a heading makes the Maps
+// Embed use its own default, and that default is a hardcoded 0: the player
+// spawns facing due north with the street somewhere off to the side.
+function startHeading(pano) {
+  const h = pano?.tiles?.centerHeading;
+  return (typeof h === 'number' && isFinite(h)) ? ((h % 360) + 360) % 360 : undefined;
+}
+
 function generateLatLong(location, { requireKnownCountry, requireKnownContinent } = {}) {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -77,13 +87,13 @@ function generateLatLong(location, { requireKnownCountry, requireKnownContinent 
             // freshPano: just resolved seconds ago, safe to trust — unlike the
             // stale panoId strings in map files. Lets the No Move renderer
             // skip its own getPanorama round trip.
-            resolve({ lat: latO, long: longO, country, freshPano: data.location?.pano || null });
+            resolve({ lat: latO, long: longO, country, freshPano: data.location?.pano || null, heading: startHeading(data) });
           }).catch((e) => {
             console.log("Failed to get country", e);
             // Both server and local lookups failed. In country-guesser mode this
             // spot is unusable; reject and retry. In classic we tolerate Unknown.
             if (requireKnownCountry) return resolve(null);
-            resolve({ lat: latO, long: longO, country: "Unknown", freshPano: data.location?.pano || null });
+            resolve({ lat: latO, long: longO, country: "Unknown", freshPano: data.location?.pano || null, heading: startHeading(data) });
           });
         } else {
           console.log("Failed to get panorama", status, data);

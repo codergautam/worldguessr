@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { STAMP_REASON_KEYS, mergeStampLines } from '../shared/stamps/receipt.js';
+
+const LOCALES = ['en', 'es', 'fr', 'de', 'ru'];
 
 // The receipt row is the one surface in the app where a player counts currency,
 // so the rules that decide what it SAYS are pinned here. Everything below is a
@@ -77,8 +80,7 @@ describe('mergeStampLines', () => {
 
 describe('STAMP_REASON_KEYS', () => {
   it('covers every reason the server can pay out from a finished game', () => {
-    // Mirrors the payout table in ws/classes/Game.js (STAMP_DAILY_LADDER,
-    // STAMP_WEEKLY_QUESTS and the flat per-game grants). A reason added there
+    // Mirrors the live payout table in ws/classes/Game.js. A reason added there
     // without a key here renders as a bare unlabelled amount — which is the
     // designed degradation, but it should be a DECISION, so this test is the
     // reminder to make it.
@@ -86,17 +88,49 @@ describe('STAMP_REASON_KEYS', () => {
       'game_base',
       'game_win',
       'bot_game',
+    ];
+
+    for (const reason of paidByGameFinish) {
+      expect(STAMP_REASON_KEYS[reason], `missing locale key for "${reason}"`).toBeTruthy();
+    }
+  });
+
+  it('drops the removed quest bonuses to an unlabelled amount', () => {
+    // The quest system is gone and so are its locale strings. An old
+    // `daily_ladder` row in a history receipt is NOT an error: the documented
+    // fallback is that renderers show the bare amount with no caption, which
+    // beats leaking the raw slug or crashing on a missing key. What must never
+    // come back is a key here pointing at a string no locale file still has.
+    for (const reason of [
       'first_win_day',
       'daily_ladder',
       'weekly_play20',
       'weekly_win10',
       'weekly_upset',
       'weekly_days4',
-    ];
-
-    for (const reason of paidByGameFinish) {
-      expect(STAMP_REASON_KEYS[reason], `missing locale key for "${reason}"`).toBeTruthy();
+    ]) {
+      expect(STAMP_REASON_KEYS[reason], `stale locale key for removed reason "${reason}"`).toBeUndefined();
     }
+  });
+
+  // THE TWO-WAY GUARD. The map and the locale files are edited in different
+  // places by different changes, and they drift silently in BOTH directions: a
+  // key with no string renders an empty caption, a string with no key is dead
+  // weight nobody notices for a year. Mobile reads these same files through the
+  // @locales alias, so one assertion covers both platforms.
+  it.each(LOCALES)('has a %s string for every mapped reason, and no orphans', (locale) => {
+    const copy = JSON.parse(
+      readFileSync(new URL(`../public/locales/${locale}/common.json`, import.meta.url), 'utf8'),
+    );
+
+    for (const [reason, key] of Object.entries(STAMP_REASON_KEYS)) {
+      expect(copy[key], `${locale} is missing "${key}" for reason "${reason}"`).toBeTruthy();
+    }
+
+    const mapped = new Set(Object.values(STAMP_REASON_KEYS));
+    const orphans = Object.keys(copy)
+      .filter((k) => k.startsWith('stampsReason') && !mapped.has(k));
+    expect(orphans, `${locale} has stampsReason* strings no reason maps to`).toEqual([]);
   });
 
   it('maps no reason the game-finish path cannot pay', () => {

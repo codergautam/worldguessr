@@ -97,3 +97,7 @@ ELO_DEPLOYMENT_AUDIT.md
 .agents/
 
 data/season0-peaks.json
+# fixHeadings.js resume state (see scripts/fixHeadings.js)
+*.headings.progress.json
+# pruneInvalidLocations.js audit sidecars
+*.deleted.json

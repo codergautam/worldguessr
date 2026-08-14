@@ -1,4 +1,5 @@
 import { RATING_V2 } from './ratingFlags.js';
+import { EXPLORER_MIN, VOYAGER_MIN, NOMAD_MIN, LEGEND_MIN } from './eloSystem.js';
 
 // KNOWN WART, DO NOT "FIX" HERE: the object keys and the display `.name` values
 // are swapped for the first two tiers. Key `explorer` displays as "Trekker"
@@ -46,14 +47,17 @@ export const leagues = {
 // Legend starts EMPTY at migration: no account is seeded above 1800, so the tier
 // is earned only through post-migration play. Expect zero Legends on day one and
 // do not treat an empty Legend bucket as a bug.
+// Cutoffs are IMPORTED from eloSystem.js, never typed here: the same numbers
+// drive the K_VET rating lock (kFactor), so a band moved in one place and not
+// the other would silently split the K schedule from the tier display.
 export const leaguesV2 = {
   // `light` (not `lightColor`): duelHealthbar.js and partyLobby.js read `.light`
   // for the name glow, so a differently-named key silently drops Trekker's glow.
-  trekkerV2:  { name: 'Trekker',  min: 0,    max: 814,  emoji: '🥾', color: '#808080', light: '#d3d3d3' },
-  explorerV2: { name: 'Explorer', min: 815,  max: 944,  emoji: '🧭', color: '#cd7f32' },
-  voyagerV2:  { name: 'Voyager',  min: 945,  max: 1269, emoji: '🚢', color: '#ffd700' },
-  nomadV2:    { name: 'Nomad',    min: 1270, max: 1799, emoji: '🌍', color: '#b9f2ff' },
-  legendV2:   { name: 'Legend',   min: 1800, max: Infinity, emoji: '👑', color: '#dc143c' },
+  trekkerV2:  { name: 'Trekker',  min: 0,            max: EXPLORER_MIN - 1, emoji: '🥾', color: '#808080', light: '#d3d3d3' },
+  explorerV2: { name: 'Explorer', min: EXPLORER_MIN, max: VOYAGER_MIN - 1,  emoji: '🧭', color: '#cd7f32' },
+  voyagerV2:  { name: 'Voyager',  min: VOYAGER_MIN,  max: NOMAD_MIN - 1,    emoji: '🚢', color: '#ffd700' },
+  nomadV2:    { name: 'Nomad',    min: NOMAD_MIN,    max: LEGEND_MIN - 1,   emoji: '🌍', color: '#b9f2ff' },
+  legendV2:   { name: 'Legend',   min: LEGEND_MIN,   max: Infinity,         emoji: '👑', color: '#dc143c' },
 };
 
 // In-memory override installed from the `leagues` RatingConfig doc. Null means
@@ -149,6 +153,36 @@ export const getLeague = (elo) => {
 }
 
 /**
+ * The tier directly BELOW `league`, or null when it is already the bottom one.
+ *
+ * EXISTS FOR THE OPENING LEAGUE LOCK'S BOUNDARY GRACE. Matchmaking waives that
+ * lock in BOTH directions for one pair: a player within UPPER_BOUNDARY_GRACE_ELO
+ * of their ceiling may search up, and the player they reach is therefore matched
+ * DOWN past their own floor (ws/matchmakingV2.js hasUpperBoundaryGrace). The
+ * band shown to that upper player has to know where the neighbouring tier ends,
+ * or it advertises a floor the queue will happily go beneath.
+ *
+ * NOT `league.min - 1`: setLeagueConfig permits GAPS between tiers, so the
+ * neighbour's ceiling is only adjacent on the built-in tables.
+ *
+ * Resolved by scanning for the greatest `max` still below this tier's floor
+ * rather than by taking the previous key, because a config-installed table is
+ * ordered by validation but keyed by slug, and depending on key order for a
+ * numeric question is how the retired v1 table's swapped keys caused bugs.
+ */
+export const getLeagueBelow = (league) => {
+  if (!Number.isFinite(league?.min)) return null;
+  const table = getActiveLeagues();
+  let below = null;
+  for (const key in table) {
+    const tier = table[key];
+    if (typeof tier?.max !== 'number' || Number.isNaN(tier.max)) continue;
+    if (tier.max < league.min && (below === null || tier.max > below.max)) below = tier;
+  }
+  return below;
+};
+
+/**
  * Resolve the league to DISPLAY, preferring whatever the SERVER said.
  *
  * WHY: the tier cutoffs are seasonal. `models/RatingConfig.js` already lets the
@@ -232,7 +266,7 @@ export const getLeagueRange = (name) => {
     // an unknown or stale name must NOT throw: a throw there kills the handler.
     // Fall back to the lowest tier, matching mobile/src/shared/user/leagues.ts.
     const lowest = table[Object.keys(table)[0]];
-    return lowest ? [lowest.min, lowest.max] : [0, 1999];
+    return lowest ? [lowest.min, lowest.max] : [0, EXPLORER_MIN - 1];
   }
   return [league.min, league.max];
 }

@@ -316,6 +316,16 @@ export default function GameChat({
             style={[styles.list, { maxHeight: listMax, minHeight: listMin }]}
             contentContainerStyle={styles.listContent}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            // onContentSizeChange only covers CONTENT growth (new messages).
+            // The keyboard shrinks the LIST ITSELF (kbLift drops listMax), and
+            // a container resize fires onLayout, not onContentSizeChange — so
+            // without this, opening the keyboard left the scroll offset
+            // anchored to the old viewport top and the newest messages sat
+            // clipped below the fold. Snap, not animate: the panel is already
+            // jumping to its lifted position this same frame, and an animated
+            // scroll inside a teleporting panel reads as lag. Also covers
+            // rotation and keyboard dismiss for free (both re-layout).
+            onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
             keyboardShouldPersistTaps="handled"
             // Standard chat gesture and the pressure valve for tight layouts:
             // drag the message list to pull the keyboard down (iOS tracks the

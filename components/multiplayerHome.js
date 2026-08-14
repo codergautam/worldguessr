@@ -123,6 +123,11 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                     mode={queueMode}
                     multiplayerState={multiplayerState}
                     timeOffset={timeOffset}
+                    /* Ranked reserves the ELO cell's layout from frame one and
+                       fades the server's range in — but only for accounts,
+                       because a guest queue never receives a range at all and
+                       a reserved cell would sit on "..." forever. */
+                    signedIn={!!session?.token?.secret}
                 />
             )}
 

@@ -123,9 +123,9 @@ describe('weekKeyUTC', () => {
 
 describe('assertReason', () => {
   it('accepts a valid grant and returns true', () => {
-    expect(assertReason('daily_ladder', 20)).toBe(true);
     expect(assertReason('game_base', 2)).toBe(true);
     expect(assertReason('game_win', 1)).toBe(true);
+    expect(assertReason('bot_game', 2)).toBe(true);
     expect(assertReason('purchase', -5000)).toBe(true);
     expect(assertReason('admin_adjust', 100)).toBe(true);
     expect(assertReason('admin_adjust', -100)).toBe(true); // sign 0 = either way
@@ -138,6 +138,19 @@ describe('assertReason', () => {
     expect(() => assertReason(undefined, 1)).toThrow(/unknown reason/);
     expect(() => assertReason('', 1)).toThrow(/unknown reason/);
     expect(() => assertReason(null, 1)).toThrow(/unknown reason/);
+  });
+
+  it('rejects removed daily and weekly bonuses', () => {
+    for (const reason of [
+      'first_win_day',
+      'daily_ladder',
+      'weekly_play20',
+      'weekly_win10',
+      'weekly_upset',
+      'weekly_days4',
+    ]) {
+      expect(() => assertReason(reason, 1)).toThrow(/unknown reason/);
+    }
   });
 
   it('still fails closed on an inherited Object.prototype key', () => {
@@ -155,23 +168,23 @@ describe('assertReason', () => {
 
   it('THROWS on the wrong sign', () => {
     expect(() => assertReason('game_win', -1)).toThrow(/requires sign 1/);
-    expect(() => assertReason('daily_ladder', -20)).toThrow(/requires sign 1/);
+    expect(() => assertReason('bot_game', -2)).toThrow(/requires sign 1/);
     expect(() => assertReason('purchase', 100)).toThrow(/requires sign -1/);
     expect(() => assertReason('refund', -100)).toThrow(/requires sign 1/);
   });
 
   it('THROWS on exceeding maxAbs', () => {
-    expect(() => assertReason('daily_ladder', 21)).toThrow(/exceeds maxAbs 20/);
+    expect(() => assertReason('bot_game', 3)).toThrow(/exceeds maxAbs 2/);
     expect(() => assertReason('game_base', 3)).toThrow(/exceeds maxAbs 2/);
     expect(() => assertReason('purchase', -5001)).toThrow(/exceeds maxAbs 5000/);
     expect(() => assertReason('admin_adjust', 100001)).toThrow(/exceeds maxAbs 100000/);
   });
 
   it('THROWS on a non-integer delta — stamps are whole units', () => {
-    expect(() => assertReason('daily_ladder', 1.5)).toThrow(/non-integer/);
-    expect(() => assertReason('daily_ladder', NaN)).toThrow(/non-integer/);
-    expect(() => assertReason('daily_ladder', '5')).toThrow(/non-integer/);
-    expect(() => assertReason('daily_ladder', Infinity)).toThrow(/non-integer/);
+    expect(() => assertReason('game_base', 1.5)).toThrow(/non-integer/);
+    expect(() => assertReason('game_base', NaN)).toThrow(/non-integer/);
+    expect(() => assertReason('game_base', '2')).toThrow(/non-integer/);
+    expect(() => assertReason('game_base', Infinity)).toThrow(/non-integer/);
   });
 
   it('never returns false — every rejection is a throw', () => {

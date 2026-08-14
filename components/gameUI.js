@@ -89,14 +89,24 @@ function DuelIntroBars({ isStartingDuel, vsExiting, countdown, leftBar, rightBar
 
       {showVsChrome && (
         <div className={`hb-vs-chrome${vsExiting ? ' hb-vs-chrome--exiting' : ''}`}>
-          <p className="hb-vs-label">VS</p>
-          {/* Placement seeding match: announced under the VS so the very first
-              thing a new player reads is what this game IS. Pre-translated by
-              the call site — this layer stays hook-free. */}
-          {placementLabel && (
-            <p className="hb-vs-placement elo-placement-label">{placementLabel}</p>
-          )}
-          <p className="hb-vs-countdown">{countdown}</p>
+          {/* Full-bleed veil at the queue veil's exact alpha, so the queue
+              screen unmounting in the same commit this mounts is invisible —
+              the background never changes, only the content. Inside the
+              chrome, so the 600ms --exiting fade dissolves it for free. */}
+          <div className="hb-vs-veil" />
+          {/* Content wrapper, NOT per-element animation: .hb-vs-label already
+              carries an !important vsGlow animation at two breakpoints, and an
+              element takes one animation shorthand. */}
+          <div className="hb-vs-content">
+            <p className="hb-vs-label">VS</p>
+            {/* Placement seeding match: announced under the VS so the very first
+                thing a new player reads is what this game IS. Pre-translated by
+                the call site — this layer stays hook-free. */}
+            {placementLabel && (
+              <p className="hb-vs-placement elo-placement-label">{placementLabel}</p>
+            )}
+            <p className="hb-vs-countdown">{countdown}</p>
+          </div>
         </div>
       )}
     </>

@@ -7,7 +7,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import User from './models/User.js';
-import { STARTING_ELO } from './components/utils/ratingFlags.js';
+import { STARTING_ELO, MIGRATION_AT } from './components/utils/ratingFlags.js';
 import UserStats from './models/UserStats.js';
 import DailyLeaderboard from './models/DailyLeaderboard.js';
 import CronState from './models/CronState.js';
@@ -15,8 +15,8 @@ import StampLedger from './models/StampLedger.js';
 import StampQuests from './models/StampQuests.js';
 import UserStatsService from './components/utils/userStatsService.js';
 import { purgeUserCascade } from './serverUtils/purgeUserCascade.js';
-import { scheduleAligned, nextUtcMidnight, nextUtcMonday } from './serverUtils/scheduleAligned.js';
-import { dayKeyUTC, weekKeyUTC } from './serverUtils/stamps/periods.js';
+import { scheduleAligned, nextUtcMidnight } from './serverUtils/scheduleAligned.js';
+import { dayKeyUTC } from './serverUtils/stamps/periods.js';
 // Timers go through safeInterval so one throwing job cannot take the whole cron
 // process down and silently stop every OTHER job with it. See ws/safeTimers.js.
 import { safeInterval } from './ws/safeTimers.js';
@@ -241,6 +241,16 @@ const computeDailyLeaderboards = async () => {
     const now = new Date();
     const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
+    // ELO rows written before the v2 migration instant are on the RETIRED
+    // Season 0 scale (thousands, not hundreds). A 24h window that straddles
+    // the instant reads a veteran's day as "4200 -> 1050", a huge negative
+    // delta, and the > 0 filter then drops every veteran from the board —
+    // leaving only post-migration accounts. Clamp the ELO window start to the
+    // migration instant; Math.max makes this inert once the instant is more
+    // than a day old, and it self-arms again if MIGRATION_AT is ever bumped
+    // for a future re-anchor. XP was never rescaled, so its window stays raw.
+    const eloWindowStart = new Date(Math.max(dayAgo.getTime(), MIGRATION_AT.getTime()));
+
     // Get start of day (midnight UTC) for consistent date keys
     const todayMidnight = new Date(now);
     todayMidnight.setUTCHours(0, 0, 0, 0);
@@ -248,7 +258,7 @@ const computeDailyLeaderboards = async () => {
     // Compute both XP and ELO leaderboards in parallel
     const [xpLeaderboard, eloLeaderboard] = await Promise.all([
       computeLeaderboardForMode('xp', dayAgo),
-      computeLeaderboardForMode('elo', dayAgo)
+      computeLeaderboardForMode('elo', eloWindowStart)
     ]);
 
     // Save both leaderboards to database
@@ -291,7 +301,7 @@ const computeDailyLeaderboards = async () => {
 };
 
 // Helper function to compute leaderboard for a specific mode (xp or elo)
-const computeLeaderboardForMode = async (mode, dayAgo) => {
+const computeLeaderboardForMode = async (mode, windowStart) => {
   // Only events that actually move XP/ELO contribute to the daily delta.
   // weekly_update writes one row per user (millions) and was the dominant
   // source of work; excluding it shrinks the working set massively.
@@ -300,11 +310,33 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
   // per user without a global blocking $sort over the whole 24h slice. The
   // pipeline becomes a streaming hash aggregation with one-doc accumulators.
   const deltaField = mode === 'xp' ? 'xpDelta' : 'eloDelta';
+
+  // XP: every completed game moves XP, so every game row feeds the delta.
+  //
+  // ELO: ONLY ranked duels move rating, but single-player (api/storeGame.js)
+  // and 2v2 rows also carry the player's CURRENT elo as a passive snapshot.
+  // Letting those into the window made a brand-new account's pre-placement
+  // rows (entry rating 500) the day's baseline, so the placement seed jump
+  // itself (up to +400) scored as a "daily gain" and the board filled with
+  // fresh placements instead of actual ladder movement. Restrict the ELO
+  // delta to rows that represent rating-bearing events: ranked-duel rows
+  // (the `duel_` gameIds createDuelUserStats writes — a placement's own row
+  // then becomes the BASELINE, so the seed never counts as a gain) plus
+  // elo_refund rows (real rating movement from moderation remediation).
+  const eventMatch = mode === 'xp'
+    ? { triggerEvent: { $in: ['game_completed', 'elo_refund'] } }
+    : {
+        $or: [
+          { triggerEvent: 'elo_refund' },
+          { triggerEvent: 'game_completed', gameId: { $regex: '^duel_' } }
+        ]
+      };
+
   const pipeline = [
     {
       $match: {
-        timestamp: { $gte: dayAgo },
-        triggerEvent: { $in: ['game_completed', 'elo_refund'] }
+        timestamp: { $gte: windowStart },
+        ...eventMatch
       }
     },
     {
@@ -483,8 +515,8 @@ startAccountDeletionPurgeTimer();
  * turn a mid-run crash into a permanently skipped period.
  *
  * @param {string}   job    Stable CronState identifier.
- * @param {Function} nextFn Boundary generator (nextUtcMidnight / nextUtcMonday).
- * @param {Function} keyFn  Period key for a timestamp (dayKeyUTC / weekKeyUTC).
+ * @param {Function} nextFn Boundary generator (e.g. nextUtcMidnight).
+ * @param {Function} keyFn  Period key for a timestamp (e.g. dayKeyUTC).
  * @param {Function} run    async (periodKey) => void. Must be idempotent.
  */
 const startAlignedJob = (job, nextFn, keyFn, run) => {
@@ -562,7 +594,12 @@ const startEloTodayResetTimer = () => {
 startEloTodayResetTimer();
 
 // ============================================================================
-// STAMPS PERIOD ROLLOVER (daily 00:00 UTC, weekly Monday 00:00 UTC)
+// STAMPS PERIOD ROLLOVER (daily 00:00 UTC)
+//
+// DAILY ONLY. The weekly quests were removed with the rest of the quest system,
+// so 'day' is now the only periodType anything writes (ws Game.js's bot cap,
+// api/stampShop.js's ad-free pass cap). The weekly job that used to run beside
+// this one is gone with them.
 //
 // !!! DO NOT "FIX" THIS BY ADDING A PER-USER COUNTER RESET SWEEP !!!
 //
@@ -578,14 +615,14 @@ startEloTodayResetTimer();
 // CURRENT period's docs (a late-firing pass, a missed-boundary recovery run)
 // would destroy live progress that the key-based model cannot lose.
 //
-// All these jobs do is set expiresAt on the docs of periods that are over, so
+// All this job does is set expiresAt on the docs of periods that are over, so
 // the TTL index on StampQuests reaps them. Nothing is recomputed, and payment
 // state is untouched: that lives exclusively in StampLedger's idempotencyKey.
 // ============================================================================
 
 const STAMP_QUESTS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // reap ~30 days after the period closes
 
-const expireStampQuests = async (periodType, currentKey) => {
+const expireStampQuests = async (currentDayKey) => {
   const expiresAt = new Date(Date.now() + STAMP_QUESTS_TTL_MS);
   // `expiresAt: null` (which also matches "field absent") is LOAD-BEARING.
   // Without it, every nightly pass would push the TTL of every already-marked
@@ -594,11 +631,30 @@ const expireStampQuests = async (periodType, currentKey) => {
   //
   // Matching on `periodKey != currentKey` rather than on a computed "yesterday"
   // also mops up stragglers from any period this job missed entirely.
-  const result = await StampQuests.updateMany(
-    { periodType, periodKey: { $ne: currentKey }, expiresAt: null },
+  const day = await StampQuests.updateMany(
+    { periodType: 'day', periodKey: { $ne: currentDayKey }, expiresAt: null },
     { $set: { expiresAt } },
   );
-  console.log(`[CRON:stamps${periodType === 'day' ? 'Daily' : 'Weekly'}Rollover] Scheduled ${result.modifiedCount || 0} closed '${periodType}' quest doc(s) for TTL reaping (current period ${currentKey})`);
+
+  // LEGACY DRAIN, and it has to live here. Killing the weekly job orphaned any
+  // 'week' doc that was still OPEN when it went away: closed ones were already
+  // marked by past runs and the TTL will take them, but an unmarked one has
+  // nothing left in the process that would ever mark it, so it would sit in the
+  // collection forever. No periodKey comparison, because there is no current
+  // week any more — every 'week' doc is closed by definition.
+  //
+  // Self-terminating: the `expiresAt: null` filter makes marking one-way, so
+  // this matches the remainder once and zero thereafter. Kept on the periodType
+  // index prefix rather than folded into the query above, which would have cost
+  // the index and turned a targeted update into a collection scan. Safe to
+  // delete once the logged count has been 0 for a 30-day TTL cycle.
+  const week = await StampQuests.updateMany(
+    { periodType: 'week', expiresAt: null },
+    { $set: { expiresAt } },
+  );
+
+  console.log(`[CRON:stampsDailyRollover] Scheduled ${day.modifiedCount || 0} closed 'day' quest doc(s) for TTL reaping (current period ${currentDayKey})`
+    + (week.modifiedCount ? `, plus ${week.modifiedCount} orphaned legacy 'week' doc(s)` : ''));
 };
 
 const startStampsPeriodRolloverTimers = () => {
@@ -606,10 +662,7 @@ const startStampsPeriodRolloverTimers = () => {
     console.log('[CRON:stampsRollover] Disabled (STAMPS_ENABLED off) - not armed');
     return;
   }
-  startAlignedJob('stampsDailyRollover', nextUtcMidnight, dayKeyUTC, (periodKey) =>
-    expireStampQuests('day', periodKey));
-  startAlignedJob('stampsWeeklyRollover', nextUtcMonday, weekKeyUTC, (periodKey) =>
-    expireStampQuests('week', periodKey));
+  startAlignedJob('stampsDailyRollover', nextUtcMidnight, dayKeyUTC, expireStampQuests);
 };
 
 startStampsPeriodRolloverTimers();

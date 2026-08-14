@@ -93,11 +93,20 @@ export function isPlacementEligible(user, migrationAt) {
  * in 76 instead of never, which lands the bulk of the re-sort inside the 14-day
  * post-migration monitoring window where it can actually be watched.
  *
+ * SUPERSEDED Aug 13 2026 (user ruling): K=40 proved too hot for accounts that
+ * already hold a ladder position. scripts/bumpMigratedVeteransK.js lifts every
+ * pre-migration account with ratedGames 1..(K_NEW_UNTIL-1) to K_NEW_UNTIL, so
+ * ALL migrated veterans start in K_MID (20) and walk the normal schedule from
+ * there. This constant stays 15 as the record of what the migration itself
+ * wrote — backfillRatedGames() must never run again either way.
+ *
  * WHY NOT HIGHER STILL: K is bought with noise. Measured steady-state rating
  * noise is sd 30 at K=10, 43 at K=20 and 60 at K=40. The Explorer band is only
- * 130 points wide, so a PERMANENT K=40 would have players flickering across
+ * 200 points wide, so a PERMANENT K=40 would have players flickering across
  * tier lines forever. This is a settling window, not a new baseline, and
- * K_VET stays where it is.
+ * K_VET stays where it is. (High ratings are exempt via kFactor's rating cap:
+ * K tapers to at most K_MID from K_MID_RATING_FLOOR and at most K_VET from
+ * the Voyager entry, whatever the game count.)
  *
  * WHY NOT ZERO: the cap must stay >= 1. Any account with at least one career
  * game must backfill to a non-zero `ratedGames`, because that is gate 2 of the

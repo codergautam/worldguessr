@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   windowFor,
+  ratingRangeFor,
   chooseDuelPairs,
   recordDodge,
   dodgeRemaining,
@@ -27,25 +28,32 @@ const entry = (over = {}) => ({
 });
 
 describe('windowFor', () => {
-  it('widens one step per 15s up to 400 at 75s', () => {
-    expect(windowFor(0)).toBe(150);
-    expect(windowFor(14999)).toBe(150);
-    expect(windowFor(15000)).toBe(200);
-    expect(windowFor(74999)).toBe(350);
+  it('uses narrow 50/100 half-widths for the first 15s', () => {
+    expect(windowFor(0)).toBe(50);
+    expect(windowFor(4999)).toBe(50);
+    expect(windowFor(5000)).toBe(100);
+    expect(windowFor(14999)).toBe(100);
+    expect(windowFor(15000)).toBe(150);
   });
 
-  it('switches to one step per 30s past 75s, uncapped', () => {
-    expect(windowFor(75000)).toBe(400);
-    expect(windowFor(104999)).toBe(400);
-    expect(windowFor(105000)).toBe(450);
-    expect(windowFor(135000)).toBe(500);
+  it('then widens one step per 15s up to 400 at 90s', () => {
+    expect(windowFor(29999)).toBe(150);
+    expect(windowFor(30000)).toBe(200);
+    expect(windowFor(89999)).toBe(350);
+  });
+
+  it('switches to one step per 30s past 90s, uncapped', () => {
+    expect(windowFor(90000)).toBe(400);
+    expect(windowFor(119999)).toBe(400);
+    expect(windowFor(120000)).toBe(450);
+    expect(windowFor(150000)).toBe(500);
   });
 
   it('treats garbage waits as 0 rather than producing NaN', () => {
-    expect(windowFor(undefined)).toBe(150);
-    expect(windowFor(NaN)).toBe(150);
-    expect(windowFor(-5000)).toBe(150);
-    expect(windowFor(Infinity)).toBe(150);
+    expect(windowFor(undefined)).toBe(50);
+    expect(windowFor(NaN)).toBe(50);
+    expect(windowFor(-5000)).toBe(50);
+    expect(windowFor(Infinity)).toBe(50);
   });
 
   it('is monotonic — waiting longer never narrows the window', () => {
@@ -58,14 +66,91 @@ describe('windowFor', () => {
   });
 });
 
+describe('ratingRangeFor — opening league clamp', () => {
+  it('clips the 50/100 opening windows to the player league borders', () => {
+    const bounds = { leagueMin: 800, leagueMax: 999 };
+    expect(ratingRangeFor(0, 980, bounds)).toEqual([930, 999]);
+    expect(ratingRangeFor(5000, 980, bounds)).toEqual([880, 999]);
+    expect(ratingRangeFor(14999, 980, bounds)).toEqual([880, 999]);
+
+    expect(ratingRangeFor(0, 810, bounds)).toEqual([800, 860]);
+    expect(ratingRangeFor(5000, 810, bounds)).toEqual([800, 910]);
+  });
+
+  it('waives only the upper clamp within 10 ELO of the ceiling', () => {
+    const bounds = { leagueMin: 800, leagueMax: 999 };
+    expect(ratingRangeFor(0, 989, bounds)).toEqual([939, 1039]);
+    expect(ratingRangeFor(5000, 989, bounds)).toEqual([889, 1089]);
+    expect(ratingRangeFor(0, 988, bounds)).toEqual([938, 999]);
+  });
+
+  it('releases the league clamp exactly at 15s', () => {
+    const bounds = { leagueMin: 800, leagueMax: 999 };
+    expect(ratingRangeFor(15000, 990, bounds)).toEqual([840, 1140]);
+  });
+
+  // The other half of the boundary grace. hasUpperBoundaryGrace waives the lock
+  // for BOTH sides of the pair, so the upper player's floor has to drop with it.
+  it('drops the floor to the tier below, minus the grace, for the upper player', () => {
+    const bounds = { leagueMin: 800, leagueMax: 999, leagueBelowMax: 799 };
+    // 805 - 50 = 755 is below the graced floor, so the grace binds: 799 - 10.
+    expect(ratingRangeFor(0, 805, bounds)).toEqual([789, 855]);
+    // Far enough up that the ordinary window binds first and the grace is moot.
+    expect(ratingRangeFor(0, 900, bounds)).toEqual([850, 950]);
+  });
+
+  it('leaves the floor at the league min when there is no tier below', () => {
+    // Bottom tier: getLeagueBelow returns null, so ws.js passes undefined.
+    expect(ratingRangeFor(0, 30, { leagueMin: 0, leagueMax: 799 })).toEqual([0, 80]);
+    // Explicit undefined must behave identically to the field being absent.
+    expect(ratingRangeFor(0, 805, { leagueMin: 800, leagueMax: 999, leagueBelowMax: undefined }))
+      .toEqual([800, 855]);
+  });
+
+  it('never lets a malformed tier table RAISE the floor', () => {
+    // leagueBelowMax at/above this tier's own floor is a broken table. The
+    // clamp must not push the displayed floor upward because of it.
+    const broken = { leagueMin: 800, leagueMax: 999, leagueBelowMax: 900 };
+    expect(ratingRangeFor(0, 805, broken)).toEqual([800, 855]);
+  });
+
+  it('keeps the strict floor ahead of the boundary grace', () => {
+    // A strict Voyager may NOT be paired below the Voyager line, so the grace
+    // floor must not advertise Explorer opponents this queue cannot produce.
+    const opts = { leagueMin: 1000, leagueMax: 1299, leagueBelowMax: 999, strictFloor: 1000 };
+    expect(ratingRangeFor(0, 1005, opts)).toEqual([1000, 1055]);
+  });
+
+  // THE REGRESSION THIS EXISTS FOR: the band and the matchmaker must agree.
+  it('shows a floor that actually covers who chooseDuelPairs will pair down to', () => {
+    const bounds = { leagueMin: 800, leagueMax: 999, leagueBelowMax: 799 };
+    const upper = entry({ id: 'upper', rating: 805, leagueMin: 800, leagueMax: 999 });
+    const lower = entry({ id: 'lower', rating: 795, leagueMin: 0, leagueMax: 799 });
+
+    const pairs = chooseDuelPairs([upper, lower], { now: NOW });
+    expect(pairs).toHaveLength(1);
+
+    const [lo, hi] = ratingRangeFor(0, 805, bounds);
+    expect(lower.rating).toBeGreaterThanOrEqual(lo);
+    expect(lower.rating).toBeLessThanOrEqual(hi);
+  });
+
+  it('keeps a strict floor after the opening league clamp releases', () => {
+    const opts = { leagueMin: 1000, leagueMax: 1299, strictFloor: 1000 };
+    expect(ratingRangeFor(0, 1000, opts)).toEqual([1000, 1050]);
+    expect(ratingRangeFor(15000, 1000, opts)).toEqual([1000, 1150]);
+  });
+});
+
+
 describe('chooseDuelPairs — closest-rating selection', () => {
   it('takes the CLOSEST compatible opponent, not the first in array order', () => {
     const anchor = entry({ id: 'anchor', rating: 1000 });
-    const far = entry({ id: 'far', rating: 1140 });
+    const far = entry({ id: 'far', rating: 1040 });
     const near = entry({ id: 'near', rating: 1010 });
     const mid = entry({ id: 'mid', rating: 980 });
 
-    // `far` deliberately sits first: first-fit would have picked it (140 <= 150).
+    // `far` deliberately sits first: first-fit would have picked it (40 <= 50).
     const pairs = chooseDuelPairs([anchor, far, near, mid], { now: NOW });
 
     expect(pairs).toHaveLength(1);
@@ -85,13 +170,13 @@ describe('chooseDuelPairs — closest-rating selection', () => {
 
 describe('chooseDuelPairs — mutual window uses min(), not max()', () => {
   it('refuses a lopsided match a long waiter would otherwise drag someone into', () => {
-    // Anchor 120s deep has a 450 window; the fresh joiner has 150. The gap is
+    // Anchor 120s deep has a 450 window; the fresh joiner has 50. The gap is
     // 300: inside the anchor's window, outside the joiner's. min() vetoes it.
     const anchor = entry({ id: 'anchor', rating: 1000, queueTime: NOW - 120000 });
     const fresh = entry({ id: 'fresh', rating: 1300 });
 
     expect(windowFor(120000)).toBe(450);
-    expect(windowFor(0)).toBe(150);
+    expect(windowFor(0)).toBe(50);
     expect(chooseDuelPairs([anchor, fresh], { now: NOW })).toEqual([]);
   });
 
@@ -101,6 +186,49 @@ describe('chooseDuelPairs — mutual window uses min(), not max()', () => {
     const pairs = chooseDuelPairs([a, b], { now: NOW });
 
     expect(pairs).toHaveLength(1);
+  });
+});
+
+describe('chooseDuelPairs — first-15s league lock', () => {
+  const explorer = { leagueMin: 800, leagueMax: 999 };
+  const voyager = { leagueMin: 1000, leagueMax: 1299 };
+
+  it('still pairs nearby players inside the same league', () => {
+    const a = entry({ id: 'a', rating: 980, ...explorer });
+    const b = entry({ id: 'b', rating: 995, ...explorer });
+    expect(chooseDuelPairs([a, b], { now: NOW })).toHaveLength(1);
+  });
+
+  it('blocks a cross-league pair through the end of the first 15s', () => {
+    for (const waited of [0, 5000, 14999]) {
+      const a = entry({ id: 'a', rating: 988, queueTime: NOW - waited, ...explorer });
+      const b = entry({ id: 'b', rating: 1005, queueTime: NOW - waited, ...voyager });
+      expect(chooseDuelPairs([a, b], { now: NOW })).toEqual([]);
+    }
+  });
+
+  it('does not let an unlocked waiter pull a fresh player across leagues', () => {
+    const old = entry({ id: 'old', rating: 988, queueTime: NOW - 15000, ...explorer });
+    const fresh = entry({ id: 'fresh', rating: 1005, ...voyager });
+    expect(chooseDuelPairs([old, fresh], { now: NOW })).toEqual([]);
+  });
+
+  it('lets a ceiling-adjacent player cross upward immediately', () => {
+    const lower = entry({ id: 'lower', rating: 989, ...explorer });
+    const higher = entry({ id: 'higher', rating: 1005, ...voyager });
+    expect(chooseDuelPairs([lower, higher], { now: NOW })).toHaveLength(1);
+  });
+
+  it('also overrides a fresh higher-league lower clamp for an older qualifying player', () => {
+    const lower = entry({ id: 'lower', rating: 995, queueTime: NOW - 15000, ...explorer });
+    const higher = entry({ id: 'higher', rating: 1005, ...voyager });
+    expect(chooseDuelPairs([lower, higher], { now: NOW })).toHaveLength(1);
+  });
+
+  it('allows cross-league matching once both players reach 15s', () => {
+    const a = entry({ id: 'a', rating: 995, queueTime: NOW - 15000, ...explorer });
+    const b = entry({ id: 'b', rating: 1005, queueTime: NOW - 15000, ...voyager });
+    expect(chooseDuelPairs([a, b], { now: NOW })).toHaveLength(1);
   });
 });
 
@@ -468,12 +596,12 @@ describe('readPairWins / bumpPairWins (fake store)', () => {
 //
 // The floor is INJECTED (opts.strictFloor) rather than imported, so this module
 // stays pure and a seasonal re-anchor moves the floor with the tier table.
-const FLOOR = 945; // leaguesV2.voyagerV2.min
+const FLOOR = 1000; // leaguesV2.voyagerV2.min
 
 describe('chooseDuelPairs — strict matchmaking', () => {
   it('refuses a sub-floor candidate for a strict anchor', () => {
-    const strict = entry({ id: 'strict', rating: 1000, strict: true });
-    const low = entry({ id: 'low', rating: 900 }); // inside the 150 window, below the floor
+    const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 15000 });
+    const low = entry({ id: 'low', rating: 900, queueTime: NOW - 15000 }); // inside the 150 window, below the floor
 
     const pairs = chooseDuelPairs([strict, low], { now: NOW, strictFloor: FLOOR });
     expect(pairs).toEqual([]);
@@ -483,10 +611,10 @@ describe('chooseDuelPairs — strict matchmaking', () => {
     // Anchors are taken longest-wait-first, so swap the waits to swap the roles.
     const a = chooseDuelPairs(
       [entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 30000 }),
-       entry({ id: 'low', rating: 900 })],
+       entry({ id: 'low', rating: 900, queueTime: NOW - 15000 })],
       { now: NOW, strictFloor: FLOOR });
     const b = chooseDuelPairs(
-      [entry({ id: 'strict', rating: 1000, strict: true }),
+      [entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 15000 }),
        entry({ id: 'low', rating: 900, queueTime: NOW - 30000 })],
       { now: NOW, strictFloor: FLOOR });
 
@@ -512,8 +640,8 @@ describe('chooseDuelPairs — strict matchmaking', () => {
   });
 
   it('leaves non-strict players free to meet anyone', () => {
-    const high = entry({ id: 'high', rating: 1000 });
-    const low = entry({ id: 'low', rating: 900 });
+    const high = entry({ id: 'high', rating: 1000, queueTime: NOW - 15000 });
+    const low = entry({ id: 'low', rating: 900, queueTime: NOW - 15000 });
 
     const pairs = chooseDuelPairs([high, low], { now: NOW, strictFloor: FLOOR });
     expect(pairs).toHaveLength(1);
@@ -523,9 +651,9 @@ describe('chooseDuelPairs — strict matchmaking', () => {
     // This is why the strict check sits BEFORE the bestDiff comparison. `near`
     // is the closest by rating but is below the floor; `far` is legal. A check
     // placed after the comparison would pick `near`, fail, and pair nobody.
-    const strict = entry({ id: 'strict', rating: 1000, strict: true });
-    const near = entry({ id: 'near', rating: 944 });  // 56 away, one under the floor
-    const far = entry({ id: 'far', rating: 1100 });   // 100 away, legal
+    const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 15000 });
+    const near = entry({ id: 'near', rating: 999, queueTime: NOW - 15000 });  // 1 away, one under the floor
+    const far = entry({ id: 'far', rating: 1100, queueTime: NOW - 15000 });   // 100 away, legal
 
     const pairs = chooseDuelPairs([strict, near, far], { now: NOW, strictFloor: FLOOR });
     expect(pairs).toHaveLength(1);
@@ -545,8 +673,8 @@ describe('chooseDuelPairs — strict matchmaking', () => {
   });
 
   it('is inert when no floor is supplied, so a caller that knows nothing about it is unaffected', () => {
-    const strict = entry({ id: 'strict', rating: 1000, strict: true });
-    const low = entry({ id: 'low', rating: 900 });
+    const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 15000 });
+    const low = entry({ id: 'low', rating: 900, queueTime: NOW - 15000 });
 
     expect(chooseDuelPairs([strict, low], { now: NOW })).toHaveLength(1);
     expect(chooseDuelPairs([strict, low], { now: NOW, strictFloor: 0 })).toHaveLength(1);
@@ -555,8 +683,8 @@ describe('chooseDuelPairs — strict matchmaking', () => {
 
   it('a strict player at the very bottom of the pool still matches upward', () => {
     // Someone sitting exactly ON the floor is not blocked by their own setting.
-    const strict = entry({ id: 'strict', rating: FLOOR, strict: true });
-    const above = entry({ id: 'above', rating: FLOOR + 60 });
+    const strict = entry({ id: 'strict', rating: FLOOR, strict: true, queueTime: NOW - 15000 });
+    const above = entry({ id: 'above', rating: FLOOR + 60, queueTime: NOW - 15000 });
 
     expect(chooseDuelPairs([strict, above], { now: NOW, strictFloor: FLOOR })).toHaveLength(1);
   });

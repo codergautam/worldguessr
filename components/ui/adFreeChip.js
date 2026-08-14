@@ -9,8 +9,8 @@ import { useTranslation } from '@/components/useTranslations';
  *  any purchase, and a gold chip appeared in the storefront's rail. Close the
  *  modal and there was nothing. The pass works — lib/adFree.js unmounts every
  *  ad slot on the same tick as the charge — but "the ads stopped" is invisible
- *  to anyone who was not staring at the banner, and the one thing a 20-minute
- *  timer must be able to tell you is how much of it is left. So the answer now
+ *  to anyone who was not staring at the banner, and the one thing a timed pass
+ *  must be able to tell you is how much of it is left. So the answer now
  *  lives on the screen you return to, not on the one you bought it from.
  *
  *  IN THE DOM ONLY WHILE A PASS RUNS. It is in the hudCorner flex column, which
@@ -44,7 +44,8 @@ export default function AdFreeChip({ session }) {
   //
   // NOT an aria-live region either, for the reason the clock exists: the content
   // changes every second, so announcing changes would read the countdown aloud
-  // 1,200 times. It is a readout, and screen readers reach it as ordinary text.
+  // thousands of times. It is a readout, and screen readers reach it as
+  // ordinary text.
   return (
     <div className="adFreeChip">
       <span className="adFreeChip__label">{text('shopAdFreeShort')}</span>

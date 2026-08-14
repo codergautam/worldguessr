@@ -29,24 +29,15 @@ export const STAMP_REASON_KEYS = {
   game_base: 'stampsReasonGameBase',
   game_win: 'stampsReasonGameWin',
   bot_game: 'stampsReasonBotGame',
-  first_win_day: 'stampsReasonFirstWinDay',
-  daily_ladder: 'stampsReasonDailyLadder',
-  weekly_play20: 'stampsReasonWeeklyPlay20',
-  weekly_win10: 'stampsReasonWeeklyWin10',
-  // Legacy receipt compatibility; this reward is no longer issued.
-  weekly_upset: 'stampsReasonWeeklyUpset',
-  weekly_days4: 'stampsReasonWeeklyDays4',
 };
 
 /**
  * Collapse repeated reasons into one line each, first-seen order preserved.
  *
- * WHY THIS IS NEEDED AT ALL: the daily ladder re-evaluates EVERY tier on EVERY
- * game rather than only the tier just crossed. That is the self-healing property
- * that back-pays a grant lost to a crash or a ws restart, and it means ONE game
- * can legitimately produce four separate `daily_ladder` rows. Rendered raw that
- * is "Daily goal +5 / Daily goal +10 / Daily goal +15 / Daily goal +20", which
- * reads like a rendering bug. One "Daily goal +50" is the same truth, said once.
+ * WHY THIS IS NEEDED AT ALL: historical receipts can contain several rows for
+ * one reason, and future earn sources may do the same. Rendering those rows
+ * separately looks like a duplicate-payment bug; one merged line is the same
+ * truth, said once.
  *
  * The total is NOT recomputed from this: callers render the server's `total`,
  * which is the sum of what the ledger applied. Summing the merged lines instead

@@ -38,13 +38,13 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange, leagues, getStrictFloor, getActiveLeagues } from '../components/utils/leagues.js';
+import { getLeague, getLeagueBelow, getLeagueRange, leagues, getStrictFloor, getActiveLeagues } from '../components/utils/leagues.js';
 import calculateOutcomes, {
   ENTRY_RATING, calculateTransfer, pairK
 } from '../components/utils/eloSystem.js';
 import { RATING_V2 } from '../components/utils/ratingFlags.js';
 import {
-  windowFor, chooseDuelPairs,
+  windowFor, ratingRangeFor, chooseDuelPairs,
   recordDodge, dodgeRemaining, sweepDodges,
   decayMultiplier, readPairWins, bumpPairWins
 } from './matchmakingV2.js';
@@ -200,6 +200,52 @@ const etaStore = createEtaStore();
 const ETA_MAX_AGE_MS = QUERY_PLAN[QUERY_PLAN.length - 1].ageMs;
 const dodgeKeyFor = (player) => player?.accountId || player?.id || null;
 
+// Compute one queue entry's ETA, latch it on the entry, send it if it changed.
+// TWO callers: the ranked join handler (so the quote is on screen the instant
+// the queue screen mounts — it used to wait for the next 5s beat, up to five
+// blank seconds on a queue whose typical wait IS about five seconds) and the
+// 5s beat (which owns re-sends and the long flip from then on). The join-time
+// push stamps q.etaShown, so the first beat's `changed` check stays silent
+// instead of repeating it.
+//
+// Live data first; the modelled prior only fills the gap it leaves.
+// bootstrapEstimate stamps `modelled: true`, which is what makes nextShownEta
+// downgrade the wording to a vague band — a number this server invented must
+// never be phrased like one it measured.
+function pushQueueEta(id, q, now) {
+  if (q?.duel !== true) return;
+  if (!Number.isFinite(q.rating)) return; // guest/unrated: timer only, no ETA
+  const player = players.get(id);
+  if (!player || player.gameId) return;
+
+  let est = estimateWait(etaStore, { rating: q.rating, now, strict: !!q.strict });
+  if (est.status !== 'ok') est = bootstrapEstimate(q.rating, !!q.strict);
+
+  const shown = nextShownEta(q.etaShown, est, now - q.queueTime);
+  const changed = !q.etaShown
+    || q.etaShown.state !== shown.state
+    || q.etaShown.seconds !== shown.seconds
+    || q.etaShown.tier !== shown.tier
+    || q.etaShown.longAfterMs !== shown.longAfterMs;
+  q.etaShown = shown;
+  if (!changed) return; // same as last send — don't spam the client
+
+  player.send({
+    type: 'queueEta',
+    state: shown.state,
+    value: shown.value,
+    unit: shown.unit,
+    seconds: shown.seconds,
+    // Lets the 1s client clock replace the quote immediately instead of
+    // waiting up to five seconds for the server beat to notice it.
+    longAfterSeconds: Number.isFinite(shown.longAfterMs)
+      ? shown.longAfterMs / 1000
+      : null,
+    // Only set when state is 'rough': 'short' | 'mid' | 'long'.
+    tier: shown.tier
+  });
+}
+
 /**
  * Is bailing out of THIS game, right now, a queue dodge?
  *
@@ -327,13 +373,21 @@ function ownsEmote(player, emoteDef) {
 // window inside chooseDuelPairs.
 function rangeForRatingV2(rating, waitedMs, strict = false) {
   const r = Number.isFinite(rating) ? rating : ENTRY_RATING;
-  const half = windowFor(waitedMs);
+  const league = getLeague(r);
   // A strict player's lower bound is the Voyager floor, not r - half: pairing
   // will not go below it, so showing a band that reaches into Trekker would be
   // advertising opponents this queue can never produce.
-  const floor = strict ? getStrictFloor() : 0;
-  const lo = Math.max(0, Number.isFinite(floor) ? floor : 0, Math.round(r - half));
-  return [lo, Math.round(r + half)];
+  //
+  // The tier BELOW is handed over for the other half of the boundary grace: this
+  // player can be paired down to its ceiling minus the grace, so their band has
+  // to reach that far too (see ratingRangeFor). Resolved from the ACTIVE table,
+  // so a seasonal re-anchor moves it with the tiers.
+  return ratingRangeFor(waitedMs, r, {
+    leagueMin: league?.min,
+    leagueMax: league?.max,
+    leagueBelowMax: getLeagueBelow(league)?.max,
+    strictFloor: strict ? getStrictFloor() : 0,
+  });
 }
 
 /**
@@ -364,8 +418,10 @@ function stampRatingV2(game, p1, p2) {
   const rgP1 = Number(p1.ratedGames) || 0;
   const rgP2 = Number(p2.ratedGames) || 0;
   // ONE K for both sides. Per-player Ks would hand a rookie 40 points and take
-  // 10 from the veteran they beat.
-  const k = pairK(rgP1, rgP2);
+  // 10 from the veteran they beat. Ratings ride along for the rating cap: K
+  // tapers to at most K_MID from mid-Explorer and at most K_VET from the
+  // Voyager entry, whatever the game count (see kFactor).
+  const k = pairK(rgP1, rgP2, p1.elo, p2.elo);
 
   const build = (decayP1, decayP2) => {
     const common = {
@@ -438,7 +494,7 @@ function currentDate() {
 }
 
 // location generator
-let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":"NO"},{"lat":-22.41504758873939,"long":-42.95073348255873,"country":"BR"},{"lat":7.117061549697593,"long":6.737664188991607,"country":"NG"},{"lat":43.11066098012346,"long":141.5910123338441,"country":"JP"},{"lat":49.88659404088488,"long":-99.9475096434099,"country":"CA"},{"lat":46.720999413096,"long":19.86240516067642,"country":"HU"}];
+let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":"NO","heading":222},{"lat":-22.41504758873939,"long":-42.95073348255873,"country":"BR","heading":323},{"lat":7.117061549697593,"long":6.737664188991607,"country":"NG","heading":37},{"lat":43.11066098012346,"long":141.5910123338441,"country":"JP","heading":326},{"lat":49.88659404088488,"long":-99.9475096434099,"country":"CA","heading":271},{"lat":46.720999413096,"long":19.86240516067642,"country":"HU","heading":291}];
 
 const generateMainLocations = async () => {
   try {
@@ -1330,11 +1386,11 @@ app.ws('/wg', {
           player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
 
         } else {
-          // v2 queues on a RATING WINDOW, not a league band: the entry carries
-          // the raw rating plus queueTime, and the window is recomputed from
-          // windowFor(waited) on every tick of the matchmaking loop. The
-          // league range is still what the client is sent as publicDuelRange
-          // so old bundles keep rendering something sensible.
+          // v2 queues on a RATING WINDOW: the raw rating and queueTime are used
+          // to recompute it on every matchmaking tick. For the first 15s that
+          // window is clipped to the player's current league, except that a
+          // player within 10 ELO of its ceiling can search upward. After 15s
+          // the ordinary cross-league widening takes over everywhere.
           // Resolved BEFORE the range: a strict player's displayed band is
           // floored at the Voyager line, so the range depends on this.
           const strictQueue = !!(player.strictMatchmaking && player.elo >= getStrictFloor());
@@ -1367,9 +1423,8 @@ app.ws('/wg', {
           // "5000+ ELO" copy kept shipping.
           //
           // Under v2 the flag is enforced inside chooseDuelPairs from the very
-          // first tick, not only at widening: the window is a symmetric +/-150
-          // around your rating, so a 945-rated strict player reaches down into
-          // Trekker immediately without it.
+          // first tick, not only at widening: even the opening +/-50 window can
+          // reach below the Voyager line for a player near its entry boundary.
           strict: strictQueue
         }
         playersInQueue.set(player.id, queueDetails);
@@ -1382,6 +1437,14 @@ app.ws('/wg', {
         // Uniform join ack across all queue branches (publicDuelRange alone is
         // ELO-display info; queueJoined is the canonical "you're queued" signal).
         player.send({ type: 'queueJoined', ranked: true, queuedAt: queueDetails.queueTime });
+        // First ETA rides the join, not the next 5s beat — the queue screen
+        // must never sit blank for seconds on a quote the store already has.
+        // Guarded like the beat: an estimate is a nicety, a queue is not.
+        try {
+          pushQueueEta(player.id, queueDetails, queueDetails.queueTime);
+        } catch (e) {
+          console.error('[publicDuel] join-time queueEta push threw for', player.id, e?.stack || e);
+        }
       }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
@@ -2871,41 +2934,7 @@ try {
         // Per-player guard: an estimate is a nicety, a queue is not. One
         // malformed sample ring must never cost the rest of the queue their ETA.
         try {
-        if (q.duel !== true) continue;
-        if (!Number.isFinite(q.rating)) continue; // guest/unrated: timer only, no ETA
-        const player = players.get(id);
-        if (!player || player.gameId) continue;
-
-        // Live data first; the modelled prior only fills the gap it leaves.
-        // bootstrapEstimate stamps `modelled: true`, which is what makes
-        // nextShownEta downgrade the wording to a vague band — a number this
-        // server invented must never be phrased like one it measured.
-        let est = estimateWait(etaStore, { rating: q.rating, now, strict: !!q.strict });
-        if (est.status !== 'ok') est = bootstrapEstimate(q.rating, !!q.strict);
-
-        const shown = nextShownEta(q.etaShown, est, now - q.queueTime);
-        const changed = !q.etaShown
-          || q.etaShown.state !== shown.state
-          || q.etaShown.seconds !== shown.seconds
-          || q.etaShown.tier !== shown.tier
-          || q.etaShown.longAfterMs !== shown.longAfterMs;
-        q.etaShown = shown;
-        if (!changed) continue; // same as last beat — don't spam the client
-
-        player.send({
-          type: 'queueEta',
-          state: shown.state,
-          value: shown.value,
-          unit: shown.unit,
-          seconds: shown.seconds,
-          // Lets the 1s client clock replace the quote immediately instead of
-          // waiting up to five seconds for this server beat to notice it.
-          longAfterSeconds: Number.isFinite(shown.longAfterMs)
-            ? shown.longAfterMs / 1000
-            : null,
-          // Only set when state is 'rough': 'short' | 'mid' | 'long'.
-          tier: shown.tier
-        });
+          pushQueueEta(id, q, now);
         } catch (e) {
           console.error('[tick:beat5s] queueEta push threw for', id, e?.stack || e);
         }
@@ -3058,12 +3087,16 @@ try {
       const p = players.get(id);
       if (!p) continue;
       const guest = !!q.guest;
+      const rating = Number.isFinite(q.rating) ? q.rating : (Number(p.elo) || ENTRY_RATING);
+      const league = guest ? null : getLeague(rating);
       entries.push({
         id,
-        rating: Number.isFinite(q.rating) ? q.rating : (Number(p.elo) || ENTRY_RATING),
+        rating,
         guest,
         queueTime: q.queueTime,
         accountId: p.accountId || null,
+        leagueMin: league?.min,
+        leagueMax: league?.max,
         placementPending: guest ? false : p.placementPending,
         // Strict matchmaking opt-in, stamped at queue join. Guests can never be
         // strict: they have no account to hold the setting and no rating to
@@ -3340,21 +3373,20 @@ try {
         p2: p2.accountId
       }
 
-      // Track last opponent to prevent the same matchup twice in a row, unless
-      // BOTH sides are Voyager+ — that pool is thin enough that blocking
-      // rematches can strand it.
+      // Track last opponent to prevent the same matchup twice in a row —
+      // EVERY human pairing, no league carve-out.
       //
-      // THE EXEMPTION WAS DEAD. This read `leagues.voyager.min`, which is 5,000
-      // on the retired Season 0 scale, so under v2 the condition was true for
-      // every duel ever played and the carve-out never fired. Nomads and future
-      // Legends — the 20-60 accounts whose quietest hours see roughly one
-      // same-band arrival a week — ate the full rematch block, escaping only via
-      // the 60s waiver in matchmakingV2. Exactly backwards from the intent.
-      const rematchExemptFloor = getStrictFloor();
-      if (p1.elo < rematchExemptFloor || p2.elo < rematchExemptFloor) {
-        lastDuelOpponent.set(p1.accountId, p2.accountId);
-        lastDuelOpponent.set(p2.accountId, p1.accountId);
-      }
+      // The Voyager+ exemption that stood here (skip the stamp when both
+      // sides clear getStrictFloor(), on a thin-pool starvation argument) is
+      // REMOVED by user ruling Aug 13: the moment it came alive it handed the
+      // top of the ladder unlimited instant rematches, which is the exact
+      // opposite problem. Starvation was never its to solve anyway — the 60s
+      // queue-wait waiver in chooseDuelPairs is the escape hatch, so a
+      // two-player pool rematches after a minute instead of never playing.
+      // Do not reintroduce a league test here; if the top pool ever needs
+      // different treatment, tune the waiver, not the stamp.
+      lastDuelOpponent.set(p1.accountId, p2.accountId);
+      lastDuelOpponent.set(p2.accountId, p1.accountId);
     }
 
     // check if both have elo. For bot games this gate is a DELIBERATE
@@ -3880,14 +3912,14 @@ try {
         // ── v2 WINDOW WIDENING ─────────────────────────────────────────────
         // Recomputed from scratch EVERY tick out of windowFor(now - queueTime)
         // — there is no widen-once latch, because the window keeps growing
-        // (uncapped past 75s) rather than jumping to a single wide band. The
+        // (uncapped past 90s) rather than jumping to a single wide band. The
         // widened bounds are display only: chooseDuelPairs computes the real,
         // symmetric window itself. queueTime is NEVER touched, same rule as
         // v1: it has to keep meaning "when I joined" or the 60s rematch waiver
         // can never be reached.
         //
-        // `strict` is not consulted here. Under v2 it is inert — see the queue
-        // join handler.
+        // `strict` and the opening league bounds affect the displayed range;
+        // chooseDuelPairs independently enforces both on the real pairing.
         const now = Date.now();
         for (const [playerId, queueData] of playersInQueue) {
           // The `if (!player) continue` below was the ONE hand-patched instance

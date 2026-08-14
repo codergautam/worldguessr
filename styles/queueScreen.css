@@ -107,9 +107,14 @@
 /* Beat `.g2_slide_in > *` (specificity 0,1,0 — the universal selector counts
    for nothing), so one extra class wins regardless of stylesheet order. A
    full-viewport veil sliding in edge-on looks wrong, which is exactly why
-   .join-party-container opts out of the same rule. */
+   .join-party-container opts out of the same rule.
+
+   `none` on the WRAPPER so the veil and the stage animate independently —
+   compositing them into one wrapper fade was how the veil ended up unable to
+   have its own timing. The veil and stage each carry their own wgQueueIn
+   below; do NOT put an animation back on this element. */
 .g2_slide_in > .wgQueue {
-  animation: wgQueueIn 0.32s ease-out both;
+  animation: none;
 }
 
 @keyframes wgQueueIn {
@@ -120,11 +125,19 @@
 /* The SAME veil .join-party-container uses. The first draft stacked a
    0.72→0.96 near-black gradient here, which blacked out --site-bg entirely and
    read as a void — the plate below carries its own contrast and does not need
-   the page darkened underneath it. */
+   the page darkened underneath it.
+
+   The veil keeps its OWN entrance fade (menu→queue must ease into the dark,
+   not snap — removing this was a shipped regression). It does not endanger
+   the queue→getready veil handoff (.hb-vs-veil in globals.scss): pairing
+   takes at least one 500ms matchmaking tick plus a round trip, so no match
+   can arrive while this 0.32s fade is still running — the handoff always
+   meets a settled 0.34. */
 .wgQueue__veil {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.34);
+  animation: wgQueueIn 0.32s ease-out both;
 }
 
 /* --- layout ------------------------------------------------------------- */
@@ -146,6 +159,11 @@
   align-items: center;
   gap: clamp(20px, 3.4svh, 38px);
   padding: clamp(16px, 4vw, 40px);
+  /* The entrance fade the wrapper used to carry, moved here so it covers the
+     CONTENT only — the veil sibling above must never inherit it (see the
+     .g2_slide_in note). A grandchild of .multiplayerHome, so `.g2_slide_in > *`
+     never reaches this and no specificity fight is needed. */
+  animation: wgQueueIn 0.32s ease-out both;
   /* 900px was too tight and it showed on the longest headline. At 1920 the
      title computes to ~46px, and "Finding an opponent" (or worse, the French
      "Recherche d'un adversaire") needs ~500-630px — but 900 minus 80 of padding
@@ -383,6 +401,18 @@
   font-weight: 500;
 }
 
+/* The ELO band's widen swap: old value fades out, text swaps, new fades back
+   in (queueScreen.js owns the timing; the 140ms here must match its
+   RANGE_FADE_MS). Opacity only — the value must never move or resize, that
+   would be the layout jitter this screen exists to avoid. */
+.wgQueue__cellValue--fades {
+  transition: opacity 140ms ease;
+}
+
+.wgQueue__cellValue--faded {
+  opacity: 0;
+}
+
 /* --- elapsed ------------------------------------------------------------ */
 
 /* THE HERO. This was a 0.88rem muted footnote and it was the wrong call: the
@@ -427,5 +457,9 @@
 @media (prefers-reduced-motion: reduce) {
   .wgQueue__ring { animation: none; opacity: 0.2; }
   .wgQueue__cell { animation: none; }
-  .g2_slide_in > .wgQueue { animation: none; }
+  /* The wrapper is unconditionally animation:none (split so veil and stage
+     can time independently); the entrance fades live on those two, so they
+     are what this media rule has to kill. */
+  .wgQueue__stage,
+  .wgQueue__veil { animation: none; }
 }

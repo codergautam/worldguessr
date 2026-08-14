@@ -65,6 +65,25 @@ export const RATING_SCALE = 400;
 export const K_NEW = 40, K_MID = 20, K_VET = 10;
 export const K_NEW_UNTIL = 30, K_MID_UNTIL = 100;
 
+// League cutoffs on the v2 scale — THE single definition. This is the one
+// import-free module in the rating system, so the cutoffs live here and
+// components/utils/leagues.js builds its tier table FROM these. Nothing else
+// may retype them. (A RatingConfig doc can still re-anchor the DISPLAY table
+// at runtime; the K lock below deliberately follows these constants, not the
+// override.)
+export const EXPLORER_MIN = 800, VOYAGER_MIN = 1000, NOMAD_MIN = 1300, LEGEND_MIN = 1800;
+
+// Rating-based K caps, a two-step TAPER. High ratings are where a hot K
+// hurts most — the bands are narrow relative to the swing, and K-noise there
+// flickers players across tier lines — but a single hard lock is a K cliff
+// that pins sub-30-game accounts just under the line: they fall fast and
+// climb slow. So the cap steps down: K_MID from mid-Explorer, K_VET from the
+// VOYAGER entry (final ruling Aug 13, after a brief move to Nomad was
+// reverted the same day: everything Voyager and up locks to K_VET). A cap
+// only ever LOWERS the schedule K — a 150-game veteran at 950 keeps K_VET.
+export const K_VET_RATING_FLOOR = VOYAGER_MIN;
+export const K_MID_RATING_FLOOR = (EXPLORER_MIN + VOYAGER_MIN) / 2; // 900, moves with the bands
+
 // Hard floor for a v2 rating. Unlike v1's MIN_ELO = 1 this is well clear of 0,
 // so no falsy-rating gate downstream can ever see a 0 (see MIN_ELO above).
 export const RATING_FLOOR = 100;
@@ -75,8 +94,8 @@ export const ENTRY_RATING = 500;
 // Placement seeding from single-player skill: base + slope * avg round points,
 // capped so a perfect scorer still enters below the real ladder's top.
 // Slope+cap raised Aug 2026 (user ruling): a strong placement should reach
-// low Explorer (815+) rather than every possible seed landing in Trekker.
-// Perfect 5000 avg => 900; Explorer entry at avg ~3940; avg 2500 => 700.
+// low Explorer (800+) rather than every possible seed landing in Trekker.
+// Perfect 5000 avg => 900; Explorer entry at avg 3750; avg 2500 => 700.
 export const SEED_BASE = 500, SEED_SLOPE = 0.08, SEED_MAX = 900;
 
 // A decided game must move the ladder by at least this much, otherwise a huge
@@ -89,12 +108,25 @@ export function expectedScore(ra, rb) {
   return 1 / (1 + Math.pow(10, (rb - ra) / RATING_SCALE));
 }
 
-/** K-factor for one player, from their count of RATED games (not duels_played). */
-export function kFactor(ratedGames) {
+/**
+ * K-factor for one player, from their count of RATED games (not duels_played),
+ * CAPPED by rating: at or above K_MID_RATING_FLOOR the K is at most K_MID, at
+ * or above K_VET_RATING_FLOOR (Voyager+) at most K_VET. The cap only ever
+ * lowers the schedule K, never raises it. Missing/NaN rating falls back to
+ * the schedule alone, so old call sites keep their exact previous behaviour.
+ */
+export function kFactor(ratedGames, rating) {
   const n = Number(ratedGames) || 0;
-  if (n < K_NEW_UNTIL) return K_NEW;
-  if (n < K_MID_UNTIL) return K_MID;
-  return K_VET;
+  let k = K_VET;
+  if (n < K_NEW_UNTIL) k = K_NEW;
+  else if (n < K_MID_UNTIL) k = K_MID;
+
+  const r = Number(rating);
+  if (Number.isFinite(r)) {
+    if (r >= K_VET_RATING_FLOOR) k = Math.min(k, K_VET);
+    else if (r >= K_MID_RATING_FLOOR) k = Math.min(k, K_MID);
+  }
+  return k;
 }
 
 /**
@@ -102,8 +134,8 @@ export function kFactor(ratedGames) {
  * K-factors. A shared K is what makes the game zero-sum — per-player Ks would
  * hand a rookie 40 points and take 10 from the veteran they beat.
  */
-export function pairK(rgA, rgB) {
-  return (kFactor(rgA) + kFactor(rgB)) / 2;
+export function pairK(rgA, rgB, ratingA, ratingB) {
+  return (kFactor(rgA, ratingA) + kFactor(rgB, ratingB)) / 2;
 }
 
 /** Ratings are stored as integers and may never sink below the floor. */
@@ -142,7 +174,7 @@ export function placementSeed(avgRoundPoints) {
  * INVARIANT, unconditional: deltaA + deltaB === 0.
  */
 export function calculateTransfer({ ratingA, ratingB, ratedGamesA, ratedGamesB, outcome, decay = 1, k }) {
-  const kUsed = k ?? pairK(ratedGamesA, ratedGamesB);
+  const kUsed = k ?? pairK(ratedGamesA, ratedGamesB, ratingA, ratingB);
   const eA = expectedScore(ratingA, ratingB);
   const raw = kUsed * (outcome - eA); // signed, A's perspective
 

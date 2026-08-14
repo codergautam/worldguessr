@@ -874,6 +874,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // the server's join instant, not on when we happened to tap the button.
     // placementPending likewise: the server re-announces per queue if it
     // applies, so a stale flag from a previous queue must not leak in.
+    // publicDuelRange stays null too — NO optimistic guess (user ruling
+    // Aug 13: a range computed from cached elo visibly self-corrected when the
+    // authoritative one landed). The queue screen reserves the ELO cell's
+    // LAYOUT itself and fades the server's range in.
     set({ gameQueued: type, publicDuelRange: null, queuedAt: null, queueEta: null, placementPending: false });
     queueConfirmTimer = setTimeout(() => {
       queueConfirmTimer = null;
@@ -1854,7 +1858,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     if (data.type === 'toast') {
       // Extract template variables (everything except type, key, toastType, closeOnClick)
       const { type: _t, key, toastType, closeOnClick, autoClose, ...vars } = data;
-      // Round-pressure nudges (opponent / other team locked in, you're the
+      // Round-pressure nudges (opponent guessed / other team locked in, you're the
       // last guesser) get an audible ping — the toast alone is easy to miss
       // while panning a street view. Mix ratio 0.5 (user ruling: the full-
       // tilt default barked over everything). Lazy import: the sound service

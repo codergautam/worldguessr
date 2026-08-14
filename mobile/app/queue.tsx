@@ -18,6 +18,8 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
 import SiteBackground from '../src/components/SiteBackground';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,10 +30,13 @@ import { colors, t } from '../src/shared';
 import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore, queueTeardownState } from '../src/store/multiplayerStore';
+import { useAuthStore } from '../src/store/authStore';
 import { useSettingsStore } from '../src/store/settingsStore';
+import { MATCHMAKING_VEIL_COLORS } from '../src/styles/matchmakingBackdrop';
 import BackButton from '../src/components/ui/BackButton';
 import WgWordmark from '../src/components/ui/WgWordmark';
 import GameChat from '../src/components/multiplayer/GameChat';
+import { formatQueueEta } from '@shared/time/queueEta';
 
 // Plate fill for the segmented data strip. Neutral by ruling (see
 // styles/queueScreen.css's header): the site's own panel colour — accountModal
@@ -114,6 +119,71 @@ function QueueCell({ divided, children }: { divided: boolean; children: React.Re
   );
 }
 
+/**
+ * What the reserved ELO cell shows before the server's range lands — the same
+ * "..." web's PlayerCard and queue screen use for a pending value. NEVER an
+ * optimistic client-computed range (user ruling Aug 13: stale cached elo made
+ * the guess visibly self-correct when the authoritative range arrived).
+ */
+const ELO_PLACEHOLDER = '...';
+
+/**
+ * The ELO cell's value swap: old value fades out, the text swaps, it fades
+ * back in — mirrors web's .wgQueue__cellValue--fades exactly (a fade, NOT a
+ * digit count-up: user ruling Aug 13). Placeholder→first range and every
+ * widen step all take the same path. The displayed string is STATE,
+ * deliberately decoupled from the prop; mount paints instantly because
+ * QueueCell's own entrance animation covers it. `dimStyle` applies while the
+ * SHOWN string (not the prop) is still the placeholder, so the dimming fades
+ * out with it.
+ */
+function FadingValue({ value, style, dimStyle }: {
+  value: string;
+  style: StyleProp<TextStyle>;
+  dimStyle?: StyleProp<TextStyle>;
+}) {
+  const [shown, setShown] = useState(value);
+  const opacity = useRef(new Animated.Value(1)).current;
+  // The fade-IN lives in the EFFECT's steady-state branch, not in the
+  // fade-out's completion callback. This is what makes an interrupted
+  // fade-out self-healing: a value that reverts mid-fade re-runs the effect
+  // straight into `value === shown` with opacity frozen partway, and this
+  // branch glides it back to 1. Callback-owned fade-in left that path
+  // returning early with the text stuck half-transparent forever (verified
+  // against RN's TimingAnimation: stop() freezes the value in place). On a
+  // normal swap the same branch runs right after setShown — one owner for
+  // every path back to fully-visible.
+  useEffect(() => {
+    if (value === shown) {
+      const restore = Animated.timing(opacity, {
+        toValue: 1,
+        duration: 160,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      });
+      restore.start();
+      return () => restore.stop();
+    }
+    const out = Animated.timing(opacity, {
+      toValue: 0,
+      duration: 140,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    // Interrupted (a newer value re-ran this effect) → finished:false → the
+    // new run owns the swap from the already-dimmed opacity.
+    out.start(({ finished }) => {
+      if (finished) setShown(value);
+    });
+    return () => out.stop();
+  }, [value, shown, opacity]);
+  return (
+    <Animated.Text style={[style, shown === ELO_PLACEHOLDER && dimStyle, { opacity }]}>
+      {shown}
+    </Animated.Text>
+  );
+}
+
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -122,6 +192,9 @@ export default function QueueScreen() {
   const isLandscape = width > height;
   const gameQueued = useMultiplayerStore((s) => s.gameQueued);
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
+  // Reserves the ELO cell's layout for ranked (guests never receive a range,
+  // so they never reserve — mirrors web's signedIn prop on QueueScreen).
+  const signedIn = useAuthStore((s) => s.isAuthenticated);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
   const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
@@ -175,8 +248,8 @@ export default function QueueScreen() {
     ? t('queueEtaLong')
     : etaRough
       ? t(ROUGH_KEYS[queueEta!.tier as keyof typeof ROUGH_KEYS])
-      : queueEta?.state === 'ok' && queueEta.value !== null
-        ? t(queueEta.unit === 'min' ? 'queueEtaMinutes' : 'queueEtaSeconds', { v: queueEta.value })
+      : queueEta?.state === 'ok' && Number.isFinite(queueEta.seconds)
+        ? formatQueueEta(t, queueEta.seconds!)
         : null;
 
   // Radar scales to the shorter axis so it never crowds the rest of the screen.
@@ -364,8 +437,20 @@ export default function QueueScreen() {
   // The divider between cells is the house frame colour and only renders when
   // there are two cells to divide.
   const cells = [
-    isRanked && publicDuelRange
-      ? { key: 'elo', label: t('eloRange'), value: `${publicDuelRange[0]} – ${publicDuelRange[1]}`, rough: false }
+    // RESERVED for signed-in ranked from the screen's first frame: the cell
+    // exists holding a placeholder and the server's authoritative range fades
+    // into it — the plate never mounts late and shoves the timer (layout
+    // shift), and no guessed numbers ever paint. Guests never receive a
+    // range, so they never reserve the cell.
+    isRanked && (publicDuelRange || signedIn)
+      ? {
+          key: 'elo',
+          label: t('eloRange'),
+          value: publicDuelRange
+            ? `${publicDuelRange[0]} – ${publicDuelRange[1]}`
+            : ELO_PLACEHOLDER,
+          rough: !publicDuelRange,
+        }
       : null,
     etaStr ? { key: 'eta', label: t('queueEtaLabel'), value: etaStr, rough: etaRough } : null,
   ].filter(Boolean) as { key: string; label: string; value: string; rough: boolean }[];
@@ -381,7 +466,13 @@ export default function QueueScreen() {
         // fade+slide reads as the same reveal.
         <QueueCell key={c.key} divided={i > 0}>
           <Text style={styles.dataLabel}>{c.label}</Text>
-          <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
+          {c.key === 'elo' ? (
+            // Placeholder→range and widen steps all fade through, mirroring
+            // web's FadingValue. Dimming tracks the SHOWN string inside.
+            <FadingValue value={c.value} style={styles.dataValue} dimStyle={styles.dataValueRough} />
+          ) : (
+            <Text style={[styles.dataValue, c.rough && styles.dataValueRough]}>{c.value}</Text>
+          )}
         </QueueCell>
       ))}
     </View>
@@ -397,8 +488,11 @@ export default function QueueScreen() {
   return (
     <View style={styles.container}>
       <SiteBackground style={StyleSheet.absoluteFillObject}/>
+      {/* Shared with GetReadyOverlay + GameLoadingOverlay's countdown mode:
+          identical backdrops are what make the queue→getready route fade
+          seamless. Never inline these colors again. */}
       <LinearGradient
-        colors={['rgba(6, 16, 10, 0.72)', 'rgba(6, 16, 10, 0.86)', 'rgba(6, 16, 10, 0.96)']}
+        colors={MATCHMAKING_VEIL_COLORS}
         style={StyleSheet.absoluteFillObject}
       />
 

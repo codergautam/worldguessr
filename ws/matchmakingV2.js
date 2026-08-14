@@ -11,7 +11,7 @@
 // tests pass a fake. Nothing in this file touches mongoose.
 //
 // Callers hand in plain queue entries, shaped:
-//   { id, rating, guest, queueTime, accountId, strict,
+//   { id, rating, guest, queueTime, accountId, strict, leagueMin, leagueMax,
 //     placementPending, botEligible, lastOpponentId, lastOpponentAt }
 
 import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
@@ -20,27 +20,91 @@ import { dayKeyUTC } from '../serverUtils/stamps/periods.js';
 // 1. Rating window
 // ---------------------------------------------------------------------------
 
-const BASE_WINDOW = 150;      // half-width for the first 15s of waiting
-const WINDOW_STEP = 50;       // every widen step, early or late
-const EARLY_INTERVAL = 15000; // one step per 15s...
-const EARLY_CAP = 400;        // ...until 400
-const EARLY_CAP_AT = 75000;   // which lands exactly at 75s
-const LATE_INTERVAL = 30000;  // after that, one step per 30s, forever
+const BASE_WINDOW = 50;        // half-width for the first 5s of waiting
+const WINDOW_STEP = 50;        // every widen step, early or late
+const FIRST_WIDEN_AT = 5000;   // 50 -> 100 after 5s
+const SLOW_WIDEN_AT = 15000;   // 100 -> 150 after another 10s
+const EARLY_INTERVAL = 15000;  // then one step per 15s...
+const EARLY_CAP = 400;         // ...until 400
+const EARLY_CAP_AT = 90000;    // which lands exactly at 90s
+const LATE_INTERVAL = 30000;   // after that, one step per 30s, forever
+export const LEAGUE_LOCK_MS = 15000;
+export const UPPER_BOUNDARY_GRACE_ELO = 10;
 
 /**
  * Rating window half-width for a player who has waited `waitedMs`.
  *
- * Past 75s the widening is UNCAPPED on purpose: an eventual match with no extra
+ * Past 90s the widening is UNCAPPED on purpose: an eventual match with no extra
  * UI beats a "no opponents found" dead end. It is only honest because
  * chooseDuelPairs always takes the CLOSEST compatible opponent, so a wide
  * window is permission to reach far, never an instruction to.
  */
 export function windowFor(waitedMs) {
   const waited = Number.isFinite(waitedMs) && waitedMs > 0 ? waitedMs : 0;
+  if (waited < FIRST_WIDEN_AT) return BASE_WINDOW;
+  if (waited < SLOW_WIDEN_AT) return BASE_WINDOW + WINDOW_STEP;
   if (waited < EARLY_CAP_AT) {
-    return BASE_WINDOW + WINDOW_STEP * Math.floor(waited / EARLY_INTERVAL);
+    return BASE_WINDOW + 2 * WINDOW_STEP
+      + WINDOW_STEP * Math.floor((waited - SLOW_WIDEN_AT) / EARLY_INTERVAL);
   }
   return EARLY_CAP + WINDOW_STEP * Math.floor((waited - EARLY_CAP_AT) / LATE_INTERVAL);
+}
+
+/**
+ * The range shown to a queued player. During the opening league lock, the
+ * ordinary rating window is clipped to that player's current league borders.
+ * At 15s the league clip disappears while strict matchmaking's floor remains.
+ *
+ * THE BOUNDARY GRACE IS TWO-SIDED, and so is this. hasUpperBoundaryGrace waives
+ * the lock for BOTH members of a boundary pair, so the band has to move for both
+ * of them or it lies to one:
+ *
+ *   - the LOWER player, within UPPER_BOUNDARY_GRACE_ELO of their ceiling, has
+ *     their upper clip waived — they can search into the tier above;
+ *   - the UPPER player is the other half of that same pair, so their floor drops
+ *     to `leagueBelowMax - UPPER_BOUNDARY_GRACE_ELO`. Without this their band
+ *     was pinned at their own league floor while the matchmaker paired them up
+ *     to 11 points beneath it.
+ *
+ * `leagueBelowMax` is passed in rather than derived as `leagueMin - 1` because a
+ * config-installed tier table may leave gaps (see getLeagueBelow in
+ * components/utils/leagues.js). Omitted or non-finite means "bottom tier, or the
+ * caller does not know", and the floor stays at leagueMin — the conservative
+ * direction, since an understated floor is a smaller lie than an overstated one.
+ *
+ * Only the IMMEDIATELY lower tier is considered. Reaching two tiers down would
+ * need a window wider than an entire league, and the lock's half-width never
+ * exceeds 100 while the narrowest shipped tier is 200 points wide.
+ */
+export function ratingRangeFor(waitedMs, rating, opts = {}) {
+  const waited = Number.isFinite(waitedMs) && waitedMs > 0 ? waitedMs : 0;
+  const r = Number.isFinite(rating) ? rating : 0;
+  const half = windowFor(waited);
+  const leagueMin = opts.leagueMin;
+  const leagueMax = opts.leagueMax;
+  const validLeagueBounds = Number.isFinite(leagueMin)
+    && typeof leagueMax === 'number'
+    && !Number.isNaN(leagueMax)
+    && leagueMax >= leagueMin;
+  const leagueLocked = waited < LEAGUE_LOCK_MS && validLeagueBounds;
+  const upperGrace = leagueLocked
+    && r <= leagueMax
+    && leagueMax - r <= UPPER_BOUNDARY_GRACE_ELO;
+  const strictFloor = Number.isFinite(opts.strictFloor) ? opts.strictFloor : 0;
+
+  // Math.min against leagueMin, not a bare assignment: a caller handing in a
+  // leagueBelowMax at or above this tier's floor is a malformed table, and the
+  // floor must never RISE because of it.
+  const lockedFloor = !leagueLocked
+    ? 0
+    : (Number.isFinite(opts.leagueBelowMax)
+      ? Math.min(leagueMin, opts.leagueBelowMax - UPPER_BOUNDARY_GRACE_ELO)
+      : leagueMin);
+
+  return [
+    Math.max(0, strictFloor, lockedFloor, Math.round(r - half)),
+    Math.min(leagueLocked && !upperGrace ? leagueMax : Infinity, Math.round(r + half)),
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +120,50 @@ function ratingOf(entry) {
 function waitedOf(entry, now) {
   const queued = Number.isFinite(entry?.queueTime) ? entry.queueTime : now;
   return Math.max(0, now - queued);
+}
+
+// A player's first 15 seconds are confined to their own league apart from the
+// explicit upper-boundary grace below. The ordinary clamp is checked in both
+// directions so an older waiter cannot otherwise pull a fresh player across.
+function openingLeagueAllows(entry, candidateRating, waitedMs) {
+  if (waitedMs >= LEAGUE_LOCK_MS) return true;
+  const min = entry?.leagueMin;
+  const max = entry?.leagueMax;
+  const valid = Number.isFinite(min)
+    && typeof max === 'number'
+    && !Number.isNaN(max)
+    && max >= min;
+  if (!valid) return true;
+  return candidateRating >= min && candidateRating <= max;
+}
+
+// Crossing upward is the one opening-lock exception. If the lower player is
+// within 10 ELO of their ceiling, their upper clamp is waived and the matched
+// higher-league player's lower clamp is waived for this pair too. The rating
+// window, rematch prevention, and strict matchmaking still run independently.
+function hasUpperBoundaryGrace(lower, higher) {
+  const min = lower?.leagueMin;
+  const max = lower?.leagueMax;
+  const higherMin = higher?.leagueMin;
+  const lowerRating = ratingOf(lower);
+  const higherRating = ratingOf(higher);
+  const valid = Number.isFinite(min)
+    && typeof max === 'number'
+    && !Number.isNaN(max)
+    && max >= min
+    && Number.isFinite(higherMin);
+  if (!valid) return false;
+  return lowerRating >= max - UPPER_BOUNDARY_GRACE_ELO
+    && lowerRating <= max
+    && higherRating > max
+    && higherMin > max;
+}
+
+function openingLeaguePairAllows(a, b, waitedA, waitedB) {
+  const ordinary = openingLeagueAllows(a, ratingOf(b), waitedA)
+    && openingLeagueAllows(b, ratingOf(a), waitedB);
+  if (ordinary) return true;
+  return hasUpperBoundaryGrace(a, b) || hasUpperBoundaryGrace(b, a);
 }
 
 // True when `candidate` is the player `entry` last faced, recently enough to
@@ -108,7 +216,7 @@ function strictBlocks(a, b, strictFloor) {
  * player 3 minutes deep cannot drag someone who just joined into a lopsided
  * match. TRADE-OFF, stated plainly: in a queue with steady fresh arrivals that
  * min() can starve the longest waiter, because every new joiner arrives with a
- * 150 window and vetoes them. The uncapped widening in windowFor() is the
+ * 50 window and vetoes them. The uncapped widening in windowFor() is the
  * escape hatch — the fresh joiner's own window grows while they sit there, so
  * the starved anchor is reachable within a bounded number of ticks rather than
  * never.
@@ -166,6 +274,7 @@ export function chooseDuelPairs(entries, opts = {}) {
       if (!anchor.guest) {
         const window = Math.min(anchorWindow, windowFor(candidateWaited));
         if (diff > window) continue;
+        if (!openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited)) continue;
       }
 
       if (!allowRematch && !anchorWaived && candidateWaited <= waiverMs) {

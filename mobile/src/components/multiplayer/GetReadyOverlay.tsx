@@ -19,6 +19,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SiteBackground from '../SiteBackground';
+import { MATCHMAKING_VEIL_COLORS } from '../../styles/matchmakingBackdrop';
 import { colors, resolveLeague, t } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
@@ -62,7 +64,6 @@ export default function GetReadyOverlay({
   isPlacement,
 }: GetReadyOverlayProps) {
   const [seconds, setSeconds] = useState(COUNTDOWN_WINDOW);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const me = players?.find((p) => p.id === myId);
   const opponent = players?.find((p) => p.id !== myId);
@@ -83,13 +84,12 @@ export default function GetReadyOverlay({
     ? mySidePlayers.length > 0 && enemySidePlayers.length > 0
     : !!(me && opponent);
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+  // NO whole-overlay entrance fade. The route-level 300ms cross-fade from the
+  // queue screen (still mounted underneath on the 1v1 push path) is the ONE
+  // owner of this reveal, and it only reads as seamless because this overlay's
+  // backdrop below is pixel-identical to the queue's — a second fade here
+  // re-dimmed that identical backdrop and made the seam visible again. The
+  // matchup content keeps its own per-element Reanimated entrances.
 
   // Countdown from server time (fractional — drives the draining bar)
   useEffect(() => {
@@ -121,14 +121,19 @@ export default function GetReadyOverlay({
   }, [seconds]);
 
   return (
-    <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-      {/* FULLY opaque backdrop — a fairness boundary, not just chrome. Unlike
-          web (which only loads the round's pano once the guess phase begins),
-          mobile warms the round-1 panorama BEHIND this overlay during the
-          countdown, so any translucency here leaks the upcoming location
-          before the round starts. Same hues as the old 0.92/0.96 rgba pair. */}
+    <View style={styles.overlay}>
+      {/* THE QUEUE SCREEN'S EXACT BACKDROP (photo + shared veil), at full
+          opacity from frame one, so the route cross-fade from /queue paints
+          identical pixels on both sides and the handoff is invisible.
+
+          Still a fairness boundary, not just chrome: unlike web (which only
+          loads the round's pano once the guess phase begins), mobile warms the
+          round-1 panorama BEHIND this overlay during the countdown. The
+          composited stack stays 100% opaque — SiteBackground's photo has no
+          alpha, so the translucent veil over it leaks nothing. */}
+      <SiteBackground style={StyleSheet.absoluteFillObject} />
       <LinearGradient
-        colors={['#06100a', '#030805']}
+        colors={MATCHMAKING_VEIL_COLORS}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -179,7 +184,7 @@ export default function GetReadyOverlay({
           generated={generated}
         />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 

@@ -27,10 +27,11 @@ import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
 import StampQuests from "../../models/StampQuests.js";
 import { STAMPS_ENABLED } from "../../serverUtils/stamps/config.js";
-import { dayKeyUTC, weekKeyUTC } from "../../serverUtils/stamps/periods.js";
+import { dayKeyUTC } from "../../serverUtils/stamps/periods.js";
 import { grantStamps } from "../../serverUtils/stamps/grantStamps.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
+import { DEFAULT_POST_GUESS_SECONDS, postGuessSecondsFor } from "../roundTimer.js";
 import { sampleDistinct } from "../../shared/locations/repeatGuard.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
@@ -40,17 +41,7 @@ import continentMapping from '../../public/continentMapping.json' with {type: "j
 // payout in one block is what makes "what does a game pay?" answerable without
 // reading the grant code.
 const STAMP_BOT_DAY_CAP = 30;                                       // bot-game stamps per UTC day, per user
-// Ceiling on the human game_base+game_win stream (ranked duels AND 2v2), per
-// UTC day. ~50 games' worth at full price — above any real session, a hard
-// wall for a farming pair. The ladder bonus already stops at 30 games; this
-// stops the one stream that had no stop.
-const STAMP_DUEL_DAY_CAP = 150;
-const STAMP_DAILY_LADDER = [[5, 5], [10, 10], [20, 15], [30, 20]];  // [gamesPlayed reached, reward]
-const STAMP_WEEKLY_QUESTS = [
-  { key: 'play20', reason: 'weekly_play20', reward: 25, met: (d) => (d?.gamesPlayed || 0) >= 20 },
-  { key: 'win10',  reason: 'weekly_win10',  reward: 25, met: (d) => (d?.gamesWon || 0) >= 10 },
-  { key: 'days4',  reason: 'weekly_days4',  reward: 15, met: (d) => (d?.daysPlayed?.length || 0) >= 4 },
-];
+const STAMP_BOT_GAME_REWARD = 2;
 
 // Locations for a match come from sampleDistinct: distinct within the match,
 // and outside `this.seenIds` (the participants' recent spots) where the caller
@@ -1331,8 +1322,9 @@ export default class Game {
             }
             const aDone = teamHasMembers.a && teamLocked.a;
             const bDone = teamHasMembers.b && teamLocked.b;
-            if ((aDone || bDone) && (this.nextEvtTime - Date.now()) > 20000) {
-              this.nextEvtTime = Date.now() + 20000;
+            const lockMs = DEFAULT_POST_GUESS_SECONDS * 1000;
+            if ((aDone || bDone) && (this.nextEvtTime - Date.now()) > lockMs) {
+              this.nextEvtTime = Date.now() + lockMs;
               this.sendStateUpdate();
               // Nudge the players who haven't locked in yet. Team-specific
               // copy: recipients are the entire OTHER team (a recipient is
@@ -1345,7 +1337,7 @@ export default class Game {
                 if (pObj) pObj.send({
                   type: 'toast',
                   key: 'otherTeamLocked',
-                  s: 20,
+                  s: DEFAULT_POST_GUESS_SECONDS,
                   closeOnClick: true,
                   autoClose: 3000,
                   toastType: 'info'
@@ -1355,7 +1347,8 @@ export default class Game {
             return;
           }
 
-          // 1v1 duels / other modes: drop to 20s when exactly one player remains.
+          // Ranked 1v1 drops to 15s, matching GeoGuessr's pace. Casual and
+          // other non-team multiplayer modes keep the existing 20s window.
           let remainingCount = 0;
           let finalPlayer = null;
           for (const p of Object.values(this.players)) {
@@ -1372,9 +1365,12 @@ export default class Game {
           // count only tallies non-final seats, so after a leaver's seat is
           // deleted (removePlayer runs checkRemaining before the forfeit
           // resolution) a lone survivor passes vacuously and got rushed to
-          // 20s + an "opponent locked in" toast about a player who LEFT.
-          if(remainingCount === 1 && Object.keys(this.players).length > 1 && (this.nextEvtTime - Date.now()) > 20000) {
-            this.nextEvtTime = Date.now() + 20000;
+          // shortened timer + an "opponent guessed" toast about a player who
+          // LEFT. The roster guard prevents that false signal.
+          const postGuessSeconds = postGuessSecondsFor(this);
+          const postGuessMs = postGuessSeconds * 1000;
+          if(remainingCount === 1 && Object.keys(this.players).length > 1 && (this.nextEvtTime - Date.now()) > postGuessMs) {
+            this.nextEvtTime = Date.now() + postGuessMs;
             this.sendStateUpdate();
 
             // send last player a toast. Ranked 1v1 gets its own copy: there
@@ -1388,7 +1384,7 @@ export default class Game {
             pObj.send({
               type: 'toast',
               key: this.public && this.duel ? 'opponentLocked' : 'lastGuesser',
-              s: 20,
+              s: postGuessSeconds,
               closeOnClick: true,
               autoClose: 3000,
               toastType: 'info'
@@ -2418,11 +2414,7 @@ export default class Game {
     const pay = async (accountId, amount, reason, key, meta = {}) => {
       // meta.gameId is stamped HERE, not at call sites: the history receipt
       // (stampReceiptForGame) filters the ledger on meta.gameId while the live
-      // end-screen is built from these same calls via `payouts` — so any row
-      // paid at this game's end (including period bonuses: first win of the
-      // day, ladder tiers, weekly quests, and back-pays of tiers a crash ate)
-      // must carry this game's id or history shows less than the end-screen
-      // did.
+      // end-screen is built from these same calls via `payouts`.
       const result = await grantStamps(accountId, amount, reason, key, { gameId, ...meta });
       if (!result?.applied) return result;
       const uid = String(accountId);
@@ -2432,10 +2424,6 @@ export default class Game {
       return result;
     };
 
-    const now = Date.now();
-    const dayKey = dayKeyUTC(now);
-    const weekKey = weekKeyUTC(now);
-
     for (const entry of entries) {
       const accountId = entry?.accountId;
       if (!accountId) continue; // bots and guests own no balance
@@ -2444,6 +2432,7 @@ export default class Game {
       const won = !!entry.won && !entry.drew;
 
       if (isBot) {
+        const dayKey = dayKeyUTC();
         // ---- BOT GAME: capped trickle, nothing else ----------------------
         // The cap doc must EXIST before the conditional $inc below can match
         // it, and that $inc deliberately does not upsert: an upsert whose
@@ -2461,8 +2450,13 @@ export default class Game {
         // ONE atomic conditional increment: the counter only moves while it is
         // still under the cap, so N concurrent bot finishes can never overshoot.
         const capped = await StampQuests.findOneAndUpdate(
-          { userId: accountId, periodType: 'day', periodKey: dayKey, botStampsAwarded: { $lt: STAMP_BOT_DAY_CAP } },
-          { $inc: { botStampsAwarded: 1, botGamesPlayed: 1 } },
+          {
+            userId: accountId,
+            periodType: 'day',
+            periodKey: dayKey,
+            botStampsAwarded: { $lte: STAMP_BOT_DAY_CAP - STAMP_BOT_GAME_REWARD },
+          },
+          { $inc: { botStampsAwarded: STAMP_BOT_GAME_REWARD, botGamesPlayed: 1 } },
           { new: true }
         );
         // null = cap reached. Skip ENTIRELY, without even writing a ledger
@@ -2470,25 +2464,13 @@ export default class Game {
         // sweep and turned into the payment the cap just refused.
         if (!capped) continue;
 
-        await pay(accountId, 1, 'bot_game', `g:${gameId}:${uid}:bot`);
-        // No win bonus, no daily ladder credit, no weekly quest credit. A bot
-        // is not an opponent; beating one must never be worth farming.
+        await pay(accountId, STAMP_BOT_GAME_REWARD, 'bot_game', `g:${gameId}:${uid}:bot`);
+        // No win or period bonuses. A bot is not an opponent; beating one must
+        // never be worth farming.
         continue;
       }
 
       // ---- HUMAN GAME --------------------------------------------------
-      // Daily counters FIRST: the upsert guarantees the day doc exists for
-      // the cap gate below, and the zero-$inc materialises duelStampsAwarded
-      // on day docs created before that field shipped — a $lte range query
-      // never matches a missing field, and a missing counter must read as 0,
-      // not as "capped". gamesWon increments by 0 on a loss rather than being
-      // omitted, so the field is always present on the returned doc.
-      const dayDoc = await StampQuests.findOneAndUpdate(
-        { userId: accountId, periodType: 'day', periodKey: dayKey },
-        { $inc: { gamesPlayed: 1, gamesWon: won ? 1 : 0, duelStampsAwarded: 0 } },
-        { new: true, upsert: true }
-      );
-
       // The PairWins decay that shrinks the ELO transfer for the Nth win over
       // the same opponent today shrinks the stamp earn with it. It existed
       // for ELO while stamps rode at full price — exactly what a wintrading
@@ -2502,73 +2484,15 @@ export default class Game {
       const winAmount = won ? Math.floor(1 * stampDecay) : 0;
       const earnTotal = baseAmount + winAmount;
 
-      // Daily ceiling on the base+win stream — the bot cap's twin, same
-      // atomic shape, sized so it can never overshoot ($lte cap - amount,
-      // not $lt cap; earns are 1-3 stamps, not always 1). One shared ceiling
-      // for ranked duels and 2v2: both modes flow through this path. A
-      // refused cap skips the pays ENTIRELY, without writing ledger rows —
-      // an unapplied row would be turned into the payment the cap just
-      // refused by cron's reconciliation sweep.
-      let underDayCap = false;
+      // Ranked duels and 2v2 have no daily earn ceiling. Anti-farm pair decay
+      // still applies above, and can reduce a repeated matchup to zero.
       if (earnTotal > 0) {
-        const capDoc = await StampQuests.findOneAndUpdate(
-          {
-            userId: accountId, periodType: 'day', periodKey: dayKey,
-            duelStampsAwarded: { $lte: STAMP_DUEL_DAY_CAP - earnTotal },
-          },
-          { $inc: { duelStampsAwarded: earnTotal } },
-          { new: true }
-        );
-        underDayCap = !!capDoc;
-      }
-
-      if (underDayCap) {
         await pay(accountId, baseAmount, 'game_base', `g:${gameId}:${uid}:base`, {
           ...(typeof entry.myElo === 'number' ? { myElo: entry.myElo } : {}),
           ...(typeof entry.opponentElo === 'number' ? { opponentElo: entry.opponentElo } : {}),
         });
         if (winAmount > 0) {
           await pay(accountId, winAmount, 'game_win', `g:${gameId}:${uid}:win`);
-        }
-      }
-
-      // First win of the UTC day. Keyed off the counter reaching exactly 1
-      // rather than a "already awarded" flag — payment state lives in the
-      // ledger and nowhere else (see models/StampQuests.js).
-      if (won && dayDoc?.gamesWon === 1) {
-        await pay(accountId, 5, 'first_win_day', `d:${dayKey}:${uid}:firstwin`, { periodKey: dayKey });
-      }
-
-      // Daily ladder: EVERY tier is re-evaluated on EVERY game, not just the
-      // one that was crossed. That is the self-healing property — a grant lost
-      // to a crash, a DB blip or a ws restart back-pays on the player's next
-      // game, and the ledger key makes the repeat attempts free. Do NOT
-      // "optimise" this into granting only the tier just crossed: that turns
-      // every transient failure into a permanently missing payout.
-      for (const [tier, reward] of STAMP_DAILY_LADDER) {
-        if ((dayDoc?.gamesPlayed || 0) >= tier) {
-          await pay(accountId, reward, 'daily_ladder', `d:${dayKey}:${uid}:ladder:${tier}`, { periodKey: dayKey, tier });
-        }
-      }
-
-      // Weekly counters. daysPlayed is a SET of UTC day keys (the "play on 4
-      // distinct days" quest); $addToSet is what makes replaying the same day
-      // cost nothing.
-      const weekUpdate = {
-        $inc: { gamesPlayed: 1, gamesWon: won ? 1 : 0 },
-        $addToSet: { daysPlayed: dayKey }
-      };
-      const weekDoc = await StampQuests.findOneAndUpdate(
-        { userId: accountId, periodType: 'week', periodKey: weekKey },
-        weekUpdate,
-        { new: true, upsert: true }
-      );
-
-      // All four weekly quests, every game — same self-healing rule as the
-      // daily ladder, with week-scoped idempotency keys.
-      for (const quest of STAMP_WEEKLY_QUESTS) {
-        if (quest.met(weekDoc)) {
-          await pay(accountId, quest.reward, quest.reason, `w:${weekKey}:${uid}:${quest.key}`, { periodKey: weekKey });
         }
       }
     }

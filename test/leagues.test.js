@@ -3,6 +3,7 @@ import {
   leagues,
   leaguesV2,
   getLeague,
+  getLeagueBelow,
   getLeagueRange,
   setLeagueConfig,
   getActiveLeagues,
@@ -34,10 +35,10 @@ function captureWarnings(fn) {
 
 // The v2 tier table as a RatingConfig `tiers` array.
 const V2_TIERS = [
-  { name: 'Trekker', min: 0, max: 814 },
-  { name: 'Explorer', min: 815, max: 944 },
-  { name: 'Voyager', min: 945, max: 1269 },
-  { name: 'Nomad', min: 1270, max: 1799 },
+  { name: 'Trekker', min: 0, max: 799 },
+  { name: 'Explorer', min: 800, max: 999 },
+  { name: 'Voyager', min: 1000, max: 1299 },
+  { name: 'Nomad', min: 1300, max: 1799 },
   { name: 'Legend', min: 1800, max: Infinity, emoji: '👑', color: '#dc143c' },
 ];
 
@@ -51,22 +52,22 @@ const V2_TIERS = [
 describe('default behaviour with no config doc installed (v2 is active)', () => {
   it('never throws on an unknown league name, it falls back to the lowest tier', () => {
     expect(() => getLeagueRange('nope')).not.toThrow();
-    expect(getLeagueRange('nope')).toEqual([0, 814]);
-    expect(getLeagueRange(undefined)).toEqual([0, 814]);
-    expect(getLeagueRange(null)).toEqual([0, 814]);
-    expect(getLeagueRange('')).toEqual([0, 814]);
+    expect(getLeagueRange('nope')).toEqual([0, 799]);
+    expect(getLeagueRange(undefined)).toEqual([0, 799]);
+    expect(getLeagueRange(null)).toEqual([0, 799]);
+    expect(getLeagueRange('')).toEqual([0, 799]);
   });
 
   it('resolves a known name on the v2 cutoffs', () => {
-    expect(getLeagueRange('Voyager')).toEqual([945, 1269]);
+    expect(getLeagueRange('Voyager')).toEqual([1000, 1299]);
   });
 
   it('buckets a rating on the v2 scale', () => {
     expect(getLeague(0).name).toBe('Trekker');
-    expect(getLeague(814).name).toBe('Trekker');
-    expect(getLeague(815).name).toBe('Explorer');
-    expect(getLeague(945).name).toBe('Voyager');
-    expect(getLeague(1270).name).toBe('Nomad');
+    expect(getLeague(799).name).toBe('Trekker');
+    expect(getLeague(800).name).toBe('Explorer');
+    expect(getLeague(1000).name).toBe('Voyager');
+    expect(getLeague(1300).name).toBe('Nomad');
     expect(getLeague(1800).name).toBe('Legend');
   });
 
@@ -86,17 +87,59 @@ describe('default behaviour with no config doc installed (v2 is active)', () => 
   });
 });
 
+describe('getLeagueBelow', () => {
+  it('returns the tier directly beneath each one', () => {
+    expect(getLeagueBelow(leaguesV2.explorerV2).name).toBe('Trekker');
+    expect(getLeagueBelow(leaguesV2.voyagerV2).name).toBe('Explorer');
+    expect(getLeagueBelow(leaguesV2.nomadV2).name).toBe('Voyager');
+    expect(getLeagueBelow(leaguesV2.legendV2).name).toBe('Nomad');
+  });
+
+  it('returns null for the bottom tier', () => {
+    expect(getLeagueBelow(leaguesV2.trekkerV2)).toBeNull();
+  });
+
+  it('returns null rather than throwing on junk', () => {
+    expect(getLeagueBelow(null)).toBeNull();
+    expect(getLeagueBelow(undefined)).toBeNull();
+    expect(getLeagueBelow({})).toBeNull();
+    expect(getLeagueBelow({ min: NaN })).toBeNull();
+  });
+
+  it('reads the ceiling of a GAPPED config table, not min - 1', () => {
+    // setLeagueConfig only requires the next floor to clear the previous
+    // ceiling, so tiers may leave a hole. The boundary grace has to key off the
+    // neighbour's real ceiling (799), which is where players actually sit.
+    expect(setLeagueConfig([
+      { name: 'Trekker', min: 0, max: 799 },
+      { name: 'Explorer', min: 850, max: 999 },
+    ])).toBe(true);
+    const explorer = Object.values(getActiveLeagues()).find((l) => l.name === 'Explorer');
+    expect(getLeagueBelow(explorer).max).toBe(799);
+  });
+
+  it('follows a config re-anchor instead of the built-in table', () => {
+    expect(setLeagueConfig([
+      { name: 'Trekker', min: 0, max: 499 },
+      { name: 'Explorer', min: 500, max: 1499 },
+      { name: 'Voyager', min: 1500, max: 2999 },
+    ])).toBe(true);
+    const voyager = Object.values(getActiveLeagues()).find((l) => l.name === 'Voyager');
+    expect(getLeagueBelow(voyager).max).toBe(1499);
+  });
+});
+
 describe('v2 tier table installed via setLeagueConfig', () => {
   it('installs and buckets on the v2 cutoffs', () => {
     expect(setLeagueConfig(V2_TIERS)).toBe(true);
 
     expect(getLeague(0).name).toBe('Trekker');
-    expect(getLeague(814).name).toBe('Trekker');
-    expect(getLeague(815).name).toBe('Explorer');
-    expect(getLeague(944).name).toBe('Explorer');
-    expect(getLeague(945).name).toBe('Voyager');
-    expect(getLeague(1269).name).toBe('Voyager');
-    expect(getLeague(1270).name).toBe('Nomad');
+    expect(getLeague(799).name).toBe('Trekker');
+    expect(getLeague(800).name).toBe('Explorer');
+    expect(getLeague(999).name).toBe('Explorer');
+    expect(getLeague(1000).name).toBe('Voyager');
+    expect(getLeague(1299).name).toBe('Voyager');
+    expect(getLeague(1300).name).toBe('Nomad');
     expect(getLeague(1799).name).toBe('Nomad');
     expect(getLeague(1800).name).toBe('Legend');
     expect(getLeague(99999).name).toBe('Legend');
@@ -112,7 +155,7 @@ describe('v2 tier table installed via setLeagueConfig', () => {
   it('backfills cosmetics a bounds-only config omits', () => {
     // A bounds-only doc must never render an undefined colour or a missing
     // emoji, and Trekker's `light` (not `lightColor`) drives the name glow.
-    expect(setLeagueConfig([{ name: 'Trekker', min: 0, max: 814 }])).toBe(true);
+    expect(setLeagueConfig([{ name: 'Trekker', min: 0, max: 799 }])).toBe(true);
     const trekker = getLeague(100);
 
     expect(trekker.emoji).toBe('🥾');
@@ -123,7 +166,7 @@ describe('v2 tier table installed via setLeagueConfig', () => {
   it('still falls back rather than throwing on an unknown name', () => {
     setLeagueConfig(V2_TIERS);
     expect(() => getLeagueRange('Bronze III')).not.toThrow();
-    expect(getLeagueRange('Bronze III')).toEqual([0, 814]);
+    expect(getLeagueRange('Bronze III')).toEqual([0, 799]);
   });
 });
 
@@ -161,7 +204,7 @@ describe('malformed configs are REJECTED and the previous table survives', () =>
       expect(getActiveLeagues()).toBe(before);
       expect(getLeague(0).name).toBe('Trekker');
       expect(getLeague(1800).name).toBe('Legend');
-      expect(getLeagueRange('Nomad')).toEqual([1270, 1799]);
+      expect(getLeagueRange('Nomad')).toEqual([1300, 1799]);
     });
   }
 
@@ -188,7 +231,7 @@ describe('clearLeagueConfig', () => {
     clearLeagueConfig();
 
     expect(getLeague(1500).name).toBe('Nomad');   // back to the v2 default
-    expect(getLeagueRange('Trekker')).toEqual([0, 814]);
+    expect(getLeagueRange('Trekker')).toEqual([0, 799]);
     expect(getActiveLeagues()).toBe(leaguesV2);
   });
 

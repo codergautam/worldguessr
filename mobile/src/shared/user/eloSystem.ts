@@ -87,6 +87,18 @@ export const RATING_SCALE = 400;
 export const K_NEW = 40, K_MID = 20, K_VET = 10;
 export const K_NEW_UNTIL = 30, K_MID_UNTIL = 100;
 
+// League cutoffs on the v2 scale — the single definition on THIS platform;
+// ./leagues.ts builds its tier table from these. Mirrors the same constants
+// in components/utils/eloSystem.js.
+export const EXPLORER_MIN = 800, VOYAGER_MIN = 1000, NOMAD_MIN = 1300, LEGEND_MIN = 1800;
+
+// Rating-based K caps, a two-step TAPER: K_MID from mid-Explorer, K_VET from
+// the VOYAGER entry (final ruling Aug 13: everything Voyager and up locks to
+// K_VET). A cap only ever LOWERS the schedule K. Mirrors the web module —
+// see components/utils/eloSystem.js for the full rationale.
+export const K_VET_RATING_FLOOR = VOYAGER_MIN;
+export const K_MID_RATING_FLOOR = (EXPLORER_MIN + VOYAGER_MIN) / 2; // 900, moves with the bands
+
 // Hard floor for a v2 rating. Unlike v1's MIN_ELO = 1 this is well clear of 0,
 // so no falsy-rating gate downstream can ever see a 0 (see MIN_ELO above).
 export const RATING_FLOOR = 100;
@@ -99,7 +111,7 @@ export const ENTRY_RATING = 500;
 //
 // It exists because `?? 1000` was typed by hand across both platforms. That was
 // correct on the Season 0 scale and badly wrong on v2, where 1000 sits inside
-// VOYAGER (945-1269) — above the median of 800 and above roughly 85% of the
+// VOYAGER (1000-1299) — above the median of 800 and above roughly 85% of the
 // ladder. So an account whose rating failed to load was silently painted as a
 // gold-badge Voyager. The server is on v2 unconditionally, so this is a plain
 // constant here rather than a flag read.
@@ -107,7 +119,10 @@ export const STARTING_ELO = ENTRY_RATING;
 
 // Placement seeding from single-player skill: base + slope * avg round points,
 // capped so a perfect scorer still enters below the real ladder's top.
-export const SEED_BASE = 500, SEED_SLOPE = 0.06, SEED_MAX = 800;
+// Slope+cap raised Aug 2026 (user ruling), mirroring the web module: a strong
+// placement should reach low Explorer rather than every seed landing in
+// Trekker. Perfect 5000 avg => 900; Explorer entry at avg 3750.
+export const SEED_BASE = 500, SEED_SLOPE = 0.08, SEED_MAX = 900;
 
 // A decided game must move the ladder by at least this much, otherwise a huge
 // rating gap rounds the transfer to 0 and beating a much weaker opponent (or
@@ -119,12 +134,25 @@ export function expectedScore(ra: number, rb: number): number {
   return 1 / (1 + Math.pow(10, (rb - ra) / RATING_SCALE));
 }
 
-/** K-factor for one player, from their count of RATED games (not duels_played). */
-export function kFactor(ratedGames: number | null | undefined): number {
+/**
+ * K-factor for one player, from their count of RATED games (not duels_played),
+ * CAPPED by rating: at or above K_MID_RATING_FLOOR the K is at most K_MID, at
+ * or above K_VET_RATING_FLOOR (Voyager+) at most K_VET. The cap only ever
+ * lowers the schedule K, never raises it. Missing/NaN rating falls back to
+ * the schedule alone, so old call sites keep their exact previous behaviour.
+ */
+export function kFactor(ratedGames: number | null | undefined, rating?: number | null): number {
   const n = Number(ratedGames) || 0;
-  if (n < K_NEW_UNTIL) return K_NEW;
-  if (n < K_MID_UNTIL) return K_MID;
-  return K_VET;
+  let k = K_VET;
+  if (n < K_NEW_UNTIL) k = K_NEW;
+  else if (n < K_MID_UNTIL) k = K_MID;
+
+  const r = Number(rating);
+  if (Number.isFinite(r)) {
+    if (r >= K_VET_RATING_FLOOR) k = Math.min(k, K_VET);
+    else if (r >= K_MID_RATING_FLOOR) k = Math.min(k, K_MID);
+  }
+  return k;
 }
 
 /**
@@ -132,8 +160,13 @@ export function kFactor(ratedGames: number | null | undefined): number {
  * K-factors. A shared K is what makes the game zero-sum — per-player Ks would
  * hand a rookie 40 points and take 10 from the veteran they beat.
  */
-export function pairK(rgA: number | null | undefined, rgB: number | null | undefined): number {
-  return (kFactor(rgA) + kFactor(rgB)) / 2;
+export function pairK(
+  rgA: number | null | undefined,
+  rgB: number | null | undefined,
+  ratingA?: number | null,
+  ratingB?: number | null
+): number {
+  return (kFactor(rgA, ratingA) + kFactor(rgB, ratingB)) / 2;
 }
 
 /** Ratings are stored as integers and may never sink below the floor. */
@@ -197,7 +230,7 @@ export function calculateTransfer({
   decay = 1,
   k,
 }: TransferInput): TransferResult {
-  const kUsed = k ?? pairK(ratedGamesA, ratedGamesB);
+  const kUsed = k ?? pairK(ratedGamesA, ratedGamesB, ratingA, ratingB);
   const eA = expectedScore(ratingA, ratingB);
   const raw = kUsed * (outcome - eA); // signed, A's perspective
 

@@ -2318,6 +2318,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // before the join is even acknowledged.
                 queuedAt: null,
                 queueEta: null,
+                // Cleared for the same reason — a previous queue's band must
+                // not flash. NO optimistic range here: a guess from cached elo
+                // was tried and visibly self-corrected one RTT in (stale elo,
+                // league-table drift). The queue screen reserves the cell's
+                // LAYOUT itself and fades the server's range in when it lands.
+                publicDuelRange: null,
                 // Stale placement labelling from a previous queue must not
                 // leak into this one; the server re-announces if it applies.
                 placementPending: false
@@ -3316,7 +3322,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
             } else if (data.type === 'toast') {
-                // Round-pressure nudges (opponent / other team locked in,
+                // Round-pressure nudges (opponent guessed / other team locked in,
                 // you're the last guesser) get an audible ping — the toast
                 // alone is easy to miss while panning a street view. Mix
                 // ratio ~-6dB: at full tilt the ping barked over everything.

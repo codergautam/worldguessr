@@ -665,7 +665,10 @@ async function handlePurchase(res, user, body, platform) {
     // drain (see server.js SIGTERM handler) — whereas the $set race was open
     // on every concurrent pair of presses, deliberately triggerable, and
     // silently ate a full charge.
-    adFreeDurationMs = item.durationMs || 20 * 60 * 1000;
+    // Fallback only for a catalogue entry that somehow ships without a
+    // duration; it must track shared/shop/catalog.js (60 minutes since the
+    // Aug 13 2026 raise) or a missing field would silently sell a short pass.
+    adFreeDurationMs = item.durationMs || 60 * 60 * 1000;
     extraUpdate = undefined;
   } else {
     // ONE SKU, ONE GRANT. There are no bundles in the catalogue any more, so

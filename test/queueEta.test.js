@@ -16,6 +16,7 @@ import {
   sweepSamples,
   weightedQuantile,
 } from '../ws/queueEta.js';
+import { formatQueueEta } from '../shared/time/queueEta.js';
 
 const NOW = 1_770_000_000_000;
 
@@ -148,9 +149,28 @@ describe('store and snapshot', () => {
 });
 
 describe('display', () => {
-  it('rounds p80 upward', () => {
-    expect(bucketSeconds(40_001)).toBe(45);
-    expect(bucketSeconds(62_000)).toBe(90);
+  it('keeps the p80 exact to the nearest whole second', () => {
+    expect(bucketSeconds(40_001)).toBe(40);
+    expect(bucketSeconds(40_500)).toBe(41);
+    expect(bucketSeconds(62_000)).toBe(62);
+  });
+
+  it('does not bucket short waits', () => {
+    expect(bucketSeconds(0)).toBe(0);
+    expect(bucketSeconds(3_000)).toBe(3);
+    expect(bucketSeconds(7_000)).toBe(7);
+    expect(bucketSeconds(12_000)).toBe(12);
+    expect(bucketSeconds(15_000)).toBe(15);
+  });
+
+  it('shows seconds through ten minutes, then rounded whole minutes', () => {
+    const text = (key, vars) => `${key}:${JSON.stringify(vars)}`;
+    expect(formatQueueEta(text, 59)).toBe('queueEtaSeconds:{"v":59}');
+    expect(formatQueueEta(text, 60)).toBe('queueEtaMinutesSeconds:{"m":1,"s":0}');
+    expect(formatQueueEta(text, 108)).toBe('queueEtaMinutesSeconds:{"m":1,"s":48}');
+    expect(formatQueueEta(text, 600)).toBe('queueEtaMinutesSeconds:{"m":10,"s":0}');
+    expect(formatQueueEta(text, 601)).toBe('queueEtaMinutes:{"v":10}');
+    expect(formatQueueEta(text, 631)).toBe('queueEtaMinutes:{"v":11}');
   });
 
   it('falls back to rough wording instead of showing a modelled number', () => {
@@ -159,12 +179,38 @@ describe('display', () => {
     });
   });
 
-  it('latches a numeric quote and changes to long immediately after it is exceeded', () => {
+  it('latches a numeric quote and flips to long past the grace, not the quote', () => {
+    // Grace = max(1.5x quote, quote + 5s), snapped UP to the 5s grid so the
+    // wire never carries a fractional second: the quote is a p80, so a fifth
+    // of players outlive it by construction and the flip must not fire the
+    // instant they do. 40s quote -> long past 60s.
     const estimate = { status: 'ok', totalMs: 40_000 };
     const shown = nextShownEta(null, estimate, 0);
-    expect(shown).toMatchObject({ state: 'ok', seconds: 45 });
-    expect(nextShownEta(shown, estimate, 45_000).state).toBe('ok');
-    expect(nextShownEta(shown, estimate, 45_001).state).toBe('long');
+    expect(shown).toMatchObject({ state: 'ok', seconds: 40, longAfterMs: 60_000 });
+    expect(nextShownEta(shown, estimate, 45_001).state).toBe('ok');
+    expect(nextShownEta(shown, estimate, 60_000).state).toBe('ok');
+    expect(nextShownEta(shown, estimate, 60_001).state).toBe('long');
+  });
+
+  it('only ever emits whole-second values and 5s-grid thresholds', () => {
+    // Every quotable p80 from 0 to 30 minutes: the shown seconds and the
+    // long threshold must both be integers — no decimals may reach the wire
+    // or the screen from any input.
+    for (let ms = 0; ms <= 1_800_000; ms += 1_337) {
+      const shown = nextShownEta(null, { status: 'ok', totalMs: ms }, 0);
+      expect(Number.isInteger(shown.seconds)).toBe(true);
+      expect(shown.longAfterMs % 5000).toBe(0);
+      expect(shown.unit).toBe(shown.seconds > 600 ? 'min' : 'sec');
+      if (shown.unit === 'min') expect(Number.isInteger(shown.value)).toBe(true);
+    }
+  });
+
+  it('floors the grace at quote+5s for tiny quotes', () => {
+    // 4s p80 -> "~4s" quote; 1.5x would flip at 6s, the +5s floor holds it
+    // to 10s so the screen cannot contradict itself moments after opening.
+    const shown = nextShownEta(null, { status: 'ok', totalMs: 4_000 }, 0);
+    expect(shown).toMatchObject({ state: 'ok', seconds: 4, longAfterMs: 10_000 });
+    expect(nextShownEta(shown, { status: 'ok', totalMs: 4_000 }, 10_001).state).toBe('long');
   });
 
   it('never moves a numeric quote while the player waits', () => {

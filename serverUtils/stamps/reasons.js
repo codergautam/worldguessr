@@ -19,16 +19,7 @@ export const STAMP_REASONS = {
   // Per-game trickle.
   game_base:     { sign: 1,  maxAbs: 2 },
   game_win:      { sign: 1,  maxAbs: 1 },
-  bot_game:      { sign: 1,  maxAbs: 1 },
-  first_win_day: { sign: 1,  maxAbs: 5 },
-
-  // Periodic ladders and quests (keyed by serverUtils/stamps/periods.js).
-  daily_ladder:  { sign: 1,  maxAbs: 20 },
-  weekly_play20: { sign: 1,  maxAbs: 25 },
-  weekly_win10:  { sign: 1,  maxAbs: 25 },
-  // Legacy only: retained so historical ledger entries remain valid/readable.
-  weekly_upset:  { sign: 1,  maxAbs: 10 },
-  weekly_days4:  { sign: 1,  maxAbs: 15 },
+  bot_game:      { sign: 1,  maxAbs: 2 },
 
   // Shop.
   purchase:      { sign: -1, maxAbs: 5000 },

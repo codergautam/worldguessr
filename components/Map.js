@@ -560,19 +560,23 @@ const TileLayer = dynamic(
  * needs re-binding.
  */
 const ClickHandler = memo(function ClickHandler({
-  answerShown, multiplayerState, ws, setPinPoint, pinPoint,
+  answerShown, multiplayerState, ws, setPinPoint,
 }) {
-  const ref = useRef({ answerShown, multiplayerState, ws, pinPoint });
+  const ref = useRef({ answerShown, multiplayerState, ws });
   useEffect(() => {
-    ref.current = { answerShown, multiplayerState, ws, pinPoint };
-  }, [answerShown, multiplayerState, ws, pinPoint]);
+    ref.current = { answerShown, multiplayerState, ws };
+  }, [answerShown, multiplayerState, ws]);
 
-  // Double-tap zoom fires `click` for its taps BEFORE `dblclick`, so a
-  // mobile double-tap used to relocate the guess pin to wherever the user
-  // tapped to zoom. Remember the pin as it was before the tap burst and
-  // restore it the moment the dblclick arrives: double-tap = zoom only.
-  // (A placement delay would fix it "cleaner" but pin latency is sacred.)
-  const burstRef = useRef({ before: undefined, lastClickTs: 0 });
+  // Double-tap zoom fires `click` for each tap BEFORE `dblclick`, so a
+  // double-tap also places the pin at the tapped spot. That is DELIBERATE
+  // (user ruling Aug 13 2026): an earlier fix snapshotted the pin before the
+  // tap burst and restored it when the dblclick arrived ("double-tap = zoom
+  // only"), but players double-tap to PLACE far more often than to zoom, and
+  // the restore yanked their pin back to a stale past placement — trading a
+  // real guess for a camera nicety. Double-tap now means: pin lands where
+  // you tapped, then the zoom glide runs. Do NOT reintroduce a dblclick undo
+  // here; if double-tap-to-zoom ever needs protecting again, gate the ZOOM,
+  // never the placement.
 
   // Decode ahead of the first click so pin placement and guess submission
   // have zero audio latency.
@@ -586,11 +590,6 @@ const ClickHandler = memo(function ClickHandler({
       if (shown) return;
       const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
       if (mp?.inGame && me?.final) return;
-
-      const now = Date.now();
-      const burst = burstRef.current;
-      if (now - burst.lastClickTs > 400) burst.before = ref.current.pinPoint ?? null;
-      burst.lastClickTs = now;
 
       playSfx('pin');
 
@@ -628,31 +627,6 @@ const ClickHandler = memo(function ClickHandler({
           round: mp.gameData?.curRound,
         }));
       }
-    },
-    dblclick() {
-      const { answerShown: shown, multiplayerState: mp, ws: socket } = ref.current;
-      if (shown) return;
-      const burst = burstRef.current;
-      // Only undo placements that belong to THIS double-tap's taps.
-      if (!burst.lastClickTs || Date.now() - burst.lastClickTs > 700) return;
-      const restore = burst.before;
-      burst.lastClickTs = 0;
-      if (restore === undefined) return;
-      setPinPoint(restore ?? null);
-      if (restore && mp?.inGame && mp.gameData?.state === "guess" && socket) {
-        const me = mp?.gameData?.players?.find(p => p.id === mp?.gameData?.myId);
-        if (!me?.final) {
-          socket.send(JSON.stringify({
-            type: "place",
-            latLong: [restore.lat, restore.lng],
-            final: false,
-            round: mp.gameData?.curRound,
-          }));
-        }
-      }
-      // restore === null (no pin before the double-tap): the taps' server
-      // "place" can't be unsent — same as pre-fix behavior, and the user
-      // re-places in practice. Locally the pin is cleared.
     },
   });
   return null;
@@ -2242,7 +2216,6 @@ const MapComponent = ({
         multiplayerState={multiplayerState}
         ws={ws}
         setPinPoint={setPinPoint}
-        pinPoint={pinPoint}
       />
       <ExtentFitter
         extent={gameOptions?.extent}

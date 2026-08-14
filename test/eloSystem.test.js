@@ -18,8 +18,15 @@ import {
   clampRating,
   placementSeed,
   calculateTransfer,
+  EXPLORER_MIN,
+  VOYAGER_MIN,
+  NOMAD_MIN,
+  LEGEND_MIN,
+  K_VET_RATING_FLOOR,
+  K_MID_RATING_FLOOR,
 } from '../components/utils/eloSystem.js';
 import { STARTING_ELO } from '../components/utils/ratingFlags.js';
+import { leaguesV2 } from '../components/utils/leagues.js';
 
 // Rating v2 is the ladder's mint. Every assertion below exists because the
 // corresponding mistake silently prints or burns rating in production, and the
@@ -97,7 +104,7 @@ describe('calculateTransfer — headline arithmetic', () => {
 
   it('reports the k it actually used and A\'s expectation', () => {
     const r = calculateTransfer({ ratingA: 800, ratingB: 1200, ratedGamesA: 0, ratedGamesB: 200, outcome: 1 });
-    expect(r.k).toBe(pairK(0, 200));
+    expect(r.k).toBe(pairK(0, 200, 800, 1200));
     expect(r.expectedA).toBeCloseTo(expectedScore(800, 1200), 12);
   });
 });
@@ -315,6 +322,35 @@ describe('kFactor', () => {
     expect(kFactor(NaN)).toBe(40);
     expect(kFactor('not a number')).toBe(40);
   });
+
+  it('locks to K_VET at or above the Voyager entry, whatever the count', () => {
+    expect(kFactor(0, K_VET_RATING_FLOOR)).toBe(K_VET);
+    expect(kFactor(29, K_VET_RATING_FLOOR)).toBe(K_VET);
+    expect(kFactor(0, 1299)).toBe(K_VET);
+    expect(kFactor(0, 5000)).toBe(K_VET);
+  });
+
+  it('tapers through K_MID from mid-Explorer instead of cliffing at the line', () => {
+    // Just under Voyager: capped at K_MID, NOT back to the full K_NEW. The
+    // cliff this kills: 40 at 999 / 10 at 1000 pins sub-30-game accounts
+    // under the tier (fall fast, climb slow).
+    expect(kFactor(0, K_VET_RATING_FLOOR - 1)).toBe(K_MID);
+    expect(kFactor(0, K_MID_RATING_FLOOR)).toBe(K_MID);
+    expect(kFactor(50, K_VET_RATING_FLOOR - 1)).toBe(K_MID);
+    // Just under the taper start: the pure game-count schedule again.
+    expect(kFactor(0, K_MID_RATING_FLOOR - 1)).toBe(K_NEW);
+    // The cap only ever LOWERS K: a veteran inside the taper band keeps K_VET.
+    expect(kFactor(150, 950)).toBe(K_VET);
+    expect(kFactor(150, K_MID_RATING_FLOOR)).toBe(K_VET);
+  });
+
+  it('ignores a missing / garbage rating and falls back to the schedule', () => {
+    expect(kFactor(0, undefined)).toBe(K_NEW);
+    expect(kFactor(0, NaN)).toBe(K_NEW);
+    expect(kFactor(0, 'nonsense')).toBe(K_NEW);
+    // Number(null) is 0: a real, finite, sub-Voyager rating — schedule wins.
+    expect(kFactor(150, null)).toBe(K_VET);
+  });
 });
 
 describe('pairK', () => {
@@ -327,6 +363,50 @@ describe('pairK', () => {
   it('is order-independent', () => {
     expect(pairK(0, 100)).toBe(pairK(100, 0));
     expect(pairK(29, 500)).toBe(pairK(500, 29));
+    expect(pairK(0, 0, 1200, 500)).toBe(pairK(0, 0, 500, 1200));
+  });
+
+  it('feeds each side its OWN rating for the Voyager lock', () => {
+    // Two Voyager+ players run at K_VET outright, whatever their counts.
+    expect(pairK(0, 0, 1000, 1400)).toBe(K_VET);
+    // Voyager+ rookie (locked to 10) vs fresh sub-taper rookie (40): shared 25.
+    expect(pairK(0, 0, 1000, 500)).toBe(25);
+    // Voyager+ rookie (10) vs taper-band rookie (capped 20): shared 15.
+    expect(pairK(0, 0, 1000, 950)).toBe(15);
+    // No ratings given: exactly the old schedule-only behaviour.
+    expect(pairK(0, 0)).toBe(K_NEW);
+  });
+});
+
+// The cutoffs are defined ONCE, in eloSystem.js, and the tier table derives
+// from them. These pins catch both failure modes: someone retyping a band in
+// leagues.js, and someone moving a cutoff without meaning to.
+describe('league cutoffs — single definition', () => {
+  it('the leaguesV2 table derives from the eloSystem cutoffs', () => {
+    expect(leaguesV2.explorerV2.min).toBe(EXPLORER_MIN);
+    expect(leaguesV2.trekkerV2.max).toBe(EXPLORER_MIN - 1);
+    expect(leaguesV2.voyagerV2.min).toBe(VOYAGER_MIN);
+    expect(leaguesV2.explorerV2.max).toBe(VOYAGER_MIN - 1);
+    expect(leaguesV2.nomadV2.min).toBe(NOMAD_MIN);
+    expect(leaguesV2.voyagerV2.max).toBe(NOMAD_MIN - 1);
+    expect(leaguesV2.legendV2.min).toBe(LEGEND_MIN);
+    expect(leaguesV2.nomadV2.max).toBe(LEGEND_MIN - 1);
+  });
+
+  it('the K_VET rating lock sits exactly on the Voyager entry', () => {
+    expect(K_VET_RATING_FLOOR).toBe(VOYAGER_MIN);
+  });
+
+  it('the K taper starts at the Explorer band midpoint and moves with the bands', () => {
+    expect(K_MID_RATING_FLOOR).toBe((EXPLORER_MIN + VOYAGER_MIN) / 2);
+    expect(K_MID_RATING_FLOOR).toBe(900);
+  });
+
+  it('pins the Aug 2026 rebanding', () => {
+    expect(EXPLORER_MIN).toBe(800);
+    expect(VOYAGER_MIN).toBe(1000);
+    expect(NOMAD_MIN).toBe(1300);
+    expect(LEGEND_MIN).toBe(1800);
   });
 });
 
@@ -386,7 +466,7 @@ describe('calculateTransfer — integrality', () => {
 // This shipped broken and it was the first thing a new player ever saw.
 //
 // models/User.js defaulted `elo` to a hardcoded 1000. Correct on the Season 0
-// scale, wrong on v2, where 1000 sits inside VOYAGER (945-1269). Since
+// scale, wrong on v2, where 1000 sits inside VOYAGER (1000-1299). Since
 // placementSeed() returns 500..900 — ALWAYS below 1000 — the very first ranked
 // game a player plays, which the throwing placement bot guarantees they WIN,
 // rendered as a red rating loss on web, a downward count and a badge demotion on

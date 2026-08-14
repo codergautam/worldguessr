@@ -168,11 +168,9 @@ export function bucketSeconds(ms) {
   if (!Number.isFinite(ms) || ms < 0) return null;
   const seconds = ms / 1000;
   if (seconds > 1800) return null;
-  if (seconds <= 10) return 10;
-  if (seconds <= 45) return Math.ceil(seconds / 15) * 15;
-  if (seconds <= 120) return Math.ceil(seconds / 30) * 30;
-  if (seconds <= 600) return Math.ceil(seconds / 60) * 60;
-  return Math.ceil(seconds / 300) * 300;
+  // Keep the observed p80 precise to the nearest whole second. Presentation
+  // decides when to collapse that precision to whole minutes.
+  return Math.round(seconds);
 }
 
 export function nextShownEta(previous, estimate, elapsedMs) {
@@ -207,13 +205,23 @@ export function nextShownEta(previous, estimate, elapsedMs) {
 
   const seconds = bucketSeconds(estimate.totalMs);
   if (seconds === null) return long(null);
-  const threshold = seconds * 1000;
+  // The long-flip gets GRACE past the quote: 1.5x, floored at quote+5s. The
+  // quote is a p80, so a fifth of players outlive it by construction, and
+  // flipping to "longer than usual" the instant a ~5s quote lapses made the
+  // screen contradict itself seconds after opening. The label says "typical
+  // wait", not "your wait" — the quote may stand while you run modestly over
+  // it; meaningfully over (past the grace) it must stop being shown.
+  //
+  // Snap the grace deadline UP to a 5s grid so 1.5x of an odd-second quote
+  // never puts fractional seconds on the wire.
+  const graceSeconds = Math.ceil(Math.max(seconds * 1.5, seconds + 5) / 5) * 5;
+  const threshold = graceSeconds * 1000;
   if (past(threshold)) return long(threshold);
-  const minutes = seconds >= 120;
+  const minutesOnly = seconds > 600;
   return {
     state: 'ok',
-    value: minutes ? Math.round(seconds / 60) : seconds,
-    unit: minutes ? 'min' : 'sec',
+    value: minutesOnly ? Math.round(seconds / 60) : seconds,
+    unit: minutesOnly ? 'min' : 'sec',
     seconds,
     tier: null,
     longAfterMs: threshold,

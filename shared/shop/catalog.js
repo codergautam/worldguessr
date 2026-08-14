@@ -386,12 +386,23 @@ const EMOTES = [
 
 const PASSES = [
   {
+    // THE SKU IS FROZEN AND THE `20m` IN IT IS NOW A LIE. It is an opaque
+    // identifier, not a spec: every past purchase is stamped with this exact
+    // string in StampLedger `meta.sku`, and api/stampShop.js reads that back
+    // to build purchase history. Renaming it to match the duration would
+    // orphan every historical row. The duration below is the only source of
+    // truth for how long a pass lasts.
     sku: 'pass_adfree_20m',
     type: 'pass',
-    name: 'Ad-Free 20 Minutes',
+    name: 'Ad-Free 60 Minutes',
     price: 100,
     platforms: ['web', 'mobile'],
-    durationMs: 20 * 60 * 1000,
+    // Raised from 20 minutes (user ruling Aug 13 2026). BOTH storefronts
+    // derive their label from this field — web's PassPreview and mobile's
+    // shop card both render `durationMs / 60000` next to the shared
+    // `shopPassMinutes` string — so the number on screen follows this
+    // constant on every platform and in every locale with no other edit.
+    durationMs: 60 * 60 * 1000,
   },
 ];
 

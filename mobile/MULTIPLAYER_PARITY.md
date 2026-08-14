@@ -64,15 +64,13 @@ correctness bugs and a handful of missing polish features. Nothing requires a re
   `app/_layout.tsx` route change or per-screen `usefocusEffect`: `home` for tabs,
   `multiplayer` for `/queue`, `/party/*`, `/game/*`, `singleplayer` for SP game.
 
-### G3 — `lastGuesser` toast not surfaced
-- **Server:** when one player is the only one who hasn't guessed and >20s remain, it shortens the
-  timer to 20s and sends that player a `lastGuesser` toast (`Game.checkRemaining`). Web shows it
-  via the generic `toast` handler.
-- **Mobile:** the generic `toast` handler exists, so if the server sends `toast` with key
-  `lastGuesser` it *should* display — but verify the key is in the mobile i18n map and that the
-  message type used by the server is `toast` (it is). **Action:** confirm `lastGuesser` and
-  `reconnected` keys exist in the mobile locale (`src/shared/locale.ts`); add if missing. Low risk
-  but easy to miss → blank toast.
+### G3 — Post-guess timer and toast (resolved)
+- **Server:** when one player is the only one who hasn't guessed, ranked 1v1 shortens the timer to
+  15s and sends `opponentLocked`. Casual multiplayer keeps the 20s `lastGuesser` behavior
+  (`Game.checkRemaining`). Team modes separately keep their 20s `otherTeamLocked` behavior.
+- **Web and mobile:** both generic `toast` handlers resolve these keys from the shared
+  `public/locales/<lang>/common.json` files, so the same message and server-provided duration are
+  shown on both clients.
 
 ### G4 — No critical-time red screen flash
 - **Web:** last 5s of the guess timer triggers `critical` styling **and a red screen flash**

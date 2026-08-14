@@ -370,12 +370,11 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
           // team round breakdown, exactly like the live gameData shape.
           team: player.team ?? null,
           // Cosmetics. This rebuild is a PROJECTION of the saved game doc into
-          // the live gameData shape: a field left out here is simply absent
-          // downstream, with no error — the summary just renders a plain name
-          // and a default pin, which reads as "my glow does not work in
-          // history". Nulls are harmless when the saved doc predates the field.
+          // the live gameData shape. Player-facing history restores both;
+          // moderation deliberately keeps stock pins for color legibility.
+          // Nulls are harmless when the saved doc predates either field.
           nameGlow: player.nameGlow ?? null,
-          markerSkin: player.markerSkin ?? null
+          markerSkin: isModView ? null : (player.markerSkin ?? null)
         })),
         // The stamps receipt, in the SAME slot the live end screen reads it
         // from (roundOverScreen `multiplayerState.gameData.stampsEarned`). Live
@@ -460,11 +459,14 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
         button2Text=""
         hidden={false}
         session={session}
-        // The saved match snapshot wins. viewerMarkerSkin is only a legacy
-        // fallback for payloads produced before player summaries stored pins.
-        viewerMarkerSkin={perspectivePlayer?.markerSkin !== undefined
-          ? perspectivePlayer.markerSkin
-          : viewerMarkerSkin}
+        // Reports use the stock src/src2/dest palette. Outside moderation the
+        // saved snapshot wins; viewerMarkerSkin is the legacy fallback for
+        // payloads produced before player summaries stored pins.
+        viewerMarkerSkin={isModView
+          ? null
+          : (perspectivePlayer?.markerSkin !== undefined
+            ? perspectivePlayer.markerSkin
+            : viewerMarkerSkin)}
         gameId={game?.gameId || game?._id}
         options={{
           ...options,

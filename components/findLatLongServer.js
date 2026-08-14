@@ -25,14 +25,29 @@ export async function hasStreetViewImage(lat, long, radius) {
   // trim first 2 characters and last 2 characters
   text = text.substring(2, text.length-2);
   if(text.includes("Search returned no images")) return false;
+  let parsed;
   try {
-    const parsed = JSON.parse(text);
+    parsed = JSON.parse(text);
     const description = parsed[1][3][2][1][0];
     if(!description) {
       return false;
     }
   } catch(e) {
     return false;
+  }
+
+  // The pano's own [heading, tilt, roll], on the same array path photometa
+  // serves it. heading is the bearing at the centre of the panorama image,
+  // which for car coverage is the direction of travel — i.e. down the road.
+  // Ship it with every location: a location with no heading makes the Maps
+  // Embed fall back to its hardcoded default of 0, and the player spawns
+  // facing due north instead of at the street.
+  let heading = null;
+  try {
+    const h = parsed[1][5][0][1][2][0];
+    if (typeof h === 'number' && isFinite(h)) heading = ((h % 360) + 360) % 360;
+  } catch(e) {
+    // older/odd responses just don't carry it; callers treat null as "unknown"
   }
   // extract everything comma separated and keep only numbers (decimal points  and negative signs allowed)
   let parts = text.split(",").map((x) => x.match(/-?\d+(\.\d+)?/g)).filter((x) => x).flat().map((x) => parseFloat(x));
@@ -50,7 +65,7 @@ export async function hasStreetViewImage(lat, long, radius) {
     return false;
   }
 
-  return { lat: answer[0], long: answer[1] };
+  return { lat: answer[0], long: answer[1], heading };
 }
 
  async function generateLatLong(location, getRandomPointInCountry, findCountry) {
@@ -77,7 +92,9 @@ export async function hasStreetViewImage(lat, long, radius) {
     }
   }
 
-  return { lat: outLat, long: outLong, country: country };
+  const out = { lat: outLat, long: outLong, country: country };
+  if (hasImage.heading !== null && hasImage.heading !== undefined) out.heading = hasImage.heading;
+  return out;
 }
 
 export default async function findLatLongRandom(gameOptions, getRandomPointInCountry, findCountry) {

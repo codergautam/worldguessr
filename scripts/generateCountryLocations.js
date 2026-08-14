@@ -5,8 +5,10 @@
 // For each country: random point inside the border polygon -> probe Google's
 // SingleImageSearch for a pano within 1km (same endpoint the live fallback
 // uses; a no-description pano is rejected there as trekker coverage) ->
-// verify the snapped pano didn't land across a border -> dedupe against every
-// existing pool file and this run -> append to data/world-extra.json.
+// verify the snapped pano didn't land across a border -> stamp the pano's own
+// centre heading (the probe returns it; without one the round spawns facing
+// north) -> dedupe against every existing pool file and this run -> append to
+// data/world-extra.json.
 //
 // cron.js imports world-extra.json into the country pools, so new locations
 // go live on the next cron.js restart. Countries with a data/mapOverrides
@@ -90,7 +92,12 @@ for (const { country, count } of targets) {
 
       misses = 0;
       seen.add(k);
-      accepted.push({ lat: hit.lat, lng: hit.long, country });
+      // heading comes back with the probe at no extra cost. Rows written
+      // without one render facing due north (the Maps Embed default), so it is
+      // part of a location, not an extra.
+      const entry = { lat: hit.lat, lng: hit.long, country };
+      if (hit.heading !== null && hit.heading !== undefined) entry.heading = Math.round(hit.heading);
+      accepted.push(entry);
       if (accepted.length % 25 === 0 || accepted.length === count) {
         const rate = (accepted.length / ((Date.now() - started) / 60000)).toFixed(0);
         console.log(`${country}: ${accepted.length}/${count} (${probes} probes, ~${rate}/min)`);

@@ -786,7 +786,12 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
 .shopWallet__how {
     position: absolute;
     top: calc(100% + 8px);
-    left: 0;
+    /* RIGHT-anchored, because the pill is justify-self:end — the rightmost
+       thing on the screen. Left-anchored, this 260px panel grew rightward
+       straight off the viewport and the prose got guillotined mid-word.
+       Growing leftward it opens over the header's empty middle, which is
+       exactly the direction the mobile app's walletHelp already picked. */
+    right: 0;
     z-index: 4;
     display: flex;
     flex-direction: column;
