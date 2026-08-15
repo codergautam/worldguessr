@@ -9,7 +9,7 @@ import PartyModal from "./partyModal";
 // connection banners → queue banners → one shared dim container hosting the
 // join-code card / PartyLobby card.
 // In-round UI (leaderboard, round-over) is mounted from gameUI, not here.
-export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames, openFriends, timeOffset }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames, openFriends }) {
 
     const { t: text } = useTranslation("common");
 
@@ -214,7 +214,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                        payload) — render the frozen snapshot instead so the
                        clock and plate hold still until the intro takes over. */
                     multiplayerState={inBridge ? (queueSnapRef.current || multiplayerState) : multiplayerState}
-                    timeOffset={timeOffset}
                     /* Ranked reserves the plate's layout from frame one and
                        fades the server's values in — but only for accounts,
                        because a guest queue never receives a range or an ETA
@@ -231,7 +230,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                     key="queue-exit"
                     mode={exitingQueue.mode}
                     multiplayerState={exitingQueue.snapshot}
-                    timeOffset={timeOffset}
                     signedIn={!!session?.token?.secret}
                     exiting
                 />

@@ -2992,6 +2992,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // staging lobby server-side, so emotes keep flowing on the
                     // queue banner — preserve my id for self-styling.
                     queueMyId: prev.gameData?.myId ?? prev.queueMyId,
+                    // 2v2 never receives a `queueJoined` ack, so it had no
+                    // start instant and the queue screen showed no clock at all
+                    // (mobile, which always renders the digits, showed a frozen
+                    // "0:00"). Stamp one. ONCE PER SEARCH — `??` keeps any
+                    // existing value, because stage 2 arrives as a SECOND
+                    // enter2v2Queue partway through the same search and
+                    // re-stamping would restart the clock at 0:00 the moment a
+                    // teammate was found. Every queue teardown nulls it, so a
+                    // null here always means this is a new search.
+                    //
+                    // A LOCAL instant, unlike the 1v1 server stamp. Safe: the
+                    // queue screen uses this only as the search's IDENTITY and
+                    // anchors its timer on a local performance.now() at first
+                    // sight of it. Nothing reads the value as server time.
+                    queuedAt: prev.queuedAt ?? Date.now(),
                 }))
             } else if (data.type === "publicDuelRange") {
                 // Also a valid join confirmation for ranked — retire the watchdog.
@@ -5831,7 +5846,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         selectCountryModalShown={selectCountryModalShown}
                         setSelectCountryModalShown={setSelectCountryModalShown}
                         inCrazyGames={inCrazyGames}
-                        timeOffset={timeOffset}
                         openFriends={() => { setAccountModalPage('list'); setAccountModalOpen(true); }}
                     />
                 </div>}

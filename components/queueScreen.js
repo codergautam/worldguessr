@@ -78,39 +78,62 @@ function ReservedValue({ value, dim }) {
   );
 }
 
+// The clock is anchored LOCALLY, keyed on the server's join instant.
+//
+// It used to render `Date.now() + timeOffset - queuedAt`. queuedAt is stamped
+// on the ws server's clock, so that subtraction made the stopwatch a function
+// of how far this machine's clock sits from the server's — and timeOffset, the
+// correction for exactly that gap, is 0 on a fresh socket and only becomes
+// accurate a round trip later. A client clock running behind the server
+// subtracted into the negative, Math.max pinned the display at 0:00 for the
+// full width of the skew, and the clock then leapt forward the moment a real
+// offset landed (user report Aug 14). The earlier phase-lock fix could not
+// touch it: the cadence was never wrong, the VALUE was.
+//
+// Nothing here needs server time. The ack arrives moments after the join, so
+// "first render that saw this queue" IS the start, measured on one monotonic
+// local clock that no skew, offset or NTP step can reach. It stays a timestamp
+// difference and never a counter, so a throttled tab still cannot lose seconds.
+//
+// Module-scoped and KEYED on queuedAt rather than a ref: the exit ghost is a
+// separate mount (key="queue-exit") rendering the same frozen queuedAt, and a
+// per-mount ref would restart its clock at 0:00 mid-fade. Keying also makes a
+// stale anchor impossible, since a new queue brings a new queuedAt.
+let clockAnchor = { key: null, at: 0 };
+function anchorFor(queuedAt) {
+  if (clockAnchor.key !== queuedAt) clockAnchor = { key: queuedAt, at: performance.now() };
+  return clockAnchor.at;
+}
+
 // `exiting`: this render is the EXIT GHOST — multiplayerHome keeps the screen
 // mounted for one short beat after the match is found, with frozen props, so
 // the content dissolves instead of vanishing in one frame. All of the exit's
 // behaviour lives in styles/queueScreen.css under .wgQueue--exiting.
-export default function QueueScreen({ mode, multiplayerState, timeOffset, signedIn, exiting }) {
+export default function QueueScreen({ mode, multiplayerState, signedIn, exiting }) {
   const { t: text } = useTranslation("common");
 
-  // A RE-RENDER PUMP, not a clock. The elapsed value is derived from the
-  // server's queuedAt on every render instead of being accumulated, so a
-  // throttled background tab cannot silently lose seconds — there would be no
-  // state to recover them from.
-  //
-  // PHASE-LOCKED to the queuedAt second boundary, not a bare setInterval(1000).
-  // The displayed digit flips when floor(elapsed) crosses a boundary, and that
-  // boundary is phased to queuedAt — while a fixed interval is phased to MOUNT.
-  // Any unrelated re-render landing between the two phases (an ETA push, a
-  // widen step — under second-precision ETAs that is nearly every 5s beat)
-  // showed the next second EARLY, and the following interval tick then held it
-  // LONG: the stopwatch visibly stuttered and sprinted (user report Aug 14).
-  // Re-arming a timeout for just past each boundary makes every second last
-  // exactly one second regardless of what else renders in between.
+  // null until the server's join ack lands, which is when the clock appears.
+  const queuedAt = multiplayerState?.queuedAt;
+  const anchor = typeof queuedAt === "number" ? anchorFor(queuedAt) : null;
+
+  // A RE-RENDER PUMP, not the clock. PHASE-LOCKED to the anchor's second
+  // boundary, not a bare setInterval(1000): the displayed digit flips when
+  // floor(elapsed) crosses a boundary, while a fixed interval is phased to
+  // MOUNT instead. Any unrelated re-render landing between the two phases (an
+  // ETA push, a widen step) showed the next second EARLY and the following
+  // tick then held it LONG, so the stopwatch stuttered and sprinted. Re-arming
+  // for just past each boundary makes every second last exactly one second.
   const [, setTick] = useState(0);
-  const queuedAtForPump = multiplayerState?.queuedAt;
   useEffect(() => {
-    if (typeof queuedAtForPump !== "number") return; // nothing displayed yet
+    if (anchor === null) return; // nothing displayed yet
     let id;
     const arm = () => {
-      const ms = Math.max(0, Date.now() + (timeOffset || 0) - queuedAtForPump);
+      const ms = performance.now() - anchor;
       id = setTimeout(() => { setTick((n) => n + 1); arm(); }, 1000 - (ms % 1000) + 5);
     };
     arm();
     return () => clearTimeout(id);
-  }, [queuedAtForPump, timeOffset]);
+  }, [anchor]);
 
   const { Icon, labelKey, titleKey } = MODES[mode] || MODES.unrankedDuel;
 
@@ -119,12 +142,11 @@ export default function QueueScreen({ mode, multiplayerState, timeOffset, signed
   // "Placement match" is new information, not a third restatement of "ranked".
   const isPlacement = mode === "publicDuel" && !!multiplayerState?.placementPending;
 
-  const queuedAt = multiplayerState?.queuedAt;
   let elapsedStr = null;
   let elapsedSecs = 0;
   let elapsedMs = 0;
-  if (typeof queuedAt === "number") {
-    elapsedMs = Math.max(0, Date.now() + (timeOffset || 0) - queuedAt);
+  if (anchor !== null) {
+    elapsedMs = performance.now() - anchor;
     elapsedSecs = Math.floor(elapsedMs / 1000);
     elapsedStr = `${Math.floor(elapsedSecs / 60)}:${String(elapsedSecs % 60).padStart(2, "0")}`;
   }

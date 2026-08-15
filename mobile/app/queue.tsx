@@ -172,6 +172,14 @@ function ReservedValue({ value, style, dimStyle }: {
   );
 }
 
+// Keyed on the server's join instant so a new queue always brings a new anchor
+// and a stale one is impossible. See the clock comment inside the component.
+let clockAnchor: { key: number | null; at: number } = { key: null, at: 0 };
+function anchorFor(queuedAt: number) {
+  if (clockAnchor.key !== queuedAt) clockAnchor = { key: queuedAt, at: performance.now() };
+  return clockAnchor.at;
+}
+
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -196,8 +204,18 @@ export default function QueueScreen() {
   // `setElapsed(e => e + 1)` counter, which silently under-reports: React
   // Native suspends JS timers while the app is backgrounded, so a minute spent
   // in another app simply never got counted and there was no state to recover
-  // it from. The value is now DERIVED from the server's join instant on every
-  // render, which is immune to that, to a screen remount, and to clock skew.
+  // it from. The value is DERIVED from a timestamp difference on every render,
+  // which is immune to that and to a screen remount.
+  //
+  // The anchor is LOCAL, keyed on the server's join instant. It used to be
+  // `Date.now() + wsService.timeOffset - queuedAt`, but queuedAt is stamped on
+  // the ws server's clock, so that made the stopwatch a function of device to
+  // server clock skew — and timeOffset, the correction for exactly that gap,
+  // starts at 0 and only becomes accurate a round trip later. A device clock
+  // running behind the server pinned the display at 0:00 for the width of the
+  // skew and then leapt when the offset landed. Nothing here needs server time:
+  // the ack arrives moments after the join, so first sight of this queue IS the
+  // start, on one monotonic local clock no skew can reach.
   const queuedAt = useMultiplayerStore((s) => s.queuedAt);
   const queueEta = useMultiplayerStore((s) => s.queueEta);
   // This ranked queue resolves into the placement seeding match (server
@@ -209,9 +227,8 @@ export default function QueueScreen() {
     const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  const elapsedMs = queuedAt
-    ? Math.max(0, Date.now() + wsService.timeOffset - queuedAt)
-    : 0;
+  const anchor = typeof queuedAt === 'number' ? anchorFor(queuedAt) : null;
+  const elapsedMs = anchor !== null ? performance.now() - anchor : 0;
   const elapsed = Math.floor(elapsedMs / 1000);
   const mm = Math.floor(elapsed / 60);
   const ss = elapsed % 60;

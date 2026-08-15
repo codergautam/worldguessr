@@ -1154,15 +1154,16 @@ app.ws('/wg', {
       }
 
       const player = players.get(ws.id);
-      if (!player.verified && json.type !== 'verify') {
-        return;
-      }
-      if (json.type === "pong") {
-        // Legacy keepalive — old web bundles and the mobile app still send
-        // this every 10s. Nothing reads it (liveness uses the timeSync
-        // round-trip); swallow it early instead of walking the whole chain.
-        return;
-      }
+      // ABOVE THE VERIFIED GATE, deliberately. Every client fires its first
+      // timeSync immediately behind `verify`, and verify() is async — it awaits
+      // several DB calls before setting `verified` — so under the gate that
+      // first sync was silently dropped and the client waited out its 30s retry
+      // before it held a round-trip-corrected offset. Until then it ran on the
+      // `t` fallback, which is `serverNow - Date.now()` with no RTT correction,
+      // or on nothing at all, since timeOffset resets to 0 on every new socket.
+      // Everything that converts between client and server time inherited that
+      // error. Safe to answer unverified: this echoes a clock and nothing else,
+      // reading no player state and mutating none.
       if (json.type === "timeSync") {
         if (typeof json.clientSentAt === "number") {
           player.send({
@@ -1171,6 +1172,15 @@ app.ws('/wg', {
             serverNow: Date.now()
           });
         }
+        return;
+      }
+      if (!player.verified && json.type !== 'verify') {
+        return;
+      }
+      if (json.type === "pong") {
+        // Legacy keepalive — old web bundles and the mobile app still send
+        // this every 10s. Nothing reads it (liveness uses the timeSync
+        // round-trip); swallow it early instead of walking the whole chain.
         return;
       }
       if (json.type === 'verify') {

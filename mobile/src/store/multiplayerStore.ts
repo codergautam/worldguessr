@@ -508,10 +508,15 @@ interface MultiplayerState {
   gameQueued: GameQueuedType;
   publicDuelRange: [number, number] | null;
   /**
-   * The SERVER's queue-join instant (absolute ms), off the `queueJoined` ack.
-   * The queue screen derives its elapsed timer from this rather than counting
-   * up locally: React Native suspends JS timers when the app backgrounds, so a
-   * counter silently under-reports with no state to recover from.
+   * The queue-join instant (absolute ms). The SERVER's, off the `queueJoined`
+   * ack, for 1v1; stamped LOCALLY for 2v2, which gets `enter2v2Queue` instead
+   * and no server instant with it.
+   *
+   * That mix is safe because nothing reads the value as a clock. The queue
+   * screen uses it only as the IDENTITY of the current search, and anchors its
+   * elapsed timer on a local performance.now() taken at first sight of that
+   * identity — see the anchor comment in app/queue.tsx. Reading it as server
+   * time would be wrong for 2v2, so do not.
    */
   queuedAt: number | null;
   /**
@@ -1432,6 +1437,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         ...(nextRoomKey ? { chatLastRoomKey: nextRoomKey } : null),
         gameQueued: false,
         queueStage: null,
+        // The search is over, so its stamp ends with it — web's game handler
+        // has always cleared this and mobile never did. It mattered once 2v2
+        // started stamping its own: nothing else nulls it on that path (2v2 is
+        // server-driven and never calls joinQueue), so a survivor rode into the
+        // next Play Again regroup and the queue clock opened at the PREVIOUS
+        // search's elapsed time instead of 0:00.
+        queuedAt: null,
         // Queue-scoped flag ends here; gameData.isPlacement (riding the
         // payload spread below) carries the in-game labelling from now on.
         placementPending: false,
@@ -1576,6 +1588,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         // server-side, so emotes keep flowing on the queue screen — preserve
         // my id for self-styling.
         queueMyId: state.gameData?.myId ?? state.queueMyId,
+        // 2v2 never receives a `queueJoined` ack, so the clock had no start
+        // instant and sat frozen at "0:00" for the entire search. Stamp one.
+        // ONCE PER SEARCH — `?? Date.now()` keeps any existing value, because
+        // stage 2 arrives as a SECOND enter2v2Queue partway through the same
+        // search and re-stamping would restart the clock at 0:00 the moment a
+        // teammate was found. Teardown nulls it between searches, so a null
+        // here always means this is a new one.
+        queuedAt: state.queuedAt ?? Date.now(),
       });
       return;
     }
