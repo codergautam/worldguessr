@@ -16,6 +16,13 @@ import DailyResultsScreen from './DailyResultsScreen';
 // that the slower mobile/CG covers don't matter in practice.
 const PANO_PRELOAD_DELAY_MS = 450;
 
+// How long the page may be hidden before a daily run is voided. Deliberately
+// generous: it costs a real cheater nothing, because nobody looks a location up
+// and is back inside a second and a half, while every accidental hide is over
+// in far less. See the detector in DailyChallengeScreen for why this is a
+// duration and not an edge.
+const DAILY_AWAY_GRACE_MS = 1500;
+
 const GameUI = dynamic(() => import('@/components/gameUI'), { ssr: false });
 
 function DailyRoundBadge({ round, total }) {
@@ -306,23 +313,55 @@ export default function DailyChallengeScreen({
     }
   }, [phase, setLatLong, clearSpPanoPreload]);
 
-  // Disqualify the run if the player switches tabs / minimizes / hides the
-  // page while actively playing. We intentionally only listen to
-  // `visibilitychange` (not `window.blur`) because the Street View iframe
-  // stealing focus fires `blur` on the window even though the tab is still
-  // visible — that would give false positives.
+  // Void the run if the player leaves the page while actively playing.
+  //
+  // `visibilitychange`, never `window.blur`: the Street View iframe stealing
+  // focus fires `blur` on the window while the tab is still perfectly visible.
+  //
+  // AND ON DURATION AWAY, NEVER ON THE HIDDEN EDGE. A single hidden event used
+  // to void the run outright, which is why players who never left were being
+  // disqualified almost every run (player report Aug 15). `visibilityState`
+  // flips to 'hidden' for far more than a deliberate tab switch: a minimized or
+  // fully occluded window, an OS screen lock or dim, a phone browser taking a
+  // notification, Chrome's memory saver backgrounding the tab, and a host
+  // portal hiding the game iframe for an interstitial. None of those are the
+  // player choosing to look something up, all of them are over in a fraction of
+  // a second, and the old check could not tell any of them from a 40-second
+  // lookup. It resolved that ambiguity against the player every time — and
+  // because a DQ locks the date (see handleStart), one blip cost them the day.
+  //
+  // TWO detectors, because neither covers the other's hole:
+  //  - the timer trips while the player is STILL away, so a run abandoned
+  //    mid-round is voided even if they never come back to a 'visible'.
+  //  - the on-return measurement covers a tab the browser froze outright, where
+  //    the timer may never fire. performance.now() spans the freeze correctly,
+  //    and unlike Date.now() no clock change can move it.
   useEffect(() => {
     if (phase !== 'game') return;
     if (disqualified) return;
     if (typeof document === 'undefined') return;
+    let hiddenAt = null;
+    let awayTimer = null;
+    const flagAway = () => {
+      setDisqualified(true);
+      setShowDisqualifiedModal(true);
+    };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        setDisqualified(true);
-        setShowDisqualifiedModal(true);
+        hiddenAt = performance.now();
+        awayTimer = setTimeout(flagAway, DAILY_AWAY_GRACE_MS);
+        return;
       }
+      clearTimeout(awayTimer);
+      awayTimer = null;
+      if (hiddenAt !== null && performance.now() - hiddenAt >= DAILY_AWAY_GRACE_MS) flagAway();
+      hiddenAt = null;
     };
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearTimeout(awayTimer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [phase, disqualified]);
 
   // Prefetch the submit + results-refresh while the user is still reading
@@ -339,6 +378,18 @@ export default function DailyChallengeScreen({
     const locs = singlePlayerRound.locations;
     if (!locs || locs.length !== singlePlayerRound.totalRounds) return;
     if (disqualified) return;
+    // Not while the page is hidden. The `disqualified` guard above is what
+    // keeps a clean payload from being committed for a run that is about to be
+    // voided, and that guard is no longer instant: the DQ now waits out
+    // DAILY_AWAY_GRACE_MS, so a hide landing just before this effect would slip
+    // a non-DQ submit through the gap. That matters more than it looks, because
+    // the server's DQ write is dup-gated on (date, userId) — once a clean row
+    // exists, a later DQ submit returns a DQ-shaped response but LEAVES THE
+    // CLEAN ROW STANDING, so the player is told they were disqualified while
+    // their score stays on the board. Skipping the prefetch just costs a brief
+    // submitting interstitial; handleRoundsComplete's slow path submits with
+    // whatever the DQ state finally settles to.
+    if (document.visibilityState === 'hidden') return;
     if (prefetchRef.current) return;
 
     const rounds = locs.map(l => ({
