@@ -79,7 +79,6 @@ import AccountBtn from "@/components/ui/accountBtn";
 import EmoteReactions from "@/components/emoteReactions";
 import GameChat from "@/components/gameChat";
 import WelcomeOverlay from "@/components/welcomeOverlay";
-import resolveOnboardingVariant from "@/components/utils/growthbook";
 import AlertModal from "@/components/ui/AlertModal";
 import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
@@ -783,10 +782,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [otherOptions, setOtherOptions] = useState([]); // for country guesser
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
-    // A/B (GrowthBook "onboarding-flow"): "modal" = old mode-select overlay
-    // (control), "dropin" = straight into classic round 1 (treatment). null
-    // until resolved — the onboarding-start effect waits on it.
-    const [onboardingVariant, setOnboardingVariant] = useState(null);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
     // A new user's ENTIRE bootstrap — variant fetch → startOnboarding →
     // GameUI stamping the round-1 location (which sets loading=true in the
@@ -1028,6 +1023,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [suggestLoginShowNeverAgain, setSuggestLoginShowNeverAgain] = useState(false);
     useEffect(() => {
         if (screen !== "home") return;
+        // The tutorial guards itself via screen==="onboarding", but a NEW user
+        // spends their first moments on screen==="home" while onboarding start
+        // is still pending (loading gate, embed preroll) — gating on `screen`
+        // alone let the timer below ambush that boot phase and burn the
+        // first-show stamp before the tutorial even began.
+        // null = still resolving, false = tutorial pending; only a definitive
+        // true may arm the timer, so the first ask lands after onboarding.
+        if (onboardingCompleted !== true) return;
         if (session?.token?.secret) return;
         if (inCrazyGames || inCoolMathGames || inGameDistribution || inPoki) return;
         if (typeof window === 'undefined') return;
@@ -1080,7 +1083,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }, 2500);
 
         return () => clearTimeout(timer);
-    }, [screen, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal, linkGoogleModalOpen]);
+    }, [screen, onboardingCompleted, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal, linkGoogleModalOpen]);
 
     // check if ?coolmath=true
     useEffect(() => {
@@ -1702,27 +1705,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [])
 
-    // Resolve the onboarding A/B variant only for undecided new users.
-    // Embedded platforms sit outside the experiment (old modal flow, no SDK
-    // fetch); plain web waits on GrowthBook (≤2s, fails safe to "modal").
-    useEffect(() => {
-        if (onboardingCompleted !== false || onboardingVariant !== null) return;
-        if (inCrazyGames || window.inCrazyGames || inCoolMathGames || inGameDistribution
-            || window.inGameDistribution || inPoki || inIframe()) {
-            setOnboardingVariant("modal");
-            return;
-        }
-        let cancelled = false;
-        // Warm the react-leaflet chunk in parallel with the variant fetch:
-        // MapWidget is a lazy dynamic import, so without this the drop-in
-        // arm serializes variant fetch → chunk download → tile fetch and the
-        // minimap shows up visibly late. Same specifier as gameUI's dynamic()
-        // → same webpack chunk.
-        import("../components/Map").catch(() => {});
-        resolveOnboardingVariant().then((v) => { if (!cancelled) setOnboardingVariant(v); });
-        return () => { cancelled = true; };
-    }, [onboardingCompleted, onboardingVariant, inCrazyGames, inCoolMathGames, inGameDistribution])
-
     useEffect(() => {
 
         // check if learn mode
@@ -1732,16 +1714,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
         if (onboardingCompleted === false) {
-            if (onboardingCompleted === null) return;
-            // Hold until the A/B variant is known — nothing renders for a new
-            // user before this anyway (home UI is gated on onboardingCompleted).
-            if (onboardingVariant === null) return;
             if (!loading) {
 
                 if (startOnboarding("classic")) {
-                    // "modal" (control) = old mode-select overlay on top;
-                    // "dropin" (treatment) = straight into round 1.
-                    if (onboardingVariant === "modal") setWelcomeOverlayShown(true);
+                    // Mode-select welcome overlay on top of round 1 — every
+                    // new user, no variant fetch to wait on.
+                    setWelcomeOverlayShown(true);
                     return;
                 }
 
@@ -1772,7 +1750,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }
             }
         }
-    }, [onboardingCompleted, onboardingVariant])
+    }, [onboardingCompleted])
 
     // While the welcome overlay covers the screen (modal variant), hold the
     // onboarding GameUI mount (whose mount effect loads round 1 and with it
