@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { rampQue, shouldCountPageView, sweepVideoUnits } from "./utils/playwire";
+import { PLAYWIRE_DISABLED, rampQue, shouldCountPageView, sweepVideoUnits } from "./utils/playwire";
 import sendEvent from "./utils/sendEvent";
 
 // Nitro-style slot lifecycle: WE pick the creative size client-side from
@@ -63,6 +63,11 @@ function PlaywireAd({
   const [isClient, setIsClient] = useState(false); // false | true | "debug"
   const adDivRef = useRef(null);
 
+  // TEMP: PLAYWIRE_DISABLED guards the declare effect and the render below.
+  // While disabled the slot renders nothing: no reserved box, no
+  // "Advertisement" label. Guard lives after the hooks so hook order is
+  // untouched when the flag flips back.
+
   useEffect(() => {
     // ?pwtest forces real injection on localhost (wiring checks through a
     // tunnel / against house ads without deploying).
@@ -77,7 +82,7 @@ function PlaywireAd({
   const unitType = size ? UNIT_FOR_SIZE[`${size[0]}x${size[1]}`] : null;
 
   useEffect(() => {
-    if (!unitType || !isClient || isClient === "debug") return;
+    if (PLAYWIRE_DISABLED || !unitType || !isClient || isClient === "debug") return;
 
     // The call runs through ramp.que, which can fire long after mount (the
     // stack loads on first interaction) — a slot that unmounted or resized
@@ -116,7 +121,7 @@ function PlaywireAd({
     };
   }, [unitType, isClient, selectorId]);
 
-  if (!size || !unitType || !isClient) return null;
+  if (PLAYWIRE_DISABLED || !size || !unitType || !isClient) return null;
 
   return (
     <div

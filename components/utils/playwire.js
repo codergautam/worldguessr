@@ -4,6 +4,12 @@
 export const RAMP_PUB_ID = "1025355";
 export const RAMP_WEB_ID = "75156";
 
+// TEMP KILL SWITCH (Aug 17): Playwire is misbehaving; disabled while their
+// support investigates. Guards the script load/preload here and the slot
+// render in bannerAdPlaywire.js. Flip to false to restore ads — no other
+// change needed.
+export const PLAYWIRE_DISABLED = true;
+
 const SCRIPT_ID = "ramp-script";
 
 // RAMP boots in passive mode: it injects NOTHING on its own — every unit is
@@ -34,6 +40,7 @@ export function rampQue(fn) {
 // the sanctioned way to speed the first ad up; do NOT "improve" it by
 // executing earlier — the interaction gate is the potato protection.
 export function preloadRampScript() {
+  if (PLAYWIRE_DISABLED) return;
   if (typeof document === "undefined") return;
   if (
     document.getElementById("ramp-preload") ||
@@ -52,6 +59,7 @@ export function preloadRampScript() {
 // first-interaction gate — NEVER eagerly (July perf overhaul: the ad stack
 // and everything it drags in stays off the initial load).
 export function loadRampScript() {
+  if (PLAYWIRE_DISABLED) return;
   if (document.getElementById(SCRIPT_ID)) return;
   ensureRampStub();
   const script = document.createElement("script");
