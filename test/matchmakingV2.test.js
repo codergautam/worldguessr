@@ -171,7 +171,9 @@ describe('chooseDuelPairs — closest-rating selection', () => {
 describe('chooseDuelPairs — mutual window uses min(), not max()', () => {
   it('refuses a lopsided match a long waiter would otherwise drag someone into', () => {
     // Anchor 120s deep has a 450 window; the fresh joiner has 50. The gap is
-    // 300: inside the anchor's window, outside the joiner's. min() vetoes it.
+    // 300: inside the anchor's window, outside the joiner's. The starvation
+    // valve does NOT rescue this pair — the joiner is still inside their
+    // protected first 10s — so the min() veto stands.
     const anchor = entry({ id: 'anchor', rating: 1000, queueTime: NOW - 120000 });
     const fresh = entry({ id: 'fresh', rating: 1300 });
 
@@ -186,6 +188,76 @@ describe('chooseDuelPairs — mutual window uses min(), not max()', () => {
     const pairs = chooseDuelPairs([a, b], { now: NOW });
 
     expect(pairs).toHaveLength(1);
+  });
+});
+
+// The min() trade-off's failure mode, observed live Aug 16: a liquid low pool
+// pairs its fresh joiners in seconds, so their windows never widen and a
+// high-rated waiter starves without bound. Past STARVED_WAIT_MS the longer
+// waiter's window judges the pair alone; the shorter waiter keeps their
+// protected first 10s, which for a starved pair also stands in for the
+// opening league lock.
+describe('chooseDuelPairs — starvation valve', () => {
+  it('lets a 2-minute waiter reach a candidate whose own window is too narrow', () => {
+    // Gap 300. Starved anchor's window is 450; the candidate at 15s has only
+    // 150, so min() alone would veto. The valve pairs them.
+    const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 120000 });
+    const candidate = entry({ id: 'candidate', rating: 1100, queueTime: NOW - 15000 });
+
+    const pairs = chooseDuelPairs([starved, candidate], { now: NOW });
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].a.id).toBe('starved');
+  });
+
+  it('does not open one tick before the threshold', () => {
+    const almost = entry({ id: 'almost', rating: 1400, queueTime: NOW - 119999 });
+    const candidate = entry({ id: 'candidate', rating: 1100, queueTime: NOW - 15000 });
+    expect(chooseDuelPairs([almost, candidate], { now: NOW })).toEqual([]);
+  });
+
+  it('never reaches a candidate still inside their protected first 10s', () => {
+    const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 300000 });
+    const fresh = entry({ id: 'fresh', rating: 1100, queueTime: NOW - 9999 });
+    expect(chooseDuelPairs([starved, fresh], { now: NOW })).toEqual([]);
+  });
+
+  it('opens exactly at the partner 10s floor, replacing the 15s league lock', () => {
+    // Cross-league pair with the candidate in the 10-15s sliver: the opening
+    // league lock would veto until 15s, but for a starved pair the valve's own
+    // 10s floor is the whole protection.
+    const starved = entry({
+      id: 'starved', rating: 1400, queueTime: NOW - 300000,
+      leagueMin: 1300, leagueMax: 1599,
+    });
+    const candidate = entry({
+      id: 'candidate', rating: 1100, queueTime: NOW - 10000,
+      leagueMin: 1000, leagueMax: 1299,
+    });
+    expect(chooseDuelPairs([starved, candidate], { now: NOW })).toHaveLength(1);
+  });
+
+  it('is order-independent — the starved player may sit anywhere in the input', () => {
+    const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 120000 });
+    const candidate = entry({ id: 'candidate', rating: 1100, queueTime: NOW - 15000 });
+    expect(chooseDuelPairs([candidate, starved], { now: NOW })).toHaveLength(1);
+    expect(chooseDuelPairs([starved, candidate], { now: NOW })).toHaveLength(1);
+  });
+
+  it('still takes the CLOSEST candidate, not the freshest or first', () => {
+    const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 120000 });
+    const far = entry({ id: 'far', rating: 1000, queueTime: NOW - 20000 });
+    const near = entry({ id: 'near', rating: 1150, queueTime: NOW - 16000 });
+
+    const pairs = chooseDuelPairs([starved, far, near], { now: NOW });
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].b.id).toBe('near');
+  });
+
+  it('does not waive strict matchmaking', () => {
+    // Strict is an explicit opt-in; starving is the price the player accepted.
+    const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 300000, strict: true });
+    const below = entry({ id: 'below', rating: 1100, queueTime: NOW - 20000 });
+    expect(chooseDuelPairs([starved, below], { now: NOW, strictFloor: 1300 })).toEqual([]);
   });
 });
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useReviewPromptStore } from '../store/reviewPromptStore';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { requestStoreReview } from '../services/storeReview';
@@ -29,8 +30,40 @@ import { logEvent } from '../services/analytics';
  *   <ReviewPromptModal visible={visible} onRate={onRate} onDismiss={onDismiss} />
  */
 
-/** Let the results screen settle before sliding the prompt up (happy pause). */
-const SHOW_DELAY_MS = 1400;
+/**
+ * Let the results screen settle before sliding the prompt up. Deliberately
+ * unhurried: at ~1.4s users were still reading their score (or mid-tap toward
+ * Continue) and reflex-closed the ask. Waiting longer self-selects players who
+ * are dwelling on a good result — and anyone who navigates away first costs
+ * nothing, since the timer is cleaned up before markShown() ever runs, so
+ * their ask is saved for a better moment next game.
+ */
+const SHOW_DELAY_MS = 2600;
+
+/**
+ * iOS silently discards a requestReview() that arrives while a native screen
+ * transition is running — and the 5★ path fires right after setVisible(false)
+ * starts our Modal's dismissal animation, so the sheet request nearly always
+ * died. The request is therefore latched here and flushed from the Modal's
+ * onDismiss, which fires only once the close animation has finished (iOS-only
+ * prop). Android's review flow is its own activity and doesn't care, so it
+ * keeps firing immediately. The timer is insurance for the rare case where
+ * onDismiss never arrives (screen unmounted mid-close): late is fine, lost is
+ * not. Module-level is safe — only one review modal can be open at a time.
+ */
+const STORE_REVIEW_FALLBACK_MS = 2000;
+let storeReviewPending = false;
+let storeReviewFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushPendingStoreReview() {
+  if (!storeReviewPending) return;
+  storeReviewPending = false;
+  if (storeReviewFallbackTimer) {
+    clearTimeout(storeReviewFallbackTimer);
+    storeReviewFallbackTimer = null;
+  }
+  requestStoreReview();
+}
 
 /**
  * Shared star-tap behaviour for the automatic and the settings-row prompt.
@@ -46,7 +79,12 @@ function performRate(stars: number, opts?: { comment?: string; sendFeedback?: bo
     // 5★ also lands in Discord — silent (no toast, errors swallowed) since
     // the user is already headed to the native store sheet.
     submitAppFeedback(5, '').catch(() => {});
-    requestStoreReview();
+    if (Platform.OS === 'ios') {
+      storeReviewPending = true;
+      storeReviewFallbackTimer = setTimeout(flushPendingStoreReview, STORE_REVIEW_FALLBACK_MS);
+    } else {
+      requestStoreReview();
+    }
     return;
   }
 
@@ -106,7 +144,7 @@ export function useReviewPrompt(trigger: boolean, happy: boolean | undefined = t
     logEvent('app_review_dismiss', { decline_count: store.declineCount });
   }, []);
 
-  return { visible, onRate, onDismiss };
+  return { visible, onRate, onDismiss, onClosed: flushPendingStoreReview };
 }
 
 /**
@@ -136,5 +174,5 @@ export function useManualReviewPrompt() {
 
   const onDismiss = useCallback(() => setVisible(false), []);
 
-  return { visible, open, onRate, onDismiss };
+  return { visible, open, onRate, onDismiss, onClosed: flushPendingStoreReview };
 }

@@ -472,7 +472,12 @@ export default function SettingsScreen() {
           </Section>
         </ScrollView>
 
-        <ReviewPromptModal visible={rate.visible} onRate={rate.onRate} onDismiss={rate.onDismiss} />
+        <ReviewPromptModal
+          visible={rate.visible}
+          onRate={rate.onRate}
+          onDismiss={rate.onDismiss}
+          onClosed={rate.onClosed}
+        />
       </SafeAreaView>
     </View>
   );

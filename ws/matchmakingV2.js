@@ -113,6 +113,25 @@ export function ratingRangeFor(waitedMs, rating, opts = {}) {
 
 const DEFAULT_REMATCH_WAIVER_MS = 60000;
 
+/**
+ * Starvation valve threshold. min()-of-windows compatibility (see
+ * chooseDuelPairs) protects fresh joiners from lopsided grabs, but its escape
+ * hatch — "the fresh joiner's window grows while they sit there" — assumes
+ * they sit. In a liquid low-rating pool fresh peers pair each other within
+ * seconds and never widen, so a high-rated waiter starves FOREVER: reported
+ * live Aug 16 (Nomads waiting 6-10 min while 1.1k accounts matched in 20s).
+ * Once the pair's LONGER waiter passes this threshold, the pair is judged by
+ * that player's window alone. The shorter waiter must still have had their
+ * first STARVED_MIN_PARTNER_WAIT_MS in queue — their chance to find a
+ * same-strength peer before a starved anchor may reach them. For a starved
+ * pair that floor REPLACES the opening league lock: the two gates only differ
+ * in the 10-15s sliver, and keeping the lock there would silently push the
+ * real protection back to 15s for the cross-league grabs the valve exists for
+ * (user ruling Aug 16: 10s is the protection, full stop).
+ */
+export const STARVED_WAIT_MS = 120000;
+export const STARVED_MIN_PARTNER_WAIT_MS = 10000;
+
 function ratingOf(entry) {
   return Number.isFinite(entry?.rating) ? entry.rating : 0;
 }
@@ -216,10 +235,16 @@ function strictBlocks(a, b, strictFloor) {
  * player 3 minutes deep cannot drag someone who just joined into a lopsided
  * match. TRADE-OFF, stated plainly: in a queue with steady fresh arrivals that
  * min() can starve the longest waiter, because every new joiner arrives with a
- * 50 window and vetoes them. The uncapped widening in windowFor() is the
- * escape hatch — the fresh joiner's own window grows while they sit there, so
- * the starved anchor is reachable within a bounded number of ticks rather than
- * never.
+ * 50 window and vetoes them. The original escape hatch — the fresh joiner's
+ * own window grows while they sit there — turned out to assume they SIT: a
+ * liquid low pool pairs its joiners within seconds, they never widen, and the
+ * top of the ladder starved without bound. Hence the starvation valve: once
+ * the pair's longer waiter passes STARVED_WAIT_MS, compatibility is judged by
+ * that player's window alone, provided the shorter waiter is past their
+ * protected first STARVED_MIN_PARTNER_WAIT_MS — a floor that also stands in
+ * for the opening league lock on that pair (see the constant's comment).
+ * Closest-rating selection still applies, so a starved player takes the
+ * SMALLEST reach the pool offers, and strict matchmaking is never waived.
  */
 export function chooseDuelPairs(entries, opts = {}) {
   const now = Number.isFinite(opts.now) ? opts.now : Date.now();
@@ -272,9 +297,23 @@ export function chooseDuelPairs(entries, opts = {}) {
       // the pre-v2 guest branch, which paired any two guests.
       const diff = Math.abs(anchorRating - ratingOf(candidate));
       if (!anchor.guest) {
-        const window = Math.min(anchorWindow, windowFor(candidateWaited));
-        if (diff > window) continue;
-        if (!openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited)) continue;
+        // max/min of the two waits, not anchor/candidate roles: an unmatched
+        // starved player stays in the candidate pool for later anchors, and
+        // which side of the pair they land on must not change the answer.
+        const longerWaited = Math.max(anchorWaited, candidateWaited);
+        const shorterWaited = Math.min(anchorWaited, candidateWaited);
+        const starved = longerWaited >= STARVED_WAIT_MS
+          && shorterWaited >= STARVED_MIN_PARTNER_WAIT_MS;
+        if (starved) {
+          // The valve's own 10s floor is the WHOLE protection here — the
+          // opening league lock is deliberately not consulted, or it would
+          // quietly re-raise the floor to 15s for cross-league grabs.
+          if (diff > windowFor(longerWaited)) continue;
+        } else {
+          const window = Math.min(anchorWindow, windowFor(candidateWaited));
+          if (diff > window) continue;
+          if (!openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited)) continue;
+        }
       }
 
       if (!allowRematch && !anchorWaived && candidateWaited <= waiverMs) {

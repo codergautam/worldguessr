@@ -654,6 +654,7 @@ export default function DailyScreen() {
         visible={review.visible}
         onRate={review.onRate}
         onDismiss={review.onDismiss}
+        onClosed={review.onClosed}
       />
     </View>
   );

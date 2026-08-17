@@ -43,6 +43,13 @@ interface Props {
   onRate: (stars: number, opts?: { comment?: string; sendFeedback?: boolean }) => void;
   /** Dismissed without rating ("Maybe later" / backdrop on the stars step). */
   onDismiss: () => void;
+  /**
+   * Fired when the native Modal has fully finished its close animation
+   * (iOS-only, RN Modal onDismiss). The parent uses it to fire the store
+   * review sheet on a stable screen — iOS silently drops the request while
+   * the dismissal transition is still running.
+   */
+  onClosed?: () => void;
 }
 
 const GOLD = '#FFD700';
@@ -51,6 +58,14 @@ const STAR_EMPTY = 'rgba(255,255,255,0.32)';
 const RESOLVE_DELAY_MS = 320;
 /** How long the 5★ "thank you" shows before the native store sheet auto-opens. */
 const THANKS_DELAY_MS = 1500;
+/**
+ * The "Maybe later" exit fades in after this beat, so the first moment with
+ * the modal is stars-only and a reflex dismissal has nothing to land on.
+ * Deliberately NOT a trap: the exit always arrives, and Android's hardware
+ * back declines instantly throughout — an inescapable ask converts "not now"
+ * users into spite one-stars and burns their single lifetime prompt.
+ */
+const LATER_DELAY_MS = 1600;
 
 function Star({
   index,
@@ -82,17 +97,22 @@ function Star({
   );
 }
 
-export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props) {
+export default function ReviewPromptModal({ visible, onRate, onDismiss, onClosed }: Props) {
   const [step, setStep] = useState<'stars' | 'feedback' | 'thanks'>('stars');
   const [selected, setSelected] = useState(0);
   const [comment, setComment] = useState('');
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards the 5★ finalise so the auto-timer and a backdrop tap can't both fire it.
   const finishedRef = useRef(false);
+  // Gates "Maybe later" presses while its fade-in is pending — opacity 0 alone
+  // would still be tappable.
+  const [laterReady, setLaterReady] = useState(false);
+  const laterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cardOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.92);
   const iconScale = useSharedValue(0.6);
+  const laterOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
@@ -107,9 +127,18 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
       cardOpacity.value = withTiming(1, { duration: 220 });
       cardScale.value = withSpring(1, { damping: 14, stiffness: 180 });
       iconScale.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.back(1.6)) });
+      setLaterReady(false);
+      laterOpacity.value = 0;
+      if (laterTimer.current) clearTimeout(laterTimer.current);
+      laterTimer.current = setTimeout(() => {
+        laterTimer.current = null;
+        setLaterReady(true);
+        laterOpacity.value = withTiming(1, { duration: 250 });
+      }, LATER_DELAY_MS);
     }
     return () => {
       if (resolveTimer.current) clearTimeout(resolveTimer.current);
+      if (laterTimer.current) clearTimeout(laterTimer.current);
     };
   }, [visible]);
 
@@ -118,6 +147,7 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
     transform: [{ scale: cardScale.value }],
   }));
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: iconScale.value }] }));
+  const laterStyle = useAnimatedStyle(() => ({ opacity: laterOpacity.value }));
 
   const handleStar = (stars: number) => {
     if (resolveTimer.current) return; // ignore taps while a resolve is pending
@@ -157,22 +187,46 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
     return () => clearTimeout(timer);
   }, [step]);
 
-  // Backdrop / hardware back: on the stars step it's a decline; on the feedback or
-  // thanks step they've already rated, so finalise instead of declining.
-  const handleBackdrop = () => {
+  // Hardware back (Android): a deliberate dismissal. On the stars step it's a
+  // decline; on the feedback or thanks step they've already rated, so finalise.
+  const handleRequestClose = () => {
     if (resolveTimer.current) return;
     if (step === 'feedback') skipFeedback();
     else if (step === 'thanks') finishFiveStar();
     else onDismiss();
   };
 
+  // Backdrop tap: on a busy results screen these are often reflex taps, and a
+  // decline burns one of only three auto-ask budget slots — so on the stars
+  // step it no longer dismisses. The card pulses to point at the explicit
+  // choices (a star or "Maybe later") instead. Later steps have already
+  // rated, so a backdrop tap there just finalises as before.
+  const handleBackdropPress = () => {
+    if (resolveTimer.current) return;
+    if (step === 'feedback') skipFeedback();
+    else if (step === 'thanks') finishFiveStar();
+    else {
+      haptics.light();
+      cardScale.value = withSequence(
+        withTiming(1.035, { duration: 90, easing: Easing.out(Easing.quad) }),
+        withSpring(1, { damping: 12, stiffness: 260 }),
+      );
+    }
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleBackdrop}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleRequestClose}
+      onDismiss={onClosed}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable sfx="none" style={styles.overlay} onPress={handleBackdrop}>
+        <Pressable sfx="none" style={styles.overlay} onPress={handleBackdropPress}>
           <Animated.View style={[styles.card, cardStyle]}>
             {/* Inner Pressable swallows taps so pressing the card doesn't close it. */}
             <Pressable sfx="none" onPress={() => {}} style={styles.inner}>
@@ -188,9 +242,16 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
                       <Star key={i} index={i} filled={i <= selected} onPress={handleStar} />
                     ))}
                   </View>
-                  <Pressable onPress={onDismiss} style={styles.laterBtn} hitSlop={6}>
-                    <Text style={styles.laterText}>{t('rateUsMaybeLater')}</Text>
-                  </Pressable>
+                  <Animated.View style={[styles.laterWrap, laterStyle]}>
+                    <Pressable
+                      onPress={onDismiss}
+                      style={styles.laterBtn}
+                      hitSlop={6}
+                      disabled={!laterReady}
+                    >
+                      <Text style={styles.laterText}>{t('rateUsMaybeLater')}</Text>
+                    </Pressable>
+                  </Animated.View>
                 </>
               ) : step === 'feedback' ? (
                 <>
@@ -332,6 +393,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(76,175,80,0.7)',
   },
   primaryBtnText: { color: '#fff', fontFamily: 'Lexend-Bold', fontSize: 16, letterSpacing: 0.3 },
+  laterWrap: { alignSelf: 'stretch' },
   laterBtn: { alignSelf: 'stretch', paddingVertical: 12, marginTop: 2 },
   laterText: {
     color: 'rgba(255,255,255,0.6)',
