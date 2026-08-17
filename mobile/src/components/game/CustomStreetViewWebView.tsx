@@ -255,7 +255,7 @@ function CustomStreetViewWebView(
   }), []);
 
   const handleMessage = useCallback((event: { nativeEvent: { data: string } }) => {
-    let msg: { type?: string; panoId?: string } = {};
+    let msg: { type?: string; panoId?: string; degraded?: boolean } = {};
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch {
@@ -271,6 +271,15 @@ function CustomStreetViewWebView(
       return;
     }
     if (msg.type === OUTBOUND.SV_LOADED) {
+      // A degraded load means the renderer BLANKED the canvas (dead metadata)
+      // and is unblocking the round, not certifying a painted pano. Treating
+      // it as loaded lifted the cover onto a solid black WebView with no
+      // recovery. Route it to the existing per-round fallback instead: the
+      // wrapper flips THIS round to the iframe renderer and the round plays.
+      if (msg.degraded) {
+        onUnavailableRef.current?.();
+        return;
+      }
       setHasLoadedOnce(true);
       onLoadRef.current?.();
     }

@@ -501,6 +501,35 @@ function GameSurface(
     return () => clearTimeout(t);
   }, [isShowingResult, isCountryVariant]);
 
+  // The `covered` gate's settle timer — DELIBERATELY SEPARATE from
+  // mapRevealReady. mapRevealReady starts the covering animations and sits in
+  // the animation effect's deps, so reusing it as the gate both froze the
+  // pano while the map was still ~15% opaque (the country embed signals ready
+  // ~100ms in — the full-size map never resizes) and restarted the 550ms
+  // crossfade mid-fade every round via the dep churn. A plain timer sized to
+  // each variant's covering animation has neither problem. SP has no
+  // next-round leak here (location stays round N through the result; the next
+  // round only rides the hidden preload channel), so delaying the gate is
+  // safe on this surface — unlike the MP screen in [id].tsx, which must gate
+  // instantly.
+  const [coverSettled, setCoverSettled] = useState(false);
+  useEffect(() => {
+    if (!isShowingResult) { setCoverSettled(false); return; }
+    const t = setTimeout(() => setCoverSettled(true), isCountryVariant ? 600 : 700);
+    return () => clearTimeout(t);
+  }, [isShowingResult, isCountryVariant]);
+
+  // Show-Street-View toggled back OFF: the map takes ~300ms to slide back
+  // over the pano, and gating the renderer the instant the toggle flips would
+  // hard-freeze a still-gliding pano in plain view — the mirror image of the
+  // result-start freeze above.
+  const [panoRecovered, setPanoRecovered] = useState(true);
+  useEffect(() => {
+    if (showPanoOnResult) { setPanoRecovered(false); return; }
+    const t = setTimeout(() => setPanoRecovered(true), 350);
+    return () => clearTimeout(t);
+  }, [showPanoOnResult]);
+
   const mapOpacity = useRef(new Animated.Value(0)).current;
   // Result → next-round map exits happen entirely under the loading cover
   // (beginRoundTransition) and are never meant to be seen — but the cover's
@@ -814,11 +843,14 @@ function GameSurface(
               // The result map fully covers the pano — the WebGL renderer can
               // stop DRAWING (streaming/prewarm continue). The !showPanoOnResult
               // term is required: that toggle collapses the map specifically to
-              // reveal the live pano. hostCovered handles the case this
+              // reveal the live pano. mapRevealReady is required too: the map
+              // takes ~550-700ms to actually cover the surface, and gating the
+              // renderer the instant the result STARTS hard-froze a still-
+              // gliding pano in plain view. hostCovered handles the case this
               // component can't see: the whole SCREEN buried under a pushed
               // route (results), where isShowingResult alone leaves the pano
               // painting behind an opaque screen.
-              covered={hostCovered || (isShowingResult && !showPanoOnResult)}
+              covered={hostCovered || (isShowingResult && !showPanoOnResult && coverSettled && panoRecovered)}
             />
           )}
         </View>

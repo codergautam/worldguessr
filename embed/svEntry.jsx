@@ -129,7 +129,11 @@ function App() {
       prefetchPano={state.prefetchPano ?? null}
       prefetchNonce={state.prefetchNonce ?? 0}
       onPrefetched={(panoId) => postOut({ type: OUTBOUND.SV_PREFETCHED, panoId })}
-      onLoad={() => postOut({ type: OUTBOUND.SV_LOADED })}
+      // `degraded` must cross the bridge: the renderer blanks the canvas on a
+      // dead load (clearSurface), and a host that can't tell degraded from
+      // loaded lifts its cover onto that black surface with no recovery. The
+      // host flips a degraded round to the iframe renderer instead.
+      onLoad={(degraded) => postOut({ type: OUTBOUND.SV_LOADED, degraded: !!degraded })}
     />
   );
 }

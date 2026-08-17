@@ -573,16 +573,22 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   }
 
   function schedule() {
-    if (!cur || cur.status !== 'ready' || lost) return;
-    const z = desiredZoom(cur.layout);
-    if (z !== curZoom) { curZoom = z; dirty = true; } // zTop changes the image
+    if (lost) return;
     const jobs = [];
-    addBaseJobs(cur, jobs);
+    const curReady = panoReady(cur);
+    if (curReady) {
+      const z = desiredZoom(cur.layout);
+      if (z !== curZoom) { curZoom = z; dirty = true; } // zTop changes the image
+      addBaseJobs(cur, jobs);
+    }
     // The warm pano's base rides the same scheduler (and the same
     // MAX_INFLIGHT budget) at a priority between the current pano's base and
     // its detail wave: the reveal must never wait on next-round warm-up, and
-    // warm-up must never be starved behind an endless z5 stream.
-    if (warmId && warmId !== cur.id) {
+    // warm-up must never be starved behind an endless z5 stream. NOT gated on
+    // curReady: a round whose own metadata failed (cur null all round) must
+    // still warm the NEXT round, or SV_PREFETCHED never fires and every later
+    // transition degrades to a full covered load.
+    if (warmId && (!curReady || warmId !== cur.id)) {
       const w = panos.get(warmId);
       if (w && w.status === 'ready' && !w.destroyed) {
         const before = jobs.length;
@@ -590,7 +596,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
         for (let i = before; i < jobs.length; i++) jobs[i].pri += 5;
       }
     }
-    addDetailJobs(cur, jobs);
+    if (curReady) addDetailJobs(cur, jobs);
     jobs.sort((a, b) => a.pri - b.pri);
     for (const j of jobs) {
       if (inflightCount >= MAX_INFLIGHT) break;
@@ -614,8 +620,11 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       // survive untouched once SV_PREFETCHED was reported, or commitPreload's
       // 'ready' would be a lie and the swap would paint holes. (Today warm
       // panos only hold z<=2 anyway — this guard keeps that a fact, not a
-      // coincidence.)
-      if (p.id === warmId) continue;
+      // coincidence.) EXCEPT when the warm pano IS the current pano (a repeat
+      // location prefetching the displayed id): exempting it then makes the
+      // whole visible pano un-evictable, pins gpuBytes over budget, and the
+      // back-pressure latch kills detail downloads for the rest of the round.
+      if (p.id === warmId && (!cur || p.id !== cur.id)) continue;
       for (let z = 3; z < p.tiles.length; z++)
         for (const rec of p.tiles[z].values())
           // drawNo only advances on paints/stamps, so this reads "not in the
@@ -636,61 +645,95 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   }
 
   // ---------------------------------------------------------------- draw
-  function drawPano(p) {
-    if (!p || p.status !== 'ready') return;
-    gl.uniform1f(loc.uYawOff, p.heading);
+  // THE readiness predicate — the renderer's central state question, defined
+  // once. Every "can I draw/schedule/stamp this pano" check goes through it.
+  const panoReady = (p) => !!(p && p.status === 'ready');
+
+  // THE ONE visibility walk. paint() and stampVisible() both traverse the
+  // SAME tile set through this function — the LRU evictor's victim predicate
+  // (`lastUse < drawNo`) is only sound while the painted set and the stamped
+  // set are identical, so the traversal must never exist twice. onLevel runs
+  // once per non-empty level (the painter binds its mesh there); onTile runs
+  // per visible tile AFTER the recency stamp.
+  // onLevel's RETURN VALUE is handed to every onTile of that level — the
+  // painter's per-level mesh travels through the walk's signature, not a
+  // shared mutable, so a future caller mixing callbacks cannot read a stale
+  // level's state.
+  function walkVisible(p, onLevel, onTile) {
     const cf = camFImage(p);
     const zTop = Math.min(curZoom, p.layout.maxZ);
     for (let z = 0; z <= zTop; z++) {
       if (!p.tiles[z] || !p.tiles[z].size) continue;
-      const mesh = meshFor(z);
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb);
-      gl.vertexAttribPointer(locA, 2, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+      const levelCtx = onLevel ? onLevel(z) : null;
       for (const rec of p.tiles[z].values()) {
         if (z >= 3 && !tileVisible(rec.meta, cf)) continue;
         rec.lastUse = drawNo;
-        gl.bindTexture(gl.TEXTURE_2D, rec.tex);
-        gl.uniform4fv(loc.uAng, rec.meta.ang);
-        gl.uniform2fv(loc.uUV, rec.meta.uv);
-        gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+        if (onTile) onTile(rec, levelCtx);
       }
     }
+  }
+
+  // Hoisted paint callbacks: engine-scope constants, no per-frame closure
+  // allocations in the hot path.
+  const dpLevel = (z) => {
+    const mesh = meshFor(z);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vb);
+    gl.vertexAttribPointer(locA, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
+    return mesh;
+  };
+  const dpTile = (rec, mesh) => {
+    gl.bindTexture(gl.TEXTURE_2D, rec.tex);
+    gl.uniform4fv(loc.uAng, rec.meta.ang);
+    gl.uniform2fv(loc.uUV, rec.meta.uv);
+    gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+  };
+  function drawPano(p) {
+    gl.uniform1f(loc.uYawOff, p.heading);
+    walkVisible(p, dpLevel, dpTile);
   }
 
   // The single paint path: the ONLY place drawNo advances (with stampVisible)
-  // and the only place `dirty` clears. Handles the no-content case too, so the
-  // old per-frame else-branch gl.clear now obeys the gate.
+  // and the only place `dirty` clears. CONTENTLESS = NO-OP, never a clear:
+  // during loadFresh's metadata await (cur === null) any dirty writer — a
+  // window focus or residual camera motion — must keep the LAST frame on
+  // screen (iframe parity), not wipe the canvas for the whole photometa round
+  // trip. (A resize during that window still blanks the buffer — the
+  // canvas.width write is unavoidable — and cannot be repainted until content
+  // exists; that matches pre-gate behavior.) Returns whether pixels changed.
   function paint() {
+    if (!panoReady(cur)) { dirty = false; return false; }
     drawNo++;
     lastPaintAt = Date.now();
     gl.clear(gl.COLOR_BUFFER_BIT);
-    if (cur && cur.status === 'ready') {
-      gl.uniformMatrix4fv(loc.uVP, false, vpMat);
-      drawPano(cur);
-    }
+    gl.uniformMatrix4fv(loc.uVP, false, vpMat);
+    drawPano(cur);
+    dirty = false;
+    return true;
+  }
+
+  // KNOWN-DEAD round: wipe the surface. The keep-last-frame rule above is for
+  // loads in flight; once a load has FAILED, the previous round's imagery
+  // must not sit there looking playable — in NMPZ the frozen-frame tell is
+  // invisible and the player would guess the WRONG round's location. A blank
+  // canvas honestly reads as broken.
+  function clearSurface() {
+    if (lost) return;
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    lastPaintAt = Date.now();
     dirty = false;
   }
 
-  // Hidden-mode recency stamp: the visibility walk of drawPano with zero GL
-  // calls. Keeps LRU truthful while the gate skips paints — without it, a
-  // frozen drawNo makes every tile uploaded during a reveal un-evictable and
-  // GPU memory grows without bound in exactly the windows we're optimizing.
-  // Eviction still never needs to set `dirty`: victims are `lastUse < drawNo`
-  // and both stampers mark everything visible in the same pass, so an evicted
-  // tile is provably off-screen.
+  // Hidden-mode recency stamp: walkVisible with no GL work. Keeps LRU
+  // truthful while the gate skips paints — without it, a frozen drawNo makes
+  // every tile uploaded during a reveal un-evictable and GPU memory grows
+  // without bound in exactly the windows we're optimizing. Eviction still
+  // never needs to set `dirty`: victims are `lastUse < drawNo` and the shared
+  // walk stamps everything visible, so an evicted tile is provably off-screen.
   function stampVisible() {
-    if (!cur || cur.status !== 'ready') return;
+    if (!panoReady(cur)) return;
     drawNo++;
-    const cf = camFImage(cur);
-    const zTop = Math.min(curZoom, cur.layout.maxZ);
-    for (let z = 0; z <= zTop; z++) {
-      if (!cur.tiles[z] || !cur.tiles[z].size) continue;
-      for (const rec of cur.tiles[z].values()) {
-        if (z >= 3 && !tileVisible(rec.meta, cf)) continue;
-        rec.lastUse = drawNo;
-      }
-    }
+    walkVisible(cur, null, null);
     dirty = false; // stamped = accounted for; unhide re-marks via setGate
   }
 
@@ -923,7 +966,14 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     const gen = worldGen;
     const p = await ensurePano(id);
     if (gen !== worldGen || destroyed) return false;
-    if (!p) return false;
+    if (!p) {
+      // Metadata failed for the CURRENT generation: the previous pano was
+      // already destroyed at entry, so the composited frame is stale imagery
+      // of a dead round. Wipe it — see clearSurface. (A resolve failure never
+      // reaches here; the old pano stays live and correct on that path.)
+      clearSurface();
+      return false;
+    }
     cur = p;
     dirty = true; // a reload of the same spot keeps yaw/pitch/fov — the camera
                   // compare would never fire, so mark the swap explicitly
@@ -1092,14 +1142,16 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     emitYaw(false); // delta-gated internally; kept out of paint() so the
                     // compass never goes stale and jumps at a reveal
 
-    const ready = !!(cur && cur.status === 'ready') && !lost;
+    const ready = panoReady(cur) && !lost;
 
     // Uploads run OUTSIDE the cur gate: the warm pano must keep landing on the
     // GPU across loadFresh's await window (cur is null right then).
     const uploaded = pumpUploads();
     if (uploaded) { dirty = true; schedDirty = true; }
 
-    if (ready && schedDirty) {
+    // Not gated on `ready`: schedule() serves the WARM pano too, and a round
+    // whose own metadata failed (cur null) must still warm the next one.
+    if (schedDirty && !lost) {
       schedDirty = false;
       schedule(); // may re-mark schedDirty via its own effects; that's fine
     }
@@ -1107,11 +1159,13 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // Heartbeat: a visible, clean canvas repaints every ~2s (see lastPaintAt).
     if (!gate && !lost && ready && !dirty && Date.now() - lastPaintAt > 2000) dirty = true;
 
-    const drew = dirty && !gate && !lost;
-    if (drew) paint();
+    let painted = false;
+    if (dirty && !gate && !lost) painted = paint();
     else if (dirty && gate && ready) stampVisible();
 
-    if ((drew || uploaded) && !lost) evictTiles();
+    // `painted`, not the attempt: a contentless paint() no-ops without
+    // advancing drawNo, and the evictor must only run against fresh stamps.
+    if ((painted || uploaded) && !lost) evictTiles();
 
     if (ready && !notified && baseComplete(cur)) {
       notified = true;
@@ -1328,6 +1382,9 @@ const CustomStreetView = ({
   const onLoadRef = useRef(onLoad);
   const loadGenRef = useRef(0);
   const firedGenRef = useRef(-1);
+  // The generation the ENGINE is currently loading for (stamped just before
+  // loadFresh). onPanoReady credits this, never loadGenRef-at-fire-time.
+  const engineGenRef = useRef(-1);
   const failsafeRef = useRef(null);
   const frozenRef = useRef(false);
   onLoadRef.current = onLoad;
@@ -1347,6 +1404,11 @@ const CustomStreetView = ({
   // must NOT stamp its loaded-round/loaded-key markers, or a later preload
   // commit would skip the loading cover for a pano that never painted.
   const fireOnLoad = (gen, degraded = false) => {
+    // Stale generations are a FULL no-op — they must not clear the failsafe
+    // either: the failsafe handle belongs to the CURRENT generation, and an
+    // old pano completing during the next load's resolve await used to clear
+    // the new round's failsafe and lift its cover over the old frame.
+    if (gen !== loadGenRef.current) return;
     if (firedGenRef.current === gen) return;
     firedGenRef.current = gen;
     if (failsafeRef.current) { clearTimeout(failsafeRef.current); failsafeRef.current = null; }
@@ -1369,6 +1431,11 @@ const CustomStreetView = ({
         if (gen !== loadGenRef.current || !engineRef.current) return;
         if (!pano) throw new Error('no pano near ' + lat + ',' + long);
         prefetchBaseTiles(pano); // downloads race the photometa fetch below
+        // From here the ENGINE is working for this generation: onPanoReady
+        // must credit the generation whose loadFresh installed `cur`, not
+        // whatever loadGenRef says at fire time (an old pano completing
+        // during the NEXT load's resolve await would otherwise fire for it).
+        engineGenRef.current = gen;
         const ok = await engineRef.current.loadFresh(pano, heading);
         if (gen !== loadGenRef.current || !engineRef.current) return;
         if (!ok) throw new Error('pano metadata failed for ' + pano);
@@ -1436,7 +1503,7 @@ const CustomStreetView = ({
     if (!hasCoords || !canvasRef.current) return;
     const engine = createEngine(
       canvasRef.current,
-      () => fireOnLoad(loadGenRef.current),
+      () => fireOnLoad(engineGenRef.current),
       () => frozenRef.current,
       spinRose,
       (id) => { if (onPrefetchedRef.current) onPrefetchedRef.current(id); },

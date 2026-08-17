@@ -993,6 +993,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // component before first paint.
         const latLongClear = !latLong || (latLong.lat === 0 && latLong.long === 0);
         if (latLongClear && !panoLocation && !loading) return;
+        // CrazyGames boot exception: on that platform, `loading` doubles as
+        // the SDK-init gate ON the home screen with no pano state at all —
+        // sweeping it wipes the boot cover. Pano-state teardown (a kicked
+        // game etc.) still runs because latLong/panoLocation are set then.
+        if (inCrazyGames && latLongClear && !panoLocation) return;
         // Also invalidate any in-flight location load: a community-map fetch
         // resolving AFTER this sweep would setLatLong a fresh pano onto the
         // menu (mounted, streaming, invisible). Bumping the request token is
@@ -4557,7 +4562,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, []);
     const notePanoLoaded = useCallback(() => {
         if (multiplayerState?.inGame) {
-            setMpPanoLoadedRound(mpPanoRoundRef.current);
+            // Null-guarded like the SP arm: after a degraded fire unpoints
+            // (mpPanoRoundRef = null), a later successful load that round —
+            // the reload button, an engine remount — must not stamp
+            // setMpPanoLoadedRound(null), which would conceal the NEXT
+            // reveal's correctly painted pano.
+            if (mpPanoRoundRef.current !== null) setMpPanoLoadedRound(mpPanoRoundRef.current);
         } else if (spPanoKeyRef.current != null) {
             setSpPanoLoadedKey(spPanoKeyRef.current);
         }
@@ -4872,7 +4882,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [idleSettled, setIdleSettled] = useState(false);
     useEffect(() => {
         if (svFrameIdle) {
-            const t = setTimeout(() => setIdleSettled(true), 250);
+            // Must outlast the opacity fade #streetview is actually running:
+            // the base 200ms rule normally, or the 750ms duel round-1 enter
+            // (DUEL_PANO_ENTER_MS) when a duel dies inside its enter window —
+            // that fade being hard-cut by display:none is real (an opponent
+            // disconnect in round 1 is not pregame-exempt). Conditional so the
+            // COMMON idle entries (queue, lobby, end screens) don't keep the
+            // cross-origin embed rendering 550ms longer than needed.
+            // eslint-disable-next-line react-hooks/exhaustive-deps -- duelPanoEnter
+            // is DELIBERATELY not a dep: adding it re-runs this effect when the
+            // enter flag self-clears at 750ms, cancelling the 800ms timer and
+            // restarting at 300ms — display:none would then land mid-fade for
+            // any duel dying >300ms into its enter window.
+            const t = setTimeout(() => setIdleSettled(true), duelPanoEnter ? DUEL_PANO_ENTER_MS + 50 : 300);
             return () => clearTimeout(t);
         }
         setIdleSettled(false);
@@ -5031,7 +5053,47 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             // the loaded-round/key markers — a lying stamp
                             // makes the next round's preload-commit skip its
                             // loading cover over an unpainted canvas.
-                            if (!degraded) notePanoLoaded();
+                            if (degraded) {
+                                // A degraded PRELOAD must also stop being
+                                // "pointed": the commit path trusts the
+                                // pointer, raises the cover, and waits on an
+                                // onLoad this generation already consumed — a
+                                // permanent loading latch (no dep changes, no
+                                // new generation, no retry). Unpointing makes
+                                // the round advance fall through to a REAL
+                                // load: key bump, fresh generation, honest
+                                // cover. Same inGame split as notePanoLoaded:
+                                // MP points via mpPanoRoundRef, SP via
+                                // spPanoKeyRef, and a stale SP pointer must
+                                // never be "unpointed" mid-MP-game. In SP a
+                                // degraded LIVE-round fire has nothing
+                                // pointed (no-op); in MP the pointer is live
+                                // all round — see the MP branch note.
+                                if (multiplayerState?.inGame) {
+                                    // POINTER ONLY — do NOT null panoLocation
+                                    // here (tried Aug 17, reverted same day):
+                                    // that made panoSource fall back to the
+                                    // round-N coords and fired an unrequested
+                                    // full reload mid-reveal (and a whole
+                                    // engine teardown at round 1). Nulling
+                                    // just the pointer means the guess flip
+                                    // reads "not pointed" and takes the
+                                    // repoint block: key bump, fresh
+                                    // generation, honest loading cover. The
+                                    // concealment term keeps the failed pano
+                                    // hidden through getready meanwhile. This
+                                    // also fires on a degraded LIVE-round
+                                    // load (MP points for the whole round) —
+                                    // harmless: the null-guarded stamp in
+                                    // notePanoLoaded skips, and the next
+                                    // flip repoints normally.
+                                    mpPanoRoundRef.current = null;
+                                } else if (spPanoKeyRef.current) {
+                                    spPanoKeyRef.current = null;
+                                    setSpPanoLoadedKey(null);
+                                    setPanoLocation(null);
+                                }
+                            } else notePanoLoaded();
                             // 100 not 300: unlike the iframe, tiles are already
                             // painted when this fires — the long grace only
                             // slowed the reveal. SP-family rounds additionally

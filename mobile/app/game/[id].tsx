@@ -2666,9 +2666,16 @@ export default function GameScreen() {
               // covers it entirely — either way the WebGL renderer stops
               // drawing (streaming and prewarm continue). showMapResult alone
               // is not enough: it is focus-gated for MP, so it reads false
-              // exactly when the results screen sits over this one. The
-              // on-demand reveal pano below is the visible one during "Show
-              // Street View" and is left alone.
+              // exactly when the results screen sits over this one.
+              //
+              // DELIBERATELY INSTANT — do NOT delay this on mapRevealReady to
+              // soften the mid-glide freeze (tried Aug 17, reverted same day):
+              // currentLocation bumps to round N+1 in the SAME commit as the
+              // reveal, so an uncovered canvas during the reveal window clears
+              // and then paints the UPCOMING round's Street View in plain view
+              // — a next-location leak. The instant freeze of round N's frame
+              // is the correct behavior. The on-demand reveal pano below is
+              // the visible one during "Show Street View" and is left alone.
               covered={!isScreenFocused || showMapResult}
             />
           )}
