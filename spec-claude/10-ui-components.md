@@ -69,7 +69,7 @@ This maps the web components to suggested React Native equivalents.
 | `ChatBox` | In-game chat | FlatList + TextInput |
 | `OnboardingText` | Tutorial text | Custom component |
 | `AnimatedCounter` | Animated score counter | Animated.Value |
-| `Ad` (bannerAdNitro) | Advertisement banner | AdMob or similar |
+| `PlaywireAd` (bannerAdPlaywire) | Advertisement banner | AdMob or similar |
 | `HomeNotice` | Home screen notices | Banner component |
 
 ## Key UI Patterns

@@ -158,7 +158,7 @@ NEXT_PUBLIC_POKI=true
 ```
 
 This enables:
-- Poki SDK integration (NitroPay/AdInPlay are skipped entirely)
+- Poki SDK integration (Playwire/AdInPlay are skipped entirely)
 - `PokiSDK.commercialBreak()` interstitials at the same break points as the CrazyGames midgame ads
 - Account features hidden (same treatment as CoolMathGames): no login button, no ranked/2v2, no suggest-login modals, no social/external links
 - GA events tagged with `platform: "poki"` via `getPlatform()`
