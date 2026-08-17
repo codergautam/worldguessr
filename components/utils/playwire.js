@@ -88,17 +88,23 @@ export function activeUnitIds(match) {
 // The RAMP account has corner_ad_video ACTIVE config-side (the Aug 2
 // settings dump), and the user wants no video player. Passive mode plus
 // never calling spaNewPage keeps it dark in theory; this sweep is the
-// enforcement for whatever slips through anyway, run ONCE at script load
-// (loadRampScript) — a unit appearing later is not swept. Keep the sweep
-// until Playwire disables the unit config-side (asked of CK).
+// enforcement for whatever slips through anyway, run at script load
+// (loadRampScript) and after every slot declare (bannerAdPlaywire.js) —
+// a re-declare is the moment config-side auto units could resurface. A
+// unit the vendor creates asynchronously between declares can still slip
+// past; the sweep is insurance, not a guarantee. Keep it until Playwire
+// disables the unit config-side (asked of CK).
 //
 // Refresh is entirely config-side per the Aug 2 ramp.settings dump: 30s,
-// in-view only, limit 100 per slot — no client refresh code exists (header
-// rule 2 in bannerAdPlaywire.js). CAVEAT: on Aug 3 pageos viewability never
-// tracked our fixed-overlay slots (inView stuck false), so config refresh
-// may not fire at all here. Verify at go-live via
-// ramp.settings.slots.<unit>.refreshes; either outcome bounds idle-tab
-// growth (≤100 refreshes or none) — unlike Nitro's uncapped 30s timer.
+// in-view only, limit 100 — no client refresh code exists (header rule 2
+// in bannerAdPlaywire.js). The 100-cap counter almost certainly lives on
+// the unit INSTANCE, and every declare mints a fresh instance (fresh
+// selectorId), so the cap bounds the IDLE tab only (no new declares) —
+// it is NOT a per-tab session bound while the player hops screens.
+// CAVEAT: on Aug 3 pageos viewability never tracked our fixed-overlay
+// slots (inView stuck false), so config refresh may not fire at all here.
+// Verify at go-live via ramp.settings.slots.<unit>.refreshes. Either
+// idle outcome (≤100 refreshes or none) beats Nitro's uncapped 30s timer.
 export function sweepVideoUnits() {
   rampQue(() => {
     try {

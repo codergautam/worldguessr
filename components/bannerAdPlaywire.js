@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { rampQue, shouldCountPageView } from "./utils/playwire";
+import { rampQue, shouldCountPageView, sweepVideoUnits } from "./utils/playwire";
 import sendEvent from "./utils/sendEvent";
 
 // Nitro-style slot lifecycle: WE pick the creative size client-side from
@@ -105,6 +105,10 @@ function PlaywireAd({
         sendEvent(`ad_request_${size[0]}x${size[1]}_${unitType}`);
       } catch (e) {}
     });
+    // Queued AFTER the declare (own que entry, so it runs post-spaAds
+    // whether RAMP is booted or not): a re-declare is when config-side
+    // auto units (corner_ad_video) could resurface — evict them again.
+    sweepVideoUnits();
 
     return () => {
       // The flag and NOTHING else — see the header rules.
