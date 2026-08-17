@@ -2755,6 +2755,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 // Close all open modals except party modal for party games
                 setAccountModalOpen(false);
+                // Shop mounts only while open (its render is flag-gated), so
+                // this unmounts it instantly — same treatment as the account
+                // modal, and it also covers a profile→shop handoff in flight.
+                setShopModalOpen(false);
+                setShopModalCoveredEntry(false);
                 setGameOptionsModalShown(false);
                 setSettingsModal(false);
                 setMapModal(false);
