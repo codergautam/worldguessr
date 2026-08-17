@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import { getLangFromPath } from '@/components/useTranslations';
+import { loadRampScript, preloadRampScript } from '@/components/utils/playwire';
 
 // www is the canonical WorldGuessr host — every absolute social/search URL
 // must stay on it so previews and canonicals agree.
@@ -49,38 +50,27 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// ── NitroPay RE-ENABLED (Aug 2, revenue stopgap) ───────────────────────────
-// The Playwire swap lives on branch playwire-v2 (blocked on Playwire adding
-// the in-game unit + fixing their re-add stall). Until that ships, Nitro
-// earns. The ad stack loads on FIRST USER INTERACTION via requestIdleCallback
-// (July perf overhaul — keeps GPT/prebid/id-syncs off the initial load).
-
-window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
-
-      const loadNitroAds = () => {
-        if (document.querySelector('script[src*="nitropay.com"]')) return;
-        const script = document.createElement('script');
-        script.src = "https://s.nitropay.com/ads-2071.js";
-        script.async = true;
-        document.head.appendChild(script);
-      };
+// ── Playwire RAMP (NitroPay's replacement, Aug 2) ──────────────────────────
+// RAMP boots in passive mode (see utils/playwire.js): no auto units, no video
+// player — slots are declared explicitly by bannerAdPlaywire.js only.
 
       // Load the ad stack on the first real user interaction instead of at
-      // page load. New players see no ads during onboarding anyway, and
-      // returning players interact within moments (mousemove counts), so this
-      // costs ~no impressions — but it keeps the ad stack + everything it
-      // drags in (GPT, prebid, Confiant, Amazon, id syncs) entirely off the
-      // initial load. Idle-until-interaction visitors never fetch ads at all.
-      // requestIdleCallback keeps the fetch off the triggering interaction's
-      // own critical path (INP).
+      // page load (July perf overhaul). New players see no ads during
+      // onboarding anyway, and returning players interact within moments
+      // (mousemove counts), so this costs ~no impressions — but it keeps the
+      // ad stack + everything it drags in (GPT, prebid, id syncs) entirely
+      // off the initial load. Idle-until-interaction visitors never fetch ads
+      // at all. requestIdleCallback keeps the fetch off the triggering
+      // interaction's own critical path (INP). Playwire's stock eager <head>
+      // snippet would regress all of this — never "simplify" back to it.
       const INTERACTION_EVENTS = ['pointerdown', 'mousemove', 'touchstart', 'keydown', 'wheel'];
       const listenerOpts = { passive: true, capture: true };
       const onFirstInteraction = () => {
         removeInteractionListeners();
         if ('requestIdleCallback' in window) {
-          requestIdleCallback(loadNitroAds, { timeout: 1500 });
+          requestIdleCallback(loadRampScript, { timeout: 1500 });
         } else {
-          setTimeout(loadNitroAds, 200);
+          setTimeout(loadRampScript, 200);
         }
       };
       const removeInteractionListeners = () => {
@@ -92,8 +82,50 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
         window.addEventListener(evt, onFirstInteraction, listenerOpts);
       }
 
+      // Warm the script bytes once the page has fully settled — a preload
+      // hint is network-only, so this keeps first-ad latency down without
+      // giving up the interaction gate (execution still waits for a user).
+      const schedulePreload = () => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(preloadRampScript, { timeout: 4000 });
+        } else {
+          setTimeout(preloadRampScript, 3000);
+        }
+      };
+      if (document.readyState === 'complete') schedulePreload();
+      else window.addEventListener('load', schedulePreload, { once: true });
+
+      // Touch devices have no mousemove, so their first "interaction" is
+      // usually the tap that LEAVES the home screen — meaning phones never
+      // see the home ad at all under the pure gate. Touch-primary devices
+      // therefore also load on a settle timer: 2s after the load event
+      // (past the initial-load burst, within typical menu dwell), via idle
+      // callback, executing from the preloaded cache. Desktop keeps the
+      // pure gate — mousemove fires it effectively instantly anyway.
+      // loadRampScript is idempotent, so gate + timer can't double-load.
+      // (2s, down from 3.5s, Aug 3: revenue concession — the only inventory
+      // still sacrificed is sub-2s bounces, which never monetize anyway.)
+      let touchFallbackTimer = null;
+      const scheduleTouchFallback = () => {
+        touchFallbackTimer = setTimeout(() => {
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(loadRampScript, { timeout: 2000 });
+          } else {
+            loadRampScript();
+          }
+        }, 2000);
+      };
+      const isTouchPrimary = window.matchMedia?.('(pointer: coarse)')?.matches;
+      if (isTouchPrimary) {
+        if (document.readyState === 'complete') scheduleTouchFallback();
+        else window.addEventListener('load', scheduleTouchFallback, { once: true });
+      }
+
       return () => {
         removeInteractionListeners();
+        window.removeEventListener('load', schedulePreload);
+        window.removeEventListener('load', scheduleTouchFallback);
+        if (touchFallbackTimer) clearTimeout(touchFallbackTimer);
       };
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
@@ -132,30 +164,13 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
-      // Only load NitroPay if cmgopt flag is true
-      let nitroScript = null;
-      let unmounted = false;
-      fetch('https://www.worldguessr.com/cmgopt.txt')
-        .then(res => res.text())
-        .then(text => {
-          if (unmounted) return;
-          if (text.trim() === 'true') {
-            window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
-            nitroScript = document.createElement('script');
-            nitroScript.src = "https://s.nitropay.com/ads-2071.js";
-            nitroScript.async = true;
-            document.head.appendChild(nitroScript);
-          }
-        })
-        .catch(() => {});
+      // NitroPay removed (Playwire swap, Aug 2). The CMG build's optional
+      // Nitro layer (behind the remote cmgopt.txt flag) is gone — decide with
+      // CMG whether their build gets Playwire units at all.
 
       return () => {
-        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
-        if (nitroScript && nitroScript.parentNode) {
-          document.head.removeChild(nitroScript);
-        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {

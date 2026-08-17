@@ -104,15 +104,14 @@ import StreetView from "./streetview/streetView";
 const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), { ssr: false });
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
-// NitroPay re-enabled Aug 2 as the revenue stopgap (Playwire swap parked on
-// branch playwire-v2 until their in-game unit + re-add fix land).
-import Ad from "./bannerAdNitro";
+import PlaywireAd from "./bannerAdPlaywire";
 import useAdFree from "@/lib/adFree";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
 // Module constants, not inline literals in JSX — same ruling as gameUI.js's
-// AD_TYPES_*: a fresh array per render defeats memo(Ad) and re-runs its
-// JSON.stringify(types) dep on every render of this 5000+ line component.
+// AD_TYPES_*: stable references hit PlaywireAd's propsEqual `a.types ===
+// b.types` fast path instead of an element-wise compare on every render of
+// this 5000+ line component.
 const HOME_AD_TYPES_SHORT = [[300, 250]];
 const HOME_AD_TYPES_TALL = [[320, 50], [300, 250]];
 // Stable identity for absent history (see gameUI.js EMPTY_ARRAY).
@@ -496,28 +495,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setSession(mainSession)
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
-
-    // Pass hashed email (anonymous) to NitroAds for better ad targeting
-    // (logged-in users only, HTTPS only). Re-enabled Aug 2 with the Nitro
-    // revenue stopgap (Playwire swap parked on branch playwire-v2).
-    useEffect(() => {
-        const email = session?.token?.email;
-        if (!email || typeof window === 'undefined' || !window.nitroAds || window.location.protocol !== 'https:') return;
-
-        (async () => {
-            try {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(email.toLowerCase().trim());
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                window.nitroAds.addUserToken(email, 'PLAIN');
-            } catch (e) {
-                // Silently fail - ad targeting is non-critical
-            }
-        })();
-    }, [session?.token?.email])
-
 
     useEffect(() => {
         const handlePageClose = () => {
@@ -2027,6 +2004,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             page_location: window.location.origin + (screen === "home" ? "/" : `/${screen.toLowerCase()}`),
             page_title: `WorldGuessr - ${screen}`,
         });
+        // Playwire pageviews are NOT registered here: each ad slot mount
+        // declares its layout via spaAds({countPageView: true}), so the
+        // slot lifecycle IS the pageview signal (bannerAdPlaywire.js).
     }, [screen]);
 
     // game_start = a round is actually in front of the player. Every mode
@@ -5241,19 +5221,20 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* onboardingCompleted === true: a new user's first paint is
                     screen "home" during the A/B bootstrap — without this gate
                     the ad flashes before screen flips to onboarding. */}
-                {/* Nitro home banner re-enabled Aug 2 (revenue stopgap; the
-                    Playwire replacement for this slot lives on playwire-v2). */}
-                {/* !adFree: the bought pass. This slot had NO entitlement gate of
-                    any kind before it, which is why buying ad-free changed
-                    nothing on the home screen. lib/adFree.js reads the expiry off
+                {/* Home menu banner — Playwire, Nitro-style mount/unmount
+                    lifecycle (spaAds re-inits per mount — see
+                    bannerAdPlaywire.js). Sizes picked client-side:
+                    320x50 → head1, 300x250 → cntr1, so phones get the small
+                    banner like the Nitro era. */}
+                {/* !adFree: the bought pass. lib/adFree.js reads the expiry off
                     the session, so the purchase lands here on the same tick and
-                    the slot unmounts (creative and refresh timer torn down, not
-                    hidden). */}
+                    the slot unmounts (out of the DOM, not hidden; RAMP reclaims
+                    the unit on the next spaAds declare). */}
                 {!adFree && screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
-                        <Ad
-                            unit={"worldguessr_home_ad"}
-                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? HOME_AD_TYPES_SHORT : HOME_AD_TYPES_TALL} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
+                        <PlaywireAd
+                            selectorId="pw-home-ad"
+                            showAdvertisementText={false} screenH={height} types={height < 510 ? HOME_AD_TYPES_SHORT : HOME_AD_TYPES_TALL} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (

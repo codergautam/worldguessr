@@ -17,10 +17,7 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import sendEvent from "./utils/sendEvent";
 import { playSfx, preloadSfx, stopSfx } from "./utils/audio";
-// NitroPay re-enabled Aug 2 as the revenue stopgap (Playwire swap parked on
-// branch playwire-v2 until their in-game unit + re-add fix land).
-import Ad from "./bannerAdNitro";
-// import Ad from "./bannerAdAdinplay";
+import PlaywireAd from "./bannerAdPlaywire";
 import useAdFree from "@/lib/adFree";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
 import GameDistributionBanner from "./bannerAdGameDistribution";
@@ -36,12 +33,11 @@ import Countdown, { DIGIT_SLOT } from "./roundTimer";
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 const SPACE_REPLAY_QUIET_MS = 400;
 
-// Module constants, not inline literals in JSX. A fresh array every render gave
-// the ad components a changing prop identity, which defeated React.memo on them
-// and made bannerAdNitro re-run JSON.stringify(types) for its dep array on every
-// single render of this component.
+// Module constants, not inline literals in JSX. A fresh array every render
+// gives the ad components a changing prop identity — stable references hit
+// PlaywireAd's propsEqual `a.types === b.types` fast path (and CG/GD banners'
+// memo) instead of an element-wise compare on every render of this component.
 const AD_TYPES_LEADERBOARD = [[728, 90]];
-const AD_TYPES_MOBILE_BANNER = [[320, 50]];
 const AD_TYPES_CG_RESPONSIVE = [[320, 50], [468, 60], [728, 90]];
 
 // Stable identity for absent history. `|| []` minted a fresh array per render,
@@ -513,7 +509,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
-  const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
 
   // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
   const inGetready = !!(
@@ -566,15 +561,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!inCoolMathGames) return;
-    fetch('https://www.worldguessr.com/cmgopt.txt')
-      .then(res => res.text())
-      .then(text => setCmgAdsEnabled(text.trim() === 'true'))
-      .catch(() => {});
-    // setCmgAdsEnabled(true);
-  }, [inCoolMathGames]);
 
   const isStartingDuel = !!(multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
   // Render-time leave edge (ref still holds the previous getready). That keeps
@@ -1575,15 +1561,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{/* RE-ENABLED Aug 2 (was TEMP-disabled July 31): Nitro revived as the revenue
-    stopgap while the Playwire swap waits on branch playwire-v2.
+{/* Main-site in-game banner — Playwire (head2 728x90 via the size map),
+    Nitro-style lifecycle: mounts with gameUI, unmounts with it, spaAds
+    re-inits per mount (bannerAdPlaywire.js).
 
     !adFree IS THE PASS, AND IT UNMOUNTS THE SLOT RATHER THAN HIDING IT. That is
-    deliberate: bannerAdNitro's cleanup calls the NitroAd's own teardown and
-    clears the container, so the creative and its refresh timer are actually
-    gone. A `visibility: hidden` gate would leave an invisible ad refreshing
-    every 30s behind the game, which is a paid-for ad the player cannot see and
-    an impression we should not be counting. */}
+    deliberate: an unmounted slot is out of the DOM, so nothing paints and the
+    config-side in-view refresh cannot tick behind the game — a paid-for ad the
+    player cannot see is an impression we should not be counting. RAMP reclaims
+    the old unit on the next spaAds declare (manual teardown is forbidden, see
+    bannerAdPlaywire.js header rules). */}
+{/* !onboarding — no ads during the tutorial (Aug 17 ruling, reversing the
+    Aug 3 show-during-onboarding call); !onboarding?.completed additionally
+    hides it on the tutorial completion screen. */}
 {/* !singlePlayerRound?.done — `done` flips ONCE per game, at the final round
     (see the idempotent completion above), so this gate means "no banner over
     the end-of-game summary", NOT a per-round remount. An Aug 16 perf pass
@@ -1592,10 +1582,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     screens and tears down once per game. Keep the gate. */}
 { !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_gameui_ad"}
-      position="bottom-right"
-    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={AD_TYPES_LEADERBOARD} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+      <PlaywireAd
+        selectorId="pw-game-ad"
+        showAdvertisementText={false} screenH={height} types={AD_TYPES_LEADERBOARD} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
@@ -1607,13 +1596,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ !adFree && inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
-    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-      <Ad
-      unit={"worldguessr_cmg_gameui_ad"}
-    showAdvertisementText={false} screenH={height} types={AD_TYPES_MOBILE_BANNER} screenW={width} vertThresh={0.3} />
-    </div>
-)}
+{/* No CMG in-game banner: the old slot ran Nitro units behind the remote
+    cmgopt.txt flag — removed with the Playwire swap (Aug 2), dark until the
+    CMG/Playwire decision (re-confirmed Aug 17). */}
 
 { inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
