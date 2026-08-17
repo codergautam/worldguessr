@@ -39,8 +39,13 @@ const BRANDS = {
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
   useEffect(() => {
+    // NEXT_PUBLIC_SCHOOLGUESSR: schoolguessr.com is not (yet) on the Playwire
+    // property's domain allowlist — serving RAMP from an unapproved domain
+    // risks flagging the whole account. Gate pending CK's allowlist approval;
+    // remove the term once confirmed.
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
-  !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
+  !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+  !process.env.NEXT_PUBLIC_SCHOOLGUESSR) {
 
 
   // start adinplay script

@@ -1,5 +1,5 @@
-// Playwire RAMP glue shared by the script loader (headContent.js), ad slots
-// (bannerAdPlaywire.js), and the pageview choke point (home.js).
+// Playwire RAMP glue shared by the script loader (headContent.js) and the ad
+// slots (bannerAdPlaywire.js).
 // worldguessr.com's RAMP account:
 export const RAMP_PUB_ID = "1025355";
 export const RAMP_WEB_ID = "75156";
@@ -10,8 +10,8 @@ const SCRIPT_ID = "ramp-script";
 // declared explicitly through bannerAdPlaywire.js. Passive mode is also what
 // keeps the dashboard-side video player off the page: auto units (video
 // included) only spawn from spaNewPage(), which this codebase never calls.
-// Pageviews are registered separately via playwirePageView() below, so
-// skipping spaNewPage costs no reporting.
+// Pageviews ride the first spaAds call instead (shouldCountPageView below),
+// so skipping spaNewPage costs no reporting.
 function ensureRampStub() {
   window.ramp = window.ramp || {};
   window.ramp.que = window.ramp.que || [];
@@ -88,9 +88,17 @@ export function activeUnitIds(match) {
 // The RAMP account has corner_ad_video ACTIVE config-side (the Aug 2
 // settings dump), and the user wants no video player. Passive mode plus
 // never calling spaNewPage keeps it dark in theory; this sweep is the
-// enforcement for whatever slips through anyway, run at boot and after
-// every registered pageview. Keep the sweep until Playwire disables the
-// unit config-side (asked of CK).
+// enforcement for whatever slips through anyway, run ONCE at script load
+// (loadRampScript) — a unit appearing later is not swept. Keep the sweep
+// until Playwire disables the unit config-side (asked of CK).
+//
+// Refresh is entirely config-side per the Aug 2 ramp.settings dump: 30s,
+// in-view only, limit 100 per slot — no client refresh code exists (header
+// rule 2 in bannerAdPlaywire.js). CAVEAT: on Aug 3 pageos viewability never
+// tracked our fixed-overlay slots (inView stuck false), so config refresh
+// may not fire at all here. Verify at go-live via
+// ramp.settings.slots.<unit>.refreshes; either outcome bounds idle-tab
+// growth (≤100 refreshes or none) — unlike Nitro's uncapped 30s timer.
 export function sweepVideoUnits() {
   rampQue(() => {
     try {

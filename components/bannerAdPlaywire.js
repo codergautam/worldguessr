@@ -27,10 +27,12 @@ const UNIT_FOR_SIZE = {
 //    it's a CONFIG problem — the Aug 3 stall's root cause was a lazyLoad
 //    rule on cntr1 that waited for a SCROLL event (a full-screen game never
 //    scrolls); CK removed it. Report to CK, do not re-add workarounds.
-// 3. Injection ids are per-MOUNT (`selectorId-<n>`): pageos can cache the
-//    container element it resolved for an id, and a remount reusing the id
-//    can land the new tag in the detached old div. Fresh ids force a fresh
-//    DOM query every time. Cheap, keep it.
+// 3. Injection ids are per-DECLARE (`selectorId-<n>`, stamped on the live
+//    div right before each spaAds): pageos can cache the container element
+//    it resolved for an id, and ANY re-declare reusing an id — a remount,
+//    OR the same instance flipping size after a null-render spell — can
+//    land the new tag in a stale/detached div. Minting the id inside the
+//    declare itself covers every path. Cheap, keep it.
 
 // Largest type that fits: width within 90% of the screen, height within
 // vertThresh of it. Later entries win — order sizes smallest → largest.
@@ -60,11 +62,6 @@ function PlaywireAd({
 }) {
   const [isClient, setIsClient] = useState(false); // false | true | "debug"
   const adDivRef = useRef(null);
-  const instanceIdRef = useRef(null);
-  if (instanceIdRef.current === null) {
-    instanceIdRef.current = `${selectorId}-${++mountSeq}`;
-  }
-  const instanceId = instanceIdRef.current;
 
   useEffect(() => {
     // ?pwtest forces real injection on localhost (wiring checks through a
@@ -88,17 +85,21 @@ function PlaywireAd({
     let alive = true;
 
     rampQue(() => {
-      if (!alive) return;
+      if (!alive || !adDivRef.current) return;
       try {
+        // Fresh id per declare, stamped on the live div first (header
+        // rule 3) — pageos then resolves the id to THIS element, never a
+        // cached stale one.
+        const injectionId = `${selectorId}-${++mountSeq}`;
+        adDivRef.current.id = injectionId;
         // Declare the current ad layout: spaAds destroys whatever ran
         // before and loads exactly this list. countPageView only on the
         // session's FIRST call — slot mounts fire on every screen hop /
         // round remount / resize, and counting each would inflate
         // pageviews (see shouldCountPageView in utils/playwire.js).
         const countPageView = shouldCountPageView();
-        console.log(`[Playwire] spaAds called: ${unitType} -> #${instanceId} (countPageView: ${countPageView})`);
         window.ramp.spaAds({
-          ads: [{ type: unitType, selectorId: instanceId }],
+          ads: [{ type: unitType, selectorId: injectionId }],
           countPageView,
         });
         sendEvent(`ad_request_${size[0]}x${size[1]}_${unitType}`);
@@ -109,9 +110,9 @@ function PlaywireAd({
       // The flag and NOTHING else — see the header rules.
       alive = false;
     };
-  }, [unitType, instanceId, isClient]);
+  }, [unitType, isClient, selectorId]);
 
-  if (!size || !isClient) return null;
+  if (!size || !unitType || !isClient) return null;
 
   return (
     <div
@@ -135,7 +136,12 @@ function PlaywireAd({
           Advertisement
         </span>
       )}
+      {/* key={unitType}: a size flip tears the old injection div (and the
+          previous creative's iframe) out of the DOM instead of stacking the
+          new tag beside it — same sanctioned teardown as a screen change.
+          The id lands imperatively in the effect, per declare. */}
       <div
+        key={unitType}
         style={{
           backgroundColor: `rgba(0,0,0,${isClient === "debug" ? 0.5 : 0})`,
           height: size[1],
@@ -143,7 +149,6 @@ function PlaywireAd({
           textAlign: "center",
           position: "relative",
         }}
-        id={instanceId}
         ref={adDivRef}
       >
         {isClient === "debug" && (
