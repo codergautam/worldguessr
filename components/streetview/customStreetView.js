@@ -43,7 +43,11 @@ const metaUrl = p =>
   + '!4m57!1e1!1e2!1e3!1e4!1e5!1e6!1e8!1e12!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2!9m36!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e3!2b1!3e2!1m3!1e3!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e1!2b0!3e3!1m3!1e4!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e3';
 
 function createEngine(canvas, onPanoReady, isFrozen, onYaw, onPrewarmed) {
-  const gl = canvas.getContext('webgl', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+  // antialias:false — MSAA on a fullscreen DPR-2 buffer costs 4x the sample
+  // bandwidth to smooth geometry edges this scene does not have: one continuous
+  // textured sphere, where the only seams are tile borders, which are
+  // texture-continuous and unaffected by MSAA. Pure bandwidth loss on phones.
+  const gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
   if (!gl) return null;
   const onContextLost = e => { e.preventDefault(); };
   canvas.addEventListener('webglcontextlost', onContextLost);

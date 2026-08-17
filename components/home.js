@@ -110,6 +110,14 @@ import Ad from "./bannerAdNitro";
 import useAdFree from "@/lib/adFree";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
+// Module constants, not inline literals in JSX — same ruling as gameUI.js's
+// AD_TYPES_*: a fresh array per render defeats memo(Ad) and re-runs its
+// JSON.stringify(types) dep on every render of this 5000+ line component.
+const HOME_AD_TYPES_SHORT = [[300, 250]];
+const HOME_AD_TYPES_TALL = [[320, 50], [300, 250]];
+// Stable identity for absent history (see gameUI.js EMPTY_ARRAY).
+const EMPTY_ARRAY = [];
+
 const DUEL_RELOAD_DEFAULT_TOP = 90;
 const DUEL_RELOAD_CLEARANCE = 6;
 const ROUND_OVER_FADE_MS = 500;
@@ -3831,6 +3839,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     joinOptions: prev.joinOptions,
                 }))
                 setScreen("home")
+                // NOTE: latLong is already nulled unconditionally at the top of
+                // backBtnPressed (setLatLong(null) before the screen branches),
+                // which is what unmounts the SV embed on home. Do not add a
+                // clearLocation() here "for safety" — it was tried and reverted
+                // Aug 16; the unconditional null above is the real teardown.
                 // gameShutdown used to clear this; now that we own the
                 // teardown, do it here so a stale community-map extent
                 // doesn't leak into the next singleplayer / multiplayer game.
@@ -5240,7 +5253,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     <div className="home_ad">
                         <Ad
                             unit={"worldguessr_home_ad"}
-                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
+                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? HOME_AD_TYPES_SHORT : HOME_AD_TYPES_TALL} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
@@ -5774,7 +5787,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         points={onboarding.points}
                         time={msToTime(onboarding.timeTaken)}
                         maxPoints={onboarding.maxPoints || (onboarding.mode === "classic" ? 15000 : 3000)}
-                        history={onboarding.locations || []}
+                        history={onboarding.locations || EMPTY_ARRAY}
                         options={options}
                     />
                 }

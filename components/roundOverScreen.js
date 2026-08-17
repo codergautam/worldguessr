@@ -209,7 +209,11 @@ const GameSummary = ({
 
   // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
+    let timer = null;
+    let attempts = 0;
+    let cancelled = false;
     const checkLeaflet = () => {
+      if (cancelled) return;
       const icons = getPinIcons();
       if (icons) {
         destIconRef.current = icons.dest;
@@ -222,12 +226,19 @@ const GameSummary = ({
         // components/Map.js does for the in-game map.
         allIconsRef.current = icons;
         setLeafletReady(true);
-      } else {
-        setTimeout(checkLeaflet, 100);
+        return;
       }
+      // getPinIcons() is null only while window.L is still in flight. Fast for
+      // ~2s, then a 500ms tail that NEVER gives up: a hard attempt cap was
+      // tried and reverted — hidden tabs clamp setTimeout to >=1s, so a capped
+      // chain could burn out while the player was tabbed away and leave this
+      // screen a permanent opaque veil with no buttons. The leak fix is the
+      // cleanup below (the old chain had none and survived unmount), not a cap.
+      timer = setTimeout(checkLeaflet, ++attempts < 20 ? 100 : 500);
     };
 
     checkLeaflet();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
   // Enhanced smooth animation for points in regular games

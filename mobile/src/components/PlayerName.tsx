@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -98,13 +98,19 @@ export default function PlayerName({
   // animated, draws through NameGlowHalo now.
   const hasGlow = !!resolveGlowColor(glow, onLight);
 
+  // Stable identity for the composed text style. An inline `[styles.name,
+  // textStyle]` literal on the NameGlowHalo prop below minted a fresh array
+  // every render, which defeated memo(NameGlowHalo) and memo(GlowLayerText) —
+  // re-rendering up to 8 shadow-text layers per name on every parent commit.
+  const resolvedTextStyle = useMemo(() => [styles.name, textStyle], [textStyle]);
+
   // NO SHADOW ON THIS <Text>, EVER. It is the node that owns the row's layout —
   // it is what Yoga measures and what `numberOfLines` ellipsises against — so
   // anything the glow put on it would be a purchase that changes the name's box.
   // The halo is a stack of absolutely positioned copies underneath instead; see
   // NameGlowHalo for the whole argument.
   const nameText = (
-    <Text style={[styles.name, textStyle]} numberOfLines={numberOfLines}>
+    <Text style={resolvedTextStyle} numberOfLines={numberOfLines}>
       {name}
     </Text>
   );
@@ -128,7 +134,7 @@ export default function PlayerName({
             // The SAME style the name resolves with, minus the shadow: the
             // layers have to lay out identically or they ghost out from behind
             // the glyphs at some widths.
-            textStyle={[styles.name, textStyle]}
+            textStyle={resolvedTextStyle}
             numberOfLines={numberOfLines}
           />
           {nameText}

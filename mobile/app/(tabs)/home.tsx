@@ -762,10 +762,22 @@ export default function HomeScreen() {
     // guard covers the edge where THIS effect's deps fire on a later commit.
     if (is2v2Context && pathnameRef.current.startsWith('/queue')) return;
     hasAutoNavigated.current = true;
-    router.push({
-      pathname: '/game/[id]',
-      params: { id: 'multiplayer' },
-    });
+    // From the queue, REPLACE so the queue screen doesn't survive under the
+    // game (its sonar loops + 1Hz tick + loader GIF ran for the whole match).
+    // Same rule the 2v2 effect above already applies, and [tabs, queue, game]
+    // is documented as non-canonical. Everywhere else (party create/join,
+    // invites, reconnect) keeps push — those screens own their own dismissal.
+    if (pathnameRef.current.startsWith('/queue')) {
+      router.replace({
+        pathname: '/game/[id]',
+        params: { id: 'multiplayer' },
+      });
+    } else {
+      router.push({
+        pathname: '/game/[id]',
+        params: { id: 'multiplayer' },
+      });
+    }
   }, [inGame, gameState, gamePublic, is2v2Context]);
 
   // Handle auto re-queue after gameCancelled (opponent left before start).

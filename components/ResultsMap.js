@@ -180,7 +180,11 @@ export default function ResultsMap({
   // Initialize Leaflet icons from shared cache (icons created once globally).
   // Lifted from roundOverScreen.js.
   useEffect(() => {
+    let timer = null;
+    let attempts = 0;
+    let cancelled = false;
     const checkLeaflet = () => {
+      if (cancelled) return;
       const icons = getPinIcons();
       if (icons) {
         destIconRef.current = icons.dest;
@@ -193,12 +197,16 @@ export default function ResultsMap({
         // exactly like `nameGlow` does.
         allIconsRef.current = icons;
         setLeafletReady(true);
-      } else {
-        setTimeout(checkLeaflet, 100);
+        return;
       }
+      // Fast for ~2s, then a 500ms tail that never gives up (hidden-tab timer
+      // clamping can outlast any cap — see roundOverScreen.js, keep in sync).
+      // The leak fix is the unmount cleanup below, not a cap.
+      timer = setTimeout(checkLeaflet, ++attempts < 20 ? 100 : 500);
     };
 
     checkLeaflet();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
   // Open external maps via the host (mobile hands it to the OS); fall back to

@@ -147,7 +147,7 @@ function TeamNames({ players, myId }: { players: MPPlayer[]; myId: string }) {
               countryCode={p.countryCode}
               flagSize={12}
               gap={4}
-              textStyle={[styles.username, !isSelf && !!p.accountId && styles.usernameOpponent]}
+              textStyle={!isSelf && !!p.accountId ? USERNAME_STYLE_OPPONENT : USERNAME_STYLE}
               glow={p.nameGlow}
             >
               {typeof p.elo === 'number' && (
@@ -308,7 +308,7 @@ function HealthBar({
       name={player.username}
       countryCode={player.countryCode}
       flagSize={14}
-      textStyle={[styles.username, hasProfile && styles.usernameOpponent]}
+      textStyle={hasProfile ? USERNAME_STYLE_OPPONENT : USERNAME_STYLE}
       gap={5}
       glow={player.nameGlow}
     >
@@ -591,3 +591,11 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 });
+
+// Stable textStyle identities for PlayerName. An inline `[styles.username, …]`
+// literal mints a fresh array every render, which defeats PlayerName's
+// resolvedTextStyle memo and with it memo(NameGlowHalo) — re-rendering up to 8
+// glow layers per name on every HUD commit (~30/s during an HP count-up).
+// Declared after `styles` (they read it); used only at render time.
+const USERNAME_STYLE = [styles.username];
+const USERNAME_STYLE_OPPONENT = [styles.username, styles.usernameOpponent];

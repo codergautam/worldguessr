@@ -1022,6 +1022,12 @@ export default function GameResultsScreen() {
     }).start();
   }, [detailsExpanded, panelAnim]);
 
+  // One-shot latch for the SP play-again below: it dismisses then PUSHES on a
+  // deferred beat, so a double-tap would queue two pushes and stack two fresh
+  // game screens. The results screen unmounts right after, so the latch dies
+  // with it.
+  const spReplayFiredRef = useRef(false);
+
   const handlePlayAgain = () => {
     // Click sound rides the SfxPressable this handler is wired to.
     haptics.medium();
@@ -1076,22 +1082,36 @@ export default function GameResultsScreen() {
     // instead of resetting to the world map. Country-guesser modes always run on
     // map 'all' (the submode drives them). Singleplayer is ad-eligible in every
     // case, so the interstitial gating is unchanged.
+    if (spReplayFiredRef.current) return;
+    spReplayFiredRef.current = true;
     maybeShowGameInterstitial('singleplayer');
     const replayMap = isCountryGuesserResult ? 'all' : (mapParam || 'all');
-    router.replace({
-      pathname: '/game/[id]',
-      params: {
-        id: 'singleplayer',
-        map: replayMap,
-        ...(replayMap !== 'all' && mapNameParam ? { mapName: mapNameParam } : {}),
-        // Same carry-through as map/mapName: Play Again keeps the SV mode the
-        // player just finished with (No Move / NMPZ), not a reset to Moving.
-        ...(svModeParam ? { svMode: svModeParam } : {}),
-        rounds: isCountryGuesserResult ? '10' : '5',
-        time: '60',
-        mode: mode || 'world',
-      },
-    });
+    // DISMISS-THEN-PUSH, not replace: a plain replace swaps out only THIS
+    // results route, leaving the finished game screen mounted underneath with
+    // its 2-3 live WebViews — each Play Again stacked another one (the "hot
+    // phone after a couple of games" report). dangerouslySingular cannot save
+    // the replace: expo-router 6's Stack applies filterSingular only to
+    // PUSH/NAVIGATE actions (StackClient.js), so on REPLACE it is silently
+    // ignored. dismissAllSafe pops to [tabs]; the push must ride a macrotask
+    // because dismissAll is queue-drained, not synchronous — same two-beat
+    // shape as home.tsx's results->queue handoff. Safe for SP: no unmount path
+    // calls leaveGame, beforeRemove passes through unfocused, and the location
+    // pool is module-level.
+    dismissAllSafe();
+    const replayParams = {
+      id: 'singleplayer',
+      map: replayMap,
+      ...(replayMap !== 'all' && mapNameParam ? { mapName: mapNameParam } : {}),
+      // Same carry-through as map/mapName: Play Again keeps the SV mode the
+      // player just finished with (No Move / NMPZ), not a reset to Moving.
+      ...(svModeParam ? { svMode: svModeParam } : {}),
+      rounds: isCountryGuesserResult ? '10' : '5',
+      time: '60',
+      mode: mode || 'world',
+    };
+    setTimeout(() => {
+      router.push({ pathname: '/game/[id]', params: replayParams });
+    }, 0);
   };
 
   // Party play-again (B14): once the host's resetGame lands and the server flips
@@ -2575,6 +2595,7 @@ export default function GameResultsScreen() {
         visible={review.visible}
         onRate={review.onRate}
         onDismiss={review.onDismiss}
+        onClosed={review.onClosed}
       />
     </View>
   );

@@ -52,6 +52,10 @@ function EmoteReactions({
   const myIdRef = useRef(myId);
   useEffect(() => { myIdRef.current = myId; }, [myId]);
 
+  // Live TTL timers for on-screen bubbles. Kept so unmount can cancel them —
+  // they used to survive the component and call setReactions on a dead tree.
+  const reactionTimersRef = useRef(new Set());
+
   // The buttons this player gets. Recomputed only when the bar or the inventory
   // actually changes — this component re-renders on every incoming reaction and
   // rebuilding the roster on each one would be pure waste.
@@ -89,16 +93,30 @@ function EmoteReactions({
         team: data.team || null, // 'a' | 'b' in team modes — colored at render
         isSelf: data.id === myIdRef.current,
       }]);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        reactionTimersRef.current.delete(timer);
         setReactions(prev => prev.filter(r => r.id !== id));
       }, REACTION_TTL);
+      reactionTimersRef.current.add(timer);
     });
     return unsubscribe;
   }, [enabled, inGame, subscribeMessages]);
 
+  // Unmount ONLY — not on the subscribe effect above, which re-runs when
+  // enabled/subscribeMessages change mid-game and would strand visible bubbles
+  // at full opacity forever if it cleared the TTL timers.
+  useEffect(() => () => {
+    for (const t of reactionTimersRef.current) clearTimeout(t);
+    reactionTimersRef.current.clear();
+  }, []);
+
   // Clear reactions when leaving game
   useEffect(() => {
-    if (!inGame) setReactions([]);
+    if (!inGame) {
+      setReactions([]);
+      for (const t of reactionTimersRef.current) clearTimeout(t);
+      reactionTimersRef.current.clear();
+    }
   }, [inGame]);
 
   const sendEmote = useCallback((emote) => {

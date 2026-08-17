@@ -6527,7 +6527,11 @@ body.leaflet-dragging .hintCircle {
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    transition: all 0.5s;
+    /* Only opacity and scale ever animate here (see .hidden below).
+       `transition: all` on the container of a full-screen Leaflet map forces a
+       transition check on every property of an element whose subtree restyles
+       constantly — the same ruling as #miniMapArea's explicit lists. */
+    transition: opacity 0.5s, scale 0.5s;
     opacity: 1;
     scale: 1;
     animation: roundOverScreenFadeIn 500ms ease forwards;
@@ -8350,10 +8354,15 @@ div[dir="ltr"] {
 }
 
 .player-name-wrapper {
+    /* NO backdrop-filter — same ruling as .health-bar-bg above and
+       .g2_container: this pill sits inside the duel HP bar OVER THE LIVE PANO,
+       so its blur region was re-sampled every frame the player looked around,
+       for the whole 60s guess phase, in duels only. The gradient below is
+       already 70-80% opaque and .player-name carries its own text-shadow;
+       legibility does not need the blur. */
     background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(20, 20, 20, 0.8) 100%);
     padding: 8px 16px;
     border-radius: 20px;
-    backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }

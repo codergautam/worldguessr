@@ -44,6 +44,11 @@ const AD_TYPES_LEADERBOARD = [[728, 90]];
 const AD_TYPES_MOBILE_BANNER = [[320, 50]];
 const AD_TYPES_CG_RESPONSIVE = [[320, 50], [468, 60], [728, 90]];
 
+// Stable identity for absent history. `|| []` minted a fresh array per render,
+// which defeated roundOverScreen's gameHistory useMemo (deps include `history`)
+// on every one of this component's renders.
+const EMPTY_ARRAY = [];
+
 // Shared scaffold for the duel HP bars + 5s "VS" intro — one source for the
 // layout so intro tweaks can't drift between the 1v1 and team-duel blocks.
 //
@@ -1579,6 +1584,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     gone. A `visibility: hidden` gate would leave an invisible ad refreshing
     every 30s behind the game, which is a paid-for ad the player cannot see and
     an impression we should not be counting. */}
+{/* !singlePlayerRound?.done — `done` flips ONCE per game, at the final round
+    (see the idempotent completion above), so this gate means "no banner over
+    the end-of-game summary", NOT a per-round remount. An Aug 16 perf pass
+    briefly removed it on the wrong belief that it churned an ad auction every
+    round; it does not — the slot stays mounted across all rounds and answer
+    screens and tears down once per game. Keep the gate. */}
 { !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
@@ -1833,8 +1844,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)
             ? <span className="timer__countdown">
+                {/* deadline=null PAUSES the rAF loop entirely (roundTimer.js
+                    bails and renders null). While the pill is hidden it is
+                    opacity:0 but stays mounted, so the timer was burning a
+                    frame callback per frame through the entire answer reveal
+                    and end screen. Full pause is the cadence the roundTimer
+                    header ruling permits; re-show restarts the effect on the
+                    deadline change and useLayoutEffect writes digits before
+                    paint, so there is no blank frame. */}
                 <Countdown
-                  deadline={multiplayerState?.gameData?.nextEvtTime}
+                  deadline={multiplayerTimerShown ? multiplayerState?.gameData?.nextEvtTime : null}
                   timeOffset={timeOffset}
                   template={`${DIGIT_SLOT}s`}
                 />
@@ -1860,8 +1879,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)
             ? <span className="timer__countdown">
+                {/* deadline=null pauses the rAF — same note as the duel pill. */}
                 <Countdown
-                  deadline={multiplayerState?.gameData?.nextEvtTime}
+                  deadline={multiplayerTimerShown ? multiplayerState?.gameData?.nextEvtTime : null}
                   timeOffset={timeOffset}
                   template={`${DIGIT_SLOT}s`}
                 />
@@ -1891,7 +1911,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         <span className="timer__main-row">
           {obHasTime
             ? <><span className="timer__countdown">
-                <Countdown deadline={onboarding?.nextRoundTime} template={`${DIGIT_SLOT}s`} />
+                {/* deadline=null pauses the rAF — same note as the duel pill. */}
+                <Countdown deadline={onboardingTimerShown ? onboarding?.nextRoundTime : null} template={`${DIGIT_SLOT}s`} />
               </span> &middot; </>
             : null
           }
@@ -1949,7 +1970,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.teamGame && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
-            history={multiplayerState?.gameData?.history || []}
+            history={multiplayerState?.gameData?.history || EMPTY_ARRAY}
             duel={false}
             multiplayerState={multiplayerState}
             gameId={multiplayerState?.gameData?.code}
@@ -1972,7 +1993,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             the requeue/rematch actions — rendering both stacks two screens. */}
         {multiplayerState && multiplayerState.inGame && (multiplayerState?.gameData?.duel || multiplayerState?.gameData?.teamGame) && !multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
-            history={multiplayerState?.gameData?.history || []}
+            history={multiplayerState?.gameData?.history || EMPTY_ARRAY}
             duel={true}
             data={multiplayerState?.gameData?.duelEnd ?? deriveTeamEndFallback(multiplayerState?.gameData)}
             multiplayerState={multiplayerState}

@@ -274,7 +274,11 @@ export function MultiplayerProvider({ children }) {
           } catch (e) {}
         }
       } else if (data.type === "cnt") {
-        setMultiplayerState((prev) => ({ ...prev, playerCount: data.c }));
+        // Identity guard, same as the friends branch below: the server sends
+        // this on a fixed cadence and the count is usually unchanged; without
+        // the guard every beat minted a new context value and re-rendered
+        // every multiplayerState consumer in the tree.
+        setMultiplayerState((prev) => (prev.playerCount === data.c ? prev : { ...prev, playerCount: data.c }));
       } else if (data.type === "friends") {
         // JUST THE COUNT, for the player card's Friends badge. The friends
         // button used to sit in the corner permanently; it is a menu row now,

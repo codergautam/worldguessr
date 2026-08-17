@@ -90,6 +90,14 @@ export default function PlayerList({
   // the top 5, then a "…" separator, then the current player's own row when
   // they rank below the cutoff. The lobby keeps showing everyone.
   const rowLimit = mode === 'lobby' ? sortedPlayers.length : 5;
+  // The ROWS are unbounded in the lobby, the ANIMATED halos are not: each
+  // animated glow renders up to 8 absolutely-positioned shadow-text layers
+  // with per-frame animated styles, so a big lobby was 8xN live shadow
+  // composites. Rows past the cutoff DOWNGRADE to glowMotion="static" (one
+  // plain shadow layer — the same budget lever MapTile and GameChat already
+  // use) instead of losing the paid cosmetic; the player's own row is always
+  // exempt so nobody watches their own purchase disappear.
+  const GLOW_ROW_CUTOFF = 8;
   const myIndex = sortedPlayers.findIndex((player) => player.id === myId);
   const showSelfRow = myIndex >= rowLimit;
 
@@ -122,6 +130,7 @@ export default function PlayerList({
             flagSize={dense ? 16 : 18}
             gap={8}
             glow={player.nameGlow}
+            glowMotion={mode === 'lobby' && index >= GLOW_ROW_CUTOFF && player.id !== myId ? 'static' : undefined}
             // LIGHT-SURFACE SWITCH. `dense` (= betweenRounds) rows are WHITE
             // cards with near-black text (playerRowBetween / playerNameBetween);
             // a dark-surface glow is invisible on them and the light one reads

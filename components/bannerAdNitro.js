@@ -48,9 +48,14 @@ function Ad({
   }, []);
 
   useEffect(() => {
+    // No recycle timer when no ad renders (type -1: viewport too small for
+    // every offered size — the common case on phones). The interval only
+    // exists to flush vendor leaks out of a LIVE slot; arming it on a null
+    // render just re-rendered the parent every 10 minutes for nothing.
+    if (type === -1) return;
     const t = setInterval(() => setSlotEpoch((e) => e + 1), SLOT_RECYCLE_MS);
     return () => clearInterval(t);
-  }, []);
+  }, [type]);
 
   useEffect(() => {
     setType(findAdType(screenW, screenH, types, vertThresh));

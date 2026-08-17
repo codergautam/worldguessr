@@ -52,8 +52,16 @@ export default function GameDistributionBanner({
       }
     }
 
-    const initTimer = setTimeout(requestBanner, 200);
-    const refreshInterval = setInterval(requestBanner, 30000);
+    // Initial request skipped in a hidden tab — same rule as bannerAdCrazyGames.
+    const initTimer = setTimeout(() => {
+      if (document.hidden) return;
+      requestBanner();
+    }, 200);
+    // No refresh in a backgrounded tab — same rule as bannerAdCrazyGames.
+    const refreshInterval = setInterval(() => {
+      if (document.hidden) return;
+      requestBanner();
+    }, 30000);
 
     return () => {
       clearTimeout(initTimer);

@@ -57,10 +57,20 @@ export default function CrazyGamesBanner({
       }
     }
 
-    // Initial request after short delay to ensure DOM is mounted
-    const initTimer = setTimeout(requestBanner, 200);
-    // Auto-refresh every 30 seconds
-    const refreshInterval = setInterval(requestBanner, 30000);
+    // Initial request after short delay to ensure DOM is mounted. Skipped in a
+    // hidden tab (restored session / ctrl-clicked open): the first visible 30s
+    // tick below picks it up instead, so the first impression is a seen one.
+    const initTimer = setTimeout(() => {
+      if (document.hidden) return;
+      requestBanner();
+    }, 200);
+    // Auto-refresh every 30 seconds — but never in a backgrounded tab: the
+    // refresh kept firing while hidden, burning quota on impressions nobody
+    // could see. The next visible tick resumes the cadence.
+    const refreshInterval = setInterval(() => {
+      if (document.hidden) return;
+      requestBanner();
+    }, 30000);
 
     return () => {
       clearTimeout(initTimer);

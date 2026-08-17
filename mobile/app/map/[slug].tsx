@@ -12,7 +12,11 @@ export default function MapDetailScreen() {
   const router = useRouter();
 
   const handlePlay = useCallback((mapSlug: string, name: string) => {
-    router.push({
+    // replace, not push: this detail screen keeps a 6s Street View rotator
+    // (MapDetailView) running, so pushing the game on top left two live
+    // WebViews crossfading behind every community-map game. Nothing pops back
+    // here — every game exit is dismissAllSafe (POP_TO_TOP onto the maps tab).
+    router.replace({
       pathname: '/game/[id]',
       params: {
         id: 'singleplayer',
