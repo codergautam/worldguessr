@@ -2418,6 +2418,10 @@ export default function GameScreen() {
       <View style={styles.container}>
         <GameSurface
           ref={singleplayerSurfaceRef}
+          // /game/results is PUSHED over this screen (freezeOnBlur off), and
+          // GameSurface cannot see navigation focus — without this the pano
+          // painted and streamed full-res behind the results route.
+          hostCovered={!isScreenFocused}
           location={activeLocation ?? null}
           // Warm the next round's pano during the result screen → no loading
           // cover on "Next". Country mode peeks its pool; pin mode indexes the
@@ -2657,6 +2661,15 @@ export default function GameScreen() {
               // mid-load frame flashed when the answer map slid down. Preserves
               // the preload; only removes the flash.
               smoothTransitions
+              // The reveal map covers this surface for the whole between-rounds
+              // window, and a BLURRED screen (the results route pushed on top)
+              // covers it entirely — either way the WebGL renderer stops
+              // drawing (streaming and prewarm continue). showMapResult alone
+              // is not enough: it is focus-gated for MP, so it reads false
+              // exactly when the results screen sits over this one. The
+              // on-demand reveal pano below is the visible one during "Show
+              // Street View" and is left alone.
+              covered={!isScreenFocused || showMapResult}
             />
           )}
         </View>

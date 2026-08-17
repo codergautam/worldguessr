@@ -3419,6 +3419,21 @@ canvas.streetview.dragging {
     pointer-events: none;
 }
 
+/* Pure-idle pano states (home.js: svFrameIdle — home menu, staging lobby,
+   join screen, queue, 2v2 end). IFRAME ONLY: display:none is the one thing
+   that makes Chrome stop servicing a cross-origin frame's rAF — opacity:0
+   leaves the Google embed rendering at full rate behind the menu. The WebGL
+   canvas NEVER takes this class (its resize() reads clientWidth, which lies
+   under display:none; the engine's own draw gate idles it instead). Idle
+   states always exit through an opacity-hidden loading/conceal term, and
+   home.js additionally holds `hidden` for two frames on the un-idle edge so
+   the 200ms fade keeps its start value — display is not transitionable.
+   !important: the shared .streetview block uses position:fixed !important,
+   so a future display declaration there must not outrank this. */
+#streetview.sv-idle {
+    display: none !important;
+}
+
 #streetview {
     transition: opacity 0.2s ease-out;
     background-color: #1a1a2e; /* Prevent white flash during iframe src change */

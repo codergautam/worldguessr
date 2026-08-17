@@ -124,8 +124,10 @@ function App() {
       npz={!!state.npz}
       showAnswer={!!state.showAnswer}
       hidden={false}
+      covered={!!state.covered}
       refreshKey={state.refreshKey ?? 0}
       prefetchPano={state.prefetchPano ?? null}
+      prefetchNonce={state.prefetchNonce ?? 0}
       onPrefetched={(panoId) => postOut({ type: OUTBOUND.SV_PREFETCHED, panoId })}
       onLoad={() => postOut({ type: OUTBOUND.SV_LOADED })}
     />

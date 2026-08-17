@@ -146,6 +146,14 @@ interface GameSurfaceProps {
   hideInputs?: boolean;
   /** When showing the result, collapse the map to reveal the answer's pano. */
   showPanoOnResult?: boolean;
+  /**
+   * The HOST's screen is buried under another route (e.g. /game/results
+   * pushed on top with freezeOnBlur off). GameSurface cannot see navigation
+   * focus itself, and without this the WebGL pano keeps painting and
+   * streaming full-res tiles behind an opaque screen for as long as the user
+   * reads their results.
+   */
+  hostCovered?: boolean;
   // ── hint (pin variant) ───────────────────────────────────────────────────
   onHint?: () => void;
   hintShown?: boolean;
@@ -249,6 +257,7 @@ function GameSurface(
     onLoadingBack,
     hideInputs = false,
     showPanoOnResult = false,
+    hostCovered = false,
     onHint,
     hintShown = false,
     hintDisabled = false,
@@ -802,6 +811,14 @@ function GameSurface(
                     }
                   : null
               }
+              // The result map fully covers the pano — the WebGL renderer can
+              // stop DRAWING (streaming/prewarm continue). The !showPanoOnResult
+              // term is required: that toggle collapses the map specifically to
+              // reveal the live pano. hostCovered handles the case this
+              // component can't see: the whole SCREEN buried under a pushed
+              // route (results), where isShowingResult alone leaves the pano
+              // painting behind an opaque screen.
+              covered={hostCovered || (isShowingResult && !showPanoOnResult)}
             />
           )}
         </View>

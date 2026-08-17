@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 const StreetView = ({
   nm = false,
@@ -11,12 +11,17 @@ const StreetView = ({
   pitch,
   showAnswer = false,
   hidden = false,
+  // PURE-IDLE state (home menu, staging lobby, join screen, queue, 2v2 end):
+  // the frame gets display:none, which is the ONLY thing that makes Chrome
+  // stop servicing a cross-origin iframe's rAF — opacity:0 keeps the Google
+  // embed rendering at full rate. Never set for loading/conceal windows
+  // (those fade back in; display kills the transition) — home.js pairs every
+  // idle exit with a 2-frame `hidden` grace for exactly that reason.
+  idle = false,
   slowEnter = false,
   refreshKey = 0,
   onLoad
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const iframeRef = useRef(null);
   const prevLocationRef = useRef(null);
   const prevRefreshKeyRef = useRef(refreshKey);
@@ -46,8 +51,6 @@ const StreetView = ({
       // Update if location changed, refreshKey changed, or first time
       if (locationChanged || refreshKeyChanged || !prevLocationRef.current || srcMissing) {
         window.googleMapsIframeStartTime = performance.now();
-        setLoading(true);
-        setHasLoaded(false); // Hide iframe (black bg shows), then fade in when loaded
         iframeRef.current.src = buildSrc();
       }
       prevLocationRef.current = locationKey;
@@ -80,15 +83,13 @@ const StreetView = ({
   return (
     <iframe
       ref={iframeRef}
-      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""} streetview`}
+      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} ${idle ? "sv-idle" : ""} ${slowEnter ? "streetview--duel-enter" : ""} streetview`}
       referrerPolicy="no-referrer-when-downgrade"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
       onLoad={() => {
         if (window.googleMapsIframeStartTime) {
           console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
         }
-        setLoading(false);
-        setHasLoaded(true);
         if (onLoad && (lat && long || panoId)) {
           onLoad();
         }

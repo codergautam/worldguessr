@@ -90,6 +90,15 @@ interface CustomStreetViewWebViewProps {
    * to the iframe renderer so the round still plays.
    */
   onUnavailable?: () => void;
+  /**
+   * Host cover is fully up (result screen over the pano). Stops the renderer
+   * DRAWING; tile streaming, prewarm and SV_PREFETCHED continue, so
+   * commitPreload can still answer 'ready'. Rides propsRef so a WebView
+   * process death + revive replays it with the full snapshot — an ad-hoc
+   * injection would lose it and leave the page painting at full rate behind
+   * the native cover forever.
+   */
+  covered?: boolean;
 }
 
 function CustomStreetViewWebView(
@@ -103,6 +112,7 @@ function CustomStreetViewWebView(
     showInitialLoader = true,
     preload = null,
     onUnavailable,
+    covered = false,
   }: CustomStreetViewWebViewProps,
   ref: React.Ref<StreetViewHandle>,
 ) {
@@ -148,11 +158,25 @@ function CustomStreetViewWebView(
     return p;
   }, []);
 
+  // Coalesced on a microtask so a covered flip and a coords write landing in
+  // the same commit usually merge into ONE UPDATE_PROPS. NOT a guarantee: the
+  // coords effect awaits resolveCached first, so on a cache miss the page CAN
+  // briefly observe covered:false with the previous round's coords — that
+  // stale paint is invisible today only because the host's opaque cover fade
+  // is still up on every such path (ready, pending and none alike). If a
+  // cover-less uncover path is ever added, gate the covered:false push on the
+  // pushed panoId matching the current round.
+  const pushQueuedRef = useRef(false);
   const push = useCallback(() => {
-    if (!readyRef.current || !webRef.current) return;
-    if (propsRef.current.panoId === undefined) return; // coords not resolved yet
-    const msg = JSON.stringify({ type: INBOUND.UPDATE_PROPS, props: propsRef.current });
-    webRef.current.injectJavaScript(`window.${APPLY_FN} && window.${APPLY_FN}(${msg}); true;`);
+    if (pushQueuedRef.current) return;
+    pushQueuedRef.current = true;
+    queueMicrotask(() => {
+      pushQueuedRef.current = false;
+      if (!readyRef.current || !webRef.current) return;
+      if (propsRef.current.panoId === undefined) return; // coords not resolved yet
+      const msg = JSON.stringify({ type: INBOUND.UPDATE_PROPS, props: propsRef.current });
+      webRef.current.injectJavaScript(`window.${APPLY_FN} && window.${APPLY_FN}(${msg}); true;`);
+    });
   }, []);
 
   // Resolve lat/lng → fresh pano id, then hand the page the whole round. The
@@ -182,7 +206,15 @@ function CustomStreetViewWebView(
       if (stale || !id) return;
       prefetchIdRef.current = id;
       prefetchReadyRef.current = false; // fresh target — wait for its SV_PREFETCHED
-      propsRef.current = { ...propsRef.current, prefetchPano: id };
+      // prefetchNonce: a repeat location resolves to the SAME pano id, which
+      // would leave the page's prewarm effect dormant (unchanged prop) and
+      // commitPreload stuck on 'none' for that round. The nonce forces the
+      // effect to re-run and re-fire SV_PREFETCHED.
+      propsRef.current = {
+        ...propsRef.current,
+        prefetchPano: id,
+        prefetchNonce: ((propsRef.current.prefetchNonce as number) || 0) + 1,
+      };
       push();
     });
     return () => { stale = true; };
@@ -190,9 +222,9 @@ function CustomStreetViewWebView(
 
   // Mode flags ride the same snapshot; no resolution needed.
   useEffect(() => {
-    propsRef.current = { ...propsRef.current, npz, showAnswer };
+    propsRef.current = { ...propsRef.current, npz, showAnswer, covered };
     push();
-  }, [npz, showAnswer, push]);
+  }, [npz, showAnswer, covered, push]);
 
   // Failsafe for a page that never handshakes (WebView boot wedged, bundle
   // eval death): the page's own 8s failsafe can't run if the page isn't alive,

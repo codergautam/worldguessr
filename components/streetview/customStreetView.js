@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Loader } from '@googlemaps/js-api-loader';
 
 // Same options as findLatLong.js — the Loader is a singleton and throws if
@@ -22,7 +22,22 @@ const loader = new Loader({
 const TILE = 512;
 const MAX_INFLIGHT = 12;      // concurrent tile downloads
 const UPLOADS_PER_FRAME = 3;  // GPU texture uploads per frame, keeps frame pacing flat
-const CACHE_MAX = 150, CACHE_TRIM = 120;  // detail tiles on the current pano
+// GPU texture budget in BYTES. The old cap was 150 TILES: one 512x512 RGBA
+// tile plus its mip chain is ~1.4MB, so that was a ~210MB ceiling — on a
+// phone, one round of detail panning was enough to get the WebView's render
+// process reclaimed. 96/72 not lower: the legitimate visible working set at a
+// portrait phone's default zoom is ~64MB (z4 cone + the z3 layer under it),
+// and a budget below the working set makes the evictor scan fruitlessly
+// forever. z<=2 base levels and the prewarmed pano are never victims.
+const TEX_BUDGET = 96 * 1024 * 1024;
+// Trim close to the budget: the gap is the flush size, and the retained set
+// under trim IS the pan-back history — trimming deep (72MB was tried) left
+// ~4-27 tiles of history and made a 360-degree look-around re-download and
+// re-blur directions seen seconds earlier. Peak stays capped by TEX_BUDGET;
+// history retention is what the trim floor buys.
+const TEX_TRIM = 84 * 1024 * 1024;
+// full mip chain = 1 + 1/4 + 1/16 + ... = 4/3 of the base level
+const texBytes = (w, h) => Math.ceil(w * h * 4 * (4 / 3));
 const BIAS = 0.75;            // resolution bias for zoom level selection
 const D2R = Math.PI / 180;
 // Google's zoom model, applied to the LONG viewport axis. Pinning the limits
@@ -42,15 +57,15 @@ const metaUrl = p =>
   + encodeURIComponent(p)
   + '!4m57!1e1!1e2!1e3!1e4!1e5!1e6!1e8!1e12!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2!9m36!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e3!2b1!3e2!1m3!1e3!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e1!2b0!3e3!1m3!1e4!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e3';
 
-function createEngine(canvas, onPanoReady, isFrozen, onYaw, onPrewarmed) {
+function createEngine(canvas, onPanoReady, isFrozen, onYaw, onPrewarmed, onFatal) {
   // antialias:false — MSAA on a fullscreen DPR-2 buffer costs 4x the sample
   // bandwidth to smooth geometry edges this scene does not have: one continuous
   // textured sphere, where the only seams are tile borders, which are
   // texture-continuous and unaffected by MSAA. Pure bandwidth loss on phones.
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
   if (!gl) return null;
-  const onContextLost = e => { e.preventDefault(); };
-  canvas.addEventListener('webglcontextlost', onContextLost);
+  // Context loss/restore handlers are attached after initGL below — they read
+  // engine state (panos, meshes) declared later and only fire from events.
 
   // Tiles render as spherical patches on a rigid unit sphere around the camera.
   const VS = `
@@ -80,25 +95,43 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
     return s;
   }
-  const prog = gl.createProgram();
-  gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS));
-  gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-  gl.useProgram(prog);
+  function buildProgram() {
+    const vs = shader(gl.VERTEX_SHADER, VS), fs = shader(gl.FRAGMENT_SHADER, FS);
+    const p = gl.createProgram();
+    gl.attachShader(p, vs); gl.attachShader(p, fs);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    // The linked program owns the compiled code; detaching + deleting frees
+    // the shader objects now instead of leaking them for the context's life,
+    // and leaves destroy() with only the program to delete.
+    gl.detachShader(p, vs); gl.deleteShader(vs);
+    gl.detachShader(p, fs); gl.deleteShader(fs);
+    return p;
+  }
+  // `let`, not `const`: a context restore re-runs initGL() and reassigns all
+  // of these — the old objects (extension object included) die with the lost
+  // context and must be re-created, never reused.
+  let prog = null, locA = 0, aniso = null, anisoMax = 0;
   const loc = {};
-  for (const n of ['uAng', 'uUV', 'uVP', 'uYawOff', 'uTex'])
-    loc[n] = gl.getUniformLocation(prog, n);
-  const locA = gl.getAttribLocation(prog, 'a');
-  gl.enableVertexAttribArray(locA);
-  gl.uniform1i(loc.uTex, 0);
-  gl.disable(gl.DEPTH_TEST);
-  gl.disable(gl.CULL_FACE);
-  gl.clearColor(0.043, 0.051, 0.063, 1);
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  const aniso = gl.getExtension('EXT_texture_filter_anisotropic')
-    || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
-  const anisoMax = aniso ? Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
+  function initGL() {
+    prog = buildProgram();
+    gl.useProgram(prog);
+    for (const n of ['uAng', 'uUV', 'uVP', 'uYawOff', 'uTex'])
+      loc[n] = gl.getUniformLocation(prog, n);
+    locA = gl.getAttribLocation(prog, 'a');
+    gl.enableVertexAttribArray(locA);
+    gl.uniform1i(loc.uTex, 0);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.clearColor(0.043, 0.051, 0.063, 1);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    aniso = gl.getExtension('EXT_texture_filter_anisotropic')
+      || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+    anisoMax = aniso ? Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
+    // No gl.viewport here: resize() owns it, and the restore path calls
+    // resize() right after initGL().
+  }
+  initGL();
 
   // One shared grid mesh per subdivision count; patch corners arrive via uniforms.
   const meshes = new Map();
@@ -138,6 +171,36 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   let spinDir = 0, yawAnim = null;
   const keys = new Set();
 
+  // ---------------------------------------------------------------- render gate
+  // The rAF loop stays armed forever (onPanoReady/onPrewarmed fire from inside
+  // it and drive the host's preload state machine); what is skipped is PAINT
+  // and SCHEDULING. `dirty` = pixels on screen are stale (cleared only by
+  // paint()); `schedDirty` = the tile scheduler must run again (camera moved,
+  // a download slot freed, zoom stepped, hidden flipped). The lastYaw/...
+  // snapshot means "matrices are current" — refreshed only by the camera
+  // compare and the unhide path. DECLARED HERE, not next to the loop: resize()
+  // below writes `dirty` and is called during createEngine — a later `let`
+  // would be a TDZ crash at construction.
+  let dirty = true, schedDirty = true, lost = false;
+  // gate = the single draw gate. gateHadHidden records whether the web-style
+  // `hidden` flag participated in the CURRENT gated stretch — that provenance
+  // (not argument order) decides the unhide semantics, so interleaved
+  // setGate(h, c) calls cannot flip the sync-paint contract. gateSince feeds
+  // the parked-clamp in addDetailJobs.
+  let gate = false, gateHadHidden = false, gateSince = 0;
+  let restoreFailures = 0;
+  // Heartbeat bookkeeping: HEAD's every-frame draw self-healed ANY discarded
+  // raster (iOS/Android can drop a composited canvas layer under memory
+  // pressure WITHOUT firing webglcontextlost). On-demand rendering loses that,
+  // so a visible-and-clean canvas repaints once every 2s as cheap insurance —
+  // one draw per 2s versus the 60/s we removed.
+  let lastPaintAt = 0;
+  let lastYaw = NaN, lastPitch = NaN, lastFov = NaN, lastAspect = NaN;
+  // Byte budget, sized to the backing store: a 2560x1440-class or retina
+  // desktop canvas has a legitimate VISIBLE working set (~108MB at z4) that
+  // overflows the phone-sized budget and would pin the evictor fruitless.
+  let texBudget = TEX_BUDGET, texTrim = TEX_TRIM;
+
   // The compass is a DOM overlay, not GL, so yaw has to leave the loop. Push
   // it out only when it actually moved (~0.03 deg): a still view costs nothing
   // and a spinning one still updates every frame.
@@ -156,6 +219,10 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
     aspect = canvas.width / canvas.height;
+    // A 0x0 element (WebView measured before first layout) would make aspect
+    // NaN and poison every fov clamp. The strict-!== camera compare fails SAFE
+    // on NaN (permanently dirty), but stop it at the source anyway.
+    if (!isFinite(aspect) || aspect <= 0) { aspect = 1; }
     // fov state is vertical; the zoom limits live on the long axis. Landscape
     // converts horizontal limits to vertical; portrait's long axis IS vertical.
     if (aspect >= 1) {
@@ -169,6 +236,18 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     fovT = Math.min(FOV_MAX, Math.max(FOV_MIN, fovT));
     anchor = { x: cssW / 2, y: cssH / 2 };
     gl.viewport(0, 0, canvas.width, canvas.height);
+    // Budget follows the surface: >3.5M backing pixels (retina laptop, big
+    // desktop) legitimately hold ~50% more visible texture at default zoom.
+    if (canvas.width * canvas.height > 3.5e6) {
+      texBudget = 160 * 1024 * 1024; texTrim = 140 * 1024 * 1024;
+    } else {
+      texBudget = TEX_BUDGET; texTrim = TEX_TRIM;
+    }
+    // The canvas.width write above REALLOCATED AND CLEARED the drawing buffer.
+    // Whatever was on screen is gone — a resize is always a repaint, including
+    // one that lands while hidden (its repaint is owed at the unhide).
+    dirty = true;
+    schedDirty = true;
   }
 
   const clampPitch = p => Math.min(1.535, Math.max(-1.535, p));
@@ -287,16 +366,40 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // ---------------------------------------------------------------- pano registry
   const panos = new Map();
   let cur = null;
-  let worldGen = 0, frameNo = 0, curZoom = 0;
-  const inflight = new Set();
-  const uploadQ = [];
+  let worldGen = 0, curZoom = 0;
+  // Tile-recency counter for eviction. Advanced ONLY by a real paint (draw)
+  // or a hidden-mode visibility stamp (stampVisible) — NEVER by an idle frame.
+  // A skipped frame must not age tiles, or a hidden stretch would make every
+  // live tile look stale and the evictor would delete the visible pano out
+  // from under the next paint.
+  let drawNo = 0;
+  // Running GPU texture total in bytes (see TEX_BUDGET), kept incrementally so
+  // the in-budget frame cost is one integer compare. Recomputed from scratch
+  // at each loadFresh as a drift self-heal. Counts ALL panos; the victim scan
+  // also walks all panos' z>=3 maps (the warm pano only ever holds z<=2, so
+  // the preload contract — warm textures survive untouched — still holds).
+  let gpuBytes = 0;
+  // Fruitless-scan latch: when an over-budget scan frees nothing (the whole
+  // set is visible or base), don't rescan until drawNo advances.
+  let lastEvictScanDrawNo = -1, lastEvictFreed = true;
+  // Global count of in-flight tile downloads; the per-tile records live on
+  // each pano (`p.inflight: Map<metaKey, {img, aborted}>`) so loadFresh can
+  // preserve the survivor's dedupe ledger without string keys.
+  let inflightCount = 0;
+  const uploadQ = []; // const on purpose — always mutated in place
 
   async function ensurePano(id) {
     let p = panos.get(id);
+    // An errored record must not poison retries: the registry would hand the
+    // settled rejected promise back forever, turning the reload button into a
+    // permanent no-op for this pano (web SP supplies freshPano, so the
+    // resolver never re-runs either).
+    if (p && p.status === 'error') { panos.delete(id); p = null; }
     if (!p) {
       p = {
         id, status: 'loading', destroyed: false,
         layout: null, tiles: [], dead: new Set(),
+        inflight: new Map(), // metaKey -> { img, aborted }
         lat: 0, lng: 0, heading: 0, metaPromise: null,
       };
       panos.set(id, p);
@@ -306,35 +409,101 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     return p.status === 'ready' && !p.destroyed ? p : null;
   }
 
+  // Cancel a pano's in-flight downloads. removeAttribute, NOT `img.src = ''`:
+  // an empty src resolves against the document base URL and fires a real
+  // network request for the current document (on mobile that base is
+  // google.com — one spurious fetch per aborted tile). The `aborted` flag
+  // keeps the rejected decode out of p.dead — blacklisting a tile WE
+  // cancelled would punch a permanent hole in a pano that survives.
+  function abortPanoInflight(p) {
+    for (const rec of p.inflight.values()) {
+      rec.aborted = true;
+      rec.img.removeAttribute('src');
+      // A queued record already gave its network slot back in done.then —
+      // decrementing again would let inflightCount drift negative and blow
+      // the MAX_INFLIGHT throttle wide open.
+      if (!rec.queued) inflightCount--;
+    }
+    p.inflight.clear();
+  }
+
+  function dropQueuedUploads(pred) {
+    for (let i = uploadQ.length - 1; i >= 0; i--)
+      if (pred(uploadQ[i])) uploadQ.splice(i, 1);
+  }
+
   function destroyPano(p) {
     p.destroyed = true;
-    for (const m of p.tiles) for (const rec of m.values()) gl.deleteTexture(rec.tex);
+    abortPanoInflight(p);
+    dropQueuedUploads(u => u.p === p);
+    for (const m of p.tiles) for (const rec of m.values()) {
+      gl.deleteTexture(rec.tex);
+      gpuBytes -= rec.bytes || 0;
+    }
     p.tiles = [];
     panos.delete(p.id);
   }
 
+  // Context loss invalidates every texture NAME; there is nothing to delete,
+  // only bookkeeping to forget — and it must be forgotten AT LOSS TIME, not at
+  // restore: baseComplete() reads these maps, and leaving them populated would
+  // let onPanoReady lift the host's loading cover onto a black canvas. Fresh
+  // Maps of the correct level count, never a bare [] — pumpUploads indexes
+  // p.tiles[z] and would throw on the first post-restore upload.
+  function forgetTextures() {
+    for (const p of panos.values()) {
+      if (p.layout) p.tiles = Array.from({ length: p.layout.maxZ + 1 }, () => new Map());
+      else p.tiles = [];
+    }
+    gpuBytes = 0;
+  }
+
   // ---------------------------------------------------------------- tile streaming
   function startLoad(p, meta) {
-    const gkey = p.id + '|' + meta.key;
-    inflight.add(gkey);
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    const rec = { img, aborted: false, queued: false };
+    p.inflight.set(meta.key, rec);
+    inflightCount++;
     img.src = tileUrl(p.id, meta.z, meta.x, meta.y);
     const done = img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
     done.then(() => {
-      if (p.destroyed) { inflight.delete(gkey); return; }
+      // aborted must be checked here too — decode() can settle either way
+      // after removeAttribute depending on how far the fetch got.
+      if (rec.aborted) return;
+      // The LEDGER ENTRY STAYS until pumpUploads consumes the queue item:
+      // deleting it here re-opened the dedupe hole for every tile waiting in
+      // uploadQ (only 3 upload per frame) — schedule() saw the key in neither
+      // inflight nor tiles and re-issued the download. Only the NETWORK slot
+      // is released now.
+      rec.queued = true;
+      inflightCount--;
+      schedDirty = true; // a download slot freed — the scheduler may issue more
+      if (p.destroyed) return;
       uploadQ.push({ p, img, meta });
     }).catch(() => {
-      p.dead.add(meta.key);
-      inflight.delete(gkey);
+      if (rec.aborted) return; // OUR cancel is not a dead tile
+      p.inflight.delete(meta.key);
+      inflightCount--;
+      schedDirty = true;
+      if (!p.destroyed) p.dead.add(meta.key);
     });
   }
 
+  // Returns the number of textures uploaded this frame (a non-zero count is a
+  // dirty condition — new pixels exist).
   function pumpUploads() {
+    if (lost) return 0; // a lost gl.createTexture returns null; storing
+                        // {tex:null} records makes baseComplete lie and the
+                        // loading cover lift onto permanent black
+    let n = 0;
     for (let i = 0; i < UPLOADS_PER_FRAME && uploadQ.length; i++) {
       const { p, img, meta } = uploadQ.shift();
-      inflight.delete(p.id + '|' + meta.key);
+      p.inflight.delete(meta.key); // ledger released only as the tile lands
       if (p.destroyed) continue;
+      // Refuse an already-resident key BEFORE createTexture: a second upload
+      // would orphan the first texture (~1.4MB, unreachable by any delete).
+      if (p.tiles[meta.z] && p.tiles[meta.z].has(meta.key)) continue;
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -344,8 +513,16 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, anisoMax);
-      p.tiles[meta.z].set(meta.key, { tex, meta, lastUse: frameNo });
+      // Bytes from the real image dimensions — Google serves cropped edge
+      // tiles, and the budget must match what the GPU actually holds.
+      const bytes = texBytes(img.naturalWidth || TILE, img.naturalHeight || TILE);
+      // lastUse = drawNo means "not older than the last paint": it fails the
+      // `< drawNo` victim predicate until a LATER paint proves it off-screen.
+      p.tiles[meta.z].set(meta.key, { tex, meta, lastUse: drawNo, bytes });
+      gpuBytes += bytes;
+      n++;
     }
+    return n;
   }
 
   // camera forward rotated into a pano's image frame, for tile visibility tests
@@ -369,16 +546,26 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     const zMax = Math.min(2, p.layout.maxZ);
     for (let z = 0; z <= zMax; z++)
       for (const m of p.layout.meta[z])
-        if (!p.tiles[z].has(m.key) && !p.dead.has(m.key) && !inflight.has(p.id + '|' + m.key))
+        if (!p.tiles[z].has(m.key) && !p.dead.has(m.key) && !p.inflight.has(m.key))
           jobs.push({ p, m, pri: z });
   }
 
   function addDetailJobs(p, jobs) {
+    // BACK-PRESSURE: over budget with nothing evictable means the visible set
+    // itself fills the budget — downloading more detail would grow GPU memory
+    // without bound (base z<=2 always flows; the reveal contract needs it).
+    if (gpuBytes > texBudget && !lastEvictFreed) return;
     const cf = camFImage(p);
-    const zTop = Math.min(curZoom, p.layout.maxZ);
+    // PARKED clamp only: a short gate (round loading, between-rounds conceal)
+    // must keep streaming full detail — that pre-stream is why the reveal is
+    // already sharp (clamping it made every NM reveal sharpen-in from z3 on
+    // large displays). A LONG gate is a parked state (staging lobby, queue,
+    // 2v2 end) where z4/z5 for a pano nobody will see is pure waste.
+    const parked = gate && (Date.now() - gateSince > 10000);
+    const zTop = Math.min(parked ? 3 : curZoom, p.layout.maxZ);
     for (let z = 3; z <= zTop; z++)
       for (const m of p.layout.meta[z]) {
-        if (p.tiles[z].has(m.key) || p.dead.has(m.key) || inflight.has(p.id + '|' + m.key)) continue;
+        if (p.tiles[z].has(m.key) || p.dead.has(m.key) || p.inflight.has(m.key)) continue;
         if (!tileVisible(m, cf)) continue;
         const ang = Math.acos(Math.max(-1, Math.min(1, m.dir[0] * cf[0] + m.dir[1] * cf[1] + m.dir[2] * cf[2])));
         jobs.push({ p, m, pri: 10 + z * 10 + ang });
@@ -386,34 +573,66 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   }
 
   function schedule() {
-    if (!cur || cur.status !== 'ready') return;
-    curZoom = desiredZoom(cur.layout);
+    if (!cur || cur.status !== 'ready' || lost) return;
+    const z = desiredZoom(cur.layout);
+    if (z !== curZoom) { curZoom = z; dirty = true; } // zTop changes the image
     const jobs = [];
     addBaseJobs(cur, jobs);
+    // The warm pano's base rides the same scheduler (and the same
+    // MAX_INFLIGHT budget) at a priority between the current pano's base and
+    // its detail wave: the reveal must never wait on next-round warm-up, and
+    // warm-up must never be starved behind an endless z5 stream.
+    if (warmId && warmId !== cur.id) {
+      const w = panos.get(warmId);
+      if (w && w.status === 'ready' && !w.destroyed) {
+        const before = jobs.length;
+        addBaseJobs(w, jobs);
+        for (let i = before; i < jobs.length; i++) jobs[i].pri += 5;
+      }
+    }
     addDetailJobs(cur, jobs);
     jobs.sort((a, b) => a.pri - b.pri);
     for (const j of jobs) {
-      if (inflight.size >= MAX_INFLIGHT) break;
+      if (inflightCount >= MAX_INFLIGHT) break;
       startLoad(j.p, j.m);
     }
   }
 
   function evictTiles() {
-    if (!cur || cur.status !== 'ready') return;
-    let total = 0;
-    for (const m of cur.tiles) total += m.size;
-    if (total <= CACHE_MAX) return;
+    if (gpuBytes <= texBudget) { lastEvictFreed = true; return; } // O(1) on nearly every frame
+    // A scan that freed nothing will free nothing again until a paint
+    // re-stamps recency. In the current control flow this latch is mostly
+    // belt-and-braces: evictTiles only runs when drew||uploaded, and both
+    // paths advance drawNo first — the latch engages only in the narrow
+    // gated-and-not-ready window. Kept because it makes the no-rescan
+    // invariant hold by construction, not by call-site discipline.
+    if (!lastEvictFreed && lastEvictScanDrawNo === drawNo) return;
+    lastEvictScanDrawNo = drawNo;
     const victims = [];
-    for (let z = 3; z < cur.tiles.length; z++)
-      for (const rec of cur.tiles[z].values())
-        if (rec.lastUse < frameNo) victims.push(rec);
-    victims.sort((a, b) => a.lastUse - b.lastUse);
-    for (const v of victims) {
-      if (total <= CACHE_TRIM) break;
-      gl.deleteTexture(v.tex);
-      cur.tiles[v.meta.z].delete(v.meta.key);
-      total--;
+    for (const p of panos.values()) {
+      // The PREWARM CONTRACT, enforced rather than assumed: warm textures
+      // survive untouched once SV_PREFETCHED was reported, or commitPreload's
+      // 'ready' would be a lie and the swap would paint holes. (Today warm
+      // panos only hold z<=2 anyway — this guard keeps that a fact, not a
+      // coincidence.)
+      if (p.id === warmId) continue;
+      for (let z = 3; z < p.tiles.length; z++)
+        for (const rec of p.tiles[z].values())
+          // drawNo only advances on paints/stamps, so this reads "not in the
+          // last painted frame" even across a long hidden stretch.
+          if (rec.lastUse < drawNo) victims.push({ p, rec });
     }
+    victims.sort((a, b) => a.rec.lastUse - b.rec.lastUse);
+    let freed = false;
+    for (const v of victims) {
+      if (gpuBytes <= texTrim) break;
+      gl.deleteTexture(v.rec.tex);
+      v.p.tiles[v.rec.meta.z].delete(v.rec.meta.key);
+      gpuBytes -= v.rec.bytes || 0;
+      freed = true;
+    }
+    lastEvictFreed = freed;
+    if (freed) schedDirty = true; // back-pressure may unblock
   }
 
   // ---------------------------------------------------------------- draw
@@ -430,7 +649,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib);
       for (const rec of p.tiles[z].values()) {
         if (z >= 3 && !tileVisible(rec.meta, cf)) continue;
-        rec.lastUse = frameNo;
+        rec.lastUse = drawNo;
         gl.bindTexture(gl.TEXTURE_2D, rec.tex);
         gl.uniform4fv(loc.uAng, rec.meta.ang);
         gl.uniform2fv(loc.uUV, rec.meta.uv);
@@ -439,10 +658,40 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     }
   }
 
-  function draw() {
+  // The single paint path: the ONLY place drawNo advances (with stampVisible)
+  // and the only place `dirty` clears. Handles the no-content case too, so the
+  // old per-frame else-branch gl.clear now obeys the gate.
+  function paint() {
+    drawNo++;
+    lastPaintAt = Date.now();
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniformMatrix4fv(loc.uVP, false, vpMat);
-    drawPano(cur);
+    if (cur && cur.status === 'ready') {
+      gl.uniformMatrix4fv(loc.uVP, false, vpMat);
+      drawPano(cur);
+    }
+    dirty = false;
+  }
+
+  // Hidden-mode recency stamp: the visibility walk of drawPano with zero GL
+  // calls. Keeps LRU truthful while the gate skips paints — without it, a
+  // frozen drawNo makes every tile uploaded during a reveal un-evictable and
+  // GPU memory grows without bound in exactly the windows we're optimizing.
+  // Eviction still never needs to set `dirty`: victims are `lastUse < drawNo`
+  // and both stampers mark everything visible in the same pass, so an evicted
+  // tile is provably off-screen.
+  function stampVisible() {
+    if (!cur || cur.status !== 'ready') return;
+    drawNo++;
+    const cf = camFImage(cur);
+    const zTop = Math.min(curZoom, cur.layout.maxZ);
+    for (let z = 0; z <= zTop; z++) {
+      if (!cur.tiles[z] || !cur.tiles[z].size) continue;
+      for (const rec of cur.tiles[z].values()) {
+        if (z >= 3 && !tileVisible(rec.meta, cf)) continue;
+        rec.lastUse = drawNo;
+      }
+    }
+    dirty = false; // stamped = accounted for; unhide re-marks via setGate
   }
 
   // ---------------------------------------------------------------- input
@@ -599,48 +848,92 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // Reveal at z1 (1024x512 equirect — recognizable, sharpens in view like
     // Google's own streaming) instead of waiting out the full z2 wave.
     const zMax = Math.min(1, p.layout.maxZ);
+    let live = 0;
     for (let z = 0; z <= zMax; z++)
-      for (const m of p.layout.meta[z])
-        if (!p.tiles[z].has(m.key) && !p.dead.has(m.key)) return false;
-    return true;
+      for (const m of p.layout.meta[z]) {
+        if (p.tiles[z].has(m.key)) live++;
+        else if (!p.dead.has(m.key)) return false;
+      }
+    // Dead tiles count as "settled", but a pano whose ENTIRE base is dead
+    // (blocked CDN, stripped CORS) must not report ready — that would lift
+    // the loading cover, or answer commitPreload 'ready', onto nothing.
+    return live > 0;
   }
 
   // Full warm-up for the NEXT pano, the WebGL equivalent of the iframe's
   // hidden preload slot: metadata registered AND base tiles downloaded and
   // UPLOADED to GPU textures (pumpUploads serves any registered pano, and
-  // evictTiles only ever touches `cur`, so warm textures survive untouched).
+  // evictTiles explicitly skips the warmId pano, so warm textures survive
+  // untouched — enforced there, not assumed).
   // When its z<=1 base is complete, frame() fires onPrewarmed exactly once —
   // the host's cue that commitPreload may honestly answer 'ready'. The coming
   // loadFresh then swaps to already-painted content in a single frame.
   let warmId = null, warmNotified = false;
   function prewarm(id) {
     if (!id || destroyed) return;
-    if (warmId !== id) { warmId = id; warmNotified = false; }
+    if (warmId !== id) {
+      // A superseded warm pano would otherwise linger in the registry with
+      // ~15MB of z<=2 base textures that the evictor can never reclaim (its
+      // victim floor is z=3) while still counting toward gpuBytes.
+      const old = warmId ? panos.get(warmId) : null;
+      if (old && old !== cur && old.id !== id) destroyPano(old);
+      warmId = id;
+    }
+    // Unconditional: a REPEATED prewarm of the same id must be able to re-fire
+    // onPrewarmed (the host resets its ready latch per preload target, and a
+    // repeat location would otherwise leave commitPreload stuck on 'none').
+    warmNotified = false;
     ensurePano(id).then((p) => {
       if (!p || destroyed) return;
-      const zMax = Math.min(2, p.layout.maxZ);
-      for (let z = 0; z <= zMax; z++)
-        for (const m of p.layout.meta[z])
-          if (!p.tiles[z].has(m.key) && !p.dead.has(m.key) && !inflight.has(p.id + '|' + m.key))
-            startLoad(p, m);
+      // Registration only. The DOWNLOADS are driven by schedule(), which is
+      // the one place that respects MAX_INFLIGHT — the old direct startLoad
+      // loop here fired 11 fetches on top of a full scheduler (23 concurrent
+      // on a phone) and starved the current pano's detail wave.
+      schedDirty = true;
     }).catch(() => {});
   }
 
   async function loadFresh(id, headingDeg) {
     worldGen++;
-    // Spare an already-prewarmed incoming pano — its registered metadata and
-    // GPU-resident base tiles are the whole point of the between-rounds
-    // warm-up. destroyPano removes each entry from the registry itself.
+    // Deliberately NOT dirty here: marking dirty with cur=null on a VISIBLE
+    // surface paints the clear color — a black flash for the whole metadata +
+    // base-tile window. Several reveal-time preload paths run loadFresh while
+    // the gate is OFF (only an opaque answer map covers the canvas, with zero
+    // timing margin), and the reload button does it in plain view. Keeping the
+    // last composited frame up until the new pano lands mirrors the iframe's
+    // old-document-survives property; `cur = p` below marks dirty when there
+    // is something new to paint.
+    schedDirty = true;
+    // Spare an already-prewarmed incoming pano — its registered metadata, its
+    // GPU-resident base tiles, AND its in-flight downloads/queued uploads
+    // (prewarm regularly has z2 still downloading when loadFresh lands;
+    // wiping its dedupe ledger made the scheduler re-issue those tiles and
+    // the duplicate upload orphaned the first texture — ~11MB per round on
+    // mobile). destroyPano aborts and unqueues everything for the others.
     for (const p of [...panos.values()]) if (p.id !== id) destroyPano(p);
     warmId = null; warmNotified = false; // consumed (or superseded) either way
     cur = null;
-    uploadQ.length = 0; inflight.clear();
     notified = false;
+    // Drift self-heal, once per round: gpuBytes is kept incrementally and a
+    // silent skew is catastrophic in both directions (too low = never evict =
+    // OOM; too high = evict constantly = download thrash).
+    gpuBytes = 0;
+    for (const pp of panos.values())
+      for (const m of pp.tiles) for (const rec of m.values()) gpuBytes += rec.bytes || 0;
     const gen = worldGen;
     const p = await ensurePano(id);
     if (gen !== worldGen || destroyed) return false;
     if (!p) return false;
     cur = p;
+    dirty = true; // a reload of the same spot keeps yaw/pitch/fov — the camera
+                  // compare would never fire, so mark the swap explicitly
+    schedDirty = true;
+    // A fresh round restarts the parked clock. Without this, a gate that has
+    // been continuously up while its REASON changed (minutes-long lobby ->
+    // round-1 loading, same gate) kept the lobby-entry timestamp, read as
+    // parked, and clamped the round's under-cover pre-stream to z3 — the
+    // exact sharpen-in reveal the clamp is documented to never cause.
+    gateSince = Date.now();
     yaw = (headingDeg !== null && headingDeg !== undefined && isFinite(headingDeg)) ? headingDeg * D2R : p.heading;
     // Portrait's tall fov puts half the frame above the horizon at pitch 0 —
     // start tilted down so the view favors the road, not the sky (the embed's
@@ -658,12 +951,61 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // ---------------------------------------------------------------- main loop
   let tPrev = 0, rafId = 0, destroyed = false;
 
+  // Host-driven draw gate. `setGate(h, c)` folds the web `hidden` prop and the
+  // mobile `covered` prop into one internal flag; the PIPELINE (scheduling,
+  // uploads, onPanoReady/onPrewarmed) keeps running behind it, because a
+  // gated window is exactly when the next round is being warmed and the
+  // host's commitPreload is waiting on SV_PREFETCHED.
+  //
+  // Unhide semantics differ BY WHICH FLAG cleared, on purpose:
+  // - hidden (web reveal contract): paint SYNCHRONOUSLY in the same task —
+  //   the reveal unhides with NO reload and no second onLoad, and the 200ms
+  //   opacity fade starts at 0 so the pre-effect composite is invisible.
+  // - covered (mobile result screen): mark dirty, let the next rAF paint
+  //   (<=16ms, still under the native cover). A synchronous paint here can
+  //   paint the PREVIOUS round: the host pushes covered:false in the same
+  //   commit, but the new round's coords arrive in a LATER injectJavaScript.
+  function setGate(h, c) {
+    h = !!h; c = !!c;
+    const next = h || c;
+    // Provenance is recorded BEFORE the same-state early return, so a call
+    // sequence like (true,true) -> (false,true) -> (false,false) cannot lose
+    // the fact that `hidden` participated in this gated stretch — the unhide
+    // policy must not depend on which flag happened to clear last.
+    if (next && h) gateHadHidden = true;
+    if (next === gate) return;
+    gate = next;
+    schedDirty = true; // the parked clamp in addDetailJobs keys off the gate
+    if (gate) { gateSince = Date.now(); return; }
+    const syncPaint = gateHadHidden;
+    gateHadHidden = false;
+    dirty = true;
+    if (destroyed || lost) return;
+    if (syncPaint) {
+      // Web-style unhide: the reveal contract expects a painted frame in the
+      // same task (no reload, no second onLoad; the 200ms fade starts at 0 so
+      // the pre-effect composite is invisible). The canvas is only ever
+      // opacity-hidden, but a resize may have landed while gated — repaint on
+      // true geometry before the fade starts. covered-only clears (mobile)
+      // skip this: the next rAF paints under the native cover, and a sync
+      // paint could show the PREVIOUS round (coords arrive one push later).
+      if (canvas.clientWidth && (canvas.clientWidth !== cssW || canvas.clientHeight !== cssH)) resize();
+      // resize() changes canvas.height, an input to desiredZoom — but curZoom
+      // is normally recomputed only in schedule(). Without this the first
+      // revealed frame after a gated orientation change draws one detail
+      // level off.
+      if (cur && cur.status === 'ready') curZoom = desiredZoom(cur.layout);
+      buildMatrices();
+      lastYaw = yaw; lastPitch = pitch; lastFov = fov; lastAspect = aspect;
+      paint();
+    }
+  }
+
   function frame(tNow) {
     if (destroyed) return;
     rafId = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (tNow - tPrev) / 1000 || 0.016);
     tPrev = tNow;
-    frameNo++;
 
     // NMPZ: every input ENTRY point is gated on isFrozen, but motion already in
     // flight when the freeze lands would sail straight across the round
@@ -672,7 +1014,10 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // running compass ease. loadFresh clears all of it, but loadFresh does NOT
     // run when the next pano fails to resolve, which leaves the old pano
     // spinning with no way to stop it. Kill motion at the integrator instead.
-    if (isFrozen()) {
+    // The gate gets the same treatment: pointer-events:none stops pointers but
+    // window keydown still lands, and a held arrow through a conceal would
+    // silently drift the round off its stamped bearing.
+    if (isFrozen() || gate) {
       spinDir = 0; yawAnim = null; vYaw = 0; vPitch = 0;
       if (keys.size) keys.clear();
     }
@@ -718,37 +1063,152 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       pitch = clampPitch(pitch + (before.phi - after.phi));
     }
 
-    buildMatrices();
-    emitYaw(false);
-    if (cur && cur.status === 'ready') {
-      schedule();
-      pumpUploads();
-      draw();
-      evictTiles();
-      if (!notified && baseComplete(cur)) {
-        notified = true;
-        onPanoReady();
+    // ---- render gate. rAF stays armed; PAINT and SCHEDULING are conditional.
+    // The image is a pure function of (yaw, pitch, fov, aspect) + the tile set
+    // + curZoom, so camera motion is detected by COMPARING against the values
+    // the current matrices were built from, rather than tagging each of the
+    // dozen mutation sites — a future input path is covered for free and can
+    // never silently freeze the view. STRICT !== ONLY: NaN !== NaN keeps a
+    // NaN-poisoned camera fail-SAFE (permanently dirty = today's behavior);
+    // an epsilon or Object.is compare would invert that into a permanently
+    // frozen renderer. Non-camera changes mark dirty at their source: resize
+    // (buffer realloc), uploads, curZoom steps, loadFresh, setGate, restore.
+    if (yaw !== lastYaw || pitch !== lastPitch || fov !== lastFov || aspect !== lastAspect) {
+      lastYaw = yaw; lastPitch = pitch; lastFov = fov; lastAspect = aspect;
+      // Ahead of schedule() on purpose: addDetailJobs reads camF and
+      // halfViewAngle from here, and scheduling against a stale camera after
+      // loadFresh would spend the download budget on tiles behind the player.
+      buildMatrices();
+      dirty = true;
+      schedDirty = true;
+      // NO lastEvictFreed reset here: resetting on camera motion inverted the
+      // GPU back-pressure off during exactly the hot streaming windows
+      // (pan/zoom), producing download/evict thrash while over budget. The
+      // latch releases itself correctly without help — a camera move causes a
+      // paint, the paint advances drawNo, and the scan-repeat guard in
+      // evictTiles keys on drawNo, so the evictor re-evaluates the changed
+      // visible set on the very next painted frame.
+    }
+    emitYaw(false); // delta-gated internally; kept out of paint() so the
+                    // compass never goes stale and jumps at a reveal
+
+    const ready = !!(cur && cur.status === 'ready') && !lost;
+
+    // Uploads run OUTSIDE the cur gate: the warm pano must keep landing on the
+    // GPU across loadFresh's await window (cur is null right then).
+    const uploaded = pumpUploads();
+    if (uploaded) { dirty = true; schedDirty = true; }
+
+    if (ready && schedDirty) {
+      schedDirty = false;
+      schedule(); // may re-mark schedDirty via its own effects; that's fine
+    }
+
+    // Heartbeat: a visible, clean canvas repaints every ~2s (see lastPaintAt).
+    if (!gate && !lost && ready && !dirty && Date.now() - lastPaintAt > 2000) dirty = true;
+
+    const drew = dirty && !gate && !lost;
+    if (drew) paint();
+    else if (dirty && gate && ready) stampVisible();
+
+    if ((drew || uploaded) && !lost) evictTiles();
+
+    if (ready && !notified && baseComplete(cur)) {
+      notified = true;
+      onPanoReady();
+    }
+    // Warm-slot readiness, checked on the frame cadence because tile uploads
+    // land in pumpUploads: once the NEXT pano's base is fully on the GPU,
+    // tell the host — from here a swap to it paints in one frame. OUTSIDE the
+    // cur gate for the same reason uploads are.
+    if (!lost && warmId && !warmNotified && onPrewarmed) {
+      const w = panos.get(warmId);
+      if (w && w.status === 'ready' && baseComplete(w)) {
+        warmNotified = true;
+        onPrewarmed(warmId);
       }
-      // Warm-slot readiness, checked on the frame cadence because tile uploads
-      // land in pumpUploads: once the NEXT pano's base is fully on the GPU,
-      // tell the host — from here a swap to it paints in one frame.
-      if (warmId && !warmNotified && onPrewarmed) {
-        const w = panos.get(warmId);
-        if (w && w.status === 'ready' && baseComplete(w)) {
-          warmNotified = true;
-          onPrewarmed(warmId);
-        }
-      }
-    } else {
-      gl.clear(gl.COLOR_BUFFER_BIT);
     }
   }
   rafId = requestAnimationFrame(frame);
+
+  // ------------------------------------------------------- context loss/restore
+  const onContextLost = e => {
+    e.preventDefault(); // required, or webglcontextrestored never fires
+    if (destroyed) return;
+    lost = true;
+    // Forget textures NOW, not at restore: baseComplete reads these maps, and
+    // leaving them populated would let onPanoReady lift the host's loading
+    // cover onto a canvas that renders nothing.
+    forgetTextures();
+    warmNotified = false; // the warm slot's GPU tiles went with the context
+    // Flush the download pipeline too: in-flight tiles keep decoding into
+    // uploadQ while lost (~24MB of bitmaps at worst) and pumpUploads cannot
+    // drain it. The restore path re-issues everything through schedule().
+    uploadQ.length = 0;
+    for (const p of panos.values()) abortPanoInflight(p);
+  };
+  const onContextRestored = () => {
+    if (destroyed || gl.isContextLost()) return;
+    meshes.clear();      // buffer names died with the old context; meshFor rebuilds
+    uploadQ.length = 0;  // decoded bitmaps reference pre-loss scheduling; re-issue
+    for (const p of panos.values()) abortPanoInflight(p);
+    try { initGL(); } catch (err) {
+      // Half-initialized GL is worse than a paused renderer: stay `lost`
+      // (paints stay skipped, the last composited frame stays up). But a
+      // permanently-lost web engine is a black round FOREVER (the 8s failsafe
+      // is per-generation and already consumed mid-round), so: one deferred
+      // retry, then hand the host an onFatal so it can rebuild the engine on
+      // a FRESH canvas (webglcontextrestored never fires twice).
+      console.error('[CustomStreetView] context restore failed:', err);
+      restoreFailures++;
+      if (restoreFailures >= 2) { if (onFatal) { try { onFatal(); } catch (e) {} } return; }
+      setTimeout(() => {
+        if (!destroyed && lost && !gl.isContextLost()) onContextRestored();
+      }, 2500);
+      return;
+    }
+    restoreFailures = 0;
+    resize();            // viewport + fov clamps + dirty
+    lost = false;
+    dirty = true;
+    schedDirty = true;
+    notified = false;    // fireOnLoad dedupes per generation — harmless, keeps
+                         // internal state consistent with the empty tile maps
+    // Re-prewarm: schedule() only serves `cur`, and the prewarm effect will
+    // not re-run for the same id — without this, onPrewarmed can never fire
+    // again and mobile's commitPreload degrades to 'none' (a loading cover on
+    // EVERY later round) for the rest of the session.
+    if (warmId) { const id = warmId; warmId = null; prewarm(id); }
+    // `cur`, the camera, and all pano METADATA survive on purpose: re-running
+    // loadFresh would reset yaw/pitch/fov mid-round (a visible teleport) and
+    // destroy the warm pano. The tile maps are empty, so schedule() refills
+    // exactly what loadFresh would have — without touching the view.
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
+  canvas.addEventListener('webglcontextrestored', onContextRestored);
+
+  // The gate removes the last self-healing repaint, so environment changes
+  // that can invalidate the composited frame must mark dirty explicitly.
+  // These READ document.hidden only — the anti-cheat fingerprint reads the
+  // visibilityState getter DESCRIPTOR off Document.prototype; never define,
+  // wrap, or shadow it.
+  const markEnvDirty = () => { dirty = true; };
+  const onVisibility = () => { if (!document.hidden) dirty = true; };
+  window.addEventListener('focus', markEnvDirty);
+  window.addEventListener('pageshow', markEnvDirty);
+  document.addEventListener('visibilitychange', onVisibility);
 
   function destroy() {
     destroyed = true;
     cancelAnimationFrame(rafId);
     canvas.removeEventListener('webglcontextlost', onContextLost);
+    // Must come off too: the deferred loseContext below + preventDefault in
+    // onContextLost means the browser WILL fire webglcontextrestored on this
+    // dead engine, which would rebuild the program on every unmount.
+    canvas.removeEventListener('webglcontextrestored', onContextRestored);
+    window.removeEventListener('focus', markEnvDirty);
+    window.removeEventListener('pageshow', markEnvDirty);
+    document.removeEventListener('visibilitychange', onVisibility);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', endPointer);
@@ -759,8 +1219,11 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     window.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('resize', resize);
-    for (const p of [...panos.values()]) destroyPano(p);
+    for (const p of [...panos.values()]) destroyPano(p); // aborts inflight + unqueues uploads too
+    uploadQ.length = 0;
     for (const m of meshes.values()) { gl.deleteBuffer(m.vb); gl.deleteBuffer(m.ib); }
+    meshes.clear();
+    gl.deleteProgram(prog); // shaders were detached + deleted at link time
     // Browsers cap live WebGL contexts (~16); rounds remount this component,
     // so release the context instead of waiting on GC. Deferred: cleanup runs
     // BEFORE React detaches the node, and if the canvas is still in the DOM
@@ -774,7 +1237,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     }, 0);
   }
 
-  return { loadFresh, destroy, nudgeYaw, setSpin, faceNorth, prewarm };
+  return { loadFresh, destroy, nudgeYaw, setSpin, faceNorth, prewarm, setGate };
 }
 
 // Resolve the round's stamped lat/lng to a live pano id. Map-file panoId
@@ -829,6 +1292,13 @@ const CustomStreetView = ({
   npz = false,
   showAnswer = false,
   hidden = false,
+  // Mobile host only: the WebView is fully covered by a native screen (result
+  // view). Gates DRAWING only — tile streaming, prewarm and the prefetched
+  // signal keep flowing, so commitPreload can still answer 'ready'. Kept
+  // separate from `hidden` because the two clear with different semantics
+  // (see setGate in the engine). Defaults false so web call sites are
+  // untouched.
+  covered = false,
   slowEnter = false,
   refreshKey = 0,
   // NEXT round's fresh pano id (or null): warms its base tiles into the HTTP
@@ -840,11 +1310,21 @@ const CustomStreetView = ({
   // i.e. a swap to it would paint in one frame. Mobile host turns this into an
   // honest commitPreload 'ready'. Unused on web.
   onPrefetched = null,
+  // Bumped by the host when prefetchPano REPEATS the same id (repeat
+  // location / adjacent spots resolving to one pano): the prewarm effect must
+  // re-run or commitPreload stays 'none' for that round.
+  prefetchNonce = 0,
   onLoad
 }) => {
   const canvasRef = useRef(null);
   const roseRef = useRef(null);
   const engineRef = useRef(null);
+  // Fatal-engine recovery: a context restore that keeps failing can never
+  // come back on the SAME canvas (webglcontextrestored fires once). Keying
+  // the canvas + engine on this remounts both on fresh DOM. Capped so a
+  // machine that kills every context cannot remount-storm.
+  const [engineKey, setEngineKey] = useState(0);
+  const fatalRemountsRef = useRef(0);
   const onLoadRef = useRef(onLoad);
   const loadGenRef = useRef(0);
   const firedGenRef = useRef(-1);
@@ -861,12 +1341,16 @@ const CustomStreetView = ({
   const hasCoords = lat !== null && lat !== undefined && long !== null && long !== undefined && !(lat === 0 && long === 0);
 
   // Fire onLoad at most once per load generation — same contract as the
-  // iframe's onload: the game's loading overlay waits on it.
-  const fireOnLoad = (gen) => {
+  // iframe's onload: the game's loading overlay waits on it. `degraded` means
+  // "unblocking the round, NOT certifying a painted pano" (failsafe timeout,
+  // resolve/metadata failure, no engine): the host must clear its cover but
+  // must NOT stamp its loaded-round/loaded-key markers, or a later preload
+  // commit would skip the loading cover for a pano that never painted.
+  const fireOnLoad = (gen, degraded = false) => {
     if (firedGenRef.current === gen) return;
     firedGenRef.current = gen;
     if (failsafeRef.current) { clearTimeout(failsafeRef.current); failsafeRef.current = null; }
-    if (onLoadRef.current) onLoadRef.current();
+    if (onLoadRef.current) onLoadRef.current(degraded);
   };
 
   const startLoad = (gen) => {
@@ -875,7 +1359,7 @@ const CustomStreetView = ({
     if (failsafeRef.current) clearTimeout(failsafeRef.current);
     failsafeRef.current = setTimeout(() => {
       failsafeRef.current = null;
-      if (gen === loadGenRef.current) fireOnLoad(gen);
+      if (gen === loadGenRef.current) fireOnLoad(gen, true /* degraded */);
     }, 8000);
     (async () => {
       try {
@@ -893,7 +1377,7 @@ const CustomStreetView = ({
         if (gen !== loadGenRef.current) return;
         console.error('[CustomStreetView] load failed:', err);
         // unblock the round rather than trapping the player on the loader
-        fireOnLoad(gen);
+        fireOnLoad(gen, true /* degraded */);
       }
     })();
   };
@@ -956,6 +1440,13 @@ const CustomStreetView = ({
       () => frozenRef.current,
       spinRose,
       (id) => { if (onPrefetchedRef.current) onPrefetchedRef.current(id); },
+      () => {
+        // Fatal: a context restore failed twice. The only way back is a fresh
+        // canvas element (restored fires once per context) — remount, capped.
+        if (fatalRemountsRef.current >= 2) return;
+        fatalRemountsRef.current++;
+        setEngineKey((k) => k + 1);
+      },
     );
     engineRef.current = engine;
     return () => {
@@ -965,16 +1456,28 @@ const CustomStreetView = ({
       holdRef.current.clear();
       if (engine) engine.destroy();
     };
-  }, [hasCoords]);
+  }, [hasCoords, engineKey]);
+
+  // Draw gate. DECLARED IMMEDIATELY AFTER the createEngine effect and before
+  // the load effect: effects run in declaration order within a commit, so a
+  // freshly (re)built engine inherits the current gate here instead of
+  // painting one full-rate round behind a concealed canvas. hasCoords stays in
+  // the deps for exactly that rebuild case. Passive useEffect is correct: the
+  // commit that drops `.hidden` starts the opacity fade at 0, so the one
+  // pre-effect composite is invisible, and setGate's synchronous paint lands
+  // before the next frame.
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setGate(hidden, covered);
+  }, [hidden, covered, hasCoords, engineKey]);
 
   useEffect(() => {
     if (!hasCoords) return;
     const gen = ++loadGenRef.current;
     // No WebGL (engine creation failed): unblock the loader instead of
     // trapping the player — matches the iframe always firing onload.
-    if (!engineRef.current) { fireOnLoad(gen); return; }
+    if (!engineRef.current) { fireOnLoad(gen, true /* degraded */); return; }
     startLoad(gen);
-  }, [lat, long, panoId, refreshKey, hasCoords]);
+  }, [lat, long, panoId, refreshKey, hasCoords, engineKey]);
 
   // Warm the next pano the moment the host names it: base tiles into the HTTP
   // cache AND metadata into the engine's registry (prewarm), so the coming
@@ -984,7 +1487,8 @@ const CustomStreetView = ({
     if (!prefetchPano) return;
     prefetchBaseTiles(prefetchPano);
     if (engineRef.current && engineRef.current.prewarm) engineRef.current.prewarm(prefetchPano);
-  }, [prefetchPano]);
+    // prefetchNonce: same id, new round — must re-run (see the prop note).
+  }, [prefetchPano, prefetchNonce, engineKey]);
 
   // Reload button contract shared with the iframe renderer.
   useEffect(() => {
@@ -1000,6 +1504,7 @@ const CustomStreetView = ({
   return (
     <>
       <canvas
+        key={engineKey}
         ref={canvasRef}
         id="streetview"
         className={`streetview ${frozen ? "nmpz" : ""} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""}`}

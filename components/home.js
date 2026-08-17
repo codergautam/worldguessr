@@ -230,7 +230,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
     const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
     // game state
-    const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
+    // null, not the {0,0} sentinel, as the INITIAL value: the home sweeper
+    // nulls this on arrival at the menu, and a non-null initial made that
+    // first sweep a real state change — one extra pre-paint render of the
+    // whole Home tree on every cold load. Every reader already guards null.
+    const [latLong, setLatLong] = useState(null)
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     // What the STREET VIEW shows, which during a reveal is not the same thing
     // as `latLong`. `latLong` is the round's answer: the reveal map flies to it
@@ -969,6 +973,35 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
         setScreen('home');
     }, [isDailyPath]);
+
+    // HOME SWEEPER — the single choke point for "arriving on the menu".
+    // Every exit to home (back button, ws kick, gameCancelled, join errors,
+    // connection loss, daily/onboarding exits, browser popstate) must drop
+    // the round's location AND the loading cover. Per-exit inline cleanup was
+    // tried (Aug 17) and immediately grew two bug classes: exits that forgot
+    // setLatLong left a live SV embed streaming behind the menu, and exits
+    // that remembered it but forgot setLoading latched the menu behind the
+    // loading overlay forever — nulling latLong unmounts the iframe whose
+    // onLoad is the only thing that clears `loading`. One effect keyed on the
+    // screen cannot forget either. Layout effect: the teardown lands before
+    // the home frame paints.
+    useLayoutEffect(() => {
+        if (screen !== 'home') return;
+        // Already-clean bail: without it the mount-time run (screen starts
+        // 'home', latLong starts the {0,0} sentinel) failed React's eager
+        // bailout and bought a full synchronous re-render of this ~6k-line
+        // component before first paint.
+        const latLongClear = !latLong || (latLong.lat === 0 && latLong.long === 0);
+        if (latLongClear && !panoLocation && !loading) return;
+        // Also invalidate any in-flight location load: a community-map fetch
+        // resolving AFTER this sweep would setLatLong a fresh pano onto the
+        // menu (mounted, streaming, invisible). Bumping the request token is
+        // the same cancellation every other abort path uses.
+        cancelInFlightLocationLoad();
+        setLatLong(null);
+        setPanoLocation(null);
+        setLoading(false);
+    }, [screen, latLong, panoLocation, loading]);
     useEffect(() => {
         if (typeof window === 'undefined') return;
         if (initialScreen === 'daily' || isDailyPath(window.location.pathname)) {
@@ -2790,7 +2823,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     const panoPreloadedForThisRound = panoPointedAtThisRound &&
                         mpPanoLoadedRoundRef.current === data.curRound;
 
-                    if (((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") || needsRejoinGuessLocation) {
+                    // `state !== "guess"`, not `=== "getready"`: a reconnect
+                    // snapshot can jump waiting -> guess directly (the server
+                    // only ever ADVANCES getready -> guess, but a full payload
+                    // after a dropped socket lands wherever the game is now).
+                    // The old getready-only test skipped setLoading + the pano
+                    // swap on that path — no cover, no location, a stale pano
+                    // unhiding the instant the waiting term dropped.
+                    if (((!prev.gameData || (prev?.gameData?.state !== "guess")) && data.state === "guess") || needsRejoinGuessLocation) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         if (!panoPreloadedForThisRound) setLoading(true)
@@ -3114,7 +3154,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return;
                 }
 
-                setScreen("home")
+                setScreen("home") // location + loading teardown: home sweeper
                 setMultiplayerState((prev) => ({
                     ...initialMultiplayerState,
                     connected: true,
@@ -3134,7 +3174,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // No ELO was lost - just return to home and optionally re-queue
                 toast.info(text("opponentLeftBeforeStart") || "Opponent left before the game started. Returning to queue...");
 
-                setScreen("home")
+                setScreen("home") // location + loading teardown: home sweeper
 
                 setMultiplayerState((prev) => {
                     return {
@@ -3797,11 +3837,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     joinOptions: prev.joinOptions,
                 }))
                 setScreen("home")
-                // NOTE: latLong is already nulled unconditionally at the top of
-                // backBtnPressed (setLatLong(null) before the screen branches),
-                // which is what unmounts the SV embed on home. Do not add a
-                // clearLocation() here "for safety" — it was tried and reverted
-                // Aug 16; the unconditional null above is the real teardown.
+                // NOTE: pano/loading teardown on arrival at home is owned by
+                // the HOME SWEEPER effect (search "HOME SWEEPER"). The inline
+                // setLatLong(null) at the top of backBtnPressed ALSO stays —
+                // it is load-bearing for the branches here that return WITHOUT
+                // setScreen("home") (e.g. the 2v2 queue-back path keeps
+                // screen "multiplayer", so the sweeper never fires for them).
+                // Do not add per-exit clearLocation() calls beyond that pair.
                 // gameShutdown used to clear this; now that we own the
                 // teardown, do it here so a stale community-map extent
                 // doesn't leak into the next singleplayer / multiplayer game.
@@ -4520,6 +4562,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setSpPanoLoadedKey(spPanoKeyRef.current);
         }
     }, [multiplayerState?.inGame]);
+    // Rematch/replay reset: a party play-again keeps inGame TRUE and the SAME
+    // gameId, so the leave-cleanup below never runs, and a stale
+    // mpPanoRoundRef from the previous match (e.g. a round-1 forfeit) makes
+    // point(1) early-return — the new round would then skip its reload and
+    // play against the PREVIOUS game's pano. Reset whenever a match boundary
+    // passes: the staging lobby, or a fresh round-1 getready. Runs before
+    // point(1)'s delayed (+450ms) write, so it cannot clobber a live preload.
+    const mpMatchBoundary =
+        multiplayerState?.gameData?.state === 'waiting' ||
+        (multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
+    useLayoutEffect(() => {
+        if (!multiplayerState?.inGame || !mpMatchBoundary) return;
+        mpPanoRoundRef.current = null;
+        setMpPanoLoadedRound(null);
+    }, [multiplayerState?.inGame, mpMatchBoundary]);
     // Only clear panoLocation when LEAVING multiplayer — a continuous
     // `if (!inGame) setPanoLocation(null)` would wipe singleplayer / daily /
     // onboarding preloads every render outside a match.
@@ -4786,6 +4843,54 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // (multiplayer or singleplayer-family).
     const panoSource = panoLocation || latLong;
 
+    // PURE-IDLE pano states: not "faded out and coming back" but "parked"
+    // (staging lobby, join screen, matchmaking queue, 2v2 end, home menu).
+    // Extracted VERBATIM from the third group of the hidden expressions below
+    // so idle ⊆ hidden stays a compile-time property. The IFRAME gets
+    // display:none in these states (Chrome stops servicing a display:none
+    // cross-origin frame's rAF — the embed's render loop actually halts);
+    // the CANVAS never does (its resize() reads clientWidth, which lies under
+    // display:none, and the engine's own draw gate already idles it).
+    // state==='end' covers EVERY end screen (2v2, public duel, FFA/party) —
+    // they are all fullscreen-opaque, and the public-duel end alone used to
+    // leave the pano painting + streaming z4/z5 for its whole 20-60s dwell.
+    const mpIdle = !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "end" || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued));
+    // No `screen === "home"` term: the home sweeper (above) unmounts the SV
+    // components outright on the menu (latLong null), which beats display:none.
+    // `hidden` keeps a home term as belt-and-braces for any unswept mount.
+    const svFrameIdle = mpIdle;
+    // `display` is not transitionable, so BOTH edges of the idle state need a
+    // grace or the 200ms opacity fade dies:
+    // - ENTRY: applying display:none in the same commit as .hidden hard-cuts
+    //   the fade-OUT. idleSettled delays the class ~250ms so the fade
+    //   completes first (the pano is already opacity-0-bound the whole time).
+    // - EXIT: dropping display:none and .hidden together repaints at opacity 1
+    //   with no transition (hard snap of a possibly-stale pano). unIdleGrace
+    //   holds `hidden` for two frames — the element must be RENDERED
+    //   (display:block, opacity 0) for one paint before a transition has a
+    //   start value.
+    const [idleSettled, setIdleSettled] = useState(false);
+    useEffect(() => {
+        if (svFrameIdle) {
+            const t = setTimeout(() => setIdleSettled(true), 250);
+            return () => clearTimeout(t);
+        }
+        setIdleSettled(false);
+    }, [svFrameIdle]);
+    const svFrameIdleApplied = svFrameIdle && idleSettled;
+    const prevSvIdleRef = useRef(false);
+    const [unIdleGrace, setUnIdleGrace] = useState(false);
+    useLayoutEffect(() => {
+        const was = prevSvIdleRef.current;
+        prevSvIdleRef.current = svFrameIdleApplied;
+        if (was && !svFrameIdleApplied) {
+            setUnIdleGrace(true);
+            let id2 = 0;
+            const id1 = requestAnimationFrame(() => { id2 = requestAnimationFrame(() => setUnIdleGrace(false)); });
+            return () => { cancelAnimationFrame(id1); if (id2) cancelAnimationFrame(id2); };
+        }
+    }, [svFrameIdleApplied]);
+
     return (
         <>
             <HeadContent
@@ -4911,12 +5016,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         npz={gameOptions?.npz}
                         showAnswer={showAnswer}
                         slowEnter={duelPanoEnter}
-                        hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || (
-                            !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
-                        )}
+                        /* LOAD-BEARING: `loading` must stay a hidden term. Every
+                           path that changes the load-effect deps in the same
+                           commit as clearing another hidden term also sets
+                           loading — that is the invariant that makes
+                           "unhide == already painted" true for the engine's
+                           synchronous reveal paint. */
+                        hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || mpIdle}
                         refreshKey={latLongKey}
-                        onLoad={() => {
-                            notePanoLoaded();
+                        onLoad={(degraded) => {
+                            // degraded = the engine is UNBLOCKING the round
+                            // (failsafe/resolve failure), not certifying a
+                            // painted pano. Clear the cover, but do NOT stamp
+                            // the loaded-round/key markers — a lying stamp
+                            // makes the next round's preload-commit skip its
+                            // loading cover over an unpainted canvas.
+                            if (!degraded) notePanoLoaded();
                             // 100 not 300: unlike the iframe, tiles are already
                             // painted when this fires — the long grace only
                             // slowed the reveal. SP-family rounds additionally
@@ -4955,9 +5070,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     pitch={panoSource?.pitch}
                     showRoadLabels={screen === "onboarding" ? false : screen === "daily" ? true : gameOptions?.showRoadName}
                     slowEnter={duelPanoEnter}
-                    hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || (
-                        screen === "home" || !!(screen === "multiplayer" && (isTeam2v2EndScreen || multiplayerState?.gameData?.state === "waiting" || multiplayerState?.lobbyIntent === 'join' || multiplayerState?.gameQueued))
-                    )}
+                    /* LOAD-BEARING: `loading` must stay a hidden term — see the
+                       CustomStreetView note above. unIdleGrace holds the fade's
+                       start value across the display:none -> block edge. */
+                    hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || screen === "home" || svFrameIdle || unIdleGrace}
+                    idle={svFrameIdleApplied}
                     refreshKey={latLongKey}
                     onLoad={() => {
                         notePanoLoaded();

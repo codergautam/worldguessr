@@ -58,6 +58,12 @@ interface StreetViewWebViewProps {
   showInitialLoader?: boolean;
   interactive?: boolean;
   /**
+   * A native screen fully covers this surface (result view). WebGL branch
+   * only: the renderer stops drawing but keeps streaming/prewarming so
+   * commitPreload still answers 'ready'. The iframe branch ignores it.
+   */
+  covered?: boolean;
+  /**
    * Street View mode, web parity. `nm` = No Move (pan/zoom allowed, movement
    * not), `npz` = additionally frozen. The Google embed cannot express No Move
    * — there is no way to allow drag-pan while blocking click-to-move in a
@@ -529,6 +535,7 @@ function StreetViewSurface(props: StreetViewWebViewProps, ref: React.Ref<StreetV
         onLoad={props.onLoad}
         showInitialLoader={props.showInitialLoader}
         preload={props.preload}
+        covered={props.covered}
         onUnavailable={() => setFailedKey(roundKey)}
       />
     );
