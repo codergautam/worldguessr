@@ -8,7 +8,7 @@
 // import officialCountryMaps from '@/public/officialCountryMaps.json';
 import mongoose from 'mongoose';
 import mapConst from '../../components/maps/mapConst.js';
-import parseMapData from '../../components/utils/parseMapData.js';
+import parseMapData, { matchShortMapsLink, isResolvedMapsUrl } from '../../components/utils/parseMapData.js';
 import generateSlug from '../../components/utils/slugGenerator.js';
 import Map from '../../models/Map.js';
 import User from '../../models/User.js';
@@ -37,6 +37,115 @@ function calculateDistance(cart1, cart2) {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+
+// Short-link expansion budget. Each link costs one outbound request to
+// Google at publish time. Bulk files from generators carry real coordinates,
+// so a submission needing more expansions than this is misuse, not a map.
+const MAX_SHORT_LINKS = 500;
+const SHORT_LINK_CONCURRENCY = 5;
+const SHORT_LINK_TIMEOUT_MS = 5000;
+
+// Successful resolutions, keyed by short link. Every request here leaves
+// from ONE server IP, so Google throttling is a real risk; a resubmit after
+// any later validation error (name taken, too few locations, ...) would
+// otherwise re-resolve the exact same links. Successes only: a short link's
+// destination never changes, while a failure may be transient throttling.
+// `Map` in this file is the mongoose MODEL (models/Map.js) — it shadows the
+// global container. Runtime maps must go through globalThis.
+const JsMap = globalThis.Map;
+
+const RESOLVED_CACHE_MAX = 5000;
+const resolvedShortLinks = new JsMap();
+function cacheResolved(url, target) {
+  if (resolvedShortLinks.size >= RESOLVED_CACHE_MAX) {
+    // Map iterates in insertion order, so this evicts the oldest entry.
+    resolvedShortLinks.delete(resolvedShortLinks.keys().next().value);
+  }
+  resolvedShortLinks.set(url, target);
+}
+
+// Resolve one maps.app.goo.gl / goo.gl/maps link to its full /maps/@lat,lng
+// URL via the Location header. redirect:'manual' is deliberate: the target
+// is parsed as a STRING and never fetched, so the server only ever contacts
+// the two Google hosts pinned by matchShortMapsLink.
+// Returns { target, throttled }: target null on any failure, throttled true
+// when the failure looks like Google rate limiting (429 or the /sorry
+// interstitial) rather than a dead link.
+async function resolveShortMapsLink(url) {
+  const cached = resolvedShortLinks.get(url);
+  if (cached) return { target: cached, throttled: false };
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(SHORT_LINK_TIMEOUT_MS),
+    });
+    let target = res.headers.get('location') || '';
+    if (res.status === 429 || target.includes('google.com/sorry')) {
+      return { target: null, throttled: true };
+    }
+    // EU consent interstitial: the real destination rides in ?continue=
+    if (target.startsWith('https://consent.google.com')) {
+      try { target = new URL(target).searchParams.get('continue') || ''; } catch (e) { target = ''; }
+    }
+    if (isResolvedMapsUrl(target)) {
+      cacheResolved(url, target);
+      return { target, throttled: false };
+    }
+    return { target: null, throttled: false };
+  } catch (e) {
+    return { target: null, throttled: false };
+  }
+}
+
+// Replace every short-link entry in the submitted data with its resolved
+// full URL. Identical links resolve ONCE and fan out to all their indexes.
+// Returns { data, tooMany, failed, throttled }:
+//  - tooMany: unique-link count when over MAX_SHORT_LINKS, else 0
+//  - failed:  short links that did not resolve — the caller must FAIL CLOSED
+//             on these, or the map silently publishes with missing locations
+//  - throttled: true when at least one failure was Google rate limiting
+// Exported for tests, like duelCounterIncs in api/eloRank.js.
+export async function expandShortMapsLinks(data) {
+  if (!Array.isArray(data)) return { data, tooMany: 0, failed: [], throttled: false };
+
+  // url -> [entry indexes]
+  const targets = new JsMap();
+  data.forEach((entry, i) => {
+    if (typeof entry !== 'string') return;
+    let s = entry.trim();
+    // The file-upload path JSON-stringifies each entry, so a short link can
+    // arrive wrapped in quotes.
+    if (s.startsWith('"')) { try { s = JSON.parse(s); } catch (e) { return; } }
+    const short = matchShortMapsLink(s);
+    if (short) {
+      if (!targets.has(short)) targets.set(short, []);
+      targets.get(short).push(i);
+    }
+  });
+
+  if (targets.size === 0) return { data, tooMany: 0, failed: [], throttled: false };
+  if (targets.size > MAX_SHORT_LINKS) return { data, tooMany: targets.size, failed: [], throttled: false };
+
+  const urls = [...targets.keys()];
+  const out = [...data];
+  const failed = [];
+  let sawThrottle = false;
+  let next = 0;
+  // Plain shared-cursor pool: no await sits between the bounds check and the
+  // increment, so two workers can never claim the same url.
+  const worker = async () => {
+    while (next < urls.length) {
+      const url = urls[next++];
+      const { target, throttled } = await resolveShortMapsLink(url);
+      if (throttled) sawThrottle = true;
+      if (!target) failed.push(url);
+      for (const i of targets.get(url)) out[i] = target;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(SHORT_LINK_CONCURRENCY, urls.length) }, worker));
+  return { data: out, tooMany: 0, failed, throttled: sawThrottle };
+}
 
 async function validateMap(name, data, description_short, description_long, edit=false, mapId=null) {
 
@@ -94,8 +203,29 @@ async function validateMap(name, data, description_short, description_long, edit
   }
 
   // validate data
-  const locationsData = parseMapData(data);
-  if(!locationsData || locationsData.length < mapConst.MIN_LOCATIONS) {
+  // Expand Google Maps share short links into full /maps/@lat,lng URLs
+  // first: the coordinates only exist behind Google's redirect, so the
+  // parser below can never read them from the short form.
+  const expanded = await expandShortMapsLinks(data);
+  if (expanded.tooMany) {
+    return `Too many Google Maps short links (${expanded.tooMany}). At most ${MAX_SHORT_LINKS} per map: please paste full Street View URLs instead`;
+  }
+  if (expanded.throttled) {
+    return 'Google is rate limiting link resolution right now. Wait a few minutes and publish again';
+  }
+  if (expanded.failed.length > 0) {
+    // FAIL CLOSED: publishing anyway would silently shrink the map to the
+    // links that happened to resolve. A link that stays dead here is an
+    // unplayable location the creator should remove.
+    return `Could not resolve ${expanded.failed.length} Google Maps short link(s), for example: ${expanded.failed[0]}. Remove or replace them and publish again`;
+  }
+  // parseMapData PRESERVES unresolved short links as strings (for this very
+  // resolver); only object entries carry coordinates, so anything else is
+  // invalid past this point. The filter also shields the cartesian math
+  // below from string entries when `data` arrived in a nested/JSON shape
+  // the expander doesn't walk.
+  const locationsData = (parseMapData(expanded.data) || []).filter((loc) => loc && typeof loc === 'object');
+  if(locationsData.length < mapConst.MIN_LOCATIONS) {
     // return res.status(400).json({ message: 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')' });
     return 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')';
   }
