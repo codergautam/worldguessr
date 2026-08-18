@@ -4584,6 +4584,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // play against the PREVIOUS game's pano. Reset whenever a match boundary
     // passes: the staging lobby, or a fresh round-1 getready. Runs before
     // point(1)'s delayed (+450ms) write, so it cannot clobber a live preload.
+    //
+    // Deps MUST be the raw state/curRound fields, never the derived boolean:
+    // a host abort during the round-1 countdown walks getready/1 → waiting →
+    // getready/1, which keeps mpMatchBoundary true the whole way — a boolean
+    // dep skips every one of those renders, the ref stays stamped at 1, and
+    // the restarted game plays the aborted game's pano against fresh coords.
     const mpMatchBoundary =
         multiplayerState?.gameData?.state === 'waiting' ||
         (multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1);
@@ -4591,7 +4597,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (!multiplayerState?.inGame || !mpMatchBoundary) return;
         mpPanoRoundRef.current = null;
         setMpPanoLoadedRound(null);
-    }, [multiplayerState?.inGame, mpMatchBoundary]);
+    }, [
+        multiplayerState?.inGame,
+        multiplayerState?.gameData?.state,
+        multiplayerState?.gameData?.curRound,
+    ]);
     // Only clear panoLocation when LEAVING multiplayer — a continuous
     // `if (!inGame) setPanoLocation(null)` would wipe singleplayer / daily /
     // onboarding preloads every render outside a match.

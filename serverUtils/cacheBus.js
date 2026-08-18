@@ -20,9 +20,17 @@ const PEER_PORTS = (process.env.CACHE_PEER_PORTS ?? '3001,3004')
  * The peer endpoint is gated by MAINTENANCE_SECRET (see registerCacheBusRoute).
  */
 export function syncedClearCache(key) {
-  cachegoose.clearCache(key, (err) => {
-    if (err) console.error(`[cacheBus] local clear failed for ${key}:`, err.message);
-  });
+  // The local clear must never gate the peer webhooks: a process that never
+  // ran cachegoose(mongoose, ...) — the ws server, cron — has no cache engine,
+  // and recachegoose's clearCache then throws SYNCHRONOUSLY (cache.del on
+  // undefined). Such a process holds no stale entries anyway; the peers do.
+  try {
+    cachegoose.clearCache(key, (err) => {
+      if (err) console.error(`[cacheBus] local clear failed for ${key}:`, err.message);
+    });
+  } catch (e) {
+    // No local cache in this process — nothing to clear here.
+  }
 
   const secret = process.env.MAINTENANCE_SECRET;
   if (!secret || PEER_PORTS.length === 0) return;

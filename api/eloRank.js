@@ -4,6 +4,7 @@ import { getLeague } from '../components/utils/leagues.js';
 import { clampRating } from '../components/utils/eloSystem.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { syncForumUser } from '../serverUtils/syncForumUser.js';
+import { clearUserEloCaches } from '../serverUtils/userEloCaches.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
@@ -37,17 +38,26 @@ export default async function handler(req, res) {
     let user;
     let foundBySecret = false;
 
+    // The explicit keys are load-bearing, exactly like crazyAuth's: a keyless
+    // .cache() hashes the query into an internal key nothing can name, so
+    // setElo() had NO way to invalidate these after a ranked game — every
+    // surface fetching here read a stale rating for up to 120s while the ws
+    // push showed the new one. serverUtils/userEloCaches.js clears all three.
     if(secret && typeof secret === 'string') {
       // Prevent NoSQL injection - secret must be a string
-      user = await User.findOne({ secret }).cache(120);
+      user = await User.findOne({ secret }).cache(120, `eloRank_secret_${secret}`);
       if (user) foundBySecret = true;
     } else if(id && typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
       // Preferred lookup: the account id never changes, unlike the username
       // (renames + forum-name normalization make name lookups ambiguous)
-      user = await User.findById(id).cache(120);
+      // Lowercased key: isValid() accepts UPPERCASE hex too, and the clear
+      // side derives its key from _id.toString(), which is always lowercase.
+      user = await User.findById(id).cache(120, `eloRank_id_${id.toLowerCase()}`);
     } else if(username && typeof username === 'string') {
       // Prevent NoSQL injection - username must be a string
-      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);
+      // Lowercased key: USERNAME_COLLATION (strength 2) makes this lookup
+      // case-insensitive, so every casing must share ONE clearable entry.
+      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120, `eloRank_name_${username.toLowerCase()}`);
     }
 
     if (!user) {
@@ -132,6 +142,11 @@ export async function setElo(accountId, newElo, gameData) {
       }
     });
 
+    // This write runs in the WS PROCESS; the cached copies of this document
+    // live in the API and auth processes. Cleared AFTER the write so any read
+    // racing it repopulates with the new rating, never the old one.
+    await clearUserEloCaches(accountId);
+
     // If this game moved the player into a different league, push the new
     // league color (and byline) to the forum. League changes are rare, so this
     // fires far less often than every game.
@@ -184,6 +199,11 @@ export async function applyPlacementSeed(accountId, seed, playerObj) {
       playerObj.league = getLeague(rating).name;
       playerObj.send?.({ type: 'elo', elo: rating, league: getLeague(rating) });
     }
+
+    // Same invalidation contract as setElo: a landed seed is an elo write,
+    // and the auth/eloRank caches would otherwise serve the pre-seed rating
+    // for up to 120s.
+    if (applied) await clearUserEloCaches(accountId);
 
     return applied;
   } catch (error) {

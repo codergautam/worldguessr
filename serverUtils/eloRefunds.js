@@ -5,6 +5,7 @@ import { leagues, getActiveLeagues } from '../components/utils/leagues.js';
 import { convertDelta } from '../components/utils/ratingConversion.js';
 import { getConversionTable } from './conversionTable.js';
 import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { clearUserEloCaches } from './userEloCaches.js';
 
 /**
  * Shared ELO-refund helpers.
@@ -292,6 +293,11 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
           console.error('[eloRefunds] win/loss reversal failed (non-critical) for', opponentAccountId, '-', e?.message || e);
         }
       }
+
+      // The refund and/or counter reversal above changed what the auth and
+      // eloRank caches hold for this opponent (elo, win_rate inputs). Same
+      // invalidation contract as setElo — see serverUtils/userEloCaches.js.
+      await clearUserEloCaches(opponentAccountId);
     })());
   }
 
