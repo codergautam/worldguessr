@@ -7,6 +7,7 @@ import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
 import { getLeague } from '../components/utils/leagues.js';
 import { STARTING_ELO as DEFAULT_ELO } from '../components/utils/ratingFlags.js';
+import { computeEloRank } from '../serverUtils/eloRankQuery.js';
 import { findBannedIdentity, bannedIdentityMessage } from '../serverUtils/bannedIdentities.js';
 import { entitlementFields, defaultEntitlementFields } from './stampShop.js';
 import { hasSeason0, season0RankOf } from '../shared/season0/rank.js';
@@ -65,10 +66,8 @@ async function getExtendedUserData(user, timings = {}) {
 
   // eloRank data
   const startRank = Date.now();
-  const rank = (await User.countDocuments({
-    elo: { $gt: user.elo || DEFAULT_ELO },
-    banned: false
-  }).cache(2000)) + 1;
+  const rank = await computeEloRank(user.elo || DEFAULT_ELO);
+
   timings.rankQuery = Date.now() - startRank;
 
   const eloData = {
@@ -212,7 +211,7 @@ export default async function handler(req, res) {
   // Default extended data for new users
   // Rank = count of users with elo > the starting rating + 1
   const startRank = Date.now();
-  const usersAbove = await User.countDocuments({ elo: { $gt: STARTING_ELO }, banned: false }).cache(2000);
+  const newAccountRank = await computeEloRank(STARTING_ELO);
   timings.rankQuery = Date.now() - startRank;
 
   timings.total = Date.now() - startTotal;
@@ -241,7 +240,7 @@ export default async function handler(req, res) {
     daysUntilNameChange: 0,
     recentChange: false,
     elo: STARTING_ELO,
-    rank: usersAbove + 1,
+    rank: newAccountRank,
     league: getLeague(STARTING_ELO),
     duels_wins: 0,
     duels_losses: 0,

@@ -6,6 +6,7 @@ import { convertDelta } from '../components/utils/ratingConversion.js';
 import { getConversionTable } from './conversionTable.js';
 import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
 import { clearUserEloCaches } from './userEloCaches.js';
+import { computeEloRank } from './eloRankQuery.js';
 
 /**
  * Shared ELO-refund helpers.
@@ -233,12 +234,9 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
           if (updatedUser) {
             const actualRefund = (updatedUser.elo || 0) - (before.elo || 0);
 
-            // Get current ELO rank (excluding banned users)
-            const higherEloCount = await User.countDocuments({
-              elo: { $gt: updatedUser.elo },
-              banned: { $ne: true },
-            });
-            const newEloRank = higherEloCount + 1;
+            // Uncached like the per-game snapshot: this is stamped into
+            // UserStats immediately after the refund changed the rating.
+            const newEloRank = await computeEloRank(updatedUser.elo, { cache: false });
 
             // Get most recent xpRank from UserStats for this user
             const mostRecentStats = await UserStats.findOne({ userId: opponentAccountId })

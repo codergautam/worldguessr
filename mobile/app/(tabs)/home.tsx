@@ -1391,29 +1391,32 @@ export default function HomeScreen() {
 
           {/* Web places this directly above its footer controls. Keep the same
               relationship in native flow so it remains reachable on every
-              screen size without competing with the primary game menu. */}
-          <Animated.View style={[styles.communityBannerRow, navEntrance]}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.communityBanner,
-                {
-                  backgroundColor: pressed ? accent.chromePressed : accent.chrome,
-                },
-              ]}
-              onPress={handleOpenCommunity}
-              disabled={openingCommunity}
-              accessibilityRole="link"
-              accessibilityLabel={t('communityBannerTitle')}
-              accessibilityState={{ busy: openingCommunity, disabled: openingCommunity }}
-            >
-              {openingCommunity ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Ionicons name="earth" size={22} color={colors.white} />
-              )}
-              <Text style={styles.communityBannerText}>{t('communityBannerTitle')}</Text>
-            </Pressable>
-          </Animated.View>
+              screen size without competing with the primary game menu.
+              Signed-in only, same as web: the forum bridge needs a secret. */}
+          {loggedIn && (
+            <Animated.View style={[styles.communityBannerRow, navEntrance]}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.communityBanner,
+                  {
+                    backgroundColor: pressed ? accent.chromePressed : accent.chrome,
+                  },
+                ]}
+                onPress={handleOpenCommunity}
+                disabled={openingCommunity}
+                accessibilityRole="link"
+                accessibilityLabel={t('communityBannerTitle')}
+                accessibilityState={{ busy: openingCommunity, disabled: openingCommunity }}
+              >
+                {openingCommunity ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="earth" size={22} color={colors.white} />
+                )}
+                <Text style={styles.communityBannerText}>{t('communityBannerTitle')}</Text>
+              </Pressable>
+            </Animated.View>
+          )}
 
           {/* Bottom Icons — rides the shared entrance wave. onLayout is safe
               here: transforms don't affect layout, so the measured right edge

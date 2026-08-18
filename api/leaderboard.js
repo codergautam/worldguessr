@@ -2,6 +2,7 @@ import User, { USERNAME_COLLATION, STARTING_ELO } from '../models/User.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
 import { MIGRATION_AT } from '../components/utils/ratingFlags.js';
+import { rankQueryRating } from '../components/utils/eloSystem.js';
 
 // Cache for leaderboard data
 const CACHE_DURATION = 60000; // 1 minute cache
@@ -316,8 +317,21 @@ export default async function handler(req, res) {
           const sortField = isXp ? 'totalXp' : 'elo';
           myScore = user[sortField];
           if (myScore) {
+            // THE 670 BASELINE FLOOR APPLIES ONLY WHEN THE GHOST MASS IS IN
+            // THE COUNTED POPULATION, which is exactly when the activity
+            // window is NOT filtering. The floor exists to stop ~3.7M
+            // never-played accounts at 670 from swallowing a player who dips
+            // below it (see serverUtils/eloRankQuery.js). Once the window is
+            // on, those accounts are already excluded by lastRankedAt, and
+            // flooring anyway would merge genuinely different ACTIVE players
+            // (say 500 and 670) onto one rank and break the invariant below.
+            // XP is exempt: different mass, and a lifetime total is not a
+            // contested position.
+            const comparedScore = (!isXp && !windowApplies)
+              ? rankQueryRating(myScore)
+              : myScore;
             const betterUsersCount = await User.countDocuments({
-              [sortField]: { $gt: myScore },
+              [sortField]: { $gt: comparedScore },
               banned: false,
               // COUNT THE SAME POPULATION THE LIST SHOWS. Without this the rank
               // card said "#12" while the player sat 8th in the visible rows,

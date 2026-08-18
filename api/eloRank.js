@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
 import { clampRating } from '../components/utils/eloSystem.js';
+import { computeEloRank } from '../serverUtils/eloRankQuery.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { syncForumUser } from '../serverUtils/syncForumUser.js';
 import { clearUserEloCaches } from '../serverUtils/userEloCaches.js';
@@ -69,10 +70,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const rank = (await User.countDocuments({
-      elo: { $gt: user.elo },
-      banned: false
-    }).cache(2000)) + 1;
+    const rank = await computeEloRank(user.elo);
 
     // Return the user's elo and rank
     return res.status(200).json({

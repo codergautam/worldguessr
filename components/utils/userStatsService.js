@@ -1,6 +1,7 @@
 import UserStats from '../../models/UserStats.js';
 import User from '../../models/User.js';
 import { STARTING_ELO } from './ratingFlags.js';
+import { computeEloRank } from '../../serverUtils/eloRankQuery.js';
 
 class UserStatsService {
 
@@ -68,13 +69,10 @@ class UserStatsService {
    */
   static async calculateELORank(userElo) {
     try {
-      const higherEloCount = await User.countDocuments({
-        elo: { $gt: userElo },
-        banned: false
-      });
-      const rank = higherEloCount + 1;
-
-      return rank;
+      // Uncached: this value is STAMPED INTO UserStats and drawn on the
+      // profile rank graph forever, so it must reflect the rating the game
+      // just wrote, not a copy up to 2000s old.
+      return await computeEloRank(userElo, { cache: false });
     } catch (error) {
       console.error('Error calculating ELO rank:', error);
       return 1;

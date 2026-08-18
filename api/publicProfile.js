@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { STARTING_ELO } from '../components/utils/ratingFlags.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { computeEloRank } from '../serverUtils/eloRankQuery.js';
 import { season0RankOf, hasSeason0 } from '../shared/season0/rank.js';
 import { rateLimit } from '../utils/rateLimit.js';
 import { registerStat } from '../serverUtils/statRegistry.js';
@@ -118,10 +119,7 @@ export default async function handler(req, res) {
     }
 
     // Calculate ELO rank (exclude banned users and pending name changes)
-    const rank = (await User.countDocuments({
-      elo: { $gt: user.elo },
-      banned: false
-    }).cache(2000)) + 1;
+    const rank = await computeEloRank(user.elo);
 
     // Calculate league info
     const league = getLeague(user.elo);

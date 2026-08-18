@@ -52,6 +52,25 @@ export const RATING_FLOOR = 100;
 // Where a brand-new account starts before placements have run.
 export const ENTRY_RATING = 500;
 
+// The migrated old-default mass: Season 0's default rating (1000) as the
+// Aug 12 2026 migration converted it. VERIFIED, NOT ASSUMED — it is a
+// declared knot in data/elo-conversion-map.json ({"old":1000,"new":670}) and
+// table[1000] === 670, so the mass lands on this exact integer.
+// ~3.7M never-played accounts sit at EXACTLY this value, so every rank query
+// floors the compared rating here:
+// one lost first game must not rank a real player below millions of ghost
+// accounts (measured as a ~4M rank cliff at 670 -> 660). RATINGS ARE NEVER
+// FLOORED BY THIS — it exists only for rank comparisons; RATING_FLOOR (100)
+// remains the only floor a stored rating has.
+export const RANK_BASELINE_RATING = 670;
+
+// The rating a rank query compares against: the player's own rating, floored
+// at the baseline. EVERY count(elo > X) + 1 rank site must produce X through
+// this — a raw comparison reintroduces the cliff at that one site.
+export function rankQueryRating(elo) {
+  return Math.max(Number(elo) || 0, RANK_BASELINE_RATING);
+}
+
 // Placement seeding from single-player skill: base + slope * avg round points,
 // capped so a perfect scorer still enters below the real ladder's top.
 // Slope+cap raised Aug 2026 (user ruling): a strong placement should reach

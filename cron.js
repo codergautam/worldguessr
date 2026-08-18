@@ -8,6 +8,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import { STARTING_ELO, MIGRATION_AT } from './components/utils/ratingFlags.js';
+import { buildEloRankMap } from './serverUtils/eloRankQuery.js';
 import UserStats from './models/UserStats.js';
 import DailyLeaderboard from './models/DailyLeaderboard.js';
 import CronState from './models/CronState.js';
@@ -108,20 +109,22 @@ const updateAllUserStats = async () => {
     const rankStart = Date.now();
 
     const xpRankMap = new Map();
-    const eloRankMap = new Map();
 
     // COMPETITION RANKING, NOT ORDINAL. Tied scores must share the rank of the
     // first user in the tie block ("1224" style), because that is what the
-    // per-game path computes: userStatsService.calculateELORank is
-    // count(elo > yours) + 1, so everyone tied at a score gets the same rank.
+    // per-game path computes: count(score > yours) + 1 gives everyone tied at
+    // a score the same rank.
     //
-    // index + 1 here silently broke that for ties. 3.7M accounts sit at exactly
-    // elo 670 (the migrated old-default mass), so a player at 670 got ~474k
-    // from every game snapshot and then anywhere up to ~4.2M from the weekly
-    // snapshot, purely by where the sort happened to place them inside the tie
-    // block. On the profile rank graph that renders as a one-point cliff of
-    // ~3.4M that "recovers" at their next game, and the y-axis stretches to fit
-    // it. Same bug for xpRank (mass at 0 XP).
+    // index + 1 here silently broke that for ties, and the mass at 0 XP is
+    // enormous, so a player's weekly xpRank jumped by millions depending on
+    // where the sort happened to place them inside the tie block. On the
+    // profile graph that is a one-point cliff that "recovers" at their next
+    // game and stretches the y-axis to fit it.
+    //
+    // The elo half of this loop now lives in serverUtils/eloRankQuery.js
+    // (buildEloRankMap), which adds the 670 baseline floor on top of the same
+    // competition ranking. XP gets no such floor: a lifetime total is not a
+    // contested position.
     let prevXp = Symbol();
     let prevXpRank = 0;
     usersByXp.forEach((user, index) => {
@@ -132,15 +135,10 @@ const updateAllUserStats = async () => {
       xpRankMap.set(user._id.toString(), prevXpRank);
     });
 
-    let prevElo = Symbol();
-    let prevEloRank = 0;
-    usersByElo.forEach((user, index) => {
-      if (user.elo !== prevElo) {
-        prevElo = user.elo;
-        prevEloRank = index + 1;
-      }
-      eloRankMap.set(user._id.toString(), prevEloRank);
-    });
+    // Competition ranking + the 670 baseline floor, both owned by
+    // serverUtils/eloRankQuery.js so this snapshot cannot drift from the
+    // per-game path (computeEloRank) that writes the other UserStats rows.
+    const eloRankMap = buildEloRankMap(usersByElo);
 
     const rankTime = Date.now() - rankStart;
     console.log(`[RANK] ✅ Created rank maps in ${rankTime}ms (${(rankTime/usersByXp.length).toFixed(3)}ms/user)`);

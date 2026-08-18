@@ -5699,10 +5699,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                         </div>
 
-                        {/* Community banner sits directly above the footer; always shown
+                        {/* Community banner sits directly above the footer; shown
                             outside schoolguessr/embed contexts (which hide all social
-                            surfaces, same as the footer's social buttons). */}
-                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
+                            surfaces, same as the footer's social buttons), and only
+                            when signed in: the forum bridge needs a session token. */}
+                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && session?.token?.secret &&
                             !isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
                             <CommunityBanner
                                 visible={screen === "home" && onboardingCompleted === true}
