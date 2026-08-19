@@ -19,6 +19,7 @@ import { asset, stripBase } from '@/lib/basePath';
 import { DEFAULT_BACKGROUND_PATH, accentForSku, backgroundUrlForSku, paintSiteBackground } from '@/lib/siteBackground';
 import { useSession } from '@/components/auth/auth';
 import installErrorTracking from '@/lib/errorTracking';
+import installGdFetchShim from '@/lib/gdFetchShim';
 import getPlatform from '@/components/utils/getPlatform';
 import { attachUiClickSounds } from '@/components/utils/audio';
 import { installExternalLinkGuard } from '@/components/utils/externalLinks';
@@ -30,6 +31,12 @@ import '@smastrom/react-rating/style.css'
 // when React replays render errors during initial mount.
 let __errorTrackingCleanup = null;
 if (typeof window !== 'undefined') {
+  // Must run before the first fetch of the session: GD's service worker blanks
+  // every fetch() body on their hosting, so the GD build talks XHR instead.
+  // See lib/gdFetchShim.js for the full story.
+  if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === 'true') {
+    installGdFetchShim();
+  }
   __errorTrackingCleanup = installErrorTracking();
   // Fast Refresh / HMR: tear down so edits to errorTracking.js take effect
   // without a full page reload, and so we don't leak listeners across reloads.
