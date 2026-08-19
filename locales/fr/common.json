@@ -324,8 +324,6 @@
   "xp": "XP",
   "leagueModalDesc": "Jouez des parties multijoueurs pour monter en Elo et gravir le classement.",
   "leagueModalDesc2": "Les statistiques peuvent être retardées jusqu'à 1 heure",
-  "eloRebuildNotice": "L'ELO classé a été recalculé au 12 août.",
-  "eloRebuildLink": "En savoir plus",
   "unableToJoinDuel": "Impossible de trouver une partie pour le moment. Veuillez envoyer un e-mail à support@worldguessr.com",
   "unrankedDuel": "Partie publique",
   "profile": "Profil",
