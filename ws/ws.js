@@ -25,13 +25,14 @@
 // this back to the function form.
 import 'dotenv/config';
 import uws from 'uWebSockets.js';
+import express from 'fulmine.js';
+import cors from 'cors';
 import fs from 'fs';
 import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import mongoose from 'mongoose';
 import Game from './classes/Game.js';
-import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
 import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
@@ -711,51 +712,40 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled rejection', reason, promise, currentDate());
 });
 // uWebSockets.js
-let app = uws.App({
+// fulmine.js is a drop-in Express replacement that runs on uWebSockets.js: the routes below are
+// ordinary Express routes and `app.uwsApp` is the very uWS application the websocket is on, so
+// this is still one server on one port.
+const app = express();
 
+app.use(cors({ methods: 'GET', allowedHeaders: 'content-type' }));
+
+app.listen(port, '0.0.0.0', () => {
+  log('**WS Server started on port** ' + port);
 });
-app.listen('0.0.0.0', port, (ws) => {
-  if (ws) {
-    log('**WS Server started on port** ' + port);
+
+app.get('/', (req, res) => {
+  // count all the headers
+  let headerKb = 0;
+  for (const [key, value] of Object.entries(req.headers)) {
+    headerKb += key.length + String(value).length;
   }
+  headerKb = headerKb / 1024;
+
+  res.type('html').send("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
 });
 
-app.get('/', (res, req) => {
-
-      // count all the headers
-      let headerKb = 0;
-      req.forEach((key, value) => {
-
-        headerKb += key.length + value.length;
-
-      });
-      headerKb = headerKb / 1024;
-
-
-  setCorsHeaders(res);
-  res.writeHeader('Content-Type', 'text/html');
-  res.writeStatus('200 OK');
-  res.end("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
+app.get('/playercnt', (req, res) => {
+  res.type('text/plain').send(String(getActivePlayerCount()));
 });
 
-app.get('/playercnt', (res) => {
-  setCorsHeaders(res);
-  res.writeHeader('Content-Type', 'text/plain');
-  res.writeStatus('200 OK');
-  res.end(String(getActivePlayerCount()));
-});
-
-app.get('/platformdist', (res) => {
-  setCorsHeaders(res);
-  res.writeHeader('Content-Type', 'application/json');
-  res.writeStatus('200 OK');
-  res.end(JSON.stringify(getPlatformDistribution()));
+app.get('/platformdist', (req, res) => {
+  res.json(getPlatformDistribution());
 });
 
 // maintenance mode
 if (process.env.MAINTENANCE_SECRET) {
   const maintenanceSecret = process.env.MAINTENANCE_SECRET;
-  app.get(`/setmaintenance/${maintenanceSecret}/true`, (res) => {
+  app.get(`/setmaintenance/${maintenanceSecret}/true`, (req, res) => {
     maintenanceMode = true;
     // notify all players
     for (const player of players.values()) {
@@ -765,14 +755,12 @@ if (process.env.MAINTENANCE_SECRET) {
       });
     }
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'text/plain');
-    res.end('ok');
+    res.type('text/plain').send('ok');
     console.log('Maintenance mode started');
 
   });
 
-  app.get(`/setmaintenance/${maintenanceSecret}/false`, (res) => {
+  app.get(`/setmaintenance/${maintenanceSecret}/false`, (req, res) => {
     maintenanceMode = false;
     // notify all players
     for (const player of players.values()) {
@@ -782,14 +770,12 @@ if (process.env.MAINTENANCE_SECRET) {
       });
     }
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'text/plain');
-    res.end('ok');
+    res.type('text/plain').send('ok');
     console.log('Maintenance mode ended');
   });
 
   // get all players & ips
-  app.get(`/getips/${maintenanceSecret}`, (res) => {
+  app.get(`/getips/${maintenanceSecret}`, (req, res) => {
     const playerData = [];
     for (const player of players.values()) {
       playerData.push({
@@ -799,12 +785,10 @@ if (process.env.MAINTENANCE_SECRET) {
       });
     }
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(playerData));
+    res.json(playerData);
   });
-  app.get(`/banIp/${maintenanceSecret}/:ip`, (res, req) => {
-    const ip = req.getParameter(0);
+  app.get(`/banIp/${maintenanceSecret}/:ip`, (req, res) => {
+    const ip = req.params.ip;
     bannedIps.add(ip);
     let cnt = 0;
     // kick all players with this ip
@@ -824,39 +808,30 @@ if (process.env.MAINTENANCE_SECRET) {
     }
 
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'text/htmk');
-    res.end('kick count: ' + cnt+'<br>banned ip: '+ip+'<br> all ips: '+[...bannedIps].join('<br>'));
+    res.type('text/htmk').send('kick count: ' + cnt+'<br>banned ip: '+ip+'<br> all ips: '+[...bannedIps].join('<br>'));
     console.log('Banned ip', ip, 'kicked', cnt, currentDate());
   });
-  app.get(`/unbanIp/${maintenanceSecret}/:ip`, (res, req) => {
-    const ip = req.getParameter(0);
+  app.get(`/unbanIp/${maintenanceSecret}/:ip`, (req, res) => {
+    const ip = req.params.ip;
     bannedIps.delete(ip);
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'text/plain');
-    res.end('ok');
+    res.type('text/plain').send('ok');
     console.log('Unbanned ip', ip, currentDate());
   });
-  app.get(`/getIpCounts/${maintenanceSecret}`, (res) => {
+  app.get(`/getIpCounts/${maintenanceSecret}`, (req, res) => {
     const ipCounts = [...ipConnectionCount.entries()].map(([ip, cnt]) => ({ ip, cnt }));
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(ipCounts));
+    res.json(ipCounts);
   });
 
-  app.get(`/enforce-ban/${maintenanceSecret}/:accountId`, (res, req) => {
-    const accountId = req.getParameter(0);
+  app.get(`/enforce-ban/${maintenanceSecret}/:accountId`, (req, res) => {
+    const accountId = req.params.accountId;
 
     if (!accountId) {
-      setCorsHeaders(res);
-      res.writeStatus('400 Bad Request');
-      res.writeHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({
+      res.status(400).json({
         success: false,
         error: 'Account ID required',
         playerFound: false
-      }));
+      });
       return;
     }
 
@@ -865,15 +840,13 @@ if (process.env.MAINTENANCE_SECRET) {
 
     if (!player) {
       // Player not connected - this is OK, return success
-      setCorsHeaders(res);
-      res.writeHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({
+      res.json({
         success: true,
         playerFound: false,
         playerDisconnected: false,
         wasInGame: false,
         message: 'Player not currently connected'
-      }));
+      });
       console.log('Ban enforcement: Player not connected', accountId, currentDate());
       return;
     }
@@ -927,9 +900,7 @@ if (process.env.MAINTENANCE_SECRET) {
     }
 
     // Return success response
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
+    res.json({
       success: true,
       playerFound: true,
       playerDisconnected: true,
@@ -937,7 +908,7 @@ if (process.env.MAINTENANCE_SECRET) {
       message: gameInfo.wasInGame
         ? `Player banned and disconnected from ${gameInfo.gameType}${gameInfo.opponentRefunded ? '. Opponent will be awarded win.' : ''}`
         : 'Player banned and disconnected'
-    }));
+    });
   });
 
   // Cosmetics push: the HTTP purchase/equip route calls this so a live ws
@@ -955,19 +926,12 @@ if (process.env.MAINTENANCE_SECRET) {
   //
   // Absent params are left ALONE (a partial update must not wipe the other
   // fields); an explicitly empty value clears that field.
-  app.get(`/cosmetics-updated/${maintenanceSecret}/:accountId`, (res, req) => {
-    // Read everything off `req` FIRST: a uWS request object is only valid
-    // inside the synchronous body of its handler.
-    const accountId = req.getParameter(0);
-    const query = new URLSearchParams(req.getQuery() || '');
+  app.get(`/cosmetics-updated/${maintenanceSecret}/:accountId`, (req, res) => {
+    const accountId = req.params.accountId;
+    const query = new URLSearchParams(req.url.split('?')[1] || '');
 
     if (!accountId) {
-      // writeStatus BEFORE writeHeader, always — uWS writes them in call order
-      // and a status after a header is a protocol error.
-      setCorsHeaders(res);
-      res.writeStatus('400 Bad Request');
-      res.writeHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: false, error: 'Account ID required', playerFound: false }));
+      res.status(400).json({ success: false, error: 'Account ID required', playerFound: false });
       return;
     }
 
@@ -976,9 +940,7 @@ if (process.env.MAINTENANCE_SECRET) {
       // Offline is the NORMAL case for a shop purchase (most buying happens
       // outside a live game), so this is a 200 with playerFound:false — not an
       // error the caller has to special-case or retry.
-      setCorsHeaders(res);
-      res.writeHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true, playerFound: false, broadcast: false }));
+      res.json({ success: true, playerFound: false, broadcast: false });
       return;
     }
 
@@ -1021,9 +983,7 @@ if (process.env.MAINTENANCE_SECRET) {
       broadcast = true;
     }
 
-    setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: true, playerFound: true, broadcast }));
+    res.json({ success: true, playerFound: true, broadcast });
   });
 
 }
@@ -1082,7 +1042,7 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           game.sendStateUpdate(true);
 
         }
-app.ws('/wg', {
+app.uwsApp.ws('/wg', {
   /* Options */
   compression: uws.SHARED_COMPRESSOR,
   maxPayloadLength: 64 * 1024 * 1024,

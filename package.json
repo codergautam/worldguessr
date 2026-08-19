@@ -53,6 +53,7 @@
     "discord-webhook-node": "^1.1.8",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "fulmine.js": "^5.15.0",
     "formidable": "^3.5.1",
     "geojson-geometries-lookup": "^0.5.0",
     "google-auth-library": "^9.14.2",
@@ -77,7 +78,7 @@
     "redis": "^5.1.0",
     "sass": "^1.77.2",
     "sharp": "^0.33.5",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0",
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.69.0",
     "uuid": "^9.0.1",
     "web-vitals": "^5.3.0"
   },
