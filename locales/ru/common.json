@@ -324,8 +324,6 @@
   "xp": "XP",
   "leagueModalDesc": "Играйте в поединок, чтобы получить ELO и подняться на таблицу лидеров.",
   "leagueModalDesc2": "Статистика может быть отложена до 1 часа",
-  "eloRebuildNotice": "Рейтинговый ELO пересчитан по состоянию на 12 августа.",
-  "eloRebuildLink": "Подробнее",
   "unableToJoinDuel": "Невозможно найти дуэль в данный момент. Пожалуйста, напишите на support@worldguessr.com",
   "unrankedDuel": "Обычная дуэль",
   "profile": "Профиль",
