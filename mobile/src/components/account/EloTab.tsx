@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Linking, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import { getActiveLeagues, resolveLeague, type ServerLeague } from '../../shared/user/leagues';
 import { colors, t } from '../../shared';
-import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import {
   GlassCard,
   StatItem,
@@ -40,8 +39,6 @@ interface EloTabProps {
   onScrollEnable?: (enabled: boolean) => void;
 }
 
-const ELO_REBUILD_URL = 'https://worldguessr.forum/t/ranked-elo-is-being-rebuilt/1237';
-
 export default function EloTab({
   eloData,
   progression,
@@ -60,18 +57,6 @@ export default function EloTab({
 
   return (
     <View style={{ gap: 20 }}>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`${t('eloRebuildNotice')} ${t('eloRebuildLink')}`}
-        onPress={() => Linking.openURL(ELO_REBUILD_URL).catch(() => {})}
-        style={localStyles.eloNotice}
-      >
-        <Text style={localStyles.eloNoticeText}>
-          {t('eloRebuildNotice')}{' '}
-          <Text style={localStyles.eloNoticeLink}>{t('eloRebuildLink')} →</Text>
-        </Text>
-      </Pressable>
-
       {/* Leagues Card */}
       <GlassCard>
         <Text style={sharedStyles.cardTitle}>{t('leagues')}</Text>
@@ -164,27 +149,6 @@ export default function EloTab({
 }
 
 const localStyles = StyleSheet.create({
-  eloNotice: {
-    backgroundColor: 'rgba(74, 222, 128, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(74, 222, 128, 0.35)',
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eloNoticeText: {
-    color: colors.success,
-    fontFamily: 'Lexend',
-    fontSize: fontSizes.sm,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  eloNoticeLink: {
-    fontFamily: 'Lexend-SemiBold',
-    textDecorationLine: 'underline',
-  },
   eloBadge: {
     position: 'absolute',
     top: -24,
