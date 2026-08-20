@@ -368,3 +368,32 @@ export async function refundEloForReportedGames(bannedUserId, bannedUsername, re
 
   return processRefundGames(bannedAccountId, bannedUsername, gameMongoIds, moderationLogId);
 }
+
+/**
+ * Refund ELO to opponents who lost ELO playing against a banned user after a certain date.
+ * Used by autoBanCheaters for repeat offenders: refunds only games that occurred
+ * after the previous 14-day temp ban expired, up to when they were caught again.
+ *
+ * @param {string} bannedUserId - The MongoDB _id of the banned user
+ * @param {string} bannedUsername - The username of the banned user
+ * @param {Date|string} sinceDate - Only refund games endedAt >= this date
+ * @param {string} moderationLogId - The ID of the moderation log entry (optional)
+ * @returns {Object} Summary of refunds (same shape as refundEloToOpponents)
+ */
+export async function refundEloToOpponentsSince(bannedUserId, bannedUsername, sinceDate, moderationLogId = null) {
+  if (!sinceDate) {
+    return refundEloToOpponents(bannedUserId, bannedUsername, moderationLogId);
+  }
+
+  const bannedAccountId = bannedUserId.toString();
+  const since = new Date(sinceDate);
+
+  const gameMongoIds = await Game.find({
+    gameType: { $in: ['ranked_duel', '2v2'] },
+    'players.accountId': bannedAccountId,
+    eloRefunded: { $ne: true },
+    endedAt: { $gte: since }
+  }).distinct('_id');
+
+  return processRefundGames(bannedAccountId, bannedUsername, gameMongoIds, moderationLogId);
+}

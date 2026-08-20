@@ -225,6 +225,11 @@ export default function ModDashboard({ session }) {
   const [suspectsMinPoints, setSuspectsMinPoints] = useState(4950);
   const [suspectsMinRounds, setSuspectsMinRounds] = useState(10);
 
+  // autoBanCheaters state
+  const [autoBanLoading, setAutoBanLoading] = useState(false);
+  const [autoBanResult, setAutoBanResult] = useState(null);
+  const [showAutoBanConfirm, setShowAutoBanConfirm] = useState(false);
+
   // Clear messages after delay
   useEffect(() => {
     if (successMessage) {
@@ -677,6 +682,39 @@ export default function ModDashboard({ session }) {
       setError(err.message);
     } finally {
       setSuspectsLoading(false);
+    }
+  };
+
+  const autoBanCheaters = async (days, minPoints, minRounds) => {
+    setAutoBanLoading(true);
+    setAutoBanResult(null);
+    setError(null);
+    try {
+      const response = await fetch(window.cConfig?.apiUrl+'/api/mod/autoBanCheaters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: session.token.secret,
+          days: days ?? suspectsDays,
+          minPoints: minPoints ?? suspectsMinPoints,
+          minRounds: minRounds ?? suspectsMinRounds
+        })
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to auto-ban cheaters');
+      }
+      const data = await response.json();
+      setAutoBanResult(data);
+      setSuccessMessage(data.message || `autoBanCheaters completed: ${data.tempBans?.length || 0} temp, ${data.permanentBans?.length || 0} perm`);
+      // Refresh suspects list to reflect new ban statuses
+      fetchSuspects(days, minPoints, minRounds);
+    } catch (err) {
+      setError(err.message);
+      setAutoBanResult({ error: err.message });
+    } finally {
+      setAutoBanLoading(false);
+      setShowAutoBanConfirm(false);
     }
   };
 
@@ -2672,6 +2710,16 @@ export default function ModDashboard({ session }) {
                             </span>
                           </div>
                         )}
+                        {log.isAutoBan && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Auto-Ban:</span>
+                            <span className={styles.auditLogValue} style={{ color: '#d29922' }}>
+                              🤖 {log.autoBanWorkflow || 'autoBanCheaters'} - {log.autoBanOffenseCount === 1 ? 'First offense (14d temp)' : log.autoBanOffenseCount === 2 ? 'Repeat offense (perm)' : `Offense #${log.autoBanOffenseCount}`}
+                              {log.autoBanPreviousBanExpiresAt && ` (prev expired ${new Date(log.autoBanPreviousBanExpiresAt).toLocaleDateString()})`}
+                              {log.autoBanRefundSince && ` (refund since ${new Date(log.autoBanRefundSince).toLocaleDateString()})`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2854,7 +2902,92 @@ export default function ModDashboard({ session }) {
                 <button className={styles.searchBtn} onClick={() => fetchSuspects()} disabled={suspectsLoading}>
                   {suspectsLoading ? 'Loading...' : 'Search'}
                 </button>
+                <button
+                  className={styles.searchBtn}
+                  onClick={() => setShowAutoBanConfirm(true)}
+                  disabled={autoBanLoading || suspectsLoading}
+                  style={{ backgroundColor: '#d29922', color: '#000', marginLeft: '8px' }}
+                  title="autoBanCheaters: 14-day temp ban first offenders, perm ban repeat offenders with ELO refund"
+                >
+                  {autoBanLoading ? 'Banning...' : '⚖️ autoBanCheaters'}
+                </button>
               </div>
+
+              {showAutoBanConfirm && (
+                <div className={styles.modalOverlay} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                  <div className={styles.modal} style={{ background: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '24px', maxWidth: '520px', width: '90%' }}>
+                    <h3 style={{ marginTop: 0 }}>⚖️ Confirm autoBanCheaters</h3>
+                    <p>
+                      This will search suspicious accounts using the current filters
+                      (last {suspectsDays} days, min {suspectsMinPoints} pts, min {suspectsMinRounds} rounds):
+                    </p>
+                    <ul style={{ fontSize: '0.9rem', color: '#c9d1d9' }}>
+                      <li><strong>First-time offenders</strong> will receive a <strong>14-day temporary ban</strong>.</li>
+                      <li><strong>Repeat offenders</strong> (previously temp-banned by this workflow, whose ban expired and who cheated again in a game after expiry) will be <strong>permanently banned</strong>.</li>
+                      <li>After a permanent ban, <strong>ELO will be refunded</strong> to opponents who lost ranked games against the cheater <em>after their temp ban expired</em> until they were caught.</li>
+                    </ul>
+                    <p style={{ fontSize: '0.85rem', color: '#8b949e' }}>
+                      This action is logged in the audit logs with isAutoBan=true and workflow=&apos;autoBanCheaters&apos;. Currently banned users are skipped.
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                      <button className={styles.searchBtn} onClick={() => setShowAutoBanConfirm(false)} disabled={autoBanLoading}>
+                        Cancel
+                      </button>
+                      <button
+                        className={styles.searchBtn}
+                        onClick={() => autoBanCheaters()}
+                        disabled={autoBanLoading}
+                        style={{ backgroundColor: '#da3633', color: '#fff' }}
+                      >
+                        {autoBanLoading ? 'Processing...' : 'Confirm autoBanCheaters'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {autoBanResult && (
+                <div style={{ margin: '16px 0', padding: '16px', background: autoBanResult.error ? 'rgba(248,81,73,0.1)' : 'rgba(63,185,80,0.1)', border: `1px solid ${autoBanResult.error ? '#f85149' : '#3fb950'}`, borderRadius: '8px' }}>
+                  {autoBanResult.error ? (
+                    <p style={{ color: '#f85149', margin: 0 }}>❌ {autoBanResult.error}</p>
+                  ) : (
+                    <>
+                      <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>
+                        ✅ {autoBanResult.message}
+                      </p>
+                      <div style={{ fontSize: '0.9rem', display: 'grid', gap: '8px' }}>
+                        {autoBanResult.tempBans?.length > 0 && (
+                          <div>
+                            <strong>Temp banned (14d) - {autoBanResult.tempBans.length}:</strong>{' '}
+                            {autoBanResult.tempBans.map(u => u.username).join(', ')}
+                          </div>
+                        )}
+                        {autoBanResult.permanentBans?.length > 0 && (
+                          <div>
+                            <strong>Permanently banned - {autoBanResult.permanentBans.length}:</strong>{' '}
+                            {autoBanResult.permanentBans.map(u => {
+                              const refund = u.eloRefund;
+                              const refundText = refund?.totalRefunded ? ` (refunded ${refund.totalRefunded} ELO to ${refund.opponentsAffected} opponents)` : '';
+                              return `${u.username}${refundText}`;
+                            }).join(', ')}
+                          </div>
+                        )}
+                        {autoBanResult.skipped?.length > 0 && (
+                          <div style={{ color: '#8b949e' }}>
+                            <strong>Skipped - {autoBanResult.skipped.length}:</strong>{' '}
+                            {autoBanResult.skipped.slice(0, 10).map(s => `${s.username} (${s.reason})`).join(', ')}
+                            {autoBanResult.skipped.length > 10 && ` ...and ${autoBanResult.skipped.length - 10} more`}
+                          </div>
+                        )}
+                        {(!autoBanResult.tempBans?.length && !autoBanResult.permanentBans?.length && !autoBanResult.skipped?.length) && (
+                          <span>No actions taken</span>
+                        )}
+                      </div>
+                      <button onClick={() => setAutoBanResult(null)} style={{ marginTop: '8px', fontSize: '0.8rem' }}>Dismiss</button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {suspectsLoading ? (
                 <div className={styles.loadingText}>Scanning duel rounds...</div>

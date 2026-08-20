@@ -127,6 +127,11 @@ export default async function handler(req, res) {
       nameChange: log.nameChange,
       eloRefund: log.eloRefund,
       suspiciousGames: log.suspiciousGames || [], // Mod-flagged evidence games (staff-only)
+      isAutoBan: log.isAutoBan || false,
+      autoBanWorkflow: log.autoBanWorkflow || null,
+      autoBanOffenseCount: log.autoBanOffenseCount || null,
+      autoBanPreviousBanExpiresAt: log.autoBanPreviousBanExpiresAt || null,
+      autoBanRefundSince: log.autoBanRefundSince || null,
       relatedReports: log.relatedReports?.length || 0,
       createdAt: log.createdAt
     }));

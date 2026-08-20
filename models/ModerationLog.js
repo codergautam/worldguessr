@@ -117,6 +117,28 @@ const moderationLogSchema = new mongoose.Schema({
     default: []
   },
 
+  // Auto-ban workflow tracking (autoBanCheaters)
+  isAutoBan: {
+    type: Boolean,
+    default: false
+  },
+  autoBanWorkflow: {
+    type: String,
+    default: null // e.g. 'autoBanCheaters'
+  },
+  autoBanOffenseCount: {
+    type: Number,
+    default: null // 1 = first offense (14-day temp ban), 2 = repeat offense (perm ban)
+  },
+  autoBanPreviousBanExpiresAt: {
+    type: Date,
+    default: null // When the prior 14-day temp ban expired (for repeat offenders)
+  },
+  autoBanRefundSince: {
+    type: Date,
+    default: null // Start of ELO refund window for perm bans (previous temp ban expiry)
+  },
+
   // Timestamp
   createdAt: {
     type: Date,
@@ -129,6 +151,7 @@ moderationLogSchema.index({ 'targetUser.accountId': 1, createdAt: -1 });
 moderationLogSchema.index({ 'moderator.accountId': 1, createdAt: -1 });
 moderationLogSchema.index({ actionType: 1, createdAt: -1 });
 moderationLogSchema.index({ createdAt: -1 });
+moderationLogSchema.index({ 'targetUser.accountId': 1, isAutoBan: 1, autoBanWorkflow: 1, actionType: 1, createdAt: -1 });
 
 const ModerationLog = mongoose.models.ModerationLog || mongoose.model('ModerationLog', moderationLogSchema);
 
