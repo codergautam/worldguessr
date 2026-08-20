@@ -82,7 +82,12 @@ function toDosTimestamp(date) {
 // public/music-96k/ is the mobile app's low-bitrate music mirror — web builds
 // (Poki included) stream the full-quality masters from music/, so shipping the
 // mirror would add ~24MB of dead audio to the zip.
-const excludedArchiveDirs = new Set(['music-96k']);
+//
+// public/backgrounds/ is the shop's purchasable site backgrounds (~13.5MB).
+// Both packager targets are accountless portals (HIDE_ACCOUNT_UI), so the shop
+// is unreachable and no session can ever carry an equipped background. The
+// DEFAULT background (street2.webp) lives at the asset root, not in here.
+const excludedArchiveDirs = new Set(['music-96k', 'backgrounds']);
 
 async function collectFiles(directory, prefix = '') {
     const files = [];

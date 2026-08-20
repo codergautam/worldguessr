@@ -32,6 +32,12 @@ jobs:
     - name: Build GameDistribution version
       run: pnpm run build
 
+    # GD has no accounts (HIDE_ACCOUNT_UI): the shop is unreachable, so its
+    # purchasable backgrounds are dead weight. The default background
+    # (street2.webp) lives at the asset root, not in backgrounds/.
+    - name: Strip shop-only assets
+      run: rm -rf out/backgrounds
+
     - name: Get branch name
       id: branch
       run: |
