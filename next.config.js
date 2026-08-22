@@ -35,10 +35,22 @@ const nextConfig = {
     // RELATIVE to the document instead. A relative assetPrefix makes Next emit
     // ./_next/... (and sets webpack publicPath to ./_next/), which is exactly
     // what the historically-working Poki build shipped (__NEXT_DATA__ recorded
-    // assetPrefix "."). Scoped to Poki only so root/basePath hosting is untouched.
+    // assetPrefix "."). Scoped to Poki + 6x (both zip submissions with unknown
+    // mount paths) so root/basePath hosting is untouched.
     // (GameDistribution's zip mounts at its STABLE gameId path, so build:gd
     // hardcodes NEXT_PUBLIC_BASE_PATH instead — Next-native, like its CI build.)
-    assetPrefix: process.env.NEXT_PUBLIC_POKI === 'true' ? '.' : undefined,
+    assetPrefix: process.env.NEXT_PUBLIC_POKI === 'true' || process.env.NEXT_PUBLIC_6X === 'true' ? '.' : undefined,
+    // Relative assets only work while the document URL keeps its directory.
+    // On hydration the pages router always runs router.replace() for exported
+    // builds (the condition inlines __NEXT_HAS_REWRITES=true because of the
+    // rewrites() below), and resolveHref() normalizes the `as` path through
+    // normalizePathTrailingSlash(), which strips the trailing slash: a zip
+    // mounted at /6x/ gets replaceState'd to /6x, the base directory becomes
+    // /, and every later lazy chunk (Leaflet, daily, ...) 404s at /_next/.
+    // skipTrailingSlashRedirect sets __NEXT_MANUAL_TRAILING_SLASH, which makes
+    // that normalization a no-op. Poki never hit it because it loads
+    // <uuid>/index.html explicitly (no slash to strip); 6x's mount is unknown.
+    skipTrailingSlashRedirect: process.env.NEXT_PUBLIC_POKI === 'true' || process.env.NEXT_PUBLIC_6X === 'true' ? true : undefined,
     // NEXT_DIST_DIR (e.g. '.next-poki') controls where the static EXPORT lands.
     // WARNING: it does NOT isolate the build itself. With output:'export',
     // Next repurposes a custom distDir as the export outDir and forces build

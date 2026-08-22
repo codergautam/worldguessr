@@ -285,7 +285,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       const loadTime = window.gameOpen;
       const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
       if(lastDiscordShown) return console.log("Discord modal already shown");
-      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_POKI) {
+      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_POKI && !process.env.NEXT_PUBLIC_6X) {
         setShowDiscordModal(true)
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")

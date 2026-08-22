@@ -1,0 +1,45 @@
+name: 6x Build
+
+# Manual-only: 6x is a zip submission (like Poki), not branch-hosted like
+# GD/CoolMath/SchoolGuessr. Run this workflow from the Actions tab and
+# download the worldguessr-6x artifact, or build locally with `pnpm build:6x`
+# (zip lands in builds-submission/worldguessr-6x.zip).
+#
+# The 6x build is: accountless (HIDE_ACCOUNT_UI), schoolguessr API/WS/auth
+# endpoints (worldguessr domains are filtered on school networks), Playwire
+# ads ON (the only portal build that keeps them), Poki-style relative assets
+# (mount path unknown). All of it keys off NEXT_PUBLIC_6X, which build:6x
+# sets — never build this target with bare `next build`.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-6x:
+    runs-on: ubuntu-latest
+    env:
+      CI: false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        corepack enable
+        pnpm install --no-frozen-lockfile
+
+    # build:6x bakes NEXT_PUBLIC_6X + schoolguessr endpoints and runs
+    # scripts/packageEmbed.mjs (which also strips shop backgrounds + the
+    # mobile music mirror and validates the relative-asset rewrite).
+    - name: Build and package 6x version
+      run: pnpm run build:6x
+
+    - name: Upload 6x zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: worldguessr-6x
+        path: builds-submission/worldguessr-6x.zip

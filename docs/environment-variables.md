@@ -175,6 +175,24 @@ Poki hosting constraints the build/packaging pipeline handles (all were 404-ever
 
 Warning: with `output: 'export'`, Next still writes build internals to `.next` regardless of `NEXT_DIST_DIR`, so never run any build while `pnpm dev` is running — it corrupts the dev server (stop dev, delete `.next`, restart to recover).
 
+### 6x
+
+When building for the 6x portal, set:
+
+```bash
+NEXT_PUBLIC_6X=true
+```
+
+Build with `pnpm build:6x` (or run the manual "6x Build" GitHub Actions workflow and download the artifact). The static export lands in `.next-6x/`, and the submission archive is written to `builds-submission/worldguessr-6x.zip`.
+
+What the flag does:
+- `getPlatform()` reports `"6x"` to the server and GA
+- Accountless portal treatment (`HIDE_ACCOUNT_UI`): no login, no ranked/2v2 CTAs, no suggest-login modals, no profile links, no social/footer links, no community maps, party invites share the raw code
+- **Playwire ads stay ON** — 6x is the only portal build with the full worldguessr.com ad stack (RAMP banners; no SDK interstitials). Make sure the hosting domain is on the Playwire property's allowlist before shipping.
+- Poki-style relative assets (`assetPrefix: '.'` + runtime base derivation): the zip works at any mount depth, so locale URL redirects are skipped like on Poki. `skipTrailingSlashRedirect` is set for the same reason: the router would otherwise rewrite `/dir/` to `/dir` on hydration and every lazy chunk would 404 at the root. Hosting contract: load `index.html` as `<dir>/` or `<dir>/index.html`; a host that serves `<dir>` without redirecting to `<dir>/` breaks every relative asset.
+
+Endpoints are pinned by `build:6x` to the schoolguessr domains (`api.schoolguessr.com`, `server.schoolguessr.com`, `gauth.schoolguessr.com`) because school network filters block the worldguessr.com domains.
+
 ### CrazyGames
 
 CrazyGames integration is detected automatically via URL parameters (`?crazygames=true`), no environment variable needed.

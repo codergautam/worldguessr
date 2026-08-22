@@ -1,11 +1,14 @@
 // Single home for party invite-link helpers. Every surface that shares a
 // lobby copies the same thing: a joinable link (not a raw code).
 
-// CoolMath/Poki embeds can't open external links → share the raw code there;
-// CrazyGames uses its SDK invite link; everywhere else a ?party= URL.
+// CoolMath/Poki/6x embeds can't open external links (and the 6x zip has no
+// stable ?party= URL of its own) → share the raw code there; CrazyGames uses
+// its SDK invite link; everywhere else a ?party= URL.
 // Exported so copy toasts can say "code" vs "link" to match what was shared.
 export const SHARES_CODE_ONLY =
-  process.env.NEXT_PUBLIC_COOLMATH === "true" || process.env.NEXT_PUBLIC_POKI === "true";
+  process.env.NEXT_PUBLIC_COOLMATH === "true" ||
+  process.env.NEXT_PUBLIC_POKI === "true" ||
+  process.env.NEXT_PUBLIC_6X === "true";
 
 export function getPartyLink(code, inCrazyGames) {
   if (SHARES_CODE_ONLY) {

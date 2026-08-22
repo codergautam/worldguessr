@@ -10,6 +10,7 @@ const embeddedPortal = () =>
   NO_EXTERNAL_LINKS ||
   process.env.NEXT_PUBLIC_COOLMATH === "true" ||
   process.env.NEXT_PUBLIC_POKI === "true" ||
+  process.env.NEXT_PUBLIC_6X === "true" ||
   (typeof window !== "undefined" && !!window.inCrazyGames);
 
 // Google Maps URLs API — the documented endpoint (user ruling July 28: the

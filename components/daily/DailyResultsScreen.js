@@ -459,7 +459,7 @@ export default function DailyResultsScreen({
           rounds={rounds}
           roundAverages={distribution?.roundAverages || []}
           locations={locations}
-          allowMapLinks={!inCoolMathGames && !process.env.NEXT_PUBLIC_POKI && !NO_EXTERNAL_LINKS}
+          allowMapLinks={!inCoolMathGames && !process.env.NEXT_PUBLIC_POKI && !process.env.NEXT_PUBLIC_6X && !NO_EXTERNAL_LINKS}
         />
 
         <div className="daily-stats-grid">

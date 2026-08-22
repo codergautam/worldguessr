@@ -32,6 +32,10 @@ const TARGETS = {
     // build-time basePath (Next-native, like the CI build) instead of the
     // runtime-derived relative-asset mode Poki needs.
     gd: { exportDir: '.next-gd', stagedName: 'gd', zipName: 'worldguessr-gd.zip', mustInline: 'NEXT_PUBLIC_BASE_PATH' },
+    // 6x: accountless portal on schoolguessr endpoints, but with the full
+    // Playwire stack (the one portal that keeps it). Mount path unknown, so it
+    // ships Poki-style relative assets keyed on NEXT_PUBLIC_6X.
+    '6x': { exportDir: '.next-6x', stagedName: '6x', zipName: 'worldguessr-6x.zip', mustInline: 'NEXT_PUBLIC_6X' },
 };
 const targetName = process.argv[2];
 const target = TARGETS[targetName];
@@ -84,9 +88,9 @@ function toDosTimestamp(date) {
 // mirror would add ~24MB of dead audio to the zip.
 //
 // public/backgrounds/ is the shop's purchasable site backgrounds (~13.5MB).
-// Both packager targets are accountless portals (HIDE_ACCOUNT_UI), so the shop
-// is unreachable and no session can ever carry an equipped background. The
-// DEFAULT background (street2.webp) lives at the asset root, not in here.
+// Every packager target is an accountless portal (HIDE_ACCOUNT_UI), so the
+// shop is unreachable and no session can ever carry an equipped background.
+// The DEFAULT background (street2.webp) lives at the asset root, not in here.
 const excludedArchiveDirs = new Set(['music-96k', 'backgrounds']);
 
 async function collectFiles(directory, prefix = '') {

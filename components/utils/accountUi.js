@@ -1,6 +1,6 @@
-// CoolMath, Poki and GameDistribution embeds ship with no account system at
-// all: the navbar login button is hidden and OAuth can't escape their iframe
-// anyway. The one sanctioned way out is a new tab to the main site, and only
+// CoolMath, Poki, GameDistribution and 6x embeds ship with no account system
+// at all: the navbar login button is hidden and OAuth can't escape their
+// iframe anyway. The one sanctioned way out is a new tab to the main site, and only
 // on CoolMath — see ACCOUNT_SITE_URL below.
 //
 // GD is the strictest of the three and the reason it joined this list. Its
@@ -16,7 +16,8 @@
 export const HIDE_ACCOUNT_UI =
   process.env.NEXT_PUBLIC_COOLMATH === "true" ||
   process.env.NEXT_PUBLIC_POKI === "true" ||
-  process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
+  process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" ||
+  process.env.NEXT_PUBLIC_6X === "true";
 
 // ...with one hand-off exception. CoolMath is the only no-account build that
 // can still send a player somewhere useful: it iframes worldguessr.com, and

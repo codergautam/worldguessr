@@ -879,6 +879,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // Poki mirrors the CoolMath treatment for account features: no login surface,
     // so ranked/2v2 (which require an account) and social links are hidden too.
     const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
+    // 6x is a Poki-style accountless zip (relative assets, unknown mount path),
+    // but UNLIKE the other portals it keeps the Playwire ad stack — never add
+    // it to the ad-slot exclusion lists below.
+    const inSixX = process.env.NEXT_PUBLIC_6X === "true";
     const [navSlideOut, setNavSlideOut] = useState(false);
     // IS THE TOP-RIGHT COLUMN LEAVING WITH THE MENU, OR JUST MOVING?
     //
@@ -945,15 +949,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => { screenRef.current = screen; }, [screen]);
     const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
     const enterDailyMode = useCallback(() => {
-        // Poki hosts each deploy at a nested per-version path with document-
+        // Poki (and 6x) host each deploy at a nested path with document-
         // RELATIVE assets (assetPrefix '.'), so rewriting the URL to /daily
         // makes every later lazy-chunk request (e.g. DailyChallengeScreen's
         // next/dynamic chunk) resolve against the CDN root and 404 — React
         // then tears down to a blank page. The iframe URL is invisible on
-        // Poki anyway; skip the URL sync entirely. exitDailyMode and the
-        // screen→URL sync effect self-guard via isDailyPath(), which can
+        // those portals anyway; skip the URL sync entirely. exitDailyMode and
+        // the screen→URL sync effect self-guard via isDailyPath(), which can
         // never match when nothing was pushed.
-        if (!inPoki && typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
+        if (!inPoki && !inSixX && typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
             const lang = (typeof window !== 'undefined' && window.language) || 'en';
             const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
             window.history.pushState({ wgDaily: true }, '', dailyPath);
@@ -1070,7 +1074,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // true may arm the timer, so the first ask lands after onboarding.
         if (onboardingCompleted !== true) return;
         if (session?.token?.secret) return;
-        if (inCrazyGames || inCoolMathGames || inGameDistribution || inPoki) return;
+        if (inCrazyGames || HIDE_ACCOUNT_UI) return;
         if (typeof window === 'undefined') return;
         // Skip re-running while the modal is currently open — otherwise opening it
         // would immediately trigger another evaluation and double-increment the count.
@@ -1841,7 +1845,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // at the CDN root and every later lazy-chunk request would 404.
             // In-app language switching still works via window.language +
             // the langChange event dispatched above.
-            if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" || process.env.NEXT_PUBLIC_POKI === "true") return;
+            if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" || process.env.NEXT_PUBLIC_POKI === "true" || process.env.NEXT_PUBLIC_6X === "true") return;
 
             // On the very first paint, trust whatever URL the user landed on
             // and skip the auto-redirect entirely. Previously, e.g. visiting
@@ -5721,7 +5725,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             screen, so closing a modal must NOT replay. */}
                         <div className={`home__footer ${(screen === "home" && onboardingCompleted === true) ? "visible" : ""} ${(mapModal || friendsModal || accountModalOpen) ? "covered" : ""}`}>
                             <div className="footer_btns">
-                                {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && (
+                                {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && (
                                     <>
                                         {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
                                             <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
@@ -5738,12 +5742,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                                     </>
                                 )}
-                                {!isApp && inGameDistribution && (
-                                    <Link href={"/leaderboard"}>
-                                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button>
-                                    </Link>
-                                )}
-
                                 {/* COMMUNITY MAPS, and it is ICON-ONLY HERE ON
                                     PURPOSE. It used to be a labelled pill under
                                     the player card; .footer_btns forces
@@ -5757,7 +5755,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                     Its own gates, not the social block's: those
                                     hide for the app and CrazyGames, and the map
                                     picker is wanted in both. */}
-                                {onboardingCompleted && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH
+                                {onboardingCompleted && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_COOLMATH
                                     && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
                                     <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label={text("communityMaps")} title={text("communityMaps")} onClick={() => setMapModal(true)}><FaMapMarkedAlt className="home__squarebtnicon" /></button>
                                 )}

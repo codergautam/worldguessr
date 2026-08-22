@@ -209,11 +209,11 @@ function App({ Component, pageProps }) {
   // if it's supported. Client-only so SSR / crawlers keep seeing English at `/`.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Poki doesn't own its URL: deploys live at a nested per-version path with
+    // Poki and 6x don't own their URL: deploys live at a nested path with
     // document-relative assets (assetPrefix '.'), so router.replace('/es')
     // would strand the document at the CDN root and 404 every later chunk.
     // Locale still resolves in-app via localStorage/window.language.
-    if (process.env.NEXT_PUBLIC_POKI === 'true') return;
+    if (process.env.NEXT_PUBLIC_POKI === 'true' || process.env.NEXT_PUBLIC_6X === 'true') return;
     try {
       const path = stripBase(window.location.pathname || '/');
       if (path !== '/') return; // only redirect from the bare root

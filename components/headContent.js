@@ -43,6 +43,9 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // property's domain allowlist — serving RAMP from an unapproved domain
     // risks flagging the whole account. Gate pending CK's allowlist approval;
     // remove the term once confirmed.
+    // NEXT_PUBLIC_6X is DELIBERATELY absent from this list: the 6x build is
+    // the one portal that ships the full Playwire stack, exactly like
+    // worldguessr.com. Do not "complete" the exclusion list with it.
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
   !process.env.NEXT_PUBLIC_SCHOOLGUESSR) {
@@ -239,9 +242,10 @@ ads.js"></script>*/
   // Without hreflang + self-canonicals Google clusters them and can pick a
   // non-English one to show every searcher (it served /es with a Spanish
   // title to English users). Main worldguessr.com only — platform builds
-  // (Poki/CoolMath/CrazyGames/GD/SchoolGuessr) live on other origins.
+  // (Poki/CoolMath/CrazyGames/GD/SchoolGuessr/6x) live on other origins.
   const isMainSite = !isSchoolGuessr && !inCoolMathGames && !inCrazyGames && !inGameDistribution &&
-    process.env.NEXT_PUBLIC_POKI !== "true" && process.env.NEXT_PUBLIC_COOLMATH !== "true";
+    process.env.NEXT_PUBLIC_POKI !== "true" && process.env.NEXT_PUBLIC_COOLMATH !== "true" &&
+    process.env.NEXT_PUBLIC_6X !== "true";
   const brand = isSchoolGuessr ? BRANDS.schoolguessr : BRANDS.worldguessr;
   const pathLang = getLangFromPath(stripBase(router.asPath));
   const homeCanonical = pathLang ? `${SITE_URL}/${pathLang}` : `${SITE_URL}/`;

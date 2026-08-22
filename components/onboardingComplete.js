@@ -35,6 +35,11 @@ export default function OnboardingComplete({
   const isClassic = mode === "classic";
   const isCoolMath = process.env.NEXT_PUBLIC_COOLMATH === "true";
   const isPoki = process.env.NEXT_PUBLIC_POKI === "true";
+  // 6x ships the same relative-asset zip as Poki: the community-maps modal
+  // ends in a hard navigation to /map (mapsModal.js), which strands the
+  // document off its nested path and 404s every later chunk. Same treatment.
+  const isSixX = process.env.NEXT_PUBLIC_6X === "true";
+  const isEmbedPortal = isCoolMath || isPoki || isSixX;
 
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const confettiFiredRef = useRef(false);
@@ -135,12 +140,12 @@ export default function OnboardingComplete({
               />
               <ActionCard
                 icon={<FaBolt />}
-                title={(isCoolMath || isPoki) ? text("findMatch") : text("findDuel")}
+                title={isEmbedPortal ? text("findMatch") : text("findDuel")}
                 desc={text("obDescCompete")}
                 onClick={handleDuel}
                 accent="duel"
               />
-              {!isCoolMath && !isPoki && (
+              {!isEmbedPortal && (
                 <ActionCard
                   icon={<FaGlobeAmericas />}
                   title={text("communityMaps")}
@@ -166,7 +171,7 @@ export default function OnboardingComplete({
                 onClick={handleClassic}
                 accent="classic"
               />
-              {!isCoolMath && !isPoki && (
+              {!isEmbedPortal && (
                 <ActionCard
                   icon={<FaGlobeAmericas />}
                   title={text("communityMaps")}

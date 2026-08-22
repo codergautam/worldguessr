@@ -19,12 +19,13 @@ const initMakeMap = {
     mapId: "",
 };
 
-// Platform builds (Poki/CoolMath/GD/SchoolGuessr) export this page on other
+// Platform builds (Poki/CoolMath/GD/SchoolGuessr/6x) export this page on other
 // origins, so worldguessr.com SEO tags stay off those.
 const isMainSite = process.env.NEXT_PUBLIC_POKI !== "true" &&
     process.env.NEXT_PUBLIC_COOLMATH !== "true" &&
     process.env.NEXT_PUBLIC_GAMEDISTRIBUTION !== "true" &&
-    process.env.NEXT_PUBLIC_SCHOOLGUESSR !== "true";
+    process.env.NEXT_PUBLIC_SCHOOLGUESSR !== "true" &&
+    process.env.NEXT_PUBLIC_6X !== "true";
 
 export default function MapsPage({ }) {
     const router = useRouter();

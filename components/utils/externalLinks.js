@@ -10,11 +10,13 @@
 export const NO_EXTERNAL_LINKS = process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
 
 // Builds where a /user profile link must not render at all. Two different
-// reasons, one behaviour: GD forbids opening tabs outright, and Poki deploys
-// to a nested per-version CDN path with no /user route, so the tab it opened
-// would 404.
+// reasons, one behaviour: GD forbids opening tabs outright, and Poki (and 6x,
+// which ships the same relative-asset zip) deploys to a nested CDN path with
+// no /user route, so the tab it opened would 404.
 export const NO_PROFILE_LINKS =
-  NO_EXTERNAL_LINKS || process.env.NEXT_PUBLIC_POKI === "true";
+  NO_EXTERNAL_LINKS ||
+  process.env.NEXT_PUBLIC_POKI === "true" ||
+  process.env.NEXT_PUBLIC_6X === "true";
 
 // Backstop for the surfaces this sweep hasn't reached and the ones that don't
 // exist yet. Capture phase, so it runs before React's own delegated handlers

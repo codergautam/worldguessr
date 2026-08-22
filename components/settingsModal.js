@@ -386,7 +386,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 {/* Keep every page item inside the one settings scroll surface.
                     Desktop fixes these links over the nav column; the mobile
                     column layout puts them in flow after the final setting. */}
-                {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && (
+                {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_POKI && !process.env.NEXT_PUBLIC_6X && (
                     <div className="g2_slide_in settingsFooterLinks">
                         <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
