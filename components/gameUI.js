@@ -1581,13 +1581,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     briefly removed it on the wrong belief that it churned an ad auction every
     round; it does not — the slot stays mounted across all rounds and answer
     screens and tears down once per game. Keep the gate. */}
-{ !multiplayerState && !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
+{/* { !multiplayerState && !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <PlaywireAd
         selectorId="pw-game-ad"
         showAdvertisementText={false} screenH={height} types={AD_TYPES_LEADERBOARD} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
-)}
+)} */}
 
 { inCrazyGames && !singlePlayerRound?.done && !onboarding?.mode && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
