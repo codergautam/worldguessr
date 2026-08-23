@@ -11,6 +11,45 @@
  * the owner can review it.
  */
 
+/**
+ * The ONE address a mailbox answers to, for account identity. Mail-provider
+ * aliasing had become a shared "cheat code to infinite alts": every
+ * `bob+alt42@gmail.com` (and every re-dotting of `bob@gmail.com`) delivered
+ * to one real inbox while looking like a brand-new address to the account
+ * lookup, so one mailbox could mint unlimited accounts AND sidestep the
+ * per-address send caps.
+ *
+ *  - lowercase + trim (matches normalizeEmail);
+ *  - `+tag` stripped from the local part EVERYWHERE, not just Gmail: Google
+ *    Workspace and Microsoft 365 both honour plus-addressing, and school
+ *    domains (this feature's audience) are overwhelmingly one of the two. A
+ *    genuine address containing a literal `+` still RECEIVES its code (mail
+ *    goes to the typed address) — only its account identity is the stripped
+ *    form;
+ *  - dots collapsed in the local part for Gmail ONLY (dots are significant
+ *    everywhere else per RFC), with googlemail.com folded into gmail.com
+ *    (same mailboxes, Google's own alias).
+ *
+ * Pure and total: bad input comes back lowercased rather than throwing, and
+ * a canonicalisation that would EMPTY the local part (an all-dots Gmail
+ * local) falls back to the lowercased original instead of inventing
+ * `@gmail.com`. Callers decide validity separately (isValidEmailSyntax).
+ */
+export function canonicalEmail(email) {
+  if (typeof email !== 'string' || !email.trim()) return null;
+  const e = email.trim().toLowerCase();
+  const at = e.lastIndexOf('@');
+  if (at <= 0) return e;
+  let local = e.slice(0, at);
+  let domain = e.slice(at + 1);
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  const plus = local.indexOf('+');
+  if (plus > 0) local = local.slice(0, plus); // > 0: a leading '+' is kept, never an empty local
+  if (domain === 'gmail.com') local = local.replace(/\./g, '');
+  if (!local) return e;
+  return `${local}@${domain}`;
+}
+
 const CONSUMER_DOMAINS = new Set([
   // Google
   'gmail.com', 'googlemail.com',

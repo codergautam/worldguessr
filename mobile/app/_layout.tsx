@@ -28,6 +28,7 @@ import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
 import SetUsernameModal from '../src/components/SetUsernameModal';
+import PartyLoginGate from '../src/components/auth/PartyLoginGate';
 import ForceUpdateModal from '../src/components/ForceUpdateModal';
 import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
 import { initAds, preloadInterstitial } from '../src/services/ads';
@@ -221,6 +222,12 @@ export default function RootLayout() {
           <ToastProvider />
           <ActionableNotifications />
           <WsIndicator />
+          {/* Login sheet for guest joins that hit the server's 2v2 login gate
+              (deep links have no owning screen, so the gate lives at root).
+              It renders a native Modal, so mount order vs the overlays below
+              doesn't matter — but keep it before SetUsernameModal to mirror
+              the sign-in → set-username choreography. */}
+          <PartyLoginGate />
           {/* Forces a new account with no username to set one before using the app.
               Mounted last + at root so its modal overlays EVERYTHING (home,
               onboarding, game) and cannot be bypassed. */}

@@ -42,6 +42,10 @@ export default function PartyJoinScreen() {
 
   const joinPrivateGame = useMultiplayerStore((s) => s.joinPrivateGame);
   const joinError = useMultiplayerStore((s) => s.joinError);
+  // Set when a join bounced off the server's login gate: PartyLoginGate is
+  // raising the login sheet over this screen, so the attempt is resolved even
+  // though there is deliberately no error text to show.
+  const pendingLoginJoin = useMultiplayerStore((s) => s.pendingLoginJoin);
 
   // Auto-focus input
   useEffect(() => {
@@ -56,13 +60,14 @@ export default function PartyJoinScreen() {
     }
   }, [code]);
 
-  // A join error means the attempt failed — re-enable the button
+  // The attempt resolved without a game: either a plain error, or the login
+  // gate (which shows a sheet instead of an error). Re-enable the button.
   useEffect(() => {
-    if (joinError) {
+    if (joinError || pendingLoginJoin) {
       setJoining(false);
       if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
     }
-  }, [joinError]);
+  }, [joinError, pendingLoginJoin]);
 
   // Clear the safety timeout on unmount (success navigates away before it fires).
   useEffect(() => () => {

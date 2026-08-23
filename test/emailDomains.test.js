@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  canonicalEmail,
   emailDomainOf,
   isAllowedEmailDomain,
   isDisposableDomain,
@@ -132,5 +133,38 @@ describe('looksLikeSchoolSubdomain (owner ruling 2026-08-23)', () => {
     expect(looksLikeSchoolSubdomain('student.hcbe.net')).toBe(true);
     expect(looksLikeSchoolSubdomain('staff.hcbe.net')).toBe(false);
     expect(looksLikeSchoolDomain('student.hcbe.net')).toBe(false); // parent stays unjudged
+  });
+});
+
+describe('canonicalEmail (alias -> one account identity)', () => {
+  it('strips plus-tags on every domain, not just Gmail', () => {
+    expect(canonicalEmail('bob+alt42@gmail.com')).toBe('bob@gmail.com');
+    expect(canonicalEmail('kid+wg@student.k12.ca.us')).toBe('kid@student.k12.ca.us');
+    expect(canonicalEmail('a+b+c@outlook.com')).toBe('a@outlook.com');
+  });
+
+  it('collapses dots for Gmail only', () => {
+    expect(canonicalEmail('b.o.b@gmail.com')).toBe('bob@gmail.com');
+    expect(canonicalEmail('b.ob+x@googlemail.com')).toBe('bob@gmail.com');
+    expect(canonicalEmail('first.last@outlook.com')).toBe('first.last@outlook.com');
+  });
+
+  it('folds googlemail.com into gmail.com', () => {
+    expect(canonicalEmail('bob@googlemail.com')).toBe('bob@gmail.com');
+  });
+
+  it('lowercases and trims like normalizeEmail', () => {
+    expect(canonicalEmail('  Bob+Tag@GMAIL.com ')).toBe('bob@gmail.com');
+  });
+
+  it('never empties the local part', () => {
+    expect(canonicalEmail('+tag@gmail.com')).toBe('+tag@gmail.com');
+    expect(canonicalEmail('...@gmail.com')).toBe('...@gmail.com');
+  });
+
+  it('is total on junk (validity is the caller\'s job)', () => {
+    expect(canonicalEmail('')).toBe(null);
+    expect(canonicalEmail('not-an-email')).toBe('not-an-email');
+    expect(canonicalEmail('@gmail.com')).toBe('@gmail.com');
   });
 });

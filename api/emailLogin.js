@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import EmailLoginCode from '../models/EmailLoginCode.js';
 import { normalizeEmail } from '../serverUtils/bannedIdentities.js';
+import { canonicalEmail } from '../serverUtils/emailDomains.js';
 import { isValidEmailSyntax } from '../serverUtils/emailDomains.js';
 import { decideEmailDomain, notifyDomain } from '../serverUtils/emailDomainPolicy.js';
 import { hashLoginCode } from '../serverUtils/loginCodeHash.js';
@@ -52,6 +53,15 @@ export default async function handler(req, res) {
   if (!email || !isValidEmailSyntax(email)) {
     return res.status(400).json({ error: 'invalidEmail' });
   }
+  // TWO spellings from here on. `email` is where the mail goes (the typed
+  // address — an alias still receives its code). `canonical` is WHO IT IS:
+  // plus-tags stripped, Gmail dots collapsed (serverUtils/emailDomains.js).
+  // Identity-bearing state — the account lookup, the code rows, the send
+  // caps, the locks — keys on canonical, so `bob+alt7@gmail.com` can neither
+  // mint another account nor buy another hourly send budget. Verify needs no
+  // change: the code row carries canonical in `email`/`matchEmail`, and
+  // emailVerify already resolves and creates accounts from the row alone.
+  const canonical = canonicalEmail(email);
 
   const ip = clientIp(req);
   if (limiter(ip)) {
@@ -63,12 +73,19 @@ export default async function handler(req, res) {
   // Exact (indexed) first, then case-insensitive through the email_ci index,
   // so a legacy row stored with uppercase logs in instead of spawning a
   // duplicate account (serverUtils/findUserByEmail.js).
-  const existing = await findUserByEmail(email, { select: '_id email', lean: true });
+  // Typed spelling first (legacy rows are reachable only by their exact or
+  // case-folded form), then the canonical one, so an alias of an existing
+  // account LOGS INTO that account instead of creating a sibling.
+  const existing = await findUserByEmail(email, { select: '_id email', lean: true })
+    || (canonical !== email
+      ? await findUserByEmail(canonical, { select: '_id email', lean: true })
+      : null);
 
   if (!existing) {
     // New account: static lists, DB rules, throw-away check, then the
     // school-name heuristic on the registrable domain (serverUtils/emailDomainPolicy.js).
-    const verdict = await decideEmailDomain(email);
+    // Decided on canonical so the googlemail->gmail fold is one domain.
+    const verdict = await decideEmailDomain(canonical);
     if (!verdict.allow) {
       notifyDomain('rejected', verdict.domain, verdict.reason);
       return res.status(400).json({ error: 'emailDomainNotAllowed' });
@@ -76,7 +93,7 @@ export default async function handler(req, res) {
   }
 
   const now = Date.now();
-  const recent = await EmailLoginCode.find({ email, createdAt: { $gt: new Date(now - 60 * 60 * 1000) } })
+  const recent = await EmailLoginCode.find({ email: canonical, createdAt: { $gt: new Date(now - 60 * 60 * 1000) } })
     .sort({ createdAt: -1 })
     .select('loginId createdAt consumed expiresAt clientId')
     .lean();
@@ -111,7 +128,7 @@ export default async function handler(req, res) {
   // one holds send:<email> for the next RESEND_COOLDOWN_S; the rest get the
   // same 429 a sequential request would have got. Because sends are thereby
   // serialised 30s apart, the hourly count read above is never stale either.
-  if (!(await acquireLoginLock(`send:${email}`, RESEND_COOLDOWN_S * 1000))) {
+  if (!(await acquireLoginLock(`send:${canonical}`, RESEND_COOLDOWN_S * 1000))) {
     return res.status(429).json({ error: 'tooManyRequests', retryAfter: RESEND_COOLDOWN_S });
   }
 
@@ -125,8 +142,8 @@ export default async function handler(req, res) {
   const loginId = crypto.randomBytes(16).toString('hex');
   await EmailLoginCode.create({
     loginId,
-    email,
-    matchEmail: existing?.email || email,
+    email: canonical,
+    matchEmail: existing?.email || canonical,
     codeHash: hashLoginCode(loginId, code),
     ip,
     clientId,

@@ -13,7 +13,6 @@ import { create } from 'zustand';
 import { wsService } from '../services/websocket';
 import { useAuthStore } from './authStore';
 import { EMOTE_TTL_MS, EMOTE_COOLDOWN_MS, getEmote, byLegacyIndex } from '../shared/emotes';
-import { t } from '../shared/locale';
 import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../services/websocketConfig';
 
 // Module-level emote send throttle + id counter (mirrors web emoteReactions.js).
@@ -561,6 +560,18 @@ interface MultiplayerState {
   // Private game join
   enteringGameCode: boolean;
   joinError: string | null;
+  /**
+   * A guest's join bounced off the server's login gate ('Link your Google
+   * account to play 2v2'): the attempted code (+ inviter name for the
+   * personalized upsell copy) is parked here while PartyLoginGate shows the
+   * login sheet, then consumed by the account verify ack after sign-in for
+   * the seamless auto-join (web home.js joinAfterLoginRef parity). Lives at
+   * store ROOT, not in gameInitialState: it must survive the join-error
+   * teardown AND the login-triggered socket reconnect.
+   */
+  pendingLoginJoin: { code: string; hostName: string | null } | null;
+  /** Abandon a parked login-gated join (login sheet closed without signing in). */
+  clearPendingLoginJoin: () => void;
 
   // In-game
   inGame: boolean;
@@ -840,6 +851,14 @@ function clearSettingsAckWatchdogs() {
   }
 }
 
+/**
+ * Last party code a joinPrivateGame was SENT for, stamped at the send site.
+ * Module-level on purpose (mirrors web home.js's lastJoinCodeRef): it is
+ * request context for the server's reply, not renderable state, and no
+ * lifecycle teardown may wipe it between send and reply.
+ */
+let lastJoinCode: string | null = null;
+
 const initialState = {
   connected: false,
   connecting: false,
@@ -851,6 +870,8 @@ const initialState = {
   // Session-scoped chat mutes: survive every game/account lifecycle reset
   // (a muted loudmouth stays muted for the whole app session).
   mutedChatIds: {} as Record<string, true>,
+  // Login-gated join park — root-scoped on purpose, see the interface doc.
+  pendingLoginJoin: null as { code: string; hostName: string | null } | null,
   ...accountInitialState,
   ...gameInitialState,
 };
@@ -1161,11 +1182,17 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   // /party/join screen is mounted to render `joinError`), FALSE for a link tap
   // (no such screen) — the gameJoinError handler branches on it.
   joinPrivateGame: (code, viaLink = false) => {
+    // Stamp the attempted code SYNCHRONOUSLY at the send site (web home.js
+    // lastJoinCodeRef lens): the gameJoinError login-gate branch needs it, and
+    // threading request context through async reply state loses the race.
+    lastJoinCode = String(code);
     // 'join' intent is transient: the game handler nulls it once the lobby
     // snapshot arrives (creators keep 'party'/'2v2' — web home.js parity).
     set({ joinError: null, enteringGameCode: !viaLink, lobbyIntent: 'join' });
     wsService.send({ type: 'joinPrivateGame', gameCode: code });
   },
+
+  clearPendingLoginJoin: () => set({ pendingLoginJoin: null }),
 
   // Leave the current game: tell the server (so it clears player.gameId, freeing
   // the player to re-queue) then drop all game-scoped state. Used by the in-game
@@ -1254,6 +1281,18 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // Store rejoinCode for reconnection
       if (data.rejoinCode) {
         wsService.storeRejoinCode(data.rejoinCode);
+      }
+      // Post-login auto-retry (web home.js verify-ack parity): an account ack
+      // carries no guestName (guest acks do). If a login gate parked a join,
+      // complete it now — the server stamps accountId BEFORE sending this ack
+      // (ordered WS), so the retry joins as the fresh account. A still-unnamed
+      // Google/Apple signup bounces off the server's unnamed guard into the
+      // quiet re-park below until SetUsernameModal's save reconnects and this
+      // ack fires again, named.
+      if (!data.guestName && state.pendingLoginJoin) {
+        const { code } = state.pendingLoginJoin;
+        set({ pendingLoginJoin: null });
+        get().joinPrivateGame(code, true);
       }
       return;
     }
@@ -1789,18 +1828,51 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── gameJoinError (home.js:2184-2206) ──────────────────
     if (data.type === 'gameJoinError') {
-      // Manual entry: the /party/join screen is mounted and renders `joinError`
-      // inline, so just hand it the message. Guest 2v2 gate with an inviter
-      // name gets the personalized line here too — the typed code came from
-      // that friend, greet them by name (set-time translation is fine:
-      // joinError is transient display text, cleared on the next keystroke).
-      if (state.enteringGameCode) {
+      // Guest login gate (server: is2v2Lobby && !accountId). Web parity
+      // (home.js joinAfterLoginRef + openLoginUpsell): don't leave the guest
+      // with a sentence — park the attempted code and let PartyLoginGate
+      // (root mount) raise the login sheet over whatever screen they're on.
+      // The account verify ack after sign-in consumes the park and re-joins,
+      // so the friend's lobby is one sign-in away, zero extra taps. NO error
+      // text on either path (user ruling): the sheet says the same thing in a
+      // friendlier way, and a red line under the code field while a login
+      // sheet slides over it just reads as "you did something wrong". The
+      // join screen clears its own spinner off `pendingLoginJoin` instead.
+      if (data.error === 'Link your Google account to play 2v2' && lastJoinCode) {
         set({
-          joinError:
-            data.error === 'Link your Google account to play 2v2' && data.hostName
-              ? t('linkGoogle2v2InvitedDesc', { name: data.hostName })
-              : data.error,
+          pendingLoginJoin: { code: lastJoinCode, hostName: data.hostName ?? null },
+          joinError: null,
+          enteringGameCode: false,
+          inGame: false,
+          gameData: null,
+          emotes: [],
+          ...queueTeardownState,
         });
+        return;
+      }
+      // Fresh-signup belt (web home.js parity): a brand-new Google/Apple
+      // account has no username yet, so the parked join bounces off the
+      // server's unnamed guard while SetUsernameModal already owns the
+      // screen. Re-park QUIETLY (no toast, no inline error — the username
+      // modal is the next step); its save forces a reconnect and the next
+      // verify ack retries the join, named.
+      if (data.error === 'Choose a username first' && lastJoinCode) {
+        set({
+          pendingLoginJoin: {
+            code: lastJoinCode,
+            hostName: state.pendingLoginJoin?.hostName ?? null,
+          },
+          joinError: null,
+          enteringGameCode: false,
+          ...queueTeardownState,
+        });
+        return;
+      }
+      // Manual entry: the /party/join screen is mounted and renders `joinError`
+      // inline, so just hand it the message. (The 2v2 login gate never reaches
+      // here — it returned above with the login sheet instead of red text.)
+      if (state.enteringGameCode) {
+        set({ joinError: data.error });
         return;
       }
       // Joined via a shared party link: no join screen is on screen, so an inline
@@ -1813,30 +1885,20 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // unknowns into invalidPartyCode showed flagless users "Invalid or
       // expired party code" instead of the upgrade message.
       //
-      // Guest 2v2 gate with an inviter name (hostName is additive on the
-      // server payload — absent on old ws builds, which keeps this branch
-      // dormant there): personalize the conversion toast, a friend's name
-      // converts better than the generic upgrade line.
-      if (data.error === 'Link your Google account to play 2v2' && data.hostName) {
-        get().pushToast({
-          key: 'linkGoogle2v2InvitedDesc',
-          vars: { name: data.hostName },
-          toastType: 'error',
-          message: data.error,
-        });
-      } else {
-        const errorKey =
-          data.error === 'Game is full'
-            ? 'partyFull'
-            : data.error === 'Invalid game code'
-              ? 'invalidPartyCode'
-              : data.error;
-        get().pushToast({
-          key: errorKey,
-          toastType: 'error',
-          message: data.error,
-        });
-      }
+      // The 2v2 login gate never reaches here either: it returned above and
+      // raised the login sheet, which carries the inviter's name in its own
+      // copy — a far better conversion surface than an error toast.
+      const errorKey =
+        data.error === 'Game is full'
+          ? 'partyFull'
+          : data.error === 'Invalid game code'
+            ? 'invalidPartyCode'
+            : data.error;
+      get().pushToast({
+        key: errorKey,
+        toastType: 'error',
+        message: data.error,
+      });
       set({
         joinError: null,
         enteringGameCode: false,
