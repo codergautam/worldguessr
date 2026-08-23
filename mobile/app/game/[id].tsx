@@ -2615,7 +2615,6 @@ export default function GameScreen() {
       timeOffset={timeOffset}
       criticalEnabled={gameData.state === 'guess'}
       hasGuess={!!guessPosition}
-      isPlacement={gameData.isPlacement === true}
     />
   ) : null;
 

@@ -17,10 +17,15 @@ import type {
  */
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Parsed JSON body of the failed response (when it had one). The email login
+   * endpoints put a locale KEY in `body.error`, which the sign-in sheet branches
+   * on; `message` alone would lose it whenever the body also carries a sentence. */
+  body: Record<string, any> | null;
+  constructor(message: string, status: number, body: Record<string, any> | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -86,12 +91,13 @@ async function fetchApi<T>(
 
   if (!response.ok) {
     let message = `API error: ${response.status}`;
+    let body: Record<string, any> | null = null;
     try {
-      const body = await response.json();
-      if (body.message) message = body.message;
-      if (body.error) message = body.error;
+      body = await response.json();
+      if (body?.message) message = body.message;
+      if (body?.error) message = body.error;
     } catch {}
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, body);
   }
 
   return response.json();
@@ -272,6 +278,21 @@ export interface StampHistoryEntry {
  * helper for anything that must be unguessable.
  */
 export function newPurchaseKey(): string {
+  return uuidV4();
+}
+
+/**
+ * The email-code login's session nonce (web parity: LoginModal newClientId;
+ * server: serverUtils/loginSession.js). Sent with emailLoginStart and
+ * emailLoginVerify so the server recognises OUR retries and hands back the
+ * code / login already issued instead of a 429 / 409. Not a secret and not a
+ * capability (the emailed code is); it only has to be ours.
+ */
+export function newLoginSessionId(): string {
+  return uuidV4();
+}
+
+function uuidV4(): string {
   const c: any = (globalThis as any).crypto;
   if (typeof c?.randomUUID === 'function') return c.randomUUID();
   const bytes = new Uint8Array(16);
@@ -349,6 +370,33 @@ export const api = {
     return fetchApi<AuthResponse>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ apple_identity_token: identityToken, tz: getDeviceTimezone() }),
+    }, AUTH_URL);
+  },
+
+  // Email + 6-digit code login (web parity: components/auth/LoginModal.js).
+  // Step 1: send the code; `exists` decides whether a username step comes next.
+  emailLoginStart: async (email: string, clientId: string) => {
+    return fetchApi<{ loginId: string; exists: boolean; resendAfter: number; resent?: boolean }>('/api/emailLogin', {
+      method: 'POST',
+      body: JSON.stringify({ email, tz: getDeviceTimezone(), clientId }),
+    }, AUTH_URL);
+  },
+
+  // Step 2 (new accounts): live availability. Advisory; emailVerify re-checks.
+  checkUsername: async (username: string) => {
+    return fetchApi<{ available: boolean; error?: string }>('/api/checkUsername', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }, AUTH_URL);
+  },
+
+  // Step 3: redeem the code. Same response shape as googleAuth (+ isNewAccount).
+  // Errors arrive as ApiError with body.error = locale key (wrongCode,
+  // codeExpired, codeUsed, usernameTaken, ...).
+  emailLoginVerify: async (loginId: string, code: string, username: string | undefined, clientId: string) => {
+    return fetchApi<AuthResponse & { isNewAccount?: boolean }>('/api/emailVerify', {
+      method: 'POST',
+      body: JSON.stringify({ loginId, code, username, tz: getDeviceTimezone(), clientId }),
     }, AUTH_URL);
   },
 

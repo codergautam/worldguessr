@@ -384,6 +384,11 @@ const userSchema = new mongoose.Schema({
 
 // Index for email lookups during Google OAuth login
 userSchema.index({ email: 1 });
+// Case-insensitive email index for the email-code login (serverUtils/
+// findUserByEmail.js): legacy rows can carry uppercase and the plain index
+// above cannot serve a strength-2 collation query. Named explicitly: the
+// default name would collide with email_1.
+userSchema.index({ email: 1 }, { collation: { locale: 'en', strength: 2 }, name: 'email_ci' });
 // Index for Apple Sign In lookups
 userSchema.index({ appleId: 1 });
 // Index for finding users with expired temp bans
@@ -398,6 +403,7 @@ userSchema.index({ username: 1 });
 
 // Export collation config for consistent usage across queries
 export const USERNAME_COLLATION = { locale: 'en', strength: 2 };
+export const EMAIL_COLLATION = { locale: 'en', strength: 2 };
 
 // ===== LEADERBOARD PERFORMANCE INDEXES =====
 // All-time XP leaderboard - critical for sorting millions of users by XP

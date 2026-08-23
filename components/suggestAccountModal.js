@@ -1,67 +1,59 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
-import { signIn } from "@/components/auth/auth";
-import gameStorage from "./utils/localStorage";
 import { HIDE_ACCOUNT_UI } from "./utils/accountUi";
-import { FaGoogle, FaTrophy, FaChartLine, FaGamepad, FaUsers } from 'react-icons/fa';
+import { FaTrophy, FaGamepad, FaUsers } from 'react-icons/fa';
 
-// Locked-mode conversion variants: guests clicking 2v2 / Ranked get this same
-// modal shell with mode-specific copy ("link Google", never "make an account")
-// and "Maybe later" instead of "Continue as Guest" (dismissing doesn't unlock
-// the mode). The default variant stays the periodic home-screen suggestion.
-// On CrazyGames the linked account is the platform's, not Google, so titles
-// and the CTA swap to CrazyGames-branded keys.
+// CRAZYGAMES ONLY. A guest on CrazyGames taps Ranked / 2v2 (or opens a
+// friend's 2v2 invite): this prompt names the mode and offers to link the
+// CrazyGames account through the platform's own auth popup. Everywhere else
+// that same moment opens components/auth/LoginModal.js directly (email + code,
+// Google, Apple) with the mode copy as its title/subtitle. A CrazyGames
+// account links through the SDK, not through our login, so the email modal is
+// wrong there and this prompt stays. The periodic home-screen prompt never ran
+// on CrazyGames (home.js gates it), so only the locked-mode variants exist.
 const VARIANTS = {
   // invitedDescKey: personalized copy when the prompt was triggered by a
   // party invite and the server told us who sent it (hostName on the
-  // gameJoinError) — a friend's name converts better than generic copy.
-  '2v2': { Icon: FaUsers, titleKey: 'linkGoogle2v2Title', crazyTitleKey: 'linkCrazyGames2v2Title', descKey: 'linkGoogle2v2Desc', invitedDescKey: 'linkGoogle2v2InvitedDesc' },
-  'ranked': { Icon: FaTrophy, titleKey: 'linkGoogleRankedTitle', crazyTitleKey: 'linkCrazyGamesRankedTitle', descKey: 'linkGoogleRankedDesc' },
+  // gameJoinError): a friend's name converts better than generic copy.
+  '2v2': { Icon: FaUsers, titleKey: 'linkCrazyGames2v2Title', descKey: 'linkGoogle2v2Desc', invitedDescKey: 'linkGoogle2v2InvitedDesc' },
+  'ranked': { Icon: FaTrophy, titleKey: 'linkCrazyGamesRankedTitle', descKey: 'linkGoogleRankedDesc' },
 };
 
-export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, variant = null, inviterName = null, inCrazyGames = false }) {
+export default function SuggestAccountModal({ shown, setOpen, variant, inviterName = null }) {
   const { t: text } = useTranslation("common");
-  // Every variant of this modal is account-signup copy, so it can never render
-  // on a no-account build. Guarded HERE rather than trusting call sites: the
-  // 2v2 join-error path opens it from a WebSocket handler, which is precisely
-  // the caller that forgot.
+  // Account-signup copy can never render on a no-account build. Guarded HERE
+  // rather than trusting call sites: the 2v2 join-error path opens it from a
+  // WebSocket handler, which is precisely the caller that forgets.
   if (HIDE_ACCOUNT_UI) return null;
-  const variantDef = variant ? VARIANTS[variant] : null;
-  const Icon = variantDef?.Icon || FaTrophy;
+  const variantDef = VARIANTS[variant];
+  if (!variantDef) return null;
+  const Icon = variantDef.Icon;
 
   const handleClose = () => {
     setOpen(false);
   };
 
-  const handleGoogleLogin = () => {
+  const handleLink = () => {
     // CrazyGames accounts link through the platform's own auth popup; the SDK
     // auth listener registered in home.js picks up the result and completes
-    // the wg session + ws re-verify automatically, which then auto-closes
-    // this modal via the session effect.
-    if (inCrazyGames && typeof window !== 'undefined' && window.CrazyGames?.SDK?.user) {
-      window.CrazyGames.SDK.user.showAuthPrompt((error, user) => {
-        const code = error?.code || error;
-        // userCancelled keeps the modal up (they may reconsider);
-        // userAlreadySignedIn means the auth listener already has it covered.
-        if (error && code !== 'userAlreadySignedIn') {
-          console.log('CrazyGames auth prompt:', code);
-          return;
-        }
-        setOpen(false);
-      });
-      return;
-    }
-    signIn('google');
-  };
-
-  const handleNeverAgain = () => {
-    try { gameStorage.setItem("suggestLoginNeverShow", "1"); } catch(e) {}
-    setOpen(false);
+    // the wg session + ws re-verify (which also retries a gated party join),
+    // and the session effect in home.js then closes this modal.
+    if (typeof window === 'undefined' || !window.CrazyGames?.SDK?.user) return;
+    window.CrazyGames.SDK.user.showAuthPrompt((error) => {
+      const code = error?.code || error;
+      // userCancelled keeps the modal up (they may reconsider);
+      // userAlreadySignedIn means the auth listener already has it covered.
+      if (error && code !== 'userAlreadySignedIn') {
+        console.log('CrazyGames auth prompt:', code);
+        return;
+      }
+      setOpen(false);
+    });
   };
 
   return (
-    <Modal 
-      id="signUpModal" 
+    <Modal
+      id="signUpModal"
       styles={{
         modal: {
           background: 'linear-gradient(135deg, rgba(20, 65, 25, 0.97) 0%, rgba(10, 40, 15, 0.99) 100%)',
@@ -142,7 +134,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text'
       }}>
-        {text(variantDef ? (inCrazyGames ? variantDef.crazyTitleKey : variantDef.titleKey) : "trackYourProgress")}
+        {text(variantDef.titleKey)}
       </h2>
 
       <p style={{
@@ -155,22 +147,22 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
         // The other descs are single-line strings, so they're unaffected.
         whiteSpace: 'pre-line'
       }}>
-        {variantDef
-          ? (inviterName && variantDef.invitedDescKey
-            ? text(variantDef.invitedDescKey, { name: inviterName })
-            : text(variantDef.descKey))
-          : text(inCrazyGames ? "trackYourProgressCrazy" : "trackYourProgress1")}
+        {inviterName && variantDef.invitedDescKey
+          ? text(variantDef.invitedDescKey, { name: inviterName })
+          : text(variantDef.descKey)}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <button 
-          onClick={handleGoogleLogin}
+        <button
+          onClick={handleLink}
           style={{
-            background: 'linear-gradient(135deg, #4285F4 0%, #34a853 100%)',
-            border: '2px solid rgba(255, 255, 255, 0.1)',
+            // The house primary (.join-party-button): solid --primary, 2px
+            // Night Green frame, 12px radius.
+            background: 'var(--primary)',
+            border: '2px solid var(--primaryDark)',
             color: 'white',
             padding: '14px 28px',
-            borderRadius: '10px',
+            borderRadius: '12px',
             fontSize: '1rem',
             fontWeight: '600',
             cursor: 'pointer',
@@ -178,24 +170,26 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
             alignItems: 'center',
             justifyContent: 'center',
             gap: '10px',
-            boxShadow: '0 4px 15px rgba(66, 133, 244, 0.4)',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            transition: 'background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
             textShadow: '1px 1px 2px rgba(0, 0, 0, 0.2)',
           }}
           onMouseEnter={(e) => {
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 8px 25px rgba(66, 133, 244, 0.6)';
+            e.currentTarget.style.background = 'var(--primaryDark)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.3)';
           }}
           onMouseLeave={(e) => {
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 4px 15px rgba(66, 133, 244, 0.4)';
+            e.currentTarget.style.background = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
           }}
         >
-          {inCrazyGames ? <FaGamepad /> : <FaGoogle />}
-          {text(inCrazyGames ? "linkWithCrazyGames" : "loginWithGoogle1")}
+          <FaGamepad />
+          {text("linkWithCrazyGames")}
         </button>
-        
-        <button 
+
+        <button
           onClick={handleClose}
           style={{
             background: 'rgba(255, 255, 255, 0.12)',
@@ -220,33 +214,9 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain, va
             e.target.style.transform = 'translateY(0)';
           }}
         >
-          {text(variantDef ? "maybeLater" : "playAsGuest")}
+          {text("maybeLater")}
         </button>
       </div>
-
-      {showNeverAgain && (
-        <button
-          onClick={handleNeverAgain}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'rgba(255, 255, 255, 0.45)',
-            fontSize: '0.75rem',
-            fontFamily: 'Lexend, "Lexend Fallback", sans-serif',
-            cursor: 'pointer',
-            marginTop: '14px',
-            padding: '4px 8px',
-            textDecoration: 'underline',
-            textDecorationColor: 'rgba(255, 255, 255, 0.3)',
-            textUnderlineOffset: '2px',
-            transition: 'color 0.2s',
-          }}
-          onMouseEnter={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.8)'; }}
-          onMouseLeave={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.45)'; }}
-        >
-          {text("neverShowAgain")}
-        </button>
-      )}
 
       <style jsx>{`
         @keyframes float {

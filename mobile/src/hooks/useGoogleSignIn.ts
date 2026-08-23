@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import type { AuthSessionResult } from 'expo-auth-session';
 import { t } from '../shared';
 import { useGoogleAuth } from './useGoogleAuth';
@@ -19,9 +19,9 @@ import { useAuthStore } from '../store/authStore';
  *               module. The token's audience is the WEB client id, which our
  *               backend already accepts (api/googleAuth.js allowedAudiences).
  *
- * Returns a plain result so each caller surfaces the outcome its own way (inline
- * error text in the sheet, an Alert on Android). `cancelled` is distinct from a
- * real failure: a user backing out is not an error, so callers stay silent.
+ * Returns a plain result so the caller (the sign-in sheet) surfaces the outcome
+ * as inline error text. `cancelled` is distinct from a real failure: a user
+ * backing out is not an error, so callers stay silent.
  */
 export interface GoogleSignInResult {
   ok: boolean;
@@ -139,33 +139,24 @@ async function getBrowserIdToken(
 }
 
 /**
- * Shared login entry point for every "Sign in" affordance. Android has a
- * single provider (Google), so a tap runs the native Google flow directly —
- * no chooser sheet. iOS opens the AccountSelectSheet (Apple + Google). If the
- * Android flow isn't ready, fall back to the sheet so the tap is never a
- * dead end.
+ * Shared login entry point for every "Sign in" affordance. Opens the
+ * AccountSelectSheet on BOTH platforms: email + code is the primary sign-in
+ * now (web parity), with Apple (iOS) and Google as buttons inside the sheet.
+ * Android used to skip the sheet and run native Google directly; that shortcut
+ * is gone with Google demoted to a secondary option.
  *
- * `onSuccess` runs only after a successful ANDROID direct sign-in — the iOS
- * sheet path signals completion through the sheet's own onClose instead.
- * Callers passing the prompt straight to onPress are safe: a press event in
- * the first arg is ignored (only functions are honored).
+ * Completion is signalled through the sheet's own onClose (see
+ * onboarding/play.tsx handleAuthSheetClose). Callers passing the prompt
+ * straight to onPress are safe: the press event argument is ignored.
  */
 export function useLoginPrompt(openSheet: () => void) {
-  const { signIn, isReady, loading } = useGoogleSignIn();
+  const { loading } = useGoogleSignIn();
   const authLoading = useAuthStore((s) => s.isLoading);
 
-  return useCallback((onSuccess?: unknown) => {
+  return useCallback(() => {
     if (authLoading || loading) return;
-    const after = typeof onSuccess === 'function' ? (onSuccess as () => void) : undefined;
-    if (Platform.OS === 'android' && isReady) {
-      signIn().then((res) => {
-        if (res.ok) after?.();
-        else if (res.error) Alert.alert(t('signIn'), res.error);
-      });
-      return;
-    }
     openSheet();
-  }, [authLoading, loading, isReady, signIn, openSheet]);
+  }, [authLoading, loading, openSheet]);
 }
 
 export function useGoogleSignIn() {

@@ -30,6 +30,43 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
+### Email login codes (AWS SES)
+
+The email + code login (`api/emailLogin.js`, `api/emailVerify.js`, `api/checkUsername.js`; served by both `server.js` and `authServer.js`) mails 6-digit codes over SMTP (`serverUtils/sendLoginCode.js`, nodemailer). Today the SMTP endpoint is the Amazon SES SMTP interface.
+
+```bash
+# Sender shown to players. Unset OUTSIDE production = codes are printed to the
+# auth server console instead of being mailed (local testing). Unset IN
+# production = email login fails closed with emailSendFailed.
+EMAIL_FROM="WorldGuessr <noreply@worldguessr.com>"
+
+# SMTP endpoint + credentials (SES: SMTP credentials, NOT IAM access keys)
+SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=your_smtp_username
+SMTP_PASS=your_smtp_password
+```
+
+Before the first real send: the sending domain must be a verified SES identity (Easy DKIM CNAMEs), with SPF + DMARC records published, and the SES account out of the sandbox (the sandbox only delivers to verified addresses).
+
+Which addresses may **create** an account is decided by `serverUtils/emailDomainPolicy.js`: static consumer/school lists → `EmailDomainRule` rows in Mongo (`{ domain, status: 'allow'|'block', source }`, cached 5 min per process; an `allow` on a registrable domain such as `lausd.net` covers every sub-domain) → throw-away check → "looks like a school" name heuristic (the domain contains k12 / school / isd / academy / student / edu …) → otherwise refused. Auto-allows are recorded as `source: 'auto-token'` and both auto-allows and refusals are pinged once to `DISCORD_WEBHOOK`, so flip a bad auto-allow to `block`, or add a refused school as `allow`, in the collection. Seed the rules with `scripts/emailDomains/fromUsers.mjs` (your own users' domains) and `scripts/emailDomains/seedDatasets.mjs` (Hipo universities, UK GIAS, NCES CCD); both take `MONGODB_URI` on the command line.
+
+### Sign in with Apple on the web
+
+The login modal shows an Apple button when the client has a Services ID, and the server must accept that Services ID as a token audience (web tokens are NOT signed for the iOS bundle id):
+
+```bash
+# Client (baked at build time): the Services ID from Apple Developer -> Identifiers -> Services IDs,
+# configured with the site's domain verified and the page origin (e.g. https://www.worldguessr.com)
+# listed as a Return URL. Unset = no Apple button on web. Apple refuses localhost.
+NEXT_PUBLIC_APPLE_CLIENT_ID=com.example.worldguessr.web
+
+# Server: the same Services ID, so api/googleAuth.js accepts the web token's audience
+APPLE_WEB_CLIENT_ID=com.example.worldguessr.web
+```
+
+`DISCORD_WEBHOOK` (below) also receives one message per email domain the signup allowlist refuses or auto-allows, so the `EmailDomainRule` collection can grow with real schools and providers.
+
 ## 🌐 Server Configuration
 
 ### Port Configuration

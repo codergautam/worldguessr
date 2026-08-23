@@ -14,6 +14,9 @@ jobs:
       NEXT_PUBLIC_WS_HOST: server.worldguessr.com
       NEXT_PUBLIC_AUTH_URL: gauth.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
+      # Sign in with Apple on the web: the Services ID (public client id, like the
+      # Google one above). The auth/api hosts must accept it via APPLE_WEB_CLIENT_ID.
+      NEXT_PUBLIC_APPLE_CLIENT_ID: com.worldguessr.web
 
     steps:
     - uses: actions/checkout@v3

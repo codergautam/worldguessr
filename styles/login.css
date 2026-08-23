@@ -1,0 +1,516 @@
+/* LOGIN SURFACE CONTRACT (impeccable canon path, 2026-08-22, rev 3)
+   THESIS: a calm, modern sign-in card that belongs to the game but is not
+   the HUD: a charcoal card with a whisper of green (the shop tone ladder),
+   crisp white type, and ONE bright green button. It refuses both the dark
+   green-glass wash (rev 1) and the foreign white card (rev 2).
+   OWN-WORLD: card #171c19, fields #232a26, white ink with two alpha steps,
+   a mint #4ade80 chunky primary with a 4px bottom edge that presses down
+   (Duolingo), provider buttons as outlined dark chunks with the 4-colour G,
+   green only for "go" and "correct", red only for refusals, Lexend.
+   STORY: type your email, pick a name, type six digits, you are in.
+   FIRST VIEWPORT: "Welcome to WorldGuessr", one line of pitch, the email
+   field, the green Continue, "or", the Google button. Nothing else.
+   FORM: category standard, user-pinned: Apple/iOS sign-in clarity plus
+   Duolingo playfulness, dark neutral base, one brand-green primary.
+   FINISH: unreviewed and undocumented is unfinished; this build ends with the
+   finish review, the verdict, and DESIGN.md.
+
+   Mechanics: every selector lives under .wgLogin; the inputs use COMPOUND
+   selectors because styles/multiPlayerModal.css has an unscoped
+   input[type="text"] rule (0,1,1) that forces margin/padding/user-select.
+   Button labels are <span>s and globals.scss:1761 paints EVERY span white at
+   weight 500, so the leaf spans are styled here explicitly (the parent's
+   colour never reaches them). The shared ui/Modal shell keeps its behaviour
+   and is restyled for this one surface through the :has() overrides below. */
+
+/* ---------- shell overrides (ui/Modal stays the shell) ---------- */
+.modal-backdrop:has(> .modal > .modal-content > .wgLogin) {
+  background: rgba(0, 0, 0, 0.62);
+}
+.modal-backdrop .modal:has(> .modal-content > .wgLogin) {
+  background: #171c19;
+  color: #ffffff;
+  border: none;
+  border-radius: 24px;
+  max-width: 440px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.modal-backdrop .modal:has(> .modal-content > .wgLogin) > .modal-content {
+  padding: 28px 28px 26px;
+}
+
+/* ---------- surface ---------- */
+.wgLogin {
+  --lgCard: #171c19;
+  --lgInk: #ffffff;
+  --lgInkSoft: rgba(255, 255, 255, 0.66);
+  --lgMuted: rgba(255, 255, 255, 0.42);
+  --lgField: #232a26;
+  --lgFieldFocus: #1d2320;
+  --lgLine: #313a35;
+  --lgRule: rgba(255, 255, 255, 0.12);
+  --lgRing: rgba(255, 255, 255, 0.85);
+  --lgBtn: #4ade80;
+  --lgBtnHover: #5be58f;
+  --lgBtnEdge: #16a34a;
+  --lgBtnInk: #052e16;
+  --lgGood: #4ade80;
+  --lgGoodSoft: rgba(74, 222, 128, 0.14);
+  --lgBad: #f87171;
+  --lgBadInk: #fca5a5;
+  --lgBadSoft: rgba(248, 113, 113, 0.12);
+  --lgPad: 28px; /* = .modal-content horizontal padding; the stack bleeds to it */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  color: var(--lgInk);
+  font-family: "Lexend", "Lexend Fallback", sans-serif;
+}
+
+/* setUsernameModal renders this card WITHOUT the ui/Modal shell (it stays on
+   react-responsive-modal purely for the z-index that clears the Daily results
+   backdrop). The card therefore paints ITSELF here, and its width MUST live on
+   this element: globals.scss:7998 forces `max-width: none !important` on
+   .react-responsive-modal-modal, so any width on that shell becomes the full
+   viewport. */
+.wgLogin--card {
+  box-sizing: border-box;
+  /* The same column rhythm .wgLogin__step gives every step of the login modal.
+     .wgLogin itself is a flex column with NO gap, so a card rendered without a
+     step wrapper (this one) would sit on the head margin alone and read as
+     one cramped block. */
+  gap: 14px;
+  width: min(440px, calc(100vw - 32px));
+  padding: 28px 28px 26px;
+  background: var(--lgCard);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* setUsernameModal is FORCED (no close, no dismissal), so its head keeps the
+   full width instead of reserving the close button's corner. */
+.wgLogin--noClose .wgLogin__head { padding-right: 0; }
+
+.wgLogin__close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lgField);
+  border: none;
+  border-radius: 50%;
+  color: var(--lgInk);
+  font-size: 22px; /* FaTimes draws its X at ~0.69em: 15px in the 36px circle */
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  /* visibility rides the opacity fade: stays visible while fading out, flips
+     at the end; flips first when fading in. Out of the tab order once hidden. */
+  transition: background-color 0.15s ease, transform 0.2s ease, opacity 0.18s ease, visibility 0.18s;
+}
+.wgLogin__close--hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.wgLogin__close:hover { background: var(--lgLine); transform: rotate(90deg); }
+.wgLogin__close:focus-visible { outline: 2px solid var(--lgRing); outline-offset: 2px; }
+
+/* Step stack: outgoing and incoming overlap in one grid cell while they
+   cross; one min-height so the card never jumps between steps. */
+.wgLogin__stack {
+  display: grid;
+  align-items: start;            /* items size to content; the stack owns the height */
+  height: auto;                  /* LoginModal sets an explicit px height once measured */
+  overflow: hidden;              /* the outgoing ghost and a growing step are clipped, not scrolled */
+  /* Bleed to the card edge so the 28px step slide and the button focus rings
+     are never clipped; the measured height includes the 8px bottom padding
+     (STACK_PAD_BOTTOM in LoginModal.js). */
+  padding: 0 var(--lgPad) 8px;
+  margin: 0 calc(-1 * var(--lgPad)) -8px;
+  transition: height 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wgLogin__stack > * { grid-area: 1 / 1; }
+.wgLogin__step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: wgLoginStepIn 0.26s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+.wgLogin__step--out {
+  animation: wgLoginStepOut 0.14s ease both;
+  pointer-events: none;
+}
+
+/* The head is a size container so the title can read its own width. The title
+   only shrinks when the box is too narrow for "Welcome to WorldGuessr" on one
+   line: that string is 12.58 width-px per font-px in Lexend 700 at -0.01em, so
+   7.8cqi fills 98% of the head (kerning eats the rest). The 40px clearance is
+   the close button; on phones the head is viewport - 104px, so a 390px iPhone
+   renders 22px, 360px renders 20px, and only under ~344px does it wrap. */
+.wgLogin__head { display: flex; flex-direction: column; gap: 6px; padding-right: 40px; margin-bottom: 6px; container-type: inline-size; }
+.wgLogin__title { margin: 0; font-size: 26px; font-size: clamp(19px, 7.8cqi, 26px); font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; color: var(--lgInk); }
+/* pre-line: the 2v2 invite pitch (linkGoogle2v2InvitedDesc) is two lines joined by \n. */
+.wgLogin__lede { margin: 0; font-size: 15px; line-height: 1.45; color: var(--lgInkSoft); white-space: pre-line; }
+/* The address, inline in the lede sentence of the code step. */
+.wgLogin__email { font-weight: 700; color: var(--lgInk); overflow-wrap: anywhere; }
+
+.wgLogin__form { display: flex; flex-direction: column; gap: 12px; }
+.wgLogin__field { position: relative; }
+
+/* ---------- fields ---------- */
+.wgLogin .wgLogin__input {
+  width: 100%;
+  height: 56px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 18px;
+  font-family: inherit;
+  font-size: 16px; /* 16px or more, or iOS Safari zooms the page on focus */
+  font-weight: 600;
+  color: var(--lgInk);
+  background: var(--lgField);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  appearance: none;
+  color-scheme: dark;
+}
+.wgLogin .wgLogin__input::placeholder { color: var(--lgMuted); font-weight: 500; }
+.wgLogin .wgLogin__input:focus { outline: none; background: var(--lgFieldFocus); border-color: var(--lgRing); }
+.wgLogin .wgLogin__input:disabled { opacity: 0.6; cursor: not-allowed; }
+.wgLogin .wgLogin__input--error { border-color: var(--lgBad); background: var(--lgBadSoft); }
+.wgLogin .wgLogin__field .wgLogin__input { padding-right: 52px; }
+
+/* Availability glyph inside the username field: spinner / check / cross */
+.wgLogin__avail {
+  position: absolute;
+  right: 18px;
+  top: 0;
+  bottom: 0;
+  margin: auto 0; /* centers via auto margins, not transform: the spin keyframes own transform */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+  pointer-events: none;
+}
+.wgLogin__avail--checking {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--lgInk);
+  animation: spin 0.8s linear infinite;
+}
+.wgLogin .wgLogin__avail--ok { color: var(--lgGood); animation: wgPopIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.wgLogin .wgLogin__avail--taken, .wgLogin .wgLogin__avail--invalid { color: var(--lgBad); }
+
+/* ---------- buttons: chunky, with a bottom edge that presses down ---------- */
+.wgLogin .wgLogin__btn {
+  width: 100%;
+  height: 56px;
+  padding: 0 22px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: none;
+  border-radius: 16px;
+  background: var(--lgBtn);
+  color: var(--lgBtnInk);
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--lgBtnEdge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.15s ease, transform 0.08s ease, box-shadow 0.08s ease, color 0.15s ease;
+}
+/* globals.scss paints every <span> white/500; the label is a span. */
+.wgLogin .wgLogin__btn > span { color: inherit; font-weight: inherit; }
+
+/* Sending state: the label hops out, three dots bounce in its place, and the
+   button breathes. It stays bright (not the gray disabled look) because the
+   press is being honoured, not refused. */
+.wgLogin .wgLogin__btn { position: relative; }
+.wgLogin .wgLogin__btnLabel {
+  display: inline-block;
+  transition: opacity 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.wgLogin .wgLogin__dots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.15s ease, transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+}
+.wgLogin .wgLogin__dots > i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: wgDotBounce 0.9s cubic-bezier(0.3, 0, 0.2, 1) infinite;
+}
+.wgLogin .wgLogin__dots > i:nth-child(2) { animation-delay: 0.12s; }
+.wgLogin .wgLogin__dots > i:nth-child(3) { animation-delay: 0.24s; }
+.wgLogin .wgLogin__btn--busy .wgLogin__btnLabel { opacity: 0; transform: translateY(10px); }
+.wgLogin .wgLogin__btn--busy .wgLogin__dots { opacity: 1; transform: scale(1); }
+.wgLogin .wgLogin__btn--busy,
+.wgLogin .wgLogin__btn--busy:disabled {
+  background: var(--lgBtn);
+  color: var(--lgBtnInk);
+  box-shadow: 0 4px 0 var(--lgBtnEdge);
+  cursor: progress;
+  animation: wgBtnBreathe 1.1s ease-in-out infinite;
+}
+.wgLogin .wgLogin__btn:hover:not(:disabled) { background: var(--lgBtnHover); }
+.wgLogin .wgLogin__btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--lgBtnEdge); }
+.wgLogin .wgLogin__btn:focus-visible { outline: none; box-shadow: 0 4px 0 var(--lgBtnEdge), 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.wgLogin .wgLogin__btn:disabled {
+  background: var(--lgField);
+  color: var(--lgMuted);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Secondary (Google): outlined dark, same chunk. */
+.wgLogin .wgLogin__btn--quiet {
+  background: var(--lgFieldFocus);
+  color: var(--lgInk);
+  border: 2px solid var(--lgLine);
+  box-shadow: 0 4px 0 var(--lgLine);
+}
+.wgLogin .wgLogin__btn--quiet:hover:not(:disabled) { background: var(--lgField); }
+.wgLogin .wgLogin__btn--quiet:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--lgLine); }
+.wgLogin .wgLogin__btn--quiet:focus-visible { box-shadow: 0 4px 0 var(--lgLine), 0 0 0 3px rgba(255, 255, 255, 0.3); }
+.wgLogin .wgLogin__btn--quiet:disabled { background: var(--lgFieldFocus); color: var(--lgMuted); border-color: var(--lgLine); box-shadow: 0 4px 0 var(--lgLine); opacity: 0.6; }
+
+.wgLogin__spinner {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(5, 46, 22, 0.3);
+  border-top-color: var(--lgBtnInk);
+  animation: spin 1s linear infinite;
+}
+.wgLogin__spinner--dark { border-color: rgba(255, 255, 255, 0.3); border-top-color: var(--lgInk); }
+.wgLogin__gmark { width: 20px; height: 20px; flex-shrink: 0; }
+.wgLogin .wgLogin__btn .wgLogin__amark { width: 20px; height: 20px; flex-shrink: 0; margin-top: -2px; }
+
+/* "or": two quiet rules and a word. */
+.wgLogin__or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--lgMuted);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 2px 0;
+}
+.wgLogin__or::before, .wgLogin__or::after { content: ""; flex: 1; height: 1px; background: var(--lgRule); }
+
+/* Text links: Back / Resend / Use a different email. */
+.wgLogin__links { display: flex; flex-direction: column; align-items: center; gap: 0; margin-top: 2px; }
+.wgLogin .wgLogin__link {
+  align-self: center;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 8px 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lgInkSoft);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease;
+}
+.wgLogin .wgLogin__link:hover:not(:disabled) { color: var(--lgInk); }
+.wgLogin .wgLogin__link:focus-visible { outline: 2px solid var(--lgRing); outline-offset: 0; }
+.wgLogin .wgLogin__link:disabled { color: var(--lgMuted); cursor: default; }
+/* The periodic prompt's "Don't show this again": present, never competing. */
+.wgLogin .wgLogin__link--quiet { font-size: 13px; font-weight: 500; color: var(--lgMuted); }
+
+/* Code step footer: "Resend code · Use a different email" on one line. */
+.wgLogin__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 2px;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.wgLogin__sep { color: var(--lgMuted); font-size: 14px; font-weight: 600; user-select: none; }
+
+/* ---------- 6-digit code: ONE real input, six painted cells ---------- */
+.wgLogin__code {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  cursor: text;
+  margin: 4px 0 2px;
+}
+.wgLogin .wgLogin__code input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  cursor: text;
+}
+.wgLogin__digit {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 54px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lgField);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  color: var(--lgInk);
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.wgLogin__digit--active { background: var(--lgFieldFocus); border-color: var(--lgRing); }
+.wgLogin__digit--active::after {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 50%;
+  border-radius: 1px;
+  background: var(--lgInk);
+  animation: wgCaretBlink 1s steps(1, end) infinite;
+}
+.wgLogin__digit--filled { animation: wgDigitPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.wgLogin__code--busy .wgLogin__digit { opacity: 0.6; }
+.wgLogin__code--ok .wgLogin__digit { background: var(--lgGoodSoft); border-color: var(--lgGood); }
+.wgLogin__code--error .wgLogin__digit { background: var(--lgBadSoft); border-color: var(--lgBad); }
+.wgLogin__code--shake { animation: wgLoginShake 0.38s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+/* ---------- error line: one small red sentence ABOVE the field ----------
+   The slot animates its own height (grid row 0fr -> 1fr) so the field below
+   slides down instead of jumping; the collapse plays the same in reverse
+   while the card's measured height glides with it. */
+.wgLogin__errorSlot { display: grid; grid-template-rows: 1fr; }
+.wgLogin__errorSlot--in { animation: wgErrIn 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.wgLogin__errorSlot--out { animation: wgErrOut 0.2s ease both; pointer-events: none; }
+.wgLogin__error {
+  overflow: hidden;
+  min-height: 0;
+  color: var(--lgBadInk);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  padding: 0 2px;
+}
+
+@keyframes wgDotBounce {
+  0%, 80%, 100% { transform: translateY(0) scale(1); opacity: 0.55; }
+  40% { transform: translateY(-7px) scale(1.12); opacity: 1; }
+}
+@keyframes wgBtnBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+@keyframes wgDotFade {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes wgErrIn {
+  from { grid-template-rows: 0fr; opacity: 0; transform: translateY(-4px); }
+  to { grid-template-rows: 1fr; opacity: 1; transform: translateY(0); }
+}
+@keyframes wgErrOut {
+  from { grid-template-rows: 1fr; opacity: 1; }
+  to { grid-template-rows: 0fr; opacity: 0; }
+}
+@keyframes wgLoginStepIn {
+  from { opacity: 0; transform: translateX(calc(28px * var(--wgDir, 1))); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes wgLoginStepOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(calc(-18px * var(--wgDir, 1))); }
+}
+@keyframes wgLoginFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wgLoginFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wgDigitPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+@keyframes wgPopIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes wgCaretBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes wgLoginShake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(7px); }
+  45% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+@media (max-width: 768px) {
+  .modal-backdrop .modal:has(> .modal-content > .wgLogin) { border-radius: 20px; }
+  .modal-backdrop .modal:has(> .modal-content > .wgLogin) > .modal-content { padding: 24px 20px 22px; }
+  .wgLogin { --lgPad: 20px; }
+  .wgLogin__title { font-size: 24px; font-size: clamp(19px, 7.8cqi, 24px); }
+}
+@media (max-width: 420px) {
+  .wgLogin__code { gap: 8px; }
+  .wgLogin__digit { height: 58px; font-size: 24px; border-radius: 12px; }
+}
+
+/* Reduced motion means cuts and fades, never slides, pops or shakes. */
+@media (prefers-reduced-motion: reduce) {
+  .wgLogin__stack { transition: none; }
+  .wgLogin__errorSlot--in, .wgLogin__errorSlot--out { animation-duration: 0.01s; }
+  .wgLogin .wgLogin__btn--busy,
+  .wgLogin .wgLogin__btn--busy:disabled { animation: none; }
+  .wgLogin .wgLogin__dots > i { animation-name: wgDotFade; }
+  .wgLogin__step { animation-name: wgLoginFadeIn; }
+  .wgLogin__step--out { animation-name: wgLoginFadeOut; }
+  .wgLogin__digit--filled,
+  .wgLogin .wgLogin__avail--ok,
+  .wgLogin__code--shake { animation: none; }
+  .wgLogin__digit--active::after { animation: none; }
+  .wgLogin .wgLogin__btn:active:not(:disabled),
+  .wgLogin .wgLogin__btn--quiet:active:not(:disabled) { transform: none; }
+}

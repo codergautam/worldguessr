@@ -10,6 +10,7 @@ import '@/styles/playerCard.css';
 import '@/styles/season1Badges.css';
 import '@/styles/hallOfFame.css';
 import '@/styles/queueScreen.css';
+import '@/styles/login.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 

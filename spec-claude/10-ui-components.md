@@ -29,7 +29,7 @@ This maps the web components to suggested React Native equivalents.
 |---------------|---------|---------------|
 | `AccountModal` | Profile/account management | Bottom sheet or full-screen modal |
 | `SetUsernameModal` | First-time username setup | Full-screen modal |
-| `SuggestAccountModal` | Account creation prompt | Bottom sheet |
+| `SuggestAccountModal` | CrazyGames-only link-account prompt | n/a (no CrazyGames on mobile) |
 | `SettingsModal` | App settings | Settings screen or bottom sheet |
 | `MapsModal` | Map browsing/selection | Full-screen modal with FlatList |
 | `FriendsModal` | Friend management | Full-screen modal |

@@ -495,20 +495,12 @@ div:hover .s1-league-threshold:not(.s1-league-threshold--shown) {
     margin-bottom: 0.35rem;
 }
 
-/* In-match placement labelling: the VS intro and the duel timer pill both
- * announce the seeding match by reusing .elo-placement-label's text treatment.
- * These two rules are POSITIONING ONLY — the label look stays defined once,
- * above. */
+/* In-match placement labelling: the VS intro announces the seeding match by
+ * reusing .elo-placement-label's text treatment. This rule is POSITIONING
+ * ONLY — the label look stays defined once, above. (The duel timer pill used
+ * to repeat the tag; it no longer does, the clock and round are all it says.) */
 .hb-vs-placement {
     /* <p> between the VS label and the countdown: kill the UA margins, keep a
        hair of separation from the VS above. */
     margin: 0.2rem 0 0;
-}
-
-.timer__placement-tag {
-    /* Sits above the round-label footnote inside the pill; one step smaller
-       than the label's default so the clock stays the hero. */
-    display: block;
-    font-size: 0.6rem;
-    margin-bottom: 1px;
 }

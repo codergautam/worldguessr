@@ -28,7 +28,7 @@ export default function AccountScreen() {
     router.navigate('/(tabs)/home');
   };
 
-  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  // Both platforms: the sign-in sheet (email + code, Apple, Google).
   const handleLogin = useLoginPrompt(() => setAccountSheetVisible(true));
 
   if (!user) {

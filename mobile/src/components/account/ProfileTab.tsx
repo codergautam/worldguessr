@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../shared';
+import { t, validateUsername, USERNAME_MAX_LENGTH, USERNAME_LEN } from '../../shared';
 import { api } from '../../services/api';
 import {
   GlassCard,
@@ -526,7 +526,7 @@ export default function ProfileTab({
                     editable={!modalLoading}
                   />
                   <Text style={styles.hintText}>
-                    {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH })}
+                    {t('usernameRulesHint', USERNAME_LEN)}
                   </Text>
 
                   {/* Error */}

@@ -1,6 +1,7 @@
 /*
-Standalone auth server — isolates login + signup endpoints (googleAuth, setName)
-so they keep working when the main API server is overloaded.
+Standalone auth server — isolates login + signup endpoints (googleAuth, setName,
+emailLogin, emailVerify, checkUsername) so they keep working when the main API
+server is overloaded.
 */
 
 // FIRST IMPORT, AND IT MUST STAY FIRST — see the long note at the top of
@@ -24,6 +25,9 @@ import 'colors';
 
 import googleAuthHandler from './api/googleAuth.js';
 import setNameHandler from './api/setName.js';
+import emailLoginHandler from './api/emailLogin.js';
+import emailVerifyHandler from './api/emailVerify.js';
+import checkUsernameHandler from './api/checkUsername.js';
 import { registerCacheBusRoute } from './serverUtils/cacheBus.js';
 import { safeInterval } from './ws/safeTimers.js';
 import { startLeagueConfigRefresh } from './serverUtils/loadLeagueConfig.js';
@@ -108,9 +112,43 @@ app.get('/', (_req, res) => {
   );
 });
 
-app.all('/api/googleAuth', (req, res) => googleAuthHandler(req, res));
-app.all('/api/setName', (req, res) => setNameHandler(req, res));
+// Every handler promise is caught, exactly as server.js wraps its
+// auto-registered /api/* routes: a rejected handler answers 500 instead of
+// becoming an unhandled rejection, which on Node >= 15 takes the whole auth
+// process (every login) down with it.
+function logCritical(tag, details) {
+  console.error(`[CRITICAL] ${tag}`.red, details);
+}
+function guarded(path, handler) {
+  app.all(path, (req, res) => {
+    Promise.resolve(handler(req, res)).catch((err) => {
+      logCritical('API HANDLER CRASH', { path, method: req.method, error: err });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Server error' });
+      }
+    });
+  });
+}
+guarded('/api/googleAuth', googleAuthHandler);
+guarded('/api/setName', setNameHandler);
+// Email + code login (server.js auto-registers these by filename; this
+// process has an explicit table, so every new auth route is listed here too).
+guarded('/api/emailLogin', emailLoginHandler);
+guarded('/api/emailVerify', emailVerifyHandler);
+guarded('/api/checkUsername', checkUsernameHandler);
 registerCacheBusRoute(app);
+
+// Safety nets, same as server.js: log an unhandled rejection instead of
+// crashing (the guarded routes above should make this rare; when it fires,
+// treat the log as a bug and add try/catch at the source), and exit on an
+// uncaught synchronous exception so PM2 restarts a clean process.
+process.on('unhandledRejection', (reason) => {
+  logCritical('UNHANDLED PROMISE REJECTION', { reason });
+});
+process.on('uncaughtException', (err) => {
+  logCritical('UNCAUGHT EXCEPTION (PROCESS WILL EXIT)', { error: err });
+  process.exit(1);
+});
 
 const port = process.env.AUTH_PORT || 3004;
 const server = app.listen(port, () => {

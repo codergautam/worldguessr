@@ -746,6 +746,7 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: clamp(1.1rem, 2vw, var(--stampValueSize));
     font-weight: 700;
     line-height: 1.08;
@@ -2631,6 +2632,10 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
 
     .shopHeader {
         position: static;
+        /* The balance is live information, so the outer tracks must honor the
+           wider side's intrinsic width. Zero-minimum tracks squeezed the wallet
+           until browsers broke a balance such as 401 between every digit. */
+        grid-template-columns: minmax(max-content, 1fr) minmax(0, 2fr) minmax(max-content, 1fr);
         gap: 8px;
         width: 100%;
         min-height: var(--shopHeaderHeight);
@@ -2653,9 +2658,9 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
 
     .shopWallet {
         justify-self: end;
-        flex-shrink: 1;
         gap: 6px;
-        max-width: 100%;
+        min-width: max-content;
+        max-width: none;
         padding: 5px 8px;
         border-radius: 14px;
     }

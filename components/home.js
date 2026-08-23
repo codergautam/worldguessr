@@ -46,6 +46,8 @@ const MultiplayerHome = dynamic(() => import("@/components/multiplayerHome"), { 
 const SetUsernameModal = dynamic(() => import("@/components/setUsernameModal"), { ssr: false });
 const SettingsModal = dynamic(() => import("@/components/settingsModal"), { ssr: false });
 const OnboardingComplete = dynamic(() => import("@/components/onboardingComplete"), { ssr: false });
+const LoginModal = dynamic(() => import("@/components/auth/LoginModal"), { ssr: false });
+// CrazyGames only: the link-account prompt for locked modes (see the file).
 const SuggestAccountModal = dynamic(() => import("@/components/suggestAccountModal"), { ssr: false });
 const MapsModal = dynamic(() => import("@/components/maps/mapsModal"), { ssr: false });
 const DiscordModal = dynamic(() => import("@/components/discordModal"), { ssr: false });
@@ -113,6 +115,7 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 // this 5000+ line component.
 const HOME_AD_TYPES_SHORT = [[300, 250]];
 const HOME_AD_TYPES_TALL = [[320, 50], [300, 250]];
+const MULTIPLAYER_AD_TYPES_LEADERBOARD = [[728, 90]];
 // Stable identity for absent history (see gameUI.js EMPTY_ARRAY).
 const EMPTY_ARRAY = [];
 
@@ -304,6 +307,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [timeOffset, setTimeOffset] = useState(0)
     const timeSyncRef = useRef({ bestRtt: Infinity, lastSyncAt: 0, lastServerNow: 0 })
     const [loginQueued, setLoginQueued] = useState(false);
+    // The email + code login modal (components/auth/LoginModal.js). Opened by
+    // window.login, which auth.js signIn() calls from every sign-in prompt.
+    const [loginModalOpen, setLoginModalOpen] = useState(false);
     const [options, setOptions] = useState({
     });
     const [multiplayerError, setMultiplayerError] = useState(null);
@@ -412,11 +418,27 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         return () => clearInterval(hideInt);
     }, [])
 
-    let login = null;
+    // ONE landing for every sign-in path (Google popup, email + code modal).
+    // publishSession is not optional: the local setSession below only feeds
+    // THIS page; publishSession is what tells every other subscriber
+    // (pages/_app.js owns `--site-bg` off it, so without this an owner keeps
+    // the stock background until they refresh).
+    const applySignIn = (data, { method, isNew }) => {
+        // GA4 recommended names. A fresh Google account has no username yet
+        // (SetUsernameModal gates on the same); the email flow reports
+        // isNewAccount because its new accounts already carry a name.
+        sendEvent(isNew ? "sign_up" : "login", { method });
+        publishSession(data);
+        setSession({ token: data });
+        window.localStorage.setItem("wg_secret", data.secret);
+    };
+
+    let googleLogin = null;
     if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
-        login = useGoogleLogin({
+        googleLogin = useGoogleLogin({
             onSuccess: tokenResponse => {
+                let signedIn = false;
                 fetchWithFallback(
                     clientConfig().authUrl + "/api/googleAuth",
                     clientConfig().apiUrl + "/api/googleAuth",
@@ -431,17 +453,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     {}
                 ).then((res) => res.json()).then((data) => {
                     if (data.secret) {
-                        // GA4 recommended names; a fresh account has no
-                        // username yet (SetUsernameModal gates on the same).
-                        sendEvent(data.username ? "login" : "sign_up", { method: "google" });
-                        // BOTH, and the shared one is not optional. The local
-                        // state below only feeds THIS page; publishSession is
-                        // what tells every other subscriber (pages/_app.js owns
-                        // `--site-bg` off it, so without this an owner keeps the
-                        // stock background until they refresh).
-                        publishSession(data);
-                        setSession({ token: data })
-                        window.localStorage.setItem("wg_secret", data.secret)
+                        signedIn = true;
+                        applySignIn(data, { method: "google", isNew: !data.username });
                     } else if (data.error) {
                         // Explicit server refusal — e.g. a blocklisted perm-banned
                         // identity trying to re-register (403 from googleAuth's
@@ -459,7 +472,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     console.error("[Auth] Google OAuth failed after all retries:", e.message);
                     toast.error(`Login failed: ${e.message}. Please try again or contact support.`);
                 }).finally(() => {
-                    setLoginQueued(false);
+                    // On success the Google button stays in its busy state while
+                    // the login modal plays its close: clearing here would land
+                    // in the same render as the session and flash the idle
+                    // button for a frame. The flag is unreachable once signed
+                    // in, and signOut() reloads the page.
+                    if (!signedIn) setLoginQueued(false);
                 })
             },
             onError: error => {
@@ -482,8 +500,73 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // resurrect the redirect by accident.
         });
 
-        if (typeof window !== "undefined") window.login = login;
     }
+
+    // Sign in with Apple on the web: Apple's JS SDK in popup mode hands back an
+    // identity token, which goes to the SAME /api/googleAuth branch mobile
+    // uses (apple_identity_token). Needs NEXT_PUBLIC_APPLE_CLIENT_ID = the
+    // Services ID registered for this domain (Apple Developer -> Identifiers
+    // -> Services IDs: domain verified, the page origin listed as a Return
+    // URL), and the server accepts that audience via APPLE_WEB_CLIENT_ID.
+    // Unset = no Apple button on web. Apple refuses localhost, so test it on
+    // the real domain (or a tunnel on a registered host).
+    const [appleQueued, setAppleQueued] = useState(false);
+    const appleLogin = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID ? async () => {
+        if (appleQueued) return;
+        setAppleQueued(true);
+        let signedIn = false;
+        try {
+            if (!window.AppleID) {
+                await new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+                    s.async = true;
+                    s.onload = resolve;
+                    s.onerror = () => reject(new Error('Apple sign-in script failed to load'));
+                    document.head.appendChild(s);
+                });
+            }
+            window.AppleID.auth.init({
+                clientId: process.env.NEXT_PUBLIC_APPLE_CLIENT_ID,
+                scope: 'name email',
+                redirectURI: window.location.origin,
+                usePopup: true,
+            });
+            const result = await window.AppleID.auth.signIn();
+            const idToken = result?.authorization?.id_token;
+            if (!idToken) throw new Error('No Apple identity token');
+            const res = await fetchWithFallback(
+                clientConfig().authUrl + "/api/googleAuth",
+                clientConfig().apiUrl + "/api/googleAuth",
+                {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apple_identity_token: idToken, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                },
+                'appleAuthLogin',
+                {}
+            );
+            const data = await res.json();
+            if (data.secret) {
+                signedIn = true;
+                applySignIn(data, { method: "apple", isNew: !data.username });
+            } else {
+                console.error("[Auth] Apple sign-in refused:", data.error);
+                toast.error(data.error || "Login error, contact support if this persists", { autoClose: 12000 });
+            }
+        } catch (e) {
+            // Backing out of Apple's popup is not an error.
+            const code = e?.error || '';
+            if (code !== 'popup_closed_by_user' && code !== 'user_cancelled_authorize') {
+                console.error("[Auth] Apple sign-in failed:", code || e?.message || e);
+                toast.error("Apple sign-in failed. Please try again.");
+            }
+        } finally {
+            // Same rule as Google: on success the button stays busy through
+            // the modal's close (unreachable once signed in; signOut reloads).
+            if (!signedIn) setAppleQueued(false);
+        }
+    } : null;
 
 
 
@@ -806,27 +889,67 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const hasEnteredSingleplayer = useRef(false);
     const lastSingleplayerScreen = useRef(null);
 
-    const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
-    // Both login modals stay MOUNTED after their first open and close through
-    // react-responsive-modal's `open` prop — conditional unmount tore them out
-    // of the tree mid-close and skipped the exit animation. The ref delays the
-    // first mount so the dynamic chunk isn't fetched pre-interaction.
-    const suggestModalMountedRef = useRef(false);
-    if (showSuggestLoginModal) suggestModalMountedRef.current = true;
     // Guest clicked a login-locked mode: '2v2' | 'ranked' picks the variant
-    // copy, and (leaveConfirm-style) survives closing so the modal doesn't
-    // blank mid fade-out; the boolean drives open/close.
+    // copy the LoginModal renders as its title/subtitle. (leaveConfirm-style)
+    // it survives closing so the modal doesn't blank mid fade-out; it is
+    // replaced on the NEXT open (openLoginModal), never cleared on close.
     const [linkGoogleModal, setLinkGoogleModal] = useState(null);
-    const [linkGoogleModalOpen, setLinkGoogleModalOpen] = useState(false);
-    // Inviter's username when the link-Google prompt came from a party-invite
-    // gate (server's hostName on the gameJoinError). Personalizes the modal
-    // copy; MUST be cleared when the modal opens from any other surface.
+    // Inviter's username when the upsell came from a party-invite gate
+    // (server's hostName on the gameJoinError). Personalizes the modal copy;
+    // replaced whenever the modal opens from any other surface.
     const [linkGoogleInviter, setLinkGoogleInviter] = useState(null);
+    // CrazyGames only: open/close of the CG-branded SuggestAccountModal (the
+    // variant + inviter above are shared with the LoginModal path).
+    const [linkGoogleModalOpen, setLinkGoogleModalOpen] = useState(false);
+    // Non-null only while the modal is up from the periodic home prompt (the
+    // 7-day effect below): `{ repeat }`. Any periodic open is unprompted, so
+    // the email field must not autofocus on touch devices (LoginModal
+    // `unprompted`: a keyboard never ambushes a phone 2.5s after landing);
+    // a REPEAT show also carries the quiet "Don't show this again" opt-out.
+    const [periodicLoginPrompt, setPeriodicLoginPrompt] = useState(null);
+    // THE one way the email + code LoginModal opens. Every surface (navbar /
+    // onboarding AccountBtn via window.login, the locked-mode upsells, the
+    // periodic home prompt) lands here, so no copy flag can survive from a
+    // previous open. Stable (setters only) so effects may depend on it.
+    const openLoginModal = useCallback(({ variant = null, inviterName = null, periodic = null } = {}) => {
+        setLinkGoogleModal(variant);
+        setLinkGoogleInviter(inviterName);
+        setPeriodicLoginPrompt(periodic);
+        setLoginModalOpen(true);
+    }, []);
+    // ONE entry for every login-locked surface (Ranked, 2v2, the 2v2 invite
+    // gate): the LoginModal opens with the mode's copy. CrazyGames links the
+    // platform account through its SDK, not through our login, so there the
+    // CG-branded SuggestAccountModal opens instead (its CTA is the SDK auth
+    // prompt; the CG auth listener above completes the session + ws
+    // re-verify, which is also what retries a gated party join). Reads
+    // window.inCrazyGames (stamped with the state) so the ws handler's
+    // closure is never stale.
+    const openLoginUpsell = (variant, inviterName = null) => {
+        if (typeof window !== 'undefined' && window.inCrazyGames) {
+            setLinkGoogleInviter(inviterName);
+            setLinkGoogleModal(variant);
+            setLinkGoogleModalOpen(true);
+            return;
+        }
+        openLoginModal({ variant, inviterName });
+    };
+    // window.login opens the modal with the plain "Welcome" copy. Unconditional
+    // (not inside the Google block above): a build with no Google client id
+    // must still be able to sign in, and auth.js signIn() calls this from
+    // every prompt.
+    useEffect(() => {
+        window.login = () => openLoginModal();
+    }, [openLoginModal]);
     // Party code whose join bounced off the server's guest 2v2 gate
     // ("Link your Google account to play 2v2"). Google sign-in is a popup
     // (no reload), so after linking, the account verify ack on this same
     // socket retries the join — invite link → sign in → friend's lobby.
     const joinAfterLoginRef = useRef(null);
+    // Closing the login modal BY HAND (the ×, backdrop, Escape, the opt-out
+    // link) abandons any pending gated-join retry; the post-login close goes
+    // through the session effect, not here, so a successful sign-in keeps it.
+    const closeLoginModal = () => { setLoginModalOpen(false); joinAfterLoginRef.current = null; };
     // Last code a joinPrivateGame was SENT with — stamped synchronously at the
     // send site. The gate-error handlers must read this, NOT joinOptions
     // .gameCode: on a deep link the state stamp races the server's rejection
@@ -1041,28 +1164,30 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [screen, isDailyPath]);
 
-    // Close suggest login modal when user successfully logs in
+    // Close the login modal once the user is signed in (covers the Google and
+    // Apple popup paths, which resolve outside the modal's control), and the
+    // CrazyGames link prompt (its SDK auth listener lands the session outside
+    // the modal's control too).
     useEffect(() => {
-        if (session?.token?.secret && showSuggestLoginModal) {
-            setShowSuggestLoginModal(false);
+        if (session?.token?.secret && loginModalOpen) {
+            setLoginModalOpen(false);
         }
-        // Same for the link-Google conversion modal (covers the CrazyGames
-        // auth-listener path too, which resolves outside the modal's control).
         if (session?.token?.secret && linkGoogleModalOpen) {
             setLinkGoogleModalOpen(false);
         }
-    }, [session?.token?.secret, showSuggestLoginModal, linkGoogleModalOpen]);
+    }, [session?.token?.secret, loginModalOpen, linkGoogleModalOpen]);
 
-    // Show SuggestAccountModal on the home screen for logged-out users.
-    //   1st time  — any home visit (never seen before). Just Sign-in / Continue as Guest.
+    // Open the LoginModal itself on the home screen for logged-out users.
+    //   1st time  — any home visit (never seen before).
     //   Nth time  — 7 days after the last show, if they still haven't signed in. Every
-    //               repeat show renders a "Don't show this again" link below the guest
-    //               button; clicking it sets `suggestLoginNeverShow` and permanently opts
+    //               repeat show renders a "Don't show this again" link under the form;
+    //               clicking it sets `suggestLoginNeverShow` and permanently opts
     //               out. Otherwise the modal keeps reappearing on the 7-day cadence.
     // Delayed ~2.5s so it doesn't feel like a page-load ambush and so the session has
     // time to resolve. Embedded platforms (CrazyGames / CoolMath / GameDistribution)
-    // skip entirely.
-    const [suggestLoginShowNeverAgain, setSuggestLoginShowNeverAgain] = useState(false);
+    // skip entirely. This used to open a "Track your progress" teaser whose Sign-in
+    // button THEN opened the login modal; the teaser is gone, the login is one
+    // click closer.
     useEffect(() => {
         if (screen !== "home") return;
         // The tutorial guards itself via screen==="onboarding", but a NEW user
@@ -1076,14 +1201,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (session?.token?.secret) return;
         if (inCrazyGames || HIDE_ACCOUNT_UI) return;
         if (typeof window === 'undefined') return;
-        // Skip re-running while the modal is currently open — otherwise opening it
-        // would immediately trigger another evaluation and double-increment the count.
-        if (showSuggestLoginModal) return;
-        // Never stack on top of the link-Google conversion modal. Also closes
-        // the race where the 2.5s timer below is already pending when the user
-        // clicks 2v2/Ranked: this dep change re-runs the effect, whose cleanup
-        // cancels the pending timer.
-        if (linkGoogleModalOpen) return;
+        // The modal is up, from whatever surface (this prompt, a navbar sign-in,
+        // a locked-mode upsell): that IS a show. Stamp it so the 7-day clock
+        // counts from here, and return — never stack, never double-count, and
+        // closing it re-runs this effect into the cooldown instead of
+        // re-arming the timer into a 2.5s re-pop. This dep change also cancels
+        // a pending timer (cleanup) when the user opens the modal themselves.
+        if (loginModalOpen) {
+            try { window.localStorage.setItem("suggestLoginLastShown", String(Date.now())); } catch (e) {}
+            return;
+        }
 
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
         let willShowNeverAgain = false;
@@ -1120,12 +1247,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 const prev = parseInt(window.localStorage.getItem("suggestLoginShownCount") || "0", 10);
                 window.localStorage.setItem("suggestLoginShownCount", String(prev + 1));
             } catch (e) { return; }
-            setSuggestLoginShowNeverAgain(willShowNeverAgain);
-            setShowSuggestLoginModal(true);
+            openLoginModal({ periodic: { repeat: willShowNeverAgain } });
         }, 2500);
 
         return () => clearTimeout(timer);
-    }, [screen, onboardingCompleted, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal, linkGoogleModalOpen]);
+    }, [screen, onboardingCompleted, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, loginModalOpen, openLoginModal]);
 
     // check if ?coolmath=true
     useEffect(() => {
@@ -2768,7 +2894,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setSettingsModal(false);
                 setMapModal(false);
                 setFriendsModal(false);
-                setShowSuggestLoginModal(false);
+                setLoginModalOpen(false);
                 setShowDiscordModal(false);
                 setSelectCountryModalShown(false);
                 setConnectionErrorModalShown(false);
@@ -3234,15 +3360,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // ws joinPrivateGame's guest gate on 2v2 staging lobbies.
                     // A guest opening a friend's 2v2 invite is a conversion
                     // moment, not a bad code — don't let the generic mapping
-                    // below render it as "invalid party code". Reuse the same
-                    // link-Google modal the home 2v2 button shows, and stash
-                    // the code for the post-login retry (verify branch above).
+                    // below render it as "invalid party code". Open the same
+                    // login upsell the home 2v2 button shows, and stash the
+                    // code for the post-login retry (verify branch above).
                     joinAfterLoginRef.current = lastJoinCodeRef.current || null;
                     // Personalize with the inviter when the server sent it
                     // (additive field; old ws builds simply don't include it).
-                    setLinkGoogleInviter(data.hostName || null);
-                    setLinkGoogleModal('2v2');
-                    setLinkGoogleModalOpen(true);
+                    openLoginUpsell('2v2', data.hostName || null);
                     if (multiplayerState.lobbyIntent) {
                         // Manual code entry: stay on the join screen, just stop
                         // the spinner — the modal carries the messaging.
@@ -4508,6 +4632,25 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const multiplayerShowAnswer = multiplayerEndAnswerHoldActive || (
         multiplayerState?.gameData?.curRound !== 1 && multiplayerGameState === 'getready'
     );
+    const multiplayerGameUiShown = !!(
+        multiplayerState?.inGame && ['guess', 'getready', 'end'].includes(multiplayerGameState)
+    );
+    // Public duels can emit one short `waiting` snapshot after pairing and
+    // before Game.start() advances them to `getready`. Keep the queue's ad
+    // instance alive through that bridge too — otherwise the creative would
+    // still be torn down between matching and the first countdown.
+    const multiplayerMatchedDuelWaiting = !!(
+        multiplayerState?.inGame &&
+        multiplayerGameState === 'waiting' &&
+        multiplayerState?.gameData?.public &&
+        multiplayerState?.gameData?.duel
+    );
+    const multiplayerPlaywireAdShown = hudCornerOnQueue || multiplayerMatchedDuelWaiting || multiplayerGameUiShown;
+    const multiplayerTimerShownForAd = multiplayerGameUiShown && !(
+        multiplayerShowAnswer ||
+        (multiplayerGameState === 'getready' && multiplayerState?.gameData?.curRound === 1) ||
+        multiplayerGameState === 'end'
+    );
     const isTeam2v2EndScreen = !!(
         screen === "multiplayer" &&
         multiplayerState?.inGame &&
@@ -4979,18 +5122,43 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 />
             )}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
-            {/* The link-Google variant always wins over the periodic suggestion —
-                the two must never stack (also enforced at open time). Both stay
-                mounted after first open so closes animate (open-prop driven);
-                react-responsive-modal renders nothing while closed. */}
-            {suggestModalMountedRef.current && <SuggestAccountModal shown={showSuggestLoginModal && !linkGoogleModalOpen} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
-            {/* Closing the modal by hand abandons any pending gated-join retry
-                (the post-login auto-close goes through the session effect above,
-                not this setOpen, so a successful sign-in keeps it). CrazyGames
-                is exempt: its auth prompt success closes the modal itself before
-                the SDK auth listener re-verifies, and clearing here would kill
-                the retry mid-conversion. */}
-            {linkGoogleModal && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) { setLinkGoogleModalOpen(false); if (!inCrazyGames) joinAfterLoginRef.current = null; } }} variant={linkGoogleModal} inviterName={linkGoogleInviter} inCrazyGames={inCrazyGames} />}
+            {/* Email + code login. Stays mounted so ui/Modal can play its exit;
+                it resets itself on every open. Closed by the session effect
+                above once applySignIn publishes the session. Google is a
+                button inside it (null when the build has no client id). */}
+            <LoginModal
+                open={loginModalOpen}
+                // Locked-mode upsells (openLoginUpsell) swap the headline and
+                // pitch for the mode's copy; a plain sign-in keeps the defaults.
+                title={linkGoogleModal ? text(linkGoogleModal === '2v2' ? 'signInToPlay2v2' : 'signInToPlayRanked') : undefined}
+                subtitle={linkGoogleModal
+                    ? (linkGoogleModal === '2v2' && linkGoogleInviter
+                        ? text('linkGoogle2v2InvitedDesc', { name: linkGoogleInviter })
+                        : text(linkGoogleModal === '2v2' ? 'linkGoogle2v2Desc' : 'linkGoogleRankedDesc'))
+                    : undefined}
+                onClose={closeLoginModal}
+                onSuccess={(data) => applySignIn(data, { method: "email", isNew: !!data.isNewAccount })}
+                onGoogle={googleLogin ? () => { setLoginQueued(true); googleLogin(); } : null}
+                googleBusy={loginQueued}
+                onApple={appleLogin}
+                appleBusy={appleQueued}
+                // Periodic prompt: no tap opened it (see the 7-day effect). A
+                // repeat show adds the permanent opt-out: same key the effect
+                // reads, same close path as ×.
+                unprompted={!!periodicLoginPrompt}
+                onNeverShowAgain={periodicLoginPrompt?.repeat ? () => {
+                    try { window.localStorage.setItem("suggestLoginNeverShow", "1"); } catch (e) {}
+                    closeLoginModal();
+                } : null}
+            />
+            {/* CrazyGames only: the locked-mode link prompt (openLoginUpsell).
+                Stays mounted after its first open so the close animates
+                (open-prop driven; react-responsive-modal renders nothing while
+                closed). Closing it by hand does NOT clear joinAfterLoginRef:
+                the CG auth prompt's success closes the modal itself before the
+                SDK auth listener re-verifies, and clearing here would kill the
+                gated-join retry mid-conversion. */}
+            {linkGoogleModal && inCrazyGames && <SuggestAccountModal shown={linkGoogleModalOpen} setOpen={(v) => { if (!v) setLinkGoogleModalOpen(false); }} variant={linkGoogleModal} inviterName={linkGoogleInviter} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {/* Season 1 migration notice, once per account. The server decides
@@ -5413,6 +5581,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             showAdvertisementText={false} screenH={height} types={height < 510 ? HOME_AD_TYPES_SHORT : HOME_AD_TYPES_TALL} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
+                {/* One continuous multiplayer slot, not a queue copy. This
+                    condition stays true across queue → paired waiting → GameUI,
+                    so React preserves the PlaywireAd instance and its creative;
+                    GameUI deliberately owns Playwire only for non-multiplayer. */}
+                {!adFree && multiplayerPlaywireAdShown && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
+                    <div className={`topAdFixed ${multiplayerTimerShownForAd ? 'moreDown' : ''}`}>
+                        <PlaywireAd
+                            selectorId="pw-game-ad"
+                            showAdvertisementText={false} screenH={height} types={MULTIPLAYER_AD_TYPES_LEADERBOARD} screenW={Math.max(400, width - 450)} vertThresh={0.3} />
+                    </div>
+                }
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
                     <div className="home_ad">
                         <GameDistributionBanner
@@ -5619,10 +5798,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 {!HIDE_ACCOUNT_UI && (
                                                     <button className="g2_nav_text ranked" aria-label="Duels" onClick={() => {
                                                         if (!session?.token?.secret) {
-                                                            setShowSuggestLoginModal(false); // never stack the two login modals
-                                                            setLinkGoogleInviter(null); // generic open: no inviter copy
-                                                            setLinkGoogleModal('ranked');
-                                                            setLinkGoogleModalOpen(true);
+                                                            openLoginUpsell('ranked');
                                                             return;
                                                         }
                                                         if (!ws || !multiplayerState?.connected) {
@@ -5651,10 +5827,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 {!HIDE_ACCOUNT_UI && (
                                                     <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
                                                         if (!session?.token?.secret) {
-                                                            setShowSuggestLoginModal(false); // never stack the two login modals
-                                                            setLinkGoogleInviter(null); // generic open: no inviter copy
-                                                            setLinkGoogleModal('2v2');
-                                                            setLinkGoogleModalOpen(true);
+                                                            openLoginUpsell('2v2');
                                                             return;
                                                         }
                                                         if (!ws || !multiplayerState?.connected) {
@@ -6015,7 +6188,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     />
                 </div>}
 
-                {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
+                {multiplayerGameUiShown && (
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}

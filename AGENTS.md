@@ -191,6 +191,7 @@ Prefer single-file or single-test runs during iteration. Full suites are for the
 When the user corrects your approach, append a one-line rule here before ending the session. Write it concretely ("Always use X for Y"), never abstractly ("be careful with Y"). If an existing line already covers the correction, tighten it instead of adding a new one. Remove lines when the underlying issue goes away (model upgrades, refactors, process changes).
 
 - A commit authorization covers exactly ONE commit. Follow-up fixes — including review-round fixes to an authorized commit — stay uncommitted in the working tree until the user explicitly asks again. (Violated 2026-08-17: two fix commits made without asking.)
+- When reusing an ad across UI states, preserve one React ad-component mount across the transition; matching the vendor unit type or selector alone still re-declares the creative. (Corrected 2026-08-22: a second queue `PlaywireAd` mount would have reloaded the ad at match start.)
 
 ---
 

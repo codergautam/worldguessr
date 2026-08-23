@@ -1,9 +1,6 @@
-import User, { USERNAME_COLLATION } from '../models/User.js';
+import User from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
-import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from '../serverUtils/forumUsername.js';
-import { Filter } from 'bad-words';
-
-const filter = new Filter();
+import { validateUsernameFormat, isUsernameTaken } from '../serverUtils/usernameRules.js';
 
 /**
  * Submit Name Change API
@@ -31,32 +28,11 @@ export default async function handler(req, res) {
   // Validate username format
   const trimmedUsername = newUsername.trim();
 
-  if (trimmedUsername.length < 3 || trimmedUsername.length > 30) {
-    return res.status(400).json({ message: 'Username must be between 3 and 30 characters' });
-  }
-
-  // Only allow alphanumeric, underscores
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
-    return res
-      .status(400)
-      .json({
-        message: "Username must contain only letters, numbers, and underscores",
-      });
-  }
-
-  // Forum-stable only — mirrors api/setName.js (Discourse rewrites underscore
-  // prefixes/suffixes/runs, letting different WG names collide on the forum)
-  if (!isForumStable(trimmedUsername)) {
-    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
-  }
-  if (isForumReserved(trimmedUsername)) {
-    return res.status(400).json({ message: FORUM_RESERVED_MESSAGE });
-  }
-
-  // Profanity check — mirrors api/setName.js so a forced-rename can't slip
-  // through with a worse name than the one that was forced to be changed.
-  if (filter.isProfane(trimmedUsername)) {
-    return res.status(400).json({ message: 'Inappropriate content' });
+  // One chain shared with api/setName.js (serverUtils/usernameRules.js), so a
+  // forced-rename can't slip through with a worse name than the one it replaces.
+  const invalid = validateUsernameFormat(trimmedUsername);
+  if (invalid) {
+    return res.status(400).json({ message: invalid.message });
   }
 
   try {
@@ -81,12 +57,7 @@ export default async function handler(req, res) {
     }
 
     // Check if username is already taken (case-insensitive with collation index)
-    const existingUser = await User.findOne({
-      username: trimmedUsername,
-      _id: { $ne: user._id }
-    }).collation(USERNAME_COLLATION);
-
-    if (existingUser) {
+    if (await isUsernameTaken(trimmedUsername, { excludeUserId: user._id })) {
       return res.status(400).json({ message: 'This username is already taken' });
     }
 

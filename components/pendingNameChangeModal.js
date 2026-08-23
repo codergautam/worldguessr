@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import { LEN_VARS as USERNAME_LEN } from '@/components/auth/loginApi';
 
 /**
  * PendingNameChangeModal
@@ -54,7 +55,7 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
     // Validate username format
     const trimmed = newUsername.trim();
     if (trimmed.length < 3 || trimmed.length > 30) {
-      setError('Username must be between 3 and 30 characters');
+      setError(text('usernameLengthError', USERNAME_LEN));
       return;
     }
 
@@ -160,10 +161,10 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="Enter new username..."
                   style={styles.input}
-                  maxLength={30}
+                  maxLength={USERNAME_LEN.max}
                   disabled={loading}
                 />
-                <span style={styles.hint}>3-30 characters, letters, numbers, and underscores only</span>
+                <span style={styles.hint}>{text('usernameRulesHint', USERNAME_LEN)}</span>
               </div>
 
               {error && (

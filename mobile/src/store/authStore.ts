@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { User, STARTING_ELO, type UserCosmeticsEquipped } from '../shared';
-import { api, ApiError } from '../services/api';
+import { api, ApiError, type AuthResponse } from '../services/api';
 import { wsService } from '../services/websocket';
 import { useMultiplayerStore } from './multiplayerStore';
 import {
@@ -57,6 +57,35 @@ function userFromAuthResponse(response: any): User {
   };
 }
 
+/**
+ * Shared tail of every interactive sign-in (google / apple / email code):
+ * persist the secret, seat the user, merge guest daily progress. Three hand
+ * copies of this block used to live in the three actions; any fix to one was
+ * a fix the other two silently missed.
+ */
+async function applyAuthResponse(
+  set: (partial: Partial<AuthState>) => void,
+  response: AuthResponse,
+): Promise<{ success: boolean; error?: string }> {
+  if (response.secret) {
+    await SecureStore.setItemAsync(SECRET_KEY, response.secret);
+    set({
+      secret: response.secret,
+      user: userFromAuthResponse(response),
+      isAuthenticated: true,
+      isLoading: false,
+    });
+    // Merge any pre-signin guest daily progress into this account.
+    // Fire-and-forget — failure shouldn't block auth.
+    claimGuestProgressIfAny(response.secret).catch(() => {});
+    return { success: true };
+  }
+  set({ isLoading: false });
+  // Authenticated at the transport level but the server returned no secret —
+  // pass along any server-provided reason so the UI can show it.
+  return { success: false, error: (response as any).error };
+}
+
 interface AuthState {
   secret: string | null;
   user: User | null;
@@ -67,6 +96,17 @@ interface AuthState {
   loadSession: () => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<{ success: boolean; error?: string }>;
   loginWithApple: (identityToken: string) => Promise<{ success: boolean; error?: string }>;
+  /**
+   * Email + 6-digit code (api/emailVerify.js). `errorKey` is the server's locale
+   * key (wrongCode, codeExpired, codeUsed, usernameTaken, ...) so the sheet can
+   * branch; `error` is the display text.
+   */
+  loginWithEmailCode: (
+    loginId: string,
+    code: string,
+    username: string | undefined,
+    clientId: string,
+  ) => Promise<{ success: boolean; error?: string; errorKey?: string; isNewAccount?: boolean }>;
   loginWithSecret: (secret: string) => Promise<boolean>;
   setUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -133,24 +173,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
       const response = await api.googleAuth(idToken);
-
-      if (response.secret) {
-        await SecureStore.setItemAsync(SECRET_KEY, response.secret);
-        set({
-          secret: response.secret,
-          user: userFromAuthResponse(response),
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        // Merge any pre-signin guest daily progress into this account.
-        // Fire-and-forget — failure shouldn't block auth.
-        claimGuestProgressIfAny(response.secret).catch(() => {});
-        return { success: true };
-      }
-      set({ isLoading: false });
-      // Authenticated at the transport level but the server returned no secret —
-      // pass along any server-provided reason so the UI can show it.
-      return { success: false, error: (response as any).error };
+      return await applyAuthResponse(set, response);
     } catch (error: any) {
       console.error('Google auth failed:', error);
       set({ isLoading: false });
@@ -164,26 +187,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
       const response = await api.appleAuth(identityToken);
-
-      if (response.secret) {
-        await SecureStore.setItemAsync(SECRET_KEY, response.secret);
-        set({
-          secret: response.secret,
-          user: userFromAuthResponse(response),
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        // Merge any pre-signin guest daily progress into this account.
-        // Fire-and-forget — failure shouldn't block auth.
-        claimGuestProgressIfAny(response.secret).catch(() => {});
-        return { success: true };
-      }
-      set({ isLoading: false });
-      return { success: false, error: (response as any).error };
+      return await applyAuthResponse(set, response);
     } catch (error: any) {
       console.error('Apple auth failed:', error);
       set({ isLoading: false });
       return { success: false, error: error?.message };
+    }
+  },
+
+  loginWithEmailCode: async (loginId: string, code: string, username: string | undefined, clientId: string) => {
+    try {
+      set({ isLoading: true });
+      const response = await api.emailLoginVerify(loginId, code, username, clientId);
+      const result = await applyAuthResponse(set, response);
+      return { ...result, isNewAccount: !!response.isNewAccount };
+    } catch (error: any) {
+      set({ isLoading: false });
+      // Expected refusals (wrong code, expired, taken name) are not worth a
+      // console.error; the sheet renders them. Keep the key so it can branch.
+      const errorKey = error instanceof ApiError ? error.body?.error : undefined;
+      if (!errorKey) console.error('Email code auth failed:', error);
+      return { success: false, error: error?.message, errorKey: typeof errorKey === 'string' ? errorKey : undefined };
     }
   },
 

@@ -1,5 +1,4 @@
 import { inIframe } from "../utils/inIframe";
-import { toast } from "react-toastify";
 import { fetchWithFallback } from "../utils/retryFetch";
 import { useState, useEffect } from "react";
 import { claimGuestProgressIfAny, resetClaimGuestProgressState } from "../../utils/claimGuestProgress";
@@ -92,12 +91,9 @@ export function signIn() {
     window.open(url, '_blank');
   }
 
-  if(!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-    toast.error("Google client ID not set");
-    return;
-  }
-
-    window.login();
+  // Opens the email + code login modal (home.js owns window.login). Google is
+  // a button inside that modal now, so no client id is required to sign in.
+  window.login();
 
 }
 

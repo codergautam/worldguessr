@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --watch ws/ws.js\" \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api/googleAuth.js --watch api/setName.js --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
-    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api/googleAuth.js --watch api/setName.js --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
+    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --watch ws/ws.js\" \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
+    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS=--no-warnings nodemon server.js --quiet --watch server.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon authServer.js --quiet --watch authServer.js --watch api --watch serverUtils --watch models --watch components/utils --watch shared\" \"cross-env NODE_OPTIONS=--no-warnings nodemon cron.js --quiet --watch cron.js\" \"npx next dev\"",
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true pnpm dev",
     "dev:poki": "cross-env NEXT_PUBLIC_POKI=true pnpm dev",
     "dev:6x": "cross-env NEXT_PUBLIC_6X=true pnpm dev",
@@ -65,6 +65,7 @@
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.3",
     "next": "15.4.5",
+    "nodemailer": "^9.0.5",
     "ol": "^9.1.0",
     "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",

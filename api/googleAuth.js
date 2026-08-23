@@ -211,6 +211,9 @@ async function verifyAppleIdentityToken(identityToken) {
     process.env.APPLE_CLIENT_ID,
     process.env.EXPO_PUBLIC_APPLE_CLIENT_ID,
     process.env.IOS_BUNDLE_ID,
+    // Web "Sign in with Apple" (Apple JS SDK) signs tokens for the Services
+    // ID registered for the domain, not the iOS bundle id.
+    process.env.APPLE_WEB_CLIENT_ID,
     DEFAULT_APPLE_AUDIENCE,
   ].filter(Boolean);
   if (!allowedAudiences.includes(payload.aud)) {
@@ -231,7 +234,8 @@ async function verifyAppleIdentityToken(identityToken) {
   return payload;
 }
 
-function buildAuthResponse(user, extendedData = {}) {
+// Exported for api/emailVerify.js, which returns this exact shape.
+export function buildAuthResponse(user, extendedData = {}) {
   return {
     secret: user.secret,
     username: user.username,
@@ -261,7 +265,10 @@ function buildAuthResponse(user, extendedData = {}) {
  * Also handles migration of legacy banned users (banned: true but no banType)
  * Returns the user with updated ban status if expired
  */
-async function checkTempBanExpiration(user) {
+// Exported for api/emailVerify.js: every existing-account login must run this
+// so an expired temporary ban is lifted (and legacy banned rows migrated)
+// before the response is built.
+export async function checkTempBanExpiration(user) {
   const userObj = user.toObject ? user.toObject() : user;
   
   // Handle legacy banned users - if banned is true but banType is missing/none,
@@ -304,7 +311,7 @@ async function checkTempBanExpiration(user) {
  * Get extended user data (publicAccount + eloRank data) for combined response
  * This eliminates the need for separate publicAccount and eloRank API calls
  */
-async function getExtendedUserData(user, timings) {
+export async function getExtendedUserData(user, timings) {
   const startExtended = Date.now();
 
   // publicAccount data

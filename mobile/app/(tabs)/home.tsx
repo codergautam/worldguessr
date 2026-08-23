@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
   StyleProp,
   ViewStyle,
 } from 'react-native';
@@ -510,8 +509,8 @@ export default function HomeScreen() {
   // When a guest taps an account-gated mode (Ranked / 2v2), the sheet opens
   // with that mode's pitch instead of the generic sign-in copy.
   const [loginUpsell, setLoginUpsell] = useState<'2v2' | 'ranked' | null>(null);
-  // Android signs in with Google directly (single provider — no chooser
-  // sheet); iOS opens the sheet. The platform fork lives in useLoginPrompt.
+  // Opens the sign-in sheet (email + code first; Apple/Google as buttons
+  // inside it) on both platforms.
   const handleLogin = useLoginPrompt(() => {
     setLoginUpsell(null);
     setAccountSheetVisible(true);
@@ -794,10 +793,10 @@ export default function HomeScreen() {
   }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
 
   // Guest tapped an account-gated mode: open the real login sheet with that
-  // mode's pitch (web SuggestAccountModal locked variants) instead of a native
+  // mode's pitch (web: openLoginUpsell -> LoginModal title/subtitle) instead of a native
   // Alert — actual provider buttons convert better than a text-only prompt.
-  // Deliberately NOT useLoginPrompt: the sheet opens on BOTH platforms here
-  // (Android's sheet is Google-only; iOS shows Apple + Google).
+  // Deliberately NOT useLoginPrompt: that hook also only opens the sheet now,
+  // but this path carries the mode pitch (setLoginUpsell) with it.
   const promptLoginUpsell = (variant: '2v2' | 'ranked') => {
     setLoginUpsell(variant);
     setAccountSheetVisible(true);
@@ -1615,14 +1614,11 @@ export default function HomeScreen() {
       <AccountSelectSheet
         visible={accountSheetVisible}
         onClose={() => setAccountSheetVisible(false)}
-        // Android's sheet is Google-only, so the web "Link Google…" headline
-        // stays accurate (and translated) there; iOS offers Apple too, so it
-        // gets a provider-neutral title. The pitch line is provider-neutral in
-        // every language, shared verbatim with web.
+        // Provider-neutral on both platforms: the sheet is email-first with
+        // Apple/Google as secondary buttons (web LoginModal uses the
+        // same keys). The pitch line is shared verbatim with web.
         title={loginUpsell
-          ? (Platform.OS === 'ios'
-            ? t(loginUpsell === '2v2' ? 'signInToPlay2v2' : 'signInToPlayRanked')
-            : t(loginUpsell === '2v2' ? 'linkGoogle2v2Title' : 'linkGoogleRankedTitle'))
+          ? t(loginUpsell === '2v2' ? 'signInToPlay2v2' : 'signInToPlayRanked')
           : undefined}
         subtitle={loginUpsell
           ? t(loginUpsell === '2v2' ? 'linkGoogle2v2Desc' : 'linkGoogleRankedDesc')

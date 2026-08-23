@@ -1,17 +1,15 @@
 // pages/api/setName.js
-import User, { USERNAME_COLLATION } from "../models/User.js";
-import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from "../serverUtils/forumUsername.js";
+import User from "../models/User.js";
+import { validateUsernameFormat, isUsernameTaken } from "../serverUtils/usernameRules.js";
 import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
 import { syncedClearCache } from "../serverUtils/cacheBus.js";
 import { syncForumUser } from "../serverUtils/syncForumUser.js";
-import { Filter } from "bad-words";
 import UserStatsService from "../components/utils/userStatsService.js";
 import ModerationLog from "../models/ModerationLog.js";
 import Report from "../models/Report.js";
 import NameChangeRequest from "../models/NameChangeRequest.js";
-const filter = new Filter();
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -28,37 +26,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: "Missing token or username" });
   }
 
-  // Ensure username meets criteria
-  if (username.length < 3 || username.length > 30) {
-    return res
-      .status(400)
-      .json({ message: "Username must be between 3 and 30 characters" });
-  }
-  // Alphanumeric characters and underscores only
-  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    return res
-      .status(400)
-      .json({
-        message: "Username must contain only letters, numbers, and underscores",
-      });
-  }
-  // Forum-stable only: Discourse rewrites underscore prefixes/suffixes/runs,
-  // which lets two different WG names collide on the forum
-  if (!isForumStable(username)) {
-    return res.status(400).json({ message: FORUM_STABLE_MESSAGE });
-  }
-  if (isForumReserved(username)) {
-    return res.status(400).json({ message: FORUM_RESERVED_MESSAGE });
-  }
-  // make sure username is not profane
-  if (filter.isProfane(username)) {
-    return res.status(400).json({ message: "Inappropriate content" });
+  // Ensure username meets criteria (one chain shared with submitNameChange,
+  // checkUsername and emailVerify: serverUtils/usernameRules.js)
+  const invalid = validateUsernameFormat(username);
+  if (invalid) {
+    return res.status(400).json({ message: invalid.message });
   }
   // Make sure the username is unique (case-insensitive)
   // Uses collation index for fast O(log n) lookup instead of slow regex scan
-  const existing = await User.findOne({ username })
-    .collation(USERNAME_COLLATION);
-  if (existing) {
+  if (await isUsernameTaken(username)) {
     return res
       .status(400)
       .json({ message: "Username already taken, please select a new one" });

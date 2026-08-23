@@ -214,29 +214,28 @@ export default function OnboardingPlay() {
     });
   }, [round]);
 
-  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  // Both platforms: the sign-in sheet (email + code, Apple, Google).
   const promptLogin = useLoginPrompt(() => setAuthSheetVisible(true));
 
-  // Auth-gated continuation. iOS runs the pending action from the sheet's
-  // onClose (handleAuthSheetClose); Android's direct Google flow never opens
-  // the sheet, so promptLogin's onSuccess drains the same ref instead — and
-  // clears it so a later sheet close can't double-fire the action.
+  // Auth-gated continuation. The pending action runs from the sheet's onClose
+  // (handleAuthSheetClose) once the user is signed in, and is cleared there so
+  // a later sheet close can't double-fire it.
   const requireAuth = (action: () => void) => {
     if (isAuthenticated) {
       action();
       return;
     }
     pendingAuthAction.current = action;
-    promptLogin(() => {
-      const pending = pendingAuthAction.current;
-      pendingAuthAction.current = null;
-      pending?.();
-    });
+    promptLogin();
   };
 
   const handleAuthSheetClose = () => {
     setAuthSheetVisible(false);
-    if (isAuthenticated && pendingAuthAction.current) {
+    // Read the store, NOT the render's `isAuthenticated`: the sheet calls
+    // the onClose it captured at press time (its submitCode fires this from
+    // a setTimeout, the provider flows after an await), so the closure's
+    // value is the pre-sign-in false and the pending action would be dropped.
+    if (useAuthStore.getState().isAuthenticated && pendingAuthAction.current) {
       const action = pendingAuthAction.current;
       pendingAuthAction.current = null;
       action();

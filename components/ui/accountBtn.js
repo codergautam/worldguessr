@@ -1,5 +1,5 @@
 import { signIn } from "@/components/auth/auth";
-import { FaGoogle } from "react-icons/fa";
+import { FaUserCircle } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
 import CountryFlag from '../utils/countryFlag';
@@ -24,7 +24,6 @@ import { nameGlowProps, GlowName } from '../utils/usernameWithFlag';
  */
 export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, inGameDistribution, loginQueued, setLoginQueued }) {
   const { t: text } = useTranslation("common");
-  const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   // Use countryCode from session (now included in googleAuth response)
   const countryCode = session?.token?.countryCode || null;
   // THE FIRST PLACE A BUYER LOOKS, and it was the last place to get a glow.
@@ -45,11 +44,10 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
     {!session || !session?.token?.secret ? (
         <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} disabled={inCrazyGames || loginQueued} onClick={() => {
           if(session === null && !loginQueued) {
-            if (hasGoogleClientId) {
-              setLoginQueued?.(true);
-            }
+            // Opens the email + code login modal (window.login). loginQueued
+            // now only tracks an in-flight Google popup, which the modal owns.
             sendEvent("login_attempt")
-            signIn('google')
+            signIn()
           }
           }}>
 
@@ -72,7 +70,10 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
 
             {!inCrazyGames ? (
               <>
-            <FaGoogle className="home__squarebtnicon" />
+            {/* Generic user glyph: the modal behind this offers email, Google and
+                Apple, so the old Google mark would lie. Mobile home.tsx shows
+                the same idea with Ionicons person-circle. */}
+            <FaUserCircle className="home__squarebtnicon" />
             &nbsp;&nbsp;
             {text("login")}
             </>

@@ -11,7 +11,7 @@ import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../src/shared';
+import { colors, t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_LEN } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
@@ -61,7 +61,7 @@ export default function SetUsernameScreen() {
 
           <Text style={styles.title}>{t('chooseUsername')}</Text>
           <Text style={styles.subtitle}>
-            {t('usernameVisibleToOthers')}
+            {t('enterUsername')}
           </Text>
 
           <View style={styles.inputContainer}>
@@ -97,7 +97,7 @@ export default function SetUsernameScreen() {
           )}
 
           <Text style={styles.hint}>
-            {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH })}
+            {t('usernameRulesHint', USERNAME_LEN)}
           </Text>
         </View>
 

@@ -21,7 +21,7 @@ Stack Navigator (Root)
 │   ├── (Modal) MapsModal
 │   ├── (Modal) FriendsModal
 │   ├── (Modal) SetUsernameModal
-│   ├── (Modal) SuggestAccountModal
+│   ├── (Modal) SuggestAccountModal (CrazyGames only)
 │   ├── (Modal) WhatsNewModal
 │   └── (Modal) PendingNameChangeModal
 ├── SingleplayerGameScreen
@@ -284,7 +284,7 @@ Shows banned message with reason and expiry (if temp ban).
 |-------|---------|---------|
 | AccountModal | Click profile/avatar | View/edit profile, stats |
 | SetUsernameModal | First login (no username) | Set initial username |
-| SuggestAccountModal | After 3 singleplayer games as guest | Prompt to create account |
+| SuggestAccountModal | CrazyGames guest taps Ranked / 2v2 | Link CrazyGames account prompt (web-only; other platforms open LoginModal directly) |
 | SettingsModal | Click gear icon | App settings |
 | MapsModal | Click map name or "Change Map" | Browse and select maps |
 | FriendsModal | Click friends icon | Manage friends, send/accept requests |

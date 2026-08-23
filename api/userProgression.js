@@ -276,7 +276,7 @@ export default async function handler(req, res) {
       }
       if (!USERNAME_REGEX.test(username)) {
         return res.status(400).json({
-          message: 'Invalid username format. Username must be 3-30 characters and contain only letters, numbers, and underscores.'
+          message: 'Invalid username format. Username must be 3-20 characters and contain only letters, numbers, and underscores.'
         });
       }
     }

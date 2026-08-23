@@ -19,7 +19,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const username = useAuthStore((s) => s.user?.username);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
-  // Android: straight to native Google sign-in; iOS: chooser sheet.
+  // Both platforms: the sign-in sheet (email + code, Apple, Google).
   const promptLogin = useLoginPrompt(() => setAccountSheetVisible(true));
 
   const beforeNavigate = () => {

@@ -1561,9 +1561,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{/* Main-site in-game banner — Playwire (head2 728x90 via the size map),
-    Nitro-style lifecycle: mounts with gameUI, unmounts with it, spaAds
-    re-inits per mount (bannerAdPlaywire.js).
+{/* Main-site non-multiplayer in-game banner — Playwire (head2 728x90 via the
+    size map), Nitro-style lifecycle: mounts with gameUI, unmounts with it,
+    spaAds re-inits per mount (bannerAdPlaywire.js). Multiplayer deliberately
+    uses Home's single continuous queue → game instance instead.
 
     !adFree IS THE PASS, AND IT UNMOUNTS THE SLOT RATHER THAN HIDING IT. That is
     deliberate: an unmounted slot is out of the DOM, so nothing paints and the
@@ -1580,7 +1581,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     briefly removed it on the wrong belief that it churned an ad auction every
     round; it does not — the slot stays mounted across all rounds and answer
     screens and tears down once per game. Keep the gate. */}
-{ !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !multiplayerState && !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <PlaywireAd
         selectorId="pw-game-ad"
@@ -1820,11 +1821,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           the clock is the hero. */}
       {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
       <span className={`timer duel timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${mpFinal5 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        {/* Placement seeding match: a persistent one-word tag so the player
-            never loses track of what this game is after the VS intro. */}
-        {multiplayerState?.gameData?.isPlacement && (
-          <span className="timer__placement-tag elo-placement-label">{text("placementMatch")}</span>
-        )}
         <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && mpOver120)
