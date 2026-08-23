@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   ScrollView,
@@ -160,7 +160,9 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
   const [providerLoading, setProviderLoading] = useState<'apple' | 'google' | null>(null);
   const [mounted, setMounted] = useState(visible);
   const backdropOpacity = useState(() => new Animated.Value(0))[0];
-  const sheetTranslateY = useState(() => new Animated.Value(320))[0];
+  // Starts a full screen below; the open effect re-seeds it with the sheet's
+  // real measured height once one is known (see sheetHRef).
+  const sheetTranslateY = useState(() => new Animated.Value(height))[0];
 
   // The three-step flow (state names mirror web's LoginModal).
   const [step, setStep] = useState<Step>('email');
@@ -179,6 +181,10 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
   const [, setTick] = useState(0);
   const [focusedField, setFocusedField] = useState<'email' | 'username' | null>(null);
   const codeRef = useRef(''); // survives the username bounce
+  // Pending wrong-code reset. Now that the keyboard stays up through the
+  // verdict (CodeInput), the user can start retyping BEFORE the delayed clear
+  // fires — typing must cancel it, or their fresh digits get wiped mid-entry.
+  const codeResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientIdRef = useRef(''); // this open's session nonce (newLoginSessionId)
   // Set when the server bounced us back to the username step with its verdict
   // on the name: the availability effect skips ONE run so that verdict (and
@@ -191,7 +197,79 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
   // lands without animation; later ones ease over 240 ms.
   const bodyH = useSharedValue(0);
   const firstMeasure = useRef(true);
-  const bodyStyle = useAnimatedStyle(() => (bodyH.value > 0 ? { height: bodyH.value } : {}));
+
+  // SMOOTH keyboard-follow, third attempt (Aug 23). The history matters:
+  //  1. KeyboardAvoidingView re-laid the sheet out in steps — janky.
+  //  2. useAnimatedKeyboard streamed the height frame-by-frame — smooth for
+  //     the first stretch, then the stream DIED and the value JUMPED to the
+  //     final height (user: "gives up and decides to just snap"). Cause:
+  //     this sheet lives inside a native Modal, and useAnimatedKeyboard
+  //     tracks the keyboard window's layer from the app's MAIN window; a
+  //     Modal hosts its own window, so the tracker loses the animation
+  //     partway and lands the shared value in one hop. Known reanimated
+  //     limitation, no config fixes it.
+  //  3. THIS: drive the height with our own tween off the OS keyboard
+  //     NOTIFICATIONS, which are app-wide and window-agnostic — they cannot
+  //     die mid-animation. iOS keyboardWillChangeFrame fires for show, hide
+  //     AND QuickType-bar toggles, each carrying the system's own duration,
+  //     so the tween spans the exact window the real keyboard animates in.
+  //     Android has no will-events or durations (and edge-to-edge already
+  //     killed window resizing), so it tweens a fixed 200ms from the did-
+  //     events — arrives a beat behind the IME, but smooth, which beats
+  //     tracking that snaps.
+  //
+  // The HEIGHT CAP reads the same shared value inside bodyStyle below, so
+  // lift and shrink still run as ONE curve. `withTiming` is the daily/anims
+  // wrapper (ReduceMotion.Never): the lift is positional, not decorative —
+  // with reduce-motion honoured the sheet would sit UNDER the keyboard.
+  const kbHeight = useSharedValue(0);
+  useEffect(() => {
+    // Gated: this component stays mounted at four call sites with the Modal
+    // closed, and ungated listeners would run four hidden tweens on every
+    // keyboard in the app (chat, search, anywhere).
+    if (!mounted) return;
+    const KB_EASE = Easing.out(Easing.cubic); // house curve; visually matches the iOS keyboard settle
+    const subs = Platform.OS === 'ios'
+      ? [
+          Keyboard.addListener('keyboardWillChangeFrame', (e) => {
+            // Height derived from where the keyboard's top edge ENDS UP —
+            // one formula covers show (screenY < window height), hide
+            // (screenY = window height → 0) and QuickType growth/shrink.
+            const end = Math.max(0, height - e.endCoordinates.screenY);
+            kbHeight.value = withTiming(end, {
+              duration: e.duration && e.duration > 0 ? e.duration : 250,
+              easing: KB_EASE,
+            });
+          }),
+        ]
+      : [
+          Keyboard.addListener('keyboardDidShow', (e) => {
+            kbHeight.value = withTiming(e.endCoordinates.height, { duration: 200, easing: KB_EASE });
+          }),
+          Keyboard.addListener('keyboardDidHide', () => {
+            kbHeight.value = withTiming(0, { duration: 200, easing: KB_EASE });
+          }),
+        ];
+    return () => subs.forEach((sub) => sub.remove());
+  }, [mounted, kbHeight, height]);
+  const keyboardLiftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -kbHeight.value }],
+  }));
+  // Screen-height cap with NO keyboard; the keyboard's share is subtracted
+  // per-frame in bodyStyle.
+  const sheetCapNoKb = height - Math.max(insets.top, spacing.sm);
+  // The sheet's last measured height, for the slide-in/out travel distance —
+  // the slide must cover the WHOLE sheet, not a hardcoded guess.
+  const sheetHRef = useRef(0);
+  // Cap applied IN the worklet from the live keyboard height, so the shrink
+  // rides the exact frame of the lift. Regrow on dismiss is automatic: bodyH
+  // keeps the content height and the min() releases with the keyboard. The
+  // 180 floor keeps a landscape sheet from collapsing to nothing.
+  const bodyStyle = useAnimatedStyle(() => {
+    if (bodyH.value <= 0) return {};
+    const cap = sheetCapNoKb - kbHeight.value;
+    return { height: Math.min(bodyH.value, Math.max(cap, 180)) };
+  });
 
   // The Continue button breathes while a code is being sent (and stays bright,
   // not grayed: the press is being honoured, not refused).
@@ -224,11 +302,20 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
     clientIdRef.current = newLoginSessionId();
     firstMeasure.current = true;
     bodyH.value = 0;
-  }, [visible, bodyH]);
+    // A close mid-keyboard can strand the lift at the last tweened height
+    // (the gate above removes the listeners before the hide event lands);
+    // a fresh open must start grounded.
+    kbHeight.value = 0;
+  }, [visible, bodyH, kbHeight]);
 
   useEffect(() => {
     if (visible) {
       setMounted(true);
+      // Start fully below the screen edge: the sheet's real height when known
+      // (re-opens), else the whole screen (first open, pre-measure). The old
+      // fixed 320 start meant a tall sheet's top was already visible on
+      // frame one.
+      sheetTranslateY.setValue((sheetHRef.current || height) + 24);
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
@@ -250,8 +337,12 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
           useNativeDriver: true,
         }),
         Animated.timing(sheetTranslateY, {
-          toValue: 320,
-          duration: 180,
+          // The FULL measured height plus shadow slack. The old fixed 320
+          // left a tall sheet's top ~100px on screen when the animation
+          // "finished", so the Modal unmount flash-killed the remainder
+          // mid-slide.
+          toValue: (sheetHRef.current || height) + 24,
+          duration: 220,
           useNativeDriver: true,
         }),
       ]).start(() => setMounted(false));
@@ -342,7 +433,12 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
     if (key === 'wrongCode') {
       setCodeState('error'); setShake((n) => n + 1); haptics.error();
       setErr(t('wrongCode'));
-      setTimeout(() => { setCode(''); setCodeState('idle'); }, 400);
+      // Outlasts the ~450ms shake: red holds through the whole motion, THEN
+      // the row clears for the retype (keyboard stayed up — see CodeInput).
+      codeResetTimer.current = setTimeout(() => {
+        codeResetTimer.current = null;
+        setCode(''); setCodeState('idle');
+      }, 500);
       return;
     }
     if (key === 'codeExpired' || key === 'codeUsed') {
@@ -454,16 +550,16 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
   const locked = providerBusy || busy;
   const isLandscape = width > height;
   const landscapeSheetWidth = Math.min(width * 0.58, 440);
-  const landscapeSheetLeft = (width - landscapeSheetWidth) / 2;
   const resendLeft = Math.max(0, Math.ceil((resendAt - Date.now()) / 1000));
 
   // Sheet body height = scroll content (handle + step + bottom inset) + the
   // body's top padding, capped to the screen. First measure of an open lands
   // without animation so the sheet does not grow out of a stale height.
   const padBottom = Math.max(insets.bottom, isLandscape ? spacing.md : spacing.xl);
-  const maxBodyH = height - Math.max(insets.top, spacing.sm);
+  const maxBodyH = sheetCapNoKb;
   const onContentSize = (_w: number, h: number) => {
     const target = Math.min(h + spacing.sm, maxBodyH);
+    sheetHRef.current = target;
     if (firstMeasure.current || bodyH.value === 0) {
       bodyH.value = target;
       firstMeasure.current = false;
@@ -561,7 +657,10 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
           returnKeyType="next"
           onSubmitEditing={submitEmail}
           editable={!locked}
-          autoFocus
+          // NO autoFocus here: this step's primary path is the provider
+          // buttons ABOVE the field — stealing focus popped the keyboard over
+          // the whole sheet the moment it opened. The username and code steps
+          // keep autoFocus; typing is their only job.
           accessibilityLabel={t('emailPlaceholder')}
         />
         <Reanimated.View style={pulseStyle}>
@@ -657,7 +756,12 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
       <Reanimated.View layout={LinearTransition.duration(240).reduceMotion(NO_RM)} style={styles.stepBody}>
       <CodeInput
         value={code}
-        onChange={(v) => { setCode(v); if (codeState === 'error') setCodeState('idle'); if (err) setErr(''); }}
+        onChange={(v) => {
+          // Typing claims the row: cancel a pending wrong-code clear so it
+          // can't wipe digits entered after the verdict.
+          if (codeResetTimer.current) { clearTimeout(codeResetTimer.current); codeResetTimer.current = null; }
+          setCode(v); if (codeState === 'error') setCodeState('idle'); if (err) setErr('');
+        }}
         onComplete={submitCode}
         disabled={busy}
         state={codeState}
@@ -710,12 +814,17 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
           under edge-to-edge), so 'height'/undefined meant NO avoidance at all.
           'padding' works from keyboard events, so the code cells stay above
           the IME in portrait and landscape. */}
-      <KeyboardAvoidingView style={StyleSheet.absoluteFill} behavior="padding" pointerEvents="box-none">
-        {/* Outer slot: position + the slide-in transform (legacy Animated, no
-            paint). Inner body: the painted sheet with the animated height. */}
+      <View style={[StyleSheet.absoluteFill, styles.kavEnd]} pointerEvents="box-none">
+        {/* Keyboard lift rides the UI thread (see keyboardLiftStyle); the
+            legacy Animated slot inside keeps the open/close slide transform.
+            Two layers on purpose — reanimated and legacy Animated cannot
+            share one transform. The slot stays a FLEX child pinned by
+            flex-end: padding/absolute tricks are what the old janky KAV
+            needed, and what broke before that. */}
+        <Reanimated.View style={keyboardLiftStyle}>
         <Animated.View style={[
           styles.sheetSlot,
-          isLandscape ? { left: landscapeSheetLeft, right: undefined, width: landscapeSheetWidth } : null,
+          isLandscape ? { width: landscapeSheetWidth, alignSelf: 'center' } : null,
           { transform: [{ translateY: sheetTranslateY }] },
         ]}>
           <Reanimated.View style={[
@@ -750,7 +859,8 @@ export default function AccountSelectSheet({ visible, onClose, title, subtitle }
             </ScrollView>
           </Reanimated.View>
         </Animated.View>
-      </KeyboardAvoidingView>
+        </Reanimated.View>
+      </View>
     </Modal>
   );
 }
@@ -761,12 +871,15 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
+  // Pins the sheet slot to the screen bottom; the keyboard lift translates it
+  // up from there on the UI thread.
+  kavEnd: {
+    justifyContent: 'flex-end',
+  },
   // Outer slot: where the sheet sits and how it slides in. Paints nothing.
+  // A flex child on purpose — see the KAV comment in render.
   sheetSlot: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: '100%',
   },
   // Inner body: the painted sheet; its height is animated (bodyStyle).
   sheet: {

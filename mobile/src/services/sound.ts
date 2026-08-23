@@ -115,7 +115,25 @@ function getSfxPlayer(name: SfxName): AudioPlayer | null {
   try {
     let p = sfxPlayers.get(name);
     if (!p) {
-      const created = createAudioPlayer(SFX_SOURCES[name]);
+      // keepAudioSessionActive IS THE FIRST-TAP FIX (iOS). Default false means
+      // expo-audio DEACTIVATES the app's AVAudioSession every time a player
+      // pauses or finishes — and the re-arm listener below pauses after every
+      // single sound. The next play() then has to reactivate the session, an
+      // async CoreAudio round trip, and the attack of the sound is swallowed
+      // while the output stream reopens: the first tap after any quiet gap is
+      // silent, rapid follow-ups are fine because the session is still up.
+      // This is the native twin of web's first-play unlock swallow (audio.js
+      // §28 lore), except it recurs all session instead of once.
+      //
+      // It is ALSO why it reads worst in game. expo-audio's own docs say the
+      // deactivation "interrupts other audio sources (like videos)" and that
+      // this flag is for "sound effects that should not interfere with ongoing
+      // video playback or other audio" — in game there are one or two WebViews
+      // holding their own ambient sessions plus the music player, and every
+      // SFX end was tearing the session down underneath them. Same class as
+      // the WebView-vs-music interruption fix in embed/shims/audio.js, in the
+      // opposite direction.
+      const created = createAudioPlayer(SFX_SOURCES[name], { keepAudioSessionActive: true });
       // Re-arm at position 0 the moment playback ENDS — off the hot path. A
       // media player left at its end position needs a seek before it can
       // replay, and expo-audio's seekTo is an async native dispatch: the old
@@ -186,6 +204,12 @@ export function playSfx(
       rate != null ? rate : pitchJitter > 0 ? 1 + (Math.random() * 2 - 1) * pitchJitter : 1;
     player.shouldCorrectPitch = false;
     player.setPlaybackRate(rateValue);
+    // KILL ANY FADE FIRST. stopSfx leaves a 250ms interval writing this
+    // player's volume down to 0 and then pausing it; a replay landing inside
+    // that window set its volume here and then had it stomped back to silence
+    // step by step. Only `ticking` is stopSfx'd today, so only the round clock
+    // could go silent on a re-arm, but the trap belongs to any future bed.
+    cancelFade(player);
     // Linear mix × perceptual master × ad-duck — same chain as web's
     // per-play gain → sfxGain → masterGain.
     player.volume = Math.max(0, Math.min(1, volume * toGain(slider) * duckFactor));

@@ -220,6 +220,12 @@ function App() {
       if (e && e.data && typeof e.data === 'object') applyInbound(e.data);
     };
     window.addEventListener('message', onMessage);
+    // The host seeds window.__nativeSfxGain via
+    // injectedJavaScriptBeforeContentLoaded, so the pin can decode NOW
+    // instead of one ready->push round trip later -- a map tap in that gap
+    // used to read gain 0 and play nothing (first-tap-silent bug). No-op
+    // when muted (shim gates on gain > 0) or on iframe embeds (no seed).
+    preloadSfx('pin');
     postOut({ type: OUTBOUND.READY });
     return () => {
       window.removeEventListener('message', onMessage);

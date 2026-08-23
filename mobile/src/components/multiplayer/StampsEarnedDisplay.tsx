@@ -30,7 +30,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Modal, View, Text, StyleSheet } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import StampMark from '../shop/StampMark';
 import Animated, {
   cancelAnimation,
@@ -264,6 +265,7 @@ export default function StampsEarnedDisplay({
           onRequestClose={closeBreakdown}
         >
           <Pressable
+            sfx="none"
             style={styles.tooltipDismissLayer}
             onPress={closeBreakdown}
             accessible={false}
@@ -282,6 +284,7 @@ export default function StampsEarnedDisplay({
               ]}
             >
               <Pressable
+                sfx="none"
                 style={styles.linesContent}
                 onPress={(event) => event.stopPropagation()}
                 accessible={false}

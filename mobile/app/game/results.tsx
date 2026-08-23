@@ -869,18 +869,13 @@ export default function GameResultsScreen() {
   const stars = useMemo(() => getStars(percentage), [percentage]);
 
   // Rate-us prompt: this screen mounts once per finished game, so mounting is
-  // the completion signal. Only ASK at a high point — a live-multiplayer WIN,
-  // or a strong solo game (60%+ of max; `percentage` is CG-aware, so country/
-  // continent guesser qualify on their own 1000-point scale). multiplayerInfo
-  // arrives async; undefined keeps the hook latched open until the verdict is
-  // known. NOTE: `rounds` the route param is the serialized round LIST, never
-  // a count — derive counts from parsedRounds, not parseInt(rounds).
-  const happyMoment = isLiveMultiplayer
-    ? multiplayerInfo
-      ? multiplayerInfo.isWinner && !multiplayerInfo.isDraw
-      : undefined
-    : percentage >= 60;
-  const review = useReviewPrompt(!isHistoryView && !isPrivateParty, happyMoment);
+  // the completion signal. Happy-moment gating REMOVED Aug 23 (dialed-parity
+  // ruling): every finished non-party game may ask, win or lose — the store
+  // gates on install age (5 min) + 1 completed game, and the star split keeps
+  // 1-4★ moods in-app so only 5★ intent ever reaches the store sheet.
+  // NOTE: `rounds` the route param is the serialized round LIST, never a
+  // count — derive counts from parsedRounds, not parseInt(rounds).
+  const review = useReviewPrompt(!isHistoryView && !isPrivateParty);
   const totalXpEarned = useMemo(
     () => parsedRounds.reduce((sum, round) => sum + (round.xpEarned ?? 0), 0),
     [parsedRounds],
@@ -2480,6 +2475,14 @@ export default function GameResultsScreen() {
         {/* Emote sender — bottom-left of the map area; the sidebar owns the right edge. */}
         {showEmotes && <EmoteReactions hideName={isDuelGame && !is2v2Game} />}
         {renderReportModal()}
+        {/* Inline overlay — must exist in BOTH orientation layouts: the hook
+            burns the ask (markShown) regardless of layout, so a layout without
+            this component silently eats prompts (the iPad/landscape hole). */}
+        <ReviewPromptModal
+          visible={review.visible}
+          onRate={review.onRate}
+          onDismiss={review.onDismiss}
+        />
       </View>
     );
   }
@@ -2595,7 +2598,6 @@ export default function GameResultsScreen() {
         visible={review.visible}
         onRate={review.onRate}
         onDismiss={review.onDismiss}
-        onClosed={review.onClosed}
       />
     </View>
   );

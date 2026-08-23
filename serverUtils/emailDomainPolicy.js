@@ -5,6 +5,7 @@ import {
   isAllowedEmailDomain,
   isDisposableDomain,
   looksLikeSchoolDomain,
+  looksLikeSchoolSubdomain,
   registrableDomain,
 } from './emailDomains.js';
 
@@ -18,13 +19,20 @@ import {
  *      AND on its registrable domain, so `lausd.net` covers `students.lausd.net`
  *   3. throw-away mail (known list + name tokens)               -> refuse
  *   4. name heuristic: the REGISTRABLE domain contains a school word (k12,
- *      school, isd, academy, student, edu ...; owner ruling 2026-08-22);
- *      sub-domain labels are never consulted, anyone can mint "student."
- *      under a domain they own                                  -> allow
- *   5. otherwise                                                 -> refuse
- * 4 is recorded as an auto rule (source 'auto-token') and pinged to Discord
- * once per process, so the owner can review and flip any of them to 'block'
- * in the collection; 5 is pinged too so a real school can be allowed by hand.
+ *      school, isd, academy, student, edu ...; owner ruling 2026-08-22)
+ *                                                                -> allow
+ *   5. the same words in a SUB-DOMAIN label, when the organisation's own
+ *      domain is neutral: `student.hcbe.net` is a school, `hcbe.net` does not
+ *      say so (owner ruling 2026-08-23)                          -> allow
+ *   6. otherwise                                                 -> refuse
+ * 4 and 5 are recorded as auto rules (source 'auto-token') and pinged to
+ * Discord once per process, so the owner can review and flip any of them to
+ * 'block' in the collection; 6 is pinged too so a real school can be allowed
+ * by hand.
+ * THE TWO HEURISTICS RECORD DIFFERENT KEYS ON PURPOSE. 4 owns the registrable
+ * domain, so every sub-domain of a school district is covered at once. 5 owns
+ * the EXACT HOST, because the parent said nothing about being a school:
+ * allowing `student.hcbe.net` must not also allow `mail.hcbe.net`.
  * A few false positives are accepted by design: the audience is school kids
  * on district domains no list covers.
  *
@@ -108,6 +116,13 @@ export async function decideEmailDomain(email) {
   if (looksLikeSchoolDomain(reg)) {
     record(reg, 'allow', 'auto-token');
     notifyDomain('auto-allowed', reg, 'looks like a school');
+    return { allow: true, reason: 'auto-token', domain };
+  }
+
+  // Host-scoped, never the parent: see the header note on the two keys.
+  if (looksLikeSchoolSubdomain(domain)) {
+    record(domain, 'allow', 'auto-token');
+    notifyDomain('auto-allowed', domain, 'school sub-domain');
     return { allow: true, reason: 'auto-token', domain };
   }
 

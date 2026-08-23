@@ -1,4 +1,5 @@
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import SiteBackground from '../SiteBackground';
 import { MATCHMAKING_VEIL_COLORS } from '../../styles/matchmakingBackdrop';
@@ -55,6 +56,7 @@ interface Props {
 }
 
 
+// expo-image, not RN core: see the note beside the same asset in app/queue.tsx.
 const LOADER = require('../../../assets/loader.gif');
 
 export default function GameLoadingOverlay({
@@ -134,7 +136,7 @@ export default function GameLoadingOverlay({
         ) : (
           <>
             <View style={styles.loadingRow}>
-              <Image source={LOADER} style={styles.spinner} />
+              <ExpoImage source={LOADER} style={styles.spinner} />
               <Text style={styles.loadingText}>{message}</Text>
             </View>
             {/* Escape hatch while still loading (no error yet): callers pass

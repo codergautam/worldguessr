@@ -30,7 +30,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Animated, Easing, Pressable, Alert, useWindowDimensions } from 'react-native';
+import { StyleSheet, Animated, Easing, Alert, useWindowDimensions } from 'react-native';
+import { Pressable } from '../ui/SfxPressable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -314,7 +315,11 @@ export default function WsIndicator() {
       ]}
       pointerEvents={tappable ? 'box-none' : 'none'}
     >
-      <Pressable onPress={handlePress} style={[styles.icon, { borderColor: color }]}>
+      {/* SILENT BY WEB PARITY: wsIcon.js renders a <div onClick>, not a
+          <button>, so attachUiClickSounds never fires for it. Wrapper import
+          kept so the "only SfxPressable imports RN Pressable" grep stays clean
+          and the opt-out is explicit rather than accidental. */}
+      <Pressable sfx="none" onPress={handlePress} style={[styles.icon, { borderColor: color }]}>
         <Ionicons name="radio" size={24} color={color} />
       </Pressable>
     </Animated.View>

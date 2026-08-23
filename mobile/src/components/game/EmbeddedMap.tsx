@@ -154,6 +154,12 @@ export default function EmbeddedMap({
   // no volume of its own: the app's effective gain rides every updateProps, so
   // slider changes apply live and muted stays zero-cost in-page too.
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
+  // Mount-time gain, frozen: injectedJavaScriptBeforeContentLoaded only runs
+  // at page load, so feeding it a live value would be a lie -- updateProps
+  // owns every later change.
+  const initialGainSeedRef = useRef(
+    `window.__nativeSfxGain = ${JSON.stringify(toGain(useSettingsStore.getState().sfxVolume))}; true;`,
+  );
 
   // On the results screen this WebView cold-starts on every fresh route mount —
   // a dark spinner then an abrupt map pop ("loading for a bit"). Fade the map in
@@ -341,6 +347,15 @@ export default function EmbeddedMap({
           overScrollMode="never"
           javaScriptEnabled
           domStorageEnabled
+          // Seed the pin gain BEFORE the page boots. The shim gates the pin
+          // on window.__nativeSfxGain, which used to arrive only via the
+          // ready -> push round trip -- and the loading overlay is
+          // pointerEvents="none", so the map is tappable during that window
+          // (widest exactly at game entry, when the RN JS thread is busiest).
+          // A tap in the gap read gain 0 and played NOTHING: the "first tap
+          // in game is silent" bug, both platforms. Mount-time value only;
+          // later slider changes still ride updateProps.
+          injectedJavaScriptBeforeContentLoaded={initialGainSeedRef.current}
           setSupportMultipleWindows={false}
           androidLayerType="hardware"
           // Lets the shim's AudioContext unlock at load instead of on the

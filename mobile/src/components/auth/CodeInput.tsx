@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput } from 'react-native';
+import { Platform, StyleSheet, TextInput } from 'react-native';
 import Reanimated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -57,15 +58,32 @@ function Caret() {
 
 function Digit({ char, active, state }: { char: string; active: boolean; state: CodeInputState }) {
   const scale = useSharedValue(1);
+  // Removal fades, arrival stays instant. `ghost` keeps the outgoing glyph
+  // rendered while its opacity runs out — without it the Text empties on the
+  // same frame the value does and the fade has nothing to act on. It lingers
+  // at opacity 0 rather than being cleared (no runOnJS round trip needed);
+  // the next digit overwrites it and snaps opacity back to 1.
+  const fade = useSharedValue(char ? 1 : 0);
+  const [ghost, setGhost] = useState(char);
   const hadChar = useRef(!!char);
   useEffect(() => {
-    if (char && !hadChar.current) {
-      scale.value = 1.1;
-      scale.value = withSpring(1, { damping: 12, stiffness: 320 });
+    if (char) {
+      setGhost(char);
+      fade.value = 1; // cancels an in-flight fade-out; typing must paint instantly
+      if (!hadChar.current) {
+        scale.value = 1.1;
+        scale.value = withSpring(1, { damping: 12, stiffness: 320 });
+      }
+    } else if (hadChar.current) {
+      // Backspace or the wrong-code clear: the glyph dissolves instead of
+      // snapping out. Short enough that rapid backspacing still reads as
+      // immediate (the caret ring moves on the value, not on this fade).
+      fade.value = withTiming(0, { duration: 160 });
     }
     hadChar.current = !!char;
-  }, [char, scale]);
+  }, [char, fade, scale]);
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const verdict =
     state === 'ok' ? { backgroundColor: GOOD_SOFT, borderColor: GOOD }
@@ -82,7 +100,7 @@ function Digit({ char, active, state }: { char: string; active: boolean; state: 
         popStyle,
       ]}
     >
-      <Text style={styles.digitText}>{char}</Text>
+      <Reanimated.Text style={[styles.digitText, fadeStyle]}>{ghost}</Reanimated.Text>
       {active && <Caret />}
     </Reanimated.View>
   );
@@ -103,15 +121,20 @@ export default function CodeInput({
   const [focused, setFocused] = useState(false);
   const shakeX = useSharedValue(0);
 
+  // A head-shake "no", not a buzz. The first cut was six 50ms LINEAR legs at
+  // ±8px — every leg reverses direction at full speed, which reads as the row
+  // vibrating (user: "so jarring"). Softened: smaller start, decaying
+  // amplitude, eased turns so velocity passes through zero at each extreme,
+  // ~450ms total. Sized to stay inside the row's 8px gap.
   useEffect(() => {
     if (!shakeKey) return;
+    const turn = Easing.inOut(Easing.quad);
     shakeX.value = withSequence(
-      withTiming(-8, { duration: 50 }),
-      withTiming(7, { duration: 50 }),
-      withTiming(-5, { duration: 50 }),
-      withTiming(4, { duration: 50 }),
-      withTiming(-2, { duration: 50 }),
-      withTiming(0, { duration: 50 }),
+      withTiming(-6, { duration: 80, easing: Easing.out(Easing.quad) }),
+      withTiming(5, { duration: 90, easing: turn }),
+      withTiming(-3, { duration: 90, easing: turn }),
+      withTiming(1.5, { duration: 90, easing: turn }),
+      withTiming(0, { duration: 100, easing: Easing.out(Easing.quad) }),
     );
   }, [shakeKey, shakeX]);
 
@@ -127,6 +150,12 @@ export default function CodeInput({
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
 
   const handleChange = (text: string) => {
+    // Ignore keystrokes while disabled instead of flipping `editable`: on iOS
+    // a TextInput that becomes non-editable RESIGNS FIRST RESPONDER, so the
+    // old `editable={!disabled}` slammed the keyboard down on every submit —
+    // and the sheet's keyboard-follow dragged the whole sheet down with it,
+    // then everything jumped back up for the retype after a wrong code.
+    if (disabled) return;
     const next = text.replace(/\D/g, '').slice(0, length);
     onChange(next);
     if (next.length === length) onComplete?.(next);
@@ -147,7 +176,7 @@ export default function CodeInput({
         onChangeText={handleChange}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        editable={!disabled}
+        // Always editable — see handleChange. Input acceptance is gated in JS.
         keyboardType="number-pad"
         textContentType="oneTimeCode"
         autoComplete={Platform.OS === 'ios' ? 'one-time-code' : 'sms-otp'}

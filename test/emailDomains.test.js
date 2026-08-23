@@ -5,6 +5,7 @@ import {
   isDisposableDomain,
   isValidEmailSyntax,
   looksLikeSchoolDomain,
+  looksLikeSchoolSubdomain,
   registrableDomain,
 } from '../serverUtils/emailDomains.js';
 
@@ -92,7 +93,10 @@ describe('looksLikeSchoolDomain', () => {
     }
   });
 
-  it('never judges a sub-domain label: anyone can mint student./edu./k12. under a domain they own (owner ruling 2026-08-22)', () => {
+  // Still the contract for THIS function. The sub-domain case is a separate
+  // lens (looksLikeSchoolSubdomain, below) that the policy records host-scoped,
+  // so a match here would wrongly widen the whole registrable domain.
+  it('never judges a sub-domain label: that is looksLikeSchoolSubdomain\'s job', () => {
     for (const d of ['edu.evil.com', 'student.evil.com', 'k12.evil.io', 'students.acme-corp.com', 'sd.x.com', 'school.example.co.uk']) {
       expect(looksLikeSchoolDomain(d), d).toBe(false);
     }
@@ -102,5 +106,31 @@ describe('looksLikeSchoolDomain', () => {
 
   it('accepts the agreed false positives rather than missing a district', () => {
     expect(looksLikeSchoolDomain('wisdom-tools.com')).toBe(true); // "isd"
+  });
+});
+
+describe('looksLikeSchoolSubdomain (owner ruling 2026-08-23)', () => {
+  it('reads a school word in the sub-domain when the organisation name is neutral', () => {
+    for (const d of ['student.hcbe.net', 'students.hcbe.net', 'student-mail.acme.org', 'pupils.foo.co.uk', 'my.students.example.com', 'learn.example.net']) {
+      expect(looksLikeSchoolSubdomain(d), d).toBe(true);
+    }
+  });
+
+  it('needs an actual sub-domain: the registrable domain alone is the other lens', () => {
+    for (const d of ['hcbe.net', 'fultonschools.org', 'gmail.com', 'k12.wa.us', '', null, undefined]) {
+      expect(looksLikeSchoolSubdomain(d), String(d)).toBe(false);
+    }
+  });
+
+  it('ignores plain sub-domains, and never the two-letter labels (locales, not schools)', () => {
+    for (const d of ['mail.acme.com', 'www.example.org', 'es.company.com', 'hs.company.com', 'sd.x.com']) {
+      expect(looksLikeSchoolSubdomain(d), d).toBe(false);
+    }
+  });
+
+  it('matches the host only: the policy must not widen the parent', () => {
+    expect(looksLikeSchoolSubdomain('student.hcbe.net')).toBe(true);
+    expect(looksLikeSchoolSubdomain('staff.hcbe.net')).toBe(false);
+    expect(looksLikeSchoolDomain('student.hcbe.net')).toBe(false); // parent stays unjudged
   });
 });

@@ -9,11 +9,10 @@
  * scrolling or clipping on short viewports.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Image,
   StyleSheet,
   Text,
   View,
@@ -21,6 +20,7 @@ import {
   type StyleProp,
   type TextStyle,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import SiteBackground from '../src/components/SiteBackground';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,6 +45,12 @@ import { formatQueueEta } from '@shared/time/queueEta';
 const SURFACE = 'rgba(14, 34, 23, 0.52)';
 
 const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
+
+// 512x512, 90 frames, painted at ~60px. expo-image DELIBERATELY: RN core hands
+// an animated GIF to the platform decoder, which materialises every frame at
+// source resolution up front and holds them (~90MB) for the whole search.
+// expo-image decodes incrementally and downsamples toward the target box.
+const LOADER = require('../assets/loader.gif');
 
 /** Expanding "sonar" rings that ripple outward from the center. */
 function PulseRings({ accent, size }: { accent: string; size: number }) {
@@ -180,6 +186,57 @@ function anchorFor(queuedAt: number) {
   return clockAnchor.at;
 }
 
+/**
+ * The elapsed clock. PHASE-LOCKED to the anchor's second boundary, and its own
+ * component so the tick is its own business — both halves matter.
+ *
+ * The pump was a bare setInterval(1000), which is phased to MOUNT, while the
+ * digit flips on a boundary phased to the ANCHOR, which lands one server round
+ * trip AFTER mount. Permanently ~1 RTT apart, so any unrelated re-render
+ * landing between the two phases painted the next second EARLY and the
+ * interval's own tick then held it LONG: the "sprints, then hangs" stutter.
+ * Web fixed this in components/queueScreen.js; mobile only ever got the other
+ * half of that fix (the anchor). Re-arming off the live clock makes every
+ * second last exactly one second however late a callback runs.
+ *
+ * Isolating it is the RN half. The tick lived in QueueScreen, so one second of
+ * clock re-committed the background, both veils, the radar, the spinner, the
+ * data plate and (2v2) the chat into the native tree. A DOM text swap is free;
+ * a Fabric commit is not, and the JS-thread pause it costs delays the NEXT
+ * timer callback — the stutter fed itself. `memo` is load-bearing here, not
+ * decoration: it is what stops a parent re-render from painting a digit off
+ * phase, which is the early-flip half of the bug.
+ */
+const ElapsedClock = memo(function ElapsedClock({ anchor }: { anchor: number | null }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (anchor === null) return; // nothing displayed yet
+    let id: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      const ms = performance.now() - anchor;
+      id = setTimeout(() => {
+        setTick((n) => n + 1);
+        arm();
+      }, 1000 - (ms % 1000) + 5);
+    };
+    arm();
+    return () => clearTimeout(id);
+  }, [anchor]);
+  // DERIVED from a timestamp difference, never an incremented counter: RN
+  // suspends JS timers while the app is backgrounded, so a counter silently
+  // loses every second spent in another app. A difference cannot.
+  const elapsed = anchor === null ? 0 : Math.floor((performance.now() - anchor) / 1000);
+  const ss = elapsed % 60;
+  return (
+    <View style={styles.timerRow}>
+      <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
+      <Text style={styles.timerText}>
+        {`${Math.floor(elapsed / 60)}:${ss < 10 ? '0' : ''}${ss}`}
+      </Text>
+    </View>
+  );
+});
+
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -200,13 +257,6 @@ export default function QueueScreen() {
   // just dims the button while the server round-trips the lobby restore.
   const [cancelling, setCancelling] = useState(false);
 
-  // The interval is a RE-RENDER PUMP, not the clock. This used to be a
-  // `setElapsed(e => e + 1)` counter, which silently under-reports: React
-  // Native suspends JS timers while the app is backgrounded, so a minute spent
-  // in another app simply never got counted and there was no state to recover
-  // it from. The value is DERIVED from a timestamp difference on every render,
-  // which is immune to that and to a screen remount.
-  //
   // The anchor is LOCAL, keyed on the server's join instant. It used to be
   // `Date.now() + wsService.timeOffset - queuedAt`, but queuedAt is stamped on
   // the ws server's clock, so that made the stopwatch a function of device to
@@ -222,17 +272,8 @@ export default function QueueScreen() {
   // follow-up `queuePlacement`). Overrides the no-eyebrow ruling below and
   // swaps the data plate for the one-line explainer.
   const placementPending = useMultiplayerStore((s) => s.placementPending);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+  // Only the ANCHOR lives here; the tick lives inside <ElapsedClock/>.
   const anchor = typeof queuedAt === 'number' ? anchorFor(queuedAt) : null;
-  const elapsedMs = anchor !== null ? performance.now() - anchor : 0;
-  const elapsed = Math.floor(elapsedMs / 1000);
-  const mm = Math.floor(elapsed / 60);
-  const ss = elapsed % 60;
-  const elapsedStr = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
 
   // How long this queue USUALLY takes in total, from the moment you joined —
   // not a countdown, and deliberately static (the server latches it for the
@@ -244,11 +285,43 @@ export default function QueueScreen() {
   // the visual confidence of a measured median.
   const ROUGH_KEYS = { short: 'queueEtaRoughShort', mid: 'queueEtaRoughMid', long: 'queueEtaRoughLong' } as const;
   const etaRough = queueEta?.state === 'rough' && !!queueEta.tier;
-  // Render from the local 1s clock as soon as the server-provided deadline is
+  // Flip to the long-wait wording as soon as the server-provided deadline is
   // crossed. Waiting for the 5s ETA beat could otherwise leave an already-
   // expired quote visible for several seconds.
-  const etaPastThreshold = typeof queueEta?.longAfterSeconds === 'number'
-    && elapsedMs > queueEta.longAfterSeconds * 1000;
+  //
+  // ONE TIMER ARMED FOR THE DEADLINE, not a per-second poll. The poll was the
+  // only other thing this screen needed the 1 Hz tick for, and it could only
+  // notice the crossing on the next tick, so the flip landed up to a second
+  // late. This lands on it.
+  const longAfterMs = typeof queueEta?.longAfterSeconds === 'number'
+    ? queueEta.longAfterSeconds * 1000
+    : null;
+  const [etaPastFlag, setEtaPastThreshold] = useState(false);
+  // UNION of the timer flag and a render-time read. The timer alone was a
+  // regression the poll never had: the effect runs AFTER the first paint, so
+  // re-entering a queue that is ALREADY past its deadline showed the stale
+  // quote for one frame. Reading the clock here as well costs nothing (this
+  // screen no longer renders per second) and restores the old correct-on-every-
+  // render behaviour, while the timer covers the crossing that happens when
+  // nothing else is rendering.
+  const etaPastThreshold =
+    etaPastFlag ||
+    (anchor !== null && longAfterMs !== null && performance.now() - anchor > longAfterMs);
+  useEffect(() => {
+    if (anchor === null || longAfterMs === null) {
+      setEtaPastThreshold(false);
+      return;
+    }
+    const remaining = longAfterMs - (performance.now() - anchor);
+    if (remaining <= 0) {
+      setEtaPastThreshold(true);
+      return;
+    }
+    // A restated deadline must not inherit the old one's verdict.
+    setEtaPastThreshold(false);
+    const id = setTimeout(() => setEtaPastThreshold(true), remaining);
+    return () => clearTimeout(id);
+  }, [anchor, longAfterMs]);
   const etaStr = queueEta?.state === 'long' || etaPastThreshold
     ? t('queueEtaLong')
     : etaRough
@@ -407,8 +480,8 @@ export default function QueueScreen() {
           },
         ]}
       >
-        <Image
-          source={require('../assets/loader.gif')}
+        <ExpoImage
+          source={LOADER}
           style={{ width: compassSize, height: compassSize }}
         />
       </View>
@@ -484,12 +557,7 @@ export default function QueueScreen() {
     </View>
   ) : null;
 
-  const timerEl = (
-    <View style={styles.timerRow}>
-      <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
-      <Text style={styles.timerText}>{elapsedStr}</Text>
-    </View>
-  );
+  const timerEl = <ElapsedClock anchor={anchor} />;
 
   return (
     <View style={styles.container}>

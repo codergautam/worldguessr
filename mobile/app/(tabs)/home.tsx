@@ -10,8 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  StyleProp,
-  ViewStyle,
 } from 'react-native';
 import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
@@ -27,7 +25,7 @@ import Reanimated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, resolveLeague, t, formatCompact } from '../../src/shared';
+import { colors, resolveLeague, t } from '../../src/shared';
 import StampsTile from '../../src/components/home/StampsTile';
 import PlayerCard, {
   homeCornerHeight,
@@ -42,6 +40,7 @@ import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
+import { homeTitleSize, navTextSize, HOME_MAX_FONT_MULT } from '../../src/styles/webType';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
@@ -85,22 +84,17 @@ interface MenuButtonProps {
 // (title ≈230px, menu maxWidth 300) starts fully offscreen-left the same way.
 const NAV_SLIDE_FROM = -300;
 const INITIAL_AUTH_REVEAL_MAX_WAIT_MS = 900;
-const HOME_TITLE_MIN_FONT_SIZE = 32;
-const HOME_TITLE_MAX_FONT_SIZE = 40;
-const HOME_TITLE_SHORTEST_SIDE_RATIO = 0.1;
 const HOME_TITLE_TO_DIVIDER_GAP = spacing.md;
 const DIVIDER_VERTICAL_MARGIN = spacing.sm;
 const AUTH_LAYOUT_TRANSITION_MS = 320;
 const FORUM_URL = 'https://worldguessr.forum';
 const FORUM_BRIDGE_URL = 'https://www.worldguessr.com/forum-bridge?code=';
 
-function homeTitleMetrics(shortestSide: number) {
-  const fontSize = Math.round(
-    Math.min(
-      HOME_TITLE_MAX_FONT_SIZE,
-      Math.max(HOME_TITLE_MIN_FONT_SIZE, shortestSide * HOME_TITLE_SHORTEST_SIDE_RATIO),
-    ),
-  );
+/** Web-parity title size (.home__title formula — see webType.ts). The
+ *  lineHeight keeps the fontSize + spacing.sm relationship that the header
+ *  and wideMenuLift math have always consumed. */
+function homeTitleMetrics(width: number, height: number) {
+  const fontSize = homeTitleSize(width, height);
   return { fontSize, lineHeight: fontSize + spacing.sm };
 }
 
@@ -174,11 +168,18 @@ function useNavEntrance(reduceMotion: boolean, ready: boolean) {
 }
 
 function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
+  // Web-parity size (.g2_nav_text formula) from the live window, so rotation
+  // re-derives it exactly the way the CSS vw/vh clamps do.
+  const { width, height } = useWindowDimensions();
+  const fontSize = navTextSize(width, height);
   return (
     <Pressable
       // Home main-menu scope plays ui_click, not click_2 (web .g2_nav_ui
       // parity via the delegated listener) — every MenuButton inherits it.
       sfx="ui"
+      // Web's nav column is denser than a 44px touch row; the slop restores
+      // the effective target without reinflating the visual rhythm.
+      hitSlop={{ top: 5, bottom: 5 }}
       style={({ pressed }) => [
         styles.menuButton,
         pressed && styles.menuButtonPressed,
@@ -186,7 +187,12 @@ function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
       onPress={onPress}
     >
       <View style={styles.menuButtonRow}>
-        <Text style={styles.menuButtonText}>{label}</Text>
+        <Text
+          style={[styles.menuButtonText, { fontSize }]}
+          maxFontSizeMultiplier={HOME_MAX_FONT_MULT}
+        >
+          {label}
+        </Text>
         {accessory}
       </View>
     </Pressable>
@@ -407,70 +413,7 @@ function OutlinedTitle({
   );
 }
 
-/**
- * Bottom-right "X online" badge. Kept ALWAYS MOUNTED (not conditionally
- * rendered) so it can animate OUT as well as in: it slides off to the right +
- * fades when `visible` goes false (disconnect, login/logout socket swap, or
- * count→0) and slides back in from the right when it returns. The last positive
- * count is latched so the text never blinks to "0 online" mid-slide-out.
- */
-function OnlineCountBadge({
-  visible,
-  count,
-  fontSize,
-  style,
-  onWidth,
-}: {
-  visible: boolean;
-  count: number;
-  fontSize: number;
-  style: StyleProp<ViewStyle>;
-  onWidth?: (width: number) => void;
-}) {
-  const SLIDE = 80; // px off-screen to the right when hidden
-  const translateX = useRef(new Animated.Value(SLIDE)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const [shownCount, setShownCount] = useState(count);
-
-  // Latch the live count while it's meaningful; keep showing it during exit.
-  useEffect(() => {
-    if (count > 0) setShownCount(count);
-  }, [count]);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(translateX, {
-        toValue: visible ? 0 : SLIDE,
-        duration: visible ? 420 : 300,
-        easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: visible ? 1 : 0,
-        duration: visible ? 360 : 240,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [visible, translateX, opacity]);
-
-  return (
-    <Animated.View
-      style={[style, { opacity, transform: [{ translateX }] }]}
-      pointerEvents="none"
-      // Transforms don't affect layout, so this reports the true text width
-      // even mid-slide; the parent uses it for footer collision detection.
-      onLayout={onWidth ? (e) => onWidth(e.nativeEvent.layout.width) : undefined}
-    >
-      <Text style={[styles.onlineCount, { fontSize }]}>
-        {t('onlineCnt', { cnt: formatCompact(shownCount) })}
-      </Text>
-    </Animated.View>
-  );
-}
-
-// Footer icon button height — shared by styles.iconButton and the online
-// badge's raised position so the two can't drift apart.
+// Footer icon button height.
 const FOOTER_ICON_HEIGHT = 44;
 
 // Module-level flags so moderation popup only shows once per app session
@@ -657,7 +600,6 @@ export default function HomeScreen() {
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
   const gamePublic = useMultiplayerStore((s) => s.gameData?.public);
-  const playerCount = useMultiplayerStore((s) => s.playerCount);
   // Badge on the card's Friends menu row. The friends button used to be a
   // permanent fixture of this corner; now that it is a row inside a sheet, a
   // pending request has to announce itself from outside the sheet or it is
@@ -899,11 +841,13 @@ export default function HomeScreen() {
   const isLandscape = width > height;
   const shortestSide = Math.min(width, height);
   const { fontSize: homeTitleFontSize, lineHeight: homeTitleLineHeight } =
-    homeTitleMetrics(shortestSide);
-  // This is a horizontal collision breakpoint, so key it to width rather than
-  // shortestSide: a landscape phone has ample room and should keep the higher
-  // wordmark composition just like a tablet.
-  const isCompact = width < 430;
+    homeTitleMetrics(width, height);
+  // Web-parity "mobile" query: globals.scss flips the home nav to its
+  // single-column mobile composition at (max-width: 600px) OR
+  // (max-height: 680px) — so big phones (430-440 logical px) and LANDSCAPE
+  // phones are mobile there too. The old width<430 cutoff pushed those onto
+  // the tablet composition, whose wideMenuLift hoisted the menu too high.
+  const isCompact = width < 600 || height < 680;
   // Use the shared spacing scale for the optical offset at every wide size.
   // The menu lift below consumes this same value, so title and menu move as one
   // section instead of being tuned independently for specific devices.
@@ -928,21 +872,6 @@ export default function HomeScreen() {
           titleVerticalOffset -
           HOME_TITLE_TO_DIVIDER_GAP,
       );
-
-  // The online badge (bottom-right, fixed) sits on the same line as the footer
-  // icon row (bottom-left, scrolls). On narrow screens they can collide
-  // horizontally, so measure both instead of guessing by breakpoint — the
-  // badge width varies with count, locale, and font size. When there isn't
-  // room on the footer's line, the badge hops just above the icon row.
-  const [onlineBadgeWidth, setOnlineBadgeWidth] = useState(0);
-  const [footerIconsRightEdge, setFooterIconsRightEdge] = useState(0);
-  const onlineBadgeRight = Math.max(insets.right, spacing.xl);
-  const safeAreaWidth = width - insets.left - insets.right;
-  const onlineBadgeCollidesFooter =
-    onlineBadgeWidth > 0 &&
-    footerIconsRightEdge > 0 &&
-    safeAreaWidth - onlineBadgeRight - onlineBadgeWidth <
-      footerIconsRightEdge + spacing.md;
 
   const cardMetrics = playerCardMetrics(shortestSide);
 
@@ -969,7 +898,14 @@ export default function HomeScreen() {
   const authProgress = useSharedValue(authLoading ? 1 : loggedIn ? 1 : 0);
   const restoringInitialAuthRef = useRef(authLoading);
   const initialAuthPending = restoringInitialAuthRef.current && authLoading;
-  const compactProfileReservationHeight = playerCardHeight(cardMetrics) + CORNER_GAP;
+  // How far the compact column must ADDITIONALLY drop below the floating
+  // account card: overlay top (spacing.md) + card height + CORNER_GAP, minus
+  // the 70px web-parity pad the header always carries. Stacking the full card
+  // height ON TOP of the 70 shoved the menu way down after login (Aug 23).
+  const compactProfileReservationHeight = Math.max(
+    0,
+    spacing.md + playerCardHeight(cardMetrics) + CORNER_GAP - 70,
+  );
   useLayoutEffect(() => {
     const target = loggedIn ? 1 : 0;
     if (restoringInitialAuthRef.current && authLoading) {
@@ -1417,14 +1353,9 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          {/* Bottom Icons — rides the shared entrance wave. onLayout is safe
-              here: transforms don't affect layout, so the measured right edge
-              is the settled position even mid-slide. */}
+          {/* Bottom Icons — rides the shared entrance wave. */}
           <Animated.View
             style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape, navEntrance]}
-            // Right edge in safe-area coords (the ScrollView spans the full
-            // safe width), consumed by the online-badge collision check.
-            onLayout={(e) => setFooterIconsRightEdge(e.nativeEvent.layout.x + e.nativeEvent.layout.width)}
           >
             <Pressable
               style={({ pressed }) => [styles.iconButton, styles.iconButtonDiscord, pressed && styles.iconButtonDiscordPressed]}
@@ -1478,29 +1409,6 @@ export default function HomeScreen() {
           </Animated.View>
         </ScrollView>
 
-        {/* Online player count — bottom right. Always mounted so it can slide
-            in/out (see OnlineCountBadge); visibility drives the animation. */}
-        <OnlineCountBadge
-          visible={connected && playerCount > 0}
-          count={playerCount}
-          fontSize={shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15}
-          onWidth={setOnlineBadgeWidth}
-          style={[
-            styles.onlineCountContainer,
-            {
-              // Default: align vertically with the footer icon row (footer:
-              // paddingBottom spacing.xl + ~half of the icons). On screens too
-              // narrow to share that line, sit just above the icons instead.
-              bottom: onlineBadgeCollidesFooter
-                ? Math.max(insets.bottom, spacing.lg) +
-                  (isLandscape ? spacing.md : spacing.xl) +
-                  FOOTER_ICON_HEIGHT +
-                  spacing.sm
-                : Math.max(insets.bottom, spacing.lg) + spacing.xl + 10,
-              right: onlineBadgeRight,
-            },
-          ]}
-        />
       </SafeAreaView>
 
       {/* Moderation Popup - animated in after delay */}
@@ -1692,6 +1600,10 @@ const styles = StyleSheet.create({
   headerCompact: {
     flexDirection: 'column',
     alignItems: 'stretch',
+    // Web parity: mobile .g2_nav_ui carries padding-top: 70px below the
+    // viewport top; the safe-area inset above this plays the browser
+    // chrome's part.
+    paddingTop: 70,
     paddingBottom: 0,
   },
   // THE CORNER COLUMN: card (or login button), then Community Maps. The gap is
@@ -1746,14 +1658,6 @@ const styles = StyleSheet.create({
     color: 'black',
     left: 2,
     top: 2,
-  },
-  onlineCountContainer: {
-    position: 'absolute',
-  },
-  onlineCount: {
-    // Match web #g2_playerCount: full white, font-weight 500 (Lexend-Medium).
-    color: '#fff',
-    fontFamily: 'Lexend-Medium',
   },
   // Account button.
   //
@@ -1820,7 +1724,9 @@ const styles = StyleSheet.create({
     width: '90%',
   },
   menuButton: {
-    paddingVertical: 10,
+    // Web's mobile nav column is denser than the old 10px rows; the
+    // Pressable's hitSlop keeps the touch target ~44px regardless.
+    paddingVertical: 8,
   },
   menuButtonRow: {
     flexDirection: 'row',
@@ -1830,8 +1736,8 @@ const styles = StyleSheet.create({
   menuButtonPressed: {
     opacity: 0.7,
   },
+  // fontSize injected per render from navTextSize() — web .g2_nav_text parity.
   menuButtonText: {
-    fontSize: 24,
     fontFamily: 'Lexend',
     fontWeight: '400',
     color: colors.white,
@@ -1868,9 +1774,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: spacing.xl,
     paddingTop: spacing.lg,
-    // Shrink-wrap (don't stretch) so onLayout reports the icons' true right
-    // edge for the online-badge collision check. Visually identical.
-    alignSelf: 'flex-start',
   },
   bottomIconsLandscape: {
     paddingBottom: spacing.md,

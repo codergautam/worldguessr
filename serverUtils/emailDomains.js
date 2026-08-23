@@ -170,3 +170,31 @@ export function looksLikeSchoolDomain(domain) {
   if (SCHOOL_TOKENS.some((t) => joined.includes(t))) return true;
   return own.flatMap((l) => l.split('-')).some((label) => SCHOOL_LABELS.has(label));
 }
+
+/**
+ * The companion lens: the organisation's own domain can be neutral while the
+ * SUB-DOMAIN names the population it serves. `student.hcbe.net` is Houston
+ * County schools, but `hcbe.net` carries no school word, so
+ * looksLikeSchoolDomain misses it (owner ruling 2026-08-23: allow these).
+ *
+ * Judged on the sub-domain labels ONLY, so it never widens the parent: the
+ * caller allows the exact host, and siblings like `staff.hcbe.net` still have
+ * to earn their own decision.
+ *
+ * SCHOOL_LABELS (sd, hs, es, ms ...) are deliberately NOT applied here. As a
+ * sub-domain a two-letter label is far more often a locale or a region
+ * (`es.company.com`) than a school, and that is a false positive with no
+ * school in sight.
+ */
+export function looksLikeSchoolSubdomain(domain) {
+  const d = String(domain || '').trim().toLowerCase();
+  if (!d) return false;
+  const reg = registrableDomain(d);
+  if (!reg || d === reg || !d.endsWith(`.${reg}`)) return false;
+  const labels = d
+    .slice(0, -(reg.length + 1))
+    .split('.')
+    .flatMap((l) => l.split('-'))
+    .filter(Boolean);
+  return labels.some((label) => SCHOOL_TOKENS.some((t) => label.includes(t)));
+}

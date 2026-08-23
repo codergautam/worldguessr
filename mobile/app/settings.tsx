@@ -18,6 +18,7 @@ import { haptics } from '../src/services/haptics';
 import {
   colors,
   t,
+  formatCompact,
   LANGUAGE_NAMES,
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
@@ -100,6 +101,8 @@ export default function SettingsScreen() {
   // an optimistic flip the server refused snaps back automatically.
   const user = useAuthStore((s) => s.user);
   const verified = useMultiplayerStore((s) => s.verified);
+  const connected = useMultiplayerStore((s) => s.connected);
+  const playerCount = useMultiplayerStore((s) => s.playerCount);
   const allowFriendReq = useMultiplayerStore((s) => s.allowFriendReq);
   const hideLastSeen = useMultiplayerStore((s) => s.hideLastSeen);
   const requestFriends = useMultiplayerStore((s) => s.requestFriends);
@@ -469,16 +472,28 @@ export default function SettingsScreen() {
               </Text>
               <Ionicons name="open-outline" size={20} color={colors.textMuted} />
             </Pressable>
+            {/* Live player count — moved here from the home footer (Aug 23):
+                a status readout is settings material, not home chrome. Rendered
+                only while the socket is live so it can never show a stale 0. */}
+            {connected && playerCount > 0 && (
+              <View style={[styles.row, styles.rowDivider]}>
+                <Text style={styles.rowLabel}>
+                  {t('onlineCnt', { cnt: formatCompact(playerCount) })}
+                </Text>
+                <View style={styles.onlineDot} />
+              </View>
+            )}
           </Section>
         </ScrollView>
 
-        <ReviewPromptModal
-          visible={rate.visible}
-          onRate={rate.onRate}
-          onDismiss={rate.onDismiss}
-          onClosed={rate.onClosed}
-        />
       </SafeAreaView>
+      {/* Outside the SafeAreaView so the inline overlay's dim covers the
+          status-bar inset too (it is no longer a native Modal). */}
+      <ReviewPromptModal
+        visible={rate.visible}
+        onRate={rate.onRate}
+        onDismiss={rate.onDismiss}
+      />
     </View>
   );
 }
@@ -593,6 +608,13 @@ const styles = StyleSheet.create({
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  // Presence dot beside the live player count.
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#5cba60',
   },
   rowPressed: {
     opacity: 0.7,

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, type StyleProp, type ViewStyle, type ImageStyle } from 'react-native';
 import { ImageBackground } from 'expo-image';
 import { backgroundUrlForSku } from '../services/siteBackground';
@@ -31,6 +31,18 @@ import { useSiteBackgroundStore } from '../store/siteBackgroundStore';
 
 const STOCK = require('../../assets/street2.jpg');
 const BACKGROUND_TRANSITION_MS = 280;
+
+/**
+ * Remote URLs that have finished loading once this session. The FIRST sight of
+ * a purchased background keeps the stock placeholder + dissolve (a genuine
+ * download needs something behind it); every later mount of the same URL
+ * paints straight from expo-image's cache with no placeholder and no
+ * transition. Without this, EVERY screen push replayed a stock→city
+ * crossfade — the "background randomly changes while navigating" bug.
+ * Module-level on purpose: fourteen screens mount their own instance and they
+ * must share one memory.
+ */
+const seenUrls = new Set<string>();
 
 interface Props {
   /** Almost always StyleSheet.absoluteFill(Object) — this is a backdrop layer. */
@@ -72,6 +84,12 @@ export default function SiteBackground({
 
   const url = backgroundUrlForSku(sku);
   const remote = url && url !== failedUrl ? url : null;
+  // Animate only a first-ever download or an in-place equip swap; a remount of
+  // an already-seen URL (every navigation) must paint instantly. The bundled
+  // stock image never animates in — it is on screen from the first frame.
+  const mountUrlRef = useRef(remote);
+  const changedSinceMount = mountUrlRef.current !== remote;
+  const animate = !!remote && (!seenUrls.has(remote) || changedSinceMount);
 
   return (
     <ImageBackground
@@ -80,18 +98,23 @@ export default function SiteBackground({
       // the gap on a first-ever view is the stock photograph rather than black.
       // Only the first view: 'memory-disk' means every later launch is a cache
       // hit with no network at all.
-      placeholder={remote ? STOCK : undefined}
+      placeholder={remote && animate ? STOCK : undefined}
       placeholderContentFit="cover"
       cachePolicy="memory-disk"
       contentFit="cover"
       blurRadius={blurRadius}
       // Cross-dissolve source changes so equipping a city feels like one scene
       // replacing another instead of a full-screen image snapping in place.
-      transition={{
-        duration: BACKGROUND_TRANSITION_MS,
-        timing: 'ease-out',
-        effect: 'cross-dissolve',
-      }}
+      transition={
+        animate
+          ? {
+              duration: BACKGROUND_TRANSITION_MS,
+              timing: 'ease-out',
+              effect: 'cross-dissolve',
+            }
+          : 0
+      }
+      onLoad={() => { if (remote) seenUrls.add(remote); }}
       onError={() => { if (remote) setFailedUrl(remote); }}
       style={style ?? StyleSheet.absoluteFillObject}
       imageStyle={imageStyle}

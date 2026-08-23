@@ -33,8 +33,8 @@ export default function ConfettiBurst({ trigger, count = 60 }: Props) {
         endX: startX + (Math.random() - 0.5) * width * 0.9,
         endY: height * (0.4 + Math.random() * 0.55),
         rotation: (Math.random() - 0.5) * 720,
-        delay: Math.random() * 200,
-        duration: 1100 + Math.random() * 900,
+        delay: Math.random() * 260,
+        duration: 1600 + Math.random() * 1100,
         size: 6 + Math.random() * 6,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
       };
@@ -49,12 +49,17 @@ export default function ConfettiBurst({ trigger, count = 60 }: Props) {
 
   useEffect(() => {
     anims.forEach((a) => a.setValue(0));
+    // STRUCTURE IS LOAD-BEARING: an attempt to give each axis its own curve
+    // via 9-point sampled interpolations made every piece invisible on device
+    // (user report, Aug 23) while this 2-point shape provably renders. Keep
+    // interpolations 2-point; tune feel ONLY through duration/delay/easing
+    // here. Out-cubic settles softer than the original out-quad.
     const animations = pieces.map((p, i) =>
       Animated.timing(anims[i], {
         toValue: 1,
         duration: p.duration,
         delay: p.delay,
-        easing: Easing.out(Easing.quad),
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     );
@@ -79,7 +84,7 @@ export default function ConfettiBurst({ trigger, count = 60 }: Props) {
           outputRange: ['0deg', `${p.rotation}deg`],
         });
         const opacity = t.interpolate({
-          inputRange: [0, 0.85, 1],
+          inputRange: [0, 0.8, 1],
           outputRange: [1, 1, 0],
         });
         return (

@@ -110,16 +110,17 @@ export default function DailyScreen() {
   // Rate-us prompt: daily is a solo (non-party) game, so it counts. Trigger only
   // when the user actually finishes the rounds this session (set in advance()) —
   // NOT when handleStart jumps straight to results for an already-played daily.
-  // Only ASK on a high: a new personal best or a 3+ day streak. undefined while
-  // the submit is in flight keeps the hook waiting for the verdict (the submit
-  // catch fallback guarantees a response object eventually lands).
+  // Happy-moment gating REMOVED Aug 23 (dialed-parity ruling): any cleanly
+  // submitted daily may ask. Error/DQ submits still never prompt — the
+  // trigger waits for a clean response, so the ask can't land on a failure
+  // screen (those runs simply don't count toward the 1-game threshold).
   const [finishedThisSession, setFinishedThisSession] = useState(false);
-  const dailyHappy = submitResponse
-    ? !submitResponse.error &&
-      !submitResponse.disqualified &&
-      (!!submitResponse.newPersonalBest || (submitResponse.streak ?? 0) >= 3)
-    : undefined;
-  const review = useReviewPrompt(finishedThisSession, dailyHappy);
+  const review = useReviewPrompt(
+    finishedThisSession &&
+      !!submitResponse &&
+      !submitResponse.error &&
+      !submitResponse.disqualified,
+  );
 
   // Optimistically bump the live profile totals once a fresh, tracked daily run
   // is submitted, so XP / games-played update instantly without an app reload.
@@ -654,7 +655,6 @@ export default function DailyScreen() {
         visible={review.visible}
         onRate={review.onRate}
         onDismiss={review.onDismiss}
-        onClosed={review.onClosed}
       />
     </View>
   );
