@@ -870,6 +870,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    // THE one way a mode gets committed out of the welcome overlay: its two
+    // buttons, and the login path below (auto-classic). Dropping the overlay is
+    // what mounts the onboarding GameUI, so this also starts round 1.
+    // Stable (setters only) so effects may depend on it.
+    const selectOnboardingMode = useCallback((mode) => {
+        setOnboarding((prev) => prev ? { ...prev, mode } : prev);
+        setShowCountryButtons(mode !== "classic");
+        setWelcomeOverlayShown(false);
+    }, []);
     // A new user's ENTIRE bootstrap — variant fetch → startOnboarding →
     // GameUI stamping the round-1 location (which sets loading=true in the
     // same batch) — expressed as one continuous condition. Handing off
@@ -5182,12 +5191,27 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
-                    onModeSelected={(mode) => {
-                        // Update the running onboarding with the chosen mode
-                        setOnboarding((prev) => prev ? { ...prev, mode } : prev);
-                        setShowCountryButtons(mode !== "classic");
-                        setWelcomeOverlayShown(false);
-                    }}
+                    onModeSelected={selectOnboardingMode}
+                    // Login pressed while this overlay is still up.
+                    //
+                    // The onboarding login button lives in
+                    // .onboardingTopRightBtns (z 10001), which deliberately
+                    // sits ABOVE this overlay (z 10000) so it stays tappable —
+                    // but the modal it opens is a ui/Modal backdrop (z 9999),
+                    // which lands UNDERNEATH the overlay. The tap looked dead.
+                    //
+                    // Raising the modal was the wrong trade: it would leave two
+                    // stacked modals and a mode question to answer AFTER
+                    // signing in. So the tap IS the answer — take the default
+                    // mode (classic, which startOnboarding already primed) and
+                    // get out of the way, leaving the login alone on screen
+                    // with round 1 running behind it. The overlay dismisses
+                    // ITSELF through its normal exit, so the two backdrops
+                    // crossfade instead of cutting to bare game for a frame.
+                    // Closing the login without signing in continues that
+                    // classic tutorial; signing in leaves onboarding for home
+                    // (the session effect above), as it always did.
+                    autoSelect={loginModalOpen ? "classic" : null}
                     onSkip={() => {
                         setWelcomeOverlayShown(false);
                         skipOnboarding();
@@ -5447,6 +5471,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     partyModalShown={partyModalShown}
                     dailyPhase={dailyPhase}
                     mapModalOpen={mapModal}
+                    loginModalOpen={loginModalOpen}
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                     countryGuessrMode={countryGuessrMode}
                 />

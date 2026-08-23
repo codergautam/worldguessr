@@ -1,31 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
 
-export default function WelcomeOverlay({ onModeSelected, onSkip }) {
+/**
+ * `autoSelect`: a mode this overlay must commit to on its own, no tap. The
+ * onboarding login button sits above this overlay but opens a modal below it,
+ * so home.js answers the mode question for the user (classic) rather than
+ * stack two modals — see the prop site. It routes through the SAME exit as a
+ * real tap, so the fade-out crossfades into whatever opened underneath, and
+ * the selection is reported exactly once.
+ */
+export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
   const { t: text } = useTranslation("common");
   const [visible, setVisible] = useState(false);
+  // One exit per overlay. The login button stays tappable through the 300ms
+  // fade, so a tap landing on top of a running exit must not fire a second
+  // analytics event or a second commit.
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     sendEvent("onboarding_shown");
     requestAnimationFrame(() => setVisible(true));
   }, []);
 
-  function selectMode(mode) {
+  function dismiss(mode, done, extra) {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
     setVisible(false);
     setTimeout(() => {
-      sendEvent("onboarding_mode_selected", { mode });
-      onModeSelected(mode);
+      sendEvent("onboarding_mode_selected", { mode, ...extra });
+      done();
     }, 300);
   }
 
-  function skip() {
-    setVisible(false);
-    setTimeout(() => {
-      sendEvent("onboarding_mode_selected", { mode: "skipped" });
-      onSkip();
-    }, 300);
+  function selectMode(mode) {
+    dismiss(mode, () => onModeSelected(mode));
   }
+
+  function skip() {
+    dismiss("skipped", onSkip);
+  }
+
+  // `auto: "login"` keeps the picked-for-them selections separable from the
+  // tapped ones in analytics: the mode is real either way, the intent is not.
+  useEffect(() => {
+    if (!autoSelect) return;
+    dismiss(autoSelect, () => onModeSelected(autoSelect), { auto: "login" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSelect]);
 
   const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
 

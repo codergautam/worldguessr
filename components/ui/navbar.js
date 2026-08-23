@@ -10,7 +10,7 @@ import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
 import { HIDE_ACCOUNT_UI } from "../utils/accountUi";
 import { useState, useEffect, useSyncExternalStore } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, loginModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
     const { t: text, lang } = useTranslation("common");
 
     // SP/CG entry: round 1's load only starts from GameUI's post-paint mount
@@ -199,7 +199,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                 </div>
             </div>
             <SoundModal isOpen={soundModalOpen} onClose={() => setSoundModalOpen(false)} />
-            {screen === "onboarding" && (
+            {/* !loginModalOpen: this row is z 10001, ABOVE every ui/Modal
+                backdrop (9999) — the very reason the login modal opened behind
+                the welcome overlay. Left up, these two would float over the
+                login's dim as the only lit thing on screen. The login owns the
+                screen while it is open; the onboarding chrome steps back, the
+                same way the account and maps modals already stand the login
+                pill down below. */}
+            {screen === "onboarding" && !loginModalOpen && (
                 <div className="onboardingTopRightBtns">
                     <button
                         className="gameBtn navBtn g2_blue_button onboardingJoinPartyBtn"
