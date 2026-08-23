@@ -35,7 +35,7 @@ const REVIEW_KEY = Platform.OS === 'ios' ? 'wg_review_ios2' : 'wg_review';
  * threshold AND the rated/declined/week-retry gating, so the modal can be
  * triggered over and over. Flip to false to restore real behaviour.
  */
-const TEST_ALWAYS_PROMPT: boolean = true;
+const TEST_ALWAYS_PROMPT: boolean = false;
 
 /** Min install age (measured from the first app open) before any prompt. */
 const ELIGIBLE_AFTER_MS = 5 * 60 * 1000;
