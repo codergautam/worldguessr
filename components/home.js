@@ -5610,13 +5610,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     condition stays true across queue → paired waiting → GameUI,
                     so React preserves the PlaywireAd instance and its creative;
                     GameUI deliberately owns Playwire only for non-multiplayer. */}
-                {/* {!adFree && multiplayerPlaywireAdShown && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
+                {!adFree && multiplayerPlaywireAdShown && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
                     <div className={`topAdFixed ${multiplayerTimerShownForAd ? 'moreDown' : ''}`}>
                         <PlaywireAd
                             selectorId="pw-game-ad"
                             showAdvertisementText={false} screenH={height} types={MULTIPLAYER_AD_TYPES_LEADERBOARD} screenW={Math.max(400, width - 450)} vertThresh={0.3} />
                     </div>
-                } */}
+                }
                 {inGameDistribution && screen === 'home' && onboardingCompleted === true && (
                     <div className="home_ad">
                         <GameDistributionBanner
