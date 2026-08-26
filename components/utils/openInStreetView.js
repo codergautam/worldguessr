@@ -1,4 +1,5 @@
 import { NO_EXTERNAL_LINKS } from "./externalLinks";
+import { isBaiduPanoId, permalink as baiduPermalink } from "../china/baidu";
 
 // One implementation for every "open this spot in Street View" button. There
 // were two near-identical copies (roundOverScreen, ResultsMap); one re-derived
@@ -24,6 +25,10 @@ const embeddedPortal = () =>
 // viewpoint when the id no longer resolves, so a stale panoId self-heals
 // instead of opening a dead panorama.
 export function streetViewUrl({ lat, lng, panoId, heading } = {}) {
+  // ChinaGuessr (temporary): Baidu panos are recognised by id shape, so every
+  // caller (reveal banner, results, stored history) links to Baidu Maps
+  // without a provider field threaded through.
+  if (panoId && isBaiduPanoId(panoId)) return baiduPermalink(panoId);
   const hasCoords = typeof lat === "number" && typeof lng === "number";
   if (!hasCoords && !panoId) return null;
   let url = "https://www.google.com/maps/@?api=1&map_action=pano";

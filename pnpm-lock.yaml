@@ -165,6 +165,9 @@ importers:
       eslint-config-next:
         specifier: 14.2.1
         version: 14.2.1(eslint@8.57.1)(typescript@5.9.3)
+      gcoord:
+        specifier: ^1.0.7
+        version: 1.0.7
       google-translate-free:
         specifier: ^2.4.5
         version: 2.4.5
@@ -4060,6 +4063,10 @@ packages:
   gaxios@6.7.1:
     resolution: {integrity: sha512-LDODD4TMYx7XXdpwxAVRAIAuB0bzv0s+ywFonY46k126qzQHT9ygyoa9tncmOiQmmDrik65UYsEkv3lbfqQ3yQ==}
     engines: {node: '>=14'}
+
+  gcoord@1.0.7:
+    resolution: {integrity: sha512-UCN2iSm69jBOYz2ma2eg5I5imp65Cj70rcTTfMNSNMvZpR1U6oGjmVh080aCvC/6lN1ClkuOoBeaLuebw9AZJg==}
+    engines: {node: '>=16.11.0'}
 
   gcp-metadata@6.1.1:
     resolution: {integrity: sha512-a4tiq7E0/5fTjxPAaH4jpjkSv/uCaU2p5KC6HVGrvl0cDjA8iBZv4vv1gyzlmK0ZUKqwpOyQMKzZQe3lTit77A==}
@@ -11393,6 +11400,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  gcoord@1.0.7: {}
 
   gcp-metadata@6.1.1:
     dependencies:

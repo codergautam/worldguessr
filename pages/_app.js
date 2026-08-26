@@ -4,6 +4,8 @@ import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
 import '@/styles/daily.scss';
+// ChinaGuessr (temporary): navigation chrome for Baidu panoramas.
+import '@/styles/china.scss';
 import '@/styles/nameGlow.css';
 import '@/styles/shop.css';
 import '@/styles/playerCard.css';

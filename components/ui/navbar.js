@@ -9,6 +9,7 @@ import SoundModal from "../soundModal";
 import { subscribeVolumes, getMusicVolume, getSfxVolume } from "../utils/audio";
 import { HIDE_ACCOUNT_UI } from "../utils/accountUi";
 import { useState, useEffect, useSyncExternalStore } from "react";
+import { useChinaLandingUp } from "../china/landingState"; // ChinaGuessr (temporary)
 
 export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, loginModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
     const { t: text, lang } = useTranslation("common");
@@ -29,7 +30,12 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
     // all); loading and the between-rounds latLong gap only DISABLE — they
     // recur every round, and unmounting on them replayed the entrance
     // animation each round load.
-    const reloadBtnContext = (((multiplayerState?.inGame) || screen === 'singleplayer' || screen === 'countryGuesser' || (screen === 'daily' && dailyPhase === 'game'))) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    // ChinaGuessr (temporary): under the /china landing cover the game is parked,
+    // so the back button reads Menu (onboarding's treatment) and there is no
+    // street view to reload.
+    const chinaLandingUp = useChinaLandingUp();
+    const menuStyleBack = screen === 'onboarding' || chinaLandingUp;
+    const reloadBtnContext = !chinaLandingUp && (((multiplayerState?.inGame) || screen === 'singleplayer' || screen === 'countryGuesser' || (screen === 'daily' && dailyPhase === 'game'))) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
     const reloadBtnDisabled = loading || ((screen === 'singleplayer' || screen === 'countryGuesser') && !spRoundUp);
 
     const [showAccBtn, setShowAccBtn] = useState(true);
@@ -84,8 +90,8 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                         real screen transition and should replay. */}
                     {!(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) &&
                         <div style={{ display: 'contents', visibility: (gameOptionsModalShown || accountModalOpen || selectCountryModalShown || partyModalShown) ? 'hidden' : 'visible' }}>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
+                        <button className={`gameBtn navBtn backBtn ${menuStyleBack ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{menuStyleBack ? text("menu") : text("back")}</button>
+                        <button className={`gameBtn navBtn backBtn ${menuStyleBack ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
                         </div>
                     }
                 </div>

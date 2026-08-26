@@ -241,7 +241,11 @@ export default async function handler(req, res) {
   const myUsername = req.query.username;
   const pastDay = req.query.pastDay === 'true';
   const isXp = req.query.mode === 'xp';
-  console.log(`[API] leaderboard: mode=${isXp ? 'xp' : 'elo'}, pastDay=${pastDay}, user=${myUsername || 'none'}`);
+  // Viewer opt-in to see the rows the activity window hides. Query-side only,
+  // like the window itself: same unfiltered list the board served before the
+  // window opened (and the same cache entry).
+  const includeInactive = req.query.includeInactive === 'true';
+  console.log(`[API] leaderboard: mode=${isXp ? 'xp' : 'elo'}, pastDay=${pastDay}, user=${myUsername || 'none'}${includeInactive ? ', includeInactive' : ''}`);
 
   // Prevent NoSQL injection - username must be a string if provided
   if (myUsername && typeof myUsername !== 'string') {
@@ -256,7 +260,10 @@ export default async function handler(req, res) {
     // One decision, read everywhere below, so the query, the rank count, the
     // cache key and the client note can never disagree about whether the window
     // is in force.
-    const windowApplies = !isXp && !pastDay && rankedActivityFilterActive();
+    // windowActive: the rule is in force on this board (drives the note and
+    // the toggle). windowApplies: rows are actually being filtered right now.
+    const windowActive = !isXp && !pastDay && rankedActivityFilterActive();
+    const windowApplies = windowActive && !includeInactive;
     const cacheKey = getCacheKey(isXp ? 'xp' : 'elo', pastDay, windowApplies);
     let leaderboard = getCachedData(cacheKey);
     let myRank = null;
@@ -349,17 +356,19 @@ export default async function handler(req, res) {
     }
 
     const responseKey = isXp ? 'myXp' : 'myElo';
-    // `activityWindowDays` is present ONLY when rows are actually being hidden.
-    // Both clients render the explanatory note off its presence, so during the
-    // migration grace they say nothing rather than promising a rule that is not
-    // yet in force — and neither client needs to know the rule to get it right.
+    // `activityWindowDays` is present ONLY when the window is in force on this
+    // board. Both clients render the explanatory note and the show/hide toggle
+    // off its presence, so during the migration grace they say nothing rather
+    // than promising a rule that is not yet in force — and neither client needs
+    // to know the rule to get it right. `inactiveShown` says which state the
+    // rows are in; `myRankHidden` can only be true while they are filtered.
     return res.status(200).json({
       leaderboard,
       myRank,
       myCountryCode,
       myNameGlow,
       [responseKey]: myScore,
-      ...(windowApplies ? { activityWindowDays: RANKED_ACTIVITY_WINDOW_DAYS, myRankHidden } : {})
+      ...(windowActive ? { activityWindowDays: RANKED_ACTIVITY_WINDOW_DAYS, inactiveShown: includeInactive, myRankHidden } : {})
     });
 
   } catch (error) {

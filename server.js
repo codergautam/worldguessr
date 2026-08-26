@@ -78,6 +78,7 @@ import path from 'path';
 import MapModel from './models/Map.js';
 import bodyParser from 'body-parser';
 import countries from './public/countries.json' with { type: "json" };
+import countryMaxDists from './public/countryMaxDists.json' with { type: "json" }; // ChinaGuessr (temporary)
 
 // colors
 import colors from 'colors';
@@ -347,6 +348,17 @@ for (const file of mapOverrideFiles) {
   rawOverrides[file.replace('.json', '')] = JSON.parse(fs.readFileSync(path.join(mapOverridesDir, file), 'utf8'));
 }
 
+// ChinaGuessr (temporary): Baidu-panorama pool written by
+// scripts/generateChinaLocations.js. Guarded: a missing or bad file must not
+// take the API down (this process exits on uncaughtException).
+let chinaPool = [];
+try {
+  const chinaPoolFile = path.join(process.cwd(), 'data', 'china-baidu.json');
+  if (fs.existsSync(chinaPoolFile)) chinaPool = JSON.parse(fs.readFileSync(chinaPoolFile, 'utf8'));
+} catch (e) {
+  console.error('china pool load failed', e);
+}
+
 
 for (const country of countries) {
   countryLocations[country] = [];
@@ -397,6 +409,27 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
   });
 }
 }
+});
+
+// ChinaGuessr (temporary). Same response contract as /countryLocations so the
+// client's fetchMethod needs one URL branch and nothing else. official: true
+// awards XP like the World map; name stamps communityMapName so results
+// screens and storeGame read "ChinaGuessr". lng -> long happens here.
+app.get('/chinaLocations', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=60, s-maxage=60');
+  res.json({
+    ready: chinaPool.length > 0,
+    name: 'ChinaGuessr',
+    official: true,
+    maxDist: countryMaxDists.CN,
+    locations: shuffle([...chinaPool]).slice(0, 1000).map((l) => ({
+      lat: l.lat,
+      long: l.lng,
+      panoId: l.panoId,
+      country: l.country,
+      provider: 'baidu',
+    })),
+  });
 });
 
 app.get('/mapLocations/:slug', async (req, res) => {

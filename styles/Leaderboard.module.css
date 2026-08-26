@@ -260,6 +260,40 @@
   margin-bottom: 2rem;
 }
 
+/* The activity note sits first inside the board container; without a top
+   margin it is flush with the container edge (the rank card below it has its
+   own 1rem margin). Same 1rem as that card, same 14px bottom the shared
+   .s1-board-note already carries. */
+.activityNote {
+  margin-top: 1rem;
+  align-items: center;
+}
+
+.activityNoteText {
+  flex: 1;
+}
+
+/* Plain text action in the note's own colour: no pill, no border, it is part
+   of the sentence, not a control bar. */
+.activityToggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.activityToggle:hover {
+  color: #4CAF50;
+}
+
 .myRankCard {
   background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(69, 160, 73, 0.2));
   padding: 1.5rem;
@@ -584,6 +618,16 @@
     flex-direction: row;
     text-align: left;
     gap: 0.75rem;
+  }
+
+  .activityNote {
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .activityToggle {
+    margin-left: 0;
+    padding-left: 22px; /* under the text, past the icon column */
   }
 
   .playerInfo {

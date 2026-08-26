@@ -573,11 +573,14 @@ export const api = {
     mode?: 'xp' | 'elo';
     pastDay?: boolean;
     username?: string;
+    /** Viewer opt-in to see the rows the ranked activity window hides. */
+    includeInactive?: boolean;
   } = {}) => {
     const params = new URLSearchParams();
     if (options.mode) params.set('mode', options.mode);
     if (options.pastDay) params.set('pastDay', 'true');
     if (options.username) params.set('username', options.username);
+    if (options.includeInactive) params.set('includeInactive', 'true');
 
     return fetchApi<{
       leaderboard: Array<{
@@ -599,6 +602,11 @@ export const api = {
        * usually not in the top 100.
        */
       myNameGlow?: string | null;
+      /** Present only while the ranked activity window is in force (all-time elo). */
+      activityWindowDays?: number;
+      /** Rows currently include the players the window would hide. */
+      inactiveShown?: boolean;
+      myRankHidden?: boolean;
     }>(`/api/leaderboard?${params.toString()}`);
   },
 

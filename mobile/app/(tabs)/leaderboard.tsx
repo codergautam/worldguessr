@@ -48,6 +48,8 @@ interface LeaderboardData {
    * release.
    */
   activityWindowDays?: number;
+  /** Rows currently include the players the window would hide (viewer opt-in). */
+  inactiveShown?: boolean;
   /** True when the VIEWER is the one the window is hiding. */
   myRankHidden?: boolean;
 }
@@ -68,6 +70,7 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<LeaderboardMode>('elo');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('allTime');
+  const [showInactive, setShowInactive] = useState(false);
   const [data, setData] = useState<LeaderboardData>({ leaderboard: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -84,6 +87,7 @@ export default function LeaderboardScreen() {
         mode,
         pastDay: timePeriod === 'daily',
         username: session?.username,
+        includeInactive: showInactive && mode === 'elo' && timePeriod === 'allTime',
       });
       setData(response);
     } catch (e) {
@@ -93,12 +97,12 @@ export default function LeaderboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [mode, timePeriod, session?.username]);
+  }, [mode, timePeriod, session?.username, showInactive]);
 
   useEffect(() => {
     setLoading(true);
     fetchLeaderboard();
-  }, [mode, timePeriod, session?.username]);
+  }, [mode, timePeriod, session?.username, showInactive]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -176,23 +180,44 @@ export default function LeaderboardScreen() {
             color="rgba(255,255,255,0.6)"
             style={styles.activityNoteIcon}
           />
-          <Text style={styles.activityNoteText}>
-            {t(
-              'leaderboardInactiveNote',
-              { days: data.activityWindowDays },
-              'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
-            )}
-            {session && data.myRankHidden ? (
-              <Text style={styles.activityNoteYou}>
-                {' '}
-                {t(
-                  'leaderboardInactiveYou',
-                  undefined,
-                  'That includes you right now. Play a ranked match to reappear.',
-                )}
+          <View style={styles.activityNoteBody}>
+            <Text style={styles.activityNoteText}>
+              {data.inactiveShown
+                ? t(
+                    'leaderboardInactiveShown',
+                    { days: data.activityWindowDays },
+                    'All players are shown, including those with no ranked game in the last {{days}} days.',
+                  )
+                : t(
+                    'leaderboardInactiveNote',
+                    { days: data.activityWindowDays },
+                    'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
+                  )}
+              {session && !data.inactiveShown && data.myRankHidden ? (
+                <Text style={styles.activityNoteYou}>
+                  {' '}
+                  {t(
+                    'leaderboardInactiveYou',
+                    undefined,
+                    'That includes you right now. Play a ranked match to reappear.',
+                  )}
+                </Text>
+              ) : null}
+            </Text>
+            {/* Viewer opt-in, same as web: the copy above follows the payload
+                (inactiveShown), the button follows the selection. */}
+            <Pressable
+              onPress={() => setShowInactive((v) => !v)}
+              style={({ pressed }) => [styles.activityToggle, pressed && { opacity: 0.7 }]}
+              hitSlop={8}
+            >
+              <Text style={styles.activityToggleText}>
+                {showInactive
+                  ? t('leaderboardHideInactive', undefined, 'Hide inactive players')
+                  : t('leaderboardShowInactive', undefined, 'Show inactive players')}
               </Text>
-            ) : null}
-          </Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -542,12 +567,26 @@ const styles = StyleSheet.create({
   activityNoteIcon: {
     marginTop: 1,
   },
-  activityNoteText: {
+  activityNoteBody: {
     flex: 1,
+    gap: 4,
+  },
+  activityNoteText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
     lineHeight: 17,
     fontFamily: 'Lexend-Regular',
+  },
+  // Plain text action in the note's own colour, like web: part of the sentence.
+  activityToggle: {
+    alignSelf: 'flex-start',
+  },
+  activityToggleText: {
+    color: 'rgba(255, 255, 255, 0.92)',
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'Lexend-SemiBold',
+    textDecorationLine: 'underline',
   },
   activityNoteYou: {
     color: 'rgba(255, 255, 255, 0.92)',

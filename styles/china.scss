@@ -1,0 +1,210 @@
+// ChinaGuessr (temporary): Baidu panorama movement chrome.
+.sv-nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sv-nav-chevron,
+.sv-nav-pancake {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  width: 100px;
+  height: 100px;
+  overflow: visible;
+  transform-origin: 0 0;
+}
+
+.sv-nav-chevron {
+  opacity: 0.75;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.42));
+  transition: opacity 120ms ease-out, filter 120ms ease-out;
+}
+
+.sv-nav-chevron path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 13;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sv-nav-chevron.is-hover {
+  opacity: 1;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.42)) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+.sv-nav-pancake circle {
+  fill: rgba(255, 255, 255, 0.3);
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 2;
+}
+
+.sv-nav-pancake__arrow path {
+  fill: #fff;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+.sv-nav-tooltip {
+  position: absolute;
+  display: none;
+  padding: 5px 8px;
+  color: #333;
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+  font: 400 12.5px/1.25 Arial, sans-serif;
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+canvas.streetview.sv-nav-enabled {
+  cursor: grab;
+}
+
+canvas.streetview.sv-nav-enabled.sv-nav-target {
+  cursor: pointer;
+}
+
+canvas.streetview.sv-nav-enabled.dragging {
+  cursor: grabbing !important;
+}
+
+canvas.streetview.sv-nav-enabled.sv-nav-moving {
+  cursor: progress;
+}
+
+// ── /china landing ──────────────────────────────────────────────────────────
+// One centered card over the site background, in the HUD plate recipe
+// (.timer: 85% --primaryTransparent plate, 2px --primary frame, 16px radius,
+// the house shadow). z 1110 keeps it UNDER the real navbar (1120) and over
+// every in-game layer (timer 1001, corner map 1000, round-over 1000, ads 1001).
+.china-landing {
+  position: fixed;
+  inset: 0;
+  z-index: 1110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 16px 16px; // clear of the 50px navbar
+  box-sizing: border-box;
+  // Same tint as the leaderboard shell (Leaderboard.module.css .container::before)
+  // so the card and the navbar read on top of any site background.
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 30, 15, 0.58) 100%),
+    var(--site-bg) center / cover no-repeat #000;
+  transition: opacity 450ms ease;
+}
+
+.china-landing.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.china-landing__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(92vw, 520px);
+  padding: 28px 32px 30px;
+  box-sizing: border-box;
+  background: var(--gradLight);
+  background-color: var(--primaryTransparent);
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  color: white;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(36, 87, 52, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  animation: nav_slide_in 0.3s ease-in-out both; // the home column's entrance
+}
+
+// A step under .home__title's size: this is a card, not the menu header.
+.china-landing__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: min(clamp(1.6em, 3.4vw, 4em), clamp(1.4em, 5vh, 3.4em));
+}
+
+.china-landing__hr {
+  width: 100%;
+  max-width: none;
+  margin: 2px 0;
+}
+
+// .g2_text's measure, without its hover (these lines are not controls).
+.china-landing__text {
+  margin: 0;
+  color: white;
+  font-size: min(clamp(0.95em, 1.4vw, 1.7em), clamp(0.85em, 2.1vh, 1.6em));
+  font-weight: 300;
+  line-height: 1.35;
+}
+
+.china-landing__text--dim {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+// .gameBtn is width:100% for the in-game HUD; here it is one control, sized
+// to its label in the navbar's .navBtn pill.
+.china-landing__play {
+  width: auto;
+  margin-top: 4px;
+  padding: 7px 36px;
+  border-radius: 50px;
+  font-size: min(clamp(1.15em, 2.1vw, 3.2em), clamp(1em, 3vh, 2.7em));
+}
+
+// While the landing is up, the in-game chrome that outranks it must not poke
+// through: the phone guess bar (1500), its map buttons (1200), and the
+// navbar's map-chooser button (opening it would switch maps under the cover).
+.china-page--landing .g2_mobile_guess,
+.china-page--landing .mobile_minimap__btns,
+.china-page--landing .navbar .navBtn.g2_green_button {
+  visibility: hidden !important;
+}
+
+// Hold the corner map while the landing is up: the game mounts and loads round
+// 1 under the cover, and the map must not have already slid in when it lifts.
+.china-page--landing #miniMapArea {
+  opacity: 0 !important;
+  transform: translateY(calc(100% + 16px)) !important;
+  transition: none !important;
+  animation: none !important;
+  pointer-events: none !important;
+}
+
+// Released on Play: one entrance from the same parked pose the base rule uses,
+// starting as the overlay fade ends. `from` only, so the landing values come
+// from the element's own state (50% resting alpha, 100% on touch layouts);
+// `backwards` fill hands control back to the normal transitions after.
+.china-page--entering #miniMapArea.shown {
+  animation: chinaMinimapIn 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms backwards;
+}
+
+@keyframes chinaMinimapIn {
+  from {
+    opacity: 0;
+    transform: translateY(calc(100% + 16px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .china-landing {
+    transition: none;
+  }
+  .china-page--entering #miniMapArea.shown {
+    animation: none;
+  }
+}

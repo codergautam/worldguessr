@@ -31,6 +31,9 @@ import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentF
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
+// ChinaGuessr (temporary)
+import { isChinaMode, CHINA_SLUG, CHINA_MAP_NAME, CHINA_MAX_DIST, CHINA_EXTENT } from '@/components/china/chinaMode';
+import { preconnectBaidu } from '@/components/china/baidu'; // ChinaGuessr (temporary)
 // Pre-existing dynamic chunks: results screen and daily-challenge screen are
 // big and only render after a round/onboarding completes. AccountModal stays
 // dynamic because it pulls in chart.js (~220 KB) for the XP graph — saving
@@ -174,7 +177,7 @@ const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
 const isOfficialMap = (opts) => isOfficialMapSlug(opts?.location);
 
 
-export default function Home({ initialScreen, dailyBootstrap } = {}) {
+export default function Home({ initialScreen, dailyBootstrap, initialLocation = null } = {}) {
 
     const { width, height } = useWindowDimensions();
     const router = useRouter();
@@ -280,6 +283,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
+    // ChinaGuessr (temporary): mirror for the popstate handler, same idea as screenRef.
+    const gameOptionsRef = useRef(gameOptions);
+    gameOptionsRef.current = gameOptions;
     const [showAnswer, setShowAnswer] = useState(false)
 
     const [pinPoint, setPinPointState] = useState(null)
@@ -1080,6 +1086,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const screenRef = useRef('home');
     useEffect(() => { screenRef.current = screen; }, [screen]);
     const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
+    // ChinaGuessr (temporary): /china only, no localized twins for a temp mode.
+    const isChinaPath = useCallback((p) => /^\/china\/?$/.test(p || ''), []);
+    const enterChinaModeRef = useRef(() => {});
     const enterDailyMode = useCallback(() => {
         // Poki (and 6x) host each deploy at a nested path with document-
         // RELATIVE assets (assetPrefix '.'), so rewriting the URL to /daily
@@ -1151,10 +1160,22 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         const onPop = () => {
             if (isDailyPath(window.location.pathname)) setScreen('daily');
             else if (screenRef.current === 'daily') setScreen('home');
+            // ChinaGuessr (temporary): forward to /china re-enters, back out of
+            // a china round exits to the menu (the sync effect below resets
+            // the map options).
+            else if (isChinaPath(window.location.pathname)) enterChinaModeRef.current();
+            else if (screenRef.current === 'singleplayer' && isChinaMode(gameOptionsRef.current)) setScreen('home');
         };
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
-    }, [initialScreen, isDailyPath]);
+    }, [initialScreen, isDailyPath, isChinaPath]);
+    // ChinaGuessr (temporary): a direct /china load. The screen cannot be
+    // seeded 'singleplayer' like daily seeds 'daily' — GameUI reads window at
+    // render and the static export prerenders this page. A LAYOUT effect
+    // flips it before the first paint, so the menu still never shows.
+    useLayoutEffect(() => {
+        if (initialScreen === 'china') enterChinaModeRef.current({ seed: initialLocation });
+    }, [initialScreen]);
 
     // Keep the URL in sync with the `screen` state for daily mode. Anything
     // that transitions screen away from 'daily' (back button on the navbar,
@@ -1171,7 +1192,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             const target = match ? `/${match[1]}` : '/';
             window.history.pushState({}, '', target);
         }
-    }, [screen, isDailyPath]);
+        // ChinaGuessr (temporary): the one exit choke point. Every way out of a
+        // china round (back button, results exit, popstate, ws kick) lands
+        // here: drop the /china URL and put the map options back to World, so
+        // the next Singleplayer press is a normal game.
+        if (prev === 'singleplayer' && screen !== 'singleplayer' && isChinaMode(gameOptions)) {
+            if (isChinaPath(window.location.pathname)) window.history.pushState({}, '', '/');
+            setWorldMapOptions();
+        }
+    }, [screen, isDailyPath, isChinaPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Close the login modal once the user is signed in (covers the Google and
     // Apple popup paths, which resolve outside the modal's control), and the
@@ -1630,6 +1659,62 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }));
     }
 
+    // ChinaGuessr (temporary). Same teardown as enterCountryGuessrMode, then
+    // the China map options and the singleplayer screen. The player's last
+    // movement choice stays in place, with Moving as the unset default.
+    // ONLY the /china landing (and popstate back onto it) enters: the mode is
+    // deliberately absent from the menu, the map chooser and the sitemap. It
+    // is a demo for a few people, not a mode for the player base.
+    // `seed` (pages/china.js): a pool spot whose pano is already warming.
+    // Handing it to the pool as its only entry makes loadLocation's cached
+    // walk take it with no fetch; the real pool arrives behind it.
+    function enterChinaMode({ seed = null } = {}) {
+        cancelInFlightLocationLoad();
+        setLoading(false);
+        preconnectBaidu();
+        setAllLocsArray(seed ? [seed] : []);
+        if (seed) fillChinaPool(seed);
+        setLatLong(null);
+        setShowAnswer(false);
+        setPinPoint(null);
+        setHintShown(false);
+        setShowCountryButtons(false);
+        setGameOptions((prev) => ({
+            ...prev,
+            location: CHINA_SLUG,
+            official: true,
+            countryMap: false,
+            communityMapName: CHINA_MAP_NAME,
+            maxDist: CHINA_MAX_DIST,
+            extent: CHINA_EXTENT,
+        }));
+        if (screen !== "singleplayer") {
+            setScreen("singleplayer");
+        } else {
+            setSinglePlayerRound({ round: 1, totalRounds: 5, locations: [] });
+        }
+    }
+    enterChinaModeRef.current = enterChinaMode;
+
+    // ChinaGuessr (temporary): the pool fetch a seeded round 1 skipped. Same
+    // freshness ordering as fetchMethod; appends so the walk never stalls and
+    // leaves the seed out so it cannot come back later in the game.
+    function fillChinaPool(seed) {
+        const config = clientConfig();
+        if (!config?.apiUrl) return;
+        fetch(config.apiUrl + '/chinaLocations').then((res) => res.json()).then((data) => {
+            if (!data?.ready || !Array.isArray(data.locations)) return;
+            if (!isChinaMode(gameOptionsRef.current)) return;
+            const ordered = orderByFreshness(data.locations.filter((l) => l.panoId !== seed.panoId), seenLocs());
+            setAllLocsArray((prev) => {
+                const have = new Set((prev || []).map((l) => l.panoId));
+                return [...(prev || []), ...ordered.filter((l) => !have.has(l.panoId))];
+            });
+        }).catch((err) => {
+            console.error('[ChinaGuessr] pool fill failed:', err);
+        });
+    }
+
     function enterCountryGuessrMode(subMode) {
         cancelInFlightLocationLoad();
         setLoading(false);
@@ -1740,6 +1825,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // street-view round. We don't write "done" to localStorage so
             // they'll still see the tutorial later if they navigate to home.
             const onDailyEntry = initialScreen === 'daily'
+              || initialScreen === 'china' // ChinaGuessr (temporary): a Reddit landing is not a tutorial candidate either
               || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
             // A stored account secret means this browser has played before —
             // never a tutorial candidate, even if the "onboarding" flag is
@@ -4212,17 +4298,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
                 const config = clientConfig();
+                // ChinaGuessr (temporary): Baidu rounds come only from the
+                // server pool. Every fallback below would hand Google world
+                // spots to the Baidu renderer, so a china failure is a toast
+                // and the menu, never defaultMethod().
+                const chinaFail = () => {
+                    toast(text("errorLoadingMap"), { type: 'error' });
+                    setLoading(false);
+                    setScreen("home");
+                };
                 if (!config?.apiUrl) {
+                    if (isChinaMode(gameOptions)) { chinaFail(); return; }
                     defaultMethod();
                     return;
                 }
-                const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
+                const url = config.apiUrl + (isChinaMode(gameOptions) ? `/chinaLocations` :
+                    (gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
                 fetch(url).then((res) => {
                     return res.json();
                 }).then((data) => {
                     if (!isCurrentLocationLoad()) return;
+                    if (!data.ready && isChinaMode(gameOptions)) { chinaFail(); return; }
                     if (data.ready) {
                         // this uses long for lng
                         for (let i = 0; i < data.locations.length; i++) {
@@ -4286,6 +4384,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                 }).catch(() => {
                     if (!isCurrentLocationLoad()) return;
+                    if (isChinaMode(gameOptions)) { chinaFail(); return; }
                     if (!window._sentMapLoadErrorToast) {
                     toast(text("errorLoadingMap"), { type: 'error' })
                     window._sentMapLoadErrorToast = true;
@@ -4934,6 +5033,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }
 
             // Pool empty — resolve a fresh spot in the background.
+            if (isChinaMode(gameOptions)) return; // ChinaGuessr (temporary): no Google fallback for a Baidu round
             (async () => {
                 try {
                     const requireKnownCountry = screen === "countryGuesser";
@@ -5023,6 +5123,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // Pano coords: diverge from latLong whenever a reveal preload is active
     // (multiplayer or singleplayer-family).
     const panoSource = panoLocation || latLong;
+    // ChinaGuessr (temporary): Baidu rounds always use the WebGL renderer and
+    // ship their own (never stale) pano ids.
+    const chinaMode = isChinaMode(gameOptions);
+    const chinaCanMove = chinaMode && !gameOptions?.nm; // ChinaGuessr (temporary)
 
     // PURE-IDLE pano states: not "faded out and coming back" but "parked"
     // (staging lobby, join screen, matchmaking queue, 2v2 end, home menu).
@@ -5091,9 +5195,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 inCoolMathGames={inCoolMathGames}
                 inCrazyGames={inCrazyGames}
                 inGameDistribution={inGameDistribution}
-                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} - WorldGuessr` : undefined}
-                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : undefined}
-                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : undefined}
+                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} - WorldGuessr` : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : undefined}
+                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : initialScreen === 'china' ? text('chinaGuessrTagline') : undefined}
+                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : initialScreen === 'china' ? 'https://www.worldguessr.com/china' : undefined}
             />
 
 
@@ -5233,10 +5337,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     singleplayer toggle or multiplayer game stamped into it
                     (nm/npz/showRoadName), so the shared pano must not read
                     those while the daily owns it. */}
-                {((screen === "singleplayer" || screen === "countryGuesser" || screen === "multiplayer") && gameOptions?.nm) ? (
-                    /* No Move + NMPZ modes: in-house WebGL pano (movement
-                       structurally impossible; npz additionally freezes
-                       pan/zoom) replaces the Google embed. SP, country/
+                {((screen === "singleplayer" || screen === "countryGuesser" || screen === "multiplayer") && (gameOptions?.nm || chinaMode)) ? (
+                    /* No Move + NMPZ modes, plus ChinaGuessr: the in-house
+                       WebGL pano replaces the Google embed. npz freezes
+                       pan/zoom. SP, country/
                        continent guesser, and multiplayer parties (the MP
                        'game' handler stamps server nm/npz into gameOptions;
                        ranked/public games never set nm). Server locations
@@ -5245,7 +5349,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         lat={panoSource?.lat}
                         long={panoSource?.long}
                         heading={panoSource?.heading}
-                        panoId={panoSource?.freshPano}
+                        panoId={chinaMode ? panoSource?.panoId : panoSource?.freshPano}
+                        provider={chinaMode ? 'baidu' : 'google'}
+                        allowMove={chinaCanMove}
                         npz={gameOptions?.npz}
                         showAnswer={showAnswer}
                         slowEnter={duelPanoEnter}
@@ -5890,7 +5996,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                                             <div className="g2_nav_group">
                                                 <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
-
                                             </div>
                                         </>
                                     )}

@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Loader } from '@googlemaps/js-api-loader';
+// ChinaGuessr (temporary): Baidu panorama provider. Pure module, no aliases.
+import { tileUrl as baiduTileUrl, fetchSdata, parseSdata, buildBaiduNav, centerBearingDeg } from '../china/baidu';
+// ChinaGuessr (temporary): projected movement chrome for Baidu panos.
+import SvNavOverlay from './svNavOverlay';
 
 // Same options as findLatLong.js — the Loader is a singleton and throws if
 // constructed twice with different options.
@@ -40,6 +44,19 @@ const TEX_TRIM = 84 * 1024 * 1024;
 const texBytes = (w, h) => Math.ceil(w * h * 4 * (4 / 3));
 const BIAS = 0.75;            // resolution bias for zoom level selection
 const D2R = Math.PI / 180;
+const MOVE_FADE_MS = 240;
+const MOVE_SETTLE_MS = 140;
+// ChinaGuessr (temporary): a click answers at once with a small punch-in and a
+// progress cursor while the destination's base tile downloads; the real
+// cross-fade continues from wherever that left the view. A far pano is never
+// hover-prewarmed, and from outside China its metadata plus z0 take 1.5 s+.
+const MOVE_APPROACH_MS = 220;
+const MOVE_APPROACH_SCALE = 0.06;   // fraction of fov the approach punches in
+const MOVE_BASE_WAIT_MS = 6000;     // was 1000: every far click timed out into a silent no-op
+// Reveal a Baidu pano on its single z0 image once z1 has failed to land
+// within this window. Moving already fades in at z0; round 1 waited for the
+// 1024x512 pair, which the CDN serves cold in 1 to 3.5 s.
+const BAIDU_Z0_REVEAL_MS = 400;
 // Google's zoom model, applied to the LONG viewport axis. Pinning the limits
 // horizontally regardless of orientation made portrait phones derive a ~145
 // deg vertical fov at the zoom-out floor (way past desktop's fisheye limit);
@@ -57,7 +74,11 @@ const metaUrl = p =>
   + encodeURIComponent(p)
   + '!4m57!1e1!1e2!1e3!1e4!1e5!1e6!1e8!1e12!2m1!1e1!4m1!1i48!5m1!1e1!5m1!1e2!6m1!1e1!6m1!1e2!9m36!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e3!2b1!3e2!1m3!1e3!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e1!2b0!3e3!1m3!1e4!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e3';
 
-function createEngine(canvas, onPanoReady, isFrozen, onYaw, onPrewarmed, onFatal) {
+// providerId: 'google' (default) or 'baidu' (ChinaGuessr, temporary). Fixed for
+// the engine's lifetime — a provider switch always arrives with latLong nulled
+// first, which unmounts the canvas and rebuilds the engine anyway.
+function createEngine(canvas, onPanoReady, isFrozen, onYaw, onPrewarmed, onFatal, providerId = 'google', isMoveAllowed = () => false) {
+  const tileFor = providerId === 'baidu' ? baiduTileUrl : tileUrl;
   // antialias:false — MSAA on a fullscreen DPR-2 buffer costs 4x the sample
   // bandwidth to smooth geometry edges this scene does not have: one continuous
   // textured sphere, where the only seams are tile borders, which are
@@ -83,11 +104,14 @@ void main() {
   vUV = a * uUV;
   gl_Position = uVP * vec4(dir, 1.0);
 }`;
+  // ChinaGuessr (temporary): uAlpha is 1 for the shared single-pano path and
+  // changes only for the incoming pass of a Baidu move.
   const FS = `
 precision mediump float;
 uniform sampler2D uTex;
+uniform float uAlpha;
 varying vec2 vUV;
-void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
+void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, uAlpha); }`;
 
   function shader(type, src) {
     const s = gl.createShader(type);
@@ -116,11 +140,12 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   function initGL() {
     prog = buildProgram();
     gl.useProgram(prog);
-    for (const n of ['uAng', 'uUV', 'uVP', 'uYawOff', 'uTex'])
+    for (const n of ['uAng', 'uUV', 'uVP', 'uYawOff', 'uTex', 'uAlpha'])
       loc[n] = gl.getUniformLocation(prog, n);
     locA = gl.getAttribLocation(prog, 'a');
     gl.enableVertexAttribArray(locA);
     gl.uniform1i(loc.uTex, 0);
+    gl.uniform1f(loc.uAlpha, 1);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.clearColor(0.043, 0.051, 0.063, 1);
@@ -170,6 +195,14 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   let lastYawOut = null;
   let spinDir = 0, yawAnim = null;
   const keys = new Set();
+  // ChinaGuessr (temporary): movement state stays dormant for every other
+  // provider. renderFov is the visual punch without changing user zoom state.
+  let renderFov = fov;
+  let navHover = null;
+  let moveBusy = false, moveToken = 0;
+  let moveTransition = null, settleTransition = null, approachTransition = null;
+  let forwardWarmId = null;
+  const cameraListeners = new Set();
 
   // ---------------------------------------------------------------- render gate
   // The rAF loop stays armed forever (onPanoReady/onPrewarmed fire from inside
@@ -196,6 +229,11 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // one draw per 2s versus the 60/s we removed.
   let lastPaintAt = 0;
   let lastYaw = NaN, lastPitch = NaN, lastFov = NaN, lastAspect = NaN;
+  // ChinaGuessr (temporary): the transition changes renderFov every frame,
+  // but tile selection depends on the user's real camera. Keep a separate
+  // scheduler snapshot so the cross-fade does not rescan and sort tiles 60
+  // times per second while yaw, pitch, fov, and aspect are unchanged.
+  let lastSchedYaw = NaN, lastSchedPitch = NaN, lastSchedFov = NaN, lastSchedAspect = NaN;
   // Byte budget, sized to the backing store: a 2560x1440-class or retina
   // desktop canvas has a legitimate VISIBLE working set (~108MB at z4) that
   // overflows the phone-sized budget and would pin the evictor fruitless.
@@ -274,22 +312,27 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
 
   const vpMat = new Float32Array(16);
   let camF = [0, 0, -1], halfViewAngle = PI;
-  function buildMatrices() {
+  function buildMatrices(viewFov = fov) {
     const { R, U, F } = camBasis();
     camF = F;
-    const f = 1 / Math.tan(fov / 2), near = 0.05, far = 4000;
+    const f = 1 / Math.tan(viewFov / 2), near = 0.05, far = 4000;
     const p00 = f / aspect, p11 = f;
     const p22 = (far + near) / (near - far), p32 = 2 * far * near / (near - far);
     vpMat[0] = p00 * R[0]; vpMat[4] = p00 * R[1]; vpMat[8] = p00 * R[2]; vpMat[12] = 0;
     vpMat[1] = p11 * U[0]; vpMat[5] = p11 * U[1]; vpMat[9] = p11 * U[2]; vpMat[13] = 0;
     vpMat[2] = -p22 * F[0]; vpMat[6] = -p22 * F[1]; vpMat[10] = -p22 * F[2]; vpMat[14] = p32;
     vpMat[3] = F[0]; vpMat[7] = F[1]; vpMat[11] = F[2]; vpMat[15] = 0;
-    const ty = Math.tan(fov / 2);
+    const ty = Math.tan(viewFov / 2);
     halfViewAngle = Math.atan(Math.hypot(ty * aspect, ty));
   }
 
   // ---------------------------------------------------------------- pano layout
-  function makeLayout(baseW, baseH, maxZ) {
+  // exactTiles: Google pads every tile to 512x512 (an edge tile's content is a
+  // fraction of the texture, hence uv). Baidu serves edge tiles at their real
+  // size (its z=1 base is a 512x256 JPEG), so the content fills the texture
+  // and uv must be [1,1] — otherwise the base level samples the top half of
+  // the image and paints it stretched over the whole sphere.
+  function makeLayout(baseW, baseH, maxZ, exactTiles = false) {
     const levels = [], meta = [];
     for (let z = 0; z <= maxZ; z++) {
       const w = baseW << z, h = baseH << z;
@@ -304,7 +347,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
         arr.push({
           key: z + '/' + x + '/' + y, z, x, y,
           ang: [th0, th1, ph0, ph1],
-          uv: [(px1 - x * TILE) / TILE, (py1 - y * TILE) / TILE],
+          uv: exactTiles ? [1, 1] : [(px1 - x * TILE) / TILE, (py1 - y * TILE) / TILE],
           dir: [Math.cos(phC) * Math.sin(thC), Math.sin(phC), -Math.cos(phC) * Math.cos(thC)],
           rad: Math.hypot((th1 - th0) / 2 * Math.cos(phC), (ph0 - ph1) / 2) * 1.15 + 0.02,
         });
@@ -325,7 +368,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       const im = new Image();
       im.onload = () => res(true);
       im.onerror = () => res(false);
-      im.src = tileUrl(pano, t.z, t.x, t.y);
+      im.src = tileFor(pano, t.z, t.x, t.y);
     }))).then(oks => {
       const i = oks.indexOf(true);
       return i < 0 ? null : makeLayout(tries[i].baseW, tries[i].baseH, tries[i].maxZ);
@@ -336,7 +379,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // photometa/v1 is the undocumented endpoint the Maps client itself uses; it
   // serves Access-Control-Allow-Origin: * so a plain fetch works. Response is
   // protobuf dumped as positional JSON arrays; paths below verified empirically.
-  async function fetchMeta(p) {
+  async function fetchMetaGoogle(p) {
     const txt = await (await fetch(metaUrl(p.id))).text();
     const root = JSON.parse(txt.replace(/^\)\]\}'/, ''));
     const md = root[1] && root[1][0];
@@ -363,6 +406,22 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     p.status = 'ready';
   }
 
+  // ChinaGuessr (temporary). Baidu's sdata gives the pyramid depth
+  // (LayerCount) and the vehicle heading; the layout is always the 512x256
+  // family with exact-size tiles. A miss throws: never fall through to
+  // probeLayout (Google URLs) — the throw lands on the degraded onLoad path.
+  async function fetchMetaBaidu(p) {
+    const m = parseSdata(await fetchSdata(p.id)); // shared with warmPano: a seeded round 1 has this in flight already
+    if (!m) throw new Error('bad baidu metadata for ' + p.id);
+    p.layout = makeLayout(512, 256, m.maxZ, true);
+    p.heading = centerBearingDeg(m.heading) * D2R; // image centre, for the texture mapping
+    p.startYaw = m.heading * D2R;                   // Heading == MoveDir: the road, for the opening view
+    p.nav = buildBaiduNav(m);
+    p.tiles = Array.from({ length: p.layout.maxZ + 1 }, () => new Map());
+    p.status = 'ready';
+  }
+  const fetchMeta = (p) => providerId === 'baidu' ? fetchMetaBaidu(p) : fetchMetaGoogle(p);
+
   // ---------------------------------------------------------------- pano registry
   const panos = new Map();
   let cur = null;
@@ -388,6 +447,160 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   let inflightCount = 0;
   const uploadQ = []; // const on purpose — always mutated in place
 
+  // ChinaGuessr (temporary): ground navigation uses Baidu's planar metre
+  // coordinates in the renderer's compass frame. It is never reachable from
+  // Google or the mobile embed because both leave allowMove false.
+  const NAV_TARGET_RADIUS = 6;
+  const NAV_TARGET_CONE = 80 * D2R;
+  const angleDistance = (a, b) => Math.abs(wrapPi(a - b));
+  const navigationEnabled = () => providerId === 'baidu' && isMoveAllowed()
+    && !isFrozen() && !gate && !!(cur && cur.status === 'ready' && cur.nav);
+  const movementInputEnabled = () => navigationEnabled() && !moveBusy;
+
+  function getNavFrame() {
+    return {
+      yaw,
+      pitch,
+      fov: renderFov,
+      vp: vpMat,
+      width: cssW,
+      height: cssH,
+      hover: navHover,
+      nav: cur && cur.nav,
+      moving: moveBusy,
+    };
+  }
+
+  function emitCamera() {
+    if (!cameraListeners.size) return;
+    const frame = getNavFrame();
+    for (const listener of cameraListeners) listener(frame);
+  }
+
+  function onCamera(listener) {
+    cameraListeners.add(listener);
+    listener(getNavFrame());
+    return () => cameraListeners.delete(listener);
+  }
+
+  function projectGroundPoint(point) {
+    if (!cur || !cur.nav) return null;
+    const x = point.x, y = -cur.nav.height, z = -point.y;
+    const clipX = vpMat[0] * x + vpMat[4] * y + vpMat[8] * z + vpMat[12];
+    const clipY = vpMat[1] * x + vpMat[5] * y + vpMat[9] * z + vpMat[13];
+    const clipW = vpMat[3] * x + vpMat[7] * y + vpMat[11] * z + vpMat[15];
+    if (!isFinite(clipW) || clipW <= 0.01) return null;
+    return {
+      x: (clipX / clipW * 0.5 + 0.5) * cssW,
+      y: (0.5 - clipY / clipW * 0.5) * cssH,
+    };
+  }
+
+  function chevronGroundQuad(link) {
+    const bearing = link.bearing * D2R;
+    const forward = { x: Math.sin(bearing), y: Math.cos(bearing) };
+    const right = { x: Math.cos(bearing), y: -Math.sin(bearing) };
+    const center = { x: forward.x * 3.5, y: forward.y * 3.5 };
+    return [
+      { x: center.x - right.x * 0.7 + forward.x * 0.45, y: center.y - right.y * 0.7 + forward.y * 0.45 },
+      { x: center.x + right.x * 0.7 + forward.x * 0.45, y: center.y + right.y * 0.7 + forward.y * 0.45 },
+      { x: center.x + right.x * 0.7 - forward.x * 0.45, y: center.y + right.y * 0.7 - forward.y * 0.45 },
+      { x: center.x - right.x * 0.7 - forward.x * 0.45, y: center.y - right.y * 0.7 - forward.y * 0.45 },
+    ];
+  }
+
+  function pointInQuad(px, py, quad) {
+    let sign = 0;
+    for (let i = 0; i < quad.length; i++) {
+      const a = quad[i], b = quad[(i + 1) % quad.length];
+      const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+      if (Math.abs(cross) < 1e-5) continue;
+      const nextSign = Math.sign(cross);
+      if (sign && nextSign !== sign) return false;
+      sign = nextSign;
+    }
+    return true;
+  }
+
+  function groundPointAt(px, py) {
+    if (!navigationEnabled()) return null;
+    const ray = screenToAngles(px, py);
+    if (ray.phi >= -1e-4) return null;
+    const distance = cur.nav.height / Math.tan(-ray.phi);
+    if (!isFinite(distance) || distance <= 0) return null;
+    return { x: Math.sin(ray.theta) * distance, y: Math.cos(ray.theta) * distance };
+  }
+
+  // The pancake target: the pano nearest the cursor's ground point, among the
+  // panos the cursor either sits on (within NAV_TARGET_RADIUS, widening with
+  // distance) or aims at from the camera (within NAV_TARGET_CONE of the cursor
+  // bearing). Baidu chains are 10 to 30 m apart, so a cursor just in front of
+  // the car is far from every pano yet clearly pointed along the road; the
+  // cone is what lets that hover, and the arrows, show the same destinations.
+  // Nothing in either set (a field beside the road, a dead end) means no disc.
+  function pickTarget(groundPoint) {
+    if (!navigationEnabled() || !groundPoint) return null;
+    const groundDistance = Math.hypot(groundPoint.x, groundPoint.y);
+    const groundBearing = Math.atan2(groundPoint.x, groundPoint.y);
+    const radius = Math.max(NAV_TARGET_RADIUS, 0.35 * groundDistance);
+    let nearest = null, nearestDistance = Infinity;
+    for (const candidate of cur.nav.candidates) {
+      const distance = Math.hypot(candidate.x - groundPoint.x, candidate.y - groundPoint.y);
+      if (distance >= nearestDistance) continue;
+      if (distance > radius
+        && angleDistance(Math.atan2(candidate.x, candidate.y), groundBearing) > NAV_TARGET_CONE) continue;
+      nearest = candidate; nearestDistance = distance;
+    }
+    return nearest;
+  }
+
+  function groundPointForTarget(groundPoint) {
+    const distance = Math.hypot(groundPoint.x, groundPoint.y);
+    const minimumDistance = Math.max(NAV_TARGET_RADIUS, cur?.nav?.height || 0);
+    if (!distance || distance >= minimumDistance) return groundPoint;
+    const scale = minimumDistance / distance;
+    return { x: groundPoint.x * scale, y: groundPoint.y * scale };
+  }
+
+  function pickChevron(px, py) {
+    if (!navigationEnabled()) return null;
+    let picked = null, pickedDistance = Infinity;
+    for (const link of cur.nav.links) {
+      const quad = chevronGroundQuad(link).map(projectGroundPoint);
+      if (quad.some((point) => !point) || !pointInQuad(px, py, quad)) continue;
+      const centerX = quad.reduce((sum, point) => sum + point.x, 0) / quad.length;
+      const centerY = quad.reduce((sum, point) => sum + point.y, 0) / quad.length;
+      const distance = Math.hypot(px - centerX, py - centerY);
+      if (distance < pickedDistance) { picked = link; pickedDistance = distance; }
+    }
+    return picked;
+  }
+
+  function setNavHover(hover) {
+    // Empty ground is the common pointer state. Do not wake React and redo all
+    // projected overlay geometry for every mouse event while nothing is shown.
+    if (!hover && !navHover && !canvas.classList.contains('sv-nav-target')) return;
+    if (hover?.chevron && hover.chevron.id === navHover?.chevron?.id) return;
+    navHover = hover;
+    canvas.classList.toggle('sv-nav-target', !!(hover && (hover.chevron || hover.target)));
+    emitCamera();
+  }
+
+  function clearNavHover() {
+    if (!navHover && !canvas.classList.contains('sv-nav-target')) return;
+    setNavHover(null);
+  }
+
+  function nearestLink(targetYaw, maxDistance = Infinity) {
+    if (!cur || !cur.nav || !cur.nav.links.length) return null;
+    let nearest = null, nearestDistance = Infinity;
+    for (const link of cur.nav.links) {
+      const distance = angleDistance(link.bearing * D2R, targetYaw);
+      if (distance < nearestDistance) { nearest = link; nearestDistance = distance; }
+    }
+    return nearestDistance <= maxDistance ? nearest : null;
+  }
+
   async function ensurePano(id) {
     let p = panos.get(id);
     // An errored record must not poison retries: the registry would hand the
@@ -401,6 +614,8 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
         layout: null, tiles: [], dead: new Set(),
         inflight: new Map(), // metaKey -> { img, aborted }
         lat: 0, lng: 0, heading: 0, metaPromise: null,
+        nav: null, // ChinaGuessr (temporary): Baidu ground navigation metadata.
+        z0LandedAt: 0, // when the full z0 level was on the GPU (Baidu early reveal)
       };
       panos.set(id, p);
       p.metaPromise = fetchMeta(p).catch(() => { p.status = 'error'; });
@@ -454,6 +669,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     for (const p of panos.values()) {
       if (p.layout) p.tiles = Array.from({ length: p.layout.maxZ + 1 }, () => new Map());
       else p.tiles = [];
+      p.z0LandedAt = 0;
     }
     gpuBytes = 0;
   }
@@ -465,7 +681,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     const rec = { img, aborted: false, queued: false };
     p.inflight.set(meta.key, rec);
     inflightCount++;
-    img.src = tileUrl(p.id, meta.z, meta.x, meta.y);
+    img.src = tileFor(p.id, meta.z, meta.x, meta.y);
     const done = img.decode ? img.decode() : new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
     done.then(() => {
       // aborted must be checked here too — decode() can settle either way
@@ -521,6 +737,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       p.tiles[meta.z].set(meta.key, { tex, meta, lastUse: drawNo, bytes });
       gpuBytes += bytes;
       n++;
+      if (meta.z === 0 && !p.z0LandedAt && p.layout.meta[0].every((t) => p.tiles[0].has(t.key))) p.z0LandedAt = Date.now();
     }
     return n;
   }
@@ -688,9 +905,33 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     gl.uniform2fv(loc.uUV, rec.meta.uv);
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
   };
-  function drawPano(p) {
+  function drawPano(p, alpha = 1) {
     gl.uniform1f(loc.uYawOff, p.heading);
+    gl.uniform1f(loc.uAlpha, alpha);
     walkVisible(p, dpLevel, dpTile);
+  }
+
+  // Cross-fade one fully resident base level. Drawing every progressive level
+  // with the same alpha compounds opacity (two 50% layers become 75%) and
+  // makes the fade jump while doing needless blended draw calls.
+  function highestCompleteBaseLevel(p) {
+    for (let z = Math.min(2, p.layout.maxZ); z >= 0; z--) {
+      const meta = p.layout.meta[z];
+      if (meta.length && meta.every((tile) => p.tiles[z].has(tile.key))) return z;
+    }
+    return -1;
+  }
+
+  function drawPanoLevel(p, z, alpha) {
+    const tiles = p.tiles[z];
+    if (!tiles || !tiles.size) return;
+    gl.uniform1f(loc.uYawOff, p.heading);
+    gl.uniform1f(loc.uAlpha, alpha);
+    const mesh = dpLevel(z);
+    for (const rec of tiles.values()) {
+      rec.lastUse = drawNo;
+      dpTile(rec, mesh);
+    }
   }
 
   // The single paint path: the ONLY place drawNo advances (with stampVisible)
@@ -702,13 +943,25 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // canvas.width write is unavoidable — and cannot be repainted until content
   // exists; that matches pre-gate behavior.) Returns whether pixels changed.
   function paint() {
-    if (!panoReady(cur)) { dirty = false; return false; }
+    // ChinaGuessr (temporary): the outgoing pano remains the base pass for the
+    // move fade. Google and No Move still execute the original single pass.
+    const basePano = moveTransition ? moveTransition.outgoing : cur;
+    if (!panoReady(basePano)) { dirty = false; return false; }
     drawNo++;
     lastPaintAt = Date.now();
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniformMatrix4fv(loc.uVP, false, vpMat);
-    drawPano(cur);
+    gl.disable(gl.BLEND);
+    drawPano(basePano, 1);
+    if (moveTransition && panoReady(moveTransition.incoming) && moveTransition.alpha > 0) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      drawPanoLevel(moveTransition.incoming, moveTransition.fadeLevel, moveTransition.alpha);
+      gl.disable(gl.BLEND);
+      gl.uniform1f(loc.uAlpha, 1);
+    }
     dirty = false;
+    if (!moveBusy) emitCamera();
     return true;
   }
 
@@ -740,17 +993,69 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   // ---------------------------------------------------------------- input
   const pointers = new Map();
   let dragging = false, panned = false, pinch = null, touchFling = false;
+  let navPointer = null; // ChinaGuessr (temporary): last mouse point in canvas pixels.
+  let navPointerDirty = false; // Drag-follow work stays coalesced into the renderer's next frame.
+  // ChinaGuessr (temporary): these are the tap limits used to distinguish a
+  // ground move from the renderer's existing drag gesture.
+  const TAP_MAX_DISTANCE = 6;
+  const TAP_MAX_MS = 300;
   // Trailing ~100ms of angular deltas — release velocity comes from this
   // window. Per-event dx/dt estimates lie badly: 120Hz phones halve them
   // (via any dt floor) and batched touch events spike them.
   const flick = [];
 
+  const canvasPoint = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  function updateNavHoverAt(px, py) {
+    if (!movementInputEnabled()) { clearNavHover(); return null; }
+    const chevron = pickChevron(px, py);
+    if (chevron) {
+      const hover = { chevron, target: null, groundPt: null };
+      if (warmId !== chevron.id) {
+        forwardWarmId = null;
+        prewarm(chevron.id);
+      }
+      setNavHover(hover);
+      return hover;
+    }
+    const groundPt = groundPointAt(px, py);
+    // Near the bottom edge, the real ground intersection collapses under the
+    // camera and falls outside the six-metre target radius. Use one camera
+    // hit-radius of forward distance for hit-testing while keeping the disc at the
+    // actual cursor intersection.
+    const target = groundPt ? pickTarget(groundPointForTarget(groundPt)) : null;
+    // No target means no pancake at all. This also keeps empty-road pointer
+    // motion out of the overlay hot path.
+    const hover = target ? { chevron: null, target, groundPt } : null;
+    if (target && warmId !== target.id) {
+      forwardWarmId = null;
+      prewarm(target.id);
+    }
+    setNavHover(hover);
+    return hover;
+  }
+
+  // moveBusy alone locked the view for the whole base wait (now up to 6 s for
+  // a far pano). Panning stays live until the cross-fade actually starts.
+  const moveLocked = () => moveBusy && !approachTransition;
   const onPointerDown = e => {
-    if (isFrozen()) return;
+    if (isFrozen() || moveLocked()) return;
     spinDir = 0; yawAnim = null; // a real drag always beats the compass control
     canvas.setPointerCapture(e.pointerId);
     touchFling = e.pointerType === 'touch';
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pointers.set(e.pointerId, {
+      x: e.clientX,
+      y: e.clientY,
+      startX: e.clientX,
+      startY: e.clientY,
+      downAt: e.timeStamp,
+      multi: pointers.size > 0,
+    });
+    if (e.pointerType === 'mouse') navPointer = canvasPoint(e);
+    if (pointers.size > 1) for (const pointer of pointers.values()) pointer.multi = true;
     vYaw = 0; vPitch = 0;
     flick.length = 0;
     dragging = true;
@@ -762,11 +1067,23 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   };
 
   const onPointerMove = e => {
-    if (isFrozen()) return;
+    if (isFrozen() || moveBusy) return;
     const p = pointers.get(e.pointerId);
-    if (!p) return;
+    if (!p) {
+      if (movementInputEnabled()) {
+        const point = canvasPoint(e);
+        navPointer = point;
+        navPointerDirty = false;
+        updateNavHoverAt(point.x, point.y);
+      }
+      return;
+    }
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
+    if (e.pointerType === 'mouse' && (dx || dy)) {
+      navPointer = canvasPoint(e);
+      navPointerDirty = true;
+    }
     // GSV keeps the pointing finger through a plain click and only swaps in the
     // four-arrow cursor once the view actually starts turning — so flip on the
     // first move that rotates anything, not on pointerdown.
@@ -794,7 +1111,13 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   };
 
   const endPointer = e => {
-    if (!pointers.delete(e.pointerId)) return;
+    const pointer = pointers.get(e.pointerId);
+    if (!pointer) return;
+    const wasLast = pointers.size === 1;
+    const tapDistance = Math.hypot(e.clientX - pointer.startX, e.clientY - pointer.startY);
+    const isTap = e.type === 'pointerup' && wasLast && !pointer.multi
+      && tapDistance < TAP_MAX_DISTANCE && e.timeStamp - pointer.downAt < TAP_MAX_MS;
+    pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
       dragging = false;
@@ -815,10 +1138,37 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       }
       flick.length = 0;
     }
+    if (isTap && (movementInputEnabled() || approachTransition)) {
+      vYaw = 0; vPitch = 0;
+      const point = canvasPoint(e);
+      navPointerDirty = false;
+      const hover = updateNavHoverAt(point.x, point.y);
+      const id = hover?.chevron?.id || hover?.target?.id;
+      if (id) moveTo(id);
+    } else if (wasLast && e.pointerType === 'mouse' && movementInputEnabled()) {
+      const point = canvasPoint(e);
+      if (point.x >= 0 && point.x <= cssW && point.y >= 0 && point.y <= cssH) {
+        navPointer = point;
+        navPointerDirty = false;
+        updateNavHoverAt(point.x, point.y);
+      } else {
+        navPointer = null;
+        navPointerDirty = false;
+        clearNavHover();
+      }
+    }
+  };
+
+  const onPointerLeave = () => {
+    if (!pointers.size && navigationEnabled()) {
+      navPointer = null;
+      navPointerDirty = false;
+      clearNavHover();
+    }
   };
 
   const onWheel = e => {
-    if (isFrozen()) return;
+    if (isFrozen() || moveBusy) return;
     e.preventDefault();
     let dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
     if (e.ctrlKey) dy *= 3;
@@ -828,7 +1178,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   };
 
   const onDblClick = e => {
-    if (isFrozen()) return;
+    if (isFrozen() || moveBusy) return;
     fovT = Math.max(FOV_MIN, fovT / 2); // one GSV zoom level
     anchor = { x: e.clientX, y: e.clientY };
   };
@@ -837,7 +1187,14 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
   const onKeyDown = e => {
     if (isFrozen() || isTypingTarget(e.target)) return;
-    keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+    if (moveBusy) { e.preventDefault(); return; }
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (movementInputEnabled() && (key === 'ArrowUp' || key === 'w' || key === 'ArrowDown' || key === 's')) {
+      e.preventDefault();
+      if (!e.repeat) moveInDirection(key === 'ArrowDown' || key === 's');
+      return;
+    }
+    keys.add(key);
   };
   const onKeyUp = e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key);
   // Also stops a held rotate arrow: a pointerup outside the window never
@@ -857,23 +1214,24 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     yawAnim = yaw + wrapPi(target - yaw); // short way round
   }
   function nudgeYaw(dir) {
-    if (isFrozen()) return;
+    if (isFrozen() || moveBusy) return;
     const step = Math.min(45 * D2R, fov * 0.7); // smaller steps when zoomed in
     animYawTo((yawAnim === null ? yaw : yawAnim) + dir * step);
   }
   function setSpin(dir) {
-    if (isFrozen()) { spinDir = 0; return; }
+    if (isFrozen() || moveBusy) { spinDir = 0; return; }
     spinDir = dir;
     if (dir) { yawAnim = null; vYaw = 0; vPitch = 0; }
   }
   function faceNorth() {
-    if (isFrozen()) return;
+    if (isFrozen() || moveBusy) return;
     spinDir = 0;
     animYawTo(0);
   }
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);
   canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -888,6 +1246,10 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   let notified = false;
 
   function baseComplete(p) {
+    // ChinaGuessr (temporary): z0 is a full 512x256 panorama; after the grace
+    // it is a better first frame than a longer loader. The loop below still
+    // answers true the moment z1 completes.
+    if (providerId === 'baidu' && p.z0LandedAt && Date.now() - p.z0LandedAt >= BAIDU_Z0_REVEAL_MS) return true;
     // Reveal at z1 (1024x512 equirect — recognizable, sharpens in view like
     // Google's own streaming) instead of waiting out the full z2 wave.
     const zMax = Math.min(1, p.layout.maxZ);
@@ -914,6 +1276,10 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
   let warmId = null, warmNotified = false;
   function prewarm(id) {
     if (!id || destroyed) return;
+    // Baidu's z0 URL needs no metadata. Race this single full-panorama tile
+    // against sdata so a click can begin fading as soon as metadata registers,
+    // without bypassing the engine's download budget for the remaining tiles.
+    if (providerId === 'baidu') prefetchBaseTiles(id, providerId, 0);
     if (warmId !== id) {
       // A superseded warm pano would otherwise linger in the registry with
       // ~15MB of z<=2 base textures that the evictor can never reclaim (its
@@ -936,7 +1302,140 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     }).catch(() => {});
   }
 
-  async function loadFresh(id, headingDeg) {
+  // ChinaGuessr (temporary): a move waits briefly for GPU-ready base tiles,
+  // then uses loadFresh's registry path with the outgoing pano preserved.
+  function cancelMovement() {
+    const wasMoving = moveBusy || !!moveTransition || !!settleTransition;
+    const abandoned = wasMoving && warmId ? panos.get(warmId) : moveTransition?.incoming;
+    moveToken++;
+    moveBusy = false;
+    if (moveTransition?.resolve) moveTransition.resolve(false);
+    if (settleTransition?.resolve) settleTransition.resolve(false);
+    moveTransition = null;
+    settleTransition = null;
+    approachTransition = null;
+    canvas.classList.remove('sv-nav-moving');
+    renderFov = fov;
+    forwardWarmId = null;
+    if (wasMoving) {
+      warmId = null; warmNotified = false;
+      if (abandoned && abandoned !== cur) destroyPano(abandoned);
+    }
+    clearNavHover();
+  }
+
+  function waitForMoveBase(id, token) {
+    const started = Date.now();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (destroyed || token !== moveToken) { resolve(false); return; }
+        const pano = panos.get(id);
+        if (pano?.status === 'error') { resolve(false); return; }
+        // One complete level covers the entire sphere and is enough for a real
+        // cross-fade. Never let a timeout swap onto metadata with no pixels.
+        if (pano?.status === 'ready' && highestCompleteBaseLevel(pano) >= 0) { resolve(true); return; }
+        if (Date.now() - started >= MOVE_BASE_WAIT_MS) { resolve(false); return; }
+        setTimeout(check, 16);
+      };
+      check();
+    });
+  }
+
+  function beginMoveTransition(outgoing, incoming) {
+    const fadeLevel = highestCompleteBaseLevel(incoming);
+    if (fadeLevel < 0) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      const startFov = renderFov;
+      // A rapid follow-up move may interrupt the previous settle. Start from
+      // its current visual FOV so repeated walking stays continuous.
+      settleTransition = null;
+      approachTransition = null;
+      moveTransition = {
+        outgoing,
+        incoming,
+        alpha: 0,
+        fadeLevel,
+        startedAt: 0,
+        startFov,
+        baseFov: fov,
+        resolve,
+      };
+      dirty = true;
+      schedDirty = true;
+    });
+  }
+
+  async function moveTo(id) {
+    if (!navigationEnabled() || !id || id === cur.id) return false;
+    let retarget = false;
+    if (moveBusy) {
+      // A click during the base wait re-targets; the same target just keeps waiting.
+      if (!approachTransition || id === warmId) return false;
+      retarget = true;
+      cancelMovement();
+    }
+    const token = ++moveToken;
+    moveBusy = true;
+    spinDir = 0; yawAnim = null; vYaw = 0; vPitch = 0;
+    fovT = fov;
+    keys.clear();
+    if (navHover) clearNavHover();
+    else emitCamera();
+    forwardWarmId = null;
+    // A re-target keeps the punched-in view instead of easing in again (startedAt truthy = finished).
+    approachTransition = { startedAt: retarget ? 1 : 0, baseFov: fov };
+    canvas.classList.add('sv-nav-moving');
+    dirty = true;
+    const warmed = panos.get(id);
+    if (warmId !== id || !warmed || warmed.status !== 'ready' || highestCompleteBaseLevel(warmed) < 0) prewarm(id);
+    const canProceed = await waitForMoveBase(id, token);
+    if (!canProceed || destroyed || token !== moveToken) {
+      if (token === moveToken) finishMove(false);
+      return false;
+    }
+    const keptYaw = yaw / D2R;
+    const ok = await loadFresh(id, keptYaw, { moving: true, token });
+    if (token === moveToken) finishMove(ok);
+    return ok;
+  }
+
+  // Release input after a move attempt. A move that never got its base ends
+  // the approach punch-in with the same settle ease the real transition uses,
+  // from wherever the view is now.
+  function finishMove(ok) {
+    moveBusy = false;
+    canvas.classList.remove('sv-nav-moving');
+    if (!ok && approachTransition) {
+      approachTransition = null;
+      settleTransition = { startedAt: 0, baseFov: fov, from: fov > 0 ? renderFov / fov : 1 };
+      dirty = true;
+    }
+    const hover = navPointer ? updateNavHoverAt(navPointer.x, navPointer.y) : null;
+    if (!hover) emitCamera();
+    updateForwardPrewarm();
+  }
+
+  function moveInDirection(backward) {
+    if (!movementInputEnabled()) return;
+    const link = nearestLink(yaw + (backward ? PI : 0), 60 * D2R);
+    if (link) moveTo(link.id);
+  }
+
+  function updateForwardPrewarm() {
+    if (!navigationEnabled() || moveBusy || !baseComplete(cur)) return;
+    // A hovered destination is a stronger intent signal than camera bearing.
+    // Keep the single warm slot on it until the pointer leaves that target.
+    if (navHover?.chevron || navHover?.target) return;
+    const link = nearestLink(yaw);
+    if (!link || link.id === forwardWarmId) return;
+    forwardWarmId = link.id;
+    prewarm(link.id);
+  }
+
+  async function loadFresh(id, headingDeg, options = null) {
+    const moving = !!options?.moving;
+    const outgoing = moving ? cur : null;
+    if (!moving) cancelMovement();
     worldGen++;
     // Deliberately NOT dirty here: marking dirty with cur=null on a VISIBLE
     // surface paints the clear color — a black flash for the whole metadata +
@@ -953,10 +1452,16 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // wiping its dedupe ledger made the scheduler re-issue those tiles and
     // the duplicate upload orphaned the first texture — ~11MB per round on
     // mobile). destroyPano aborts and unqueues everything for the others.
-    for (const p of [...panos.values()]) if (p.id !== id) destroyPano(p);
-    warmId = null; warmNotified = false; // consumed (or superseded) either way
-    cur = null;
-    notified = false;
+    for (const p of [...panos.values()]) {
+      if (p.id !== id && (!moving || p !== outgoing)) destroyPano(p);
+    }
+    if (!moving) {
+      warmId = null; warmNotified = false; // consumed (or superseded) either way
+      cur = null;
+      notified = false;
+      forwardWarmId = null;
+      emitCamera();
+    }
     // Drift self-heal, once per round: gpuBytes is kept incrementally and a
     // silent skew is catastrophic in both directions (too low = never evict =
     // OOM; too high = evict constantly = download thrash).
@@ -965,14 +1470,28 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       for (const m of pp.tiles) for (const rec of m.values()) gpuBytes += rec.bytes || 0;
     const gen = worldGen;
     const p = await ensurePano(id);
-    if (gen !== worldGen || destroyed) return false;
+    if (gen !== worldGen || destroyed || (moving && options.token !== moveToken)) return false;
     if (!p) {
+      if (moving) {
+        warmId = null; warmNotified = false;
+        const failed = panos.get(id);
+        if (failed && failed !== outgoing) destroyPano(failed);
+        return false;
+      }
       // Metadata failed for the CURRENT generation: the previous pano was
       // already destroyed at entry, so the composited frame is stale imagery
       // of a dead round. Wipe it — see clearSurface. (A resolve failure never
       // reaches here; the old pano stays live and correct on that path.)
       clearSurface();
       return false;
+    }
+    if (moving) {
+      if (!outgoing || outgoing.destroyed) return false;
+      if (headingDeg !== null && headingDeg !== undefined && isFinite(headingDeg)) yaw = headingDeg * D2R;
+      cur = outgoing;
+      dirty = true;
+      schedDirty = true;
+      return beginMoveTransition(outgoing, p);
     }
     cur = p;
     dirty = true; // a reload of the same spot keeps yaw/pitch/fov — the camera
@@ -984,7 +1503,11 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // parked, and clamped the round's under-cover pre-stream to z3 — the
     // exact sharpen-in reveal the clamp is documented to never cause.
     gateSince = Date.now();
-    yaw = (headingDeg !== null && headingDeg !== undefined && isFinite(headingDeg)) ? headingDeg * D2R : p.heading;
+    // No caller heading: open on the pano's own travel direction when the
+    // provider supplies one (Baidu, where the image centre sits 90 deg off the
+    // road), else on the image centre (Google's centerHeading IS the road).
+    yaw = (headingDeg !== null && headingDeg !== undefined && isFinite(headingDeg)) ? headingDeg * D2R
+      : (p.startYaw !== undefined ? p.startYaw : p.heading);
     // Portrait's tall fov puts half the frame above the horizon at pitch 0 —
     // start tilted down so the view favors the road, not the sky (the embed's
     // road-heavy mobile framing; its URL only carries fov=100 + no pitch, so
@@ -993,6 +1516,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     vYaw = 0; vPitch = 0;
     spinDir = 0; yawAnim = null; // a compass press from the last round must not follow us here
     fov = fovT = FOV_MAX; // GSV default view = zoom 1 equivalent, fully zoomed out
+    renderFov = fov;
     anchor = { x: cssW / 2, y: cssH / 2 };
     emitYaw(true); // new round starts at a new bearing — don't wait on a delta
     return true;
@@ -1045,8 +1569,8 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       // revealed frame after a gated orientation change draws one detail
       // level off.
       if (cur && cur.status === 'ready') curZoom = desiredZoom(cur.layout);
-      buildMatrices();
-      lastYaw = yaw; lastPitch = pitch; lastFov = fov; lastAspect = aspect;
+      buildMatrices(renderFov);
+      lastYaw = yaw; lastPitch = pitch; lastFov = renderFov; lastAspect = aspect;
       paint();
     }
   }
@@ -1056,6 +1580,10 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     rafId = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (tNow - tPrev) / 1000 || 0.016);
     tPrev = tNow;
+
+    // ChinaGuessr (temporary): changing to No Move or NMPZ cancels any move
+    // that was waiting on tiles before it can swap the panorama.
+    if (moveBusy && (isFrozen() || !isMoveAllowed())) cancelMovement();
 
     // NMPZ: every input ENTRY point is gated on isFrozen, but motion already in
     // flight when the freeze lands would sail straight across the round
@@ -1090,11 +1618,14 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     }
     if (keys.size) {
       const r = fov * 0.9 * dt;
-      if (keys.has('ArrowLeft') || keys.has('ArrowRight')) yawAnim = null;
-      if (keys.has('ArrowLeft')) yaw -= r;
-      if (keys.has('ArrowRight')) yaw += r;
-      if (keys.has('ArrowUp')) pitch = clampPitch(pitch + r);
-      if (keys.has('ArrowDown')) pitch = clampPitch(pitch - r);
+      const movingKeys = navigationEnabled();
+      const rotateLeft = keys.has('ArrowLeft') || (movingKeys && keys.has('a'));
+      const rotateRight = keys.has('ArrowRight') || (movingKeys && keys.has('d'));
+      if (rotateLeft || rotateRight) yawAnim = null;
+      if (rotateLeft) yaw -= r;
+      if (rotateRight) yaw += r;
+      if (!movingKeys && keys.has('ArrowUp')) pitch = clampPitch(pitch + r);
+      if (!movingKeys && keys.has('ArrowDown')) pitch = clampPitch(pitch - r);
       if (keys.has('+') || keys.has('=')) fovT = Math.max(FOV_MIN, fovT * Math.exp(-1.4 * dt));
       if (keys.has('-') || keys.has('_')) fovT = Math.min(FOV_MAX, fovT * Math.exp(1.4 * dt));
     }
@@ -1113,6 +1644,35 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       pitch = clampPitch(pitch + (before.phi - after.phi));
     }
 
+    // ChinaGuessr (temporary): ease-out cubic keeps both panorama passes on
+    // one registered camera while the current view punches in, then settles.
+    let fadeFinished = false, settleFinished = false;
+    renderFov = fov;
+    if (moveTransition) {
+      if (!moveTransition.startedAt) moveTransition.startedAt = tNow;
+      const progress = Math.min(1, (tNow - moveTransition.startedAt) / MOVE_FADE_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      moveTransition.alpha = eased;
+      const targetFov = moveTransition.baseFov * 0.86;
+      renderFov = moveTransition.startFov + (targetFov - moveTransition.startFov) * eased;
+      dirty = true;
+      fadeFinished = progress >= 1;
+    } else if (settleTransition) {
+      if (!settleTransition.startedAt) settleTransition.startedAt = tNow;
+      const progress = Math.min(1, (tNow - settleTransition.startedAt) / MOVE_SETTLE_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const from = settleTransition.from ?? 0.86;
+      renderFov = settleTransition.baseFov * (from + (1 - from) * eased);
+      dirty = true;
+      settleFinished = progress >= 1;
+    } else if (approachTransition) {
+      if (!approachTransition.startedAt) approachTransition.startedAt = tNow;
+      const progress = Math.min(1, (tNow - approachTransition.startedAt) / MOVE_APPROACH_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      renderFov = approachTransition.baseFov * (1 - MOVE_APPROACH_SCALE * eased);
+      if (progress < 1) dirty = true; // holds the punched-in view until the base lands
+    }
+
     // ---- render gate. rAF stays armed; PAINT and SCHEDULING are conditional.
     // The image is a pure function of (yaw, pitch, fov, aspect) + the tile set
     // + curZoom, so camera motion is detected by COMPARING against the values
@@ -1123,14 +1683,21 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // an epsilon or Object.is compare would invert that into a permanently
     // frozen renderer. Non-camera changes mark dirty at their source: resize
     // (buffer realloc), uploads, curZoom steps, loadFresh, setGate, restore.
-    if (yaw !== lastYaw || pitch !== lastPitch || fov !== lastFov || aspect !== lastAspect) {
-      lastYaw = yaw; lastPitch = pitch; lastFov = fov; lastAspect = aspect;
+    const schedulerCameraChanged = yaw !== lastSchedYaw || pitch !== lastSchedPitch
+      || fov !== lastSchedFov || aspect !== lastSchedAspect;
+    if (schedulerCameraChanged) {
+      lastSchedYaw = yaw; lastSchedPitch = pitch; lastSchedFov = fov; lastSchedAspect = aspect;
+      schedDirty = true;
+    }
+    let cameraChanged = false;
+    if (yaw !== lastYaw || pitch !== lastPitch || renderFov !== lastFov || aspect !== lastAspect) {
+      lastYaw = yaw; lastPitch = pitch; lastFov = renderFov; lastAspect = aspect;
       // Ahead of schedule() on purpose: addDetailJobs reads camF and
       // halfViewAngle from here, and scheduling against a stale camera after
       // loadFresh would spend the download budget on tiles behind the player.
-      buildMatrices();
+      buildMatrices(renderFov);
+      cameraChanged = true;
       dirty = true;
-      schedDirty = true;
       // NO lastEvictFreed reset here: resetting on camera motion inverted the
       // GPU back-pressure off during exactly the hot streaming windows
       // (pan/zoom), producing download/evict thrash while over budget. The
@@ -1138,6 +1705,18 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
       // paint, the paint advances drawNo, and the scan-repeat guard in
       // evictTiles keys on drawNo, so the evictor re-evaluates the changed
       // visible set on the very next painted frame.
+    }
+    if ((cameraChanged || navPointerDirty) && navPointer && movementInputEnabled()) {
+      navPointerDirty = false;
+      if (dragging && navHover?.target) {
+        const groundPt = groundPointAt(navPointer.x, navPointer.y);
+        // Keep the destination latched during a pan. Only the disc's ground
+        // position follows the held mouse, so crossing an empty hit-test band
+        // cannot make it blink out mid-gesture.
+        if (groundPt) navHover = { chevron: null, target: navHover.target, groundPt };
+      } else if (!dragging) {
+        updateNavHoverAt(navPointer.x, navPointer.y);
+      }
     }
     emitYaw(false); // delta-gated internally; kept out of paint() so the
                     // compass never goes stale and jumps at a reveal
@@ -1167,6 +1746,28 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     // advancing drawNo, and the evictor must only run against fresh stamps.
     if ((painted || uploaded) && !lost) evictTiles();
 
+    if (painted && fadeFinished && moveTransition) {
+      const completed = moveTransition;
+      cur = completed.incoming;
+      moveTransition = null;
+      warmId = null; warmNotified = false;
+      for (const pano of [...panos.values()]) if (pano !== cur) destroyPano(pano);
+      curZoom = desiredZoom(cur.layout);
+      forwardWarmId = null;
+      settleTransition = {
+        startedAt: tNow,
+        baseFov: completed.baseFov,
+      };
+      dirty = true;
+      schedDirty = true;
+      // The destination is current and fully opaque now. Keep the short visual
+      // settle, but release input immediately so walking never pays for it.
+      completed.resolve(true);
+    } else if (painted && settleFinished && settleTransition) {
+      settleTransition = null;
+      renderFov = fov;
+    }
+
     if (ready && !notified && baseComplete(cur)) {
       notified = true;
       onPanoReady();
@@ -1182,6 +1783,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
         onPrewarmed(warmId);
       }
     }
+    updateForwardPrewarm();
   }
   rafId = requestAnimationFrame(frame);
 
@@ -1254,6 +1856,8 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
 
   function destroy() {
     destroyed = true;
+    cancelMovement();
+    cameraListeners.clear();
     cancelAnimationFrame(rafId);
     canvas.removeEventListener('webglcontextlost', onContextLost);
     // Must come off too: the deferred loseContext below + preventDefault in
@@ -1265,6 +1869,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     document.removeEventListener('visibilitychange', onVisibility);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
+    canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('pointerup', endPointer);
     canvas.removeEventListener('pointercancel', endPointer);
     canvas.removeEventListener('wheel', onWheel);
@@ -1273,6 +1878,7 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     window.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('resize', resize);
+    canvas.classList.remove('sv-nav-target');
     for (const p of [...panos.values()]) destroyPano(p); // aborts inflight + unqueues uploads too
     uploadQ.length = 0;
     for (const m of meshes.values()) { gl.deleteBuffer(m.vb); gl.deleteBuffer(m.ib); }
@@ -1291,7 +1897,23 @@ void main() { gl_FragColor = vec4(texture2D(uTex, vUV).rgb, 1.0); }`;
     }, 0);
   }
 
-  return { loadFresh, destroy, nudgeYaw, setSpin, faceNorth, prewarm, setGate };
+  return {
+    loadFresh,
+    destroy,
+    nudgeYaw,
+    setSpin,
+    faceNorth,
+    prewarm,
+    setGate,
+    // ChinaGuessr (temporary): overlay and movement APIs.
+    getNavFrame,
+    groundPointAt,
+    pickTarget,
+    pickChevron,
+    moveTo,
+    onCamera,
+    clearNavHover,
+  };
 }
 
 // Resolve the round's stamped lat/lng to a live pano id. Map-file panoId
@@ -1330,11 +1952,13 @@ const BASE_TILE_COORDS = [
   [2, 0, 0], [2, 1, 0], [2, 2, 0], [2, 3, 0],
   [2, 0, 1], [2, 1, 1], [2, 2, 1], [2, 3, 1],
 ];
-function prefetchBaseTiles(pano) {
+function prefetchBaseTiles(pano, providerId = 'google', maxZ = 2) {
+  const tileFor = providerId === 'baidu' ? baiduTileUrl : tileUrl; // z0-z2 coords match Baidu's grid too
   for (const [z, x, y] of BASE_TILE_COORDS) {
+    if (z > maxZ) continue;
     const im = new Image();
     im.crossOrigin = 'anonymous'; // must match the engine's requests to share cache
-    im.src = tileUrl(pano, z, x, y);
+    im.src = tileFor(pano, z, x, y);
   }
 }
 
@@ -1343,6 +1967,10 @@ const CustomStreetView = ({
   long,
   heading,
   panoId = null, // FRESH pano id only (findLatLong's freshPano) — never map-file panoIds
+  // 'google' | 'baidu'. Baidu (ChinaGuessr, temporary) always supplies panoId;
+  // there is no Baidu resolver, so a missing id is a degraded load, not a
+  // Google lookup. Web-only today; the mobile host passes nothing.
+  provider = 'google',
   npz = false,
   showAnswer = false,
   hidden = false,
@@ -1353,6 +1981,9 @@ const CustomStreetView = ({
   // (see setGate in the engine). Defaults false so web call sites are
   // untouched.
   covered = false,
+  // ChinaGuessr (temporary): Baidu movement is opt-in. Google and mobile do
+  // not pass this prop and retain the existing No Move controls.
+  allowMove = false,
   slowEnter = false,
   refreshKey = 0,
   // NEXT round's fresh pano id (or null): warms its base tiles into the HTTP
@@ -1373,6 +2004,9 @@ const CustomStreetView = ({
   const canvasRef = useRef(null);
   const roseRef = useRef(null);
   const engineRef = useRef(null);
+  const allowMoveRef = useRef(false); // ChinaGuessr (temporary)
+  allowMoveRef.current = allowMove;
+  const [navEngine, setNavEngine] = useState(null); // ChinaGuessr (temporary)
   // Fatal-engine recovery: a context restore that keeps failing can never
   // come back on the SAME canvas (webglcontextrestored fires once). Keying
   // the canvas + engine on this remounts both on fresh DOM. Capped so a
@@ -1427,10 +2061,10 @@ const CustomStreetView = ({
       try {
         // A fresh pano id from the location finder skips the whole
         // getPanorama round trip; community-map rounds still resolve.
-        const pano = panoId || await resolvePanoId(lat, long);
+        const pano = panoId || (provider === 'baidu' ? null : await resolvePanoId(lat, long));
         if (gen !== loadGenRef.current || !engineRef.current) return;
         if (!pano) throw new Error('no pano near ' + lat + ',' + long);
-        prefetchBaseTiles(pano); // downloads race the photometa fetch below
+        prefetchBaseTiles(pano, provider); // downloads race the metadata fetch below
         // From here the ENGINE is working for this generation: onPanoReady
         // must credit the generation whose loadFresh installed `cur`, not
         // whatever loadGenRef says at fire time (an old pano completing
@@ -1514,16 +2148,29 @@ const CustomStreetView = ({
         fatalRemountsRef.current++;
         setEngineKey((k) => k + 1);
       },
+      provider,
+      () => allowMoveRef.current,
     );
     engineRef.current = engine;
+    setNavEngine(engine);
     return () => {
       engineRef.current = null;
+      setNavEngine(null);
       if (failsafeRef.current) { clearTimeout(failsafeRef.current); failsafeRef.current = null; }
       for (const rec of holdRef.current.values()) if (rec.timer) clearTimeout(rec.timer);
       holdRef.current.clear();
       if (engine) engine.destroy();
     };
-  }, [hasCoords, engineKey]);
+    // provider: a guard, not a hot path — switches always pass through
+    // hasCoords=false first (see createEngine), this just rules out a stale
+    // Google-bound engine if that ever stops being true.
+  }, [hasCoords, engineKey, provider]);
+
+  // ChinaGuessr (temporary): discard a stale ground hover as soon as Moving
+  // is disabled. Re-enabling starts from the next real pointer position.
+  useEffect(() => {
+    if (!allowMove && engineRef.current?.clearNavHover) engineRef.current.clearNavHover();
+  }, [allowMove]);
 
   // Draw gate. DECLARED IMMEDIATELY AFTER the createEngine effect and before
   // the load effect: effects run in declaration order within a commit, so a
@@ -1552,7 +2199,7 @@ const CustomStreetView = ({
   // (Image() cache-hits on repeats, ensurePano dedupes), no cleanup needed.
   useEffect(() => {
     if (!prefetchPano) return;
-    prefetchBaseTiles(prefetchPano);
+    prefetchBaseTiles(prefetchPano, provider);
     if (engineRef.current && engineRef.current.prewarm) engineRef.current.prewarm(prefetchPano);
     // prefetchNonce: same id, new round — must re-run (see the prop note).
   }, [prefetchPano, prefetchNonce, engineKey]);
@@ -1568,13 +2215,15 @@ const CustomStreetView = ({
 
   if (!hasCoords) return null;
 
+  const navVisible = provider === 'baidu' && allowMove && !hidden && !frozen; // ChinaGuessr (temporary)
+
   return (
     <>
       <canvas
         key={engineKey}
         ref={canvasRef}
         id="streetview"
-        className={`streetview ${frozen ? "nmpz" : ""} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""}`}
+        className={`streetview ${frozen ? "nmpz" : ""} ${hidden ? "hidden" : ""} ${slowEnter ? "streetview--duel-enter" : ""} ${navVisible ? "sv-nav-enabled" : ""}`}
         style={{
           position: "fixed",
           inset: 0,
@@ -1585,6 +2234,7 @@ const CustomStreetView = ({
           backgroundColor: "#1a1a2e",
         }}
       />
+      {navVisible && navEngine && <SvNavOverlay engine={navEngine} visible={navVisible} />}
       {/* Compass. The Google embed's own compass never reached the screen (the
           iframe is shoved up 285px to bury Google's controls) and the WebGL
           pano draws no Google chrome at all, so No Move / NMPZ ship their own
@@ -1646,7 +2296,7 @@ const CustomStreetView = ({
             userSelect: "none",
           }}
         >
-          Imagery &copy;{new Date().getFullYear()} Google
+          {provider === 'baidu' ? <>Imagery &copy; Baidu</> : <>Imagery &copy;{new Date().getFullYear()} Google</>}
         </div>
       )}
     </>

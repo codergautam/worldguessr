@@ -52,12 +52,12 @@ const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
 
   // Which tabs are SELECTED (drives the buttons + what to fetch).
-  const [view, setView] = useState({ pastDay: false, useElo: true });
+  const [view, setView] = useState({ pastDay: false, useElo: true, showInactive: false });
   // What is SHOWN. The response is stamped with the view it was fetched for
   // (forPastDay/forElo) and the list renders from the stamp, never from the
   // live toggles — so data can never paint under another tab's labels or
   // +/- formatting, no matter how requests race on slow connections.
-  const [result, setResult] = useState({ status: 'loading', data: null, forPastDay: false, forElo: true });
+  const [result, setResult] = useState({ status: 'loading', data: null, forPastDay: false, forElo: true, forInactive: false });
   const [inCrazyGames, setInCrazyGames] = useState(false);
   const { data: session, status } = useSession();
 
@@ -67,7 +67,7 @@ const Leaderboard = ({ }) => {
   // "flash of + before loading" bug.
   const switchView = (patch) => {
     const next = { ...view, ...patch };
-    if (next.pastDay === view.pastDay && next.useElo === view.useElo) return;
+    if (next.pastDay === view.pastDay && next.useElo === view.useElo && next.showInactive === view.showInactive) return;
     setView(next);
     setResult(r => ({ ...r, status: 'loading' }));
   };
@@ -101,7 +101,9 @@ const Leaderboard = ({ }) => {
         const params = {
           username: session ? session.token.username : undefined,
           pastDay: view.pastDay ? true : undefined,
-          mode: view.useElo ? "elo" : "xp"
+          mode: view.useElo ? "elo" : "xp",
+          // Only meaningful on the all-time ranked board; harmless elsewhere.
+          includeInactive: view.showInactive && view.useElo && !view.pastDay ? true : undefined
         };
         const queryParams = new URLSearchParams(params).toString();
         const response = await fetch(configData.apiUrl + `/api/leaderboard${queryParams ? `?${queryParams}` : ''}`, { signal: controller.signal });
@@ -109,7 +111,7 @@ const Leaderboard = ({ }) => {
         const data = await response.json();
         // Stamp the payload with the view it answers — the render reads these,
         // not the live toggles.
-        setResult({ status: 'ready', data, forPastDay: view.pastDay, forElo: view.useElo });
+        setResult({ status: 'ready', data, forPastDay: view.pastDay, forElo: view.useElo, forInactive: view.showInactive });
       } catch (error) {
         // Superseded request: the newer effect owns the UI — touch nothing.
         if (error.name === 'AbortError') return;
@@ -120,7 +122,7 @@ const Leaderboard = ({ }) => {
 
     fetchData();
     return () => controller.abort();
-  }, [session, view.pastDay, view.useElo]);
+  }, [session, view.pastDay, view.useElo, view.showInactive]);
 
   const loading = result.status === 'loading';
   const error = result.status === 'error';
@@ -220,16 +222,23 @@ const Leaderboard = ({ }) => {
                 other value on this page, so it can never appear under the XP or
                 daily tab during a tab switch. */}
             {result.forElo && !result.forPastDay && leaderboardData?.activityWindowDays > 0 && (
-              <div className="s1-board-note">
+              <div className={`s1-board-note ${styles.activityNote}`}>
                 <span className="s1-board-note__icon" aria-hidden>ⓘ</span>
-                <span>
-                  {withFallback(
-                    text,
-                    'leaderboardInactiveNote',
-                    'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
-                    { days: leaderboardData.activityWindowDays }
-                  )}
-                  {session && leaderboardData.myRankHidden && (
+                <span className={styles.activityNoteText}>
+                  {leaderboardData.inactiveShown
+                    ? withFallback(
+                        text,
+                        'leaderboardInactiveShown',
+                        'All players are shown, including those with no ranked game in the last {{days}} days.',
+                        { days: leaderboardData.activityWindowDays }
+                      )
+                    : withFallback(
+                        text,
+                        'leaderboardInactiveNote',
+                        'Players who have not finished a ranked match in the last {{days}} days are hidden from this board. Their rating is untouched, and their place returns on their next ranked match.',
+                        { days: leaderboardData.activityWindowDays }
+                      )}
+                  {session && !leaderboardData.inactiveShown && leaderboardData.myRankHidden && (
                     <>
                       {' '}
                       <strong>
@@ -242,6 +251,18 @@ const Leaderboard = ({ }) => {
                     </>
                   )}
                 </span>
+                {/* Viewer opt-in. Flips the SELECTED view; the note above reads
+                    the stamp (inactiveShown from the payload), so the copy and
+                    the rows always agree, even mid-fetch. */}
+                <button
+                  type="button"
+                  className={styles.activityToggle}
+                  onClick={() => switchView({ showInactive: !view.showInactive })}
+                >
+                  {view.showInactive
+                    ? withFallback(text, 'leaderboardHideInactive', 'Hide inactive players')
+                    : withFallback(text, 'leaderboardShowInactive', 'Show inactive players')}
+                </button>
               </div>
             )}
 
