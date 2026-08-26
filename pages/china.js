@@ -2,10 +2,10 @@
 // /china/index.html; Home seeds the singleplayer screen with the China map.
 //
 // Round 1 is warm before the game mounts: the page carries a build-time
-// sample of pool spots, hydration picks one and starts its metadata + base
-// tiles right away, and the HTML preconnects both Baidu hosts (a ~1.4 s TLS
-// handshake each from outside China) while the bundle is still loading. The
-// full pool is fetched behind round 1 for the rounds after it.
+// sample of pool spots, hydration picks one at random and starts its metadata
+// + base tiles right away, and the HTML preconnects both Baidu hosts (a
+// ~1.4 s TLS handshake each from outside China) while the bundle is still
+// loading. The full pool is fetched behind round 1 for the rounds after it.
 //
 // Reachable ONLY by this URL: no menu entry, no map-chooser tile, not in the
 // sitemap, and noindex here. It is shared by hand with a few people.
@@ -16,24 +16,38 @@ import { useEffect, useState } from 'react';
 import Home from '@/components/home';
 import ChinaLanding from '@/components/china/ChinaLanding';
 import { setChinaLandingUp } from '@/components/china/landingState';
-import { warmPano, sdataUrl, tileUrl, BAIDU_HOSTS } from '@/components/china/baidu';
-import { orderByFreshness, locKey } from '@/shared/locations/repeatGuard.js';
-import { seenLocs } from '@/components/utils/seenLocations';
+import { warmPano, BAIDU_HOSTS } from '@/components/china/baidu';
 
-const SEED_SAMPLE = 40;
+const SEED_SAMPLE = 60;
+
+// Round-1 picks this browser has had, newest last. The site's own seen-ring
+// (components/utils/seenLocations.js) only records official maps, and the
+// china slug is not one, so this keeps its own short list: a tester who
+// reloads /china ten times gets ten different openers.
+const RECENT_KEY = 'wg_china_recent_seeds';
+const RECENT_CAP = 30;
+function readRecent() {
+  try {
+    const list = JSON.parse(window.localStorage.getItem(RECENT_KEY) || '[]');
+    return Array.isArray(list) ? list.filter((id) => typeof id === 'string') : [];
+  } catch (e) { return []; }
+}
+function writeRecent(list) {
+  try { window.localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(-RECENT_CAP))); } catch (e) { /* private mode */ }
+}
 
 // One pick per page mount; a repeat call inside the same second returns the
-// same spot so a double-invoked initializer cannot warm two panos. The first
-// baked spot is the one the HTML already preloads, so a new visitor takes it;
-// a returning player who has seen it gets a fresh one from the rest.
+// same spot so a double-invoked initializer cannot warm two panos. Random
+// among the baked spots not seen recently (all of them, if every one has been).
 let lastPick = null;
 function pickSeed(seedLocations) {
   if (typeof window === 'undefined' || !seedLocations?.length) return { seed: null, warm: null };
   if (lastPick && Date.now() - lastPick.at < 1000) return lastPick;
-  const seen = seenLocs();
-  const seed = seen.includes(locKey(seedLocations[0]))
-    ? (orderByFreshness(seedLocations.slice(1), seen)[0] || seedLocations[0])
-    : seedLocations[0];
+  const recent = readRecent();
+  const fresh = seedLocations.filter((loc) => !recent.includes(loc.panoId));
+  const pool = fresh.length ? fresh : seedLocations;
+  const seed = pool[Math.floor(Math.random() * pool.length)];
+  writeRecent([...recent.filter((id) => id !== seed.panoId), seed.panoId]);
   lastPick = { seed, warm: warmPano(seed.panoId), at: Date.now() };
   return lastPick;
 }
@@ -43,16 +57,6 @@ function pickSeed(seedLocations) {
 // longer, so the class outlives the overlay.
 const OVERLAY_FADE_MS = 450;
 const ENTRANCE_MS = 1200;
-
-// Started by the HTML parser, ahead of the JS bundle: the reveal needs
-// exactly sdata + z0 + the z1 pair. crossOrigin matches the renderer's
-// anonymous Image() and plain fetch() so the preloads are the same cache entries.
-const preloadLinks = (seed) => !seed ? [] : [
-  { href: sdataUrl(seed.panoId), as: 'fetch' },
-  { href: tileUrl(seed.panoId, 0, 0, 0), as: 'image' },
-  { href: tileUrl(seed.panoId, 1, 0, 0), as: 'image' },
-  { href: tileUrl(seed.panoId, 1, 1, 0), as: 'image' },
-];
 
 export default function ChinaPage({ seedLocations }) {
   const [{ seed }] = useState(() => pickSeed(seedLocations));
@@ -87,9 +91,6 @@ export default function ChinaPage({ seedLocations }) {
         <meta name="robots" content="noindex" />
         {BAIDU_HOSTS.map((href) => (
           <link key={href} rel="preconnect" href={href} crossOrigin="anonymous" />
-        ))}
-        {preloadLinks(seedLocations?.[0]).map((link) => (
-          <link key={link.href} rel="preload" href={link.href} as={link.as} crossOrigin="anonymous" />
         ))}
       </Head>
       {/* display:contents — a class hook only, never a box, so Home's fixed and
