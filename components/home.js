@@ -1183,6 +1183,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // the URL. Doing it here rather than inside each exit path means we
     // can't forget to call it.
     const prevScreenForUrlRef = useRef(screen);
+    const chinaPrevRef = useRef(false); // ChinaGuessr (temporary): was the previous run a china round
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const prev = prevScreenForUrlRef.current;
@@ -1193,14 +1194,25 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             window.history.pushState({}, '', target);
         }
         // ChinaGuessr (temporary): the one exit choke point. Every way out of a
-        // china round (back button, results exit, popstate, ws kick) lands
-        // here: drop the /china URL and put the map options back to World, so
-        // the next Singleplayer press is a normal game.
-        if (prev === 'singleplayer' && screen !== 'singleplayer' && isChinaMode(gameOptions)) {
+        // china round (back button, results exit, popstate, ws kick, a map
+        // pick from the chooser) lands here: drop the /china URL, empty the
+        // Baidu pool and put the map options back to World, so the next game
+        // is a normal one. The pool MUST go with the options: loadLocation
+        // walks a non-empty pool instead of fetching, so leftover Baidu rows
+        // used to feed the next World game (Google iframe on mainland-China
+        // coords, Street View links opening Baidu Maps). Keyed on the map
+        // slug as well as the screen because the chooser swaps the map with
+        // the screen unchanged (openMap clears the pool itself there).
+        const wasChina = chinaPrevRef.current;
+        chinaPrevRef.current = isChinaMode(gameOptions);
+        if (wasChina && (screen !== 'singleplayer' || !isChinaMode(gameOptions))) {
             if (isChinaPath(window.location.pathname)) window.history.pushState({}, '', '/');
-            setWorldMapOptions();
+            if (isChinaMode(gameOptions)) {
+                setAllLocsArray([]);
+                setWorldMapOptions();
+            }
         }
-    }, [screen, isDailyPath, isChinaPath]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [screen, gameOptions.location, isDailyPath, isChinaPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Close the login modal once the user is signed in (covers the Google and
     // Apple popup paths, which resolve outside the modal's control), and the
@@ -1707,6 +1719,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             if (!isChinaMode(gameOptionsRef.current)) return;
             const ordered = orderByFreshness(data.locations.filter((l) => l.panoId !== seed.panoId), seenLocs());
             setAllLocsArray((prev) => {
+                // Re-checked INSIDE the updater: it runs in the render that
+                // also applies the exit choke point's World options, so a
+                // fetch resolving in the gap between that effect and its
+                // render cannot append Baidu rows behind the pool wipe.
+                if (!isChinaMode(gameOptionsRef.current)) return prev;
                 const have = new Set((prev || []).map((l) => l.panoId));
                 return [...(prev || []), ...ordered.filter((l) => !have.has(l.panoId))];
             });
