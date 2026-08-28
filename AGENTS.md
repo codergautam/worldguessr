@@ -194,6 +194,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - When reusing an ad across UI states, preserve one React ad-component mount across the transition; matching the vendor unit type or selector alone still re-declares the creative. (Corrected 2026-08-22: a second queue `PlaywireAd` mount would have reloaded the ad at match start.)
 - For ChinaGuessr movement, hide the pancake only when no destination exists; align its arrow to the target bearing from the panorama origin (never target-minus-cursor), update free hover immediately, and preserve its last valid disc during drag and near the viewport bottom. (Corrected 2026-08-25.)
 - A ChinaGuessr move may start its zoom and cross-fade only after the destination has a complete GPU-resident panorama level; a timeout must keep the outgoing pano instead of swapping onto black. (Corrected 2026-08-25.)
+- For the standalone Street View prototype, judge reconstruction coverage by solid full-height building silhouettes; foliage retention does not count as restoring missing facades. (Corrected 2026-08-27.)
 
 ---
 

@@ -1531,3 +1531,66 @@
     margin-left: 0 !important;
   }
 }
+
+/* /maps only (not the modal): the grid fills in after its fetch, and the
+   country panel below it is in the first paint. Holding the grid at one
+   viewport tall keeps that panel below the fold while the grid loads, so
+   its later move is never a scored layout shift. */
+.maps-page .mapView {
+  min-height: calc(100svh - 72px);
+}
+
+/* /maps: the official country maps under the grid (pages/maps.js). A second
+   panel of the same family as .mapView (same surface, width and radius),
+   with the same section title, and a flag + name grid inside. Plain <a>
+   links on purpose: this is the crawlable path to every country page. */
+.maps-country-links {
+  max-width: min(1400px, calc(100% - 32px));
+  margin: 0 auto 40px;
+  padding: 24px 20px 28px;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 12, 0.78) 0%, rgba(5, 12, 8, 0.82) 100%),
+    linear-gradient(135deg, rgba(var(--surfChannels), 0.12) 0%, rgba(0, 0, 0, 0) 60%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--map-border-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+.maps-country-links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 8px;
+}
+.maps-country-links a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--map-border-radius);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+.maps-country-links a:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+.maps-country-links img {
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex: none;
+}
+@media (max-width: 480px) {
+  .maps-country-links {
+    padding: 16px 12px 20px;
+  }
+  .maps-country-links ul {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}

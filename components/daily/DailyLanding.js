@@ -10,7 +10,7 @@ import DailyLeaderboardModal from './DailyLeaderboardModal';
 import { derivePercentile } from '@/shared/daily/percentile';
 import { HIDE_ACCOUNT_UI, ACCOUNT_SITE_URL, openAccountSite } from '@/components/utils/accountUi';
 
-export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false, ownNameGlow = null }) {
+export default function DailyLanding({ today, distribution = null, userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false, ownNameGlow = null, onOpenAbout }) {
   const { t: text } = useTranslation();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -104,6 +104,14 @@ export default function DailyLanding({ today, distribution = null, userData = nu
             <div className="daily-landing-step-text">{text('dailyLandingStep3')}</div>
           </div>
         </div>
+        {/* The page's prose (components/aboutPanel.js) is always in the HTML
+            for crawlers; this is how a player reaches it. Same chip as the
+            leaderboard opener above. */}
+        {onOpenAbout && (
+          <button className="daily-leaderboard-open-btn daily-landing-about-btn" onClick={onOpenAbout}>
+            {text('dailyAboutLink')}
+          </button>
+        )}
       </section>
 
       {/* Community pulse — the anonymous distribution stays the headline (an

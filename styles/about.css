@@ -1,0 +1,310 @@
+/* About panel (components/aboutPanel.js).
+
+   The panel is ALWAYS in the exported HTML: it is the one place on the
+   homepage with real prose about the game (H1, paragraphs, FAQ), and the
+   crawlers that feed search engines and AI answers read the HTML, not the
+   rendered app. Closed = display:none, opened from the settings footer.
+   That is the accordion pattern Google indexes at full weight; the hidden
+   keyword-heading trick some competitors use is NOT what this is, the
+   text is reachable by a real control.
+
+   OUTER scroll only: the fixed section scrolls, the card sits in flow.
+   Nested overflow:auto inside a fixed modal is dead on iOS. */
+
+.aboutPanel {
+    display: none;
+}
+
+.aboutPanel.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    /* Above the settings modal (9999) it opens from, level with the
+       welcome overlay (10000), which can never be open at the same time
+       because the settings footer only exists after onboarding. */
+    z-index: 10000;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(0, 0, 0, 0.75);
+    padding: 24px 16px;
+    box-sizing: border-box;
+    animation: aboutFadeIn 0.2s ease-out;
+}
+
+@keyframes aboutFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.aboutPanel__card {
+    position: relative;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 28px 24px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    /* The site's modal frame: 2px --primary, dark fill. */
+    border: 2px solid var(--primary);
+    background: rgba(0, 0, 0, 0.92);
+    color: white;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
+    line-height: 1.55;
+    user-select: text;
+}
+
+/* Type steps from DESIGN.md: Headline, Title, Body. */
+.aboutPanel__card h1 {
+    margin: 0 60px 14px 0;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 500;
+    line-height: 1.25;
+}
+
+.aboutPanel__card h2 {
+    margin: 26px 0 8px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.aboutPanel__card h3 {
+    margin: 16px 0 4px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.aboutPanel__card p {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.aboutPanel__card a {
+    color: white;
+    text-decoration: underline;
+}
+
+.aboutPanel__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 20px;
+}
+
+.aboutPanel__card .aboutPanel__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: auto;
+    padding: 8px 14px;
+    border-radius: 15px;
+    color: white;
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+@media (max-width: 600px) {
+    .aboutPanel.open {
+        padding: 12px 10px;
+    }
+    .aboutPanel__card {
+        padding: 22px 18px 18px;
+    }
+}
+
+/* /about (pages/about.js): a long static article. Same fixed shell +
+   single outer scroll as /maps, because body is overflow:hidden sitewide. */
+
+.aboutPage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+}
+
+.aboutPage__scroll {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 24px 16px 64px;
+    box-sizing: border-box;
+}
+
+.aboutPage__article {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 28px 32px;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 2px solid var(--primary);
+    background: rgba(0, 0, 0, 0.92);
+    color: white;
+    font-family: "Lexend", "Lexend Fallback", sans-serif;
+    line-height: 1.55;
+    user-select: text;
+}
+
+.aboutPage__article h1 {
+    margin: 0 0 12px;
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 500;
+}
+
+.aboutPage__article h2 {
+    margin: 32px 0 10px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.aboutPage__article h3 {
+    margin: 16px 0 4px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.aboutPage__article p {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.aboutPage__lead {
+    font-size: 1rem !important;
+    color: white !important;
+}
+
+.aboutPage__article a {
+    color: white;
+    text-decoration: underline;
+}
+
+.aboutPage__back {
+    margin-bottom: 20px !important;
+}
+
+.aboutPage__back a {
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.aboutPage__figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 0 0 14px;
+}
+
+.aboutPage__figures figure {
+    margin: 0;
+}
+
+.aboutPage__figures img {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* 12px: the field/modal step of the radius vocabulary (DESIGN.md). */
+    border-radius: 12px;
+}
+
+.aboutPage__figures figcaption {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.aboutPage__modes {
+    margin: 0;
+}
+
+.aboutPage__modes div {
+    margin: 0 0 12px;
+}
+
+.aboutPage__modes dt {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.aboutPage__modes dd {
+    margin: 2px 0 0;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.aboutPage__tableWrap {
+    overflow-x: auto;
+    margin: 0 0 12px;
+}
+
+.aboutPage__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.aboutPage__table th,
+.aboutPage__table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 8px 10px;
+}
+
+.aboutPage__table thead th {
+    font-weight: 600;
+}
+
+.aboutPage__table tbody th {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Tone separates rows; no rules. */
+.aboutPage__table tbody tr:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* The cell that wins its row. Weight and full white only; no color, no
+   icon, so it reads the same to a crawler and a person. */
+.aboutPage__table td.aboutPage__win {
+    font-weight: 600;
+    color: white;
+}
+
+.aboutPage__table td {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.aboutPage__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+}
+
+.aboutPage__list {
+    margin: 0 0 12px;
+    padding-left: 20px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.aboutPage__list li {
+    margin: 0 0 6px;
+}
+
+.aboutPage__note {
+    font-size: 0.8rem !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+.aboutPage__footerLinks {
+    margin-top: 28px !important;
+}
+
+@media (max-width: 600px) {
+    .aboutPage__scroll {
+        padding: 12px 10px 48px;
+    }
+    .aboutPage__article {
+        padding: 22px 18px 24px;
+    }
+}

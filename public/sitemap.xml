@@ -1,53 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-  <url>
-    <loc>https://worldguessr.com/</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-  <url>
-    <loc>https://worldguessr.com/leaderboard</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.4</priority>
-  </url>
-
-  <url>
-    <loc>https://worldguessr.com/ru</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://worldguessr.com/de</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://worldguessr.com/fr</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-    <url>
-    <loc>https://worldguessr.com/es</loc>
-    <lastmod>2024-07-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://worldguessr.com/maps</loc>
-    <lastmod>2024-08-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-</urlset>
+<!-- Sitemap index. sitemap-pages.xml is written into the export by
+     scripts/writeSitemap.mjs after every build (static pages + the official
+     country maps, stamped with the build date). sitemap-maps.xml is served
+     by the edge Worker (workers/seo-edge) from the community-map API. -->
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://www.worldguessr.com/sitemap-pages.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.worldguessr.com/sitemap-maps.xml</loc>
+  </sitemap>
+</sitemapindex>

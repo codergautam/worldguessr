@@ -584,11 +584,13 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>
+                {/* Web parity: show the cap whenever the server sent one
+                    ("3/200"), not only for 2v2. */}
                 {teamGame
                   ? t('teams')
-                  : is2v2
-                    ? t('playersCount', { cnt: `${playerCount}/${seatCount}` })
-                    : t('playersCount', { cnt: playerCount })}
+                  : t('playersCount', {
+                      cnt: Number.isFinite(seatCount) ? `${playerCount}/${seatCount}` : playerCount,
+                    })}
               </Text>
               {teamGame && isHost && (
                 <Pressable

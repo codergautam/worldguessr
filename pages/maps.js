@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import MapView from "@/components/maps/mapView";
 import { useTranslation } from '@/components/useTranslations'
 import { asset } from '@/lib/basePath';
+import { COUNTRY_MAP_LIST } from '@/lib/countryMapList';
 
 import { useSession } from "@/components/auth/auth";
 
@@ -60,7 +61,7 @@ export default function MapsPage({ }) {
                     closeLabel={text("backToGame")}
                     session={session}
                     text={text}
-                    onMapClick={(map) => router.push(`/map?s=${map.slug}`)}
+                    onMapClick={(map) => router.push(`/map/${map.slug}`)}
                     makeMap={makeMap}
                     setMakeMap={setMakeMap}
                     initMakeMap={initMakeMap}
@@ -69,6 +70,27 @@ export default function MapsPage({ }) {
                     searchResults={searchResults}
                     setSearchResults={setSearchResults}
                 />
+                {/* Plain links to every official country map, in the exported
+                    HTML. MapView fetches its grid after mount, so without this
+                    the hub links to nothing a crawler can follow. Main site
+                    only: portal builds live on other origins. */}
+                {isMainSite && (
+                    <nav className="maps-country-links" aria-label="Country maps">
+                        <h2 className="map-section-title">Country maps</h2>
+                        <ul>
+                            {COUNTRY_MAP_LIST.map((m) => (
+                                <li key={m.slug}>
+                                    <a href={`/map/${m.slug}`}>
+                                        {/* Same flag source the map page itself uses. Lazy:
+                                            93 tiny images that only load once scrolled to. */}
+                                        <img src={`https://flagcdn.com/w40/${m.countryCode.toLowerCase()}.png`} width="24" height="18" alt="" loading="lazy" decoding="async" />
+                                        <span>{m.name}</span>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                )}
             </div>
         </div>
     );

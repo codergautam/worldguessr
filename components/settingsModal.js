@@ -27,7 +27,7 @@ function SectionHeader({ label, color, first }) {
     );
 }
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, isApp, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, isApp, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled, multiplayerChatEnabled, setMultiplayerChatEnabled, session, setSession, ws, onOpenAbout }) {
     const { t: text } = useTranslation("common");
 
     // ── Account settings ─────────────────────────────────────────────────
@@ -394,6 +394,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
                             <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
                         </a>
+                        {/* Opens the About panel (components/aboutPanel.js), the
+                            homepage's prose. home.js passes the opener only on
+                            main-site home pages, where the panel is mounted. */}
+                        {onOpenAbout && (
+                            <button className="g2_hover_effect gameBtn g2_container_full" aria-label={text("aboutLink")} style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }} onClick={onOpenAbout}>{text("aboutLink")}</button>
+                        )}
                         {/* CoolMathGames backlink, moved here from the home footer row.
                             It keeps its OWN gates rather than riding this block's: the
                             webview app (?app=true) and SchoolGuessr hide it, and both

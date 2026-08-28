@@ -1,4 +1,6 @@
 import HeadContent from "@/components/headContent";
+import AboutPanel from "@/components/aboutPanel";
+import { ABOUT_HOME, ABOUT_DAILY } from "@/lib/aboutContent";
 import { FaDiscord, FaBook, FaMapMarkedAlt } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { publishSession, useSession } from "@/components/auth/auth";
@@ -298,6 +300,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     const [countryStreak, setCountryStreak] = useState(0)
     const [countryGuessrStreak, setCgStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
+    // About panel (components/aboutPanel.js): opened from the settings footer.
+    const [aboutOpen, setAboutOpen] = useState(false)
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
     // In-duel reload button normally sits at (10, 90) under the left HP bar.
@@ -5205,6 +5209,18 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         }
     }, [svFrameIdleApplied]);
 
+    // Which prose this page carries (lib/aboutContent.js): the homepage sells
+    // the game, /daily sells the daily challenge. China and the portal builds
+    // carry none.
+    const aboutContent = initialScreen === 'daily' ? ABOUT_DAILY : !initialScreen ? ABOUT_HOME : null;
+    const showAboutPanel = !!aboutContent && !isApp && !inCoolMathGames && !inGameDistribution
+        && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_SCHOOLGUESSR;
+    // worldguessr.com/#about opens the panel: a linkable URL for the prose
+    // without a second page competing with the homepage for the same query.
+    useEffect(() => {
+        if (showAboutPanel && window.location.hash === '#about') setAboutOpen(true);
+    }, [showAboutPanel]);
+
     return (
         <>
             <HeadContent
@@ -5212,9 +5228,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 inCoolMathGames={inCoolMathGames}
                 inCrazyGames={inCrazyGames}
                 inGameDistribution={inGameDistribution}
-                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} - WorldGuessr` : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : undefined}
-                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : initialScreen === 'china' ? text('chinaGuessrTagline') : undefined}
+                titleOverride={initialScreen === 'daily' ? text('dailyTabTitle') : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : undefined}
+                descOverride={initialScreen === 'daily' ? text('dailyDescMeta') : initialScreen === 'china' ? text('chinaGuessrTagline') : undefined}
                 canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : initialScreen === 'china' ? 'https://www.worldguessr.com/china' : undefined}
+                aboutContent={aboutContent}
             />
 
 
@@ -5867,6 +5884,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         landingBootstrap={dailyBootstrap}
+                        onOpenAbout={showAboutPanel ? () => setAboutOpen(true) : undefined}
                         latLong={latLong}
                         setLatLong={setLatLong}
                         setLatLongKey={setLatLongKey}
@@ -6164,7 +6182,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     showTimerOption={screen === "singleplayer" || screen === "countryGuesser"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} isApp={isApp} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} isApp={isApp} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} onOpenAbout={showAboutPanel ? () => setAboutOpen(true) : undefined} />}
 
                 <Modal
                     isOpen={leaveConfirmOpen}
@@ -6433,6 +6451,13 @@ document.addEventListener(
 
                 <WhatsNewModal changelog={changelog} text={text} />
             </main>
+            {/* OUTSIDE <main data-nosnippet>, on purpose: this is the one
+                block of prose on the homepage that search engines may quote.
+                Main-site home pages only: the daily/china entries carry their
+                own canonical, and the portal builds live on other origins. */}
+            {showAboutPanel && (
+                <AboutPanel content={aboutContent} open={aboutOpen} onClose={() => setAboutOpen(false)} text={text} />
+            )}
         </>
     )
 }

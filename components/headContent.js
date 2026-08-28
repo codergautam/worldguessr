@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import { getLangFromPath } from '@/components/useTranslations';
 import { loadRampScript, preloadRampScript } from '@/components/utils/playwire';
+import { APP_STORE_URL, DISCORD_URL, GITHUB_URL, PLAY_STORE_RATING, PLAY_STORE_URL, YOUTUBE_URL } from '@/lib/aboutContent';
 
 // www is the canonical WorldGuessr host — every absolute social/search URL
 // must stay on it so previews and canonicals agree.
@@ -37,7 +38,7 @@ const BRANDS = {
   },
 };
 
-export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride, aboutContent }) {
   useEffect(() => {
     // NEXT_PUBLIC_SCHOOLGUESSR: schoolguessr.com is not (yet) on the Playwire
     // property's domain allowlist — serving RAMP from an unapproved domain
@@ -326,6 +327,59 @@ ads.js"></script>*/
           }),
         }}
       />
+    )}
+    {/* Pages that carry the About panel (components/aboutPanel.js): the FAQ
+        the panel shows, and on the homepage the game as a free software
+        product. Both read from the same lib/aboutContent.js definition as
+        the panel, so the markup and the visible text never drift: a rating
+        or a question in here that is not on the page is a policy violation,
+        not an optimization. */}
+    {isMainSite && aboutContent && (
+      <>
+        {aboutContent.gameSchema && <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": ["VideoGame", "SoftwareApplication"],
+              name: brand.siteName,
+              url: homeCanonical,
+              description: text("shortDescMeta"),
+              image: brand.searchImages,
+              inLanguage: pathLang || "en",
+              applicationCategory: "GameApplication",
+              operatingSystem: "Web, Android, iOS",
+              genre: "Geography",
+              playMode: ["SinglePlayer", "MultiPlayer"],
+              isAccessibleForFree: true,
+              offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+              aggregateRating: {
+                "@type": "AggregateRating",
+                ratingValue: PLAY_STORE_RATING.value,
+                ratingCount: PLAY_STORE_RATING.count,
+                bestRating: "5",
+                worstRating: "1",
+              },
+              publisher: { "@type": "Organization", name: brand.siteName, url: brand.siteUrl },
+              sameAs: [GITHUB_URL, PLAY_STORE_URL, APP_STORE_URL, DISCORD_URL, YOUTUBE_URL],
+            }),
+          }}
+        />}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: aboutContent.faq.map(({ q, a }) => ({
+                "@type": "Question",
+                name: text(q),
+                acceptedAnswer: { "@type": "Answer", text: text(a) },
+              })),
+            }),
+          }}
+        />
+      </>
     )}
 </Head>
   )

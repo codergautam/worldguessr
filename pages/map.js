@@ -9,6 +9,12 @@ import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import { asset, navigate, stripBase, localePath } from '@/lib/basePath';
 import { GlowName, nameGlowProps, GLOW_DARK } from '@/components/utils/usernameWithFlag';
+import { mapTitle, mapDescription } from '@/shared/mapSeo';
+
+// Portal builds live on other origins and must never point a canonical at www.
+const isMainSite = process.env.NEXT_PUBLIC_COOLMATH !== 'true' && process.env.NEXT_PUBLIC_POKI !== 'true'
+  && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION !== 'true' && process.env.NEXT_PUBLIC_6X !== 'true'
+  && process.env.NEXT_PUBLIC_SCHOOLGUESSR !== 'true';
 
 export default function MapPage({ }) {
   const router = useRouter();
@@ -22,6 +28,14 @@ export default function MapPage({ }) {
   const markersRef = useRef([]);
   const clusterGroupRef = useRef(null);
   const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
+
+  // The edge Worker (workers/seo-edge) appends a crawlable #map-seo block
+  // to the served HTML with the same facts this page renders once its fetch
+  // lands. One copy for a crawler, one for a person: drop the static one
+  // the moment the app owns the page.
+  useEffect(() => {
+    document.getElementById('map-seo')?.remove();
+  }, []);
 
   useEffect(() => {
     const {apiUrl} = config()
@@ -301,11 +315,17 @@ export default function MapPage({ }) {
   return (
     <div className={styles.container}>
       <Head>
-        <title>{
-          mapData?.name ? `${mapData.name} - WorldGuessr` :
-        ""
-        }</title>
-        <meta name="description" content={`Explore the world on WorldGuessr, a free GeoGuessr alternative. `} />
+        {/* shared/mapSeo.js: the same functions the edge Worker uses for the
+            raw HTML, so the crawler's tags and the hydrated tags agree. */}
+        <title>{mapData?.name ? mapTitle(mapData.name) : `${text('communityMaps')} - WorldGuessr`}</title>
+        <meta name="description" content={
+          mapData?.description_short
+            ? mapDescription(mapData.description_short)
+            : 'Explore the world on WorldGuessr, a free GeoGuessr alternative.'
+        } />
+        {isMainSite && mapData?.slug && (
+          <link rel="canonical" href={`https://www.worldguessr.com/map/${mapData.slug}`} />
+        )}
         <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
@@ -464,6 +484,14 @@ export default function MapPage({ }) {
             <div className={styles.mapDescription}>
               <h2>About this map</h2>
               {mapData.description_long.split('\n').map((line, index) => <p key={index}>{line}</p>)}
+              {/* Country maps: the recognition guide from officialCountryMaps.json.
+                  The edge Worker prints the same paragraphs into the raw HTML. */}
+              {mapData.recognitionTips && (
+                <>
+                  <h2>How to recognize {mapData.name}</h2>
+                  {mapData.recognitionTips.split('\n').filter(Boolean).map((line, index) => <p key={`tip-${index}`}>{line}</p>)}
+                </>
+              )}
               <p className={styles.mapAuthor}>
                 {/* ONE name on the page and nothing virtualised, so this one
                     keeps the motion it was sold — unlike the tiles in the grid.

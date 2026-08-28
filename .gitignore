@@ -101,3 +101,5 @@ data/season0-peaks.json
 *.headings.progress.json
 # pruneInvalidLocations.js audit sidecars
 *.deleted.json
+target/
+.scratch-compare/

@@ -99,6 +99,8 @@ export default function DailyChallengeScreen({
   inCoolMathGames,
   inGameDistribution,
   landingBootstrap = null,
+  // Opens the page's About panel (home.js); undefined where none is mounted.
+  onOpenAbout,
   // Shared state from home.js so we use the single top-level StreetView:
   latLong,
   setLatLong,
@@ -607,6 +609,7 @@ export default function DailyChallengeScreen({
         ownNameGlow={session?.token?.cosmetics?.equipped?.nameGlow || null}
         onStartChallenge={handleStart}
         onSignIn={HIDE_ACCOUNT_UI ? undefined : () => signIn()}
+        onOpenAbout={onOpenAbout}
         animateEntrance={phase === 'landing' && landingEntranceActive}
       />
     );

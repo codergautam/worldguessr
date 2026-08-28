@@ -344,12 +344,12 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
               ><FaShuffle /> {text("shuffleTeams")}</button>
             )}
             <span className="party-lobby__count">
-              {/* Same "small cap = real seats" threshold as emptySeats above:
-                  open parties (server default 200) show a plain count, not a
-                  fake-looking "3/200". */}
+              {/* Always show the cap when the server sent one ("3/200") so
+                  the party limit is visible. Empty-seat placeholders still
+                  only render for small caps (emptySeats above). */}
               {teamGame
                 ? `${teamA.length}v${teamB.length}`
-                : `${players.length}${seatCount <= 4 ? `/${seatCount}` : ''}`}
+                : `${players.length}${Number.isFinite(seatCount) ? `/${seatCount}` : ''}`}
             </span>
           </div>
 
