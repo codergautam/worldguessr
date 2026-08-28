@@ -1,2 +1,12 @@
 User-agent: *
 Allow: /
+# App chrome and SSO plumbing, not pages.
+Disallow: /mod
+Disallow: /banned
+Disallow: /banned2
+Disallow: /discourse-sso
+Disallow: /forum-bridge
+Disallow: /svEmbed
+Disallow: /embed/
+
+Sitemap: https://www.worldguessr.com/sitemap.xml
