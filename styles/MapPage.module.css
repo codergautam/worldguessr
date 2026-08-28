@@ -493,26 +493,26 @@
   }
 }
 
-/* Animation for page entrance */
+/* Animation for page entrance. Opacity ONLY, no transform: .main is a
+   margin-auto centred column, and with the scrollbar gutter reserved its x
+   offset is fractional on most Windows widths (1903 - 1200) / 2 = 351.5px.
+   Chrome drops subpixel raster translation for a layer whose transform is
+   animating, so the whole page rendered snapped to a whole pixel while it
+   slid, then re-rasterised at the true .5px when the layer was demoted: a
+   half-pixel shift right the moment the intro ended. A pure opacity fade
+   keeps the layer's transform static, so the subpixel offset is honoured
+   for the whole animation and the demotion is invisible. */
 @keyframes pageSlideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .main {
   animation: pageSlideIn 0.6s ease-out;
-}
-
-/* Enhanced hover effects */
-.mapHeader:hover {
-  transform: translateY(-2px);
-  transition: transform 0.3s ease;
 }
 
 /* Dark mode enhancements.
