@@ -26,8 +26,6 @@
             :root {
               --site-bg: url("/street2.webp");
               --site-bg-lqip: url("data:image/webp;base64,UklGRmoAAABXRUJQVlA4IF4AAAAwBACdASoUAAwAPu1iqk2ppaQiMAgBMB2JZgCuHB+CknwSHTTuOjCaJAAA/uNRBvaUY5pzljr+gV3bP8vBnIiPmsU8EwqwLX19YoL5G2czf2NlZ/nYya0g1hlljAAA");
-              /* The INCOMING photograph during a swap; `none` the rest of the
-                 time. See the crossfade contract in lib/siteBackground.js. */
               --site-bg-next: none;
               --site-bg-fade-duration: 600ms;
             }
@@ -36,22 +34,6 @@
               margin: 0;
               padding: 0;
             }
-            /* THE RESTING LAYER, and at rest the only one.
-               THREE LAYERS IN ONE STACK, and the order is the feature: a 50%
-               black scrim on top, the real photograph under it, the inlined
-               152-byte placeholder at the bottom. The photograph paints nothing
-               until it arrives, so a first visit shows the scene's colours
-               instantly instead of black, and its arrival is invisible because
-               both are center/cover and the photograph is opaque.
-               THE SCRIM REPLACED `opacity: 0.5`. Over a canvas forced to black
-               the two are the same picture — but this element has to CROSSFADE
-               with another one now, and two layers at 0.5 sum to 0.75 of a
-               layer at the midpoint and visibly brighten. Two OPAQUE layers
-               dissolve linearly. The identical scrim is written out again on
-               html::before below rather than shared through a variable: this is
-               the inline critical CSS in front of every first paint, and an
-               undefined var() invalidates the whole declaration, which would
-               black the site out rather than degrade. Keep the two in step. */
             body::before {
               content: '';
               position: fixed;
@@ -65,18 +47,6 @@
               z-index: 0;
               pointer-events: none;
             }
-            /* THE OUTGOING LAYER, and it LITERALLY does not exist unless a
-               swap is running — there is no resting rule for html::before, so
-               without the class there is no `content` and the browser generates
-               no box at all. A visitor who never buys a background composites
-               nothing extra, ever. On <html> rather than as body::after because
-               body::after is the LAST child of body and would paint ABOVE the
-               menu at any shared z-index; this is outside <body> entirely and
-               so is structurally beneath every pixel of the app. It holds the
-               picture already on screen still, while body::before fades the new
-               one in over it. No LQIP here: the incoming file is preloaded
-               before a swap ever starts, and the placeholder is the DEFAULT
-               city, which is the wrong blur to show under any other one. */
             html.site-bg-swap::before {
               content: '';
               display: block;
@@ -94,19 +64,13 @@
             html.site-bg-swap body::before {
               background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
                           var(--site-bg-next) center/cover no-repeat;
-              /* An ANIMATION, not a transition: it has to run on the frame the
-                 class lands, from a state this element does not otherwise have.
-                 Duration pairs with SITE_BG_FADE_MS in lib/siteBackground.js. */
               animation: siteBgFadeIn var(--site-bg-fade-duration) ease-in-out both;
             }
             @keyframes siteBgFadeIn {
               from { opacity: 0; }
               to { opacity: 1; }
             }
-            /* Reduce means reduce: the new picture simply appears. The commit
-               on the other side of the timer is unchanged and still invisible,
-               because it is the same URL either way. */
             @media (prefers-reduced-motion: reduce) {
               html.site-bg-swap body::before { animation: none; }
             }
-          </style><link rel="stylesheet" href="/_next/static/css/a59f95429ce2648f.css" data-n-g=""/><link rel="stylesheet" href="/_next/static/css/99ab7607b2563e90.css" data-n-p=""/><noscript data-n-css=""></noscript><script defer="" noModule="" src="/_next/static/chunks/polyfills-42372ed130431b0a.js"></script><script src="/_next/static/chunks/webpack-e07a6b3c6f325d21.js" defer=""></script><script src="/_next/static/chunks/framework-aa65945cbb7cc75e.js" defer=""></script><script src="/_next/static/chunks/main-afcad00e93e200df.js" defer=""></script><script src="/_next/static/chunks/pages/_app-f2466b1ba1546f1a.js" defer=""></script><script src="/_next/static/chunks/7321-cf221e7f8ee03df9.js" defer=""></script><script src="/_next/static/chunks/9664-7b159c3106f61f75.js" defer=""></script><script src="/_next/static/chunks/pages/leaderboard-121ae4d01820074e.js" defer=""></script><script src="/_next/static/RyDhDiIHraYAWQfbLSfap/_buildManifest.js" defer=""></script><script src="/_next/static/RyDhDiIHraYAWQfbLSfap/_ssgManifest.js" defer=""></script></head><body class="mainBody notranslate" translate="no" style="background-color:#000000"><div id="__next"><div class="Leaderboard_container__DDY1W"><main class="Leaderboard_main__VgZTv"><div class="Leaderboard_branding__N_oES"><h1>Leaderboard</h1><div class="Leaderboard_controls__INlrE"><div class="Leaderboard_timeControls__ZHJHb"><button class="Leaderboard_controlButton__zYjS1 Leaderboard_active__zF2B0">All-time</button><button class="Leaderboard_controlButton__zYjS1 ">Past day</button></div><div class="Leaderboard_modeControls___nuwR"><button class="Leaderboard_controlButton__zYjS1 Leaderboard_active__zF2B0">ELO</button><button class="Leaderboard_controlButton__zYjS1 ">XP</button></div><button class="Leaderboard_exitButton__x_W2H">Back to Game</button></div></div><div class="Leaderboard_loadingMessage__GEELz"><div class="Leaderboard_spinner__FtHN7"></div><p>Loading<!-- -->...</p></div></main></div></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{}},"page":"/leaderboard","query":{},"buildId":"RyDhDiIHraYAWQfbLSfap","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
+          </style><link rel="stylesheet" href="/_next/static/css/a59f95429ce2648f.css" data-n-g=""/><link rel="stylesheet" href="/_next/static/css/99ab7607b2563e90.css" data-n-p=""/><noscript data-n-css=""></noscript><script defer="" noModule="" src="/_next/static/chunks/polyfills-42372ed130431b0a.js"></script><script src="/_next/static/chunks/webpack-e07a6b3c6f325d21.js" defer=""></script><script src="/_next/static/chunks/framework-aa65945cbb7cc75e.js" defer=""></script><script src="/_next/static/chunks/main-afcad00e93e200df.js" defer=""></script><script src="/_next/static/chunks/pages/_app-f2466b1ba1546f1a.js" defer=""></script><script src="/_next/static/chunks/7321-cf221e7f8ee03df9.js" defer=""></script><script src="/_next/static/chunks/9664-7b159c3106f61f75.js" defer=""></script><script src="/_next/static/chunks/pages/leaderboard-121ae4d01820074e.js" defer=""></script><script src="/_next/static/PmdzSNyuq9Mb_KljG8BJB/_buildManifest.js" defer=""></script><script src="/_next/static/PmdzSNyuq9Mb_KljG8BJB/_ssgManifest.js" defer=""></script></head><body class="mainBody notranslate" translate="no" style="background-color:#000000"><div id="__next"><div class="Leaderboard_container__DDY1W"><main class="Leaderboard_main__VgZTv"><div class="Leaderboard_branding__N_oES"><h1>Leaderboard</h1><div class="Leaderboard_controls__INlrE"><div class="Leaderboard_timeControls__ZHJHb"><button class="Leaderboard_controlButton__zYjS1 Leaderboard_active__zF2B0">All-time</button><button class="Leaderboard_controlButton__zYjS1 ">Past day</button></div><div class="Leaderboard_modeControls___nuwR"><button class="Leaderboard_controlButton__zYjS1 Leaderboard_active__zF2B0">ELO</button><button class="Leaderboard_controlButton__zYjS1 ">XP</button></div><button class="Leaderboard_exitButton__x_W2H">Back to Game</button></div></div><div class="Leaderboard_loadingMessage__GEELz"><div class="Leaderboard_spinner__FtHN7"></div><p>Loading<!-- -->...</p></div></main></div></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{}},"page":"/leaderboard","query":{},"buildId":"PmdzSNyuq9Mb_KljG8BJB","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
