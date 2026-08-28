@@ -1,18 +1,21 @@
 import Map from "../../models/Map.js";
 
-// GET /api/map/sitemap → an XML sitemap of every accepted community map, as
-// https://www.worldguessr.com/map/<slug>. The edge Worker (workers/seo-edge)
-// serves it on www as /sitemap-maps.xml; the static sitemap index in
-// public/sitemap.xml points there. Official country maps are NOT here: they
-// are repo JSON, so scripts/writeSitemap.mjs lists them at build time.
+// GET /api/map/sitemap?page=N → one XML sitemap page of accepted community
+// maps, as https://www.worldguessr.com/map/<slug>, 45,000 per page (the
+// protocol caps a file at 50,000). Ordered by _id: it is indexed, so paging
+// costs no memory, and it is stable, so a map never straddles two pages
+// between requests. (Sorting by plays across the whole collection blew
+// MongoDB's 32 MB in-memory sort limit once the count passed ~70k.) Page 1
+// when `page` is absent. The edge Worker (workers/seo-edge) serves page N on
+// www as /sitemap-maps-N.xml and builds the sitemap index that lists every
+// page from /api/map/count. Official country maps are NOT here: they are
+// repo JSON, so scripts/writeSitemap.mjs lists them at build time.
 //
 // Public, identical for everyone, and a full collection scan: cache it at
 // every layer (mongoose cache 1h, HTTP 1h, Worker cache 1h).
 
 const SITE_URL = "https://www.worldguessr.com";
-// Sitemap protocol cap is 50,000 URLs. Most-played first so that if the
-// collection ever passes it, the tail that drops is the tail nobody plays.
-const MAX_URLS = 49000;
+export const SITEMAP_PAGE_SIZE = 45000;
 
 function xmlEscape(s) {
   return String(s).replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c]));
@@ -28,13 +31,19 @@ export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "HEAD") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
 
   const maps = await Map.find({ accepted: true })
-    .select("slug lastUpdated created_at plays")
-    .sort({ plays: -1 })
-    .limit(MAX_URLS)
+    .select("slug lastUpdated created_at")
+    .sort({ _id: 1 })
+    .skip((page - 1) * SITEMAP_PAGE_SIZE)
+    .limit(SITEMAP_PAGE_SIZE)
     .lean()
-    .cache(3600, "mapSitemap");
+    .cache(3600, "mapSitemap_" + page);
+
+  if (page > 1 && maps.length === 0) {
+    return res.status(404).json({ message: "No such sitemap page" });
+  }
 
   const urls = maps
     .filter((m) => m.slug && /^[a-z0-9_-]+$/i.test(m.slug))

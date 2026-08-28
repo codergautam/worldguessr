@@ -26,7 +26,9 @@ export default {
       if (request.method !== "GET" && request.method !== "HEAD") return fetch(request);
       const url = new URL(request.url);
 
-      if (url.pathname === "/sitemap-maps.xml") return await sitemap(request, env, ctx);
+      if (url.pathname === "/sitemap.xml") return await sitemapIndex(request, env, ctx);
+      const sm = url.pathname.match(/^\/sitemap-maps(?:-(\d+))?\.xml$/);
+      if (sm) return await sitemap(request, env, ctx, sm[1] ? parseInt(sm[1], 10) : 1);
       if (url.pathname === "/about") return await aboutPage(request, env, ctx);
 
       // The CrazyGames embed drives this page with ?crazygames and must keep
@@ -301,18 +303,43 @@ async function mapCount(env, ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// /sitemap-maps.xml
+// /sitemap.xml: the index. The static one in public/ lists a fixed number of
+// map pages; this one sizes itself from the live count, so a sitemap page
+// appears the moment the maps need it. Falls back to the static file when
+// the count cannot be read.
 
-async function sitemap(request, env, ctx) {
+const SITEMAP_PAGE_SIZE = 45000; // must match api/map/sitemap.js
+
+async function sitemapIndex(request, env, ctx) {
+  const count = await mapCount(env, ctx);
+  if (!count) return fetch(request);
+  const pages = Math.max(1, Math.ceil(count / SITEMAP_PAGE_SIZE));
+  const locs = [`${env.SITE_ORIGIN}/sitemap-pages.xml`];
+  for (let i = 1; i <= pages; i++) locs.push(`${env.SITE_ORIGIN}/sitemap-maps-${i}.xml`);
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${locs.map((l) => `  <sitemap>\n    <loc>${l}</loc>\n  </sitemap>`).join("\n")}\n</sitemapindex>\n`;
+  return new Response(xml, {
+    headers: {
+      "content-type": "application/xml; charset=utf-8",
+      "cache-control": `public, max-age=${SITEMAP_TTL}`,
+      "x-seo-edge": "sitemap-index",
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// /sitemap-maps-N.xml (and /sitemap-maps.xml = page 1)
+
+async function sitemap(request, env, ctx, page) {
   const cache = caches.default;
-  const cacheKey = new Request(`${env.SITE_ORIGIN}/__seo-cache/sitemap-maps.xml`);
+  const cacheKey = new Request(`${env.SITE_ORIGIN}/__seo-cache/sitemap-maps-${page}.xml`);
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
 
-  const apiRes = await fetch(`${env.API_ORIGIN}/api/map/sitemap`, {
+  const apiRes = await fetch(`${env.API_ORIGIN}/api/map/sitemap?page=${page}`, {
     headers: { accept: "application/xml" },
     signal: AbortSignal.timeout(15000),
   });
+  if (apiRes.status === 404) return new Response("Not found", { status: 404 });
   if (!apiRes.ok) return fetch(request);
 
   const res = new Response(apiRes.body, {

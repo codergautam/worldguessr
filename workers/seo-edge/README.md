@@ -10,7 +10,7 @@ rebuild. It fails open: any error returns the origin page untouched.
 Order matters: the API endpoint first, then the Worker.
 
 1. Deploy the API server (it auto-mounts `api/map/sitemap.js` as
-   `GET /api/map/sitemap`). Check: `curl -s https://api.worldguessr.com/api/map/sitemap | head -5`
+   `GET /api/map/sitemap`). Check: `curl -s "https://api.worldguessr.com/api/map/sitemap?page=2" | head -5`
 2. From this folder:
    ```
    npx wrangler login
@@ -24,7 +24,7 @@ Order matters: the API endpoint first, then the Worker.
 ```
 curl -s -A "Mozilla/5.0 (compatible; GPTBot/1.2)" https://www.worldguessr.com/map/japan | grep -oE "<title>[^<]*</title>|rel=\"canonical\"[^>]*"
 curl -sI https://www.worldguessr.com/map?s=japan | grep -iE "^(HTTP|location)"      # 301 → /map/japan
-curl -s https://www.worldguessr.com/sitemap-maps.xml | head -8
+curl -s https://www.worldguessr.com/sitemap.xml; curl -s https://www.worldguessr.com/sitemap-maps-2.xml | head -6
 curl -sI https://www.worldguessr.com/map/no-such-map-xyz | head -1                 # 404
 ```
 

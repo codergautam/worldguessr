@@ -5,7 +5,8 @@
   //   /map*             per-map HTML: real <title>, description, canonical,
   //                     JSON-LD and crawlable map facts, built from the
   //                     public map API at request time. Every map, no rebuild.
-  //   /sitemap-maps.xml the community-map sitemap, proxied from the API.
+  //   /sitemap.xml      the sitemap index, sized from the live map count.
+  //   /sitemap-maps-N.xml community-map sitemap pages, proxied from the API.
   //   /about            the live community-map count written into the page.
   // Everything else on the host never touches this Worker. The homepage in
   // particular stays off it on purpose.
@@ -19,7 +20,7 @@
   },
   "routes": [
     { "pattern": "www.worldguessr.com/map*", "zone_name": "worldguessr.com" },
-    { "pattern": "www.worldguessr.com/sitemap-maps.xml", "zone_name": "worldguessr.com" },
+    { "pattern": "www.worldguessr.com/sitemap*", "zone_name": "worldguessr.com" },
     { "pattern": "www.worldguessr.com/about", "zone_name": "worldguessr.com" }
   ],
   "vars": {
