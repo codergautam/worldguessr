@@ -1,6 +1,7 @@
 [
   {
     "name": "Argentina",
+    "recognitionTips": "Argentina is flat in the middle. The Pampas are endless grassland and wheat, with straight roads, wire fences and windbreaks of poplar or eucalyptus. Licence plates were black with white letters for years and are now white with a blue strip. National routes use a white shield with black text. Gravel shoulders are common, and many rural roads are unpaved.\nPatagonia in the south is dry steppe with strong winds and few trees. The Andes and Mendoza's vineyards lie to the west. The north near Bolivia and Paraguay is subtropical, with red soil in Misiones. Buenos Aires and its suburbs are dense, with European-style buildings and wide avenues.",
     "slug": "argentina",
     "longDescription": "Explore Argentina in WorldGuessr! Spanning from subtropical Misiones to the glaciers of Tierra del Fuego, Argentina offers incredible geographic diversity. Navigate the endless Pampas grasslands, the arid Patagonian steppe, the towering Andes along the Chilean border, and the wine country of Mendoza. Learn to recognize the distinctive road signs, the European-influenced architecture of Buenos Aires, and the dramatic shifts in vegetation as you move through the country's vast north-south extent.",
     "shortDescription": "From Pampas to Patagonia - conquer South America's second largest country!",
@@ -10,6 +11,7 @@
   },
   {
     "name": "Australia",
+    "recognitionTips": "Australia drives on the left. Roadside guide posts are white with red reflectors, and warning signs are yellow diamonds, often with a kangaroo or cattle symbol. Direction signs are green on highways and white or blue in towns. Gum trees with peeling bark line the roads, and many houses have corrugated iron roofs and verandas. Licence plates vary by state and are blurred.\nThe outback is red soil, scrub and dead-straight roads with road trains. The east coast has eucalyptus forest, beaches and suburbs of brick homes. Tasmania is green and hilly with narrow roads. The tropical north around Darwin and Cairns has palms, mangroves and monsoon rain. Wine country and rolling hills point to South Australia or Victoria.",
     "slug": "australia",
     "longDescription": "Explore Australia in WorldGuessr! Master the world's sixth-largest country, from the tropical rainforests of Queensland to the red desert Outback and the temperate coasts of Victoria and Tasmania. Learn to distinguish states by road markings, vegetation zones, and distinctive bollard styles. Navigate the endless straight roads of the interior, the eucalyptus-lined highways, and the coastal cities. Australia's isolation has created unique landscapes found nowhere else on Earth.",
     "shortDescription": "Master the island continent's diverse terrain and endless horizons!",
@@ -37,6 +39,7 @@
   },
   {
     "name": "Brazil",
+    "recognitionTips": "Brazil has the largest coverage in South America. Signs are in Portuguese: stop signs read PARE and speed bumps are marked LOMBADA. Center lines are yellow, edge lines white. Utility poles are concrete. Licence plates are blurred, but cars are often small and white. Roadside soil is red in the interior, and sugarcane, coffee and eucalyptus plantations cover the farmland.\nThe south (Rio Grande do Sul, Santa Catarina, Paraná) has European-looking towns, pine forest and cooler landscapes. The southeast has big cities, hills and favelas. The northeast is dry, with cacti, dirt roads and palms near the coast. The north is the Amazon, with rivers and rainforest. Along the coast, white beaches and coconut palms are common.",
     "slug": "brazil",
     "longDescription": "Explore Brazil in WorldGuessr! The world's fifth-largest country spans the Amazon rainforest, the dry Caatinga scrublands of the northeast, the vast Cerrado savanna, the Atlantic coastal mountains, and the subtropical grasslands of the south. Learn to identify regions by red laterite soil, distinctive palm species, Portuguese colonial architecture, and the transition from lush green tropics to temperate southern states. Brazil's scale means dramatic climate and vegetation changes as you move through this continental nation.",
     "shortDescription": "From Amazon jungle to southern highlands - master Brazil's immense diversity!",
@@ -55,6 +58,7 @@
   },
   {
     "name": "Canada",
+    "recognitionTips": "Canada looks like the United States at first, but the signs differ. Distances are in kilometres, speed limits say km/h, and each province has its own highway shield, such as the Ontario crown or the Alberta shield. Yellow center lines and green highway signs are shared with the US, but the Trans-Canada Highway uses a white maple-leaf shield. Utility poles are wooden.\nQuebec has French signs, ARRÊT stop signs and long thin fields running back from the rivers. The prairies (Manitoba, Saskatchewan, Alberta) are flat farmland with grain elevators and gravel grid roads. British Columbia has mountains, tall conifers and coast. The Maritimes have wooden houses near the sea and lots of spruce. The far north is tundra and dirt roads.",
     "slug": "canada",
     "longDescription": "Explore Canada in WorldGuessr! The world's second-largest country spans from the maritime provinces to the Pacific coast, through the boreal forests, prairies, and Arctic tundra. Master the differences between provinces through road signs, language (French in Quebec, English elsewhere), and landscape - from BC's mountains and rainforests to the flat Saskatchewan prairies to the rugged Canadian Shield. Canada's extreme seasonal variations and vast wilderness roads make every region a unique challenge.",
     "shortDescription": "From Atlantic to Pacific - conquer the world's second largest country!",
@@ -118,6 +122,7 @@
   },
   {
     "name": "France",
+    "recognitionTips": "France has white plates with a blue strip on both ends. Town entry signs are white with a red border, and route numbers come in colors: yellow panels for D roads, red for N roads and motorways. Roadside delineators are white with a red band. Many junctions are roundabouts. Villages have stone houses with shutters, roads are often lined with plane trees, and pharmacies show a green cross.\nThe north is flat wheat country. Burgundy and Bordeaux are vineyards. The south has red Mediterranean roofs, pines and dry hills, with the Alps and Pyrenees on the borders. Brittany has granite houses and bilingual Breton signs. Alsace has half-timbered houses that look German. Corsica is mountainous with its own Italian-sounding place names.",
     "slug": "france",
     "longDescription": "Explore France in WorldGuessr! Western Europe's largest country spans from the Channel coast to the Mediterranean, from Atlantic beaches to Alpine peaks. Master the regional diversity: Brittany's granite villages, Provence's terracotta and lavender, the volcanic Massif Central, Alsace's Germanic half-timbered houses, and the flat northern plains. France's distinctive road signage, plane tree-lined routes nationales, and varied architectural traditions make regional identification both challenging and rewarding.",
     "shortDescription": "From Normandy to Provence - master France's legendary diversity!",
@@ -127,6 +132,7 @@
   },
   {
     "name": "Germany",
+    "recognitionTips": "Germany has white plates with a blue EU strip on the left. Town entry signs are yellow with black text, route numbers are yellow for Bundesstraßen and blue for Autobahns, and roadside delineators are white with a black band and a rectangular reflector. Bike lanes are common, often paved in red. Houses have steep tiled roofs, villages are tidy, and a church spire marks almost every town.\nWind turbines and flat farmland point north. Forests and rolling hills point to the middle. Alpine scenery with wooden houses and painted facades points to Bavaria in the south. The former East is flatter, with more concrete apartment blocks and cobbled village streets. Along the Rhine and Mosel, vineyards climb steep slopes.",
     "slug": "germany",
     "longDescription": "Explore Germany in WorldGuessr! From the North Sea and Baltic coasts through the Central Uplands to the Bavarian Alps, Germany offers remarkable geographic variety. Learn to distinguish the 16 Bundesländer by architecture - half-timbered houses in the center, brick Gothic in the north, alpine styles in Bavaria. Navigate the famous Autobahn network, identify the characteristic German road signage, and spot the contrast between historic city centers and efficient modern infrastructure.",
     "shortDescription": "From Baltic beaches to Alpine peaks across 16 diverse states!",
@@ -154,6 +160,7 @@
   },
   {
     "name": "India",
+    "recognitionTips": "India drives on the left, and its roads are busy with motorbikes, tuk-tuks and trucks painted in bright colors. Licence plates are white for private cars and yellow for taxis. Signs mix English with Hindi or a regional script, which is the best clue to the state: Tamil in Tamil Nadu, Kannada in Karnataka, Malayalam in Kerala, Bengali in West Bengal. Milestones are painted, and shop signs are hand-painted.\nThe north has flat plains with wheat and mustard fields, the Himalayas along the top edge, and the Thar Desert in Rajasthan. The south is greener, with coconut palms, rice paddies and red laterite soil in Kerala and Goa. Cows on the road are common everywhere.",
     "slug": "india",
     "longDescription": "Explore India in WorldGuessr! From the Himalayan peaks of the north to the tropical coasts of Kerala, India's geography is staggering in scale and diversity. Navigate the Thar Desert of Rajasthan, the fertile Gangetic Plain, the Deccan Plateau, and the Western and Eastern Ghats. Each state has distinct scripts, architecture, and landscapes - from golden sandstone forts to Portuguese Goan churches to Dravidian temples. India's chaotic roads and multilingual signage create an unforgettable geographic challenge.",
     "shortDescription": "From Himalayas to tropical coasts across a subcontinent of diversity!",
@@ -163,6 +170,7 @@
   },
   {
     "name": "Indonesia",
+    "recognitionTips": "Indonesia drives on the left. Licence plates are black with white text, and the roads are full of motorbikes. Signs are in Indonesian, with JALAN for street. Villages are dense, with tiled roofs, mosques, small shops and red-and-white flags. Rice terraces, palm oil plantations and volcanoes shape the countryside.\nJava is the most covered island: crowded and green, with big cities like Jakarta and Surabaya. Bali has Hindu temples, stone shrines and tourist areas. Sumatra has palm plantations and jungle. Sulawesi and the eastern islands are hillier and quieter. Deep drainage ditches and steep hills are common everywhere.",
     "slug": "indonesia",
     "longDescription": "Explore Indonesia in WorldGuessr! The world's largest archipelago spans 5,000 km across 17,000 islands straddling the equator. Navigate from Sumatra's jungles and volcanic peaks through densely populated Java to the savannas of eastern islands and the rainforests of Papua. Each island group has distinct architecture, vegetation, and terrain. Learn to identify regions by mosque styles, volcanic cones, rice terrace patterns, and the distinctive Indonesian road signage amid tropical landscapes.",
     "shortDescription": "Island-hop across the world's largest archipelago!",
@@ -190,6 +198,7 @@
   },
   {
     "name": "Italy",
+    "recognitionTips": "Italy has white plates with blue strips on both ends. Roadside delineators are white with a black band. Direction signs are blue for main roads and white for towns, and brown signs mark tourist sites. Villages sit on hilltops with stone houses and terracotta roofs. Cypress trees, olive groves and vineyards cover Tuscany and Umbria, while the Po Valley in the north is flat farmland with poplars and irrigation canals.\nThe Alps and Dolomites in the north have wooden chalets, and South Tyrol has German on its signs. The south has dry hills, prickly pear cactus and whitewashed towns in Puglia. Sicily and Sardinia have their own dry, rocky landscapes and long coastlines.",
     "slug": "italy",
     "longDescription": "Explore Italy in WorldGuessr! The boot-shaped peninsula stretches from the Alps to the Mediterranean, with the Apennine Mountains forming its spine. Navigate the industrial Po Valley, the Tuscan hill towns, the volcanic south, and the islands of Sicily and Sardinia. Each region has distinct architecture - from northern Alpine influences to southern Mediterranean styles. Cypress-lined roads, terracotta rooftops, historic stone villages, and the dramatic coastal Amalfi-style terrain make Italy endlessly varied.",
     "shortDescription": "From the Alps to Sicily - master Italy's legendary landscapes!",
@@ -199,6 +208,7 @@
   },
   {
     "name": "Japan",
+    "recognitionTips": "Japan has a low camera and narrow roads, so the car often feels close to walls and buildings. Licence plates are white, or yellow on small kei cars. Utility poles are concrete and carry black-and-yellow striped reflectors near the base. Road signs mix kanji, hiragana and katakana, direction signs are blue, and national routes use a blue rice-ball shaped marker. Vending machines, convenience stores and small shrines are everywhere.\nRegions have clear tells. Hokkaido has wide roads, long straight farmland and red-and-white arrows above the road that mark its edge under snow. Okinawa in the far south is tropical, with concrete houses and a US military presence. Tea fields point to Shizuoka or Kagoshima. Mountains cover most of the country, so a flat valley of rice paddies with hills on both sides is a classic Japanese view.",
     "slug": "japan",
     "longDescription": "Explore Japan in WorldGuessr! An archipelago stretching from subarctic Hokkaido to subtropical Okinawa, Japan is 73% mountainous with population concentrated in coastal plains. Navigate the volcanic landscapes, dense urban sprawl of the Pacific coast, terraced rice paddies, and forested mountain interiors. Japanese script in three forms (kanji, hiragana, katakana), distinctive road infrastructure with abundant signage, temple gates, and the contrast between ultra-modern cities and traditional rural areas define this unique nation.",
     "shortDescription": "From snowy Hokkaido to tropical Okinawa across 47 prefectures!",
@@ -226,6 +236,7 @@
   },
   {
     "name": "Mexico",
+    "recognitionTips": "Mexico has stop signs that read ALTO and speed bumps marked TOPE. Utility poles are concrete and often lean. Houses are painted in bright colors, and many have an unfinished second floor with rebar sticking up. Pemex fuel stations are green and red, and Coca-Cola and beer ads are painted on walls.\nThe north is desert with cactus, mesquite and long straight highways. The center has volcanoes, pine forest and dense cities. The Yucatán in the southeast is flat limestone with low jungle and thatched roofs. The Pacific and Gulf coasts have palms, and the south (Oaxaca, Chiapas) is mountainous with indigenous towns.",
     "slug": "mexico",
     "longDescription": "Explore Mexico in WorldGuessr! From the Sonoran Desert to the Yucatán jungle, Mexico spans coastal lowlands, volcanic highlands, and the vast central plateau. Navigate the Sierra Madre mountain ranges, the cactus-studded north, the colonial silver cities, and tropical coasts on both oceans. Distinctive speed bumps (topes), Spanish colonial architecture with bright colors, agave fields, and the transition from arid north to lush south help identify regions in this geographically complex nation.",
     "shortDescription": "From deserts to jungles across two Sierra Madre ranges!",
@@ -235,6 +246,7 @@
   },
   {
     "name": "Netherlands",
+    "recognitionTips": "The Netherlands is the easiest country in Europe to spot: yellow licence plates on both the front and the back of the car. The land is flat, with canals, dikes, and a separate red asphalt bike lane along almost every road. Houses are brick, close together, with big windows. Signs are blue and white, and bike signs are red and white.\nThe west is dense and low, with polders, greenhouses and tulip fields in spring. The east and south are a little higher, with sandy heath and pine forest. Friesland in the north has bilingual Frisian signs. Old windmills and modern wind turbines both appear.",
     "slug": "netherlands",
     "longDescription": "Explore the Netherlands in WorldGuessr! One of the world's flattest and most densely populated countries, where much of the land lies below sea level protected by dikes. Navigate the intricate canal systems, reclaimed polders, endless cycling infrastructure, and orderly urban planning. Distinctive Dutch brick architecture, characteristic church steeples, greenhouse complexes, and the remarkably flat horizon punctuated by wind turbines define this water-managed landscape. Every centimeter of land is purposefully used.",
     "shortDescription": "Master the Low Countries' canals, polders, and cycling paths!",
@@ -289,6 +301,7 @@
   },
   {
     "name": "Poland",
+    "recognitionTips": "Poland has white plates with a blue strip on the left. Roadside delineators are white with a red band. Direction signs are green on main routes and blue on local roads, and town signs are white with black text. Roadside shrines and crosses are common, and most towns have a large brick or plaster Catholic church.\nThe land is mostly flat farmland with pine and birch forest, and long straight roads through villages of detached houses with steep roofs. The south has the Tatra mountains and wooden highland houses; the north has lakes and the Baltic coast. Biedronka supermarkets appear in almost every town.",
     "slug": "poland",
     "longDescription": "Explore Poland in WorldGuessr! A mostly flat country on the North European Plain, rising to the Carpathian and Sudeten mountains in the south. Navigate the Baltic coast, the lake-dotted Masurian region, vast agricultural plains, and primeval forests like Białowieża. Polish road signs with distinctive formatting, red-brick Gothic churches, communist-era apartment blocks, and traditional wooden villages in the highlands help identify regions. Poland's position between East and West Europe shows in its varied architecture.",
     "shortDescription": "From Baltic coast to Carpathian peaks across the great plain!",
@@ -316,6 +329,7 @@
   },
   {
     "name": "Russia",
+    "recognitionTips": "Russia has white licence plates with a small flag and region code, and every sign is in Cyrillic. Direction signs are white text on blue, town names black on white. Rural roads are wide, often cracked, and usually have no edge line. Villages have wooden houses with carved window frames, and towns have Soviet-era concrete apartment blocks. Birch and pine forest cover the north; the southern steppe is flat grass and wheat.\nRussia is huge, so the region matters. Around Moscow and St Petersburg the roads are best and the cities dense. Siberia has long empty roads, larch forest and small towns. The Far East around Vladivostok is hilly, with many right-hand-drive Japanese cars. The Caucasus in the south has mountains and mosques.",
     "slug": "russia",
     "longDescription": "Explore Russia in WorldGuessr! The world's largest country spans 11 time zones, from European cities to Siberian wilderness to Pacific coasts. Navigate the endless taiga forests, Arctic tundra, steppe grasslands, and the Ural Mountains dividing Europe from Asia. Cyrillic signage, distinctive Soviet-era architecture, onion-domed Orthodox churches, and vast empty roads through birch forests define the landscape. Russia's scale means climate and vegetation zones shift dramatically from subtropical Black Sea to frozen Arctic.",
     "shortDescription": "Conquer 11 time zones from European Russia to the Pacific!",
@@ -325,6 +339,7 @@
   },
   {
     "name": "South Africa",
+    "recognitionTips": "South Africa drives on the left. Road edge lines are yellow and center lines white, the reverse of most countries. Traffic lights are called robots, and licence plates carry the province name. Direction signs are green or blue, and the roads are usually good with wide gravel shoulders.\nThe landscape runs from Cape Town's mountains and vineyards, to the dry Karoo, to the grassland highveld around Johannesburg, to the green hills and sugarcane of KwaZulu-Natal. Townships with small brick or tin houses sit outside most cities. Bilingual English and Afrikaans signs are common in the Western Cape.",
     "slug": "south-africa",
     "longDescription": "Explore South Africa in WorldGuessr! From the Drakensberg escarpment to the Kalahari semi-desert, Cape fynbos shrubland to subtropical KwaZulu-Natal, South Africa offers remarkable diversity. Navigate the high interior plateau (highveld), the dry Karoo, wine country around the Cape, and the Indian Ocean coast. British colonial-era left-hand driving, distinctive township layouts, Afrikaans-English bilingual signage, and the contrast between developed infrastructure and rural areas help identify regions.",
     "shortDescription": "From the Cape to the Drakensberg across the Rainbow Nation!",
@@ -343,6 +358,7 @@
   },
   {
     "name": "Spain",
+    "recognitionTips": "Spain has white plates with a blue strip on the left. Town signs are white rectangles with a black border. Route numbers are blue for autovías (A-), red for national roads (N-), and other colors for regional roads. Yield signs read CEDA EL PASO. Much of the interior is a dry plateau with olive groves, wheat fields and small towns with tiled roofs.\nWhitewashed houses point to Andalusia in the south. Green hills and stone houses point to Galicia, Asturias and the Basque Country in the north, where signs may be bilingual in Galician or Basque. Catalonia uses Catalan on signs. The Canary Islands are volcanic with black soil and palms; the Balearics are Mediterranean with pine and limestone.",
     "slug": "spain",
     "longDescription": "Explore Spain in WorldGuessr! The Iberian Peninsula's largest country features the high central Meseta plateau, surrounded by mountain ranges and coastal lowlands. Navigate from the green, rainy Basque Country and Galicia to the arid plains of Castile, the Mediterranean coast, and the Canary Islands off Africa. Regional languages (Catalan, Basque, Galician) appear on signage in their territories. Distinctive architecture varies from northern stone houses to southern whitewashed pueblos blancos to Moorish influences in Andalusia.",
     "shortDescription": "From Atlantic Galicia to Mediterranean coasts to the Canary Islands!",
@@ -352,6 +368,7 @@
   },
   {
     "name": "Sweden",
+    "recognitionTips": "Sweden has white plates with a blue strip on the left. Warning signs are yellow with a red border, and direction signs are blue and white. Moose warning signs are common. Houses are wooden and painted Falu red with white trim, and pine and birch forest covers most of the country.\nThe south (Skåne) is flat farmland and looks like Denmark. The middle has lakes, forest and long straight roads. The north (Norrland) is sparse, with gravel roads, endless spruce and few towns. Stockholm and Gothenburg are the big cities.",
     "slug": "sweden",
     "longDescription": "Explore Sweden in WorldGuessr! Scandinavia's largest country stretches from the agricultural south to the Arctic tundra of Lapland. Navigate through dense boreal forests, around countless lakes, past the dramatic Scandinavian Mountains along the Norwegian border, and through the island-studded archipelagos. Distinctive Swedish red-painted wooden houses (faluröd), yellow road distance markers, well-maintained forest roads, and the characteristic Nordic infrastructure help identify locations across this elongated nation.",
     "shortDescription": "From fertile south to Arctic Lapland through endless forests!",
@@ -379,6 +396,7 @@
   },
   {
     "name": "Turkey",
+    "recognitionTips": "Turkey has white plates with a blue strip on the left. Stop signs read DUR, and Turkish uses letters like ğ, ş, ı and ç. Direction signs are blue for main roads and brown for historic sites. Villages have flat-roofed or red-tiled houses and a mosque with a thin minaret. Roads are wide and often new, with rocky, dry hills on both sides.\nThe Aegean and Mediterranean coasts are dry, with olive groves and pine. Central Anatolia is a high steppe with wheat and bare hills. The Black Sea coast in the north is green, wet and full of tea and hazelnut fields. The east is mountainous and colder. Istanbul spans two continents and is dense and hilly.",
     "slug": "turkey",
     "longDescription": "Explore Turkey in WorldGuessr! Bridging Europe and Asia across the Bosphorus, Turkey spans Mediterranean coasts, the high Anatolian plateau, and the mountainous east. Navigate the rugged Black Sea coast, the fairy chimneys of Cappadocia, the agricultural Aegean lowlands, and the remote eastern highlands near Mount Ararat. Turkish signage in Latin script, distinctive mosque minarets, tea gardens, and the dramatic transition from green western regions to the arid interior help identify locations in this transcontinental nation.",
     "shortDescription": "Bridge Europe and Asia from Mediterranean to the Armenian highlands!",
@@ -388,6 +406,7 @@
   },
   {
     "name": "United Kingdom",
+    "recognitionTips": "The United Kingdom drives on the left. Front plates are white and rear plates yellow. Both are blurred, but the yellow rear plate is easy to spot on parked cars. Towns have double yellow lines along the kerb, and the word SLOW is painted on the road before bends. Direction signs are green on main roads and white with black text on local roads, and old fingerpost signs stand at country junctions. Hedgerows line narrow lanes, and brick terraced houses fill the towns, with red post boxes and phone boxes.\nTo split the nations, read the signs. Welsh signs are bilingual with Welsh first. Scotland may show Gaelic, and the landscape turns to moor and loch. Northern Ireland uses miles like the rest of the UK, which separates it from the Republic of Ireland, where signs are in kilometres. In England, chalk downs point south and dry stone walls with moorland point north.",
     "slug": "united-kingdom",
     "longDescription": "Explore the United Kingdom in WorldGuessr! Four nations with distinct geography: England's rolling downs and industrial midlands, Scotland's dramatic Highlands and islands, Wales's rugged mountains and valleys, and Northern Ireland's drumlin-studded landscape. Navigate through green patchwork farmland, stone-walled moors, and dense urban areas. Left-hand driving, distinctive British road markings, Welsh bilingual signage, Scottish Gaelic in the Highlands, and varied regional architecture from Tudor to Victorian help identify locations.",
     "shortDescription": "Master England, Scotland, Wales, and Northern Ireland!",
@@ -397,6 +416,7 @@
   },
   {
     "name": "United States",
+    "recognitionTips": "The United States is the most common country in WorldGuessr, and its roads give it away fast. Center lines are yellow, edge lines white, and stop signs are red octagons. Highway signs are green with white text, and route shields change by state: the Interstate shield is red, white and blue, US routes use a white shield, and state routes have their own shapes. Utility poles are wooden with heavy crossbars. Licence plates are blurred, but the cars are big, and mailboxes stand on posts by the road.\nTo narrow down a state, look at the landscape. Flat farmland with grain elevators is the Midwest, red rock and desert scrub is the Southwest, pine forest on sandy soil is the Southeast, and tall conifers with mountains point to the Pacific Northwest. Spanish-language signs and palm trees suggest Florida, Texas or California. House styles help too: brick ranch homes in the South, wooden colonials in New England.",
     "slug": "united-states",
     "longDescription": "Explore the United States in WorldGuessr! From Atlantic to Pacific, navigate the Appalachian forests, Great Plains prairies, Rocky Mountain peaks, southwestern deserts, and Pacific coast ranges. Each of the 50 states has distinctive road signs, license plates, and landscapes. Master regional clues: New England stone walls, Midwest corn fields, Southern pine forests, Texas rangelands, and California's diverse terrain. America's scale and variety make state-level identification both challenging and rewarding.",
     "shortDescription": "Coast to coast across 50 states of geographic diversity!",
