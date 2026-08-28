@@ -9,7 +9,7 @@ import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import { asset, navigate, stripBase, localePath } from '@/lib/basePath';
 import { GlowName, nameGlowProps, GLOW_DARK } from '@/components/utils/usernameWithFlag';
-import { mapTitle, mapDescription } from '@/shared/mapSeo';
+import { mapTitle, mapDescription, isIndexableMap, mapFallbackShort } from '@/shared/mapSeo';
 
 // Portal builds live on other origins and must never point a canonical at www.
 const isMainSite = process.env.NEXT_PUBLIC_COOLMATH !== 'true' && process.env.NEXT_PUBLIC_POKI !== 'true'
@@ -46,6 +46,13 @@ export default function MapPage({ }) {
     const fullPath = stripBase(window.location.pathname);
     if (fullPath.startsWith('/map/') && !slug) {
        slug = fullPath.split('/map/')[1];
+    }
+    // Legacy /map?s=<slug> links: swap the address bar to the clean URL so
+    // shares and bookmarks carry it forward. Main site only: portal builds
+    // load assets relative to the document and must keep their URL shape.
+    if (isMainSite && slug && !fullPath.startsWith('/map/') && !window.location.search.includes('crazygames')
+        && /^[a-z0-9_-]{1,80}$/i.test(slug)) {
+      try { window.history.replaceState(null, '', `/map/${slug}`); } catch {}
     }
 
     if (!slug) {
@@ -319,13 +326,17 @@ export default function MapPage({ }) {
             raw HTML, so the crawler's tags and the hydrated tags agree. */}
         <title>{mapData?.name ? mapTitle(mapData.name) : `${text('communityMaps')} - WorldGuessr`}</title>
         <meta name="description" content={
-          mapData?.description_short
-            ? mapDescription(mapData.description_short)
+          mapData?.name
+            ? mapDescription(mapData.description_short || mapFallbackShort(mapData.name, mapData.locationsCnt, mapData.countryCode ? 'WorldGuessr' : mapData.created_by))
             : 'Explore the world on WorldGuessr, a free GeoGuessr alternative.'
         } />
         {isMainSite && mapData?.slug && (
           <link rel="canonical" href={`https://www.worldguessr.com/map/${mapData.slug}`} />
         )}
+        {/* Thin maps (shared/mapSeo.js isIndexableMap) are not search results.
+            The edge Worker sets this in the raw HTML; this is the rendered-DOM
+            copy for crawlers that only read the page after hydration. */}
+        {mapData?.name && !isIndexableMap(mapData) && <meta name="robots" content="noindex" />}
         <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
@@ -334,6 +345,13 @@ export default function MapPage({ }) {
           .mainBody {
             user-select: auto !important;
             overflow: auto !important;
+          }
+          /* The vertical scrollbar comes and goes on this page (the map data
+             arrives after mount and the page grows), and on Windows each
+             toggle changes the viewport width and shifts the centred column.
+             Reserve the gutter so the width never moves. */
+          html, .mainBody {
+            scrollbar-gutter: stable;
           }
 
           .custom-marker {
@@ -403,7 +421,7 @@ export default function MapPage({ }) {
           </>
         )}
 
-        <div className={styles.branding}>
+        <div className={styles.branding} data-nosnippet="">
           <h1>WorldGuessr</h1>
           <center>
             <button onClick={() => window.location.href=`${localePath('/')}${
@@ -455,7 +473,9 @@ export default function MapPage({ }) {
               </div>
             )} */}
 
-            <div className={styles.mapStats}>
+            {/* data-nosnippet: Google was quoting this row in search snippets
+                as "📍11Locations ❤️0Hearts". Chrome, not prose. */}
+            <div className={styles.mapStats} data-nosnippet="">
               {typeof mapData.plays !== "undefined" && (
                 <div className={styles.stat}>
                   <span className={styles.statIcon}>👥</span>

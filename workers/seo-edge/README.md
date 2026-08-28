@@ -35,6 +35,24 @@ Then in Search Console: Sitemaps → add `https://www.worldguessr.com/sitemap.xm
 `npx wrangler delete` (or remove the two routes in the dashboard). The
 `_redirects` rule in `public/` still serves `/map/<slug>` as before.
 
+## Free tier
+
+The Workers Free plan allows 100,000 requests per day and 10 ms CPU per
+request. This Worker is routed only for map page HTML (`/map/*`), the
+sitemaps and `/about`, never for assets, and `/maps` (the hub) is
+deliberately outside the route. Map data is cached at the edge for an hour,
+so the API is not hit per request.
+
+One setting to flip once, in the dashboard: **Workers & Pages → your zone's
+Workers settings → Request limit failure mode → Fail open.** With that, on a
+day the quota is exhausted, routed requests bypass the Worker and the map
+pages load from Pages as before (without the SEO tags). Without it the
+default is fail closed, which would error those pages for the rest of the
+day.
+
+If usage ever nears the cap, Workers Paid is USD 5 a month for 10 million
+requests.
+
 ## Notes
 
 - `mapData` is cached at the edge for 1 hour per slug. A map edit shows in

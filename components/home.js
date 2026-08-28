@@ -5212,7 +5212,12 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // Which prose this page carries (lib/aboutContent.js): the homepage sells
     // the game, /daily sells the daily challenge. China and the portal builds
     // carry none.
-    const aboutContent = initialScreen === 'daily' ? ABOUT_DAILY : !initialScreen ? ABOUT_HOME : null;
+    // staticAboutContent follows the PAGE (what the export bakes in and what
+    // the head's JSON-LD describes); aboutContent follows the live SCREEN, so
+    // a player who opens the daily from the home menu (page is still /) gets
+    // the daily About, not the home one.
+    const staticAboutContent = initialScreen === 'daily' ? ABOUT_DAILY : !initialScreen ? ABOUT_HOME : null;
+    const aboutContent = screen === 'daily' ? ABOUT_DAILY : staticAboutContent;
     const showAboutPanel = !!aboutContent && !isApp && !inCoolMathGames && !inGameDistribution
         && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_SCHOOLGUESSR;
     // worldguessr.com/#about opens the panel: a linkable URL for the prose
@@ -5231,7 +5236,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 titleOverride={initialScreen === 'daily' ? text('dailyTabTitle') : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : undefined}
                 descOverride={initialScreen === 'daily' ? text('dailyDescMeta') : initialScreen === 'china' ? text('chinaGuessrTagline') : undefined}
                 canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : initialScreen === 'china' ? 'https://www.worldguessr.com/china' : undefined}
-                aboutContent={aboutContent}
+                aboutContent={staticAboutContent}
             />
 
 

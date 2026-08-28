@@ -23,6 +23,29 @@ export function mapDescription(descriptionShort, facts = []) {
   return clamp(withoutFacts, SNIPPET_MAX);
 }
 
+// Which community maps are worth a search result. Google indexed maps with
+// 11 locations, 0 hearts and no description, and showed them with garbage
+// snippets; thin pages like that pull the good ones down. Country maps
+// always index. A community map needs some play or some love. The same
+// rule gates the sitemap (api/map/sitemap.js, as a Mongo filter), the
+// Worker's noindex, and the client-side noindex on pages/map.js.
+export const MIN_INDEX_PLAYS = 100;
+export const MIN_INDEX_HEARTS = 3;
+
+export function isIndexableMap(m) {
+  if (!m) return false;
+  if (m.countryCode) return true;
+  return (Number(m.plays) || 0) >= MIN_INDEX_PLAYS || (Number(m.hearts) || 0) >= MIN_INDEX_HEARTS;
+}
+
+// The one-line description for a map whose creator wrote none, so the
+// snippet is a sentence about the map instead of only the generic tail.
+export function mapFallbackShort(name, locationsCnt, creator) {
+  const n = Number(locationsCnt) || 0;
+  const where = n ? `${n.toLocaleString("en-US")} Street View locations` : "Street View locations";
+  return `${String(name).trim()} is a community map with ${where}${creator ? `, made by ${creator}` : ""}.`;
+}
+
 function clamp(s, n) {
   if (s.length <= n) return s;
   const cut = s.slice(0, n - 1);

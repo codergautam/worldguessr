@@ -7,6 +7,14 @@ import {
   SITE_BG_FADE_MS,
 } from "@/lib/siteBackground";
 
+// The critical CSS below is written with its reasoning inline, and that
+// reasoning must stay in the source. It must not ship: it is prose in the
+// render-blocking head of every page (~3.5 KB per visit). Comments and blank
+// runs are stripped at render; the CSS itself is untouched.
+function stripCssComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\n\s*\n/g, "\n");
+}
+
 // The language homepages export localized HTML, but a hardcoded lang="en"
 // told Google the Spanish/French/... pages were English — one more reason it
 // mixed the language variants up in search results.
@@ -60,7 +68,7 @@ export default function Document({ pathname }) {
           }}
         />
         <style dangerouslySetInnerHTML={{
-          __html: `
+          __html: stripCssComments(`
             :root {
               --site-bg: url("${backgroundUrl}");
               --site-bg-lqip: url("${DEFAULT_BACKGROUND_LQIP}");
@@ -147,7 +155,7 @@ export default function Document({ pathname }) {
             @media (prefers-reduced-motion: reduce) {
               html.site-bg-swap body::before { animation: none; }
             }
-          `
+          `)
         }} />
       </Head>
       <body className="mainBody notranslate" translate="no" style={{ backgroundColor: '#000000' }}>

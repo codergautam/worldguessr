@@ -14,7 +14,7 @@
 // A same-zone fetch() from a Worker goes to the origin (Pages), not back
 // through this route, so fetching the shell cannot recurse.
 
-import { mapTitle, mapDescription } from "../../../shared/mapSeo.js";
+import { mapTitle, mapDescription, isIndexableMap, mapFallbackShort } from "../../../shared/mapSeo.js";
 
 const SLUG_RE = /^[a-z0-9_-]{1,80}$/i;
 const MAP_DATA_TTL = 3600; // seconds
@@ -35,8 +35,10 @@ export default {
       // its query string; leave it alone.
       if (url.searchParams.has("crazygames")) return fetch(request);
 
-      // /map?s=<slug> is the legacy URL. One canonical URL per map, so send
-      // it to /map/<slug>. Unknown shapes (no slug, bad slug) pass through.
+      // /map?s=<slug> is the legacy URL. Only reachable here if a route
+      // covering bare /map is ever added (today's route is /map/*, to keep
+      // /maps off the free-tier quota); pages/map.js rewrites the legacy URL
+      // client-side instead. Kept so the redirect is correct if that changes.
       if (url.pathname === "/map") {
         const s = url.searchParams.get("s") || url.searchParams.get("slug");
         if (s && SLUG_RE.test(s)) {
@@ -90,10 +92,13 @@ async function mapPage(request, slug, env, ctx) {
   }
 
   const seo = buildSeo(data, slug, env);
+  // Thin maps (see isIndexableMap) still get the full page for people and
+  // for AI crawlers, but tell search engines not to list them.
+  const robots = isIndexableMap(data) ? "" : '<meta name="robots" content="noindex">';
   const rewriter = new HTMLRewriter()
     .on("title", { element(el) { el.setInnerContent(seo.title); } })
     .on('meta[name="description"]', { element(el) { el.setAttribute("content", seo.description); } })
-    .on("head", { element(el) { el.append(seo.headTags, { html: true }); } })
+    .on("head", { element(el) { el.append(robots + seo.headTags, { html: true }); } })
     .on("body", { element(el) { el.append(seo.bodyBlock, { html: true }); } });
 
   const res = rewriter.transform(shellRes);
@@ -189,8 +194,9 @@ export function buildSeo(d, slug, env) {
   const title = mapTitle(name);
   const facts = [];
   if (locationsCnt) facts.push(`${locationsCnt.toLocaleString("en-US")} Street View locations`);
-  if (plays) facts.push(`${plays.toLocaleString("en-US")} plays`);
-  const short = (d.description_short || "").trim().replace(/\s+/g, " ");
+  if (plays) facts.push(`${plays.toLocaleString("en-US")} ${plays === 1 ? "play" : "plays"}`);
+  const creatorName = isCountry ? "WorldGuessr" : (d.created_by || "").trim();
+  const short = (d.description_short || "").trim().replace(/\s+/g, " ") || mapFallbackShort(name, locationsCnt, creatorName);
   const description = mapDescription(short, facts);
 
   const longParas = (d.description_long || "").split("\n").map((s) => s.trim()).filter(Boolean);
@@ -232,12 +238,15 @@ export function buildSeo(d, slug, env) {
     `<script type="application/ld+json">${jsonScript(jsonLd)}</script>`,
   ].join("\n");
 
-  // Crawlable map facts. pages/map.js removes this block on mount and shows
-  // the same facts through its own components, so a rendering crawler and a
-  // human see one copy each, never two.
+  // Crawlable map facts for crawlers that do not run JavaScript. The inline
+  // script right after it removes it before first paint in any browser (and
+  // in any rendering crawler), so a human never sees it and the page's
+  // height never changes on hydration (that toggled the scrollbar and shifted
+  // the layout). pages/map.js removes it on mount as well, as a backstop, and
+  // renders the same facts through its own components.
   const factItems = [];
   if (locationsCnt) factItems.push(`<li>${esc(locationsCnt.toLocaleString("en-US"))} Street View locations</li>`);
-  if (plays !== null) factItems.push(`<li>${esc(plays.toLocaleString("en-US"))} plays</li>`);
+  if (plays !== null) factItems.push(`<li>${esc(plays.toLocaleString("en-US"))} ${plays === 1 ? "play" : "plays"}</li>`);
   if (hearts) factItems.push(`<li>${esc(hearts.toLocaleString("en-US"))} hearts</li>`);
   if (creator) factItems.push(`<li>Created by ${esc(creator)}</li>`);
   if (updated) factItems.push(`<li>Updated ${esc(updated)}</li>`);
@@ -254,7 +263,8 @@ export function buildSeo(d, slug, env) {
     <a href="/maps" style="color:#fff">All community maps</a> ·
     <a href="/" style="color:#fff">WorldGuessr, a free GeoGuessr alternative</a>
   </p>
-</section>`;
+</section>
+<script>(function(){var s=document.getElementById("map-seo");if(s)s.remove();})();</script>`;
 
   return { title, description, headTags, bodyBlock };
 }

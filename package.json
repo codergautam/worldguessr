@@ -10,7 +10,7 @@
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true pnpm dev",
     "dev:poki": "cross-env NEXT_PUBLIC_POKI=true pnpm dev",
     "dev:6x": "cross-env NEXT_PUBLIC_6X=true pnpm dev",
-    "build": "node scripts/fetchMapCount.mjs && cross-env next build && node scripts/writeSitemap.mjs",
+    "build": "node scripts/fetchMapCount.mjs && node scripts/fetchStoreRating.mjs && cross-env next build && node scripts/writeSitemap.mjs",
     "build:poki": "cross-env NEXT_PUBLIC_POKI=true NEXT_PUBLIC_API_URL=api.worldguessr.com NEXT_PUBLIC_AUTH_URL=gauth.worldguessr.com NEXT_PUBLIC_WS_HOST=server.worldguessr.com NEXT_DIST_DIR=.next-poki next build && node scripts/packageEmbed.mjs poki",
     "build:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true NEXT_PUBLIC_BASE_PATH=/fef00656129743768437b7589b7c48b1 NEXT_PUBLIC_API_URL=api.worldguessr.com NEXT_PUBLIC_AUTH_URL=gauth.worldguessr.com NEXT_PUBLIC_WS_HOST=server.worldguessr.com NEXT_PUBLIC_GOOGLE_CLIENT_ID=471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com NEXT_DIST_DIR=.next-gd next build && node scripts/packageEmbed.mjs gd",
     "build:6x": "cross-env NEXT_PUBLIC_6X=true NEXT_PUBLIC_API_URL=api.schoolguessr.com NEXT_PUBLIC_AUTH_URL=gauth.schoolguessr.com NEXT_PUBLIC_WS_HOST=server.schoolguessr.com NEXT_PUBLIC_GOOGLE_CLIENT_ID=471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com NEXT_DIST_DIR=.next-6x next build && node scripts/packageEmbed.mjs 6x",

@@ -18,8 +18,14 @@
     "enabled": true,
     "head_sampling_rate": 0.1
   },
+  // FREE TIER: 100,000 requests/day across all Workers. Only HTML page
+  // requests for map pages, the sitemaps and /about are routed; assets never
+  // are. /map/* on purpose, not /map*: the wildcard would also swallow /maps
+  // (the busy community-maps hub) and burn quota on passthroughs. Set the
+  // zone's request-limit failure mode to "Fail open" in the dashboard so a
+  // quota day never takes the map pages down (see README).
   "routes": [
-    { "pattern": "www.worldguessr.com/map*", "zone_name": "worldguessr.com" },
+    { "pattern": "www.worldguessr.com/map/*", "zone_name": "worldguessr.com" },
     { "pattern": "www.worldguessr.com/sitemap*", "zone_name": "worldguessr.com" },
     { "pattern": "www.worldguessr.com/about", "zone_name": "worldguessr.com" }
   ],

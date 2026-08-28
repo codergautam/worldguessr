@@ -6,7 +6,9 @@ import Map from "../../models/Map.js";
 // costs no memory, and it is stable, so a map never straddles two pages
 // between requests. (Sorting by plays across the whole collection blew
 // MongoDB's 32 MB in-memory sort limit once the count passed ~70k.) Page 1
-// when `page` is absent. The edge Worker (workers/seo-edge) serves page N on
+// when `page` is absent. Only maps that pass the quality gate below are
+// listed (keep the numbers in step with MIN_INDEX_PLAYS / MIN_INDEX_HEARTS in
+// shared/mapSeo.js). The edge Worker (workers/seo-edge) serves page N on
 // www as /sitemap-maps-N.xml and builds the sitemap index that lists every
 // page from /api/map/count. Official country maps are NOT here: they are
 // repo JSON, so scripts/writeSitemap.mjs lists them at build time.
@@ -33,7 +35,10 @@ export default async function handler(req, res) {
   }
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
 
-  const maps = await Map.find({ accepted: true })
+  // Same gate as isIndexableMap in shared/mapSeo.js: a community map needs
+  // 100+ plays or 3+ hearts to be worth a search result. Thin maps still
+  // have pages; they are just not advertised to crawlers.
+  const maps = await Map.find({ accepted: true, $or: [{ plays: { $gte: 100 } }, { hearts: { $gte: 3 } }] })
     .select("slug lastUpdated created_at")
     .sort({ _id: 1 })
     .skip((page - 1) * SITEMAP_PAGE_SIZE)
