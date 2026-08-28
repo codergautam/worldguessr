@@ -1,0 +1,99 @@
+<!DOCTYPE html><html lang="en" translate="no" class="notranslate" style="background-color:#000000"><head><meta charSet="utf-8" data-next-head=""/><meta name="viewport" content="width=device-width, initial-scale=1" data-next-head=""/><title data-next-head="">About WorldGuessr - Free GeoGuessr alternative</title><meta name="description" content="What WorldGuessr is, how to play, every game mode, how it compares with GeoGuessr, the apps, the source code, and answers to common questions." data-next-head=""/><meta name="robots" content="noindex,nofollow" data-next-head=""/><meta property="og:title" content="About WorldGuessr" data-next-head=""/><meta property="og:description" content="What WorldGuessr is, how to play, every game mode, how it compares with GeoGuessr, the apps, the source code, and answers to common questions." data-next-head=""/><meta property="og:type" content="website" data-next-head=""/><meta property="og:url" content="https://www.worldguessr.com/about" data-next-head=""/><meta property="og:image" content="https://www.worldguessr.com/worldguessr-1200x630.png" data-next-head=""/><meta name="twitter:card" content="summary_large_image" data-next-head=""/><link rel="icon" type="image/x-icon" href="/fef00656129743768437b7589b7c48b1/icon.ico" data-next-head=""/><meta name="google" content="notranslate"/><link rel="preload" href="/fef00656129743768437b7589b7c48b1/street2.webp" as="image" type="image/webp" fetchpriority="high"/><link data-next-font="" rel="preconnect" href="/" crossorigin="anonymous"/><link rel="preload" href="/fef00656129743768437b7589b7c48b1/_next/static/css/e94f1e1ca6689445.css" as="style"/><script>
+              window.dataLayer = window.dataLayer || [];
+              window.gtag = function(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-KFK0S0RXG5');
+              window.addEventListener('load', function() {
+                var s = document.createElement('script');
+                s.src = 'https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5';
+                s.async = true;
+                document.head.appendChild(s);
+              });
+            </script><style>
+            :root {
+              --site-bg: url("/fef00656129743768437b7589b7c48b1/street2.webp");
+              --site-bg-lqip: url("data:image/webp;base64,UklGRmoAAABXRUJQVlA4IF4AAAAwBACdASoUAAwAPu1iqk2ppaQiMAgBMB2JZgCuHB+CknwSHTTuOjCaJAAA/uNRBvaUY5pzljr+gV3bP8vBnIiPmsU8EwqwLX19YoL5G2czf2NlZ/nYya0g1hlljAAA");
+              /* The INCOMING photograph during a swap; `none` the rest of the
+                 time. See the crossfade contract in lib/siteBackground.js. */
+              --site-bg-next: none;
+              --site-bg-fade-duration: 600ms;
+            }
+            html, body {
+              background-color: #000000 !important;
+              margin: 0;
+              padding: 0;
+            }
+            /* THE RESTING LAYER, and at rest the only one.
+               THREE LAYERS IN ONE STACK, and the order is the feature: a 50%
+               black scrim on top, the real photograph under it, the inlined
+               152-byte placeholder at the bottom. The photograph paints nothing
+               until it arrives, so a first visit shows the scene's colours
+               instantly instead of black, and its arrival is invisible because
+               both are center/cover and the photograph is opaque.
+               THE SCRIM REPLACED `opacity: 0.5`. Over a canvas forced to black
+               the two are the same picture — but this element has to CROSSFADE
+               with another one now, and two layers at 0.5 sum to 0.75 of a
+               layer at the midpoint and visibly brighten. Two OPAQUE layers
+               dissolve linearly. The identical scrim is written out again on
+               html::before below rather than shared through a variable: this is
+               the inline critical CSS in front of every first paint, and an
+               undefined var() invalidates the whole declaration, which would
+               black the site out rather than degrade. Keep the two in step. */
+            body::before {
+              content: '';
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+                          var(--site-bg) center/cover no-repeat,
+                          var(--site-bg-lqip) center/cover no-repeat;
+              z-index: 0;
+              pointer-events: none;
+            }
+            /* THE OUTGOING LAYER, and it LITERALLY does not exist unless a
+               swap is running — there is no resting rule for html::before, so
+               without the class there is no `content` and the browser generates
+               no box at all. A visitor who never buys a background composites
+               nothing extra, ever. On <html> rather than as body::after because
+               body::after is the LAST child of body and would paint ABOVE the
+               menu at any shared z-index; this is outside <body> entirely and
+               so is structurally beneath every pixel of the app. It holds the
+               picture already on screen still, while body::before fades the new
+               one in over it. No LQIP here: the incoming file is preloaded
+               before a swap ever starts, and the placeholder is the DEFAULT
+               city, which is the wrong blur to show under any other one. */
+            html.site-bg-swap::before {
+              content: '';
+              display: block;
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+                          var(--site-bg) center/cover no-repeat,
+                          var(--site-bg-lqip) center/cover no-repeat;
+              z-index: 0;
+              pointer-events: none;
+            }
+            html.site-bg-swap body::before {
+              background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+                          var(--site-bg-next) center/cover no-repeat;
+              /* An ANIMATION, not a transition: it has to run on the frame the
+                 class lands, from a state this element does not otherwise have.
+                 Duration pairs with SITE_BG_FADE_MS in lib/siteBackground.js. */
+              animation: siteBgFadeIn var(--site-bg-fade-duration) ease-in-out both;
+            }
+            @keyframes siteBgFadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            /* Reduce means reduce: the new picture simply appears. The commit
+               on the other side of the timer is unchanged and still invisible,
+               because it is the same URL either way. */
+            @media (prefers-reduced-motion: reduce) {
+              html.site-bg-swap body::before { animation: none; }
+            }
+          </style><link rel="stylesheet" href="/fef00656129743768437b7589b7c48b1/_next/static/css/e94f1e1ca6689445.css" data-n-g=""/><noscript data-n-css=""></noscript><script defer="" noModule="" src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/polyfills-42372ed130431b0a.js"></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/webpack-1a3a927acec03096.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/framework-aa65945cbb7cc75e.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/main-d4c3dd4996edd9a9.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/pages/_app-9b867f822dad547e.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/2885-e2f014df720f57e8.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/chunks/pages/about-179ce31f1d9e444f.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/dRLvqyhInOFUbkHciYTHt/_buildManifest.js" defer=""></script><script src="/fef00656129743768437b7589b7c48b1/_next/static/dRLvqyhInOFUbkHciYTHt/_ssgManifest.js" defer=""></script></head><body class="mainBody notranslate" translate="no" style="background-color:#000000"><div id="__next"><div class="aboutPage"><div class="aboutPage__scroll"><article class="aboutPage__article"><p class="aboutPage__back"><a href="/">← Back to the game</a></p><h1>About WorldGuessr</h1><p class="aboutPage__lead">WorldGuessr is a free GeoGuessr alternative. You are dropped somewhere in the world in Google Street View, you look around for clues, and you place a pin on a map where you think you are. The closer your pin, the more points you score. It has unlimited rounds, ranked and private multiplayer, a daily challenge, the largest community map library of any free GeoGuessr alternative, and native apps. It is made by an independent developer and its source code is public.</p><h2>How a round works</h2><div class="aboutPage__figures"><figure><img src="/fef00656129743768437b7589b7c48b1/tutorial1.png" alt="A WorldGuessr round: Street View of the Statue of Liberty, waiting for a guess" width="405" height="298" loading="lazy"/><figcaption>1. You land somewhere in Street View. Move, turn and zoom to find clues: language, road signs, plates, plants, the side of the road cars drive on.</figcaption></figure><figure><img src="/fef00656129743768437b7589b7c48b1/tutorial2.png" alt="The result map after a guess: the guessed pin near Washington and the real location in New York, joined by a line" width="405" height="298" loading="lazy"/><figcaption>2. Drop a pin on the map and guess. The result shows your pin, the real spot, the distance between them and your score for the round.</figcaption></figure></div><p>A round is worth up to 5,000 points. In singleplayer you play as many rounds as you like. In duels, a closer guess takes health from the opponent until one side is out. In the daily challenge everyone gets the same 3 rounds and compares scores.</p><h2>Game modes</h2><dl class="aboutPage__modes"><div><dt>Singleplayer</dt><dd>Unlimited rounds on the world map or any community map. Pick a time limit or play without one. No account needed.</dd></div><div><dt>Ranked Duels (1v1)</dt><dd>Head-to-head against another player. Both of you see the same location; the closer guess wins the round and takes health from the other side. Wins raise your ELO rating and move you up the leagues.</dd></div><div><dt>2v2 Team Duels</dt><dd>The same duel format with a partner. Queue together from a party, or get matched with a teammate.</dd></div><div><dt>Unranked Match</dt><dd>A quick duel against a random player with no rating at stake.</dd></div><div><dt>Party</dt><dd>A private lobby for friends. Share a link, choose the map and rules, and play the same rounds together. Parties have chat and emotes, and can run team duels inside the group.</dd></div><div><dt>Daily Challenge</dt><dd>One shared set of 3 locations for everyone, every day. 60 seconds per round, one attempt, then a score distribution and a top-100 board. Keep a streak going with an account.</dd></div><div><dt>Country Guesser and Continent Guesser</dt><dd>Instead of placing a pin, name the country or the continent you are in. Fast rounds, good for learning the clues of the road.</dd></div><div><dt>Community Maps</dt><dd><span data-map-count="">71,121</span> maps made by players: single countries, cities, stadiums, capitals, landmarks, and stranger themes. That is the largest map library of any free GeoGuessr alternative, and it grows every day. Anyone can build a map with the in-game map maker;</dd></div><div><dt>Leaderboard and ELO</dt><dd>A global leaderboard for ranked play, a Hall of Fame for past seasons, and a public profile with stats, rating and achievements for every account.</dd></div><div><dt>Customize</dt><dd>Pins, site backgrounds, name glows and stamps you can equip on your profile.</dd></div></dl><h2>WorldGuessr and GeoGuessr</h2><p>GeoGuessr is the game that started the genre. WorldGuessr is a free alternative to it: a separate game, made by an independent developer, not affiliated with GeoGuessr. The differences that matter to most players are below. GeoGuessr details are as of 2026 and may change; check their site for current terms.</p><div class="aboutPage__tableWrap"><table class="aboutPage__table"><thead><tr><th></th><th>WorldGuessr</th><th>GeoGuessr</th></tr></thead><tbody><tr><th scope="row">Price</th><td class="aboutPage__win">Free</td><td>Free tier with limits; a paid subscription for unlimited play</td></tr><tr><th scope="row">Round limit</th><td class="aboutPage__win">None</td><td>Limited without a subscription</td></tr><tr><th scope="row">Account needed to play</th><td class="aboutPage__win">No</td><td>Yes</td></tr><tr><th scope="row">Multiplayer</th><td class="aboutPage__win">Ranked 1v1, 2v2, unranked, private parties</td><td>Yes, mostly in the paid tier</td></tr><tr><th scope="row">Community maps</th><td class="aboutPage__win"><span data-map-count="">71,121</span>, free to play and free to create</td><td>Yes</td></tr><tr><th scope="row">Daily challenge</th><td class="aboutPage__win">Yes, no account needed</td><td>Yes, account needed</td></tr><tr><th scope="row">Native apps</th><td>Android and iOS</td><td>Android and iOS</td></tr><tr><th scope="row">Source code</th><td class="aboutPage__win">Public on GitHub</td><td>Private</td></tr><tr><th scope="row">Made by</th><td>One independent developer and contributors</td><td>A company</td></tr></tbody></table></div><p>Full, sourced comparisons: <a href="/compare-to-geoguessr">WorldGuessr vs GeoGuessr</a>,<!-- --> <a href="/compare-to-openguessr">WorldGuessr vs OpenGuessr</a>,<!-- --> <a href="/compare-to-geotastic">WorldGuessr vs Geotastic</a>.</p><h2>Apps</h2><p>WorldGuessr has native apps for <a href="https://play.google.com/store/apps/details?id=com.codergautamyt.worldguessr" target="_blank" rel="noreferrer">Android on Google Play</a> and for <a href="https://apps.apple.com/app/id6778672486" target="_blank" rel="noreferrer">iPhone and iPad on the App Store</a>. They use the same account as the website, so your rating, streaks and maps carry over. The Android app is rated <!-- -->4.8<!-- --> out of 5 from <!-- -->662<!-- --> ratings.</p><h2>Source code and license</h2><p>The full source code is public at <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">github.com/codergautam/worldguessr</a>, under the PolyForm Noncommercial license. You can read how the game works, report bugs, send fixes, or run your own copy for noncommercial use. The location data, the map maker, the multiplayer server and the mobile apps are all in the same repository.</p><h2>Languages</h2><p>The game is available in English, Spanish, French, German and Russian. Community map names and descriptions are in whatever language their creator wrote them in.</p><h2>Community</h2><p>Players talk on <a href="https://discord.gg/ADw47GAyS5" target="_blank" rel="noreferrer">Discord</a>, share guides and meta on the <a href="https://worldguessr.forum" target="_blank" rel="noreferrer">forum</a>, and post videos on the <a href="https://www.youtube.com/@worldguessr" target="_blank" rel="noreferrer">YouTube channel</a>. Map makers, moderators and translators are all volunteers from the community.</p><h2>For schools</h2><p><a href="https://schoolguessr.com" target="_blank" rel="noreferrer">SchoolGuessr</a> is the same game with chat and user-made content switched off, for classrooms that want the geography without the social features. It is free too.</p><h2>Popular maps</h2><p class="aboutPage__links"><a href="/map/united-states">United States</a><a href="/map/japan">Japan</a><a href="/map/united-kingdom">United Kingdom</a><a href="/map/germany">Germany</a><a href="/map/france">France</a><a href="/map/brazil">Brazil</a><a href="/map/capitals-of-the-world">Capitals of the World</a><a href="/map/soccer-stadiums-by-jack">World Soccer Stadiums</a><a href="/map/famous-places">Famous Places</a><a href="/map/all-nfl-teams">All NFL Teams</a><a href="/maps">All community maps</a></p><h2>Questions</h2><div><h3>Who makes WorldGuessr?</h3><p>An independent developer (codergautam), with help from open-source contributors and a community of moderators and map makers. It launched in 2024 and is updated often.</p></div><div><h3>How many community maps are there?</h3><p>71,121 and counting. That is the largest map library of any free GeoGuessr alternative. Players add new maps every day, and each one gets its own page once it is approved.</p></div><div><h3>Is WorldGuessr open source?</h3><p>The source code is public on GitHub under the PolyForm Noncommercial license. You can read it, run it and modify it for noncommercial use. That is source-available rather than open source in the strict sense, so we say source-available.</p></div><div><h3>Does it use real Street View?</h3><p>Yes. Every round is real Google Street View imagery. The locations are curated per country so rounds land on real roads and not in the middle of the ocean.</p></div><div><h3>How does ranked play work?</h3><p>Ranked duels use an ELO-style rating. You gain rating when you beat a stronger opponent and lose less when you fall to one. Ratings map to leagues, and the leaderboard ranks everyone by rating.</p></div><div><h3>Can I play on my phone?</h3><p>Yes. The site works in any mobile browser, and there are native apps for Android and iOS with the same account and progress.</p></div><div><h3>Is there a version for schools?</h3><p>Yes. SchoolGuessr is the same game with chat and user content turned off, made for classrooms.</p></div><div><h3>How do I report a player or a map?</h3><p>Every multiplayer game and every map has a report button. Reports go to the moderation team who handle them quickly. You can also reach the team on Discord.</p></div><h2>Compared with other games</h2><p class="aboutPage__links"><a href="/compare-to-geoguessr">WorldGuessr vs GeoGuessr</a><a href="/compare-to-openguessr">WorldGuessr vs OpenGuessr</a><a href="/compare-to-geotastic">WorldGuessr vs Geotastic</a></p><p class="aboutPage__links aboutPage__footerLinks"><a href="/">Play WorldGuessr</a><a href="/daily">Daily challenge</a><a href="/maps">Community maps</a><a href="/leaderboard">Leaderboard</a><a href="/privacy">Terms and privacy</a></p></article></div></div></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{}},"page":"/about","query":{},"buildId":"dRLvqyhInOFUbkHciYTHt","assetPrefix":"/fef00656129743768437b7589b7c48b1","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
