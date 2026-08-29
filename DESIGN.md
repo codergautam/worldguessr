@@ -20,7 +20,7 @@ colors:
 typography:
   display:
     fontFamily: "Jockey One, Jockey One Fallback"
-    fontSize: "min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em))"
+    fontSize: "max(min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em)), calc(var(--homeMenuSize, 0px) * 1.5))"
     fontWeight: 400
     lineHeight: 1.1
   headline:
@@ -194,7 +194,7 @@ The one signature silhouette is the map pin: an 87x131 teardrop PNG on a 150x163
 - **Primary** (`.g2_green_button` + `.gameBtn`): accent gradient fill (`--gradGreenBtn`, 135deg wash fading to transparent), 1.4px Night Green border, white text, fluid `min(clamp())` type.
 - **Hover / Focus:** background resolves to solid Forest Green, button lift shadow, `scale(1.05)`; transition `background-color 0.3s, box-shadow 0.3s, transform 0.3s`.
 - **Red / Blue variants:** fixed `--gradRed` / `--gradBlue` gradients (never accent-tinted); red is destructive/leave, blue is informational.
-- **Menu links** (`.g2_nav_text`): the home menu is words, not buttons. No fill, no border; hover shifts color (per-mode tint: singleplayer #77dd77, ranked #ff474c) and nudges 10px right.
+- **Home menu** (`.home__mode`, styles/homeMenu.css): Singleplayer is the primary button (`.home__mode--primary` = the `.gameBtn` + `.g2_green_button` recipe: `--gradGreenBtn` face, 1.4px Night Green rim, 15px radius, centred 600 label at 1.1x the rows, no glyph; hover solid `--primary` + lift + scale 1.04). Every other mode is a plain row — an outline glyph then the name in 500 Lexend on the menu's fluid size, `--homeMenuSize` = 55% of the wordmark's formula on desktop layouts (clamp 0.85rem..3rem, so the two scale together), `min(clamp(1.3rem,1.85vw,3.2rem), clamp(1.1rem,3.4vh,3rem))` on phones and short viewports (~36px at 1080p, ~47px at 1440p; the wordmark floors at 1.5x it) — with 2px `rgba(255,255,255,0.26)` rules between the four groups (solo, matchmade, friends, daily). Row hover keeps the text-link behaviour: tint (aqua, or singleplayer #77dd77 / ranked #ff474c / daily #ff7a1a) and a 6px nudge. `.g2_nav_text` survives only in the settings and CountryGuessr sidebars.
 
 ### Cards / Containers
 - **Corner Style:** 16px (cards), 20px (containers), 24px (page-level).
@@ -209,7 +209,7 @@ The one signature silhouette is the map pin: an 87x131 teardrop PNG on a 150x163
 - **Error / Dark variant:** the destructive-confirm input inside error modals is the one dark field: `rgba(255,255,255,0.05)` fill, white text.
 
 ### Navigation
-- Top bar is a click-through shell; its children are HUD chrome (the `.timer` recipe) or nav capsules. Home navigation is the chromeless text-link menu. Entrances use `hudEnter` (opacity + translateY(-8px)) for all HUD chrome, one rule for everything.
+- Top bar is a click-through shell; its children are HUD chrome (the `.timer` recipe) or nav capsules. Home navigation is the one-mode-per-line list (see Buttons). Entrances use `hudEnter` (opacity + translateY(-8px)) for all HUD chrome, one rule for everything.
 
 ### The HUD Pill (signature)
 The `.timer` recipe is the canonical chrome and the copy source for the player card, wallet chip, team scorebar, season badges, and the mobile GameTimer: `--gradLight` wash over 85%-opaque Forest Green, 2px Forest Green frame, 16px radius, the three-layer HUD stack shadow, soft text-shadow, tabular numbers. Critical state swaps to a red two-stop gradient, pale red border, `scale(1.05)`, and an opacity-only pulse. New HUD chrome copies this recipe verbatim; it never invents a sibling.

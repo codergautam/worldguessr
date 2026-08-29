@@ -90,6 +90,8 @@ import AlertModal from "@/components/ui/AlertModal";
 import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import CommunityBanner from '@/components/communityBanner';
+import ModeItem from '@/components/ui/modeItem';
+import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline } from 'react-icons/io5';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
@@ -5935,107 +5937,108 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
                                         <>
 
-                                            <div className="g2_nav_hr"></div>
-                                            <div className="g2_nav_group">
-                                                <button className="g2_nav_text singleplayer"
-
-                                                    onClick={() => {
-                                                        if (loading) return;
-                                                        setMiniMapShown(false);
-                                                        navSlideOutThen(() => crazyMidgame(() => {
-                                                            // First entry this session: check localStorage preference
-                                                            if (!hasEnteredSingleplayer.current) {
-                                                                hasEnteredSingleplayer.current = true;
-                                                                const pref = gameStorage.getItem("singleplayerDefaultMode");
-                                                                if (pref === "countryGuesser") {
-                                                                    enterCountryGuessrMode("country");
-                                                                    return;
-                                                                } else if (pref === "continentGuesser") {
-                                                                    enterCountryGuessrMode("continent");
-                                                                    return;
+                                            {/* THE MENU (styles/homeMenu.css): one mode per line with an
+                                                outline glyph, thin rules between the groups. Every handler
+                                                and gate below is the one the old text link had. */}
+                                            <div className="home__menu">
+                                                <div className="home__menu__group">
+                                                    <ModeItem className="home__mode--singleplayer" icon={<IoCompassOutline />} label={text("singleplayer")}
+                                                        onClick={() => {
+                                                            if (loading) return;
+                                                            setMiniMapShown(false);
+                                                            navSlideOutThen(() => crazyMidgame(() => {
+                                                                // First entry this session: check localStorage preference
+                                                                if (!hasEnteredSingleplayer.current) {
+                                                                    hasEnteredSingleplayer.current = true;
+                                                                    const pref = gameStorage.getItem("singleplayerDefaultMode");
+                                                                    if (pref === "countryGuesser") {
+                                                                        enterCountryGuessrMode("country");
+                                                                        return;
+                                                                    } else if (pref === "continentGuesser") {
+                                                                        enterCountryGuessrMode("continent");
+                                                                        return;
+                                                                    }
                                                                 }
+                                                                // Subsequent entries: restore last screen used this session
+                                                                setScreen(lastSingleplayerScreen.current || "singleplayer");
+                                                            }));
+                                                        }} />
+                                                </div>
+
+                                                <div className="home__menu__hr"></div>
+                                                <div className="home__menu__group">
+                                                    {/* Ranked shows for guests too — clicking opens the link-Google
+                                                        conversion modal instead of the queue (server publicDuel
+                                                        requires accountId anyway). Hidden on the no-account builds
+                                                        (CoolMath / Poki / GameDistribution), where there is no login
+                                                        surface at all for that modal to lead to. */}
+                                                    {!HIDE_ACCOUNT_UI && (
+                                                        <ModeItem className="home__mode--ranked" icon={<IoMedalOutline />} label={text("rankedDuel")} onClick={() => {
+                                                            if (!session?.token?.secret) {
+                                                                openLoginUpsell('ranked');
+                                                                return;
                                                             }
-                                                            // Subsequent entries: restore last screen used this session
-                                                            setScreen(lastSingleplayerScreen.current || "singleplayer");
-                                                        }));
-                                                    }}>
-                                                    {text("singleplayer")}
-                                                </button>
-                                                {/* Ranked shows for guests too — clicking opens the link-Google
-                                                    conversion modal instead of the queue (server publicDuel
-                                                    requires accountId anyway). Hidden on the no-account builds
-                                                    (CoolMath / Poki / GameDistribution), where there is no login
-                                                    surface at all for that modal to lead to. */}
-                                                {!HIDE_ACCOUNT_UI && (
-                                                    <button className="g2_nav_text ranked" aria-label="Duels" onClick={() => {
-                                                        if (!session?.token?.secret) {
-                                                            openLoginUpsell('ranked');
-                                                            return;
-                                                        }
+                                                            if (!ws || !multiplayerState?.connected) {
+                                                                setConnectionErrorModalShown(true);
+                                                                return;
+                                                            }
+                                                            // keepCorner: the queue keeps this column on screen
+                                                            // (hudCornerOnQueue), so it must not fade out and back
+                                                            // in — it slides from the home inset to the tight one.
+                                                            navSlideOutThen(() => handleMultiplayerAction("publicDuel"), { keepCorner: true });
+                                                        }} />
+                                                    )}
+                                                    <ModeItem icon={<IoFlashOutline />} label={
+                                                        // Ranked is hidden on the no-account builds, so "Unranked"
+                                                        // would be meaningless jargon there — it's just "Find Match".
+                                                        HIDE_ACCOUNT_UI ? text("findMatch") :
+                                                        session?.token?.secret ? text("unrankedDuel") : text("findDuel")}
+                                                        onClick={() => {
+                                                            if (!ws || !multiplayerState?.connected) {
+                                                                setConnectionErrorModalShown(true);
+                                                                return;
+                                                            }
+                                                            // Same queue, same column: slide, don't fade. See above.
+                                                            navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"), { keepCorner: true });
+                                                        }} />
+                                                    {!HIDE_ACCOUNT_UI && (
+                                                        <ModeItem className="home__mode--2v2" icon={<IoPeopleOutline />} label={text("twovtwo")} onClick={() => {
+                                                            if (!session?.token?.secret) {
+                                                                openLoginUpsell('2v2');
+                                                                return;
+                                                            }
+                                                            if (!ws || !multiplayerState?.connected) {
+                                                                setConnectionErrorModalShown(true);
+                                                                return;
+                                                            }
+                                                            navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
+                                                        }} />
+                                                    )}
+                                                </div>
+
+                                                <div className="home__menu__hr"></div>
+                                                <div className="home__menu__group">
+                                                    <ModeItem icon={<IoPersonAddOutline />} label={text("createGame")} disabled={maintenance} onClick={() => {
                                                         if (!ws || !multiplayerState?.connected) {
                                                             setConnectionErrorModalShown(true);
                                                             return;
                                                         }
-                                                        // keepCorner: the queue keeps this column on screen
-                                                        // (hudCornerOnQueue), so it must not fade out and back
-                                                        // in — it slides from the home inset to the tight one.
-                                                        navSlideOutThen(() => handleMultiplayerAction("publicDuel"), { keepCorner: true });
-                                                    }}>{text("rankedDuel")}</button>
-                                                )}
-                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => {
-                                                    if (!ws || !multiplayerState?.connected) {
-                                                        setConnectionErrorModalShown(true);
-                                                        return;
-                                                    }
-                                                    // Same queue, same column: slide, don't fade. See above.
-                                                    navSlideOutThen(() => handleMultiplayerAction("unrankedDuel"), { keepCorner: true });
-                                                }}>{
-                                                    // Ranked is hidden on the no-account builds, so "Unranked"
-                                                    // would be meaningless jargon there — it's just "Find Match".
-                                                    HIDE_ACCOUNT_UI ? text("findMatch") :
-                                                    session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
-                                                {!HIDE_ACCOUNT_UI && (
-                                                    <button className="g2_nav_text" aria-label="2v2 Match" onClick={() => {
-                                                        if (!session?.token?.secret) {
-                                                            openLoginUpsell('2v2');
-                                                            return;
-                                                        }
+                                                        navSlideOutThen(() => handleMultiplayerAction("createLobby", "party"));
+                                                    }} />
+                                                    <ModeItem icon={<IoLogInOutline />} label={text("joinGame")} disabled={maintenance} onClick={() => {
                                                         if (!ws || !multiplayerState?.connected) {
                                                             setConnectionErrorModalShown(true);
                                                             return;
                                                         }
-                                                        navSlideOutThen(() => handleMultiplayerAction("createLobby", "2v2"));
-                                                    }}>{text("twovtwo")}</button>
-                                                )}
+                                                        navSlideOutThen(() => handleMultiplayerAction("joinPrivateGame"));
+                                                    }} />
+                                                </div>
 
-
-
-                                            </div>
-                                            <div className="g2_nav_hr"></div>
-
-                                            <div className="g2_nav_group">
-                                                <button className="g2_nav_text" disabled={maintenance} onClick={() => {
-                                                    if (!ws || !multiplayerState?.connected) {
-                                                        setConnectionErrorModalShown(true);
-                                                        return;
-                                                    }
-
-                                                    navSlideOutThen(() => handleMultiplayerAction("createLobby", "party"));
-                                                }}>{text("createGame")}</button>
-                                                <button className="g2_nav_text" disabled={maintenance} onClick={() => {
-                                                    if (!ws || !multiplayerState?.connected) {
-                                                        setConnectionErrorModalShown(true);
-                                                        return;
-                                                    }
-                                                    navSlideOutThen(() => handleMultiplayerAction("joinPrivateGame"));
-                                                }}>{text("joinGame")}</button>
-                                            </div>
-
-                                            <div className="g2_nav_hr"></div>
-
-                                            <div className="g2_nav_group">
-                                                <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
+                                                <div className="home__menu__hr"></div>
+                                                <div className="home__menu__group">
+                                                    <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
+                                                </div>
                                             </div>
                                         </>
                                     )}

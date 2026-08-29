@@ -14,6 +14,7 @@ import '@/styles/hallOfFame.css';
 import '@/styles/queueScreen.css';
 import '@/styles/login.css';
 import '@/styles/about.css';
+import '@/styles/homeMenu.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 

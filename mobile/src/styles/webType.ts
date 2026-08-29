@@ -19,36 +19,57 @@ function cssClamp(min: number, val: number, max: number): number {
 }
 
 /**
- * `.home__title`: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em)).
+ * `.home__title`: max(min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em)), 1.5 x --homeMenuSize).
  * TITLE_SCALE (Aug 23 user ruling, same idea as NAV_SCALE): the wordmark runs
  * 10% larger than strict web parity in-app. Scale the FORMULA, never hardcode.
+ * The floor (Aug 29): the wordmark leads the rail at every viewport, never
+ * the menu rows. homeMenuTextSize carries NAV_SCALE and this carries
+ * TITLE_SCALE, both 1.1, so the 1.5x ratio is web's.
  */
 const TITLE_SCALE = 1.1;
-export function homeTitleSize(width: number, height: number): number {
-  return Math.round(
-    TITLE_SCALE *
-      Math.min(
-        cssClamp(1.8 * EM, 0.04 * width, 13 * EM),
-        cssClamp(1.5 * EM, 0.06 * height, 8 * EM),
-      ),
+/** `.home__title`'s own formula (web --homeTitleBase), before scale or floor. */
+function homeTitleBase(width: number, height: number): number {
+  return Math.min(
+    cssClamp(1.8 * EM, 0.04 * width, 13 * EM),
+    cssClamp(1.5 * EM, 0.06 * height, 8 * EM),
   );
+}
+export function homeTitleSize(width: number, height: number): number {
+  const formula = TITLE_SCALE * homeTitleBase(width, height);
+  return Math.round(Math.max(formula, 1.5 * homeMenuTextSize(width, height)));
 }
 
 /**
- * `.g2_nav_text`: min(clamp(1.3em, 2.5vw, 4em), clamp(1.1em, 3.5vh, 3.2em)).
- * NAV_SCALE (Aug 23 user ruling): menu rows run 10% larger than strict web
- * parity — at hand-held distance the web-exact ~21px felt too small in-app.
- * Scale the FORMULA, never hardcode sizes back in.
+ * NAV_SCALE (Aug 23 user ruling): the menu's type runs 10% larger than strict
+ * web parity — at hand-held distance the web-exact size felt too small in-app.
+ * Scale the FORMULA, never hardcode sizes back in. It applied to the
+ * .g2_nav_text rows; the menu that replaced them (styles/homeMenu.css)
+ * inherits it through homeMenuTextSize below.
  */
 const NAV_SCALE = 1.1;
-export function navTextSize(width: number, height: number): number {
-  return Math.round(
-    NAV_SCALE *
-      Math.min(
-        cssClamp(1.3 * EM, 0.025 * width, 4 * EM),
-        cssClamp(1.1 * EM, 0.035 * height, 3.2 * EM),
-      ),
-  );
+
+/**
+ * `--homeMenuSize` (styles/homeMenu.css). Two branches, like the CSS:
+ *  - phones / short viewports (web's `(max-height: 680px), (max-width: 600px)`,
+ *    = isCompact): min(clamp(1.3rem, 1.85vw, 3.2rem), clamp(1.1rem, 3.4vh, 3rem)),
+ *    fixed floors so rows stay tappable while the mark sits at its own floor;
+ *  - everything else: clamp(0.85rem, 55% of the mark's formula, 3rem), so the
+ *    menu shrinks and grows WITH the wordmark (owner, Aug 29: a menu that
+ *    stopped shrinking while the mark kept going was "a bug").
+ * ~36px at 1080p, ~47px at 1440p, ~48px at 4K, 21px floor on phones.
+ * The one size the home menu is built from: rows are 1x, a glyph 1.05x of
+ * its row, the rules' margin 0.3x — ModeItem.tsx derives those, same ratios
+ * as the CSS.
+ */
+export function homeMenuTextSize(width: number, height: number): number {
+  const compact = width < 600 || height < 680;
+  const size = compact
+    ? Math.min(
+        cssClamp(1.3 * EM, 0.0185 * width, 3.2 * EM),
+        cssClamp(1.1 * EM, 0.034 * height, 3 * EM),
+      )
+    : cssClamp(0.85 * EM, homeTitleBase(width, height) * 0.55, 3 * EM);
+  return Math.round(NAV_SCALE * size);
 }
 
 /** `.g2_text`: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em)) */

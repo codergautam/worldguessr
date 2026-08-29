@@ -5,6 +5,8 @@ import { getClientLocalDate, msUntilLocalMidnight } from '@/utils/dailyDate';
 import { readDailyStatus, writeDailyStatus } from '@/utils/dailyStatusCache';
 import { getGuestId } from '@/utils/guestId';
 import DailyStreakBadge from './DailyStreakBadge';
+import ModeItem from '@/components/ui/modeItem';
+import { IoCalendarOutline } from 'react-icons/io5';
 
 const AT_RISK_THRESHOLD_MS = 4 * 60 * 60 * 1000;
 
@@ -83,16 +85,13 @@ export default function DailyMenuItem({ session, onClick }) {
         ? 'pulsing'
         : 'default';
 
+  // A row of the home menu (components/ui/modeItem.js); the streak pill
+  // trails the label, as it always did.
   return (
-    <button
-      className="g2_nav_text"
-      aria-label={text('dailyChallenge')}
-      onClick={onClick}
-    >
-      {text('dailyChallenge')}
+    <ModeItem className="home__mode--daily" icon={<IoCalendarOutline />} label={text('dailyChallenge')} onClick={onClick}>
       {state.streak > 0 && (
         <DailyStreakBadge streak={state.streak} variant={variant} />
       )}
-    </button>
+    </ModeItem>
   );
 }

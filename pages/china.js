@@ -7,8 +7,9 @@
 // ~1.4 s TLS handshake each from outside China) while the bundle is still
 // loading. The full pool is fetched behind round 1 for the rounds after it.
 //
-// Reachable ONLY by this URL: no menu entry, no map-chooser tile, not in the
-// sitemap, and noindex here. It is shared by hand with a few people.
+// Reachable only by this URL: no menu entry, no map-chooser tile. Listed in
+// the sitemap (scripts/writeSitemap.mjs) and indexable since Aug 29 2026 at
+// the owner's request; before that it was noindex and shared by hand.
 import fs from 'fs';
 import path from 'path';
 import Head from 'next/head';
@@ -88,7 +89,6 @@ export default function ChinaPage({ seedLocations }) {
   return (
     <>
       <Head>
-        <meta name="robots" content="noindex" />
         {BAIDU_HOSTS.map((href) => (
           <link key={href} rel="preconnect" href={href} crossOrigin="anonymous" />
         ))}

@@ -822,7 +822,11 @@ html {
     height: 100%;
     display: flex;
     flex-direction: column;
-    width: 30vw;
+    /* 440px floor: the menu rows (styles/homeMenu.css) need ~330px for a
+       glyph and a one-line "Unranked Match" at their 1080p size, and below
+       ~1450px wide a bare 30vw fell short. The column layout further down
+       overrides this to 100%. */
+    width: max(30vw, 440px);
     gap: 15px;
     padding-left: 5vw;
     background: linear-gradient(65deg, var(--gradTopBase)),
@@ -1011,7 +1015,14 @@ html {
     padding: clamp(9px, 0.8vw, 16px) clamp(18px, 1.6vw, 32px);
     border-radius: 14px;
     border: 1.5px solid var(--primaryDark);
+    /* The footer buttons' plate (.footer_btns button + .g2_container_full):
+       the same wash and dark underlay over the same fill, so this reads as
+       one of them rather than a lighter cousin. Layered here instead of
+       adding the class: .g2_container_full's background shorthand would
+       clear the fill at equal specificity. */
+    background: var(--gradFull), linear-gradient(rgba(6, 16, 10, 0.5), rgba(6, 16, 10, 0.5));
     background-color: var(--primaryTransparent);
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
     color: white;
     font-size: clamp(0.95rem, 1.2vw, 1.5rem);
     white-space: nowrap;
@@ -1214,10 +1225,6 @@ html {
     margin-left: 10px;
 }
 
-.g2_nav_text.ranked:hover {
-    color: #ff474c;
-}
-
 .g2_nav_text.singleplayer:hover {
     color: #77dd77;
 }
@@ -1240,25 +1247,31 @@ html {
     background-color: #d4a732 !important;
 }
 
+/* Footer social buttons. Rest = .g2_container's wash + dark underlay over the
+   brand colour. NO :hover colour here on purpose: .g2_hover_effect:hover
+   strips those layers, and that strip IS the hover (flat brand colour, lighter
+   than rest), the same as the green buttons beside them. Darker :hover colours
+   used to sit here; they faded over 0.5s while the strip was instant, so the
+   button flashed bright and then crawled dark. Opaque colours only: after the
+   strip a translucent fill has nothing under it but the pano. */
 .discord {
     background-color: #738adb !important;
 }
 
-.discord:hover {
-    background-color: #3e4970 !important;
-}
-
 .youtube {
-    background-color: #ff000080 !important;
-}
-
-.youtube:hover {
-    background-color: darkred !important;
+    /* #ff000080 (50% red) before. Same treatment as .discord: brand hue,
+       lifted toward white so the two read as a pair. */
+    background-color: #db7373 !important;
 }
 
 
 .home__title {
-    font-size: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
+    /* Floored at 1.5x the home menu's rows (--homeMenuSize, styles/homeMenu.css):
+       the wordmark leads the rail at every viewport, never the menu (owner,
+       Aug 29). On 16:9 the two formulas already agree at ~2x; the floor bites
+       on short or narrow windows, where 6vh squeezes the mark before 3vh
+       squeezes the rows. 0px fallback = no floor off the home rail. */
+    font-size: max(min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em)), calc(var(--homeMenuSize, 0px) * 1.5));
     font-weight: 500;
     color: white;
     -webkit-text-stroke: 1px black;

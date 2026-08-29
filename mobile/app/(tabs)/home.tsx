@@ -40,7 +40,8 @@ import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
-import { homeTitleSize, navTextSize, HOME_MAX_FONT_MULT } from '../../src/styles/webType';
+import { homeMenuTextSize, homeTitleSize } from '../../src/styles/webType';
+import ModeItem, { HomeMenuRule } from '../../src/components/home/ModeItem';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
@@ -58,13 +59,6 @@ import { TEAM_SUPPORT } from '../../src/services/websocketConfig';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | '2v2' | 'createGame' | 'joinGame' | 'communityMaps';
 
-interface MenuButtonProps {
-  label: string;
-  onPress: () => void;
-  /** Optional trailing accessory rendered next to the label (e.g. the daily
-   * streak pill on the Daily Challenge entry, mirroring web's DailyMenuItem). */
-  accessory?: React.ReactNode;
-}
 
 /**
  * Entrance for the home nav column — web verbatim: `.g2_nav_ui > *` plays the
@@ -165,44 +159,6 @@ function useNavEntrance(reduceMotion: boolean, ready: boolean) {
     style: { transform: [{ translateX: slide }], opacity },
     complete,
   };
-}
-
-function MenuButton({ label, onPress, accessory }: MenuButtonProps) {
-  // Web-parity size (.g2_nav_text formula) from the live window, so rotation
-  // re-derives it exactly the way the CSS vw/vh clamps do.
-  const { width, height } = useWindowDimensions();
-  const fontSize = navTextSize(width, height);
-  return (
-    <Pressable
-      // Home main-menu scope plays ui_click, not click_2 (web .g2_nav_ui
-      // parity via the delegated listener) — every MenuButton inherits it.
-      sfx="ui"
-      // Web's nav column is denser than a 44px touch row; the slop restores
-      // the effective target without reinflating the visual rhythm.
-      hitSlop={{ top: 5, bottom: 5 }}
-      style={({ pressed }) => [
-        styles.menuButton,
-        pressed && styles.menuButtonPressed,
-      ]}
-      onPress={onPress}
-    >
-      <View style={styles.menuButtonRow}>
-        <Text
-          style={[styles.menuButtonText, { fontSize }]}
-          maxFontSizeMultiplier={HOME_MAX_FONT_MULT}
-        >
-          {label}
-        </Text>
-        {accessory}
-      </View>
-    </Pressable>
-  );
-}
-
-/** The horizontal rule between menu groups — rides the menu block's shared
- * entrance (web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child). */
-function MenuDivider() {
-  return <View style={styles.divider} />;
 }
 
 /* The header pill row is GONE. `HeaderPills` laid out [Stamps] [ELO/league]
@@ -364,10 +320,13 @@ function OutlinedTitle({
   children,
   fontSize,
   lineHeight,
+  minFontSize,
 }: {
   children: string;
   fontSize: number;
   lineHeight: number;
+  /** The fit-shrink floor: the mark must stay above the menu rows. */
+  minFontSize: number;
 }) {
   const offsets = [
     { x: -1, y: -1 },
@@ -382,11 +341,14 @@ function OutlinedTitle({
 
   // Every paint layer gets the same measured width and fitting rules. Compact
   // phones give this mark a full row; wider layouts still share the header with
-  // account chrome, where fitting is the final collision guard.
+  // account chrome, where fitting is the final collision guard. The floor used
+  // to be a flat 0.58, which could shrink the mark BELOW the menu rows beside
+  // a wide corner card (owner, Aug 29: "looks so bad"); it is the rows' size
+  // now, so the mark always leads the rail.
   const textProps = {
     numberOfLines: 1,
     adjustsFontSizeToFit: true,
-    minimumFontScale: 0.58,
+    minimumFontScale: Math.min(1, minFontSize / fontSize),
     maxFontSizeMultiplier: 1,
   } as const;
   const responsiveType = { fontSize, lineHeight };
@@ -752,7 +714,7 @@ export default function HomeScreen() {
       if (singleplayerOpeningRef.current) return;
       singleplayerOpeningRef.current = true;
     }
-    // ui_click rides MenuButton's SfxPressable (sfx="ui").
+    // ui_click rides ModeItem's SfxPressable (sfx="ui").
     haptics.light(); // tap on any main menu mode button
     // Account-gated modes mirror web's button order: guest upsell BEFORE the
     // connection check (a guest doesn't need a live socket to see the prompt).
@@ -848,6 +810,11 @@ export default function HomeScreen() {
   // phones are mobile there too. The old width<430 cutoff pushed those onto
   // the tablet composition, whose wideMenuLift hoisted the menu too high.
   const isCompact = width < 600 || height < 680;
+  // Web homeMenu.css: the 70px compact inset exists for a phone held upright,
+  // where the corner card sits above the wordmark. From 520px wide (a phone on
+  // its side) the card is beside the rail, so the inset is an empty band.
+  // Width decides, not height.
+  const compactWide = isCompact && width >= 520;
   // Use the shared spacing scale for the optical offset at every wide size.
   // The menu lift below consumes this same value, so title and menu move as one
   // section instead of being tuned independently for specific devices.
@@ -1012,7 +979,11 @@ export default function HomeScreen() {
         }}
         delayLongPress={500}
       >
-        <OutlinedTitle fontSize={homeTitleFontSize} lineHeight={homeTitleLineHeight}>
+        <OutlinedTitle
+          fontSize={homeTitleFontSize}
+          lineHeight={homeTitleLineHeight}
+          minFontSize={Math.round(homeMenuTextSize(width, height) * 1.25)}
+        >
           WorldGuessr
         </OutlinedTitle>
       </Pressable>
@@ -1137,7 +1108,7 @@ export default function HomeScreen() {
           bounces={true}
         >
           {/* Header — rides the shared entrance wave */}
-          <Animated.View style={[styles.header, isCompact && styles.headerCompact, navEntrance]}>
+          <Animated.View style={[styles.header, isCompact && styles.headerCompact, compactWide && styles.headerCompactWide, navEntrance]}>
             {isCompact ? (
               <>
                 {/* This spacer continuously grows from zero to the exact profile
@@ -1189,7 +1160,13 @@ export default function HomeScreen() {
           <Animated.View
             style={[
               styles.menu,
-              isCompact ? styles.menuCompact : { marginTop: -wideMenuLift },
+              // The tablet cap keeps the menu clear of the corner card it is
+              // lifted beside; 30% of the width mirrors web's 30vw rail and
+              // scales with the rows, 340 is the floor a one-line "Unranked
+              // Match" needs at the tablet row size.
+              isCompact
+                ? styles.menuCompact
+                : { marginTop: -wideMenuLift, maxWidth: Math.max(340, Math.round(width * 0.3)) },
               navEntrance,
             ]}
           >
@@ -1262,64 +1239,75 @@ export default function HomeScreen() {
               </Pressable>
             )}
 
-            <MenuDivider />
-
-            <View style={styles.menuGroup}>
-              <MenuButton
-                label={t('singleplayer')}
-                onPress={() => handleModePress('singleplayer')}
-              />
-              {/* Visible to GUESTS too (web parity — a hidden button is a lost
-                  conversion funnel): a guest tap opens the link-Google prompt
-                  instead of the queue. */}
-              <MenuButton
-                label={t('rankedDuel')}
-                onPress={() => handleModePress('rankedDuel')}
-              />
-              <MenuButton
-                label={isAuthenticated ? t('unrankedDuel') : t('findDuel')}
-                onPress={() => handleModePress('unrankedDuel')}
-              />
-              {/* Gated on the SAME rollout switch as the verify flag: a build
-                  that doesn't announce teamSupport gets server-rejected from
-                  every team surface, so the entry must not exist either. */}
-              {TEAM_SUPPORT && (
-                <MenuButton
-                  label={t('twovtwo')}
-                  onPress={() => handleModePress('2v2')}
+            {/* Web's .home__menu (styles/homeMenu.css): one mode per line with
+                an outline glyph, thin rules between the groups. */}
+            <View style={styles.modeMenu}>
+              <View>
+                <ModeItem
+                  icon="compass-outline"
+                  label={t('singleplayer')}
+                  onPress={() => handleModePress('singleplayer')}
                 />
-              )}
-            </View>
+              </View>
 
-            <MenuDivider />
+              <HomeMenuRule />
+              <View>
+                {/* Visible to GUESTS too (web parity — a hidden button is a lost
+                    conversion funnel): a guest tap opens the link-Google prompt
+                    instead of the queue. */}
+                <ModeItem
+                  icon="medal-outline"
+                  label={t('rankedDuel')}
+                  onPress={() => handleModePress('rankedDuel')}
+                />
+                <ModeItem
+                  icon="flash-outline"
+                  label={isAuthenticated ? t('unrankedDuel') : t('findDuel')}
+                  onPress={() => handleModePress('unrankedDuel')}
+                />
+                {/* Gated on the SAME rollout switch as the verify flag: a build
+                    that doesn't announce teamSupport gets server-rejected from
+                    every team surface, so the entry must not exist either. */}
+                {TEAM_SUPPORT && (
+                  <ModeItem
+                    icon="people-outline"
+                    label={t('twovtwo')}
+                    onPress={() => handleModePress('2v2')}
+                  />
+                )}
+              </View>
 
-            <View style={styles.menuGroup}>
-              <MenuButton
-                label={t('createGame')}
-                onPress={() => handleModePress('createGame')}
-              />
-              <MenuButton
-                label={t('joinGame')}
-                onPress={() => handleModePress('joinGame')}
-              />
-            </View>
+              <HomeMenuRule />
+              <View>
+                <ModeItem
+                  icon="person-add-outline"
+                  label={t('createGame')}
+                  onPress={() => handleModePress('createGame')}
+                />
+                <ModeItem
+                  icon="log-in-outline"
+                  label={t('joinGame')}
+                  onPress={() => handleModePress('joinGame')}
+                />
+              </View>
 
-            <MenuDivider />
-
-            <View style={styles.menuGroup}>
-              <MenuButton
-                label={t('dailyChallenge')}
-                onPress={() => handleModePress('dailyChallenge')}
-                accessory={
-                  dailyStatus.streak > 0 ? (
-                    <DailyStreakBadge
-                      streak={dailyStatus.streak}
-                      variant={dailyStatus.variant}
-                      align="center"
-                    />
-                  ) : null
-                }
-              />
+              <HomeMenuRule />
+              <View>
+                <ModeItem
+                  icon="calendar-outline"
+                  label={t('dailyChallenge')}
+                  onPress={() => handleModePress('dailyChallenge')}
+                  accessory={
+                    dailyStatus.streak > 0 ? (
+                      <DailyStreakBadge
+                        streak={dailyStatus.streak}
+                        variant={dailyStatus.variant}
+                        align="center"
+                      />
+                    ) : null
+                  }
+                />
+              </View>
             </View>
 
           </Animated.View>
@@ -1606,6 +1594,9 @@ const styles = StyleSheet.create({
     paddingTop: 70,
     paddingBottom: 0,
   },
+  headerCompactWide: {
+    paddingTop: 18,
+  },
   // THE CORNER COLUMN: card (or login button), then Community Maps. The gap is
   // the only vertical measurement left in this corner — everything used to be
   // absolutely placed and hand-offset against whatever sat above it.
@@ -1704,43 +1695,27 @@ const styles = StyleSheet.create({
   // and a reserved width on both counters, one line box per row so the two
   // columns align, and no border on the balance cell.
   // Menu
+  // No maxWidth here: the tablet cap is set inline (30% of the width, 340
+  // floor) so it grows with the rows, which track the wordmark now; compact
+  // layouts take the whole width.
   menu: {
     flexGrow: 1,
     paddingTop: spacing.md,
-    maxWidth: 300,
+  },
+  // Web .home__menu: shrink-wrapped to the widest row, so the group rules
+  // (which stretch to it) run exactly the length of the text, never the
+  // screen. The rows stretch to the same width.
+  modeMenu: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   menuCompact: {
     // The title already shares the wallet row, so the menu follows with one
     // tight token rather than compensating for the whole corner stack.
     paddingTop: spacing.sm,
-  },
-  menuGroup: {
-    gap: 0,
-  },
-  divider: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    marginVertical: DIVIDER_VERTICAL_MARGIN,
-    width: '90%',
-  },
-  menuButton: {
-    // Web's mobile nav column is denser than the old 10px rows; the
-    // Pressable's hitSlop keeps the touch target ~44px regardless.
-    paddingVertical: 8,
-  },
-  menuButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  menuButtonPressed: {
-    opacity: 0.7,
-  },
-  // fontSize injected per render from navTextSize() — web .g2_nav_text parity.
-  menuButtonText: {
-    fontFamily: 'Lexend',
-    fontWeight: '400',
-    color: colors.white,
+    // Web's column layout drops the rail's max-width; the menu takes the
+    // whole width on a phone.
+    maxWidth: '100%',
   },
   communityBannerRow: {
     alignSelf: 'flex-start',

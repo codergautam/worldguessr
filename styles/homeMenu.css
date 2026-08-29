@@ -1,0 +1,212 @@
+/* ===========================================================================
+ *  THE HOME MENU: ONE MODE PER LINE.
+ *
+ *  Every mode is a plain row: an outline glyph, then the mode's name in
+ *  semi-bold at about 0.8x the size the old text links ran. Thin rules
+ *  separate the four groups (solo, matchmade, friends, daily). No plates,
+ *  no rims, no shadows: nothing on the rail is an object.
+ *
+ *  Singleplayer used to sit on its own plate (a "hero" card). Three versions
+ *  were rejected in one day — a dark plate with a green edge and a blue
+ *  badge, the .timer pill, a flat tone step — and the owner ruled it should
+ *  be "the same style as the other ones". Don't bring it back.
+ *
+ *  Why it replaced the text list: eight links at 38px plus three 3px bars ran
+ *  ~650px down a 1080p rail, and every mode added after that bought a row of
+ *  scrollbar on a laptop. This runs ~560px on the same monitor, and each new
+ *  mode costs one ~53px row.
+ *
+ *  ONE SIZE FEEDS EVERYTHING. --homeMenuSize (declared on the rail, below)
+ *  is the em: ~36px at 1080p, ~47px at 1440p, ~48px at 4K, ~25px at 768p,
+ *  21px floor on phones. Rows are 1em, a glyph 1.05em of its row, the
+ *  streak pill 0.7em, the row padding 0.22em, the rules' margin 0.35em,
+ *  and the wordmark above the
+ *  menu floors itself at 1.5x of it (.home__title, globals.scss).
+ *
+ *  THE MENU TRACKS THE WORDMARK. On desktop layouts the em is 55% of the
+ *  mark's own formula, so the two shrink and grow together at every window
+ *  size; a menu with its own vw floor stopped shrinking at ~1124px wide
+ *  while the mark kept going to 720px (owner, Aug 29: "that's a bug").
+ *  Phones and short viewports keep a fixed-floor formula instead, because
+ *  there the mark itself is at its floor and rows must stay tappable.
+ *  mobile/src/styles/webType.ts ports both branches (homeMenuTextSize) and
+ *  ModeItem.tsx derives the same ratios — change them in both places or in
+ *  neither.
+ *
+ *  Hover keeps what the text links did: the row tints (aqua, or the mode's
+ *  own colour — ranked red, team pink) and nudges right.
+ * ======================================================================== */
+
+/* Declared on the rail, not the menu, so .home__title (a sibling above the
+   menu) can read --homeMenuSize for its floor. --homeTitleBase mirrors
+   .home__title's own formula (globals.scss) — keep the two identical. */
+.g2_nav_ui {
+    --homeTitleBase: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
+    --homeMenuSize: clamp(0.85rem, calc(var(--homeTitleBase) * 0.55), 3rem);
+}
+
+/* Phones and short viewports (the same query that flips the site's .mobile /
+   .desktop classes): the mark is at its own floor here, so tracking it would
+   put the rows at ~16px. Fixed floors instead — 21px on a phone, 17.6px on a
+   phone held sideways — and the mark floors at 1.5x of them in turn. rem
+   inside the clamps: the size must not compound on the rail's em. */
+@media (max-height: 680px), (max-width: 600px) {
+    .g2_nav_ui {
+        --homeMenuSize: min(clamp(1.3rem, 1.85vw, 3.2rem), clamp(1.1rem, 3.4vh, 3rem));
+    }
+}
+
+.home__menu {
+    display: flex;
+    flex-direction: column;
+    /* Shrink-wrapped to the widest row, so the group rules below run exactly
+       the length of the text (owner: "only need to be size of text"), not the
+       rail. The rows are width: 100% of this, so they share that width. */
+    width: fit-content;
+    /* No px cap: at 1440p+ a 420px cap wrapped "Unranked Match" onto two
+       lines. The rail is the only bound. */
+    max-width: 100%;
+    box-sizing: border-box;
+    /* .g2_nav_ui has no right padding on the desktop layout; the text links
+       never needed one. A hovered row nudges right, so leave it room. */
+    padding-right: 3vw;
+    font-size: var(--homeMenuSize);
+}
+
+.home__menu__group {
+    display: flex;
+    flex-direction: column;
+}
+
+.home__menu__hr {
+    /* 100% of the shrink-wrapped menu = the widest row. Never the rail: a
+       rule across a whole landscape phone read as a page break. */
+    width: 100%;
+    /* 2px at 0.26 (was 1px at 0.18): the thinner, fainter pair did not read
+       as group breaks over the photo. */
+    height: 2px;
+    background: rgba(255, 255, 255, 0.26);
+    margin: 0.35em 0;
+}
+
+.home__mode {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    width: 100%;
+    padding: 0.25em 0.25em;
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 12px;
+    color: white;
+    font: inherit;
+    font-size: 1em;
+    /* 500, not 600: 600 read as "thick" once the label span started
+       inheriting it (owner, Aug 29). */
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: left;
+    /* Rows sit on the wash, not on a plate. */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* color/font-weight: inherit on BOTH spans, on purpose. globals.scss has
+   "h1, h2, h3, span, label { font-weight: 500; color: white }", which pins
+   every span white and medium — the button's hover tint never reached the
+   label or the glyph. */
+.home__mode__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.05em;
+    color: inherit;
+    opacity: 0.9;
+}
+
+.home__mode__icon > svg {
+    display: block;
+}
+
+.home__mode__label {
+    min-width: 0;
+    color: inherit;
+    font-weight: inherit;
+    /* A mode is one line, always. A long locale overflows the rail's padding
+       rather than wrapping (owner, Aug 29: "should not wrap text into 2
+       lines"). */
+    white-space: nowrap;
+}
+
+.home__mode:hover {
+    color: aqua;
+    transform: translateX(6px);
+}
+
+.home__mode:hover .home__mode__icon {
+    opacity: 1;
+}
+
+/* The mode's own colour on hover — information, not chrome; none of these
+   read the equipped accent. Singleplayer green and ranked red are the old
+   text menu's tints (globals.scss .g2_nav_text.singleplayer/.ranked:hover),
+   orange is the streak pill's. 2v2 stays aqua: its team pink read as a
+   second red next to Ranked (owner, Aug 29). Declared after the aqua
+   default so they win. */
+.home__mode--singleplayer:hover { color: #77dd77; }
+.home__mode--ranked:hover { color: #ff474c; }
+.home__mode--daily:hover { color: #ff7a1a; }
+
+.home__mode:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+.home__mode:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: white;
+    transform: none;
+}
+
+/* The streak pill trails the label, as it did on the text link. */
+.home__mode .daily-streak-pill {
+    font-size: 0.7em;
+}
+
+/* THE RAIL SITS HIGH UNLESS THE CORNER THREATENS IT. globals.scss insets the
+   rail 50px on desktop and 70px on the column layout. The 70 exists for a
+   phone held upright, where the top-right corner card sits ABOVE the
+   wordmark; the 50 only mirrored that card's own inset. Neither is a reason
+   to push the menu down while the card is beside the rail rather than over
+   it (owner, Aug 29: "no reason to move the menu unless it's under threat of
+   being overlapped"). WIDTH decides that, not height: from 520px up the
+   longest row ("Unranked Match" + glyph) stays clear of a full-width name
+   card, so the rail rises at every height. 2.5vh lets it breathe a little on
+   a tall monitor. */
+@media (min-width: 520px) {
+    .g2_nav_ui {
+        padding-top: clamp(18px, 2.5vh, 32px);
+    }
+}
+
+/* The column layout (globals.scss: portrait, short, or ultrawide) stretches
+   .g2_nav_ui to the full width and gives it its own right padding. */
+@media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
+    .home__menu {
+        max-width: 100%;
+        padding-right: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home__mode {
+        transition: none;
+    }
+    .home__mode:hover {
+        transform: none;
+    }
+}

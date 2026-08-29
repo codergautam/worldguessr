@@ -36,6 +36,30 @@
         "value": "2px",
         "createdAt": "2026-08-11T14:14:00.808Z",
         "reason": "Hairline meter/underline shape, not corner rounding; user confirmed"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#77dd77",
+        "files": [
+          "styles/homeMenu.css"
+        ],
+        "createdAt": "2026-08-29T19:45:56.049Z",
+        "reason": "Singleplayer hover tint = the old .g2_nav_text.singleplayer:hover colour (globals.scss); user asked to re-add the hover colours, Aug 29"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#ff7a1a",
+        "files": [
+          "styles/homeMenu.css"
+        ],
+        "createdAt": "2026-08-29T19:45:56.049Z",
+        "reason": "Daily hover tint = the streak pill orange (styles/daily.scss); user asked to re-add the hover colours, Aug 29"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "lexend-medium",
+        "createdAt": "2026-08-29T20:41:33.194Z",
+        "reason": "RN static font-file name for Lexend 500, the documented brand family (same as the lexend-bold / lexend-semibold entries); home menu rows at weight 500 per the owner, Aug 29"
       }
     ]
   }

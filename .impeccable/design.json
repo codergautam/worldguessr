@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-11T00:00:00Z",
+  "generatedAt": "2026-08-29T21:44:27Z",
   "title": "Design System: WorldGuessr",
   "extensions": {
     "colorMeta": {
@@ -57,12 +57,12 @@
       "css": ".ds-btn-primary { background: linear-gradient(135deg, rgba(20,65,25,0.9) 0%, rgba(20,65,25,0.6) 57%, rgba(255,255,255,0) 100%); background-color: rgba(36,87,52,0.5); border: 1.4px solid var(--primaryDark, #112b18); border-radius: 15px; color: #fff; font-family: 'Lexend', sans-serif; font-weight: 600; font-size: 1.1rem; padding: 10px 24px; cursor: pointer; transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s; } .ds-btn-primary:hover { background-color: var(--primary, #245734); box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(1.05); } .ds-btn-primary:focus-visible { outline: 2px solid var(--primary, #245734); outline-offset: 2px; }"
     },
     {
-      "name": "Menu Text Link",
+      "name": "Home Menu",
       "kind": "nav",
-      "refersTo": "g2_nav_text",
-      "description": "The home menu is words, not buttons. Hover tints the word and nudges it right.",
-      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link\">Singleplayer</a><a class=\"ds-nav-link ds-nav-link--ranked\">Ranked</a></nav>",
-      "css": ".ds-nav { display: flex; flex-direction: column; gap: 8px; background: rgba(0,20,10,0.55); padding: 16px 20px; border-radius: 20px; width: max-content; } .ds-nav-link { background: none; border: none; color: #fff; font-family: 'Jockey One', 'Lexend', sans-serif; font-size: 1.6rem; cursor: pointer; transition: color 0.15s, margin-left 0.15s; margin-left: 0; text-decoration: none; } .ds-nav-link:hover { color: #77dd77; margin-left: 10px; } .ds-nav-link--ranked:hover { color: #ff474c; }"
+      "refersTo": "home__mode",
+      "description": "Singleplayer is the primary button (the .g2_green_button recipe, centred, no glyph); every other mode is a plain row of outline glyph + medium name, thin rules between groups. Row hover tints the word and nudges it right.",
+      "html": "<nav class=\"ds-home-menu\"><button class=\"ds-home-mode ds-home-mode--primary\"><span>Singleplayer</span></button><button class=\"ds-home-mode\"><span class=\"ds-home-mode__icon\">&#9679;</span><span>Ranked Duel</span></button><button class=\"ds-home-mode\"><span class=\"ds-home-mode__icon\">&#9889;</span><span>Unranked Match</span></button></nav>",
+      "css": ".ds-home-menu { display: flex; flex-direction: column; width: 320px; padding: 16px 20px; background: rgba(0,20,10,0.55); border-radius: 20px; font-family: 'Lexend', sans-serif; font-size: 1.4rem; } .ds-home-menu__hr { height: 2px; background: rgba(255,255,255,0.26); margin: 0.35em 0; } .ds-home-mode { display: flex; align-items: center; gap: 0.5em; width: 100%; padding: 0.22em 0.25em; background: none; border: 0; border-radius: 12px; color: #fff; font: inherit; font-weight: 600; line-height: 1.2; text-align: left; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); cursor: pointer; font-weight: 500; transition: color 0.2s, transform 0.2s, background-color 0.2s; } .ds-home-mode__icon { display: flex; font-size: 1.05em; opacity: 0.9; } .ds-home-mode:hover { color: aqua; transform: translateX(6px); } .ds-home-mode--primary { justify-content: center; padding: 0.35em 1em; margin-bottom: 0.15em; border: 1.4px solid var(--primaryDark, #112b18); border-radius: 15px; background: linear-gradient(135deg, rgba(20,65,25,0.9) 0%, rgba(20,65,25,0.6) 57%, rgba(255,255,255,0) 100%); font-size: 1.1em; font-weight: 600; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); } .ds-home-mode--primary:hover { color: #fff; background-color: var(--primary, #245734); box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: scale(1.04); }"
     },
     {
       "name": "HUD Pill",

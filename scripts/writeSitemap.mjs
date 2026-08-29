@@ -40,6 +40,7 @@ const pages = [
   { loc: "/compare-to-geotastic", changefreq: "monthly", priority: "0.7" },
   { loc: "/daily", changefreq: "daily", priority: "0.9" },
   { loc: "/maps", changefreq: "daily", priority: "0.9" },
+  { loc: "/china", changefreq: "weekly", priority: "0.7" },
   { loc: "/hall-of-fame", changefreq: "weekly", priority: "0.5" },
   { loc: "/leaderboard", changefreq: "daily", priority: "0.5" },
   { loc: "/privacy", changefreq: "yearly", priority: "0.1" },
