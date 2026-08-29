@@ -1049,12 +1049,12 @@ html {
     font-size: 1.35em;
     flex-shrink: 0;
 }
-/* g2_hover_effect's transparent→solid green swap is near-invisible at 0.85
-   alpha — add lift + brightness so the hover actually reads. translateY(0)
-   restated because this transform replaces .visible's. */
+/* Brightness comes from .g2_hover_effect:hover, the same lift as the footer
+   buttons. The scale is the banner's own: a labelled pill has room to grow,
+   a 50px icon square does not. translateY(0) restated because this transform
+   replaces .visible's. */
 .community_banner.visible:hover {
     transform: translateY(0) scale(1.05);
-    filter: brightness(1.15);
 }
 
 /* Not enough vertical room between the nav items and the footer chrome —
@@ -1247,21 +1247,16 @@ html {
     background-color: #d4a732 !important;
 }
 
-/* Footer social buttons. Rest = .g2_container's wash + dark underlay over the
-   brand colour. NO :hover colour here on purpose: .g2_hover_effect:hover
-   strips those layers, and that strip IS the hover (flat brand colour, lighter
-   than rest), the same as the green buttons beside them. Darker :hover colours
-   used to sit here; they faded over 0.5s while the strip was instant, so the
-   button flashed bright and then crawled dark. Opaque colours only: after the
-   strip a translucent fill has nothing under it but the pano. */
+/* Footer social buttons. NO :hover colour here on purpose: the hover is
+   .g2_hover_effect's brightness lift, the same as the green buttons beside
+   them. Darker :hover colours used to sit here and sent the button the wrong
+   way, on a different clock from the shared hover. */
 .discord {
     background-color: #738adb !important;
 }
 
 .youtube {
-    /* #ff000080 (50% red) before. Same treatment as .discord: brand hue,
-       lifted toward white so the two read as a pair. */
-    background-color: #db7373 !important;
+    background-color: #ff000080 !important;
 }
 
 
@@ -1783,11 +1778,22 @@ html {
     background: var(--gradRed);
     transition: box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s;
 }
+/* Hover = the same element, lit. A brightness filter rather than a second
+   colour, the .accountBtn idiom: it follows whatever palette the home screen
+   is wearing, and it only ever goes UP. This used to set the `background`
+   SHORTHAND to solid primary, which wiped the .g2_container wash + dark
+   underlay to none. background-image cannot transition to none, so every
+   hover was an instant strip no matter what `transition` said, and whether
+   the flat result was lighter or darker depended on the accent.
+   `all`, not `filter`: the community banner's leave fade rides this same
+   transition (it outranks the banner's own). 0.3s = every other hover here.
+   1.4, not .accountBtn's 1.22: these plates sit under a 0.5 dark underlay, so
+   they start darker and need a bigger step to read. */
 .g2_hover_effect {
-    transition: all 0.5s;
+    transition: all 0.3s;
 }
-.g2_hover_effect:hover{
-    background: var(--primary);
+.g2_hover_effect:hover {
+    filter: brightness(1.4);
 }
 .g2_red_button:hover {
     background-color: #49170d;
