@@ -132,12 +132,16 @@
 }
 
 .home__mode__label {
-    min-width: 0;
     color: inherit;
     font-weight: inherit;
     /* A mode is one line, always. A long locale overflows the rail's padding
        rather than wrapping (owner, Aug 29: "should not wrap text into 2
-       lines"). */
+       lines").
+       No min-width: 0 here. A label box that can shrink gives its width to
+       the accessory after it: the streak pill was being squeezed to its
+       min-content and wrapped "1 day" onto two lines, while the label's
+       overflow hid in the gap (owner, Aug 29). At min-width: auto the label
+       keeps its full width and the whole row overflows instead. */
     white-space: nowrap;
 }
 
