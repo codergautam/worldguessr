@@ -44,8 +44,11 @@ function Figure({ f, maps, eager }) {
 
 // One figure fills the column; two sit side by side (about.css
 // .aboutPage__figures is an auto-fit grid, so nothing here decides that).
+// Main site only: portal builds are noindex here and their exports leave
+// public/compare/ out (scripts/packageEmbed.mjs, the CoolMath and GD
+// workflows), so they must not reference the files either.
 function Figures({ list, maps, eager }) {
-  if (!list || list.length === 0) return null;
+  if (!isMainSite || !list || list.length === 0) return null;
   return (
     <div className="aboutPage__figures">
       {list.map((f, i) => <Figure key={f.src} f={f} maps={maps} eager={eager && i === 0} />)}

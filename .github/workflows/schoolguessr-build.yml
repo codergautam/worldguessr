@@ -30,6 +30,11 @@ jobs:
         pnpm install --no-frozen-lockfile
         pnpm run build
 
+    # compare/ is the screenshots for the /compare-to-* articles: noindex on
+    # this build and rendered without figures (components/comparePage.js).
+    - name: Strip main-site-only assets
+      run: rm -rf out/compare
+
     - name: Deploy to SchoolGuessr Pages branch
       uses: peaceiris/actions-gh-pages@v4
       with:

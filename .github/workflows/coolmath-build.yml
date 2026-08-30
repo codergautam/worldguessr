@@ -35,8 +35,10 @@ jobs:
     # CoolMath has no accounts (HIDE_ACCOUNT_UI): the shop is unreachable, so
     # its purchasable backgrounds are dead weight. The default background
     # (street2.webp) lives at the asset root, not in backgrounds/.
-    - name: Strip shop-only assets
-      run: rm -rf out/backgrounds
+    # compare/ is the screenshots for the /compare-to-* articles: noindex on
+    # this build and rendered without figures (components/comparePage.js).
+    - name: Strip main-site-only assets
+      run: rm -rf out/backgrounds out/compare
 
     - name: Get branch name
       id: branch

@@ -91,7 +91,11 @@ function toDosTimestamp(date) {
 // Every packager target is an accountless portal (HIDE_ACCOUNT_UI), so the
 // shop is unreachable and no session can ever carry an equipped background.
 // The DEFAULT background (street2.webp) lives at the asset root, not in here.
-const excludedArchiveDirs = new Set(['music-96k', 'backgrounds']);
+//
+// public/compare/ is the screenshots for the /compare-to-* articles (~2MB).
+// Those pages are noindex on every portal build and comparePage.js renders
+// no figures there, so nothing in a portal export references these files.
+const excludedArchiveDirs = new Set(['music-96k', 'backgrounds', 'compare']);
 
 async function collectFiles(directory, prefix = '') {
     const files = [];
