@@ -53,7 +53,7 @@ const NAV_SCALE = 1.1;
  *  - phones / short viewports (web's `(max-height: 680px), (max-width: 600px)`,
  *    = isCompact): min(clamp(1.3rem, 1.85vw, 3.2rem), clamp(1.1rem, 3.4vh, 3rem)),
  *    fixed floors so rows stay tappable while the mark sits at its own floor;
- *  - everything else: clamp(0.85rem, 55% of the mark's formula, 3rem), so the
+ *  - everything else: clamp(1.3rem, 55% of the mark's formula, 3rem), so the
  *    menu shrinks and grows WITH the wordmark (owner, Aug 29: a menu that
  *    stopped shrinking while the mark kept going was "a bug").
  * ~36px at 1080p, ~47px at 1440p, ~48px at 4K, 21px floor on phones.
@@ -68,7 +68,7 @@ export function homeMenuTextSize(width: number, height: number): number {
         cssClamp(1.3 * EM, 0.0185 * width, 3.2 * EM),
         cssClamp(1.1 * EM, 0.034 * height, 3 * EM),
       )
-    : cssClamp(0.85 * EM, homeTitleBase(width, height) * 0.55, 3 * EM);
+    : cssClamp(1.3 * EM, homeTitleBase(width, height) * 0.55, 3 * EM);
   return Math.round(NAV_SCALE * size);
 }
 

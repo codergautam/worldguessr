@@ -39,10 +39,15 @@
 
 /* Declared on the rail, not the menu, so .home__title (a sibling above the
    menu) can read --homeMenuSize for its floor. --homeTitleBase mirrors
-   .home__title's own formula (globals.scss) — keep the two identical. */
+   .home__title's own formula (globals.scss) — keep the two identical.
+   The 1.3rem floor is the phone floor below: a tall window 600-720px wide
+   is not compact, and there the mark is at its own 28.8px floor, so 55% of
+   it gave 16px rows — smaller than a phone (owner, Aug 30: "is the menu
+   supposed to be that small"). With the floor, the mark rises to 1.5x the
+   rows via its own floor, so the two still meet at a phone's ratio. */
 .g2_nav_ui {
     --homeTitleBase: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
-    --homeMenuSize: clamp(0.85rem, calc(var(--homeTitleBase) * 0.55), 3rem);
+    --homeMenuSize: clamp(1.3rem, calc(var(--homeTitleBase) * 0.55), 3rem);
 }
 
 /* Phones and short viewports (the same query that flips the site's .mobile /
