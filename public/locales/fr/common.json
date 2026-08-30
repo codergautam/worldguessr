@@ -1151,7 +1151,7 @@
   "aboutP1": "WorldGuessr est une alternative gratuite à GeoGuessr. Il vous dépose quelque part dans le monde, dans Street View. Regardez autour de vous, cherchez des indices et posez un marqueur sur la carte là où vous pensez être. Plus vous êtes proche, plus vous marquez de points. C'est tout le jeu, et c'est gratuit.",
   "aboutP2": "Pas de limite de manches, rien à souscrire. Jouez autant de manches que vous voulez, directement dans le navigateur. En solo, aucun compte n'est nécessaire. Si vous en créez un (c'est gratuit), il garde vos statistiques, votre ELO et votre progression.",
   "aboutP3": "Jouez seul, en duels classés 1v1, en duels 2v2 par équipes ou dans une partie privée entre amis. Il y a un défi quotidien, un mode devineur de pays, 93 cartes officielles de pays et {{maps}} cartes créées par d'autres joueurs, la plus grande bibliothèque de cartes de toutes les alternatives gratuites à GeoGuessr. Vous pouvez aussi créer la vôtre.",
-  "aboutP4": "WorldGuessr est développé par un seul développeur indépendant et mis à jour en permanence. Le code est public sur GitHub. Il y a des applications natives sur Google Play et l'App Store, et le site fonctionne en anglais, espagnol, français, allemand et russe.",
+  "aboutP4": "WorldGuessr est développé par un seul développeur indépendant et mis à jour en permanence. Le code est public sur GitHub. Il y a des applications natives sur Google Play et l'App Store, et le site fonctionne en anglais, espagnol, français, allemand, russe et chinois simplifié.",
   "aboutRating": "Note de {{rating}} sur 5 sur Google Play, d'après {{count}} avis.",
   "aboutFaqTitle": "Questions fréquentes",
   "aboutFaqQ1": "WorldGuessr est-il vraiment gratuit ?",

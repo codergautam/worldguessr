@@ -132,7 +132,7 @@ export default function AboutSections({ mapCount = 0 }) {
 
       <h2>Languages</h2>
       <p>
-        The game is available in English, Spanish, French, German and Russian. Community map names and descriptions are
+        The game is available in English, Spanish, French, German, Russian and Simplified Chinese. Community map names and descriptions are
         in whatever language their creator wrote them in.
       </p>
 

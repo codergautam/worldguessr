@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { STAMP_REASON_KEYS, mergeStampLines } from '../shared/stamps/receipt.js';
 
-const LOCALES = ['en', 'es', 'fr', 'de', 'ru'];
+const LOCALES = ['en', 'es', 'fr', 'de', 'ru', 'zh'];
 
 // The receipt row is the one surface in the app where a player counts currency,
 // so the rules that decide what it SAYS are pinned here. Everything below is a

@@ -9,7 +9,7 @@ import { INBOUND, OUTBOUND, APPLY_FN } from "@/shared/embed/protocol";
 // exactly like gameUI.js:28.
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
-const LANGS = ["en", "es", "fr", "de", "ru"];
+const LANGS = ["en", "es", "fr", "de", "ru", "zh"];
 
 // Send a message to whichever host is present: RN WebView and/or iframe parent.
 function postOut(msg) {

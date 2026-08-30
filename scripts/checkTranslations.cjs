@@ -4,7 +4,7 @@ const readline = require('readline');
 const translate = require('google-translate-free');
 const { maskPlaceholders, unmaskPlaceholders } = require('./translationPlaceholders.cjs');
 
-const langs = ["en","fr","de","ru","es"];
+const langs = ["en","fr","de","ru","es","zh"];
 
 // Temp file + rename so a killed run (the checkpoint comment below explains why
 // runs die) can never leave a half-written common.json behind.
