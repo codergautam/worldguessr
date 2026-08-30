@@ -171,7 +171,7 @@ export default function ComparePage({ data, others }) {
           {/* Author note sits at the end, after the reader has seen the
               evidence, not as a warning label at the top. */}
           <p className="aboutPage__note">
-            This comparison was written by the WorldGuessr team as an unbiased review. Every fact about {data.name} was checked on {data.name}'s own site on {data.verifiedOn}, as a visitor with no account, and the screenshots are from that visit. Prices and limits change; if something here is out of date, tell us on Discord.
+            This comparison was written by the WorldGuessr team as an unbiased review. Every fact about {data.name} was checked on {data.name}&apos;s own site on {data.verifiedOn}, as a visitor with no account, and the screenshots are from that visit. Prices and limits change; if something here is out of date, tell us on Discord.
           </p>
 
           <p className="aboutPage__links aboutPage__footerLinks">
