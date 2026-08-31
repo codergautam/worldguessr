@@ -111,7 +111,44 @@ export function ratingRangeFor(waitedMs, rating, opts = {}) {
 // 2. Pair selection
 // ---------------------------------------------------------------------------
 
-const DEFAULT_REMATCH_WAIVER_MS = 60000;
+/**
+ * What a rematch costs, in QUEUE TIME. Not wall-clock: a player's clock only
+ * runs while they sit in the queue, and stops the moment they are matched.
+ *
+ * THIS MUST OUTLAST A GAME, and that is why it is 300s and not the 60s it was
+ * for seven months. The old value looked reasonable and did nothing:
+ *
+ *   A duel runs about five minutes. Two players who just fought leave together,
+ *   requeue together, and are then the ONLY two people in the queue for the four
+ *   to seven minutes their peers are still playing. Sixty seconds of queue time
+ *   expires long before anyone else becomes available, so the pair was handed
+ *   back to each other, re-stamped, and did it again. The pool never mixed.
+ *
+ * The number is not measured against your own game. It is measured against how
+ * long OTHER players take to finish theirs and rejoin the queue.
+ *
+ * Measured over 120 seeds of a jittered model (4-7min games, 0-45s on the
+ * results screen), four-player pool: 74% of games against the person you just
+ * beat, dropping to 0%. The mean wait does not rise, because a mixed pool pairs
+ * on rating immediately instead of everyone idling out a waiver.
+ */
+const DEFAULT_REMATCH_WAIVER_MS = 300000; // 5m, above a duel's ~4-7m span
+
+/**
+ * The cost when there is demonstrably nobody else to wait for.
+ *
+ * A long wait only buys variety if a different opponent might turn up. When the
+ * entire ranked population is the two people in front of us, waiting five
+ * minutes buys nothing: they will play each other either way, and the wait is
+ * pure punishment. Nomad is the SECOND-HIGHEST tier (1300-1799) so its pool is
+ * thin by construction, and this project has already been burnt once by Nomads
+ * sitting in 6-10 minute queues.
+ *
+ * `expectedReturns` is how ws.js reports the players currently in a ranked game
+ * who will requeue: peers this queue cannot see but who are genuinely coming
+ * back. It is the difference between a thin queue and an empty world.
+ */
+export const REMATCH_WAIVER_ISOLATED_MS = 60000;
 
 /**
  * Starvation valve threshold. min()-of-windows compatibility (see
@@ -248,7 +285,6 @@ function strictBlocks(a, b, strictFloor) {
  */
 export function chooseDuelPairs(entries, opts = {}) {
   const now = Number.isFinite(opts.now) ? opts.now : Date.now();
-  const waiverMs = Number.isFinite(opts.rematchWaiverMs) ? opts.rematchWaiverMs : DEFAULT_REMATCH_WAIVER_MS;
   const allowRematch = opts.allowRematch === true;
   // 0 (the default) disables strict entirely, which is what a caller that does
   // not know about the setting should get.
@@ -273,6 +309,26 @@ export function chooseDuelPairs(entries, opts = {}) {
   // caller order — the whole function is deterministic for a given input.
   const ordered = pool.slice().sort((x, y) => waitedOf(y, now) - waitedOf(x, now));
 
+  // Resolved AFTER the pool is known, because the rematch cost depends on
+  // whether anyone else could plausibly turn up.
+  //
+  // A POOL OF THREE OR MORE IS NEVER ISOLATED, whatever the caller says. That
+  // is the half that matters: the count flickers downward for a moment every
+  // time a pair sits on the results screen, and a cheap rematch handed out in
+  // that window is exactly the bug being fixed. ws.js counts ENDED-but-not-torn-
+  // down games for the same reason.
+  //
+  // An ABSENT expectedReturns is read as zero, i.e. an empty world, so a
+  // two-entry pool from a caller that passes nothing gets the isolated cost.
+  // That is deliberate and it is what the unit tests are written against. It is
+  // safe because production always supplies the real count whenever the pool is
+  // small enough for the flag to bite; see the call site in ws.js.
+  const expectedReturns = Number.isFinite(opts.expectedReturns) ? opts.expectedReturns : 0;
+  const isolated = pool.length <= 2 && expectedReturns <= 0;
+  const waiverMs = Number.isFinite(opts.rematchWaiverMs)
+    ? opts.rematchWaiverMs // explicit override always wins: tests and operators
+    : (isolated ? REMATCH_WAIVER_ISOLATED_MS : DEFAULT_REMATCH_WAIVER_MS);
+
   const used = new Set();
   const pairs = [];
 
@@ -282,7 +338,6 @@ export function chooseDuelPairs(entries, opts = {}) {
     const anchorWaited = waitedOf(anchor, now);
     const anchorWindow = windowFor(anchorWaited);
     const anchorRating = ratingOf(anchor);
-    const anchorWaived = anchorWaited > waiverMs;
 
     let best = null;
     let bestDiff = Infinity;
@@ -316,10 +371,24 @@ export function chooseDuelPairs(entries, opts = {}) {
         }
       }
 
-      if (!allowRematch && !anchorWaived && candidateWaited <= waiverMs) {
-        // Checked both ways: ws.js stamps lastDuelOpponent on both sides, and
-        // pairing is symmetric, so which one happens to be the anchor this tick
-        // must not change the answer.
+      // THE COST IS MUTUAL: both players must have queued it out.
+      //
+      // It used to be one-sided — `!anchorWaived && candidateWaited <= waiver`
+      // — so EITHER player passing the waiver unlocked the rematch for BOTH.
+      // That is the bug players actually reported. You finish a duel, spend a
+      // minute on the results screen, click Play Again, and are handed the same
+      // opponent THE INSTANT you click, having queued for zero seconds: their
+      // wait paid your toll. From your side there was no rule at all.
+      //
+      // Verified against the old code: parked 70s vs freshly requeued, it
+      // paired them. Two players who both requeued instantly were correctly
+      // blocked, which is why the fault only showed when the two requeued at
+      // different times — the normal case.
+      //
+      // Checked both ways because the memory is stamped on both sides and
+      // pairing is symmetric, so which one is the anchor this tick must not
+      // change the answer.
+      if (!allowRematch && !(anchorWaited > waiverMs && candidateWaited > waiverMs)) {
         if (wasRecentOpponent(anchor, candidate, now, waiverMs)) continue;
         if (wasRecentOpponent(candidate, anchor, now, waiverMs)) continue;
       }

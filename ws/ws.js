@@ -181,7 +181,16 @@ fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split(/\r?\n/)
 const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
-const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same matchup twice in a row)
+// accountId -> { id: opponentAccountId, at } (prevents the same matchup twice
+// in a row). `at` is wall-clock and is used ONLY by the sweep below; it is
+// deliberately never handed to chooseDuelPairs, whose cost is denominated in
+// QUEUE TIME. A wall-clock expiry would run throughout the 5+ minute game the
+// two just played and be spent before either got back to the queue.
+const lastDuelOpponent = new Map();
+// Long enough that it cannot expire inside a normal play-and-requeue cycle,
+// short enough that the map tracks the live population instead of everyone who
+// has queued since boot. Without it the map only ever grows.
+const LAST_OPPONENT_TTL_MS = 30 * 60 * 1000; // 30m
 // ALLOW_REMATCH=true disables rematch avoidance (1v1 + 2v2) so the same two
 // players can be paired back-to-back — testing only, never set in prod.
 const ALLOW_REMATCH = process.env.ALLOW_REMATCH === 'true';
@@ -671,6 +680,10 @@ function stop(reason) {
   try {
   console.log('Saving gamestate before stopping',tmpdir() + `/gamestate.worldguessr`);
   fs.writeFileSync(tmpdir() + `/gamestate.worldguessr`, JSON.stringify({ games: gamesArr, players: playersArr,
+    // Rematch stamps ride the snapshot. They are module state, so without this
+    // a deploy hands the whole player base a clean slate and the first tick
+    // back can rematch everyone. A ws restart is routine here, not rare.
+    lastDuelOpponent: [...lastDuelOpponent],
     time: Date.now() }));
     console.log("Stored ", gamesArr.length, " games and ", playersArr.length, " players");
   } catch(e) {
@@ -2840,6 +2853,21 @@ try {
     console.log('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players', currentDate());
     console.error('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players', currentDate()); // so it shows up in the error log after a crash
 
+    // Rematch stamps. Restored BEFORE pairing can run, which is the point.
+    // Tolerates a snapshot from a build that predates the field, and skips any
+    // malformed row rather than losing the whole gamestate restore over a
+    // rematch nicety. The TTL is re-checked here rather than trusting the file.
+    if (Array.isArray(gamestate.lastDuelOpponent)) {
+      const cutoff = Date.now() - LAST_OPPONENT_TTL_MS;
+      for (const row of gamestate.lastDuelOpponent) {
+        if (!Array.isArray(row) || row.length !== 2) continue;
+        const [accountId, last] = row;
+        if (!accountId || !last?.id || !Number.isFinite(last.at) || last.at < cutoff) continue;
+        lastDuelOpponent.set(accountId, { id: last.id, at: last.at });
+      }
+      console.log('Recovered rematch stamps for', lastDuelOpponent.size, 'accounts', currentDate());
+    }
+
     for (const player of gamestate.players) {
       const newPlayer = Player.fromJSON(player);
       if (newPlayer.isBot) {
@@ -2913,6 +2941,16 @@ try {
     // 5s beat rather than the 500ms matchmaking tick because it walks the
     // whole map and nothing depends on it being current to the tick.
     sweepDodges(dodgeCooldowns);
+
+    // Same reasoning, same beat: drop rematch stamps past their TTL. Without
+    // this the map holds one entry per account that has played a ranked duel
+    // since boot and never releases one.
+    {
+      const cutoff = Date.now() - LAST_OPPONENT_TTL_MS;
+      for (const [accountId, last] of lastDuelOpponent) {
+        if (!Number.isFinite(last?.at) || last.at < cutoff) lastDuelOpponent.delete(accountId);
+      }
+    }
 
     // ── QUEUE ETA PUSH ────────────────────────────────────────────────────
     // Rides the existing 5s beat rather than adding a timer. Iterates
@@ -2989,6 +3027,25 @@ try {
   //                    lastOpponentAt as "still blocked", which is exactly
   //                    v1's identity-only rule. The 60s wait waiver is the
   //                    escape hatch in both.
+  // Players sitting in a ranked 1v1 right now, counted as heads. These are the
+  // peers the queue cannot see but who are genuinely coming back, and they tell
+  // chooseDuelPairs whether making a blocked pair wait buys anyone a different
+  // opponent or just punishes them.
+  //
+  // Counts games that have ENDED but are not yet torn down, deliberately: those
+  // players are on the results screen and about to requeue, and reading that
+  // window as an empty world is exactly how a cheap rematch slips out.
+  function countRankedInProgress() {
+    let n = 0;
+    for (const g of games.values()) {
+      // `duel` is true for team duels too (Game.js: duel = duel || teamDuel),
+      // and a 2v2 player is not coming back to THIS queue.
+      if (!g?.duel || g.teamDuel || !g.public) continue;
+      n += Object.keys(g.players || {}).length;
+    }
+    return n;
+  }
+
   function buildDuelEntriesV2() {
     const entries = [];
     for (const [id, q] of playersInQueue) {
@@ -3013,7 +3070,7 @@ try {
         strict: guest ? false : !!q.strict,
         botEligible: BOTS_ENABLED && !BOTS_INSTANT && !!p.accountId
           && p.botEligibility?.ranked === true,
-        lastOpponentId: p.accountId ? (lastDuelOpponent.get(p.accountId) || null) : null,
+        lastOpponentId: p.accountId ? (lastDuelOpponent.get(p.accountId)?.id || null) : null,
         lastOpponentAt: undefined
       });
     }
@@ -3291,8 +3348,9 @@ try {
       // two-player pool rematches after a minute instead of never playing.
       // Do not reintroduce a league test here; if the top pool ever needs
       // different treatment, tune the waiver, not the stamp.
-      lastDuelOpponent.set(p1.accountId, p2.accountId);
-      lastDuelOpponent.set(p2.accountId, p1.accountId);
+      const rememberedAt = Date.now();
+      lastDuelOpponent.set(p1.accountId, { id: p2.accountId, at: rememberedAt });
+      lastDuelOpponent.set(p2.accountId, { id: p1.accountId, at: rememberedAt });
     }
 
     // check if both have elo. For bot games this gate is a DELIBERATE
@@ -3742,13 +3800,19 @@ try {
       // this having succeeded.
       let pairs = [];
       try {
-        pairs = chooseDuelPairs(buildDuelEntriesV2(), {
+        const duelEntries = buildDuelEntriesV2();
+        pairs = chooseDuelPairs(duelEntries, {
           now: Date.now(),
           allowRematch: ALLOW_REMATCH,
           // Resolved per tick from the ACTIVE tier table, so a seasonal
           // re-anchor moves the strict floor with the leagues instead of
           // stranding it on a stale number.
-          strictFloor: getStrictFloor()
+          strictFloor: getStrictFloor(),
+          // Computed ONLY when the queue is small enough for it to matter,
+          // because it walks `games`. Above two the pool can never be judged
+          // isolated anyway, so any positive number does, and passing one keeps
+          // this failing toward the long cost.
+          expectedReturns: duelEntries.length <= 2 ? countRankedInProgress() : 99
         })
           .map(({ a, b }) => [a.id, b.id]);
       } catch (e) {

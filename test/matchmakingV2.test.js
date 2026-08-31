@@ -451,6 +451,73 @@ describe('chooseDuelPairs — rematch prevention', () => {
     expect(chooseDuelPairs(rematchPair(NOW - 5000), { now: NOW, rematchWaiverMs: 1000 })).toHaveLength(1);
     expect(chooseDuelPairs(rematchPair(NOW - 1000), { now: NOW, allowRematch: true })).toHaveLength(1);
   });
+
+  // THE REPORTED BUG. The cost was one-sided, so either player passing the
+  // waiver unlocked the rematch for BOTH: you finished a duel, spent a minute
+  // on the results screen, clicked Play Again, and were handed the same
+  // opponent the instant you clicked, having queued for zero seconds.
+  describe('the cost is mutual', () => {
+    // A 2-entry pool with no expectedReturns is ISOLATED, so the cost here is
+    // REMATCH_WAIVER_ISOLATED_MS (60s), not the full five minutes.
+    const waits = (waitedA, waitedB) => [
+      entry({ id: 'a', accountId: 'A', queueTime: NOW - waitedA, lastOpponentId: 'B' }),
+      entry({ id: 'b', accountId: 'B', queueTime: NOW - waitedB, lastOpponentId: 'A' }),
+    ];
+
+    it('refuses when the fresh player has queued nothing', () => {
+      expect(chooseDuelPairs(waits(61000, 0), { now: NOW })).toEqual([]);
+      expect(chooseDuelPairs(waits(300000, 0), { now: NOW })).toEqual([]);
+      expect(chooseDuelPairs(waits(61000, 59999), { now: NOW })).toEqual([]);
+    });
+
+    it('is order-independent — the anchor role must not change the answer', () => {
+      expect(chooseDuelPairs(waits(61000, 0).reverse(), { now: NOW })).toEqual([]);
+      expect(chooseDuelPairs(waits(0, 61000), { now: NOW })).toEqual([]);
+    });
+
+    it('still releases a pool where both players have queued it out', () => {
+      expect(chooseDuelPairs(waits(61000, 61000), { now: NOW })).toHaveLength(1);
+    });
+
+    it('opens strictly ABOVE the cost, not at it', () => {
+      expect(chooseDuelPairs(waits(60000, 60000), { now: NOW })).toEqual([]);
+      expect(chooseDuelPairs(waits(60001, 60001), { now: NOW })).toHaveLength(1);
+    });
+  });
+
+  // The cost must outlast a GAME, or the pair simply queues it out together in
+  // an empty queue while their peers are still playing, and is handed back to
+  // itself. Sixty seconds against a five minute game did nothing.
+  describe('the cost outlasts a game, unless the world is empty', () => {
+    const blocked = (waited) => [
+      entry({ id: 'a', accountId: 'A', queueTime: NOW - waited, lastOpponentId: 'B' }),
+      entry({ id: 'b', accountId: 'B', queueTime: NOW - waited, lastOpponentId: 'A' }),
+    ];
+
+    it('charges the full five minutes while others are still in a game', () => {
+      expect(chooseDuelPairs(blocked(61000), { now: NOW, expectedReturns: 2 })).toEqual([]);
+      expect(chooseDuelPairs(blocked(299999), { now: NOW, expectedReturns: 2 })).toEqual([]);
+      expect(chooseDuelPairs(blocked(300001), { now: NOW, expectedReturns: 2 })).toHaveLength(1);
+    });
+
+    it('drops to a minute when nobody is due back', () => {
+      // Waiting buys nothing here: these two will play each other either way.
+      expect(chooseDuelPairs(blocked(61000), { now: NOW, expectedReturns: 0 })).toHaveLength(1);
+    });
+
+    it('fails toward the LONG cost, never the short one', () => {
+      // A third queued player means the pool is not isolated even at
+      // expectedReturns 0. Failing the other way would hand out a cheap rematch
+      // every time a pair sat on the results screen.
+      const three = [
+        ...blocked(61000),
+        entry({ id: 'c', accountId: 'C', rating: 9000, queueTime: NOW - 61000 }),
+      ];
+      expect(chooseDuelPairs(three, { now: NOW })).toEqual([]);
+      // ...and a caller that reports players in progress cannot be isolated.
+      expect(chooseDuelPairs(blocked(61000), { now: NOW, expectedReturns: 1 })).toEqual([]);
+    });
+  });
 });
 
 describe('dodge cooldown', () => {
