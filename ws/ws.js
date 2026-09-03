@@ -1668,7 +1668,7 @@ app.ws('/wg', {
         if (!player.accountId || !player.username || player.banned) return;
         let message = json.message;
         if (typeof message !== 'string') return;
-        message = message.trim();
+        message = message.replace(/\p{Cf}/gu, '').trim();
         if (message.length < 1 || message.length > 200) return;
         if (Date.now() - (player.lastMessage || 0) < 1000) return;
         player.lastMessage = Date.now();
