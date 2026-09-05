@@ -2137,7 +2137,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             // Detect language: URL path wins, then localStorage.lang, then "en"
             let detectedLang = "en";
             try {
-                const knownLangs = ["en", "es", "fr", "de", "ru"];
+                const knownLangs = ["en", "es", "fr", "de", "ru", "zh"];
                 const urlSegment = stripBase(window.location.pathname).split("/").filter(Boolean)[0];
                 if (knownLangs.includes(urlSegment)) {
                     detectedLang = urlSegment;

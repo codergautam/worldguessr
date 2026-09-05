@@ -4,17 +4,19 @@ import es from '../public/locales/es/common.json';
 import fr from '../public/locales/fr/common.json';
 import de from '../public/locales/de/common.json';
 import ru from '../public/locales/ru/common.json';
+import zh from '../public/locales/zh/common.json';
 import { useRouter } from 'next/router';
 import { stripBase } from '@/lib/basePath';
 
-const langs = ["en", "es", "fr", "de", "ru"];
-const langMap = { en, es, fr, de, ru };
+const langs = ["en", "es", "fr", "de", "ru", "zh"];
+const langMap = { en, es, fr, de, ru, zh };
 
 export function getLangFromPath(path) {
   if(path.includes("/ru")) return "ru";
   if(path.includes("/es")) return "es";
   if(path.includes("/fr")) return "fr";
   if(path.includes("/de")) return "de";
+  if(path.includes("/zh")) return "zh";
   return null;
 }
 

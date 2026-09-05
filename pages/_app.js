@@ -54,7 +54,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
+const SUPPORTED_LOCALES = ["es", "fr", "de", "ru", "zh"];
 
 function App({ Component, pageProps }) {
   const router = useRouter();

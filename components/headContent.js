@@ -282,6 +282,7 @@ ads.js"></script>*/
         <link rel="alternate" hrefLang="fr" href={`${SITE_URL}/fr`} />
         <link rel="alternate" hrefLang="de" href={`${SITE_URL}/de`} />
         <link rel="alternate" hrefLang="ru" href={`${SITE_URL}/ru`} />
+        <link rel="alternate" hrefLang="zh" href={`${SITE_URL}/zh`} />
       </>
     )}
 

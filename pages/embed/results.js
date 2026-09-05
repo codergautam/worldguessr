@@ -9,7 +9,7 @@ import { INBOUND, OUTBOUND, APPLY_FN } from "@/shared/embed/protocol";
 // ResultsMap touches window (Leaflet) → client-only, exactly like map.js:10.
 const ResultsMap = dynamic(() => import("@/components/ResultsMap"), { ssr: false });
 
-const LANGS = ["en", "es", "fr", "de", "ru"];
+const LANGS = ["en", "es", "fr", "de", "ru", "zh"];
 
 // Send a message to whichever host is present: RN WebView and/or iframe parent.
 function postOut(msg) {
