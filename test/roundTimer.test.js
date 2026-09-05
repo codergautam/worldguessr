@@ -20,7 +20,7 @@ describe('post-guess round timer', () => {
     expect(DEFAULT_POST_GUESS_SECONDS).toBe(20);
   });
 
-  it.each(['en', 'es', 'fr', 'de', 'ru'])('keeps the %s ranked toast dynamic', (locale) => {
+  it.each(['en', 'es', 'fr', 'de', 'ru', 'zh'])('keeps the %s ranked toast dynamic', (locale) => {
     const path = new URL(`../public/locales/${locale}/common.json`, import.meta.url);
     const copy = JSON.parse(readFileSync(path, 'utf8'));
     expect(copy.opponentLocked).toContain('{{s}}');

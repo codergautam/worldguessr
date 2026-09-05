@@ -2108,7 +2108,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             // Special-case /daily (and /[lang]/daily): stay on daily, just swap
             // the locale segment. Without this, the redirect below would yank
             // the user off the daily challenge and onto /{lang}.
-            const dailyRegex = /^\/(?:(es|fr|de|ru|en)\/)?daily$/;
+            const dailyRegex = /^\/(?:(es|fr|de|ru|zh|en)\/)?daily$/;
             if (dailyRegex.test(currentPath)) {
                 const desiredDaily = options.language === 'en' ? '/daily' : `/${options.language}/daily`;
                 if (currentPath !== desiredDaily) {
