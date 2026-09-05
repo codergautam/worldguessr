@@ -239,7 +239,7 @@ ads.js"></script>*/
 
   const router = useRouter();
   const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
-  // Language homepages (/, /es, /fr, /de, /ru) are near-duplicate exports.
+  // Language homepages (/, /es, /fr, /de, /ru, /zh) are near-duplicate exports.
   // Without hreflang + self-canonicals Google clusters them and can pick a
   // non-English one to show every searcher (it served /es with a Spanish
   // title to English users). Main worldguessr.com only — platform builds
@@ -282,6 +282,7 @@ ads.js"></script>*/
         <link rel="alternate" hrefLang="fr" href={`${SITE_URL}/fr`} />
         <link rel="alternate" hrefLang="de" href={`${SITE_URL}/de`} />
         <link rel="alternate" hrefLang="ru" href={`${SITE_URL}/ru`} />
+        <link rel="alternate" hrefLang="zh" href={`${SITE_URL}/zh`} />
       </>
     )}
 

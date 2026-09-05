@@ -18,7 +18,7 @@ function stripCssComments(css) {
 // The language homepages export localized HTML, but a hardcoded lang="en"
 // told Google the Spanish/French/... pages were English — one more reason it
 // mixed the language variants up in search results.
-const PATH_LANGS = { "/es": "es", "/fr": "fr", "/de": "de", "/ru": "ru" };
+const PATH_LANGS = { "/es": "es", "/fr": "fr", "/de": "de", "/ru": "ru", "/zh": "zh" };
 
 export default function Document({ pathname }) {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';

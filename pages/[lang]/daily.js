@@ -1,6 +1,6 @@
 import Home from '@/components/home';
 
-const SUPPORTED = ['es', 'fr', 'de', 'ru', 'en'];
+const SUPPORTED = ['es', 'fr', 'de', 'ru', 'zh', 'en'];
 
 export async function getStaticPaths() {
   return {

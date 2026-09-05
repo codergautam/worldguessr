@@ -53,7 +53,7 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(style);
 }
 
-const LANGS = ['en', 'es', 'fr', 'de', 'ru'];
+const LANGS = ['en', 'es', 'fr', 'de', 'ru', 'zh'];
 
 // Reach whichever host is present: RN WebView and/or an iframe parent.
 function postOut(msg) {

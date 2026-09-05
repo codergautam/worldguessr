@@ -248,6 +248,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                             <option value="fr">Français</option>
                             <option value="de">Deutsch</option>
                             <option value="ru">Русский</option>
+                            <option value="zh">简体中文</option>
                         </select>
                     </div>
                     {typeof setMultiplayerEmotesEnabled === 'function' && (

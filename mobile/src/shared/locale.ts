@@ -6,7 +6,7 @@
  * wording (e.g. "backgrounded the app" instead of web's "switched tabs") and
  * keys web doesn't have (ad / streak-restore strings).
  *
- * All five web languages are bundled and the active one is swappable at runtime
+ * All six web languages are bundled and the active one is swappable at runtime
  * via `setLocaleLanguage()` (driven by the settings store). `t()`/`localeString()`
  * read the *current* table, so they always reflect the selected language — but
  * already-mounted screens only pick up a change when they re-render, so the
@@ -24,12 +24,13 @@ import esCommon from '@locales/es/common.json';
 import frCommon from '@locales/fr/common.json';
 import deCommon from '@locales/de/common.json';
 import ruCommon from '@locales/ru/common.json';
+import zhCommon from '@locales/zh/common.json';
 import overrides from './localeOverrides.json';
 
-export type SupportedLanguage = 'en' | 'es' | 'fr' | 'de' | 'ru';
+export type SupportedLanguage = 'en' | 'es' | 'fr' | 'de' | 'ru' | 'zh';
 
 /** Order shown in the settings picker; `en` first as the canonical fallback. */
-export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ['en', 'es', 'fr', 'de', 'ru'];
+export const SUPPORTED_LANGUAGES: SupportedLanguage[] = ['en', 'es', 'fr', 'de', 'ru', 'zh'];
 
 /** Native display names for the language picker (not translated, matches web). */
 export const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
@@ -38,6 +39,7 @@ export const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   fr: 'Français',
   de: 'Deutsch',
   ru: 'Русский',
+  zh: '简体中文',
 };
 
 const BASE_TABLES: Record<SupportedLanguage, Record<string, string>> = {
@@ -46,6 +48,7 @@ const BASE_TABLES: Record<SupportedLanguage, Record<string, string>> = {
   fr: frCommon as Record<string, string>,
   de: deCommon as Record<string, string>,
   ru: ruCommon as Record<string, string>,
+  zh: zhCommon as Record<string, string>,
 };
 
 // Mobile-only overrides are authored in English. Two kinds live here:
