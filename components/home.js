@@ -807,7 +807,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 openMap(mapSlug)
             }
         }
-        if (window.location.search.includes("crazygames")) {
+        if (process.env.NEXT_PUBLIC_6X !== "true" && window.location.search.includes("crazygames")) {
             setInCrazyGames(true);
             window.inCrazyGames = true;
             setLoading(true)
@@ -1860,7 +1860,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         try {
             const onboarding = gameStorage.getItem("onboarding");
             // check url
-            const cg = window.location.search.includes("crazygames");
+            const cg = process.env.NEXT_PUBLIC_6X !== "true" && window.location.search.includes("crazygames");
             const specifiedMapSlug = window.location.search.includes("map=");
             // Party-link entry (?party=...) must skip onboarding for this
             // session: the auto-join effect runs after `multiplayerState.verified`
@@ -1991,7 +1991,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             setScreen("singleplayer")
         }
         // check if from map screen
-        if (window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
+        if (window.location.search.includes("map=") && (process.env.NEXT_PUBLIC_6X === "true" || !window.location.search.includes("crazygames"))) {
             // get map slug map=slug from url
             const params = new URLSearchParams(window.location.search);
             const mapSlug = params.get("map");
@@ -2008,7 +2008,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // Separate useEffect to clean up URL parameters after component has mounted
     useEffect(() => {
         // Remove map parameter from URL if present, without causing hydration issues
-        if (window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
+        if (window.location.search.includes("map=") && (process.env.NEXT_PUBLIC_6X === "true" || !window.location.search.includes("crazygames"))) {
             setTimeout(() => {
                 const params = new URLSearchParams(window.location.search);
                 params.delete("map");
@@ -2037,7 +2037,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     return;
                 }
 
-                if (inIframe() && window.adBreak && !inCrazyGames && !inPoki) {
+                if (process.env.NEXT_PUBLIC_6X !== "true" && inIframe() && window.adBreak && !inCrazyGames && !inPoki) {
                     window.onboardPrerollEnd = false;
                     setLoading(true)
                     window.adBreak({
@@ -2106,7 +2106,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     useEffect(() => {
         if (!options?.language) return;
         try {
-            window.localStorage.setItem("lang", options?.language)
+            if (process.env.NEXT_PUBLIC_6X === "true") gameStorage.setItem("lang", options.language);
+            else window.localStorage.setItem("lang", options.language);
             window.language = options?.language;
             window.dispatchEvent(new CustomEvent('langChange', { detail: options?.language }));
 
@@ -2167,7 +2168,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             try {
                 const knownLangs = ["en", "es", "fr", "de", "ru"];
                 const urlSegment = stripBase(window.location.pathname).split("/").filter(Boolean)[0];
-                if (knownLangs.includes(urlSegment)) {
+                if (process.env.NEXT_PUBLIC_6X === "true") {
+                    detectedLang = knownLangs.includes(window.language) ? window.language : "en";
+                } else if (knownLangs.includes(urlSegment)) {
                     detectedLang = urlSegment;
                 } else {
                     const storedLang = window.localStorage.getItem("lang");
@@ -2461,7 +2464,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         if (!session?.token?.secret) return;
 
         // verify the ws
-        if (ws && !window.verified && !window.location.search.includes("crazygames")) {
+        if (ws && !window.verified && (process.env.NEXT_PUBLIC_6X === "true" || !window.location.search.includes("crazygames"))) {
             ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username, teamSupport: true }))
         }
     }, [session?.token?.secret, ws])
@@ -2806,7 +2809,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // server to kick the older connection with a "userAlreadyConnected" error.
 
     useEffect(() => {
-        if (inCrazyGames || window.poki) {
+        if (process.env.NEXT_PUBLIC_6X !== "true" && (inCrazyGames || window.poki)) {
             // Determine if actual gameplay is happening
             const isInGameplay = ((screen === "singleplayer" || screen === "countryGuesser") && singlePlayerRound && !singlePlayerRound.done) ||
                 (screen === "onboarding" && onboarding && !onboarding.completed) ||
@@ -3832,6 +3835,12 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     }
 
     function crazyMidgame(adFinishedRaw = () => { }) {
+        // Bridge owns every host integration in the 6x build, including hosts
+        // whose native SDK happens to expose CrazyGames/Poki globals.
+        if (process.env.NEXT_PUBLIC_6X === "true") {
+            showPlaygamaInterstitial(adFinishedRaw);
+            return;
+        }
         // Silence music/SFX for the whole ad break (Poki QA requires it; CG
         // wants it too). Every exit path below funnels through adFinished, so
         // the unduck can't be missed. The no-ad fallthrough ducks and unducks
@@ -3950,14 +3959,6 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 console.warn("error requesting GD midgame ad", e);
                 adFinished();
             }
-        } else if (process.env.NEXT_PUBLIC_6X === "true") {
-            // playgamaBridge owns the whole request lifecycle (sync readiness
-            // + busy checks, persistent state listener, timeouts) and runs
-            // the callback exactly once. It gets the RAW callback on purpose:
-            // the module is the single writer of the master gain (platform
-            // pause/mute + ad state), so the duckAudio(false) in the wrapper
-            // above would clobber a platform mute on every break.
-            showPlaygamaInterstitial(adFinishedRaw);
         } else {
             adFinished()
         }

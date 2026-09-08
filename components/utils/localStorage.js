@@ -1,3 +1,5 @@
+import { getPlaygamaStorageItem, setPlaygamaStorageItem, removePlaygamaStorageItem } from './playgamaStorage.js';
+
 export default class gameStorage {
 
   static isCrazyGames() {
@@ -7,7 +9,9 @@ export default class gameStorage {
   static setItem(key, value) {
     // console.log('setItem', key, value );
     try {
-      if(gameStorage.isCrazyGames()) {
+      if(process.env.NEXT_PUBLIC_6X === 'true') {
+        setPlaygamaStorageItem(key, value);
+      } else if(gameStorage.isCrazyGames()) {
         window.CrazyGames.SDK.data.setItem(key, value);
       } else {
       window.localStorage.setItem(key, value);
@@ -17,7 +21,9 @@ export default class gameStorage {
   static getItem(key) {
     // console.log('getItem', key );
     try {
-      if(gameStorage.isCrazyGames()) {
+      if(process.env.NEXT_PUBLIC_6X === 'true') {
+        return getPlaygamaStorageItem(key);
+      } else if(gameStorage.isCrazyGames()) {
         return window.CrazyGames.SDK.data.getItem(key);
       } else {
       return window.localStorage.getItem(key);
@@ -27,7 +33,9 @@ export default class gameStorage {
   static removeItem(key) {
     // console.log('removeItem', key );
     try {
-      if(gameStorage.isCrazyGames()) {
+      if(process.env.NEXT_PUBLIC_6X === 'true') {
+        removePlaygamaStorageItem(key);
+      } else if(gameStorage.isCrazyGames()) {
         window.CrazyGames.SDK.data.removeItem(key);
       } else {
       window.localStorage.removeItem(key);

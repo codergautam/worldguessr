@@ -39,6 +39,7 @@ let ctx = null;
 let masterGain = null;
 let sfxGain = null;
 let cachedVolume = null;
+let audioDucked = false;
 
 const buffers = new Map();    // name -> decoded AudioBuffer
 const inflight = new Map();   // name -> in-flight load Promise
@@ -85,6 +86,7 @@ function ensureContext() {
   try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { }
   ctx = new AC();
   masterGain = ctx.createGain();
+  masterGain.gain.value = audioDucked ? 0 : 1;
   masterGain.connect(ctx.destination);
   sfxGain = ctx.createGain();
   sfxGain.gain.value = toGain(getSfxVolume());
@@ -665,7 +667,8 @@ export function refreshVolumesFromStorage() {
 // duckAudio(true) when an interstitial starts and duckAudio(false) when it
 // ends — Poki QA checks that game audio is silent during commercialBreak.
 export function duckAudio(ducked) {
+  audioDucked = !!ducked;
   try {
-    if (masterGain && ctx) masterGain.gain.setTargetAtTime(ducked ? 0 : 1, ctx.currentTime, 0.05);
+    if (masterGain && ctx) masterGain.gain.setTargetAtTime(audioDucked ? 0 : 1, ctx.currentTime, 0.05);
   } catch (e) { }
 }

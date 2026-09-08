@@ -6,6 +6,7 @@ import de from '../public/locales/de/common.json';
 import ru from '../public/locales/ru/common.json';
 import { useRouter } from 'next/router';
 import { stripBase } from '@/lib/basePath';
+import gameStorage from './utils/localStorage';
 
 const langs = ["en", "es", "fr", "de", "ru"];
 const langMap = { en, es, fr, de, ru };
@@ -21,7 +22,7 @@ export function getLangFromPath(path) {
 export function useTranslation() {
   const router = useRouter();
 
-  const pathLang = getLangFromPath(stripBase(router.asPath));
+  const pathLang = process.env.NEXT_PUBLIC_6X === 'true' ? null : getLangFromPath(stripBase(router.asPath));
 
   const [storedLang, setStoredLang] = useState(null);
 
@@ -30,7 +31,9 @@ export function useTranslation() {
 
     const readStored = () => {
       try {
-        const stored = window.localStorage.getItem("lang");
+        const stored = process.env.NEXT_PUBLIC_6X === 'true'
+          ? window.language || gameStorage.getItem("lang")
+          : window.localStorage.getItem("lang");
         if(stored && langs.includes(stored)) setStoredLang(stored);
       } catch(e) {}
     };

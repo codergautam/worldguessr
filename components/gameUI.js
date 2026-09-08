@@ -30,6 +30,8 @@ import deriveTeamEndFallback from "./utils/teamDuelEndFallback";
 import getMyTeam from "./utils/getMyTeam";
 import { DUEL_INTRO_EXIT_MS } from "./utils/duelIntroTiming";
 import Countdown, { DIGIT_SLOT } from "./roundTimer";
+import usePlaygamaPause from "./usePlaygamaPause";
+import { getPlaygamaPaused, sendPlaygamaMessage } from "./utils/playgamaBridge";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 const SPACE_REPLAY_QUIET_MS = 400;
@@ -344,6 +346,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // Paths 2 and 3 use mapResetting's completion handshake; there is no
   // elapsed-time guess for when the camera is safe to expose.
   function advanceRound(advanceSource) {
+    if (getPlaygamaPaused()) return;
     // Multiplayer rounds are server-driven; nothing here applies. The one
     // path that reaches this in MP is the spacebar handler (showAnswer is
     // multiplayerShowAnswer during a reveal), and letting it run case 3
@@ -439,6 +442,34 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
   const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
+  const onboardingTimerRef = useRef(null);
+  const onboardingClock = useRef({ deadline: null, changedAt: 0 });
+  if (onboardingClock.current.deadline !== onboarding?.nextRoundTime) {
+    onboardingClock.current = { deadline: onboarding?.nextRoundTime, changedAt: Date.now() };
+  }
+  const playgamaPaused = usePlaygamaPause(({ pausedAt, resumedAt }) => {
+    // The server owns multiplayer deadlines; never extend those locally.
+    if (multiplayerState?.inGame) return;
+    if (resumedAt > pausedAt) {
+      clearInterval(singlePlayerTimerRef.current);
+      clearInterval(onboardingTimerRef.current);
+    }
+    if (!showAnswer) {
+      setRoundStartTime(start => start == null ? start
+        : start + Math.max(0, resumedAt - Math.max(pausedAt, start)));
+    }
+    if (onboarding && !onboarding.completed) {
+      const deadlinePause = Math.max(pausedAt, onboardingClock.current.changedAt);
+      setOnboarding(prev => ({
+        ...prev,
+        ...(prev.nextRoundTime ? { nextRoundTime: prev.nextRoundTime + Math.max(0, resumedAt - deadlinePause) } : {}),
+        ...(prev.startTime ? { startTime: prev.startTime + Math.max(0, resumedAt - Math.max(pausedAt, prev.startTime)) } : {}),
+      }));
+    }
+    if (onboardingRevealStartedAt.current) {
+      onboardingRevealStartedAt.current += Math.max(0, resumedAt - Math.max(pausedAt, onboardingRevealStartedAt.current));
+    }
+  });
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
   const [countryGuessrStreak, setCgStreak] = useState(() => {
     try { return parseInt(gameStorage.getItem("countryGuessrStreak")) || 0; } catch(e) { return 0; }
@@ -510,6 +541,58 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
+
+  // Report the actual round, including Daily's locally owned answer state.
+  // Loading/settings pause a started round; a reveal completes it.
+  const playgamaRound = useRef(null);
+  const platformWorld = multiplayerState?.inGame ? 'multiplayer' : dailyMode ? 'daily'
+    : onboarding ? 'tutorial' : countryGuesser ? 'countryGuesser' : 'singleplayer';
+  const platformLevel = multiplayerState?.inGame ? multiplayerState.gameData?.curRound
+    : onboarding?.round ?? singlePlayerRound?.round;
+  const platformRoundKey = platformLevel == null ? null
+    : `${platformWorld}:${multiplayerState?.gameData?.code || gameOptions?.location || ''}:${platformLevel}`;
+  const platformRoundComplete = multiplayerState?.inGame
+    ? multiplayerState.gameData?.state === 'end'
+    : !!(showAnswer || singlePlayerRound?.done || onboarding?.completed);
+  const platformRoundActive = !!(platformRoundKey && !platformRoundComplete && !loading
+    && !welcomeOverlayShown && !gameOptionsModalShown && !mapModal && !explanationModalShown
+    && !playgamaPaused && (!multiplayerState?.inGame || multiplayerState.gameData?.state === 'guess'));
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_6X !== 'true') return;
+    let previous = playgamaRound.current;
+    if (previous && previous.key !== platformRoundKey) {
+      if (previous.state !== 'completed') {
+        // The server saves the finished round, increments curRound, then
+        // enters getready. That edge is a completion, not an abandoned round.
+        const completedMultiplayerRound = platformWorld === 'multiplayer'
+          && previous.parameters.world === 'multiplayer'
+          && previous.gameCode === multiplayerState?.gameData?.code
+          && Number(platformLevel) > Number(previous.parameters.level);
+        sendPlaygamaMessage(completedMultiplayerRound ? 'level_completed' : 'level_failed', previous.parameters);
+      }
+      previous = playgamaRound.current = null;
+    }
+    if (!previous || previous.state === 'completed') {
+      if (!platformRoundActive) return;
+      const parameters = { world: platformWorld, level: String(platformLevel) };
+      playgamaRound.current = { key: platformRoundKey, state: 'active', parameters, gameCode: multiplayerState?.gameData?.code };
+      sendPlaygamaMessage('level_started', parameters);
+    } else if (platformRoundComplete) {
+      previous.state = 'completed';
+      sendPlaygamaMessage('level_completed', previous.parameters);
+    } else if (platformRoundActive && previous.state === 'paused') {
+      previous.state = 'active';
+      sendPlaygamaMessage('level_resumed', previous.parameters);
+    } else if (!platformRoundActive && previous.state === 'active') {
+      previous.state = 'paused';
+      sendPlaygamaMessage('level_paused', previous.parameters);
+    }
+  }, [platformRoundKey, platformRoundActive, platformRoundComplete, platformWorld, platformLevel, multiplayerState?.gameData?.code]);
+  useEffect(() => () => {
+    const previous = playgamaRound.current;
+    if (previous && previous.state !== 'completed') sendPlaygamaMessage('level_failed', previous.parameters);
+    playgamaRound.current = null;
+  }, []);
 
   // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
   const inGetready = !!(
@@ -673,12 +756,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // followed by a dangling separator once a guess zeroes nextRoundTime.
     // Owning both edges in one effect is what keeps them from drifting; both
     // setters bail on an unchanged value, so this costs nothing when idle.
-    if(!onboarding?.nextRoundTime) {
+    if(!onboarding?.nextRoundTime || playgamaPaused) {
       setObFinal5(false);
       setObHasTime(false);
       return;
     }
     const interval = setInterval(() => {
+      if (getPlaygamaPaused()) return;
       const val = Math.max(0,Math.ceil(((onboarding.nextRoundTime - Date.now())) / 100)/10)
       // Booleans only — the digits are written by <Countdown>. Both setters
       // bail out on an unchanged value, so this stays a no-op commit-wise.
@@ -689,16 +773,17 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         setOnboarding((prev) => {
           return {
             ...prev,
-            nextRoundTime: Date.now() + (window.location.search.includes("crazygames") ? 60000 : 20000),
+            nextRoundTime: Date.now() + (process.env.NEXT_PUBLIC_6X !== "true" && window.location.search.includes("crazygames") ? 60000 : 20000),
           }
         });
       }
     }, 100)
+    onboardingTimerRef.current = interval;
 
     return () => {
       clearInterval(interval)
     }
-  }, [onboarding?.nextRoundTime])
+  }, [onboarding?.nextRoundTime, playgamaPaused])
 
   // Singleplayer countdown timer
   const singlePlayerTimerRef = useRef(null);
@@ -715,7 +800,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     const modalOpen = gameOptionsModalShown || mapModal;
 
-    if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || !roundStartTime || modalOpen) {
+    if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || !roundStartTime || modalOpen || playgamaPaused) {
       setSpFinal5(false);
       setSpHasTime(false);
       if (modalOpen) modalWasOpenRef.current = true;
@@ -733,6 +818,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     const deadline = roundStartTime + gameOptions.timePerRound * 1000;
     singlePlayerTimerRef.current = setInterval(() => {
+      if (getPlaygamaPaused()) return;
       // Ceil: the round now times out AT the deadline. Floor reached 0 up to
       // 99ms early, so every timed singleplayer round ended a fraction short.
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 100) / 10);
@@ -793,7 +879,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         singlePlayerTimerRef.current = null;
       }
     };
-  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal])
+  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal, playgamaPaused])
 
   useEffect(() => {
     if(multiplayerState?.inGame) return;
@@ -833,6 +919,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   useEffect(() => {
     function keydown(e) {
+      if (getPlaygamaPaused()) return;
       // Don't trigger game actions if user is typing in an input field
       if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.tagName === 'SELECT' || e.target.isContentEditable) {
         return;
@@ -1197,7 +1284,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     (multiplayerState?.inGame
       && multiplayerState?.gameData?.state === 'guess'
       && mpFinal5)
-    || (!multiplayerState?.inGame && spFinal5)
+    || (!multiplayerState?.inGame && spFinal5 && !playgamaPaused)
   );
   useEffect(() => {
     if (!tickingWindow) return;
@@ -1257,6 +1344,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, []);
 
   function guess(correctOverride) {
+    if (getPlaygamaPaused()) return;
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
@@ -1379,6 +1467,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // change at a reveal and the reveal recreates the interval (showAnswer is
   // in that effect's deps), so mid-round the captured values are current.
   function submitCountryGuess(selected) {
+    if (getPlaygamaPaused()) return;
     const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
     const timedOut = selected == null;
     const isCorrect = !timedOut && (isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country);
@@ -1894,7 +1983,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           {obHasTime
             ? <><span className="timer__countdown">
                 {/* deadline=null pauses the rAF — same note as the duel pill. */}
-                <Countdown deadline={onboardingTimerShown ? onboarding?.nextRoundTime : null} template={`${DIGIT_SLOT}s`} />
+                <Countdown deadline={onboardingTimerShown && !playgamaPaused ? onboarding?.nextRoundTime : null} template={`${DIGIT_SLOT}s`} />
               </span> &middot; </>
             : null
           }
@@ -1909,7 +1998,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
               <span className="timer__main-row">
                 {gameOptions.timePerRound > 0 && !showAnswer && spHasTime
                   ? <><span className="timer__countdown">
-                      <Countdown deadline={roundStartTime ? roundStartTime + gameOptions.timePerRound * 1000 : null} template={`${DIGIT_SLOT}s`} />
+                      <Countdown deadline={roundStartTime && !playgamaPaused ? roundStartTime + gameOptions.timePerRound * 1000 : null} template={`${DIGIT_SLOT}s`} />
                     </span> &middot; </>
                   : null
                 }

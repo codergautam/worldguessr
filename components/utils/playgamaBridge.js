@@ -1,8 +1,6 @@
-// Playgama Bridge SDK glue — 6x portal build ONLY. Three consumers:
-// the script loader (headContent.js's NEXT_PUBLIC_6X branch), the
-// interstitial dispatcher (home.js crazyMidgame's 6x branch), and the
-// headless banner component (bannerAdPlaygama.js). Nothing here runs on
-// any other build: every caller sits behind a NEXT_PUBLIC_6X gate.
+// Playgama Bridge SDK glue — 6x portal build ONLY. Bootstrap initializes it;
+// Home/GameUI report readiness, rounds and ad breaks; the banner component
+// owns menu banners. Other builds never load or initialize the SDK.
 //
 // The SDK auto-detects its host platform; on an unsupported host (local
 // zip testing, dev) it falls back to a mock platform whose ad calls
@@ -20,60 +18,85 @@
 // - Interstitials also fail for initialInterstitialDelay (default 60s)
 //   after game_ready, and NEVER serve until game_ready was sent. The zip's
 //   config sets that delay to 0.
-// - window 'blur' is treated as page-hidden: PAUSE_STATE_CHANGED(true) +
-//   AUDIO_STATE_CHANGED(false). Clicking the cross-origin Street View
-//   iframe blurs the top window, so those events must be filtered.
+// - window 'blur' is treated as page-hidden. Focusing our panorama iframe
+//   must restore the SDK's visibility reason without ignoring host pauses.
 // - banner hide() is a no-op while the banner is still 'loading'.
 import { duckAudio } from "@/components/utils/audio";
 
 const SCRIPT_SRC = "https://bridge.playgama.com/v2/stable/playgama-bridge.js";
 
-// An interstitial that never reaches 'opened' is treated as dead after 15s
-// (mirrors the GD path's safety timeout). Once 'opened' fires, the ad owns
-// the screen and gets a far longer leash — resuming mid-ad would advance
-// the round underneath a running video.
+// A request that never starts must not strand the player. Once an ad opens,
+// only its terminal event can release gameplay; video duration is not ours.
 const START_TIMEOUT_MS = 15000;
-const OPENED_WATCHDOG_MS = 90000;
 
 let initPromise = null;   // Promise<bridge|null>, created once
 let readyBridge = null;   // the live bridge after initialize(), else null
 let gameReadyWanted = false;
 let gameReadySent = false;
-let pendingFinish = null; // the single in-flight request's callback
+let pendingFinish = null; // callbacks waiting for the single in-flight ad
 let startTimer = null;    // request → 'opened' leash
-let openedTimer = null;   // 'opened' → 'closed' leash
 let wantedBanner = null;  // 'top' | 'bottom' | null (last write wins)
 let paused = false;
 let audioEnabled = true;
 let adActive = false;     // an SDK interstitial is requested or on screen
+let gameplayPaused = false;
+let stateTimer = null;
+let visibilityListenersInstalled = false;
+const pauseListeners = new Set();
+const finishedCallbacks = [];
+const pendingMessages = [];
+
+export function getPlaygamaPaused() { return gameplayPaused; }
+
+export function subscribePlaygamaPause(listener) {
+  pauseListeners.add(listener);
+  return () => pauseListeners.delete(listener);
+}
 
 // ONE writer for the master gain: the platform pause event, the platform
 // audio event, and the interstitial lifecycle all funnel through here so
-// the three signals can never fight over duckAudio. crazyMidgame's 6x
-// branch passes its RAW callback (not the ducking wrapper) for the same
-// reason — its top-of-function duckAudio(true) is undone here, by the
-// derived state, on every exit path.
+// the three signals can never fight over duckAudio. crazyMidgame's 6x branch
+// passes its raw callback before touching the other portals' audio wrapper.
 function applyAudioState() {
-  duckAudio(paused || !audioEnabled || adActive);
+  const hidden = document.visibilityState === "hidden";
+  duckAudio(paused || !audioEnabled || adActive || hidden);
+  const next = paused || adActive || hidden;
+  if (next !== gameplayPaused) {
+    gameplayPaused = next;
+    pauseListeners.forEach((listener) => listener());
+  }
+  // Bridge emits an ad's closed event BEFORE releasing its platform pause.
+  // Run round advances only after that release (or a later tab resume), once
+  // timer subscribers have compensated for the time spent paused.
+  while (!gameplayPaused && finishedCallbacks.length) {
+    finishCallback(finishedCallbacks.shift());
+  }
 }
 
-// Exactly-once latch for the in-flight request's callback. Read-and-null
-// FIRST so a second arrival (state event after a timeout, etc.) is a no-op.
+function schedulePlatformState() {
+  if (stateTimer !== null) return;
+  stateTimer = setTimeout(() => {
+    stateTimer = null;
+    applyAudioState();
+  }, 0);
+}
+
+// Exactly-once latch for the in-flight request's callbacks. Clear the latch
+// before notifying, so a second state event or timeout cannot repeat them.
 // Always re-derives the gain, even with nothing latched: a stale ad that
 // opened after its request timed out still needs the unduck on close.
 function finishInterstitial() {
   if (startTimer) clearTimeout(startTimer);
   startTimer = null;
   adActive = false;
-  applyAudioState();
-  const finish = pendingFinish;
-  if (!finish) return;
+  if (pendingFinish) finishedCallbacks.push(...pendingFinish);
   pendingFinish = null;
-  try {
-    finish();
-  } catch (e) {
-    console.warn("[Playgama] adFinished callback threw", e);
-  }
+  applyAudioState();
+}
+
+function finishCallback(callback) {
+  try { callback(); }
+  catch (e) { console.warn("[Playgama] adFinished callback threw", e); }
 }
 
 // Persistent module-lifetime subscription (registered once at init) — never
@@ -86,32 +109,31 @@ function onInterstitialState(state) {
   if (state === "opened") {
     if (startTimer) clearTimeout(startTimer);
     startTimer = null;
-    if (openedTimer) clearTimeout(openedTimer);
-    openedTimer = setTimeout(() => {
-      openedTimer = null;
-      console.warn("[Playgama] interstitial never closed, resuming");
-      finishInterstitial();
-    }, OPENED_WATCHDOG_MS);
     adActive = true;
     applyAudioState();
   } else if (state === "closed" || state === "failed") {
-    if (openedTimer) clearTimeout(openedTimer);
-    openedTimer = null;
     finishInterstitial();
   }
 }
 
-// The SDK maps window 'blur' to page-hidden, and focusing the cross-origin
-// Street View iframe blurs the top window (the repo's documented focus
-// steal, see gameUI.js), so a pause/mute that arrives while the document
-// is still visible is a click on the pano, not a real pause. Real tab hides
-// arrive with visibilityState 'hidden'. Resumes are always honoured.
-function isSpuriousHide() {
-  try {
-    return document.visibilityState === "visible";
-  } catch (e) {
-    return false;
-  }
+// Register BEFORE loading Bridge, so this task precedes our deferred pause
+// notification. The focused iframe settles after blur. Replaying the real
+// document visibility lets Bridge clear ONLY its visibility reason; its ad
+// and host pause/mute reasons remain intact. Never manufacture a focus event
+// or discard all visible-tab pauses (host overlays are visible too).
+function installVisibilityListeners() {
+  if (visibilityListenersInstalled) return;
+  visibilityListenersInstalled = true;
+  window.addEventListener("blur", () => {
+    setTimeout(() => {
+      const frame = document.activeElement;
+      if (document.visibilityState === "visible" && document.hasFocus() && frame?.tagName === "IFRAME" &&
+          (frame.id === "streetview" || frame.closest?.(".daily-meta-card__pano"))) {
+        document.dispatchEvent(new Event("visibilitychange"));
+      }
+    }, 0);
+  });
+  document.addEventListener("visibilitychange", schedulePlatformState);
 }
 
 function subscribe(emitter, eventName, handler, label) {
@@ -138,17 +160,17 @@ function onBridgeReady(bridge) {
     if (state === "shown" && !wantedBanner) applyBanner();
   }, "banner state");
   subscribe(bridge.platform, events.PAUSE_STATE_CHANGED, (isPaused) => {
-    if (isPaused && isSpuriousHide()) return;
     paused = !!isPaused;
-    applyAudioState();
+    schedulePlatformState();
   }, "pause state");
   subscribe(bridge.platform, events.AUDIO_STATE_CHANGED, (isEnabled) => {
-    if (!isEnabled && isSpuriousHide()) return;
     audioEnabled = !!isEnabled;
-    applyAudioState();
+    schedulePlatformState();
   }, "audio state");
   try {
     audioEnabled = bridge.platform.isAudioEnabled !== false;
+    paused = !!bridge.platform.isPaused;
+    adActive = bridge.advertisement.interstitialState === "opened";
   } catch (e) {}
   applyAudioState();
   // The local-verification signal: on a zip test this logs the mock
@@ -173,12 +195,19 @@ function onBridgeReady(bridge) {
 export function loadPlaygamaBridge() {
   if (typeof window === "undefined") return Promise.resolve(null);
   if (initPromise) return initPromise;
+  installVisibilityListeners();
   initPromise = new Promise((resolve) => {
     const script = document.createElement("script");
     script.id = "playgama-bridge";
     script.src = SCRIPT_SRC;
     script.async = false;
-    script.onerror = () => resolve(null);
+    const fail = (error) => {
+      console.warn("[Playgama] initialization failed", error);
+      script.remove();
+      initPromise = null;
+      resolve(null);
+    };
+    script.onerror = fail;
     script.onload = () => {
       try {
         window.bridge
@@ -191,12 +220,9 @@ export function loadPlaygamaBridge() {
             }
             resolve(readyBridge);
           })
-          .catch((e) => {
-            console.warn("[Playgama] initialize failed", e);
-            resolve(null);
-          });
+          .catch(fail);
       } catch (e) {
-        resolve(null);
+        fail(e);
       }
     };
     document.body.appendChild(script);
@@ -205,8 +231,8 @@ export function loadPlaygamaBridge() {
 }
 
 // The crazyMidgame worker. SYNCHRONOUS readiness checks, never await: if
-// the SDK is absent, mock, unsupported, or already busy, the round advance
-// must be instant — missing an ad beats a stalled loading cover. The SDK
+// the SDK is absent, mock, unsupported, or stuck loading, skip the request.
+// An existing open ad must finish before a new round can advance. The SDK
 // paces frequency itself (minimumDelayBetweenInterstitial → synchronous
 // 'failed', which resolves the latch through onInterstitialState), so
 // there is deliberately no local throttle.
@@ -215,39 +241,52 @@ export function showPlaygamaInterstitial(onFinished = () => {}) {
   // can do this; the UI is under the ad): run it when the ad ends instead
   // of resuming the game underneath the ad.
   if (pendingFinish) {
-    const first = pendingFinish;
-    pendingFinish = () => {
-      first();
-      onFinished();
-    };
+    pendingFinish.push(onFinished);
     return;
   }
   const bail = () => {
+    finishedCallbacks.push(onFinished);
     applyAudioState();
-    onFinished();
   };
   if (!readyBridge) return bail();
   let supported = false;
-  let busy = false;
+  let state;
   try {
     supported = !!readyBridge.advertisement.isInterstitialSupported;
-    const state = readyBridge.advertisement.interstitialState;
-    busy = state === "loading" || state === "opened";
+    state = readyBridge.advertisement.interstitialState;
   } catch (e) {}
-  if (!supported || busy) return bail();
-  pendingFinish = onFinished;
+  if (!supported) return bail();
+  // A late ad may have opened after its startup timeout. Join its completion
+  // instead of advancing a new round under a live ad.
+  if (state === "opened") {
+    pendingFinish = [onFinished];
+    onInterstitialState("opened");
+    return;
+  }
+  if (state === "loading") return bail();
+  pendingFinish = [onFinished];
   adActive = true;
   applyAudioState();
   startTimer = setTimeout(() => {
     startTimer = null;
+    if (readyBridge.advertisement.interstitialState === "opened") {
+      onInterstitialState("opened");
+      return;
+    }
     console.warn("[Playgama] interstitial never started, resuming");
     finishInterstitial();
   }, START_TIMEOUT_MS);
+  const callbacks = pendingFinish;
   try {
-    readyBridge.advertisement.showInterstitial();
+    const request = readyBridge.advertisement.showInterstitial();
+    // Current Bridge uses state events. Catch a rejected promise too if a
+    // platform adapter provides one; resolving is NOT evidence the ad ended.
+    if (request?.catch) request.catch(() => {
+      if (pendingFinish === callbacks && readyBridge.advertisement.interstitialState !== "opened") finishInterstitial();
+    });
   } catch (e) {
     console.warn("[Playgama] showInterstitial threw", e);
-    finishInterstitial();
+    if (pendingFinish === callbacks) finishInterstitial();
   }
 }
 
@@ -279,8 +318,10 @@ export function setPlaygamaBanner(position) {
 function flushGameReady() {
   if (gameReadySent || !gameReadyWanted || !readyBridge) return;
   try {
-    readyBridge.platform.sendMessage("game_ready");
+    const result = readyBridge.platform.sendMessage("game_ready");
     gameReadySent = true;
+    result?.catch?.((e) => console.warn("[Playgama] game_ready delivery failed", e));
+    pendingMessages.splice(0).forEach(([message, parameters]) => sendPlaygamaMessage(message, parameters));
   } catch (e) {
     console.warn("[Playgama] game_ready failed", e);
   }
@@ -291,7 +332,15 @@ export function sendPlaygamaGameReady() {
   flushGameReady();
 }
 
-// DELIBERATELY NOT integrated (pending decisions, on record in
-// docs/environment-variables.md "### 6x"): rewarded ads (no portal build
-// grants rewards), bridge.storage (6x is accountless; localStorage prefs
-// stay), bridge.platform.language localization.
+export function sendPlaygamaMessage(message, parameters) {
+  if (process.env.NEXT_PUBLIC_6X !== "true") return;
+  if (!readyBridge || !gameReadySent) {
+    pendingMessages.push([message, parameters]);
+    return;
+  }
+  try {
+    readyBridge.platform.sendMessage(message, parameters)?.catch?.((e) => {
+      console.warn(`[Playgama] ${message} delivery failed`, e);
+    });
+  } catch (e) { console.warn(`[Playgama] ${message} failed`, e); }
+}

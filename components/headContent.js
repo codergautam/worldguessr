@@ -41,14 +41,18 @@ const BRANDS = {
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride, aboutContent }) {
   useEffect(() => {
+    // Bridge owns platform detection in the 6x build, including CrazyGames
+    // launches. Load it before any legacy portal URL/SDK checks.
+    if (process.env.NEXT_PUBLIC_6X === "true") {
+      loadPlaygamaBridge();
+      // The SDK owns global state and remains initialized across remounts.
+      return () => {};
+    }
+
     // NEXT_PUBLIC_SCHOOLGUESSR: schoolguessr.com is not (yet) on the Playwire
     // property's domain allowlist — serving RAMP from an unapproved domain
     // risks flagging the whole account. Gate pending CK's allowlist approval;
     // remove the term once confirmed.
-    // NEXT_PUBLIC_6X: the 6x build ran the full Playwire stack until Aug 31,
-    // when the portal's Playgama requirement moved it onto the Bridge SDK —
-    // see the NEXT_PUBLIC_6X branch at the bottom of this chain. It now
-    // excludes RAMP like every other portal.
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
   !process.env.NEXT_PUBLIC_SCHOOLGUESSR && process.env.NEXT_PUBLIC_6X !== "true") {
@@ -235,16 +239,6 @@ ads.js"></script>*/
         fjs.parentNode.insertBefore(js, fjs);
       }(document, 'script', 'gamedistribution-jssdk'));
 
-      return () => {};
-    } else if (process.env.NEXT_PUBLIC_6X === "true") {
-      // Playgama Bridge (6x portal). Eagerly injected like the GD/Poki/CG
-      // SDKs above — the first-interaction gate in the main-site branch is a
-      // worldguessr.com perf ruling, not a portal one, and the bridge must be
-      // initialized before ANY bridge.* call (platform requirement). The SDK
-      // auto-detects its host and falls back to a mock platform with safe
-      // defaults, so local zip tests are harmless. Like GD, the SDK owns
-      // global state — no un-inject on cleanup.
-      loadPlaygamaBridge();
       return () => {};
     }
   }, []);

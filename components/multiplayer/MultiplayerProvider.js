@@ -50,7 +50,7 @@ const NOOP_CTX = {
 
 function sendVerify(ws) {
   if (typeof window === "undefined" || !ws || ws.readyState !== 1) return;
-  const inCrazyGames = window.location.search.includes("crazygames");
+  const inCrazyGames = process.env.NEXT_PUBLIC_6X !== "true" && window.location.search.includes("crazygames");
 
   if (inCrazyGames) {
     if (window.verifyPayload) {

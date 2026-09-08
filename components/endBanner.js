@@ -11,6 +11,8 @@ import getMyTeam from "./utils/getMyTeam";
 import CountryFlag from "./utils/countryFlag";
 import openInStreetView from "./utils/openInStreetView";
 import { toast } from "react-toastify";
+import usePlaygamaPause from "./usePlaygamaPause";
+import { getPlaygamaPaused } from "./utils/playgamaBridge";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -57,6 +59,19 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const revealStartedAt = useRef(0);
     const fullResetRef = useRef(fullReset);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
+    const autoAdvanceDeadline = useRef(null);
+    const [autoAdvanceResume, setAutoAdvanceResume] = useState(0);
+    const playgamaPaused = usePlaygamaPause(({ pausedAt, resumedAt }) => {
+        clearAutoAdvance();
+        if (autoAdvanceDeadline.current) {
+            const startedAt = autoAdvanceDeadline.current - ONBOARDING_AUTO_ADVANCE_SECONDS * 1000;
+            autoAdvanceDeadline.current += Math.max(0, resumedAt - Math.max(pausedAt, startedAt));
+        }
+        if (revealStartedAt.current) {
+            revealStartedAt.current += Math.max(0, resumedAt - Math.max(pausedAt, revealStartedAt.current));
+        }
+        setAutoAdvanceResume(value => value + 1);
+    });
     const shouldAutoAdvanceOnboarding = guessed && onboarding && !onboarding.completed && onboarding.mode !== 'classic';
 
     if (shouldAutoAdvanceOnboarding && !revealStartedAt.current) {
@@ -111,17 +126,26 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // Auto-advance for onboarding (consider shorter on last round to keep flow snappy)
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
+        autoAdvanceDeadline.current = null;
+    }, [shouldAutoAdvanceOnboarding, onboarding?.round, onboarding?.mode]);
+    useEffect(() => {
         clearAutoAdvance();
         if (shouldAutoAdvanceOnboarding) {
             const duration = isOnboardingLastRound ? ONBOARDING_AUTO_ADVANCE_SECONDS : ONBOARDING_AUTO_ADVANCE_SECONDS;
-            const endAt = Date.now() + duration * 1000;
-            revealStartedAt.current = Date.now();
-            setAutoAdvanceCountdown(duration);
+            if (!autoAdvanceDeadline.current) {
+                autoAdvanceDeadline.current = Date.now() + duration * 1000;
+                revealStartedAt.current = Date.now();
+            }
+            const endAt = autoAdvanceDeadline.current;
+            setAutoAdvanceCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
+            if (playgamaPaused) return;
             logOnboardingAdvance("timer-start", { duration });
             const interval = setInterval(() => {
+                if (getPlaygamaPaused()) return;
                 setAutoAdvanceCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
             }, 250);
             const timeout = setTimeout(() => {
+                if (getPlaygamaPaused()) return;
                 clearAutoAdvance();
                 setAutoAdvanceCountdown(0);
                 logOnboardingAdvance("timer-fired");
@@ -131,7 +155,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 // fullReset → gameUI.advanceRound → setMapFadingOut(true),
                 // which fades this banner out with the map (endBannerFadeOut).
                 fullResetRef.current({ source: "endBannerAutoAdvance" });
-            }, duration * 1000);
+            }, Math.max(0, endAt - Date.now()));
             autoAdvanceTimer.current = interval;
             autoAdvanceTimeout.current = timeout;
             return clearAutoAdvance;
@@ -139,7 +163,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             setAutoAdvanceCountdown(null);
             revealStartedAt.current = 0;
         }
-    }, [shouldAutoAdvanceOnboarding, guessed, onboarding?.round, onboarding?.completed, onboarding?.mode, isOnboardingLastRound]);
+    }, [shouldAutoAdvanceOnboarding, guessed, onboarding?.round, onboarding?.completed, onboarding?.mode, isOnboardingLastRound, playgamaPaused, autoAdvanceResume]);
 
     const isLastRound = (onboarding && onboarding.round === (onboarding.locations?.length || 3))
         || (singlePlayerRound && singlePlayerRound.round === singlePlayerRound.totalRounds);
