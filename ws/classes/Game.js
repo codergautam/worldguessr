@@ -2154,6 +2154,17 @@ export default class Game {
       }
     }
 
+    // Did this game move (or seed) the rating? Stamped on the UserStats row
+    // so the daily ELO board can tell a real rating point from a passive
+    // snapshot. A seeded placement is a real point: its row carries the seed
+    // and is the baseline every later gain is measured from. An unseeded
+    // placement, a bot duel and an unranked 1v1 leave the rating where it
+    // was, and a row like that at the 500 entry rating followed by a seed
+    // would otherwise book the seed as a gain.
+    const ratedRow = this.isPlacement
+      ? placementSeeded
+      : (!this.isBotGame && !!this.ratingV2 && resolved);
+
     // Save duel game to MongoDB for history tracking. Bot games save too
     // (accountIds.p2 is null by construction there): the human's history
     // shows the match, saveDuelToMongoDB synthesizes the bot side from
@@ -2168,7 +2179,7 @@ export default class Game {
 
       // Run sequentially: save first (updates User.totalXp), then record stats (reads updated value)
       this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp, p2Xp)
-        .then(() => this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo))
+        .then(() => this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, ratedRow))
         .then(() => { this.saveInProgress = false; })
         .catch(error => {
           console.error('Error saving duel game to MongoDB:', error);
@@ -2847,7 +2858,7 @@ export default class Game {
     }
   }
 
-  async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
+  async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, rated) {
     const player1Data = this.getPlayerData(p1, 'p1');
     const player2Data = this.getPlayerData(p2, 'p2');
     try {
@@ -2859,7 +2870,8 @@ export default class Game {
           eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
           finalScore: player1Data?.score || 0,
           duration: this.endTime - this.startTime,
-          newElo: p1NewElo
+          newElo: p1NewElo,
+          rated
         });
       }
       if (this.accountIds.p2) {
@@ -2870,7 +2882,8 @@ export default class Game {
           eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
           finalScore: player2Data?.score || 0,
           duration: this.endTime - this.startTime,
-          newElo: p2NewElo
+          newElo: p2NewElo,
+          rated
         });
       }
     } catch (error) {

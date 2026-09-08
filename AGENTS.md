@@ -195,6 +195,13 @@ When the user corrects your approach, append a one-line rule here before ending 
 - For ChinaGuessr movement, hide the pancake only when no destination exists; align its arrow to the target bearing from the panorama origin (never target-minus-cursor), update free hover immediately, and preserve its last valid disc during drag and near the viewport bottom. (Corrected 2026-08-25.)
 - A ChinaGuessr move may start its zoom and cross-fade only after the destination has a complete GPU-resident panorama level; a timeout must keep the outgoing pano instead of swapping onto black. (Corrected 2026-08-25.)
 - For the standalone Street View prototype, judge reconstruction coverage by solid full-height building silhouettes; foliage retention does not count as restoring missing facades. (Corrected 2026-08-27.)
+- For mobile matchmaking flashes, verify the actual native loader and the cover's ancestor opacity on waiting-to-getready; keep countdown/VS outside the hidden panorama scene and preload underneath it. Remove disproven workarounds, and do not call render tests physical-device verification. (Corrected 2026-09-05.)
+- Match mobile duel introductions to the web's `.hb-vs-*` design: player name pills, cyan VS badge, and numeric countdown instead of a plain VS label and progress bar. (Corrected 2026-09-05.)
+- When explaining matchmaking, use the setting name "Avoid lower skill duels" and state that it defaults on for Voyager+; explain any opt-out case explicitly instead of calling the paths "strict" and "normal" queues. (Corrected 2026-09-06.)
+- Matchmaking audits must verify that disabling "Avoid lower skill duels" never rejects a player pair accepted with it enabled; compare both settings at every widening threshold, not only each setting against HEAD. (Corrected 2026-09-06.)
+- "Avoid lower skill duels" must retain the Voyager floor at every wait time; Explorer expansion at two minutes applies only with the setting disabled. Both settings keep the one-minute Voyager+ expansion. (Corrected 2026-09-06.)
+- When a daily schedule read can fail, validate it before consuming a guest claim; test missing-file recovery through the claim handler so XP and history remain claimable. (Corrected 2026-09-06.)
+- Keep an icon's measured natural height independent of its animated container; verify initial measurement and repeated layouts with Yoga, not only React render mocks. (Corrected 2026-09-06.)
 
 ---
 

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Pressable } from './ui/SfxPressable';
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   Easing,
@@ -238,18 +239,11 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
   // and later the single exit fade takes card and confetti out together. The
   // native store flow fires while all of this is still up (finishFiveStar →
   // parent), so the user always sees an acknowledgement and their fingers are
-  // at rest when the sheet lands. "Maybe later" freezes in whatever state it
-  // is in: laterReady goes false so it can't be pressed (a dismiss after a
-  // rating would corrupt the store), and its arrival timer is cancelled so it
-  // can't fade in mid-celebration either.
+  // at rest when the sheet lands. "Maybe later" was already retired at the
+  // star tap (retireLater), so nothing here can arrive or be pressed.
   const startCelebration = () => {
     setCelebrating(true);
     haptics.success();
-    if (laterTimer.current) {
-      clearTimeout(laterTimer.current);
-      laterTimer.current = null;
-    }
-    setLaterReady(false);
     cardScale.value = withSequence(
       withTiming(1.04, { duration: 120, easing: Easing.out(Easing.quad) }),
       withSpring(1, { damping: 10, stiffness: 220 }),
@@ -273,12 +267,35 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
     ? FadeIn.duration(150)
     : FadeInRight.duration(240).reduceMotion(NO_RM);
 
+  // A star tap IS the decision, so "Maybe later" stops here, at the tap, not
+  // RESOLVE_DELAY_MS later when the step changes. Its arrival timer used to
+  // land inside that window: a tap around the 1.6s mark watched the row grow
+  // into a card the user had just rated (owner: "looks awkward"). Pending
+  // arrival: cancelled, it never shows. Mid-arrival: folds back shut, label
+  // first. Fully arrived: left alone, it leaves with the stars view. In every
+  // case it can no longer be pressed (a dismiss after a rating would corrupt
+  // the store).
+  const retireLater = () => {
+    if (laterTimer.current) {
+      clearTimeout(laterTimer.current);
+      laterTimer.current = null;
+    }
+    setLaterReady(false);
+    if (laterHeight.value < LATER_BTN_HEIGHT) {
+      cancelAnimation(laterHeight);
+      cancelAnimation(laterOpacity);
+      laterOpacity.value = withTiming(0, { duration: 80 });
+      laterHeight.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
+    }
+  };
+
   const handleStar = (stars: number) => {
     // Ignore taps while a resolve is pending, and every tap once celebrating
     // (the stars are sliding out to the thank-you step by then).
     if (resolveTimer.current || celebrating) return;
     haptics.light();
     setSelected(stars);
+    retireLater();
     resolveTimer.current = setTimeout(() => {
       resolveTimer.current = null;
       if (stars === 5) {

@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import { getLangFromPath } from '@/components/useTranslations';
 import { loadRampScript, preloadRampScript } from '@/components/utils/playwire';
+import { loadPlaygamaBridge } from '@/components/utils/playgamaBridge';
 import { APP_STORE_URL, DISCORD_URL, GITHUB_URL, PLAY_STORE_RATING, PLAY_STORE_URL, YOUTUBE_URL } from '@/lib/aboutContent';
 
 // www is the canonical WorldGuessr host — every absolute social/search URL
@@ -44,12 +45,13 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // property's domain allowlist — serving RAMP from an unapproved domain
     // risks flagging the whole account. Gate pending CK's allowlist approval;
     // remove the term once confirmed.
-    // NEXT_PUBLIC_6X is DELIBERATELY absent from this list: the 6x build is
-    // the one portal that ships the full Playwire stack, exactly like
-    // worldguessr.com. Do not "complete" the exclusion list with it.
+    // NEXT_PUBLIC_6X: the 6x build ran the full Playwire stack until Aug 31,
+    // when the portal's Playgama requirement moved it onto the Bridge SDK —
+    // see the NEXT_PUBLIC_6X branch at the bottom of this chain. It now
+    // excludes RAMP like every other portal.
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
-  !process.env.NEXT_PUBLIC_SCHOOLGUESSR) {
+  !process.env.NEXT_PUBLIC_SCHOOLGUESSR && process.env.NEXT_PUBLIC_6X !== "true") {
 
 
   // start adinplay script
@@ -234,6 +236,16 @@ ads.js"></script>*/
       }(document, 'script', 'gamedistribution-jssdk'));
 
       return () => {};
+    } else if (process.env.NEXT_PUBLIC_6X === "true") {
+      // Playgama Bridge (6x portal). Eagerly injected like the GD/Poki/CG
+      // SDKs above — the first-interaction gate in the main-site branch is a
+      // worldguessr.com perf ruling, not a portal one, and the bridge must be
+      // initialized before ANY bridge.* call (platform requirement). The SDK
+      // auto-detects its host and falls back to a mock platform with safe
+      // defaults, so local zip tests are harmless. Like GD, the SDK owns
+      // global state — no un-inject on cleanup.
+      loadPlaygamaBridge();
+      return () => {};
     }
   }, []);
 
@@ -285,7 +297,12 @@ ads.js"></script>*/
       </>
     )}
 
-<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+{/* No height=device-height here. On iOS Safari it pins the layout height to the
+    full screen, taller than the toolbar-visible area, so the document becomes
+    scrollable by the difference. A fast switch from a scrolled tab then leaves the
+    page panned down: top cut off, black bar at the bottom, until reload. Zoom
+    prevention comes from maximum-scale and user-scalable, not from height. */}
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
     <link rel="icon" type={isSchoolGuessr ? "image/png" : "image/x-icon"} href={asset(isSchoolGuessr ? "/schoolguessrlogo.png" : "/icon.ico")} />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />

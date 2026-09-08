@@ -505,7 +505,7 @@ interface MultiplayerState {
 
   // Queue
   gameQueued: GameQueuedType;
-  publicDuelRange: [number, number] | null;
+  publicDuelRange: [number, number | '∞'] | null;
   /**
    * The queue-join instant (absolute ms). The SERVER's, off the `queueJoined`
    * ack, for 1v1; stamped LOCALLY for 2v2, which gets `enter2v2Queue` instead
@@ -572,6 +572,18 @@ interface MultiplayerState {
   pendingLoginJoin: { code: string; hostName: string | null } | null;
   /** Abandon a parked login-gated join (login sheet closed without signing in). */
   clearPendingLoginJoin: () => void;
+  /**
+   * Ranked dodge-lock deadline (ms epoch) as last told by the server (the
+   * `queueLocked` toast, sent at charge time and at refusal). home.tsx
+   * answers a ranked tap inside the window locally instead of bouncing
+   * through the queue screen; the server stays authoritative. Lives in
+   * accountInitialState, NOT gameInitialState: the server keys the cooldown
+   * by account, so it must outlive every game teardown inside the window
+   * (leaveGame/reset, gameShutdown, gameCancelled) or the next ranked tap
+   * takes the full refused round trip this field exists to skip. Wiped on
+   * logout only (web parity: signOut reloads the page and its ref with it).
+   */
+  rankedQueueLockedUntil: number | null;
 
   // In-game
   inGame: boolean;
@@ -743,7 +755,7 @@ interface MultiplayerState {
 const gameInitialState = {
   error: null as string | null,
   gameQueued: false as GameQueuedType,
-  publicDuelRange: null as [number, number] | null,
+  publicDuelRange: null as [number, number | '∞'] | null,
   queuedAt: null as number | null,
   queueEta: null as {
     state: 'ok' | 'long' | 'rough' | 'unknown';
@@ -816,6 +828,9 @@ const accountInitialState = {
   strictMatchmaking: null as boolean | null,
   friendReqState: null as FriendReqState | null,
   friendReqStateAt: 0,
+  // Ranked dodge-lock deadline: account-keyed server-side, so it survives
+  // game teardowns and dies with the login. See the interface doc.
+  rankedQueueLockedUntil: null as number | null,
 };
 
 // ── Account-settings ack watchdog ────────────────────────────
@@ -1954,6 +1969,29 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // into a single notification.
       if (key === 'reconnected') {
         get().pushReconnectedToast();
+        return;
+      }
+      // Ranked queue refused, or a dodge just charged (ws.js
+      // queueLockedToast). The sentence-as-key riding along is for clients
+      // predating this branch, which sat on the queue screen until the 8s
+      // confirm watchdog kicked them. Leave NOW: clearing gameQueued pops the
+      // queue screen home on its own `!gameQueued && !inGame` effect. Not
+      // queued (told at charge time, on the way out of the match): just the
+      // message. Either way remember the deadline for home.tsx.
+      if (data.code === 'queueLocked') {
+        const remainingMs = Math.max(0, Number(data.remainingMs) || 0);
+        const s = get();
+        const refused = s.gameQueued === 'publicDuel' && !s.inGame;
+        if (refused) clearQueueConfirmTimer();
+        set({
+          rankedQueueLockedUntil: Date.now() + remainingMs,
+          ...(refused ? queueTeardownState : null),
+        });
+        get().pushToast({
+          key: 'rankedQueueLocked',
+          toastType: 'error',
+          vars: { seconds: Math.max(1, Math.ceil(remainingMs / 1000)) },
+        });
         return;
       }
       get().pushToast({

@@ -9,6 +9,7 @@ import {
   getActiveLeagues,
   clearLeagueConfig,
   getStrictFloor,
+  getMatchmakingFallbackFloor,
   STRICT_TIER_NAME,
 } from '../components/utils/leagues.js';
 
@@ -261,6 +262,28 @@ describe('getStrictFloor', () => {
   it('returns the Voyager floor from the live v2 table, not the retired 5000', () => {
     expect(getStrictFloor()).toBe(leaguesV2.voyagerV2.min);
     expect(getStrictFloor()).not.toBe(leagues.voyager.min);
+  });
+
+  it('resolves the disabled-setting fallback to Explorer from the active table', () => {
+    expect(getMatchmakingFallbackFloor()).toBe(leaguesV2.explorerV2.min);
+    setLeagueConfig([
+      { name: 'Trekker', min: 0, max: 899 },
+      { name: 'Explorer', min: 900, max: 1099 },
+      { name: STRICT_TIER_NAME, min: 1100, max: 1399 },
+      { name: 'Nomad', min: 1400, max: 1799 },
+      { name: 'Legend', min: 1800, max: Infinity },
+    ]);
+    expect(getMatchmakingFallbackFloor()).toBe(900);
+    expect(getStrictFloor()).toBe(1100);
+  });
+
+  it('keeps Voyager as the fallback when the configured table has no Explorer', () => {
+    setLeagueConfig([
+      { name: 'Trekker', min: 0, max: 999 },
+      { name: STRICT_TIER_NAME, min: 1000, max: 1399 },
+      { name: 'Nomad', min: 1400, max: Infinity },
+    ]);
+    expect(getMatchmakingFallbackFloor()).toBe(1000);
   });
 
   it('sits inside the actual rating range, which the v1 constant did not', () => {

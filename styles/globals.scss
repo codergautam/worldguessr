@@ -3868,20 +3868,65 @@ canvas.streetview.dragging {
     font-size: 1.1em !important;
 }
 
+/* Perfect round: the word, then "5k" as the hero — big, gold, tabular. No
+   plate, no stroke, no glow: gold is victory and the number carries it
+   (DESIGN.md: numbers are first-class; tone carves, stroke speaks state).
+   The number STAMPS in like a passport stamp: three times its size and
+   tilted, slams well under size, rebounds over, settles; a gold burst fires
+   behind it at the moment of impact; the word follows once it has landed.
+   Transform and opacity only (the burst is a pseudo-element, per the
+   Compositor Pulse Rule); the overshoot lives in the keyframes, the easing
+   is a plain exponential ease-out. */
 .perfect5k {
-    display: inline-block;
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.22) 0%, rgba(255, 179, 0, 0.14) 100%);
-    border: 1px solid rgba(255, 215, 0, 0.45);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-weight: 700;
-    font-size: 0.95em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45em;
     color: #ffd700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-    box-shadow: 0 0 14px rgba(255, 215, 0, 0.15);
-    animation: streakPulse 0.5s ease;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.perfect5k__word {
+    font-weight: 600;
+    color: #fff;
+    animation: perfectWordIn 0.3s ease-out 0.42s backwards;
+}
+.perfect5k__num {
+    position: relative;
+    display: inline-block;
+    color: inherit;
+    font-size: 1.7em;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    transform-origin: 50% 70%;
+    animation: perfectStamp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+}
+.perfect5k__num::after {
+    content: "";
+    position: absolute;
+    inset: -0.35em -0.6em;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 215, 0, 0.55), rgba(255, 215, 0, 0));
+    opacity: 0;
+    pointer-events: none;
+    animation: perfectFlash 0.7s ease-out 0.1s backwards;
+}
+@keyframes perfectStamp {
+    0% { opacity: 0; transform: scale(3) rotate(-12deg); }
+    25% { opacity: 1; }
+    45% { transform: scale(0.86) rotate(1deg); }
+    70% { transform: scale(1.08) rotate(0deg); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes perfectFlash {
+    0%, 38% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes perfectWordIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: none; }
 }
 
 .locationFact {

@@ -31,6 +31,10 @@ async function handler(req, res) {
         long: l.long,
         heading: l.heading,
         country: l.country,
+        // Reveal tips for scheduled meta days (docs/daily-metas.md); empty
+        // on drawn days. Locations already ship pre-guess, so nothing new
+        // leaks here.
+        metas: l.metas || [],
       })),
     });
   } catch (err) {

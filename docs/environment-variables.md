@@ -69,6 +69,27 @@ APPLE_WEB_CLIENT_ID=com.example.worldguessr.web
 
 ## 🌐 Server Configuration
 
+### Daily challenge schedule
+
+```bash
+# Keep the existing value identical across daily API/scoring workers.
+# Do not rotate it as part of a schedule rollout.
+DAILY_SECRET=your-existing-private-daily-secret
+
+# Optional meta scheduling: an absolute private path outside the checkout.
+# This example requires a separately provisioned persistent file/mount.
+DAILY_META_SCHEDULE_PATH=/var/lib/worldguessr/daily/daily-metas.json
+```
+
+`serverUtils/dailyChallenge.js` and `scripts/importDailyMetaPack.mjs` use the
+same schedule variable. Local Node processes load it from `.env`; production
+workers need it in their deployment environment. Unset disables meta days.
+A configured missing/invalid file keeps a warm worker's last valid schedule;
+a cold worker fails the daily request rather than serving a different puzzle.
+Keep the schedule and raw packs out of Git and public assets, and supply the
+same approved version to every daily worker. See [daily meta rollout](daily-metas.md#publication-and-rollout)
+for atomic publication, historical preservation, and the three-UTC-day lead.
+
 ### Port Configuration
 
 ```bash
@@ -225,7 +246,9 @@ Build with `pnpm build:6x` (or run the manual "6x Build" GitHub Actions workflow
 What the flag does:
 - `getPlatform()` reports `"6x"` to the server and GA
 - Accountless portal treatment (`HIDE_ACCOUNT_UI`): no login, no ranked/2v2 CTAs, no suggest-login modals, no profile links, no social/footer links, no community maps, party invites share the raw code
-- **Playwire ads stay ON** — 6x is the only portal build with the full worldguessr.com ad stack (RAMP banners; no SDK interstitials). Make sure the hosting domain is on the Playwire property's allowlist before shipping.
+- **Playgama Bridge SDK ads** (Playwire is OFF, like every other portal). `components/utils/playgamaBridge.js` injects `https://bridge.playgama.com/v2/stable/playgama-bridge.js` eagerly and calls `bridge.initialize()` before any other `bridge.*` API. Interstitials fire at the same break points as CrazyGames/GD (between singleplayer rounds, Play Again, entering singleplayer, queueing a duel, leaving a multiplayer game); the SDK paces them itself from the config file (30s between ads, no initial delay after `game_ready`), and requests that arrive while the SDK is still `loading`/`opened` are skipped because the SDK drops those silently. The banner is an SDK page overlay shown on the home menu only; it no-ops on platforms where `isBannerSupported` is false. `game_ready` is sent at the first playable frame (the SDK serves no interstitial before it), and the platform's pause/audio events route into `duckAudio`, except the ones the SDK derives from a window blur while the tab is visible (that is a click on the Street View iframe). `disableLoadingLogo` is set because the SDK is injected after hydration and its default loading overlay would paint over the visible menu. Deliberately deferred: rewarded ads, `bridge.storage`, `bridge.platform.language` localization.
+- The SDK's config lives at `scripts/embed-assets/6x/playgama-bridge-config.json` and is copied by `scripts/packageEmbed.mjs` to the zip root, next to `index.html` — the SDK fetches it as `./playgama-bridge-config.json` relative to the entry document. Never move it into `public/`: that directory ships to every build, worldguessr.com included. `saas.publicToken` is the app's public token from the developer dashboard's Leaderboards tab (client-side by design; only needed for Playgama SaaS features, not ads).
+- Ads only serve when the Bridge detects a real platform. A plain self-hosted iframe of the zip gets the SDK's mock platform and serves NOTHING. Either upload the zip to developer.playgama.com (served by Playgama, platform `playgama`), or the host site follows Playgama's "deploy by yourself" guide: load `playgama.com/ads/common.v0.2.js` + `platform-sdk/wrap-host.v1.js`, init `PlaygamaWrapHost` with its `clid` + `gameId`, and embed the game with `?platform_id=standalone` on the iframe src.
 - Poki-style relative assets (`assetPrefix: '.'` + runtime base derivation): the zip works at any mount depth, so locale URL redirects are skipped like on Poki. `skipTrailingSlashRedirect` is set for the same reason: the router would otherwise rewrite `/dir/` to `/dir` on hydration and every lazy chunk would 404 at the root. Hosting contract: load `index.html` as `<dir>/` or `<dir>/index.html`; a host that serves `<dir>` without redirecting to `<dir>/` breaks every relative asset.
 
 Endpoints are pinned by `build:6x` to the schoolguessr domains (`api.schoolguessr.com`, `server.schoolguessr.com`, `gauth.schoolguessr.com`) because school network filters block the worldguessr.com domains.

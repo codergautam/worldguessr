@@ -4,6 +4,8 @@
  * Sends createPrivateGame once the socket is verified. It does NOT navigate to
  * the game — home.tsx is the single owner of "enter the multiplayer screen" and
  * pushes /game/multiplayer (which renders the lobby) as soon as `inGame` flips.
+ * This shell stays under the game until the leave pops everything (home.tsx
+ * auto-nav explains why it is neither replaced nor pruned).
  * All lobby UI + leave logic now live in the unified screen (MultiplayerLobby).
  *
  * To make creation feel INSTANT, this screen renders a skeleton that mirrors the
@@ -121,7 +123,7 @@ export default function PartyCreateScreen() {
 
   // Create-shell watchdog (web home.js parity): if the server never answers
   // the create with a `game` snapshot, this skeleton would shimmer forever —
-  // home.tsx only pushes the lobby when inGame flips, and nothing else pops
+  // home.tsx only opens the lobby when inGame flips, and nothing else pops
   // this screen. Armed while the create is unanswered; any resolution clears
   // it via the effect cleanup (inGame flips → lobby pushed, verified drops →
   // disconnect flow owns it, X press → unmount).

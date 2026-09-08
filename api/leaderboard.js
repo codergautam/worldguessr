@@ -98,6 +98,13 @@ function getCachedData(key) {
 }
 
 function setCachedData(key, data) {
+  // The per-score rank-count keys below make this map grow without bound;
+  // sweep dead entries once it passes a size no minute of traffic reaches.
+  if (cache.size > 1000) {
+    for (const [k, v] of cache) {
+      if (Date.now() - v.timestamp >= CACHE_DURATION) cache.delete(k);
+    }
+  }
   cache.set(key, { data, timestamp: Date.now() });
 }
 
@@ -337,14 +344,37 @@ export default async function handler(req, res) {
             const comparedScore = (!isXp && !windowApplies)
               ? rankQueryRating(myScore)
               : myScore;
-            const betterUsersCount = await User.countDocuments({
-              [sortField]: { $gt: comparedScore },
-              banned: false,
-              // COUNT THE SAME POPULATION THE LIST SHOWS. Without this the rank
-              // card said "#12" while the player sat 8th in the visible rows,
-              // because the count still included everyone the window hid.
-              ...(windowApplies ? activeRankedFilter() : {})
-            }).maxTimeMS(5000);
+            // Self-correcting 60s cache: the viewer's own score is IN the key,
+            // so their own rating change always misses and recounts — only
+            // OTHER players' movement can go stale, and the board list above
+            // already carries the same 60s staleness. Counting 1.7M-4.5M index
+            // keys is inherent to a live count, so the cache is what makes the
+            // XP and unfiltered variants cheap.
+            const countCacheKey = `rankcount_${sortField}_${comparedScore}_${windowApplies}`;
+            let betterUsersCount = getCachedData(countCacheKey);
+            if (betterUsersCount === null) {
+              const countQuery = User.countDocuments({
+                [sortField]: { $gt: comparedScore },
+                banned: false,
+                // COUNT THE SAME POPULATION THE LIST SHOWS. Without this the rank
+                // card said "#12" while the player sat 8th in the visible rows,
+                // because the count still included everyone the window hid.
+                // pendingNameChange joined Sep 1 2026 for the same reason: the
+                // list has always excluded those rows, the count never did.
+                pendingNameChange: { $ne: true },
+                ...(windowApplies ? activeRankedFilter() : {})
+              }).maxTimeMS(5000);
+              if (windowApplies) {
+                // Planner fix, measured Sep 1 2026: left alone the planner picks
+                // the bare {elo:-1} index and walks 4.48M documents (5.2s) to
+                // apply the window filter; the ESR compound answers the same
+                // count over ~45k index keys in 18ms. Hint only this variant —
+                // it is the measured one, and the index is defined in User.js.
+                countQuery.hint({ banned: 1, pendingNameChange: 1, elo: -1, lastRankedAt: 1 });
+              }
+              betterUsersCount = await countQuery;
+              setCachedData(countCacheKey, betterUsersCount);
+            }
             myRank = betterUsersCount + 1;
           }
           if (windowApplies) {

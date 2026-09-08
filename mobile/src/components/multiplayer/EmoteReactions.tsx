@@ -34,6 +34,9 @@ import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayer
 import EmberGlow from '../shop/EmberGlow';
 import PlayerName from '../PlayerName';
 
+// Gap between the FAB and a panel it is lifted over (web: "60px toggle + 12px gap").
+export const STACK_GAP = 12;
+
 const NEVER = ReduceMotion.Never;
 
 /**
@@ -116,8 +119,11 @@ function FloatingEmote({
 export default function EmoteReactions({
   hidden = false,
   hideName = false,
-  // Extra px to lift the whole FAB (toggle + bar + rising floats) above the bottom.
-  // Used on the results screen so the button clears the summary panel; 0 in-game.
+  // Height of the UI stacked under this corner (results summary sheet, lobby
+  // footer), measured from the SCREEN's bottom edge. When set, the FAB rests
+  // STACK_GAP above that edge and nothing else: the stacked panel already owns
+  // the home-indicator clearance, so adding the inset again here floated the
+  // button 30-60pt into the map. 0 in-game = the FAB sits on the safe area.
   bottomOffset = 0,
 }: {
   hidden?: boolean;
@@ -208,7 +214,7 @@ export default function EmoteReactions({
     <Animated.View
       style={[
         styles.container,
-        { bottom: Math.max(insets.bottom, 16) + 16 + bottomOffset, left: Math.max(insets.left, spacing.md) },
+        { bottom: bottomOffset > 0 ? bottomOffset + STACK_GAP : Math.max(insets.bottom, 16) + 16, left: Math.max(insets.left, spacing.md) },
         hideStyle,
       ]}
       pointerEvents={hidden ? 'none' : 'box-none'}

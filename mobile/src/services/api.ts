@@ -869,10 +869,13 @@ export const api = {
       return fetchApi<DailyLocationsResponse>(`/api/dailyChallenge/locations?${q.toString()}`);
     },
 
-    results: async (date: string, secret?: string, guestId?: string) => {
+    // `lite` skips the per-date distribution on the server; only a caller
+    // that reads nothing but `user` (the home menu status) should pass it.
+    results: async (date: string, secret?: string, guestId?: string, options?: { lite?: boolean }) => {
       const q = new URLSearchParams({ date });
       if (secret) q.set('secret', secret);
       else if (guestId) q.set('guestId', guestId);
+      if (options?.lite) q.set('lite', '1');
       return fetchApi<DailyResultsResponse>(`/api/dailyChallenge/results?${q.toString()}`);
     },
 

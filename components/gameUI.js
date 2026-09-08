@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
 import EndBanner from "./endBanner";
+import DailyMetaCard from "./daily/DailyMetaCard";
 import calcPoints from "./calcPoints";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
 import { loadBorders } from "./utils/loadBorders";
@@ -119,7 +120,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete, mapSwitchMaskShown }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, dailyMetas, onRoundsComplete, mapSwitchMaskShown }) {
   const { t: text } = useTranslation("common");
   // A running ad-free pass, read straight off the session so a purchase made in
   // the shop modal takes this slot down on the same tick it is charged. See
@@ -300,7 +301,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       }
       }
     // Show midgame ad between singleplayer rounds
-    if((inGameDistribution || inCrazyGames || process.env.NEXT_PUBLIC_POKI === "true") && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+    if((inGameDistribution || inCrazyGames || process.env.NEXT_PUBLIC_POKI === "true" || process.env.NEXT_PUBLIC_6X === "true") && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
       // Raise the loading cover BEFORE the ad: the round teardown runs under
       // the ad surface, so whatever the SDK uncovered at ad end (half-torn
       // answer scene, stale pano) flickered between backgrounds. With the
@@ -1581,7 +1582,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     briefly removed it on the wrong belief that it churned an ad auction every
     round; it does not — the slot stays mounted across all rounds and answer
     screens and tears down once per game. Keep the gate. */}
-{ !multiplayerState && !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !multiplayerState && !adFree && !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_POKI && !process.env.NEXT_PUBLIC_6X && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <PlaywireAd
         selectorId="pw-game-ad"
@@ -2003,6 +2004,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       up over the kept answer scene, the clue banner must not float on it */}
   { showAnswer && showClueBanner && !singlePlayerRound?.done && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
+  )}
+  {/* Daily meta tip (scheduled meta days, docs/daily-metas.md). Rides the
+      answer scene exactly like EndBanner: shown from the guess, content
+      frozen through mapFadingOut, gone once the game is done. The card
+      itself renders nothing on days without metas. */}
+  { dailyMode && (showAnswer || mapFadingOut) && !singlePlayerRound?.done && (
+<DailyMetaCard location={mapLocationForRender} metas={dailyMetas} fadingOut={mapFadingOut} />
   )}
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}

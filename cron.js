@@ -327,13 +327,16 @@ const computeLeaderboardForMode = async (mode, windowStart) => {
   const deltaField = mode === 'xp' ? 'xpDelta' : 'eloDelta';
   // XP can move in every completed game. ELO moves only in ranked duels and
   // moderation refunds; other game rows merely carry passive ELO snapshots.
-  // Including those snapshots makes placement seeding look like daily gain.
+  // Including those snapshots makes placement seeding look like daily gain:
+  // a bot duel or unranked 1v1 at the 500 entry rating, then a 500..900 seed.
+  // Duel rows carry `rated` for exactly this (models/UserStats.js); $ne
+  // rather than $eq keeps the rows written before the field existed.
   const eventMatch = mode === 'xp'
     ? { triggerEvent: { $in: ['game_completed', 'elo_refund'] } }
     : {
         $or: [
           { triggerEvent: 'elo_refund' },
-          { triggerEvent: 'game_completed', gameId: { $regex: '^duel_' } }
+          { triggerEvent: 'game_completed', gameId: { $regex: '^duel_' }, rated: { $ne: false } }
         ]
       };
   const pipeline = [

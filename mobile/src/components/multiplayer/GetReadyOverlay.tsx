@@ -1,21 +1,19 @@
-/**
- * Fullscreen overlay shown during the "getready" phase before duel round 1 —
- * the opponent introduction (web parity: the two players slide to center with a
- * "VS" in gameUI.js while `isStartingDuel`).
- *
- * WorldGuessr has no user avatars, so each player is identified by their country
- * flag + name + league/ELO. The round countdown is intentionally understated — a
- * thin draining bar, not a hero ring — so the matchup is the focus.
- */
-
+/** Round-1 matchup: the web's name pills, cyan VS badge, and numeric countdown. */
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Reanimated, {
+  Easing,
   FadeIn,
+  FadeInDown,
+  FadeInUp,
   FadeInLeft,
   FadeInRight,
-  ZoomIn,
   ReduceMotion,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,83 +27,56 @@ import getMyTeam from '../../shared/game/getMyTeam';
 import { GLOW_CLIP_RELIEF } from '../../shared/glowKeyframes';
 import WgWordmark from '../ui/WgWordmark';
 import PlayerName from '../PlayerName';
+import { Pressable } from '../ui/SfxPressable';
 
 interface GetReadyOverlayProps {
-  /** The duel players — drives the opponent-introduction matchup. */
   players?: MPPlayer[];
-  /** My player id (so the matchup knows which side is "You"). */
   myId?: string;
-  /** Matchmade 2v2 → the matchup becomes a team VS card (Your/Enemy Team). */
   team2v2?: boolean;
   round: number;
   totalRounds: number;
-  /** Server timestamp when getready phase ends */
+  /** Server timestamp when getready phase ends. */
   nextEvtTime: number;
-  /** Client-server time offset */
   timeOffset: number;
-  /** Number of locations generated so far */
   generated: number;
-  /** Placement seeding match — announces itself under the VS (web parity:
-   *  the hb-vs-placement tag in gameUI.js's VS chrome). */
   isPlacement?: boolean;
+  onRetry?: () => void;
 }
-
-const COUNTDOWN_WINDOW = 5;
 
 export default function GetReadyOverlay({
   players,
   myId,
   team2v2,
-  round,
-  totalRounds,
   nextEvtTime,
   timeOffset,
-  generated,
   isPlacement,
+  onRetry,
 }: GetReadyOverlayProps) {
-  const [seconds, setSeconds] = useState(COUNTDOWN_WINDOW);
-
+  const [seconds, setSeconds] = useState(() => Math.max(0, (nextEvtTime - Date.now() - timeOffset) / 1000));
+  const { width, height } = useWindowDimensions();
+  const stacked = width <= 830 && height >= width;
   const me = players?.find((p) => p.id === myId);
   const opponent = players?.find((p) => p.id !== myId);
-  // 2v2: split the roster by team. Null/unresolved myTeam or an empty side →
-  // skip the matchup (plain countdown) — NEVER guess sides.
+  // Unresolved teams must not be silently assigned to a side.
   const myTeam = team2v2 ? getMyTeam(players, myId) : null;
-  const mySidePlayers =
-    team2v2 && myTeam
-      ? (players ?? [])
-          .filter((p) => p.team === myTeam)
-          .sort((a, b) => Number(b.id === myId) - Number(a.id === myId))
-      : [];
-  const enemySidePlayers =
-    team2v2 && myTeam
-      ? (players ?? []).filter((p) => (p.team === 'a' || p.team === 'b') && p.team !== myTeam)
-      : [];
-  const showMatchup = team2v2
-    ? mySidePlayers.length > 0 && enemySidePlayers.length > 0
-    : !!(me && opponent);
+  const mySidePlayers = team2v2
+    ? (myTeam ? (players ?? []).filter((p) => p.team === myTeam)
+      .sort((a, b) => Number(b.id === myId) - Number(a.id === myId)) : [])
+    : (me ? [me] : []);
+  const enemySidePlayers = team2v2
+    ? (myTeam ? (players ?? []).filter((p) => (p.team === 'a' || p.team === 'b') && p.team !== myTeam) : [])
+    : (opponent ? [opponent] : []);
+  const showMatchup = mySidePlayers.length > 0 && enemySidePlayers.length > 0;
 
-  // NO whole-overlay entrance fade. The route-level 300ms cross-fade from the
-  // queue screen (still mounted underneath on the 1v1 push path) is the ONE
-  // owner of this reveal, and it only reads as seamless because this overlay's
-  // backdrop below is pixel-identical to the queue's — a second fade here
-  // re-dimmed that identical backdrop and made the seam visible again. The
-  // matchup content keeps its own per-element Reanimated entrances.
-
-  // Countdown from server time (fractional — drives the draining bar)
   useEffect(() => {
     const update = () => {
-      const remaining = Math.max(0, (nextEvtTime - Date.now() - timeOffset) / 1000);
-      setSeconds(remaining);
+      setSeconds(Math.max(0, (nextEvtTime - Date.now() - timeOffset) / 1000));
     };
     update();
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
   }, [nextEvtTime, timeOffset]);
 
-  // Countdown haptics: a light tick on each of the final 3 integer seconds, then
-  // a punchier medium "GO" the instant the timer hits zero (round start). The ref
-  // de-dupes the ~100ms updates so each beat fires exactly once; it resets on
-  // remount, so every round's getready ramps fresh.
   const lastTickRef = useRef<number | null>(null);
   useEffect(() => {
     if (seconds > 0) {
@@ -122,226 +93,112 @@ export default function GetReadyOverlay({
 
   return (
     <View style={styles.overlay}>
-      {/* THE QUEUE SCREEN'S EXACT BACKDROP (photo + shared veil), at full
-          opacity from frame one, so the route cross-fade from /queue paints
-          identical pixels on both sides and the handoff is invisible.
-
-          Still a fairness boundary, not just chrome: unlike web (which only
-          loads the round's pano once the guess phase begins), mobile warms the
-          round-1 panorama BEHIND this overlay during the countdown. The
-          composited stack stays 100% opaque — SiteBackground's photo has no
-          alpha, so the translucent veil over it leaks nothing. */}
+      {/* The parent hides Street View while it preloads. Until this image
+          paints, the shared root backdrop remains visible underneath. */}
       <SiteBackground style={StyleSheet.absoluteFillObject} />
-      <LinearGradient
-        colors={MATCHMAKING_VEIL_COLORS}
-        style={StyleSheet.absoluteFillObject}
-      />
-
+      <LinearGradient colors={MATCHMAKING_VEIL_COLORS} style={StyleSheet.absoluteFillObject} />
       <SafeAreaView style={styles.brandBar} edges={['top']} pointerEvents="none">
         <WgWordmark size="sm" />
       </SafeAreaView>
 
       <View style={styles.body}>
         {showMatchup && (
-          <View style={styles.matchup}>
-            {team2v2 ? (
-              <PlayerColumn
-                players={mySidePlayers}
-                myId={myId}
-                teamTitle={t('yourTeam')}
-                side="left"
-              />
-            ) : (
-              <PlayerColumn players={me ? [me] : []} label={t('you')} side="left" />
-            )}
-            <Reanimated.View
-              entering={ZoomIn.delay(200).duration(380).reduceMotion(ReduceMotion.Never)}
-            >
-              <Text style={styles.vsText}>VS</Text>
-              {/* Placement seeding match: announced under the VS so the very
-                  first thing a new player reads is what this game IS. */}
-              {isPlacement && (
-                <Text style={styles.placementTag}>{t('placementMatch').toUpperCase()}</Text>
-              )}
+          <View style={[styles.matchup, stacked && styles.matchupStacked]}>
+            <PlayerColumn players={mySidePlayers} myId={myId} side="left" stacked={stacked} />
+            <Reanimated.View entering={FadeIn.duration(200).reduceMotion(ReduceMotion.System)}>
+              <VsBadge />
             </Reanimated.View>
-            {team2v2 ? (
-              <PlayerColumn
-                players={enemySidePlayers}
-                myId={myId}
-                teamTitle={t('enemyTeam')}
-                side="right"
-              />
-            ) : (
-              <PlayerColumn players={opponent ? [opponent] : []} side="right" />
-            )}
+            <PlayerColumn players={enemySidePlayers} myId={myId} side="right" stacked={stacked} />
           </View>
         )}
-
-        <Countdown
-          seconds={seconds}
-          round={round}
-          totalRounds={totalRounds}
-          generated={generated}
-        />
+        {isPlacement && <Text style={styles.placementTag}>{t('placementMatch')}</Text>}
+        <Countdown seconds={seconds} />
+        {onRetry && (
+          <Pressable onPress={onRetry} style={styles.retryBtn}>
+            <Text style={styles.retryText}>{t('retry')}</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
 }
 
-function PlayerColumn({
-  players,
-  myId,
-  label,
-  teamTitle,
-  side,
-}: {
-  /** 1 player (1v1) or a team of up to 2 (2v2). */
+function VsBadge() {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, {
+      duration: 2000,
+      easing: Easing.inOut(Easing.quad),
+      reduceMotion: ReduceMotion.System,
+    }), -1, true);
+    return () => cancelAnimation(pulse);
+  }, [pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + pulse.value * 0.08 }],
+  }));
+  return (
+    <Reanimated.View style={[styles.vsBadge, pulseStyle]}>
+      <LinearGradient
+        colors={['rgba(0,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.vsFill}
+      >
+        <Text style={styles.vsText}>VS</Text>
+      </LinearGradient>
+    </Reanimated.View>
+  );
+}
+
+function PlayerColumn({ players, myId, side, stacked }: {
   players: MPPlayer[];
   myId?: string;
-  /** Override the displayed name (e.g. "You" for the 1v1 local player). */
-  label?: string;
-  /** Column heading in team mode ("Your Team" / "Enemy Team"). */
-  teamTitle?: string;
   side: 'left' | 'right';
+  stacked: boolean;
 }) {
-  const Entering = side === 'left' ? FadeInLeft : FadeInRight;
-  const single = players.length === 1 && !teamTitle;
-
-  if (single) {
-    // 1v1 keeps its ORIGINAL stacked layout byte-for-byte: PlayerName + eloRow
-    // as direct children of the animated column — no extra wrapper (a nested
-    // styles.player would double-apply the column layout).
-    const p = players[0];
-    // resolveLeague, not getLeague: MPPlayer.league carries the tier the
-    // SERVER resolved, and only the server ever sees a seasonal re-anchor —
-    // this bundle ships a frozen copy of the tier table and a store release
-    // is the only way to change it. Falls back to the local table when the
-    // field is absent (older server, or a payload predating it).
-    const league = p.elo !== undefined ? resolveLeague(p.elo, p.league) : null;
-    const accent = league?.light ?? league?.color ?? '#cbd5e1';
-    return (
-      <Reanimated.View
-        style={styles.player}
-        entering={Entering.duration(460).reduceMotion(ReduceMotion.Never)}
-      >
-        <PlayerName
-          name={label ?? p.username}
-          countryCode={p.countryCode}
-          flagSize={15}
-          flagStyle={styles.flag}
-          textStyle={styles.name}
-          style={styles.nameRow}
-          glow={p.nameGlow}
-        />
-        {p.elo !== undefined && (
-          <View style={styles.eloRow}>
-            <Text style={[styles.eloText, { color: accent }]}>({p.elo})</Text>
-          </View>
-        )}
-      </Reanimated.View>
-    );
-  }
-
+  const Entering = stacked
+    ? (side === 'left' ? FadeInDown : FadeInUp)
+    : (side === 'left' ? FadeInLeft : FadeInRight);
   return (
     <Reanimated.View
-      style={styles.player}
-      entering={Entering.duration(460).reduceMotion(ReduceMotion.Never)}
+      style={[styles.player, !stacked && styles.playerWide]}
+      entering={Entering.duration(600).delay(side === 'left' ? 200 : 400).reduceMotion(ReduceMotion.System)}
     >
-      {teamTitle && <Text style={styles.teamTitle}>{teamTitle}</Text>}
       {players.map((p) => {
-        const league = p.elo !== undefined ? resolveLeague(p.elo, p.league) : null;
-        const accent = league?.light ?? league?.color ?? '#cbd5e1';
+        const league = typeof p.elo === 'number' ? resolveLeague(p.elo, p.league) : null;
         return (
-          // Team rows: compact name + inline elo, stacked 1–2 per side.
-          <View key={p.id} style={styles.nameRow}>
+          <LinearGradient
+            key={p.id}
+            colors={['rgba(0,0,0,0.7)', 'rgba(20,20,20,0.8)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.namePill}
+          >
             <PlayerName
               name={p.id === myId ? t('you') : p.username}
               countryCode={p.countryCode}
-              flagSize={14}
-              flagStyle={styles.flag}
+              flagSize={15}
               textStyle={styles.name}
               style={styles.nameRow}
               glow={p.nameGlow}
             >
-              {p.elo !== undefined && (
-                <Text style={[styles.eloText, styles.eloInline, { color: accent }]}>({p.elo})</Text>
+              {typeof p.elo === 'number' && (
+                <Text style={[styles.eloText, { color: league?.light ?? league?.color ?? '#60a5fa' }]}>
+                  ({p.elo})
+                </Text>
               )}
             </PlayerName>
-          </View>
+          </LinearGradient>
         );
       })}
     </Reanimated.View>
   );
 }
 
-function Countdown({
-  seconds,
-  round,
-  totalRounds,
-  generated,
-}: {
-  seconds: number;
-  round: number;
-  totalRounds: number;
-  generated: number;
-}) {
-  // Grow the window to the largest value seen so the bar starts full even if we
-  // mount a beat into the countdown, then drains only.
-  const windowRef = useRef(COUNTDOWN_WINDOW);
-  windowRef.current = Math.max(windowRef.current, seconds);
-  const progress = windowRef.current > 0
-    ? Math.max(0, Math.min(1, seconds / windowRef.current))
-    : 0;
-
-  // The seconds prop steps every ~100ms; glide the bar between steps so it reads
-  // as a continuous drain rather than a stutter. Hold full until the first real
-  // (>0) value, then snap to the true fill and only ever drain.
-  const barAnim = useRef(new Animated.Value(1)).current;
-  const syncedRef = useRef(false);
-  useEffect(() => {
-    if (!syncedRef.current) {
-      if (seconds > 0) {
-        syncedRef.current = true;
-        barAnim.setValue(progress);
-      }
-      return;
-    }
-    const anim = Animated.timing(barAnim, {
-      toValue: progress,
-      duration: 130,
-      easing: Easing.linear,
-      useNativeDriver: false, // width % isn't a native-driver prop
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [progress, seconds, barAnim]);
-
-  const barWidth = barAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
+function Countdown({ seconds }: { seconds: number }) {
   return (
-    <Reanimated.View
-      style={styles.countdown}
-      entering={FadeIn.delay(320).duration(420).reduceMotion(ReduceMotion.Never)}
-    >
-      <Text style={styles.getReady}>{t('getReady')}</Text>
-
-      <View style={styles.track}>
-        <Animated.View style={[styles.fill, { width: barWidth }]} />
-      </View>
-
-      <Text style={styles.roundText}>
-        {t('round', { r: round, mr: totalRounds })}
-        {generated < totalRounds
-          ? `  ·  ${t(
-              'loadingLocationsProgress',
-              { generated, total: totalRounds },
-              'Loading locations... {{generated}}/{{total}}',
-            )}`
-          : ''}
-      </Text>
+    <Reanimated.View style={styles.countdown} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.System)}>
+      <Text style={styles.countdownText}>{Math.ceil(seconds)}</Text>
     </Reanimated.View>
   );
 }
@@ -364,113 +221,105 @@ const styles = StyleSheet.create({
   body: {
     width: '100%',
     alignItems: 'center',
-    // The matchup columns can shrink names to the edge on narrow phones. Keep
-    // that edge at least one full halo reach inside the native screen canvas.
     paddingHorizontal: GLOW_CLIP_RELIEF,
   },
-  // ── Opponent-introduction matchup ───────────────────────────────
   matchup: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 24,
     width: '100%',
-    maxWidth: 420,
-    marginBottom: spacing['3xl'],
+    maxWidth: 920,
+  },
+  matchupStacked: {
+    flexDirection: 'column',
+    gap: 12,
   },
   player: {
-    flex: 1,
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    gap: spacing.sm,
     maxWidth: '100%',
   },
-  flag: {
-    borderRadius: 3,
+  playerWide: {
+    flex: 1,
+    maxWidth: 320,
+  },
+  namePill: {
+    maxWidth: '100%',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  nameRow: {
+    maxWidth: '100%',
   },
   name: {
     color: colors.white,
     fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.md,
+    fontSize: 15,
     flexShrink: 1,
-  },
-  eloRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
   },
   eloText: {
     fontFamily: 'Lexend-Bold',
-    fontSize: fontSizes.md,
+    fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
-  eloInline: {
-    fontSize: fontSizes.sm,
+  vsBadge: {
+    marginVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(0,255,255,0.3)',
+    shadowColor: '#00ffff',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
   },
-  teamTitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'Lexend-Bold',
-    fontSize: fontSizes.xs,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 2,
+  vsFill: {
+    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   vsText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontFamily: 'Lexend-Bold',
-    fontSize: fontSizes.lg,
-    letterSpacing: 1.5,
-    marginHorizontal: spacing.sm,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowRadius: 8,
-    textShadowOffset: { width: 0, height: 0 },
-  },
-  // Placement announcement under the VS — same treatment as web's
-  // .elo-placement-label (small, muted, uppercase, tight tracking).
-  placementTag: {
-    color: 'rgba(255,255,255,0.7)',
-    fontFamily: 'Lexend-Medium',
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textAlign: 'center',
-    marginTop: 4,
-    marginHorizontal: spacing.sm,
-  },
-  // ── Understated round countdown ─────────────────────────────────
-  countdown: {
-    alignItems: 'center',
-  },
-  getReady: {
     color: colors.white,
     fontFamily: 'Lexend-Bold',
-    fontSize: fontSizes.lg,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  track: {
-    width: 200,
-    height: 4,
-    borderRadius: 2,
-    marginTop: spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: colors.success,
-  },
-  roundText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.xs,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginTop: spacing.md,
+    fontSize: 28,
+    letterSpacing: 6,
     textAlign: 'center',
+    textShadowColor: '#00ffff',
+    textShadowRadius: 20,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  placementTag: {
+    color: colors.white,
+    fontFamily: 'Lexend-Medium',
+    fontSize: fontSizes.sm,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  countdown: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  countdownText: {
+    color: colors.white,
+    fontFamily: 'Lexend-Medium',
+    fontSize: 20,
+    fontVariant: ['tabular-nums'],
+  },
+  retryBtn: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  retryText: {
+    color: colors.white,
+    fontFamily: 'Lexend-Medium',
   },
 });

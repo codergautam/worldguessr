@@ -1,7 +1,7 @@
 import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
 import User from '../../models/User.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
-import DailyChallengeStats from '../../models/DailyChallengeStats.js';
+import DailyChallengeStats, { DAILY_ROUNDS_PER_DAY, DAILY_BUCKET_COUNT, DAILY_MAX_SCORE } from '../../models/DailyChallengeStats.js';
 import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
@@ -15,43 +15,153 @@ import { invalidateDailyLeaderboardCache } from './leaderboard.js';
 // opens the leaderboard modal/sheet.)
 const PUBLIC_TTL_MS = 10 * 1000;
 const publicCache = new Map(); // date -> { expiresAt, payload }
+// One aggregation per date at a time. Every miss used to run its own copy of
+// the $median pipeline below, and at peak every submit busts the cache, so
+// concurrent readers now share the in-flight promise instead.
+const publicInflight = new Map(); // date -> { gen, promise }
+// Invalidation generation per date. A reader that arrives AFTER a submit
+// invalidated the date must not join an aggregation that started BEFORE it
+// (that snapshot predates the new row, and re-caching it would make the
+// invalidation a no-op and reopen "#25 of 24"). The generation is bumped on
+// invalidate; an in-flight run is only shared, and only cached, while its
+// generation is still current.
+const publicGen = new Map(); // date -> number
+const genOf = (date) => publicGen.get(date) || 0;
+// The pipeline fetches every counted row for the date (rounds.score is in no
+// index). A slow day must not stall the results screen: cap it, and serve the
+// last known distribution when the cap or the database says no.
+const PUBLIC_QUERY_MAX_MS = 4000;
+
+// `avgScore` / `roundAverages` are MEDIANS (owner ruling Sep 3 2026: the copy
+// keeps saying "avg", the number must not be skewable by a handful of perfect
+// or zero runs). One $group over the board rows with MongoDB's $median
+// accumulator (7.0+; prod and dev run 8.0) — its t-digest is within a point
+// or two of exact on a 15,000-point scale, for four numbers back instead of
+// every row. Sums in the stats doc cannot give a median and are gone. The
+// wire names stay so no client or cache changes; shared/daily/types.d.ts
+// carries the same note.
+const roundMedian = (i) => ({ $median: { input: { $arrayElemAt: ['$rounds.score', i] }, method: 'approximate' } });
 
 async function fetchPublic(date) {
   const cached = publicCache.get(date);
   if (cached && cached.expiresAt > Date.now()) return cached.payload;
 
-  // Board row count runs alongside the stats read: the headline totalPlays
-  // is floored at the rows actually on the board so it can never read below
-  // a row-derived ownRank ("#25 of 24"). Legacy claim-backfilled scores are
-  // rows without stats plays (counted forward since the claimGuestProgress
-  // fix, but old dates keep the gap). Averages/buckets stay divided by the
-  // stats count — those sums only ever included stats-counted plays.
-  const [statsDoc, boardRows] = await Promise.all([
-    DailyChallengeStats.findOne({ date }).lean(),
-    DailyChallengeScore.countDocuments({ date, disqualified: { $ne: true }, hidden: { $ne: true } }),
-  ]);
+  const gen = genOf(date);
+  const inflight = publicInflight.get(date);
+  if (inflight && inflight.gen === gen) return inflight.promise;
+  const promise = computePublic(date, cached?.payload, gen).finally(() => {
+    if (publicInflight.get(date)?.promise === promise) publicInflight.delete(date);
+  });
+  publicInflight.set(date, { gen, promise });
+  return promise;
+}
 
-  const statsPlays = statsDoc?.totalPlays || 0;
-  const roundSums = statsDoc?.roundScoreSums || [];
-  const roundAverages = statsPlays > 0
-    ? roundSums.map(s => Math.round((s || 0) / statsPlays))
-    : roundSums.map(() => 0);
+// Histogram median for the counts-only fallback: the stats doc keeps a
+// DAILY_BUCKET_COUNT-wide score histogram (500-point buckets over 0..15000),
+// so the median is known to half a bucket without touching the score rows.
+// Both clients render avgScore as a number ("Beat today's average of N"), so
+// a 0 next to thousands of plays would read as a real average.
+function medianFromBuckets(buckets) {
+  if (!Array.isArray(buckets) || buckets.length === 0) return 0;
+  const total = buckets.reduce((sum, n) => sum + (Number.isFinite(n) && n > 0 ? n : 0), 0);
+  if (total === 0) return 0;
+  const width = DAILY_MAX_SCORE / (DAILY_BUCKET_COUNT - 1);
+  const target = Math.ceil(total / 2);
+  let seen = 0;
+  for (let i = 0; i < buckets.length; i++) {
+    seen += Number.isFinite(buckets[i]) && buckets[i] > 0 ? buckets[i] : 0;
+    if (seen >= target) {
+      return Math.round(Math.min(DAILY_MAX_SCORE, i * width + (i === DAILY_BUCKET_COUNT - 1 ? 0 : width / 2)));
+    }
+  }
+  return 0;
+}
 
-  const payload = {
-    distribution: {
-      totalPlays: Math.max(statsPlays, boardRows),
-      avgScore: statsPlays > 0 ? Math.round((statsDoc.totalScore || 0) / statsPlays) : 0,
-      buckets: statsDoc?.buckets || [],
-      roundAverages,
-    },
-  };
-
+function storePublic(date, payload, gen = genOf(date)) {
+  // A run that started before an invalidation must not re-cache its
+  // pre-submit snapshot; its callers still get the payload it computed, and
+  // the next miss recomputes under the current generation.
+  if (gen !== genOf(date)) return;
+  // Delete before set so a refreshed date moves to the newest insertion slot;
+  // the size prune below evicts by insertion order.
+  publicCache.delete(date);
   publicCache.set(date, { expiresAt: Date.now() + PUBLIC_TTL_MS, payload });
   // Prune old entries so the map stays bounded
   if (publicCache.size > 30) {
     const oldestKey = publicCache.keys().next().value;
     publicCache.delete(oldestKey);
   }
+}
+
+async function computePublic(date, stale, gen = genOf(date)) {
+  // Board rows are the same population the buckets and the percentile use
+  // (counted, non-DQ, non-hidden). The headline totalPlays is floored at the
+  // row count so it can never read below a row-derived ownRank ("#25 of
+  // 24"); legacy claim-backfilled scores are rows without stats plays.
+  const [statsResult, aggResult] = await Promise.allSettled([
+    DailyChallengeStats.findOne({ date }).select('totalPlays buckets').lean(),
+    DailyChallengeScore.aggregate([
+      { $match: { date, disqualified: { $ne: true }, hidden: { $ne: true } } },
+      {
+        $group: {
+          _id: null,
+          rows: { $sum: 1 },
+          score: { $median: { input: '$score', method: 'approximate' } },
+          ...Object.fromEntries(Array.from({ length: DAILY_ROUNDS_PER_DAY }, (_, i) => [`r${i}`, roundMedian(i)])),
+        },
+      },
+    ]).option({ maxTimeMS: PUBLIC_QUERY_MAX_MS }),
+  ]);
+
+  // The stats doc is one indexed read; if even that fails the database is
+  // down and only a previous payload can answer.
+  if (statsResult.status === 'rejected') {
+    if (!stale) throw statsResult.reason;
+    console.warn('[dailyChallenge/results] stats read failed, serving the previous distribution', statsResult.reason?.message);
+    storePublic(date, stale, gen);
+    return stale;
+  }
+  const statsDoc = statsResult.value;
+
+  let agg;
+  if (aggResult.status === 'fulfilled') {
+    [agg] = aggResult.value;
+  } else if (stale) {
+    // Keep the last known distribution on the screen and retry on the next
+    // miss rather than failing every reader while the database is slow.
+    console.warn('[dailyChallenge/results] distribution refresh failed, serving the previous one', aggResult.reason?.message);
+    storePublic(date, stale, gen);
+    return stale;
+  } else {
+    // Cold cache and the medians timed out: answer with the counts and the
+    // histogram from the stats doc and no medians. That is the payload every
+    // date starts with, so both clients already render it; the normal TTL
+    // means the next miss retries the aggregation instead of every reader
+    // paying for one.
+    console.warn('[dailyChallenge/results] distribution medians unavailable, serving counts only', aggResult.reason?.message);
+    agg = undefined;
+  }
+
+  const statsPlays = statsDoc?.totalPlays || 0;
+  const rows = agg?.rows || 0;
+  const asScore = (v) => (Number.isFinite(v) ? Math.round(v) : 0);
+
+  const payload = {
+    distribution: {
+      totalPlays: Math.max(statsPlays, rows),
+      // Counts-only fallback (medians unavailable): estimate the median from
+      // the histogram rather than shipping a 0 beside thousands of plays.
+      avgScore: rows > 0 ? asScore(agg?.score) : medianFromBuckets(statsDoc?.buckets),
+      buckets: statsDoc?.buckets || [],
+      // Empty, not [0, 0, 0], until a counted row exists: both clients read a
+      // 0 average as a real number and badge every round "+100% above avg".
+      roundAverages: rows > 0
+        ? Array.from({ length: DAILY_ROUNDS_PER_DAY }, (_, i) => asScore(agg[`r${i}`]))
+        : [],
+    },
+  };
+
+  storePublic(date, payload, gen);
   return payload;
 }
 
@@ -200,10 +310,14 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { date, secret, guestId } = req.query;
+  const { date, secret, guestId, lite } = req.query;
   if (!date || !isValidDailyDate(date)) {
     return res.status(400).json({ error: 'Invalid date' });
   }
+  // The home menu only needs the caller's own block (streak, played today).
+  // `lite=1` skips the distribution so a home mount never pays for the
+  // per-date aggregation above.
+  const wantsDistribution = lite !== '1' && lite !== 'true';
 
   try {
     // Secret wins over guestId: a logged-in session is always the
@@ -221,11 +335,11 @@ async function handler(req, res) {
       userBlock = await fetchGuestBlock(date, guestId);
     }
 
-    const publicData = await fetchPublic(date);
+    const publicData = wantsDistribution ? await fetchPublic(date) : null;
 
     return res.status(200).json({
       date,
-      distribution: publicData.distribution,
+      distribution: publicData ? publicData.distribution : null,
       user: userBlock,
     });
   } catch (err) {
@@ -240,7 +354,16 @@ async function handler(req, res) {
 // later. Single entry point — leaderboard.js's cache is cleared here too so
 // call sites don't need to know there are two.
 export function invalidateDailyPublicCache(date) {
-  if (date) publicCache.delete(date);
+  // Expire, do not delete: the next read recomputes, but the previous payload
+  // stays available as the fallback computePublic serves when that refresh
+  // times out or fails. At peak every submit lands here, so a delete would
+  // leave nothing to fall back to exactly when the database is busiest.
+  const cached = date ? publicCache.get(date) : null;
+  if (cached) cached.expiresAt = 0;
+  // Retire any aggregation already running for this date: it cannot have
+  // seen the row that just landed, so its result may be served to the callers
+  // that already joined it but must not be cached or joined by later readers.
+  if (date) publicGen.set(date, genOf(date) + 1);
   invalidateDailyLeaderboardCache(date);
 }
 

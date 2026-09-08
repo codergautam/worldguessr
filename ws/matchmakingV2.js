@@ -30,6 +30,20 @@ const EARLY_CAP_AT = 90000;    // which lands exactly at 90s
 const LATE_INTERVAL = 30000;   // after that, one step per 30s, forever
 export const LEAGUE_LOCK_MS = 15000;
 export const UPPER_BOUNDARY_GRACE_ELO = 10;
+export const VOYAGER_WIDEN_MS = 60000;
+export const EXPLORER_WIDEN_MS = 120000;
+
+// Shared by pairing and the displayed search range. Disabling the preference
+// must never lose a widening stage available with it enabled. Trekkers keep
+// the ordinary gradual window; unlimited widening only joins Explorer+ peers.
+function widenedFloorFor(waitedMs, rating, strict, voyagerFloor, explorerFloor) {
+  if (!Number.isFinite(voyagerFloor) || voyagerFloor <= 0) return null;
+  const fallback = Number.isFinite(explorerFloor) && explorerFloor > 0
+    ? Math.min(voyagerFloor, explorerFloor) : voyagerFloor;
+  if (!strict && waitedMs >= EXPLORER_WIDEN_MS && rating >= fallback) return fallback;
+  if (waitedMs >= VOYAGER_WIDEN_MS && rating >= voyagerFloor) return voyagerFloor;
+  return null;
+}
 
 /**
  * Rating window half-width for a player who has waited `waitedMs`.
@@ -53,7 +67,11 @@ export function windowFor(waitedMs) {
 /**
  * The range shown to a queued player. During the opening league lock, the
  * ordinary rating window is clipped to that player's current league borders.
- * At 15s the league clip disappears while strict matchmaking's floor remains.
+ * At 15s the league clip disappears. Voyager+ searches lose their rating-gap
+ * limit against Voyager+ at 60s with either setting. With "Avoid lower skill
+ * duels" enabled, Voyager remains a hard floor. With it disabled, Explorer+
+ * searches add an unlimited Explorer+ range at 120s while retaining their
+ * existing lower-rating range. Trekkers keep the ordinary gradual window.
  *
  * THE BOUNDARY GRACE IS TWO-SIDED, and so is this. hasUpperBoundaryGrace waives
  * the lock for BOTH members of a boundary pair, so the band has to move for both
@@ -101,8 +119,16 @@ export function ratingRangeFor(waitedMs, rating, opts = {}) {
       ? Math.min(leagueMin, opts.leagueBelowMax - UPPER_BOUNDARY_GRACE_ELO)
       : leagueMin);
 
+  const min = Math.max(0, strictFloor, lockedFloor, Math.round(r - half));
+  const widenedFloor = widenedFloorFor(waited, r, strictFloor > 0,
+    opts.widenFloor ?? strictFloor, opts.normalFallbackFloor);
+  if (widenedFloor !== null) {
+    // Infinity becomes null in JSON; the string survives the wire and both UIs.
+    return [Math.min(min, widenedFloor), '∞'];
+  }
+
   return [
-    Math.max(0, strictFloor, lockedFloor, Math.round(r - half)),
+    min,
     Math.min(leagueLocked && !upperGrace ? leagueMax : Infinity, Math.round(r + half)),
   ];
 }
@@ -242,18 +268,16 @@ function wasRecentOpponent(entry, candidate, now, waiverMs) {
 /**
  * Would pairing these two violate either side's strict-matchmaking opt-in?
  *
- * Strict means "never match me below the Voyager line". Checked BOTH ways for
- * the same reason the rematch block is: pairing is symmetric, so which player
- * happens to be the anchor on a given tick must not change the answer.
+ * "Avoid lower skill duels" always enforces the Voyager line. Checked BOTH
+ * ways: neither player's wait can override the other's enabled preference.
  *
  * In practice only one direction can fire, because a queue entry is only ever
  * stamped strict when the player is themselves at or above the floor — but
  * relying on the caller to have got that right is exactly how this feature broke
  * the first time.
  *
- * `strictFloor` is INJECTED rather than imported: this module stays pure (one
- * import, no league table, no config) so it can be unit tested, and the floor is
- * a seasonal value the server resolves from the active tier table.
+ * The floor is injected from the active tier table so seasonal changes do not
+ * leave the matching rules on stale rating boundaries.
  */
 function strictBlocks(a, b, strictFloor) {
   if (!Number.isFinite(strictFloor) || strictFloor <= 0) return false;
@@ -281,7 +305,11 @@ function strictBlocks(a, b, strictFloor) {
  * protected first STARVED_MIN_PARTNER_WAIT_MS — a floor that also stands in
  * for the opening league lock on that pair (see the constant's comment).
  * Closest-rating selection still applies, so a starved player takes the
- * SMALLEST reach the pool offers, and strict matchmaking is never waived.
+ * SMALLEST reach the pool offers. Voyager+ players get unlimited reach toward
+ * Voyager+ after 60s with either setting, including fresh opponents. With the
+ * setting disabled, Explorer+ players also reach any Explorer+ at 120s. An
+ * enabled preference still vetoes every sub-Voyager opponent. Trekkers keep
+ * the ordinary window rules, and rematch prevention applies to every stage.
  */
 export function chooseDuelPairs(entries, opts = {}) {
   const now = Number.isFinite(opts.now) ? opts.now : Date.now();
@@ -338,6 +366,8 @@ export function chooseDuelPairs(entries, opts = {}) {
     const anchorWaited = waitedOf(anchor, now);
     const anchorWindow = windowFor(anchorWaited);
     const anchorRating = ratingOf(anchor);
+    const anchorFloor = widenedFloorFor(anchorWaited, anchorRating, anchor.strict,
+      strictFloor, opts.normalFallbackFloor);
 
     let best = null;
     let bestDiff = Infinity;
@@ -347,10 +377,15 @@ export function chooseDuelPairs(entries, opts = {}) {
       if (!!anchor.guest !== !!candidate.guest) continue; // guests pair only with guests
 
       const candidateWaited = waitedOf(candidate, now);
+      const candidateRating = ratingOf(candidate);
+      const candidateFloor = widenedFloorFor(candidateWaited, candidateRating, candidate.strict,
+        strictFloor, opts.normalFallbackFloor);
+      const widened = (anchorFloor !== null && candidateRating >= anchorFloor)
+        || (candidateFloor !== null && anchorRating >= candidateFloor);
 
       // Guests are unrated — the window is meaningless for them, exactly as in
       // the pre-v2 guest branch, which paired any two guests.
-      const diff = Math.abs(anchorRating - ratingOf(candidate));
+      const diff = Math.abs(anchorRating - candidateRating);
       if (!anchor.guest) {
         // max/min of the two waits, not anchor/candidate roles: an unmatched
         // starved player stays in the candidate pool for later anchors, and
@@ -359,15 +394,25 @@ export function chooseDuelPairs(entries, opts = {}) {
         const shorterWaited = Math.min(anchorWaited, candidateWaited);
         const starved = longerWaited >= STARVED_WAIT_MS
           && shorterWaited >= STARVED_MIN_PARTNER_WAIT_MS;
-        if (starved) {
-          // The valve's own 10s floor is the WHOLE protection here — the
-          // opening league lock is deliberately not consulted, or it would
-          // quietly re-raise the floor to 15s for cross-league grabs.
-          if (diff > windowFor(longerWaited)) continue;
-        } else {
-          const window = Math.min(anchorWindow, windowFor(candidateWaited));
-          if (diff > window) continue;
-          if (!openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited)) continue;
+        // The valve's own 10s floor is the WHOLE protection there — the
+        // opening league lock is deliberately not consulted, or it would
+        // quietly re-raise the floor to 15s for cross-league grabs.
+        const ordinaryAllows = starved
+          ? diff <= windowFor(longerWaited)
+          : diff <= Math.min(anchorWindow, windowFor(candidateWaited))
+            && openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited);
+        if (!ordinaryAllows) {
+          // The widening lifts the RATING GAP for the side that has waited.
+          // It does not lift the partner's protections: a player who joined
+          // this tick keeps the same first 10s the starvation valve grants
+          // and the same opening league lock every other pairing honours, so
+          // an older waiter cannot seat them across the table one second
+          // after they tapped Ranked while their screen still shows a
+          // 50-point band.
+          const widenedAllows = widened
+            && shorterWaited >= STARVED_MIN_PARTNER_WAIT_MS
+            && openingLeaguePairAllows(anchor, candidate, anchorWaited, candidateWaited);
+          if (!widenedAllows) continue;
         }
       }
 
@@ -395,11 +440,7 @@ export function chooseDuelPairs(entries, opts = {}) {
 
       // Strict matchmaking. DELIBERATELY BEFORE the closest-rating comparison
       // below: a rejected candidate must never be able to win the bestDiff slot
-      // and knock out a legal opponent. Also NOT waived by wait time — unlike
-      // the rematch rule, this is an explicit opt-in and quietly overriding it
-      // after a minute would be the opposite of what the player asked for. The
-      // uncapped widening in windowFor() is what eventually finds them someone
-      // ABOVE the floor.
+      // and knock out a legal opponent. The enabled floor never relaxes.
       if (strictBlocks(anchor, candidate, strictFloor)) continue;
 
       // Strictly-smaller only: `ordered` is longest-wait-first, so an equal gap
@@ -428,7 +469,10 @@ export function chooseDuelPairs(entries, opts = {}) {
 // costs one skipped punishment, which is nothing. Persisting it would buy
 // accuracy nobody can perceive.
 
-const DODGE_FIRST_MS = 30000;   // first offense
+// The first dodge inside the memory window is FREE (user ruling, Sep 5): it
+// only stamps the offense so the next one inside the window is a repeat. One
+// walk-out an hour is a mistake; two is a habit, and that is what gets priced.
+const DODGE_FIRST_MS = 0;
 const DODGE_REPEAT_MS = 120000; // repeat inside the memory window
 const DODGE_MEMORY_MS = 3600000; // 1h — how long a dodge counts as "recent"
 

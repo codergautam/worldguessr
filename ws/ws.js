@@ -38,7 +38,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeague, getLeagueBelow, getStrictFloor, getActiveLeagues } from '../components/utils/leagues.js';
+import { getLeague, getLeagueBelow, getStrictFloor, getMatchmakingFallbackFloor, getActiveLeagues } from '../components/utils/leagues.js';
 import {
   ENTRY_RATING, calculateTransfer
 } from '../components/utils/eloSystem.js';
@@ -295,7 +295,30 @@ function recordDodgeIfApplicable(player, game, reason) {
 function chargeDodge(player, reason) {
   const penalty = recordDodge(dodgeCooldowns, dodgeKeyFor(player));
   console.log('[RATING_V2] dodge:', player?.username || player?.id, `${penalty}ms`, `(${reason})`, currentDate());
+  // Tell them on the way out, not at the next ranked tap: a lock discovered
+  // only when the queue refuses you reads as a broken button. A free first
+  // dodge (penalty 0) says nothing. Player.send no-ops on the disconnect
+  // purge's already-closed socket, which is the right outcome: that player
+  // is gone and learns of it when they next press Ranked.
+  if (penalty > 0) player.send(queueLockedToast(penalty));
   return penalty;
+}
+
+/**
+ * The dodge-lock notice, ONE message for every client generation. The
+ * sentence-as-key reads verbatim on clients whose locale table predates it
+ * (t() falls back to the key); `code` + `remainingMs` let current clients
+ * leave the searching screen at once and render their own localized copy in
+ * its place. Older clients ignore the extra fields and show the sentence.
+ */
+function queueLockedToast(remainingMs) {
+  return {
+    type: 'toast',
+    key: `Ranked queue locked for ${Math.ceil(remainingMs / 1000)}s after leaving a match early`,
+    toastType: 'error',
+    code: 'queueLocked',
+    remainingMs
+  };
 }
 
 /**
@@ -381,9 +404,9 @@ function ownsEmote(player, emoteDef) {
 function rangeForRatingV2(rating, waitedMs, strict = false) {
   const r = Number.isFinite(rating) ? rating : ENTRY_RATING;
   const league = getLeague(r);
-  // A strict player's lower bound is the Voyager floor, not r - half: pairing
-  // will not go below it, so showing a band that reaches into Trekker would be
-  // advertising opponents this queue can never produce.
+  // Voyager+ searches widen at one minute with either setting. The enabled
+  // setting always keeps its Voyager floor; disabling it adds Explorer at two
+  // minutes. Resolve both floors from the active table for the display.
   //
   // The tier BELOW is handed over for the other half of the boundary grace: this
   // player can be paired down to its ceiling minus the grace, so their band has
@@ -394,6 +417,8 @@ function rangeForRatingV2(rating, waitedMs, strict = false) {
     leagueMax: league?.max,
     leagueBelowMax: getLeagueBelow(league)?.max,
     strictFloor: strict ? getStrictFloor() : 0,
+    widenFloor: getStrictFloor(),
+    normalFallbackFloor: getMatchmakingFallbackFloor(),
   });
 }
 
@@ -824,7 +849,7 @@ if (process.env.MAINTENANCE_SECRET) {
     for (const player of players.values()) {
     try {
 
-      if (player.ip.includes(ip)) {
+      if (matchesIpBan(player.ip, ip)) {
         if (player.ws) player.ws.close();
         else {
           console.log('Player with matching IP has no WebSocket connection', player.username, player.ip, currentDate());
@@ -1043,11 +1068,30 @@ if (process.env.MAINTENANCE_SECRET) {
 
 const bannedIps = new Set();
 const ipConnectionCount = new Map();
-const ipDuelRequestsLast10 = new Map();
+const duelRequestsLast10 = new Map();
 
-safeInterval('ipDuelReqReset', 10000, () => {
-  ipDuelRequestsLast10.clear();
+safeInterval('duelReqReset', 10000, () => {
+  duelRequestsLast10.clear();
 });
+
+function matchesIpBan(ip, bannedIp) {
+  if (typeof ip !== 'string' || typeof bannedIp !== 'string') return false;
+  // Manual IPv4 prefixes end on an octet boundary; complete addresses,
+  // including IPv6, match exactly.
+  return ip === bannedIp || (/^\d{1,3}(?:\.\d{1,3}){0,2}$/.test(bannedIp)
+    && ip.startsWith(`${bannedIp}.`));
+}
+
+function queueJoinRateLimited(player) {
+  // Shared networks must not pool their requests or receive an automatic IP
+  // ban. Account keys survive reconnects; guests are limited per connection.
+  const key = player.accountId || player.id;
+  const count = (duelRequestsLast10.get(key) || 0) + 1;
+  duelRequestsLast10.set(key, count);
+  if (count <= 50) return false;
+  player.send({ type: 'toast', key: 'pleaseWaitSeconds', seconds: 10, toastType: 'error' });
+  return true;
+}
 
 function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat) {
           // maxDist no longer required-> can be pulled from community map
@@ -1106,7 +1150,7 @@ app.ws('/wg', {
     if(ip.includes(',')) {
       ip = ip.split(',')[0];
     }
-    if([...bannedIps].some((bannedIp) => ip.includes(bannedIp))
+    if([...bannedIps].some((bannedIp) => matchesIpBan(ip, bannedIp))
        || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
       console.log('Banned ip tried to connect', ip, currentDate());
       res.writeStatus('403 Forbidden');
@@ -1167,6 +1211,7 @@ app.ws('/wg', {
       }
 
       const player = players.get(ws.id);
+      if (player.ws !== ws) return;
       // ABOVE THE VERIFIED GATE, deliberately. Every client fires its first
       // timeSync immediately behind `verify`, and verify() is async — it awaits
       // several DB calls before setting `verified` — so under the gate that
@@ -1263,6 +1308,7 @@ app.ws('/wg', {
           return;
         }
 
+        if (queueJoinRateLimited(player)) return;
         player.inQueue = true;
         const queueDetails = {
           guest: player.accountId ? false : true,
@@ -1280,30 +1326,6 @@ app.ws('/wg', {
         // keeps a client-side queue-start timestamp that a remount or a
         // backgrounded JS timer can silently corrupt.
         player.send({ type: 'queueJoined', ranked: false, queuedAt: queueDetails.queueTime });
-        if(player.ip !== 'unknown' && player.ip.includes('.')) {
-
-          const ipOctets = player.ip.split('.').slice(0, 3).join('.');
-
-          if (!ipDuelRequestsLast10.has(ipOctets)) {
-            ipDuelRequestsLast10.set(ipOctets, 1);
-          } else {
-          log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
-
-            ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
-          }
-
-          if (ipDuelRequestsLast10.get(ipOctets) > 50) {
-            log('Banned IP due to spam', ipOctets);
-            bannedIps.add(ipOctets);
-            ws.close();
-
-            for(const player of players.values()) {
-              if(player.ip.includes(ipOctets)) {
-                player.ws.close();
-              }
-            }
-          }
-        }
 
       }
 
@@ -1340,16 +1362,11 @@ app.ws('/wg', {
         {
           const remaining = dodgeRemaining(dodgeCooldowns, dodgeKeyFor(player));
           if (remaining > 0) {
-            player.send({
-              type: 'toast',
-              // Sentence-as-key: reads verbatim on any client whose locale
-              // table predates this string (t() falls back to the key).
-              key: `Ranked queue locked for ${Math.ceil(remaining / 1000)}s after leaving a match early`,
-              toastType: 'error'
-            });
+            player.send(queueLockedToast(remaining));
             return;
           }
         }
+        if (queueJoinRateLimited(player)) return;
         if (BOTS_INSTANT && !player.elo) player.elo = 1000;
         // get range of league
         player.inQueue = true;
@@ -1417,8 +1434,8 @@ app.ws('/wg', {
           // from `elo` deliberately (historical v1/v2 split).
           rating: player.elo,
           window: windowFor(0),
-          // Voyager+ opt-in: this player is never matched below the Voyager
-          // line. Eligibility is re-checked HERE and not just at settings time,
+          // Voyager+ preference: the enabled setting always keeps the Voyager
+          // floor, regardless of wait. Eligibility is re-checked HERE,
           // so a derank quietly returns them to the normal pool.
           //
           // THE FLOOR MUST COME FROM getStrictFloor(), NOT `leagues.voyager.min`.
@@ -1452,31 +1469,6 @@ app.ws('/wg', {
         } catch (e) {
           console.error('[publicDuel] join-time queueEta push threw for', player.id, e?.stack || e);
         }
-      }
-        if(player.ip !== 'unknown' && player.ip.includes('.')) {
-
-        const ipOctets = player.ip.split('.').slice(0, 3).join('.');
-
-        if (!ipDuelRequestsLast10.has(ipOctets)) {
-          ipDuelRequestsLast10.set(ipOctets, 1);
-        } else {
-        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
-
-          ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
-        }
-
-        if (ipDuelRequestsLast10.get(ipOctets) > 50) {
-          log('Banned IP due to spam', ipOctets);
-          bannedIps.add(ipOctets);
-          ws.close();
-
-          for(const player of players.values()) {
-            if(player.ip.includes(ipOctets)) {
-              player.ws.close();
-            }
-          }
-        }
-      } else {
       }
       }
 
@@ -2058,6 +2050,21 @@ app.ws('/wg', {
         player.lastStrictMatchmakingChange = Date.now();
         User.updateOne({ _id: player.accountId }, { strictMatchmaking: json.strict }).then(() => {
           player.strictMatchmaking = json.strict;
+          player.strictMatchmakingRevision = (player.strictMatchmakingRevision ?? 0) + 1;
+          const queued = playersInQueue.get(player.id);
+          if (queued?.duel && !queued.guest && player.inQueue && !player.gameId) {
+            const strict = json.strict && queued.rating >= getStrictFloor();
+            if (queued.strict !== strict) {
+              const waited = Date.now() - queued.queueTime;
+              queued.strict = strict;
+              queued.window = windowFor(waited);
+              const range = rangeForRatingV2(queued.rating, waited, strict);
+              queued.min = range[0];
+              queued.max = range[1];
+              queued.etaShown = null;
+              player.send({ type: 'publicDuelRange', range });
+            }
+          }
           player.send({
             type: 'toast',
             key: 'preferenceUpdated'
@@ -2736,9 +2743,6 @@ app.ws('/wg', {
       // socket's close event fires. Ignore the stale close so it does not mark
       // the newly reconnected player as disconnected or remove them from games.
       if (player.ws !== ws) {
-        if (playersInQueue.has(ws.id)) {
-          playersInQueue.delete(ws.id);
-        }
         return;
       }
 
@@ -2832,12 +2836,10 @@ app.ws('/wg', {
     } catch (e) {
       console.error('[ws:close] handler threw for', ws?.id, e?.stack || e);
     } finally {
-      // Never let a queue entry outlive its socket — even when the body above
-      // threw or returned early. The matchmaking tick dereferences these
-      // entries every 500ms. (The stale-close early return relied on an
-      // explicit delete before this moved into a finally; both paths land
-      // here.)
-      if (ws?.id && playersInQueue.has(ws.id)) {
+      // Clean up even after an error, but an old socket must never delete the
+      // queue entry belonging to a replacement connection with the same id.
+      const liveSocket = players.get(ws?.id)?.ws;
+      if (ws?.id && (!liveSocket || liveSocket === ws)) {
         playersInQueue.delete(ws.id);
       }
     }
@@ -3808,6 +3810,7 @@ try {
           // re-anchor moves the strict floor with the leagues instead of
           // stranding it on a stale number.
           strictFloor: getStrictFloor(),
+          normalFallbackFloor: getMatchmakingFallbackFloor(),
           // Computed ONLY when the queue is small enough for it to matter,
           // because it walks `games`. Above two the pool can never be judged
           // isolated anyway, so any positive number does, and passing one keeps

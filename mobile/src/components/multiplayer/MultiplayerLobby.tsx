@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  InteractionManager,
   Modal,
   Platform,
   Share,
@@ -35,7 +34,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { router } from 'expo-router';
 import { colors, t } from '../../shared';
 import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
@@ -57,6 +55,12 @@ interface MultiplayerLobbyProps {
   /** Leave/back handler owned by the unified screen (web backBtnPressed parity). */
   onLeave: () => void;
   /**
+   * 2v2 rescue link ("Have a game code? Join a party"). Owned by the unified
+   * screen too: it is a deliberate leave that must clear that screen's
+   * beforeRemove/teardown guards before it navigates (see [id].tsx).
+   */
+  onJoinWithCode: () => void;
+  /**
    * Emote FAB gate, fused by the parent screen (settings toggle && screen focus —
    * see [id].tsx). Web renders emotes in every waiting lobby, not just mid-match.
    */
@@ -64,7 +68,7 @@ interface MultiplayerLobbyProps {
   chatShown?: boolean;
 }
 
-export default function MultiplayerLobby({ onLeave, emotesShown = false, chatShown = false }: MultiplayerLobbyProps) {
+export default function MultiplayerLobby({ onLeave, onJoinWithCode, emotesShown = false, chatShown = false }: MultiplayerLobbyProps) {
   // Read insets via the hook (synchronous from context) rather than the native
   // <SafeAreaView> component, whose padding lands a frame late — under the
   // 'fade' screen transition that one-frame jump is visible as the header
@@ -122,9 +126,19 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
   // Measured portrait footer height so the emote FAB clears the action buttons
   // (footer content varies by role/mode/status lines — a constant would drift).
+  // The footer sits INSIDE the inset-padded column, so the FAB offset (measured
+  // from the screen edge, see EmoteReactions bottomOffset) adds insets.bottom.
   // Landscape needs no lift: the footer is a right-hand sidebar there and the
   // bottom-left corner belongs to the scroll column.
   const [footerHeight, setFooterHeight] = useState(0);
+  const fabOffset = isLandscape ? 0 : footerHeight + insets.bottom;
+  // The FAB offset is MEASURED, so it is 0 on the first commit: the chat and
+  // emote buttons painted at the screen bottom and then jumped up by the
+  // footer height (200-300pt) once onLayout landed — a flash on every lobby
+  // open. Hold the FABs until the offset is known. Landscape needs none (the
+  // footer is a sidebar, offset 0); portrait waits for the first footer layout,
+  // which lands within the route fade, so the buttons simply appear in place.
+  const fabOffsetReady = isLandscape || footerHeight > 0;
 
   // "Queueing in 3…" — the server stamps the lobby state with the remaining
   // ms before it auto-queues (post-pairing preview / pregame-cancel regroup).
@@ -498,24 +512,17 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
 
         {/* Rescue link (web partyLobby.js subtitle slot): players holding a
             friend's code keep tapping 2v2 and landing here instead of the
-            join screen. Web parity: leave the staging lobby on the way out so
-            it can't linger as a ghost (home.js joinPrivateGame no-code path);
-            replace keeps the stack canonical ([tabs, join]). */}
+            join screen. Navigation + leave are owned by the unified screen
+            (onJoinWithCode): both guards that can stomp this exit — the
+            beforeRemove listener and the ownerless-teardown effect — live
+            there, and only there can the leave be flagged as deliberate. */}
         {is2v2 && !teammateSearch && playerCount < 2 && (
           <Pressable
             onPress={() => {
               haptics.light();
-              // Navigate FIRST, tear down AFTER the transition. leaveGame
-              // flips inGame false, and the game screen's ownerless-teardown
-              // guard ([id].tsx: dismissAllSafe on !inGame while focused)
-              // fires on that flip BEFORE the replace settles — stomping the
-              // join screen with home. Deferring the leave until the game
-              // screen is unmounted makes the flip invisible to the guard.
-              router.replace('/party/join');
-              InteractionManager.runAfterInteractions(() => {
-                useMultiplayerStore.getState().leaveGame();
-              });
+              onJoinWithCode();
             }}
+            hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
             style={({ pressed }) => [styles.joinLink, pressed && { opacity: 0.7 }]}
           >
             <Text style={styles.joinLinkText}>{t('twovtwoHaveCode')}</Text>
@@ -867,17 +874,17 @@ export default function MultiplayerLobby({ onLeave, emotesShown = false, chatSho
           hidden while the options sheet is up: MapSelectorModal is an INLINE
           sheet (zIndex 100), not a native Modal, so the FAB (zIndex 1300) would
           float on top of it — the native invite/sound Modals cover it for free. */}
-      {emotesShown && !serverDisableEmotes && (
-        <EmoteReactions hidden={mapModalVisible} bottomOffset={isLandscape ? 0 : footerHeight} />
+      {emotesShown && !serverDisableEmotes && fabOffsetReady && (
+        <EmoteReactions hidden={mapModalVisible} bottomOffset={fabOffset} />
       )}
 
       {/* Chat FAB — bottom-right (emotes own bottom-left). Lobbies are always
           private, so the audience gate is trivially satisfied here; the host
           disableChat toggle and the raw server gates still apply. */}
-      {chatShown && !serverDisableChat && (
+      {chatShown && !serverDisableChat && fabOffsetReady && (
         <GameChat
           hidden={mapModalVisible}
-          bottomOffset={isLandscape ? 0 : footerHeight}
+          bottomOffset={fabOffset}
           stackUp={emotesShown && !serverDisableEmotes}
         />
       )}
@@ -1106,10 +1113,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // 2v2 rescue link under the header ("Have a game code? Join a party").
-  joinLink: { alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  // Web is a 0.85rem underlined text link (.party-lobby__join-link). It keeps
+  // the text-link look here, but on a phone the row itself is the touch
+  // target: a full 44pt row instead of a 12px label with 4px of padding.
+  joinLink: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   joinLinkText: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: fontSizes.xs,
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: fontSizes.sm,
     fontFamily: 'Lexend',
     textDecorationLine: 'underline',
   },

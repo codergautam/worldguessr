@@ -14,11 +14,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   BackHandler,
+  PanResponder,
 } from 'react-native';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigationContainerRef, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
@@ -29,7 +30,7 @@ import { api } from '../../src/services/api';
 import { haptics, hapticForScore } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
-import { dismissAllSafe } from '../../src/utils/navigation';
+import { dismissAllSafe, resetRootStackTo } from '../../src/utils/navigation';
 import streetViewUrl from '../../src/utils/streetViewUrl';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PlayerName from '../../src/components/PlayerName';
@@ -43,6 +44,15 @@ import ReviewPromptModal from '../../src/components/ReviewPromptModal';
 import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
 
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+
+// The sheet head compacts as the panel opens (smaller type, tighter padding).
+// The gradient's bottom padding also rides panelAnim, so it needs an
+// Animated-aware host.
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+
+// Bottom padding of the sheet at its collapsed rest. Expanded uses the safe
+// area inset instead; the two are interpolated, never switched.
+const COLLAPSED_SHEET_BOTTOM_PAD = 26;
 
 interface OpponentGuess {
   playerId: string;
@@ -394,7 +404,15 @@ export default function GameResultsScreen() {
   // getState() snapshot taken at mount would be empty forever. The `pending`
   // flag rides the FROZEN duelEnd, so the height is reserved from first paint
   // even though the number is not there yet.
-  const stampsReceipt = useMultiplayerStore((s) => s.gameData?.stampsEarned);
+  const stampsReceiptLive = useMultiplayerStore((s) => s.gameData?.stampsEarned);
+  // HELD across the local game teardown. Play Again keeps this screen up
+  // through the interstitial after leaveGame() has nulled gameData (the stack
+  // swap to the queue comes afterwards, in one commit); without the hold the
+  // receipt panel would vanish and the buttons jump a beat before the fade.
+  // A reconnect wipe under this screen gets the same courtesy.
+  const stampsReceiptHeld = useRef(stampsReceiptLive);
+  if (stampsReceiptLive) stampsReceiptHeld.current = stampsReceiptLive;
+  const stampsReceipt = stampsReceiptLive ?? stampsReceiptHeld.current;
   const stampsPending = !!liveDuelEnd?.stampsPending;
   const isPartyHost = isPrivateParty && !!mpHost;
 
@@ -748,6 +766,7 @@ export default function GameResultsScreen() {
     return null;
   }, [extentParam]);
   const router = useRouter();
+  const rootNavRef = useNavigationContainerRef();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const units = useSettingsStore((s) => s.units);
@@ -963,6 +982,7 @@ export default function GameResultsScreen() {
 
   // Star entrance animations
   const starAnims = useRef(stars.map(() => new Animated.Value(0))).current;
+  const [starGlyphHeight, setStarGlyphHeight] = useState(0);
 
   useEffect(() => {
     starAnims.forEach((anim, i) => {
@@ -1005,9 +1025,7 @@ export default function GameResultsScreen() {
     setActiveRound((prev) => (prev === index ? null : index));
   }, []);
 
-  const toggleDetails = useCallback(() => {
-    haptics.light();
-    const expanding = !detailsExpanded;
+  const settlePanel = useCallback((expanding: boolean) => {
     setDetailsExpanded(expanding);
     Animated.spring(panelAnim, {
       toValue: expanding ? 1 : 0,
@@ -1015,13 +1033,76 @@ export default function GameResultsScreen() {
       tension: 65,
       useNativeDriver: false,
     }).start();
-  }, [detailsExpanded, panelAnim]);
+  }, [panelAnim]);
+
+  const toggleDetails = useCallback(() => {
+    haptics.light();
+    settlePanel(!detailsExpanded);
+  }, [detailsExpanded, settlePanel]);
+
+  // Swipe on the sheet head (handle + summary) drags the panel with the
+  // finger and snaps on release, so a user who swipes the handle instead of
+  // tapping it still gets the toggle. Taps stay with the Pressables under it:
+  // the responder only claims once the finger has moved, mostly vertically.
+  // Created once, so it reads live values through refs.
+  const detailsExpandedRef = useRef(detailsExpanded);
+  detailsExpandedRef.current = detailsExpanded;
+  const settlePanelRef = useRef(settlePanel);
+  settlePanelRef.current = settlePanel;
+  // Pixel distance between the two rest heights. The portrait layout writes
+  // it each render so finger travel maps onto panelAnim's 0..1.
+  const panelTravelRef = useRef(1);
+  const dragStartRef = useRef(0);
+  // Landscape has no sheet, so its header renders at the collapsed rest.
+  const restAnim = useRef(new Animated.Value(0)).current;
+  // Live panelAnim value. The head is measured for the collapsed height only
+  // while the panel rests at 0: mid-spring or mid-drag its type and padding
+  // sit between sizes, and a measurement taken then would move the very
+  // target the spring is heading for.
+  const panelProgressRef = useRef(0);
+  useEffect(() => {
+    const id = panelAnim.addListener(({ value }) => {
+      panelProgressRef.current = value;
+    });
+    return () => panelAnim.removeListener(id);
+  }, [panelAnim]);
+  const panelPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderGrant: () => {
+        panelAnim.stopAnimation((value: number) => {
+          dragStartRef.current = value;
+        });
+      },
+      onPanResponderMove: (_, g) => {
+        const next = dragStartRef.current - g.dy / panelTravelRef.current;
+        panelAnim.setValue(Math.min(1, Math.max(0, next)));
+      },
+      onPanResponderRelease: (_, g) => {
+        // A flick wins; otherwise land on the nearer rest.
+        const progress = dragStartRef.current - g.dy / panelTravelRef.current;
+        const expand = g.vy < -0.3 ? true : g.vy > 0.3 ? false : progress > 0.5;
+        if (expand !== detailsExpandedRef.current) haptics.light();
+        settlePanelRef.current(expand);
+      },
+      onPanResponderTerminate: () => {
+        settlePanelRef.current(detailsExpandedRef.current);
+      },
+    }),
+  ).current;
 
   // One-shot latch for the SP play-again below: it dismisses then PUSHES on a
   // deferred beat, so a double-tap would queue two pushes and stack two fresh
   // game screens. The results screen unmounts right after, so the latch dies
   // with it.
   const spReplayFiredRef = useRef(false);
+  // Public-multiplayer play-again latch. This screen now STAYS UP while the
+  // interstitial runs (the stack swap to the queue comes after it), so the
+  // button remains tappable for the ad's load beat: 'pending' swallows repeat
+  // taps, 'cancelled' (Home/back meanwhile) stops the deferred re-queue.
+  const mpReplayRef = useRef<'idle' | 'pending' | 'armed' | 'cancelled'>('idle');
 
   const handlePlayAgain = () => {
     // Click sound rides the SfxPressable this handler is wired to.
@@ -1055,21 +1136,39 @@ export default function GameResultsScreen() {
       const isDuel = !!multiplayerInfo?.isDuel;
       const isPublic = publicParam === 'true' || isDuel; // duels are always public
 
-      useMultiplayerStore.getState().leaveGame();
-
-      if (isPublic) {
-        // Hand off to home.tsx's re-queue effect (the single owner of "→ /queue"):
-        // it reads nextGameQueued/nextGameType and fires the right publicDuel/
-        // unrankedDuel for us. Arm it only AFTER the interstitial is dismissed,
-        // so we don't re-enter the queue (and get matched) behind the ad.
-        runGameInterstitial(isDuel ? 'rankedDuel' : 'unrankedDuel').then(() => {
-          useMultiplayerStore.setState({
-            nextGameQueued: true,
-            nextGameType: isDuel ? 'ranked' : 'unranked',
-          });
-        });
+      if (!isPublic) {
+        useMultiplayerStore.getState().leaveGame();
+        dismissAllSafe();
+        return;
       }
-      dismissAllSafe();
+      // Public: re-queue into the SAME queue with NO trip through home. This
+      // screen stays up (the game screen beneath is unfocused, so its own
+      // dismiss guards stay quiet) while the interstitial runs over it; then
+      // home.tsx's re-queue effect (still the single owner of "→ /queue")
+      // reads nextGameQueued/nextGameType, joins the queue, and swaps the
+      // whole stack for the queue in one reset (resetRootStackTo, which
+      // targets the app stack one level under expo-router's '__root' slot;
+      // its first cut checked the container root and never fired). Arm it
+      // only AFTER the interstitial is dismissed, so we don't re-enter the
+      // queue (and get matched) behind the ad. leaveGame() goes out NOW,
+      // while the socket is provably up; reset() clears nextGameQueued, so
+      // the arm must follow it, never precede it.
+      if (mpReplayRef.current !== 'idle') return;
+      mpReplayRef.current = 'pending';
+      useMultiplayerStore.getState().leaveGame();
+      runGameInterstitial(isDuel ? 'rankedDuel' : 'unrankedDuel').then(() => {
+        if (mpReplayRef.current !== 'pending') return; // Home/back won meanwhile
+        mpReplayRef.current = 'armed';
+        const { connected } = useMultiplayerStore.getState();
+        useMultiplayerStore.setState({
+          nextGameQueued: true,
+          nextGameType: isDuel ? 'ranked' : 'unranked',
+        });
+        // Socket down: the owner effect waits for the reconnect, and a
+        // finished results screen must not wait with it. Take the old road
+        // home; the effect pushes the queue from there once connected.
+        if (!connected) dismissAllSafe();
+      });
       return;
     }
     // Play Again restarts the SAME singleplayer game the player just finished —
@@ -1081,18 +1180,6 @@ export default function GameResultsScreen() {
     spReplayFiredRef.current = true;
     maybeShowGameInterstitial('singleplayer');
     const replayMap = isCountryGuesserResult ? 'all' : (mapParam || 'all');
-    // DISMISS-THEN-PUSH, not replace: a plain replace swaps out only THIS
-    // results route, leaving the finished game screen mounted underneath with
-    // its 2-3 live WebViews — each Play Again stacked another one (the "hot
-    // phone after a couple of games" report). dangerouslySingular cannot save
-    // the replace: expo-router 6's Stack applies filterSingular only to
-    // PUSH/NAVIGATE actions (StackClient.js), so on REPLACE it is silently
-    // ignored. dismissAllSafe pops to [tabs]; the push must ride a macrotask
-    // because dismissAll is queue-drained, not synchronous — same two-beat
-    // shape as home.tsx's results->queue handoff. Safe for SP: no unmount path
-    // calls leaveGame, beforeRemove passes through unfocused, and the location
-    // pool is module-level.
-    dismissAllSafe();
     const replayParams = {
       id: 'singleplayer',
       map: replayMap,
@@ -1104,6 +1191,23 @@ export default function GameResultsScreen() {
       time: '60',
       mode: mode || 'world',
     };
+    // ONE RESET swaps [tabs, finished game, results] for [tabs, fresh game]:
+    // the old game (and its 2-3 live WebViews) unmounts in the same commit the
+    // new one mounts, and home never paints in between. Never a plain
+    // replace: that swaps out only THIS results route, leaving the finished
+    // game screen mounted underneath — each Play Again stacked another one
+    // (the "hot phone after a couple of games" report). dangerouslySingular
+    // cannot save the replace either: expo-router 6's Stack applies
+    // filterSingular only to PUSH/NAVIGATE actions (StackClient.js), so on
+    // REPLACE it is silently ignored. Safe for SP: no unmount path calls
+    // leaveGame, beforeRemove passes through unfocused, and the location pool
+    // is module-level.
+    if (resetRootStackTo(rootNavRef, 'game/[id]', replayParams)) return;
+    // Fallback (stack not in the expected shape): DISMISS-THEN-PUSH.
+    // dismissAllSafe pops to [tabs]; the push must ride a macrotask because
+    // dismissAll is queue-drained, not synchronous — same two-beat shape as
+    // home.tsx's fallback for the results->queue handoff.
+    dismissAllSafe();
     setTimeout(() => {
       router.push({ pathname: '/game/[id]', params: replayParams });
     }, 0);
@@ -1139,6 +1243,14 @@ export default function GameResultsScreen() {
   }, []);
 
   const handleGoHome = useCallback(() => {
+    // A Play Again already in flight (its interstitial loading, or its
+    // re-queue armed but not yet swapped in): the player changed their mind.
+    // Stop the deferred arm and disarm home.tsx's re-queue effect, or a
+    // reconnect minutes later would drop them into a queue from home.
+    if (mpReplayRef.current !== 'idle') {
+      mpReplayRef.current = 'cancelled';
+      useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
+    }
     // No haptic here: the back button taps fire it via the shared BackButton, and
     // the standalone Home CTA fires it inline — keeping it out avoids a double buzz.
     //
@@ -1455,15 +1567,27 @@ export default function GameResultsScreen() {
   }
 
   // ── Sidebar header (stars + score + buttons) ───────────────
-  const renderHeader = (compact: boolean) => (
-    <View style={[styles.header, compact && styles.headerCompact]}>
+  // `progress` is the sheet's open amount (0 collapsed rest, 1 expanded).
+  // Every compact/expanded difference in here is an interpolation on it, so
+  // the type and padding shrink WITH the panel instead of snapping when the
+  // expanded flag flips. Landscape passes a constant 0.
+  const renderHeader = (progress: Animated.Value) => {
+    const lerp = (from: number, to: number) =>
+      progress.interpolate({ inputRange: [0, 1], outputRange: [from, to] });
+    return (
+    <Animated.View
+      style={[
+        styles.header,
+        { paddingTop: lerp(spacing.lg, spacing.sm), paddingBottom: lerp(spacing.md, spacing.sm) },
+      ]}
+    >
       {/* Placement gets a plain onboarding result. Later duels keep the usual
           Victory/Defeat/Draw title and rating change. */}
       {multiplayerInfo?.isDuel || multiplayerInfo?.team2v2 || multiplayerInfo?.teamGame ? (
         <>
-          <Text style={[
+          <Animated.Text style={[
             styles.duelTitle,
-            compact && { fontSize: 24 },
+            { fontSize: lerp(styles.duelTitle.fontSize, 24) },
             {
               color: isPlacementResult
                 ? colors.white
@@ -1477,7 +1601,7 @@ export default function GameResultsScreen() {
             {isPlacementResult
               ? t('placementCompleteTitle')
               : t(multiplayerInfo.isDraw ? 'draw' : multiplayerInfo.isWinner ? 'victory' : 'defeat')}
-          </Text>
+          </Animated.Text>
           {/* teamGame: cumulative scoreline (Team 1 pts — pts Team 2, crown on
               the winner). 2v2 deliberately has NO scoreline (HP already hit 0). */}
           {multiplayerInfo.teamGame && multiplayerInfo.teamScores && (
@@ -1528,7 +1652,7 @@ export default function GameResultsScreen() {
       ) : (
         <>
           {/* Stars (singleplayer + multiplayer non-duel) */}
-          <View style={[styles.starsRow, compact && { marginBottom: 4 }]}>
+          <Animated.View style={[styles.starsRow, { marginBottom: lerp(spacing.sm, 4) }]}>
             {stars.map((starColor, i) => (
               <Animated.View
                 key={i}
@@ -1554,29 +1678,59 @@ export default function GameResultsScreen() {
                   opacity: starAnims[i] || 1,
                 }}
               >
-                <Ionicons
-                  name="star"
-                  size={compact ? 26 : 34}
-                  color={starColor}
+                {/* Expo's icon ref cannot accept JS-driven setNativeProps.
+                    Resize a separate view so the native entrance above keeps
+                    its own driver. Match layout size as well as painted size
+                    to preserve the row gaps and the font's natural height. */}
+                <Animated.View
                   style={{
-                    textShadowColor: starColor,
-                    textShadowOffset: { width: 0, height: 0 },
-                    textShadowRadius: 8,
+                    width: lerp(34, 26),
+                    height: starGlyphHeight > 0
+                      ? lerp(starGlyphHeight, starGlyphHeight * 26 / 34)
+                      : undefined,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: [{ scale: lerp(1, 26 / 34) }],
                   }}
-                />
+                >
+                  <View
+                    style={{ width: 34, height: starGlyphHeight || undefined }}
+                  >
+                    <Ionicons
+                      name="star"
+                      size={34}
+                      color={starColor}
+                      onLayout={i === 0 ? ({ nativeEvent }) => {
+                        // Measure the loaded glyph, then keep its layout height
+                        // independent of the shrinking animated wrapper.
+                        if (nativeEvent.layout.height > 0) setStarGlyphHeight(nativeEvent.layout.height);
+                      } : undefined}
+                      style={{
+                        textShadowColor: starColor,
+                        textShadowOffset: { width: 0, height: 0 },
+                        textShadowRadius: 8,
+                      }}
+                    />
+                  </View>
+                </Animated.View>
               </Animated.View>
             ))}
-          </View>
+          </Animated.View>
           {showXpEarned && (
-            <View style={[styles.headerXpBadge, compact && styles.headerXpBadgeCompact]}>
+            <Animated.View
+              style={[
+                styles.headerXpBadge,
+                { top: lerp(spacing.lg, spacing.sm), right: lerp(spacing.lg, spacing.md) },
+              ]}
+            >
               <Text style={styles.totalXpBadgeText}>{t('xpEarnedBadge', { xp: displayXp })}</Text>
-            </View>
+            </Animated.View>
           )}
           {/* Multiplayer rank */}
           {myRank && (
-            <Text style={[styles.rankText, compact && { fontSize: 14 }]}>
+            <Animated.Text style={[styles.rankText, { fontSize: lerp(styles.rankText.fontSize, 14) }]}>
               {t('rankOfTotalSlash', { rank: myRank.rank, total: myRank.total })}
-            </Text>
+            </Animated.Text>
           )}
         </>
       )}
@@ -1586,12 +1740,17 @@ export default function GameResultsScreen() {
           scoreline) — no personal "out of N points" in any of them. */}
       {!multiplayerInfo?.isDuel && !multiplayerInfo?.team2v2 && !multiplayerInfo?.teamGame && (
         <>
-          <Text style={[styles.scoreValue, compact && { fontSize: 30 }]}>
+          <Animated.Text style={[styles.scoreValue, { fontSize: lerp(styles.scoreValue.fontSize, 30) }]}>
             {displayScore.toLocaleString()}
-          </Text>
-          <Text style={[styles.scoreSubtitle, compact && { fontSize: 11, marginBottom: 4 }]}>
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.scoreSubtitle,
+              { fontSize: lerp(fontSizes.sm, 11), marginBottom: lerp(spacing.md, 4) },
+            ]}
+          >
             {t('outOfPoints', { maxScore: maxScore.toLocaleString() })}
-          </Text>
+          </Animated.Text>
         </>
       )}
 
@@ -1742,8 +1901,9 @@ export default function GameResultsScreen() {
           )}
         </View>
       )}
-    </View>
-  );
+    </Animated.View>
+    );
+  };
 
   // ── Final Scores leaderboard (multiplayer non-1v1) ─────────
   // Mirrors web renderLeaderboard: every player, click to expand a per-round
@@ -2462,7 +2622,7 @@ export default function GameResultsScreen() {
                 {/* Keep landscape as one natural document. The result summary
                     scrolls away with the rounds instead of occupying a fixed
                     slab of a phone's short vertical axis. */}
-                {renderHeader(false)}
+                {renderHeader(restAnim)}
                 <View style={styles.sidebarDivider} />
                 {renderRoundsList()}
               </ScrollView>
@@ -2491,11 +2651,15 @@ export default function GameResultsScreen() {
   // PORTRAIT LAYOUT — map top, bottom sheet panel (like web mobile)
   // ═══════════════════════════════════════════════════════════
   const bottomInsetPadding = Math.max(insets.bottom, 8);
-  const panelBottomPadding = detailsExpanded ? bottomInsetPadding : 26;
+  const panelBottomPadding = panelAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [COLLAPSED_SHEET_BOTTOM_PAD, bottomInsetPadding],
+  });
   const collapsedHeight = collapsedContentHeight > 0
-    ? collapsedContentHeight + panelBottomPadding
-    : Math.min(height * 0.35, 240 + panelBottomPadding);
+    ? collapsedContentHeight + COLLAPSED_SHEET_BOTTOM_PAD
+    : Math.min(height * 0.35, 240 + COLLAPSED_SHEET_BOTTOM_PAD);
   const expandedHeight = height * 0.68;
+  panelTravelRef.current = Math.max(1, expandedHeight - collapsedHeight);
 
   const animatedPanelHeight = panelAnim.interpolate({
     inputRange: [0, 1],
@@ -2549,7 +2713,7 @@ export default function GameResultsScreen() {
           },
         ]}
       >
-        <LinearGradient
+        <AnimatedLinearGradient
           colors={['rgba(20, 65, 25, 0.97)', 'rgba(20, 65, 25, 0.90)']}
           style={[
             styles.portraitPanelGradient,
@@ -2559,21 +2723,24 @@ export default function GameResultsScreen() {
           ]}
         >
           <View
+            {...panelPan.panHandlers}
             onLayout={(event) => {
-              if (detailsExpanded) return;
+              // Only a resting, fully collapsed head is the collapsed height.
+              if (panelProgressRef.current !== 0) return;
               const nextHeight = Math.ceil(event.nativeEvent.layout.height);
               if (Math.abs(nextHeight - collapsedContentHeight) >= 2) {
                 setCollapsedContentHeight(nextHeight);
               }
             }}
           >
-            {/* Drag handle — tap to toggle details (sheet handles are divs on
-                web, so no click sound) */}
+            {/* Drag handle — tap OR swipe to toggle details; the swipe is the
+                panelPan responder on the head above (sheet handles are divs
+                on web, so no click sound) */}
             <Pressable sfx="none" onPress={toggleDetails} style={styles.handleBarTouchArea}>
               <View style={styles.handleBar} />
             </Pressable>
 
-            {renderHeader(detailsExpanded)}
+            {renderHeader(panelAnim)}
           </View>
 
           {/* Rounds section — always rendered, animated via panel height */}
@@ -2591,7 +2758,7 @@ export default function GameResultsScreen() {
               </ScrollView>
             </>
           )}
-        </LinearGradient>
+        </AnimatedLinearGradient>
       </Animated.View>
       {renderReportModal()}
       <ReviewPromptModal
@@ -2676,10 +2843,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  headerCompact: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2713,10 +2876,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 193, 7, 0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255, 193, 7, 0.35)',
-  },
-  headerXpBadgeCompact: {
-    top: spacing.sm,
-    right: spacing.md,
   },
 
   // Buttons row inside header

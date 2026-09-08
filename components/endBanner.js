@@ -31,6 +31,9 @@ const ONBOARDING_FACTS = [
     "onboardingFact3",
 ];
 const ONBOARDING_AUTO_ADVANCE_SECONDS = 7;
+// Daily right-country headline: a pin this close (km) earns "Spot on!"
+// instead of "Right country!". Same number in mobile ClassicEndBanner.
+const SPOT_ON_KM = 100;
 
 export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessedCountryCode, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, setExplanationModalShown, mapFadingOut }) {
     const { t: text, lang } = useTranslation("common");
@@ -236,6 +239,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const wrongCountryName = isClassicRound && (isWorldMap || dailyMode) && pinInRoundCountry === false && latLong?.country
         ? nameFromCode(latLong.country, lang)
         : null;
+    // Daily only (owner, Sep 3): a pin CONFIRMED inside the round's country
+    // gets its own headline, "✓ Japan" + flag, in the slot "It was Japan"
+    // takes on a miss. Everywhere else a right-country pin still shows just
+    // the distance.
+    const correctCountryName = dailyMode && isClassicRound && pinInRoundCountry === true && latLong?.country
+        ? nameFromCode(latLong.country, lang)
+        : null;
 
     const distanceText = (pinPoint && km >= 0)
         ? text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })
@@ -328,10 +338,17 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         return (compact === '5k' && n !== 5000) ? `${n}` : compact;
     };
     // A flat 5000 is the game's rarest personal outcome — it outranks the
-    // humble points text and renders as the gold chip instead, in every mode
-    // that shows personal points (classic gotPoints line, HP/team parenthetical).
+    // humble points text and renders as the number itself, big and in the
+    // victory gold, in every mode that shows personal points (classic
+    // gotPoints line, HP/team parenthetical). No box around it: the number is
+    // the moment (styles/globals.scss .perfect5k).
     const isPerfectRound = guessed && displayPoints === 5000;
-    const perfectChip = <span className="perfect5k">{text("perfectFiveK")}</span>;
+    const perfectChip = (
+        <span className="perfect5k">
+            <span className="perfect5k__word">{text("perfectLabel")}</span>
+            <span className="perfect5k__num">{compactPts(5000)}</span>
+        </span>
+    );
     // On a perfect the chip gets its own full-brightness line (the personal
     // line is dimmed 0.8 — burying the star moment there undersold it), and
     // the distance drops its "(5k pts)" parenthetical echo.
@@ -393,6 +410,28 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             <CountryFlag countryCode={latLong?.country} size={0.9} marginRight="0" style={{ marginLeft: '0.4em' }} />
         </>
     );
+    // Daily right-country headline: check + a line + flag (styles/daily.scss).
+    // "Spot on!" inside SPOT_ON_KM, "Right country!" beyond it; the distance
+    // itself stays on the small line below.
+    //
+    // The choice is computed HERE from the pin and the answer, not from the
+    // `km` prop: `km` is written by the map's post-paint effect and is never
+    // reset per round, so on the banner's first frame it is null (round 1) or
+    // the previous round's distance (rounds 2 and 3), and `null >= 0 &&
+    // null <= 100` is true. The verdict must be right on frame one, like
+    // pinInRoundCountry above.
+    const spotOnKm = pinPoint && latLong
+        && Number.isFinite(pinPoint.lat) && Number.isFinite(pinPoint.lng)
+        && Number.isFinite(latLong.lat) && Number.isFinite(latLong.long)
+        ? findDistance(latLong.lat, latLong.long, pinPoint.lat, pinPoint.lng)
+        : null;
+    const countryCorrect = (name) => (
+        <>
+            <span className="correctCountryCheck" aria-hidden="true">✓</span>
+            {text(Number.isFinite(spotOnKm) && spotOnKm <= SPOT_ON_KM ? "dailyRightCountryClose" : "dailyRightCountry", { country: name })}
+            <CountryFlag countryCode={latLong?.country} size={0.9} marginRight="0" style={{ marginLeft: '0.4em' }} />
+        </>
+    );
 
     // Exit freeze: advanceRound loads the next round DURING the 300ms fade
     // (deliberate — hides the load latency), so live inputs flip under the
@@ -439,6 +478,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 ) : isClassicRound && wrongCountryName ? (
                     <>
                         <span className='mainBannerTxt'>{countryReveal(wrongCountryName)}</span>
+                        {distanceText && (
+                            <span className='smallmainBannerTxt'>{classicDistanceLine}</span>
+                        )}
+                    </>
+                ) : isClassicRound && correctCountryName ? (
+                    <>
+                        <span className='mainBannerTxt'>{countryCorrect(correctCountryName)}</span>
                         {distanceText && (
                             <span className='smallmainBannerTxt'>{classicDistanceLine}</span>
                         )}

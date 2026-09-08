@@ -46,6 +46,104 @@ registerStat('api/map/mapHome.mapCache.popular.data', () => mapCache.popular.dat
 registerStat('api/map/mapHome.mapCache.recent.data', () => mapCache.recent.data.length);
 registerStat('api/map/mapHome.mapCache.spotlight.data', () => mapCache.spotlight.data.length);
 
+// The one field list every map list fetches — the wire shape is sendableMap,
+// so nothing outside it is ever pulled, above all not `data` (the full
+// location list: 65 KB average, 12.5 MB outliers). likedMaps adds
+// description_long on top for the staff/creator branch of sendableMap.
+const MAP_LIST_FIELDS = {
+  locationsCnt: 1,
+  created_at: 1,
+  lastUpdated: 1,
+  slug: 1,
+  name: 1,
+  hearts: 1,
+  plays: 1,
+  description_short: 1,
+  map_creator_name: 1,
+  // The join key for the creator's name glow. It going missing looks exactly
+  // like "glows work everywhere except this section".
+  created_by: 1,
+  in_review: 1,
+  official: 1,
+  accepted: 1,
+  reject_reason: 1,
+  resubmittable: 1,
+};
+
+// Legacy orphan backfill: map_creator_name is `required` on the schema, so
+// only pre-validation rows reach this. A creator that no longer resolves (a
+// deleted account, or a created_by that is not an ObjectId and throws a
+// CastError) must not take a section or the whole endpoint down: show a
+// placeholder for that one map and leave the row alone so a later read can
+// try again. updateOne, not save(): these are lean stubs under a projection.
+async function backfillCreatorName(map) {
+  // No creator id at all: Mongoose drops an undefined filter value, so
+  // findById(undefined) becomes findOne({}) and returns an arbitrary user
+  // whose name would then be written onto this map. Never look up a blank.
+  if (!map.created_by) {
+    map.map_creator_name = 'Unknown';
+    return;
+  }
+  let owner = null;
+  try {
+    owner = await User.findById(map.created_by).select('username').lean();
+  } catch (err) {
+    console.warn('[mapHome] creator lookup failed for map', String(map._id), err?.message);
+  }
+  const name = owner?.username;
+  if (!name) {
+    map.map_creator_name = 'Unknown';
+    return;
+  }
+  map.map_creator_name = name;
+  try {
+    await Map.updateOne({ _id: map._id }, { map_creator_name: name });
+  } catch (err) {
+    console.warn('[mapHome] creator backfill write failed for map', String(map._id), err?.message);
+  }
+}
+
+// Rebuild one discovery section from the DB. Sort + limit happen IN THE
+// DATABASE ({accepted,hearts}/{accepted,lastUpdated}/{accepted,spotlight}
+// indexes, ~15ms) and the projection + lean keep hydration to 100 plain
+// stubs. The old popular path hydrated all 71k accepted maps into full
+// Mongoose documents and sorted them in JS — 3-8s of blocked event loop that
+// froze the entire API every time the 80-minute cache expired.
+async function rebuildDiscovery(method) {
+  let query;
+  if (method === "recent") {
+    query = Map.find({ accepted: true }).sort({ lastUpdated: -1 });
+  } else if (method === "popular") {
+    query = Map.find({ accepted: true }).sort({ hearts: -1 });
+  } else {
+    query = Map.find({ accepted: true, spotlight: true }).allowDiskUse(true);
+  }
+  const maps = await query.select(MAP_LIST_FIELDS).limit(100).lean();
+
+  const sectionCreator = await creatorGlows(maps);
+  const sendableMaps = await Promise.all(maps.map(async (map) => {
+    if (!map.map_creator_name) await backfillCreatorName(map);
+    // hearted is stamped per request on a copy; the cache always holds false.
+    return sendableMap(map, sectionCreator(map), false);
+  }));
+
+  mapCache[method].data = sendableMaps;
+  mapCache[method].timeStamp = Date.now();
+  return sendableMaps;
+}
+
+// One rebuild per section at a time, shared across requests. Concurrent cache
+// misses used to EACH run the full rebuild — every request landing during the
+// window repeated the work and blocked the loop again.
+function rebuildDiscoveryShared(method) {
+  if (!mapCache[method].inflight) {
+    mapCache[method].inflight = rebuildDiscovery(method).finally(() => {
+      mapCache[method].inflight = null;
+    });
+  }
+  return mapCache[method].inflight;
+}
+
 export default async function handler(req, res) {
   const timings = {};
   const startTotal = Date.now();
@@ -143,16 +241,17 @@ export default async function handler(req, res) {
     // likedMaps
     // find maps liked by user
     const startLikedMaps = Date.now();
-    const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
+    // Projection + lean: heavy hearters (900+ maps) pulled full documents —
+    // data included — for 3.5s responses and tens of MB of hydration.
+    // description_long rides along for the staff/creator branch of sendableMap.
+    const likedMaps = user.hearted_maps
+      ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } })
+          .select({ ...MAP_LIST_FIELDS, description_long: 1 })
+          .lean()
+      : [];
     const likedCreator = await creatorGlows(likedMaps);
     let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
-      if(!map.map_creator_name) {
-        // Legacy orphan only — map_creator_name is `required` on the schema.
-        // Backfill the denormalised name so the next read is a field read.
-        const owner = await User.findById(map.created_by);
-        map.map_creator_name = owner.username;
-        await map.save();
-      }
+      if(!map.map_creator_name) await backfillCreatorName(map);
       return sendableMap(map, likedCreator(map), true, user.staff, map.created_by === user._id.toString());
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
@@ -171,85 +270,42 @@ export default async function handler(req, res) {
   const discovery =  ["spotlight","popular","recent"];
   for(const method of discovery) {
     const startMethod = Date.now();
-    if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
-      // retrieve from cache
-      response[method] = mapCache[method].data;
-      timings[method] = Date.now() - startMethod;
-      timings[method + '_cached'] = true;
-      // check hearted maps
-      response[method].map((map) => {
-        map.hearted = hearted_maps?hearted_maps.has(map.id.toString()):false;
-        return map;
-      });
-
-      // for spotlight randomize the order
-      if(method === "spotlight") {
-        response[method] = shuffle(response[method]);
-      }
-    } else {
-      // retrieve from db
-      let maps = [];
-      if(method === "recent") {
-        maps = await Map.find({ accepted: true }).sort({ lastUpdated: -1 }).limit(100);
-      } else if(method === "popular") {
-        maps = await Map.find({ accepted: true }).select({
-          locationsCnt: 1,
-          created_at: 1,
-          lastUpdated: 1,
-          slug: 1,
-          name: 1,
-          hearts: 1,
-          plays: 1,
-          description_short: 1,
-          map_creator_name: 1,
-          // The join key for the creator's name glow. The other two sections
-          // pull whole documents, so this projection is the only place it can
-          // go missing — and it going missing looks exactly like "glows work
-          // in Recent and Spotlight but not in Popular".
-          created_by: 1,
-          in_review: 1,
-          official: 1,
-          accepted: 1,
-          reject_reason: 1,
-          resubmittable: 1
-      });
-
-      // sort and limit to 100
-      maps = maps.sort((a,b) => b.hearts - a.hearts).slice(0,100);
-
-      } else if(method === "spotlight") {
-        maps = await Map.find({ accepted: true, spotlight: true }).limit(100).allowDiskUse(true);
-      }
-
-      const sectionCreator = await creatorGlows(maps);
-      let sendableMaps = await Promise.all(maps.map(async (map) => {
-        if(!map.map_creator_name && map.data) {
-          // Legacy orphan backfill — see the liked-maps branch above.
-          const owner = await User.findById(map.created_by);
-          map.map_creator_name = owner.username;
-          await map.save();
+    const entry = mapCache[method];
+    const fresh = entry.data.length > 0 && Date.now() - entry.timeStamp < entry.persist;
+    if(!fresh) {
+      if(entry.data.length > 0) {
+        // Stale but servable: kick the (shared) rebuild off and serve the old
+        // list. Nobody waits on a refresh of a discovery shelf — the old code
+        // made every request during a rebuild pay for its own copy of it.
+        rebuildDiscoveryShared(method).catch((e) => console.error(`[mapHome] ${method} rebuild failed`, e));
+        timings[method + '_staleServe'] = true;
+      } else {
+        // Cold start: nothing to serve yet, so this request awaits the shared
+        // rebuild. A failed rebuild leaves THIS section empty on this
+        // response and lets the next request retry; it must not 500 the
+        // whole endpoint (myMaps, likedMaps and the other shelves).
+        try {
+          await rebuildDiscoveryShared(method);
+        } catch (e) {
+          console.error(`[mapHome] ${method} rebuild failed`, e);
         }
-        return sendableMap(map, sectionCreator(map),hearted_maps?hearted_maps.has(map._id.toString()):false);
-      }));
-
-      response[method] = sendableMaps;
-      // if spotlight, randomize the order
-      if(method === "spotlight") {
-        response[method] = shuffle(response[method]);
       }
-
-      mapCache[method].data = sendableMaps;
-      // dont store hearted maps in cache
-      mapCache[method].data = sendableMaps.map((map) => {
-        return {
-          ...map,
-          hearted: false
-        }
-      });
-      mapCache[method].timeStamp = Date.now();
-      timings[method] = Date.now() - startMethod;
-      timings[method + '_cached'] = false;
     }
+    // Per-request COPY of the cached section. The cache is shared state:
+    // stamping hearted onto the cached objects let concurrent requests for
+    // different users overwrite each other mid-flight (user A rendered user
+    // B's hearts whenever their handlers interleaved on an await).
+    let section = mapCache[method].data.map((map) => ({
+      ...map,
+      hearted: hearted_maps ? hearted_maps.has(map.id.toString()) : false,
+    }));
+    // for spotlight randomize the order
+    if(method === "spotlight") {
+      section = shuffle(section);
+    }
+    response[method] = section;
+    timings[method] = Date.now() - startMethod;
+    timings[method + '_cached'] = fresh;
   }
 
   timings.total = Date.now() - startTotal;

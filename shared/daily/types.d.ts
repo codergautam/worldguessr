@@ -10,6 +10,31 @@ export interface DailyLocation {
   heading?: number;
   country?: string;
   panoId?: string;
+  /** Reveal tips (scheduled meta days only, see docs/daily-metas.md). */
+  metas?: DailyMeta[];
+}
+
+/** Where the reveal card points its Street View: the meta, zoomed in. */
+export interface DailyMetaView {
+  heading: number;
+  pitch?: number;
+  /** Street View zoom (0 = 180° fov, each +1 halves it). Default 1. */
+  zoom?: number;
+  /** Only when the meta sits in a different pano than the round's spawn. */
+  lat?: number;
+  lng?: number;
+}
+
+export interface DailyMeta {
+  title: string;
+  explanation: string;
+  /** Short label above the title ("Bollard", "Licence plate"). */
+  category?: string;
+  view: DailyMetaView;
+  /** One-line mnemonic from the pack ("CA-NA-DA = MAX-I-MUM"); not rendered yet. */
+  hint?: string;
+  /** Optional reference photo URL from the pack; not rendered yet. */
+  image?: string;
 }
 
 export interface DailyLocationsResponse {
@@ -23,8 +48,14 @@ export interface DailyLocationsResponse {
 
 export interface DailyDistribution {
   totalPlays: number;
+  /**
+   * MEDIAN total score of the counted population. The name and the copy
+   * ("Today's avg") predate the Sep 3 2026 ruling that the figure must not
+   * be skewable; the wire name stays so clients and caches need no change.
+   */
   avgScore: number;
   buckets: number[];
+  /** Per-round MEDIAN scores, same note as avgScore. */
   roundAverages: number[];
 }
 

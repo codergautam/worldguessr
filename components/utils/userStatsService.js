@@ -37,7 +37,8 @@ class UserStatsService {
         elo: eloToRecord,
         eloRank: eloRank,
         triggerEvent: gameData?.triggerEvent || 'game_completed',
-        gameId: gameId
+        gameId: gameId,
+        ...(typeof gameData.rated === 'boolean' ? { rated: gameData.rated } : {})
       });
 
       return statsEntry;

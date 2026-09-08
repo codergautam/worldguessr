@@ -59,6 +59,20 @@
     .g2_nav_ui {
         --homeMenuSize: min(clamp(1.3rem, 1.85vw, 3.2rem), clamp(1.1rem, 3.4vh, 3rem));
     }
+
+    /* TOUCH SPACING (owner, Sep 4: "too easy to mistap the mode buttons on
+       mobile, increase the gap"). Rows pad 0.4em instead of the desktop
+       0.25em, and a 0.25em dead gap sits between the rows of a group so a
+       tap on the seam lands on nothing rather than the neighbour: ~46px
+       rows on a 52px pitch at the 21px floor. The desktop values stay:
+       a mouse does not mistap, and 0.3 was already "slightly too much"
+       there. mobile ModeItem.tsx / HomeMenuGroup carry the same numbers. */
+    .home__mode {
+        padding: 0.4em 0.25em;
+    }
+    .home__menu__group {
+        gap: 0.25em;
+    }
 }
 
 .home__menu {

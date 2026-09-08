@@ -252,7 +252,6 @@ export default function QueueScreen() {
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
   const chatEnabled = useSettingsStore((s) => s.multiplayerChatEnabled);
   const exitedRef = useRef(false);
-  const is2v2 = gameQueued === '2v2';
   // 2v2 Cancel is a REQUEST, not a local teardown (see handleCancel) — this
   // just dims the button while the server round-trips the lobby restore.
   const [cancelling, setCancelling] = useState(false);
@@ -272,8 +271,28 @@ export default function QueueScreen() {
   // follow-up `queuePlacement`). Overrides the no-eyebrow ruling below and
   // swaps the data plate for the one-line explainer.
   const placementPending = useMultiplayerStore((s) => s.placementPending);
-  // Only the ANCHOR lives here; the tick lives inside <ElapsedClock/>.
-  const anchor = typeof queuedAt === 'number' ? anchorFor(queuedAt) : null;
+  // PRESENTATION IS LATCHED TO THE LAST QUEUED RENDER. The store clears
+  // gameQueued / placementPending / queuedAt on the FIRST game snapshot
+  // ('waiting'), but this screen stays up until the round starts (the nav
+  // owner in home.tsx waits for 'getready') and then for the route fade. Read
+  // live, a ranked search recolored to the green unranked theme ("UNRANKED
+  // DUEL" pill, flash icon, green rings and core) and its clock snapped to
+  // 0:00 for that whole window: the "flash of a green spinner before the
+  // get-ready intro" (Sep 5). The outgoing search keeps its own face.
+  const presentationRef = useRef({
+    mode: gameQueued,
+    placement: placementPending,
+    anchor: null as number | null,
+  });
+  if (gameQueued) {
+    presentationRef.current = {
+      mode: gameQueued,
+      placement: placementPending,
+      anchor: typeof queuedAt === 'number' ? anchorFor(queuedAt) : null,
+    };
+  }
+  const { mode: queueMode, placement: queuePlacement, anchor } = presentationRef.current;
+  const is2v2 = queueMode === '2v2';
 
   // How long this queue USUALLY takes in total, from the moment you joined —
   // not a countdown, and deliberately static (the server latches it for the
@@ -436,8 +455,8 @@ export default function QueueScreen() {
     exitBack();
   };
 
-  const isRanked = gameQueued === 'publicDuel';
-  const isPlacement = isRanked && placementPending;
+  const isRanked = queueMode === 'publicDuel';
+  const isPlacement = isRanked && queuePlacement;
   const theme = isRanked
     ? {
         accent: '#fbbf24',
@@ -612,9 +631,11 @@ export default function QueueScreen() {
 }
 
 const styles = StyleSheet.create({
+  // No colour of its own: the route is transparent over the root backdrop
+  // (app/_layout.tsx), so the frames before this screen's own SiteBackground
+  // paints show the identical root copy, never a flat green.
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   topBar: {
     position: 'absolute',

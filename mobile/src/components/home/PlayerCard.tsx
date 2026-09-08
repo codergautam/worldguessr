@@ -173,9 +173,22 @@ function playerCardTier(shortestSide: number): PlayerCardTier {
   };
 }
 
-/** The card alone. Both line boxes are a fixed lineHeight, so this is exact. */
-export function playerCardHeight(m: PlayerCardMetrics): number {
-  return m.paddingVertical * 2 + m.nameLineHeight + LINE_GAP + m.textLineHeight;
+/**
+ * The card alone, as RENDERED. Both line boxes are a fixed lineHeight, but RN
+ * multiplies lineHeight by the OS font scale (the card's text is not capped,
+ * unlike the menu rows), and the 2px rim is outside the padding: home.tsx
+ * reserves this height under the floating card, and a reservation that
+ * ignored either put the card on the wordmark at Android's "Large" setting
+ * and rendered CORNER_GAP as 4px, not 8. Callers pass
+ * useWindowDimensions().fontScale.
+ */
+export function playerCardHeight(m: PlayerCardMetrics, fontScale = 1): number {
+  return (
+    m.paddingVertical * 2 +
+    CARD_BORDER_WIDTH * 2 +
+    (m.nameLineHeight + m.textLineHeight) * fontScale +
+    LINE_GAP
+  );
 }
 
 /**
@@ -184,9 +197,10 @@ export function playerCardHeight(m: PlayerCardMetrics): number {
  * below the corner instead of guessing with the hardcoded `insets.top + 100` it
  * used to carry.
  */
-export function homeCornerHeight(shortestSide: number): number {
+export function homeCornerHeight(shortestSide: number, fontScale = 1): number {
   const m = playerCardMetrics(shortestSide);
-  return playerCardHeight(m) + CORNER_GAP + m.chipHeight;
+  // The tile has an explicit height, so only the card grows with the scale.
+  return playerCardHeight(m, fontScale) + CORNER_GAP + m.chipHeight;
 }
 
 interface PlayerCardProps {

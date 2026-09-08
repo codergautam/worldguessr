@@ -1,0 +1,17 @@
+{
+    "platforms": {},
+    "disableLoadingLogo": true,
+    "saas": {
+        "publicToken": "cmti47hkl1dtzn00hfknundvy"
+    },
+    "advertisement": {
+        "minimumDelayBetweenInterstitial": 30,
+        "initialInterstitialDelay": 0,
+        "interstitial": {
+            "preloadOnStart": true
+        },
+        "banner": {
+            "disable": false
+        }
+    }
+}

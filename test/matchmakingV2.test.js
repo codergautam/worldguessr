@@ -3,6 +3,7 @@ import {
   windowFor,
   ratingRangeFor,
   chooseDuelPairs,
+  LEAGUE_LOCK_MS,
   recordDodge,
   dodgeRemaining,
   sweepDodges,
@@ -140,6 +141,25 @@ describe('ratingRangeFor — opening league clamp', () => {
     expect(ratingRangeFor(0, 1000, opts)).toEqual([1000, 1050]);
     expect(ratingRangeFor(15000, 1000, opts)).toEqual([1000, 1150]);
   });
+
+  it('keeps the enabled Voyager floor with a JSON-safe unlimited ceiling', () => {
+    const opts = { strictFloor: 1000, widenFloor: 1000, normalFallbackFloor: 800 };
+    expect(ratingRangeFor(59999, 1000, opts)).toEqual([1000, 1250]);
+    expect(ratingRangeFor(60000, 1000, opts)).toEqual([1000, '∞']);
+    expect(ratingRangeFor(119999, 1000, opts)).toEqual([1000, '∞']);
+    expect(JSON.parse(JSON.stringify(ratingRangeFor(120000, 1000, opts))))
+      .toEqual([1000, '∞']);
+    expect(ratingRangeFor(60000, 1000)).toEqual([700, 1300]);
+  });
+
+  it('shows Voyager+ at 1 minute and Explorer+ at 2 minutes with the setting disabled', () => {
+    const opts = { widenFloor: 1000, normalFallbackFloor: 800 };
+    expect(ratingRangeFor(59999, 1750, opts)).toEqual([1500, 2000]);
+    expect(ratingRangeFor(60000, 1750, opts)).toEqual([1000, '∞']);
+    expect(ratingRangeFor(119999, 1750, opts)).toEqual([1000, '∞']);
+    expect(ratingRangeFor(120000, 1750, opts)).toEqual([800, '∞']);
+    expect(ratingRangeFor(120000, 1200, opts)).toEqual([750, '∞']);
+  });
 });
 
 
@@ -253,11 +273,108 @@ describe('chooseDuelPairs — starvation valve', () => {
     expect(pairs[0].b.id).toBe('near');
   });
 
-  it('does not waive strict matchmaking', () => {
-    // Strict is an explicit opt-in; starving is the price the player accepted.
+  it('keeps the strict floor when no fallback tier is supplied', () => {
     const starved = entry({ id: 'starved', rating: 1400, queueTime: NOW - 300000, strict: true });
     const below = entry({ id: 'below', rating: 1100, queueTime: NOW - 20000 });
     expect(chooseDuelPairs([starved, below], { now: NOW, strictFloor: 1300 })).toEqual([]);
+  });
+});
+
+describe('chooseDuelPairs — setting disabled widening', () => {
+  const opts = { now: NOW, strictFloor: 1000, normalFallbackFloor: 800 };
+  // The widening lifts the waiter's rating gap; the partner keeps their own
+  // first 10s and opening league lock, so partners here have been queued
+  // just past the lock. A fresh partner is covered by the test below.
+  const PARTNER_WAIT = LEAGUE_LOCK_MS;
+
+  it('reaches any Voyager+ rating exactly at 1 minute, in either input order', () => {
+    // Gaps of 750, 450 and 1250: all beyond the ordinary window, so only the
+    // widening can pair them. (A Legend at 1800 is 50 away and pairs through
+    // the ordinary window once the partner's lock has passed.)
+    for (const [rating, leagueMin, leagueMax] of [
+      [1000, 1000, 1299], [1300, 1300, 1799], [3000, 1800, Infinity],
+    ]) {
+      const candidate = entry({ id: 'candidate', rating, leagueMin, leagueMax, queueTime: NOW - PARTNER_WAIT });
+      for (const waited of [59999, 60000]) {
+        const normal = entry({ id: 'normal', rating: 1750, leagueMin: 1300, leagueMax: 1799, queueTime: NOW - waited });
+        expect(chooseDuelPairs([normal, candidate], opts)).toHaveLength(waited < 60000 ? 0 : 1);
+        expect(chooseDuelPairs([candidate, normal], opts)).toHaveLength(waited < 60000 ? 0 : 1);
+      }
+    }
+  });
+
+  it('never seats a partner still inside their first 10s or their opening league lock', () => {
+    const normal = entry({ id: 'normal', rating: 1750, leagueMin: 1300, leagueMax: 1799, queueTime: NOW - 120000 });
+    // Cross-league: the partner's own 15s league lock holds, in either order,
+    // and whether the waiter has the setting on (Voyager+ at 60s) or off.
+    for (const strict of [false, true]) {
+      const waiter = entry({ id: 'waiter', rating: 1000, strict, leagueMin: 1000, leagueMax: 1299, queueTime: NOW - 120000 });
+      for (const partnerWaited of [0, 9999, 14999]) {
+        const legend = entry({ id: 'legend', rating: 2400, leagueMin: 1800, leagueMax: Infinity, queueTime: NOW - partnerWaited });
+        expect(chooseDuelPairs([normal, legend], opts)).toEqual([]);
+        expect(chooseDuelPairs([legend, normal], opts)).toEqual([]);
+        expect(chooseDuelPairs([waiter, legend], opts)).toEqual([]);
+        expect(chooseDuelPairs([legend, waiter], opts)).toEqual([]);
+      }
+    }
+    const unlocked = entry({ id: 'legend', rating: 2400, leagueMin: 1800, leagueMax: Infinity, queueTime: NOW - LEAGUE_LOCK_MS });
+    expect(chooseDuelPairs([normal, unlocked], opts)).toHaveLength(1);
+    // No league data at all: the starvation valve's 10s floor still applies.
+    for (const partnerWaited of [0, 9999]) {
+      const bare = entry({ id: 'bare', rating: 2400, queueTime: NOW - partnerWaited });
+      expect(chooseDuelPairs([normal, bare], opts)).toEqual([]);
+    }
+    expect(chooseDuelPairs([normal, entry({ id: 'bare', rating: 2400, queueTime: NOW - 10000 })], opts)).toHaveLength(1);
+  });
+
+  it('adds Explorer opponents past their opening lock at 2 minutes but keeps the ordinary window for Trekkers', () => {
+    const normal = entry({ id: 'normal', rating: 1750, queueTime: NOW - 120000 });
+    for (const rating of [799, 800, 999]) {
+      const lower = entry({ id: 'lower', rating, queueTime: NOW - PARTNER_WAIT });
+      expect(chooseDuelPairs([normal, lower], opts)).toHaveLength(rating < 800 ? 0 : 1);
+    }
+  });
+
+  it('preserves existing compatible matches below Voyager', () => {
+    const normal = entry({ id: 'normal', rating: 1200, queueTime: NOW - 120000 });
+    const lower = entry({ id: 'lower', rating: 900, queueTime: NOW - 10000 });
+    expect(chooseDuelPairs([normal, lower], opts)).toHaveLength(1);
+  });
+
+  it('lets an Explorer waiter reach Voyager+ without overriding their strict preference', () => {
+    const normal = entry({ id: 'normal', rating: 800, queueTime: NOW - 120000 });
+    const voyager = entry({ id: 'voyager', rating: 1000, queueTime: NOW - PARTNER_WAIT });
+    expect(chooseDuelPairs([normal, voyager], opts)).toHaveLength(1);
+    expect(chooseDuelPairs([normal, { ...voyager, strict: true }], opts)).toEqual([]);
+  });
+
+  it('still chooses the closest eligible opponent', () => {
+    const normal = entry({ id: 'normal', rating: 1750, queueTime: NOW - 120000 });
+    const far = entry({ id: 'far', rating: 1000, queueTime: NOW - PARTNER_WAIT });
+    const near = entry({ id: 'near', rating: 1600, queueTime: NOW - PARTNER_WAIT });
+    const pairs = chooseDuelPairs([normal, far, near], opts);
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].b.id).toBe('near');
+  });
+
+  it('keeps the existing mutual rematch delay', () => {
+    const pair = (waitedA, waitedB = waitedA) => [
+      entry({ id: 'a', rating: 1750, queueTime: NOW - waitedA, lastOpponentId: 'b' }),
+      entry({ id: 'b', rating: 1000, queueTime: NOW - waitedB, lastOpponentId: 'a' }),
+    ];
+    expect(chooseDuelPairs(pair(120000), { ...opts, expectedReturns: 2 })).toEqual([]);
+    expect(chooseDuelPairs(pair(360000, 240000), { ...opts, expectedReturns: 2 })).toEqual([]);
+    expect(chooseDuelPairs(pair(300001), { ...opts, expectedReturns: 2 })).toHaveLength(1);
+    expect(chooseDuelPairs(pair(120000), { ...opts, expectedReturns: 0 })).toHaveLength(1);
+  });
+
+  it('resolves the Voyager boundary from the supplied seasonal floor', () => {
+    const normal = entry({ id: 'normal', rating: 2000, queueTime: NOW - 60000 });
+    const atFloor = entry({ id: 'atFloor', rating: 1100, queueTime: NOW - PARTNER_WAIT });
+    const below = entry({ id: 'below', rating: 1099, queueTime: NOW - PARTNER_WAIT });
+    const seasonal = { ...opts, strictFloor: 1100 };
+    expect(chooseDuelPairs([normal, atFloor], seasonal)).toHaveLength(1);
+    expect(chooseDuelPairs([normal, below], seasonal)).toEqual([]);
   });
 });
 
@@ -521,10 +638,12 @@ describe('chooseDuelPairs — rematch prevention', () => {
 });
 
 describe('dodge cooldown', () => {
-  it('charges 30s for a first offense', () => {
+  it('lets a first offense go free but stamps it', () => {
     const map = new Map();
-    expect(recordDodge(map, 'p1', NOW)).toBe(30000);
-    expect(dodgeRemaining(map, 'p1', NOW)).toBe(30000);
+    expect(recordDodge(map, 'p1', NOW)).toBe(0);
+    expect(dodgeRemaining(map, 'p1', NOW)).toBe(0);
+    // Free is not forgotten: the stamp is what makes the next one a repeat.
+    expect(map.get('p1')).toMatchObject({ lastAt: NOW, count: 1 });
   });
 
   it('escalates to 120s for a repeat inside the 1h memory window', () => {
@@ -534,21 +653,22 @@ describe('dodge cooldown', () => {
     expect(map.get('p1').count).toBe(2);
   });
 
-  it('resets to 30s once the memory window has passed', () => {
+  it('resets to a free first offense once the memory window has passed', () => {
     const map = new Map();
     recordDodge(map, 'p1', NOW);
     recordDodge(map, 'p1', NOW + 600000);
     // +2h from the last dodge is outside the 1h memory: a fresh first offense.
-    expect(recordDodge(map, 'p1', NOW + 600000 + 7200000)).toBe(30000);
+    expect(recordDodge(map, 'p1', NOW + 600000 + 7200000)).toBe(0);
     expect(map.get('p1').count).toBe(1);
   });
 
   it('counts down and clears', () => {
     const map = new Map();
     recordDodge(map, 'p1', NOW);
-    expect(dodgeRemaining(map, 'p1', NOW + 29999)).toBe(1);
-    expect(dodgeRemaining(map, 'p1', NOW + 30000)).toBe(0);
-    expect(dodgeRemaining(map, 'p1', NOW + 999999)).toBe(0);
+    recordDodge(map, 'p1', NOW + 600000); // the repeat is the one that locks
+    expect(dodgeRemaining(map, 'p1', NOW + 600000 + 119999)).toBe(1);
+    expect(dodgeRemaining(map, 'p1', NOW + 600000 + 120000)).toBe(0);
+    expect(dodgeRemaining(map, 'p1', NOW + 999999999)).toBe(0);
   });
 
   it('reports 0 for unknown players and missing maps', () => {
@@ -799,16 +919,72 @@ describe('chooseDuelPairs — strict matchmaking', () => {
     expect(new Set([pairs[0].a.id, pairs[0].b.id])).toEqual(new Set(['strict', 'far']));
   });
 
-  it('is NOT waived by a long wait, unlike the rematch rule', () => {
-    // Rematch prevention has a 60s escape hatch because it is a system-imposed
-    // restriction. Strict is an explicit opt-in, so quietly overriding it after
-    // a minute would be the opposite of what the player asked for. The uncapped
-    // widening is what eventually finds them someone above the floor.
+  it('still excludes Trekker after a long wait', () => {
     const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 600000 });
     const low = entry({ id: 'low', rating: 500, queueTime: NOW - 600000 });
 
-    const pairs = chooseDuelPairs([strict, low], { now: NOW, strictFloor: FLOOR });
+    const pairs = chooseDuelPairs([strict, low], { now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800 });
     expect(pairs).toEqual([]);
+  });
+
+  it('removes the rating window exactly at 1 minute for a partner past their opening league lock', () => {
+    const candidate = entry({ id: 'candidate', rating: 1800, leagueMin: 1800, leagueMax: Infinity, queueTime: NOW - LEAGUE_LOCK_MS });
+    for (const waited of [59999, 60000]) {
+      const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - waited });
+      const opts = { now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800 };
+      expect(chooseDuelPairs([strict, candidate], opts)).toHaveLength(waited < 60000 ? 0 : 1);
+      expect(chooseDuelPairs([candidate, strict], opts)).toHaveLength(waited < 60000 ? 0 : 1);
+    }
+  });
+
+  it('never adds Explorer with the setting enabled, even after a long wait', () => {
+    const explorer = entry({ id: 'explorer', rating: 800, leagueMin: 800, leagueMax: 999 });
+    for (const waited of [60000, 119999, 120000, 600000]) {
+      const strict = entry({ id: 'strict', rating: 1750, strict: true, queueTime: NOW - waited });
+      const opts = { now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800 };
+      expect(chooseDuelPairs([strict, explorer], opts)).toEqual([]);
+      expect(chooseDuelPairs([explorer, strict], opts)).toEqual([]);
+    }
+  });
+
+  it('does not let an Explorer waiter override the other player enabled setting', () => {
+    const strict = entry({ id: 'strict', rating: 1000, strict: true, queueTime: NOW - 60000 });
+    const explorer = entry({ id: 'explorer', rating: 900, queueTime: NOW - 300000 });
+    expect(chooseDuelPairs([strict, explorer], {
+      now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800,
+    })).toEqual([]);
+  });
+
+  it('keeps choosing the closest rating after the fallback opens', () => {
+    const strict = entry({ id: 'strict', rating: 1700, strict: true, queueTime: NOW - 120000 });
+    const far = entry({ id: 'far', rating: 800, queueTime: NOW - LEAGUE_LOCK_MS });
+    const near = entry({ id: 'near', rating: 1500, queueTime: NOW - LEAGUE_LOCK_MS });
+    const pairs = chooseDuelPairs([strict, far, near], {
+      now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800,
+    });
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].b.id).toBe('near');
+  });
+
+  it('preserves the mutual five-minute rematch delay through both fallback stages', () => {
+    const opts = { now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800, expectedReturns: 2 };
+    const pair = (waitedA, waitedB = waitedA) => [
+      entry({ id: 'a', rating: 1500, strict: true, queueTime: NOW - waitedA, lastOpponentId: 'b' }),
+      entry({ id: 'b', rating: 1500, strict: true, queueTime: NOW - waitedB, lastOpponentId: 'a' }),
+    ];
+    for (const waited of [60000, 120000, 300000]) {
+      expect(chooseDuelPairs(pair(waited), opts)).toEqual([]);
+    }
+    expect(chooseDuelPairs(pair(360000, 240000), opts)).toEqual([]);
+    expect(chooseDuelPairs(pair(300001), opts)).toHaveLength(1);
+  });
+
+  it('retains the one-minute Voyager+ fallback when the setting is disabled', () => {
+    const high = entry({ id: 'high', rating: 1750, queueTime: NOW - 60000 });
+    const low = entry({ id: 'low', rating: 1000, queueTime: NOW - LEAGUE_LOCK_MS });
+    expect(chooseDuelPairs([high, low], {
+      now: NOW, strictFloor: FLOOR, normalFallbackFloor: 800,
+    })).toHaveLength(1);
   });
 
   it('is inert when no floor is supplied, so a caller that knows nothing about it is unaffected', () => {

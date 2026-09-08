@@ -101,6 +101,7 @@ export default class Player {
       sentReq: this.sentReq,
       receivedReq: this.receivedReq,
       allowFriendReq: this.allowFriendReq,
+      strictMatchmaking: this.strictMatchmaking,
       disconnected: this.disconnected,
       disconnectTime: this.disconnectTime,
       rejoinCode: this.rejoinCode,
@@ -199,6 +200,20 @@ export default class Player {
     const handleReconnect = async (dcPlayerId, rejoinCode, accountId = null) => {
       const dcPlayer = players.get(dcPlayerId);
       if(dcPlayer && this.ws) {
+      const reconnectWs = this.ws;
+      const previousWs = dcPlayer.ws;
+      // Multiple reconnects can be waiting on the same account lookup. Only
+      // adopt while both the incoming socket and the old session still belong
+      // to this attempt; a late result must not replace a newer live owner.
+      const canReconnect = () => {
+        if (this.ws !== reconnectWs || players.get(this.id) !== this) return false;
+        if (players.get(dcPlayerId) !== dcPlayer || dcPlayer.ws !== previousWs) {
+          this.send({ type: 'error', message: 'uac' });
+          reconnectWs.close();
+          return false;
+        }
+        return true;
+      };
 
       // They came back inside the grace window, so the dodge latched when their
       // socket closed was a connection blip, not an abandonment. Clear it before
@@ -218,7 +233,9 @@ export default class Player {
           // the Player object, and the reconnect path REPLACES that object's
           // state from this doc. Leaving them off silently reverted a bought
           // glow and reset the K-factor input on the first reconnect.
-          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode username ratedGames cosmetics elo');
+          const preferenceRevision = dcPlayer.strictMatchmakingRevision ?? 0;
+          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode username ratedGames cosmetics elo strictMatchmaking');
+          if (!canReconnect()) return;
           if (freshUserData) {
             let isBanned = freshUserData.banned;
 
@@ -250,6 +267,10 @@ export default class Player {
             // reattach" rule as countryCode/username above). Guarded with ??
             // so a doc predating a field can never wipe a live value.
             dcPlayer.ratedGames = freshUserData.ratedGames ?? dcPlayer.ratedGames ?? 0;
+            // A save completed while this read was pending is newer than its snapshot.
+            if ((dcPlayer.strictMatchmakingRevision ?? 0) === preferenceRevision) {
+              dcPlayer.strictMatchmaking = freshUserData.strictMatchmaking ?? dcPlayer.strictMatchmaking ?? true;
+            }
             if (freshUserData.elo !== undefined && freshUserData.elo !== null) {
               dcPlayer.elo = freshUserData.elo;
               dcPlayer.league = getLeague(freshUserData.elo).name;
@@ -269,6 +290,8 @@ export default class Player {
         }
       }
 
+      // Also covers a failed lookup and the guest path with no account read.
+      if (!canReconnect()) return;
       // remove from disconnected players
       disconnectedPlayers.delete(rejoinCode);
       // set the player's ws to this ws
@@ -377,6 +400,7 @@ export default class Player {
         } else {
 
         let valid;
+        const preferenceRevision = this.strictMatchmakingRevision ?? 0;
         if(json.secret) {
           console.log('validating secret', json.secret);
         valid =  await validateSecret(json.secret, User);
@@ -424,6 +448,12 @@ export default class Player {
             this.accountId = valid._id.toString();
             this.countryCode = valid.countryCode;
             this.elo = valid.elo;
+            // Queue joins can arrive immediately after the verify ack, while
+            // the last-login write and friend hydration below are still pending.
+            // Preserve any preference save completed during this authentication read.
+            if ((this.strictMatchmakingRevision ?? 0) === preferenceRevision) {
+              this.strictMatchmaking = valid.strictMatchmaking ?? this.strictMatchmaking ?? true;
+            }
             // serverUtils/validateSecret.js does a bare findOne with NO
             // .select(), so the whole doc is already here — these are free.
             this.ratedGames = valid.ratedGames ?? 0;
@@ -559,7 +589,6 @@ export default class Player {
 
           this.allowFriendReq = valid.allowFriendReq;
           this.hideLastSeen = !!valid.hideLastSeen;
-          this.strictMatchmaking = !!valid.strictMatchmaking;
 
         } else {
           console.log('failed to login', json.secret);

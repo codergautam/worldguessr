@@ -17,6 +17,10 @@ import { findCountryLocal } from '../../shared/game/findCountry';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useGameUiScale } from '../../styles/responsive';
 
+// Daily right-country headline: a pin this close (km) earns "Spot on!"
+// instead of "Right country!". Same number in web endBanner.js.
+const SPOT_ON_KM = 100;
+
 // Faithful port of web's components/endBanner.js (classic / daily pin round):
 //  • Show Map / Show Street View toggle (top-right)
 //  • main line: "It was {Country}!" when the guess landed in a different
@@ -51,6 +55,13 @@ interface Props {
    * the reveal stays wrong-country-only (web endBanner.js:220 parity).
    */
   alwaysRevealCountry?: boolean;
+  /**
+   * Daily ONLY (owner, Sep 3): a pin that landed IN the answer country gets
+   * its own headline, "✓ Japan" + flag, in the slot "It was Japan" takes on
+   * a miss. Everywhere else a right-country pin still shows just the
+   * distance (web endBanner.js correctCountryName parity).
+   */
+  correctCountryReveal?: boolean;
   /** Replaces the next-button (multiplayer "Next round starting…"). */
   footerSlot?: React.ReactNode;
   /**
@@ -112,6 +123,7 @@ export default function ClassicEndBanner({
   factText,
   compact,
   alwaysRevealCountry,
+  correctCountryReveal,
   footerSlot,
   streak,
   lostStreak,
@@ -151,31 +163,35 @@ export default function ClassicEndBanner({
         : t('guessDistanceKm', { d: Math.round(distance) })
       : null;
 
-  // "It was {Country}!" — only when the guess landed in a different country
-  // than the answer. Mirrors web's findCountryLocal useEffect.
-  const [wrongCountryName, setWrongCountryName] = useState<string | null>(null);
+  // ISO-2 of the country the pin landed in; null = no pin, unknown, or still
+  // resolving. Mirrors web's findCountryLocal useEffect. Both reveals below
+  // derive from it: "It was X" on a miss, "✓ X" (daily) on a hit.
+  const [guessCountry, setGuessCountry] = useState<string | null>(null);
   useEffect(() => {
     if (!answerCountry || guessLat == null || guessLng == null) {
-      setWrongCountryName(null);
+      setGuessCountry(null);
       return;
     }
     let cancelled = false;
     findCountryLocal({ lat: guessLat, lon: guessLng })
-      .then((guessCountry) => {
-        if (cancelled) return;
-        setWrongCountryName(
-          guessCountry && guessCountry !== 'Unknown' && guessCountry !== answerCountry
-            ? nameFromCode(answerCountry, getCurrentLanguage())
-            : null,
-        );
+      .then((code) => {
+        if (!cancelled) setGuessCountry(code && code !== 'Unknown' ? code : null);
       })
       .catch(() => {
-        if (!cancelled) setWrongCountryName(null);
+        if (!cancelled) setGuessCountry(null);
       });
     return () => {
       cancelled = true;
     };
   }, [answerCountry, guessLat, guessLng]);
+  const wrongCountryName =
+    answerCountry && guessCountry && guessCountry !== answerCountry
+      ? nameFromCode(answerCountry, getCurrentLanguage())
+      : null;
+  const correctCountryName =
+    correctCountryReveal && answerCountry && guessCountry && guessCountry === answerCountry
+      ? nameFromCode(answerCountry, getCurrentLanguage())
+      : null;
 
   // Onboarding always-reveal: names the answer on EVERY classic round, right
   // or wrong, without waiting on findCountryLocal. Everywhere else this is
@@ -213,12 +229,6 @@ export default function ClassicEndBanner({
       ? `${verdict.damage.dealt ? '⚔️' : '💔'} ${t(verdict.damage.dealt ? 'dealtDamage' : 'tookDamage', { dmg: compactPts(verdict.damage.dmg) })}`
       : t('teamRoundTied')
     : null;
-  // One chip, rendered by whichever branch owns the perfect moment.
-  const perfectChipEl = isPerfectRound ? (
-    <View style={styles.perfectChip}>
-      <Text style={[styles.perfectChipText, { fontSize: sc(13) }]}>{t('perfectFiveK')}</Text>
-    </View>
-  ) : null;
   // Non-HP headline: team rounds fold points into the distance line.
   const classicHeadline = (isTeamGameRound ? personalRoundText : distanceText) ?? t('didntGuess');
 
@@ -242,6 +252,56 @@ export default function ClassicEndBanner({
       { translateY: pop.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
     ],
   };
+
+  // Perfect round (web .perfect5k): the word, then "5k" as the hero, big and
+  // in the victory gold. No plate, no stroke: the number is the moment. The
+  // number STAMPS in like a passport stamp (three times its size and tilted,
+  // slams well under size, rebounds over, settles), a gold burst fires
+  // behind it at impact, and the word follows once it has landed. One value
+  // drives all three; the overshoot lives in the interpolation, the easing
+  // is a plain exponential ease-out. Rendered by whichever branch owns the
+  // personal points line.
+  const stamp = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isPerfectRound) return;
+    stamp.setValue(0);
+    Animated.timing(stamp, {
+      toValue: 1,
+      duration: 700,
+      delay: 100,
+      easing: Easing.out(Easing.exp),
+      useNativeDriver: true,
+    }).start();
+  }, [isPerfectRound, stamp]);
+  const stampNumStyle = {
+    opacity: stamp.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 1, 1] }),
+    transform: [
+      { scale: stamp.interpolate({ inputRange: [0, 0.45, 0.7, 1], outputRange: [3, 0.86, 1.08, 1] }) },
+      { rotate: stamp.interpolate({ inputRange: [0, 0.45, 0.7, 1], outputRange: ['-12deg', '1deg', '0deg', '0deg'] }) },
+    ],
+  };
+  const stampFlashStyle = {
+    opacity: stamp.interpolate({ inputRange: [0, 0.38, 0.5, 1], outputRange: [0, 0, 1, 0] }),
+    transform: [{ scale: stamp.interpolate({ inputRange: [0, 0.38, 0.5, 1], outputRange: [0.5, 0.5, 1.15, 1.7] }) }],
+  };
+  const stampWordStyle = {
+    opacity: stamp.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] }),
+    transform: [{ translateX: stamp.interpolate({ inputRange: [0, 0.6, 1], outputRange: [-4, -4, 0] }) }],
+  };
+  const perfectChipEl = isPerfectRound ? (
+    <View style={styles.perfect}>
+      <Animated.Text style={[styles.perfectWord, { fontSize: sc(15) }, stampWordStyle]}>{t('perfectLabel')}</Animated.Text>
+      <View style={styles.perfectNumWrap}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.perfectFlash, { width: sc(56), height: sc(56), borderRadius: sc(28) }, stampFlashStyle]}
+        />
+        <Animated.Text style={[styles.perfectNum, { fontSize: sc(26), lineHeight: sc(28) }, stampNumStyle]}>
+          {compactPts(5000)}
+        </Animated.Text>
+      </View>
+    </View>
+  ) : null;
 
   return (
     <View
@@ -313,6 +373,26 @@ export default function ClassicEndBanner({
             {distanceText ? (
               <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
                 {isTeamGameRound ? personalRoundText : distanceText}
+              </Text>
+            ) : null}
+          </>
+        ) : correctCountryName ? (
+          <>
+            <Animated.View style={[styles.mainRow, popStyle]}>
+              <Text
+                style={[styles.mainTxt, styles.correctCheck, { fontSize: sc(compactLandscape ? 16 : 20) }]}
+                accessibilityElementsHidden
+              >
+                ✓
+              </Text>
+              <Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }]}>
+                {t(distance != null && distance <= SPOT_ON_KM ? 'dailyRightCountryClose' : 'dailyRightCountry', { country: correctCountryName })}
+              </Text>
+              <CountryFlag countryCode={answerCountry ?? ''} size={sc(compactLandscape ? 13 : 15)} />
+            </Animated.View>
+            {distanceText ? (
+              <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
+                {distanceText}
               </Text>
             ) : null}
           </>
@@ -457,23 +537,32 @@ const styles = StyleSheet.create({
   // Wrong-country reveal: text + flag img on one centered row (web parity).
   mainRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mainTxt: { color: '#fff', fontFamily: 'Lexend-SemiBold', fontSize: 20, textAlign: 'center' },
+  // Daily right-country check (web .correctCountryCheck). The daily green,
+  // literal here so the game banner stays free of daily imports.
+  correctCheck: { color: '#4CAF50', fontFamily: 'Lexend-Bold' },
   mainTxtLandscape: { fontSize: 16 },
   smallMainTxt: { color: '#fff', fontFamily: 'Lexend-Medium', fontSize: 15, textAlign: 'center' },
   smallMainTxtLandscape: { fontSize: 13 },
   // bannerPoints: small, white — not colored by score.
   points: { color: 'rgba(255,255,255,0.92)', fontFamily: 'Lexend', fontSize: 13, textAlign: 'center' },
   pointsLandscape: { fontSize: 12 },
-  // .perfect5k — gold chip for a flat 5000 (web endBanner.js perfect5kLine).
-  perfectChip: {
-    backgroundColor: 'rgba(255,215,0,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    marginTop: 2,
+  // Perfect round (web .perfect5k): word + hero number on one baseline. Stamp gold (#ffd700)
+  // is the victory colour; on the plate it wears the soft plate shadow only.
+  perfect: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 2 },
+  perfectWord: { color: '#fff', fontFamily: 'Lexend-SemiBold' },
+  perfectNumWrap: { alignItems: 'center', justifyContent: 'center' },
+  // Impact burst behind the number (web .perfect5k__num::after). Gold at low
+  // alpha; opacity + scale only.
+  perfectFlash: { position: 'absolute', backgroundColor: 'rgba(255,215,0,0.45)' },
+  perfectNum: {
+    color: '#ffd700',
+    fontFamily: 'Lexend-Bold',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  perfectChipText: { color: '#ffd700', fontFamily: 'Lexend-Bold', fontSize: 13, textAlign: 'center' },
   // .streakBadge — amber 🔥 pill (web endBanner.js), matches CountryEndBanner.
   streakBadge: {
     backgroundColor: 'rgba(251,191,36,0.18)',

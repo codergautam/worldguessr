@@ -57,7 +57,7 @@ export function useDailyMenuStatus(secret: string | null): DailyMenuStatus {
       }
 
       try {
-        const data = await api.dailyChallenge.results(today, secret ?? undefined, gid ?? undefined);
+        const data = await api.dailyChallenge.results(today, secret ?? undefined, gid ?? undefined, { lite: true });
         if (isCancelled()) return;
         setState({
           streak: data.user?.streak || 0,

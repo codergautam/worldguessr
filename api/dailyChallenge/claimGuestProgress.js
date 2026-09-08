@@ -73,12 +73,16 @@ async function handler(req, res) {
 
   const today = getClientLocalDate();
 
-  // Per-user daily claim cap.
-  if (recordClaim(user._id.toString(), today) > CLAIMS_PER_USER_PER_DAY) {
-    return res.status(429).json({ error: 'Too many claims today.' });
-  }
-
   try {
+    // Validate the schedule before consuming the claim. Historical lookups can
+    // then retain this last valid version if the private file becomes unreadable.
+    getDailyLocations(today);
+
+    // An unavailable schedule must not consume the player's daily claim quota.
+    if (recordClaim(user._id.toString(), today) > CLAIMS_PER_USER_PER_DAY) {
+      return res.status(429).json({ error: 'Too many claims today.' });
+    }
+
     // Atomic first-wins claim — eliminates TOCTOU between sibling tabs.
     const profile = await GuestProfile.findOneAndUpdate(
       { guestId, claimedBy: null },
@@ -146,7 +150,7 @@ async function handler(req, res) {
             // the row (and the claim) stand even if the counter write dies.
             if (!user.banned) {
               try {
-                await incrementStats(gs.date, gs.score, gs.rounds || []);
+                await incrementStats(gs.date, gs.score);
               } catch (statsErr) {
                 console.warn('[claimGuestProgress] stats backfill failed for', gs.date, statsErr?.message);
               }

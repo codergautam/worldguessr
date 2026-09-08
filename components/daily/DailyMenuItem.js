@@ -50,7 +50,9 @@ export default function DailyMenuItem({ session, onClick }) {
         setState(s => ({ ...s, streak: 0, playedToday: false, msToMidnight: msUntilLocalMidnight() }));
         return;
       }
-      const params = new URLSearchParams({ date: today });
+      // lite=1: this pill only reads the caller's own block, so the server
+      // skips the per-date distribution aggregation for it.
+      const params = new URLSearchParams({ date: today, lite: '1' });
       if (secret) params.set('secret', secret);
       else params.set('guestId', guestId);
       try {

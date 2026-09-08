@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  type GestureResponderHandlers,
 } from 'react-native';
 import SiteBackground from '../SiteBackground';
 import { Pressable } from '../ui/SfxPressable';
@@ -153,6 +154,10 @@ interface ProfileViewProps {
   onTabChange?: (tab: TabKey) => void;
   /** Optional initial tab to preselect (e.g. via a route param). Falls back to 'profile'. */
   initialTab?: TabKey;
+  /** A host bottom sheet's drag-to-dismiss responder (ProfileSheet). Spread on
+   *  the sticky header: the one strip that never scrolls, so a drag there
+   *  cannot fight the tab content. */
+  sheetDragHandlers?: GestureResponderHandlers;
 }
 
 export default function ProfileView({
@@ -166,6 +171,7 @@ export default function ProfileView({
   onNavigateToUser,
   onTabChange,
   initialTab,
+  sheetDragHandlers,
 }: ProfileViewProps) {
   const resolvedUsername = isOwnProfile ? user?.username : publicUsername;
   const accountId = isOwnProfile ? user?.accountId : undefined;
@@ -510,7 +516,7 @@ export default function ProfileView({
         {profileData && (
           <View style={styles.profileContainer}>
             {/* Sticky Header */}
-            <View style={styles.header}>
+            <View style={styles.header} {...sheetDragHandlers}>
               {onBack && (
                 <Pressable
                   style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}

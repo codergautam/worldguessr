@@ -14,8 +14,8 @@ import {
 import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, usePathname, useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, usePathname, useFocusEffect, useNavigationContainerRef } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Reanimated, {
@@ -41,7 +41,7 @@ import { api } from '../../src/services/api';
 import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import { homeMenuTextSize, homeTitleSize } from '../../src/styles/webType';
-import ModeItem, { HomeMenuRule } from '../../src/components/home/ModeItem';
+import ModeItem, { HeroModeItem, HomeMenuGroup, HomeMenuRule } from '../../src/components/home/ModeItem';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import { useLoginPrompt } from '../../src/hooks/useGoogleSignIn';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
@@ -54,7 +54,7 @@ import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailySta
 import DailyStreakBadge from '../../src/components/daily/DailyStreakBadge';
 import { useDailyMenuStatus } from '../../src/components/daily/useDailyMenuStatus';
 import { runGameInterstitial } from '../../src/services/ads';
-import { dismissAllSafe } from '../../src/utils/navigation';
+import { dismissAllSafe, resetRootStackTo } from '../../src/utils/navigation';
 import { TEAM_SUPPORT } from '../../src/services/websocketConfig';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | '2v2' | 'createGame' | 'joinGame' | 'communityMaps';
@@ -384,7 +384,7 @@ let modPopupDismissedNameChange = false;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const rootNavRef = useNavigationContainerRef();
   const reduceMotion = useReducedMotion();
   const singleplayerDefaultModeRef = useRef<Promise<string | null> | null>(null);
   const singleplayerOpeningRef = useRef(false);
@@ -588,7 +588,7 @@ export default function HomeScreen() {
   //   4. match found (game snapshot, team2v2)    /queue → /game/[id]   (replace)
   //   5. stage-2 cancel (lobby snapshot returns) /queue → /game/[id]   (replace)
   //   6. auto-demotion (fresh lobby + stage-1)   /queue → /game/[id]   (replace)
-  //  10. play-again queue-bound burst            results → /queue      (dismiss+push)
+  //  10. play-again queue-bound burst            results → /queue      (one reset; two-beat fallback)
   // Rows 1/2/7/8 are pure re-renders (no navigation); row 9 (duelEnd→results)
   // is owned by [id].tsx; rows 11/12 ride the same snapshots as 5/6.
   const hasAutoNavigated = useRef(false);
@@ -609,13 +609,17 @@ export default function HomeScreen() {
       const path = pathnameRef.current;
       if (path.startsWith('/queue')) return;
       if (path.startsWith('/game/results')) {
-        // Play-again burst: unwind results + the finished game, then queue.
+        // Play-again burst: swap results + the finished game for the queue in
+        // ONE reset, so home never paints between them (resetRootStackTo).
+        // The game screen beneath results is unfocused, so its beforeRemove
+        // lets the removal through and its dismiss guards stay quiet.
+        if (resetRootStackTo(rootNavRef, 'queue')) return;
+        // Fallback (stack not in the expected shape): unwind, then queue.
         // The push waits one macrotask so expo-router drains the POP_TO_TOP
-        // first (same two-beat shape as the 1v1 play-again results→home→queue
-        // hop; dismissAllSafe's action queue is NOT synchronous). Re-check the
-        // live store at fire time: a match `game` snapshot can land in the
-        // same burst (instant match against a waiting duo), and a stale push
-        // would stack a dead /queue over the freshly mounted game.
+        // first (dismissAllSafe's action queue is NOT synchronous). Re-check
+        // the live store at fire time: a match `game` snapshot can land in
+        // the same burst (instant match against a waiting duo), and a stale
+        // push would stack a dead /queue over the freshly mounted game.
         dismissAllSafe();
         setTimeout(() => {
           const s = useMultiplayerStore.getState();
@@ -641,7 +645,7 @@ export default function HomeScreen() {
       hasAutoNavigated.current = true;
       router.replace({ pathname: '/game/[id]', params: { id: 'multiplayer' } });
     }
-  }, [on2v2Queue, inGame, is2v2Context]);
+  }, [on2v2Queue, inGame, is2v2Context, rootNavRef]);
 
   // Single owner of "enter the unified multiplayer screen". Fires for ANY
   // in-game state (waiting lobby, duel match, game start, reconnect, accepted
@@ -668,8 +672,20 @@ export default function HomeScreen() {
     // From the queue, REPLACE so the queue screen doesn't survive under the
     // game (its sonar loops + 1Hz tick + loader GIF ran for the whole match).
     // Same rule the 2v2 effect above already applies, and [tabs, queue, game]
-    // is documented as non-canonical. Everywhere else (party create/join,
-    // invites, reconnect) keeps push — those screens own their own dismissal.
+    // is documented as non-canonical.
+    //
+    // Everywhere else — the party create/join shells, invites, reconnect, deep
+    // links — PUSH. The shells stay under the game ([tabs, shell, game]): dead
+    // but opaque, popped with everything else on leave. Two "fixes" for that
+    // dead shell were tried and REVERTED (Sep 4-5): a replace crossfades on
+    // Android (react-native-screens fades the shell OUT while the game fades
+    // IN, and home shows through both — a flash on every party create), and a
+    // post-push root-stack RESET that pruned the shell flashed the freshly
+    // painted lobby back to its loading state. A push keeps the shell fully
+    // opaque underneath, so the lobby simply fades in over its own skeleton —
+    // the whole point of the shell. The one thing the dead shell ever broke
+    // (the join screen's X popping onto it after the 2v2 lobby's "Have a game
+    // code?" replace) is fixed at the join screen: its X goes to the tab root.
     if (pathnameRef.current.startsWith('/queue')) {
       router.replace({
         pathname: '/game/[id]',
@@ -692,9 +708,25 @@ export default function HomeScreen() {
       const queueType = isUnranked ? 'unrankedDuel' : 'publicDuel';
       useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
       useMultiplayerStore.getState().joinQueue(queueType);
+      // Armed by results' Play Again (that screen is still up, the finished
+      // game beneath it): swap the whole stack for the queue in ONE reset so
+      // home never paints between them. Falls back to the old two-beat hop
+      // (unwind, then a deferred push) if the stack is not the expected
+      // shape. Every other arming (gameCancelled under a live game screen)
+      // keeps the plain push: that screen's own dismiss is queued in the
+      // same commit, and a reset would race it.
+      if (pathnameRef.current.startsWith('/game/results')) {
+        if (resetRootStackTo(rootNavRef, 'queue')) return;
+        dismissAllSafe();
+        setTimeout(() => {
+          const s = useMultiplayerStore.getState();
+          if (s.gameQueued === queueType && !s.inGame) router.push('/queue');
+        }, 0);
+        return;
+      }
       router.push('/queue');
     }
-  }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
+  }, [nextGameQueued, connected, inGame, gameQueued, nextGameType, rootNavRef]);
 
   // Guest tapped an account-gated mode: open the real login sheet with that
   // mode's pitch (web: openLoginUpsell -> LoginModal title/subtitle) instead of a native
@@ -762,13 +794,27 @@ export default function HomeScreen() {
         }
         break;
       }
-      case 'rankedDuel':
+      case 'rankedDuel': {
+        // Dodge-lock deadline as last told by the server (store
+        // rankedQueueLockedUntil): answer the tap here instead of bouncing
+        // through the queue screen. The server stays authoritative; this
+        // only spares the round trip.
+        const lockedMs = (useMultiplayerStore.getState().rankedQueueLockedUntil ?? 0) - Date.now();
+        if (lockedMs > 0) {
+          useMultiplayerStore.getState().pushToast({
+            key: 'rankedQueueLocked',
+            toastType: 'error',
+            vars: { seconds: Math.ceil(lockedMs / 1000) },
+          });
+          break;
+        }
         // Wait for the interstitial to be dismissed before joining the queue —
         // otherwise the server can match us and start the round behind the ad.
         await runGameInterstitial('rankedDuel');
         useMultiplayerStore.getState().joinQueue('publicDuel');
         router.push('/queue');
         break;
+      }
       case 'unrankedDuel':
         await runGameInterstitial('unrankedDuel');
         useMultiplayerStore.getState().joinQueue('unrankedDuel');
@@ -799,7 +845,11 @@ export default function HomeScreen() {
     }
   };
 
-  const { width, height } = useWindowDimensions();
+  // fontScale: the OS text-size setting. RN scales lineHeight by it too, so
+  // every height reserved for the corner below must carry it or the real
+  // card outgrows its reservation (Android "Large" = 1.3 put the card's
+  // bottom on the wordmark and the stamps tile on the Singleplayer plate).
+  const { width, height, fontScale } = useWindowDimensions();
   const isLandscape = width > height;
   const shortestSide = Math.min(width, height);
   const { fontSize: homeTitleFontSize, lineHeight: homeTitleLineHeight } =
@@ -831,7 +881,7 @@ export default function HomeScreen() {
     ? 0
     : Math.max(
         0,
-        homeCornerHeight(shortestSide) +
+        homeCornerHeight(shortestSide, fontScale) +
           spacing.lg +
           spacing.md +
           DIVIDER_VERTICAL_MARGIN -
@@ -871,7 +921,7 @@ export default function HomeScreen() {
   // height ON TOP of the 70 shoved the menu way down after login (Aug 23).
   const compactProfileReservationHeight = Math.max(
     0,
-    spacing.md + playerCardHeight(cardMetrics) + CORNER_GAP - 70,
+    spacing.md + playerCardHeight(cardMetrics, fontScale) + CORNER_GAP - 70,
   );
   useLayoutEffect(() => {
     const target = loggedIn ? 1 : 0;
@@ -1030,83 +1080,88 @@ export default function HomeScreen() {
       />
 
       <SafeAreaView style={styles.content} edges={['top', 'bottom', 'left', 'right']}>
-        <Animated.View
-          style={[
-            styles.headerActionsOverlay,
-            { opacity: navEntrance.opacity },
-            {
-              top: insets.top + spacing.md,
-              right: Math.max(insets.right, spacing.xl),
-            },
-          ]}
-          pointerEvents="box-none"
-        >
-          <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
-            {!awaitingUsername && !initialAuthPending && (
-              <>
-                <Reanimated.View
-                  style={[styles.headerGuestOverlay, guestCornerTransitionStyle]}
-                  pointerEvents={loggedIn ? 'none' : 'box-none'}
-                  accessibilityElementsHidden={loggedIn}
-                  importantForAccessibility={loggedIn ? 'no-hide-descendants' : 'auto'}
-                >
-                  <HeaderCorner
-                    variant="login"
-                    part="account"
-                    cardMetrics={cardMetrics}
-                    loginMetrics={loginMetrics}
-                    username=""
-                    elo={null}
-                    league={null}
-                    animateCounters={false}
-                    showStamps={false}
-                    stamps={0}
-                    authLoading={authLoading}
-                    onLogin={handleLogin}
-                  />
-                </Reanimated.View>
-
-                <Reanimated.View
-                  style={profileCornerTransitionStyle}
-                  pointerEvents={loggedIn ? 'box-none' : 'none'}
-                  accessibilityElementsHidden={!loggedIn}
-                  importantForAccessibility={loggedIn ? 'auto' : 'no-hide-descendants'}
-                >
-                  <HeaderCorner
-                    variant="card"
-                    cardMetrics={cardMetrics}
-                    loginMetrics={loginMetrics}
-                    username={profilePresentation.username}
-                    countryCode={profilePresentation.countryCode}
-                    nameGlow={profilePresentation.nameGlow}
-                    elo={profilePresentation.elo}
-                    league={profilePresentation.league}
-                    animateCounters={navEntranceComplete && loggedIn}
-                    showStamps={profilePresentation.showStamps}
-                    stamps={profilePresentation.stamps}
-                    authLoading={false}
-                    onCardPress={() => router.navigate({
-                      pathname: '/(tabs)/account',
-                      params: { tab: 'profile' },
-                    })}
-                    onEloPress={() => router.navigate({
-                      pathname: '/(tabs)/account',
-                      params: { tab: 'elo' },
-                    })}
-                    onStampsPress={() => router.push('/shop')}
-                  />
-                </Reanimated.View>
-              </>
-            )}
-          </View>
-        </Animated.View>
-
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
+          {/* THE CORNER SCROLLS WITH THE COLUMN. It used to be a sibling of
+              this ScrollView, pinned at insets.top: on short viewports
+              (360x640 Android with a 3-button bar, ~110px of scroll when
+              signed in) the menu slid UNDER the fixed card and the card's
+              Pressables took the tap meant for Singleplayer. Inside the
+              content it is still absolute and still zIndex 10 over the
+              header clones, but it moves with the rows. Offsets are content
+              coordinates: the SafeAreaView already pads the insets, and Yoga
+              offsets an absolute child from the parent's border edge, so
+              `right: spacing.xl` is the same edge the in-flow placeholders
+              use (and on a landscape notch the card no longer sits 20px
+              outside the content). */}
+          <Animated.View
+            style={[styles.headerActionsOverlay, { opacity: navEntrance.opacity }]}
+            pointerEvents="box-none"
+          >
+            <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
+              {!awaitingUsername && !initialAuthPending && (
+                <>
+                  <Reanimated.View
+                    style={[styles.headerGuestOverlay, guestCornerTransitionStyle]}
+                    pointerEvents={loggedIn ? 'none' : 'box-none'}
+                    accessibilityElementsHidden={loggedIn}
+                    importantForAccessibility={loggedIn ? 'no-hide-descendants' : 'auto'}
+                  >
+                    <HeaderCorner
+                      variant="login"
+                      part="account"
+                      cardMetrics={cardMetrics}
+                      loginMetrics={loginMetrics}
+                      username=""
+                      elo={null}
+                      league={null}
+                      animateCounters={false}
+                      showStamps={false}
+                      stamps={0}
+                      authLoading={authLoading}
+                      onLogin={handleLogin}
+                    />
+                  </Reanimated.View>
+
+                  <Reanimated.View
+                    style={profileCornerTransitionStyle}
+                    pointerEvents={loggedIn ? 'box-none' : 'none'}
+                    accessibilityElementsHidden={!loggedIn}
+                    importantForAccessibility={loggedIn ? 'auto' : 'no-hide-descendants'}
+                  >
+                    <HeaderCorner
+                      variant="card"
+                      cardMetrics={cardMetrics}
+                      loginMetrics={loginMetrics}
+                      username={profilePresentation.username}
+                      countryCode={profilePresentation.countryCode}
+                      nameGlow={profilePresentation.nameGlow}
+                      elo={profilePresentation.elo}
+                      league={profilePresentation.league}
+                      animateCounters={navEntranceComplete && loggedIn}
+                      showStamps={profilePresentation.showStamps}
+                      stamps={profilePresentation.stamps}
+                      authLoading={false}
+                      onCardPress={() => router.navigate({
+                        pathname: '/(tabs)/account',
+                        params: { tab: 'profile' },
+                      })}
+                      onEloPress={() => router.navigate({
+                        pathname: '/(tabs)/account',
+                        params: { tab: 'elo' },
+                      })}
+                      onStampsPress={() => router.push('/shop')}
+                    />
+                  </Reanimated.View>
+                </>
+              )}
+            </View>
+          </Animated.View>
+
           {/* Header — rides the shared entrance wave */}
           <Animated.View style={[styles.header, isCompact && styles.headerCompact, compactWide && styles.headerCompactWide, navEntrance]}>
             {isCompact ? (
@@ -1121,9 +1176,14 @@ export default function HomeScreen() {
                   importantForAccessibility="no-hide-descendants"
                 />
 
-                {/* Guests pair the wordmark with Login in their only row.
-                    Signed-in players pair it with the smaller wallet below the
-                    profile card. Both reserve the real control's width. */}
+                {/* Signed-in players pair the wordmark with the wallet tile
+                    below the profile card and reserve its width. Guests only
+                    share the row with Login from 520px wide (compactWide,
+                    header pad 18): in compact portrait the pad is 70 and the
+                    real Login floats at spacing.md, above the row. Reserving
+                    its width there was dead space that squeezed the wordmark
+                    (Spanish "Iniciar sesión", 175px, shrank it to the floor
+                    on 360-wide phones). */}
                 <View style={styles.headerCompactBrandRow}>
                   {homeTitle}
                   <View
@@ -1134,7 +1194,7 @@ export default function HomeScreen() {
                   >
                     {loggedIn || initialAuthPending
                       ? renderCornerClone('wallet', initialAuthPending ? 'ghost' : 'measure')
-                      : renderCornerClone('account', 'login')}
+                      : compactWide ? renderCornerClone('account', 'login') : null}
                   </View>
                 </View>
               </>
@@ -1241,17 +1301,37 @@ export default function HomeScreen() {
 
             {/* Web's .home__menu (styles/homeMenu.css): one mode per line with
                 an outline glyph, thin rules between the groups. */}
-            <View style={styles.modeMenu}>
-              <View>
-                <ModeItem
-                  icon="compass-outline"
+            <View
+              style={[
+                styles.modeMenu,
+                // THE HERO PLATE'S FLOOR, phones only (a tablet's rail cap
+                // already decides): 13.5 row-ems, ~310px portrait and ~257px
+                // landscape at the phone sizes, between the plate's own
+                // content (~275px) and the column (350px on a 390 phone,
+                // ~800px in landscape). A wider row still widens the menu.
+                // The min() keeps a 320-wide phone's column from overflowing,
+                // since minWidth beats maxWidth in Yoga.
+                isCompact && {
+                  minWidth: Math.min(
+                    Math.round(homeMenuTextSize(width, height) * 13.5),
+                    width - spacing.xl * 2,
+                  ),
+                },
+              ]}
+            >
+              <HomeMenuGroup>
+                {/* MOBILE-ONLY TEST (Sep 4): the filled hero row with the
+                    arrow button and subline. Web keeps the plain outline row. */}
+                <HeroModeItem
+                  icon="compass"
                   label={t('singleplayer')}
+                  sub={t('singleplayerSub')}
                   onPress={() => handleModePress('singleplayer')}
                 />
-              </View>
+              </HomeMenuGroup>
 
               <HomeMenuRule />
-              <View>
+              <HomeMenuGroup>
                 {/* Visible to GUESTS too (web parity — a hidden button is a lost
                     conversion funnel): a guest tap opens the link-Google prompt
                     instead of the queue. */}
@@ -1275,10 +1355,10 @@ export default function HomeScreen() {
                     onPress={() => handleModePress('2v2')}
                   />
                 )}
-              </View>
+              </HomeMenuGroup>
 
               <HomeMenuRule />
-              <View>
+              <HomeMenuGroup>
                 <ModeItem
                   icon="person-add-outline"
                   label={t('createGame')}
@@ -1289,10 +1369,10 @@ export default function HomeScreen() {
                   label={t('joinGame')}
                   onPress={() => handleModePress('joinGame')}
                 />
-              </View>
+              </HomeMenuGroup>
 
               <HomeMenuRule />
-              <View>
+              <HomeMenuGroup>
                 <ModeItem
                   icon="calendar-outline"
                   label={t('dailyChallenge')}
@@ -1307,7 +1387,7 @@ export default function HomeScreen() {
                     ) : null
                   }
                 />
-              </View>
+              </HomeMenuGroup>
             </View>
 
           </Animated.View>
@@ -1554,8 +1634,13 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  // Content coordinates (it is a child of the ScrollView's content, see the
+  // JSX): spacing.md below the content top, spacing.xl in from its right edge,
+  // the same inset the header row's placeholders sit at.
   headerActionsOverlay: {
     position: 'absolute',
+    top: spacing.md,
+    right: spacing.xl,
     zIndex: 10,
   },
   headerActionsOverlayInner: {
@@ -1704,7 +1789,11 @@ const styles = StyleSheet.create({
   },
   // Web .home__menu: shrink-wrapped to the widest row, so the group rules
   // (which stretch to it) run exactly the length of the text, never the
-  // screen. The rows stretch to the same width.
+  // screen. The rows stretch to the same width. On a phone the hero plate
+  // sets a floor (the inline minWidth at the call site): the whole column
+  // was tried on Sep 5 and rejected ("too wide ... esp in landscape looks
+  // ass with the full width"), the shrink-wrapped plate before it was too
+  // narrow, so the floor sits between the two.
   modeMenu: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
@@ -1720,6 +1809,9 @@ const styles = StyleSheet.create({
   communityBannerRow: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
+    // Air above it when the column is taller than the screen and the menu's
+    // flexGrow has no slack to give; on a tall screen this is absorbed.
+    marginTop: spacing.md,
   },
   communityBanner: {
     minHeight: 48,

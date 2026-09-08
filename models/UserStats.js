@@ -53,6 +53,15 @@ const userStatsSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Duel rows only. true when the game MOVED (or seeded) the rating, false
+  // for a passive snapshot: bot duel, unranked 1v1, unseeded placement. The
+  // daily ELO board diffs a user's oldest and latest row in its window
+  // (cron.js computeLeaderboardForMode), so a passive row at the 500 entry
+  // rating followed by a 500..900 placement seed would read as a gain.
+  // Absent on non-duel rows and on rows written before this field existed.
+  rated: {
+    type: Boolean
+  },
   
   // ELO refund details (only for triggerEvent: 'elo_refund')
   eloRefundDetails: {

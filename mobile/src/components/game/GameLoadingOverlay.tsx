@@ -79,7 +79,7 @@ export default function GameLoadingOverlay({
   const showBack = !!onBack && (!showCountdown || backDuringCountdown);
   return (
     <Animated.View
-      style={[styles.overlay, { opacity }]}
+      style={[styles.overlay, showCountdown && styles.overlayOnRoot, { opacity }]}
       pointerEvents={interactive ? 'auto' : 'none'}
     >
       <SiteBackground style={StyleSheet.absoluteFillObject}/>
@@ -124,14 +124,6 @@ export default function GameLoadingOverlay({
           <>
             <Ionicons name="warning" size={42} color={colors.error} />
             <Text style={styles.errorText}>{error}</Text>
-            {onRetry && (
-              <Pressable
-                onPress={onRetry}
-                style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
-              >
-                <Text style={styles.retryText}>{retryLabel}</Text>
-              </Pressable>
-            )}
           </>
         ) : (
           <>
@@ -139,18 +131,15 @@ export default function GameLoadingOverlay({
               <ExpoImage source={LOADER} style={styles.spinner} />
               <Text style={styles.loadingText}>{message}</Text>
             </View>
-            {/* Escape hatch while still loading (no error yet): callers pass
-                onRetry once a load has been stuck long enough that waiting it
-                out stops being a plan (game/[id]'s multiplayer watchdog). */}
-            {onRetry && (
-              <Pressable
-                onPress={onRetry}
-                style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
-              >
-                <Text style={styles.retryText}>{retryLabel}</Text>
-              </Pressable>
-            )}
           </>
+        )}
+        {onRetry && (
+          <Pressable
+            onPress={onRetry}
+            style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.retryText}>{retryLabel}</Text>
+          </Pressable>
         )}
       </View>
     </Animated.View>
@@ -162,6 +151,17 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 2000,
     backgroundColor: colors.background,
+  },
+  // Countdown mode is a continuation of the queue screen and, like it, sits
+  // transparent over the root backdrop (app/_layout.tsx): the frames before
+  // this cover's own SiteBackground paints show the identical root copy, not
+  // the brand green above. Safe because game/[id].tsx holds the scene at
+  // opacity 0 for the whole round-1 countdown (sceneOpacity is seeded 0
+  // whenever the cover starts shown, and reset to 0 on every 'waiting'), so
+  // nothing of the warming panorama can show through. The plain loading and
+  // error modes keep the opaque colour: they sit over a live, visible scene.
+  overlayOnRoot: {
+    backgroundColor: 'transparent',
   },
   dim: {
     ...StyleSheet.absoluteFillObject,

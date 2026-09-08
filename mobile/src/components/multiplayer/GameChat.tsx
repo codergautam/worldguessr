@@ -42,6 +42,7 @@ import { spacing, fontSizes } from '../../styles/theme';
 import { useMultiplayerStore, CHAT_MAX_LEN, type ChatMessage } from '../../store/multiplayerStore';
 import { useAuthStore } from '../../store/authStore';
 import PlayerName from '../PlayerName';
+import { STACK_GAP } from './EmoteReactions';
 
 const NEVER = ReduceMotion.Never;
 
@@ -93,8 +94,9 @@ function MessageRow({ msg, onMute }: { msg: ChatMessage; onMute: (m: ChatMessage
 
 export default function GameChat({
   hidden = false,
-  // Extra px to lift the FAB/panel above the bottom (results summary, lobby
-  // footer). Same contract as EmoteReactions' bottomOffset.
+  // Height of the UI stacked under this corner (results summary, lobby footer),
+  // measured from the SCREEN's bottom edge. Same contract as EmoteReactions'
+  // bottomOffset: when set, the FAB rests STACK_GAP above it with no inset added.
   bottomOffset = 0,
   // Emote FAB is concurrently visible (2v2 — parties are comms-XOR): chat
   // shares the bottom-left corner, so stack above the 48px toggle + gap.
@@ -178,7 +180,8 @@ export default function GameChat({
     ]);
   };
 
-  const bottom = Math.max(insets.bottom, 16) + 16 + bottomOffset + (stackUp ? 60 : 0);
+  const resting = bottomOffset > 0 ? bottomOffset + STACK_GAP : Math.max(insets.bottom, 16) + 16;
+  const bottom = resting + (stackUp ? 60 : 0);
   const left = Math.max(insets.left, spacing.md);
 
   // Keyboard lift, MEASURED as the overlap between the window bottom and the

@@ -4,6 +4,12 @@
  * Thin entry screen: it only collects the code and calls joinPrivateGame. It
  * does NOT render a lobby or navigate to the game — home.tsx pushes the unified
  * /game/multiplayer screen (which renders the lobby) as soon as `inGame` flips.
+ *
+ * Its X goes to the TAB ROOT, not one level back: this screen is reached from
+ * home AND from the 2v2 staging lobby's "Have a game code?" link, and in the
+ * latter case the lobby's spent create shell still sits underneath (home.tsx
+ * auto-nav explains why that shell is neither replaced nor pruned). A plain
+ * back() popped onto that dead, forever-shimmering skeleton.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -21,16 +27,15 @@ import {
 import SiteBackground from '../../src/components/SiteBackground';
 import { Pressable } from '../../src/components/ui/SfxPressable';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, t } from '../../src/shared';
 import { haptics } from '../../src/services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
+import { dismissAllSafe } from '../../src/utils/navigation';
 
 export default function PartyJoinScreen() {
-  const router = useRouter();
   // Landscape is height-bound: the auto-focused number pad covers most of a short
   // viewport, so the content is made scrollable and the input/button are compacted.
   const { width, height } = useWindowDimensions();
@@ -99,7 +104,7 @@ export default function PartyJoinScreen() {
       />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={() => dismissAllSafe()} style={styles.backBtn}>
             <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
           <Text style={styles.headerTitle}>{t('joinGame')}</Text>

@@ -203,7 +203,7 @@
 .daily-motivational-quip {
   font-style: italic;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 1.05rem;
+  font-size: 1rem;
   margin: 8px 0 14px;
   text-align: center;
   max-width: 80%;
@@ -232,7 +232,7 @@
   filter: drop-shadow(0 0 3px rgba(205, 127, 50, 0.4));
 }
 .daily-header-rank {
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: white;
   margin-bottom: 6px;
 }
@@ -701,7 +701,7 @@
 .daily-distribution-hook {
   margin: -8px 0 14px;
   color: #ffd700;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -720,7 +720,7 @@
 .daily-distribution-pct {
   color: #ffd700;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-variant-numeric: tabular-nums;
 }
 .daily-distribution-rank {
@@ -801,7 +801,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 .daily-leaderboard-name-link {
   color: inherit;
@@ -1024,7 +1024,7 @@
   justify-content: center;
   gap: 10px;
   padding: 14px 22px;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #fff;
@@ -1859,5 +1859,298 @@
   .daily-confirm-icon,
   .daily-results-card {
     animation: none !important;
+  }
+}
+
+/* Reveal meta card (scheduled meta days, docs/daily-metas.md). Mounted by
+   gameUI inside .endCards beside #endBanner. Chrome = the .timer HUD recipe
+   (globals.scss): --gradLight over --primaryTransparent, 2px --primary frame,
+   16px radius, the 3-layer shadow, lexend 600 — and, like .timer, NO
+   backdrop-filter. The pano is the Maps Embed API iframe at the meta's view:
+   ONE fixed size (--metaPanoW plus the chrome crop), transform-scaled by
+   DailyMetaCard.js to cover its box — never resized, because relaying out
+   Google's renderer every frame of the hover growth flickers.
+   Desktop: bottom-left column card that EXPANDS on hover (class from
+   mouseenter; the growth is gated to fine pointers below). <=1100px: row
+   card centred above the banner so the answer pins stay visible. Landscape
+   phones: text only. */
+.daily-meta-card {
+  /* 90, not 60: the address box is ~65px, ~85px when the address wraps.
+     Mirrors CROP_TOP in DailyMetaCard.js. */
+  --metaCropTop: 90px;
+  --metaCropRight: 60px;
+  --metaCropBottom: 40px;
+  /* The embed's native visible width (its expanded-desktop size); smaller
+     boxes scale it down. Mirrors PANO_W in DailyMetaCard.js. */
+  --metaPanoW: 720px;
+  /* Resting width, height-capped for short laptops: pano = width / 1.6,
+     leaving ~240px for the text and the banner strip. The text block pins
+     itself to this while the card grows (see __text). */
+  --metaRestW: min(clamp(340px, 26vw, 440px), calc((100vh - 240px) * 1.6), calc(100vw - 32px));
+  position: absolute;
+  left: max(env(safe-area-inset-left), 16px);
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  width: var(--metaRestW);
+  /* ONE scalable unit. The card is a size container; the text block's
+     font-size is a share of the card width (cqw on __text, never here: a
+     cq unit on the container itself measures the next container up, i.e.
+     the viewport, and the type comes out poster-sized) and every length
+     inside it is in em; the pano is width-bound. So the hover growth is a
+     pure zoom: the same line breaks at every width, nothing re-wraps or
+     shifts. The frame stays 2px on purpose. Below 1100px (no hover) the rem
+     sizes further down take over. */
+  container-type: inline-size;
+  /* Above #endBanner (1001) inside .endCards: the hover-expanded card must
+     not slide under the banner. */
+  z-index: 1002;
+  pointer-events: all;
+  color: white;
+  background: var(--gradLight);
+  background-color: var(--primaryTransparent);
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(36, 87, 52, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  font-family: lexend;
+  font-weight: 600;
+  text-align: left;
+  /* Explicit property, never `all` (the minimap ruling). One eased width
+     change drives the whole zoom (type and pano follow the width); the
+     ease-out curve matches metaCardEnter so the card moves one way. */
+  transition: width 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Entrance, staged: the answer scene lands first (0.35s hold), then the
+     card settles up and in, the text follows a beat later, and the pano
+     fades + settles in on its own once its imagery has painted (the
+     `ready` class, held back in DailyMetaCard.js so the embed's loading
+     canvas never flashes through). `backwards`, never `both`/`forwards`: a
+     forwards fill would pin transform + opacity at animation priority and
+     defeat the hover width transition (hudEnter ruling in globals.scss). */
+  animation: metaCardEnter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s backwards;
+}
+@keyframes metaCardEnter {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes metaCardContentEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+/* Slow push-in as the imagery appears (on the BOX: the iframe's own
+   transform is the JS cover-fit and must stay untouched). */
+@keyframes metaPanoSettle {
+  from { transform: scale(1.06); }
+  to { transform: none; }
+}
+.daily-meta-card.fading {
+  pointer-events: none;
+  animation: mapFadeOut 0.3s ease forwards;
+}
+.daily-meta-card__pano {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  /* The pano's own anti-flash colour (StreetViewWebView), not drift. */
+  background-color: #1a1a2e;
+}
+/* Fixed-size surface; DailyMetaCard.js writes the transform (cover-fit
+   scale + centring + the top crop, all inside the scale so the crop tracks
+   the content). Dark until the embed document loads, then fades in. */
+.daily-meta-card__pano iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  width: calc(var(--metaPanoW) + var(--metaCropRight));
+  height: calc(var(--metaPanoW) / 1.6 + var(--metaCropTop) + var(--metaCropBottom));
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
+}
+.daily-meta-card__pano.ready iframe { opacity: 1; }
+.daily-meta-card__pano.ready { animation: metaPanoSettle 0.9s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Width-bound type: 4% of the CARD width (440px rest = 17.6px, 660px
+   expanded = 26.4px). Everything below is in em of it, so the text block is
+   a fixed drawing that the card scales. */
+.daily-meta-card__text {
+  display: flex;
+  flex-direction: column;
+  font-size: 4cqw;
+  gap: 0.22em;
+  padding: 0.7em 0.9em 0.8em;
+  box-sizing: border-box;
+  animation: metaCardContentEnter 0.4s ease-out 0.5s backwards;
+}
+.daily-meta-card__text.cycles { cursor: pointer; }
+/* Lead row: "Tip" left, the pack author right. */
+.daily-meta-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6em;
+}
+.daily-meta-card__tag {
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #4CAF50;
+}
+.daily-meta-card__title {
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.daily-meta-card__body {
+  margin: 0;
+  font-size: 0.95em;
+  font-weight: 400;
+  line-height: 1.4;
+  opacity: 0.9;
+  /* One paragraph (the importer flattens breaks), no clamp: what you see at
+     rest is the whole tip, and the hover is a zoom of exactly that. Length
+     is governed at import (TIP_SOFT_MAX), not here. */
+}
+.daily-meta-card__dots {
+  display: inline-flex;
+  gap: 0.3em;
+  margin-top: 0.35em;
+}
+.daily-meta-card__dots .dot {
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+.daily-meta-card__dots .dot.current { background: #4CAF50; }
+/* Pack author credit: white against the green "Tip" so it reads first. */
+.daily-meta-card__credit {
+  flex: none;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.daily-meta-card__credit:hover,
+.daily-meta-card__credit:focus-visible {
+  color: #4CAF50;
+  text-decoration: underline;
+  outline: none;
+}
+/* Daily reveal, right-country headline (endBanner.js countryCorrect):
+   "✓ Japan" + flag in the slot "It was Japan" takes on a miss. */
+.correctCountryCheck {
+  color: #4CAF50;
+  font-weight: 700;
+  margin-right: 0.35em;
+}
+
+/* Got it: phone sheet only (the <=1100px block shows it). The button is
+   EndBanner's .playAgain recipe, full width. */
+.daily-meta-card__gotit { display: none; }
+.daily-meta-card__gotit button {
+  width: 100%;
+  padding: 13px;
+  font-family: lexend;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.daily-meta-card__gotit button:active { transform: scale(0.99); opacity: 0.9; }
+
+/* Hover-expand: desktop + real pointer only. A touch panel that reports a
+   fine pointer has no hover to leave, so the class can stick — same gate as
+   #miniMapArea.mapExpanded. `.expanded` grows the card; the type and the
+   pano scale with it (cqw, see the card rule), so this is a zoom, not a
+   re-flow, and no text appears that was not there at rest. About 1.5x:
+   enough to read the pano detail, not a poster. */
+@media (min-width: 1101px) and (pointer: fine) {
+  .daily-meta-card.expanded {
+    width: min(clamp(460px, 40vw, 660px), calc((100vh - 240px) * 1.6), calc(100vw - 32px));
+  }
+}
+
+/* <=1100px: a SHEET over the banner (owner, Sep 3: the corner card and the
+   banner fought for the bottom of a phone and both came out squished; then:
+   not full width, deliberate height, and the banner stays visible behind
+   it). It slides up with the reveal in front of #endBanner, which keeps
+   rendering behind it (no hiding), and Got it slides it away. Same flow as
+   the phone app (mobile DailyMetaSheet.tsx). Absolute against .endCards
+   (position: fixed, full width); the bottom offset matches the banner's own
+   10px margin so the two share a baseline.
+   Size on a 390x844 phone: 80vw = 312px wide, left-pinned; pano 16:10
+   (195px; a 16:9 box at 20vh read as zoomed in) capped at 25vh + text ~95px
+   + button ~55px = about 345px, 41% of the screen; the answer pins and the
+   banner's right side stay in view. */
+@media (max-width: 1100px) {
+  .daily-meta-card {
+    /* Left-aligned like the desktop card: centred read as an ad and hid the
+       banner. The banner's right side stays visible beside it. */
+    left: max(env(safe-area-inset-left), 12px);
+    right: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 10px);
+    margin: 0;
+    width: min(80vw, 420px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    /* Opaque: the banner sits right behind, and glass would ghost its text
+       through. The daily's solid card green. */
+    background-color: #0c1f12;
+    transition: none;
+    animation: metaSheetEnter 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s backwards;
+  }
+  .daily-meta-card.leaving {
+    transform: translateY(110%);
+    opacity: 0;
+    transition: transform 0.22s ease-in, opacity 0.22s ease-in;
+  }
+  .daily-meta-card__pano {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    max-height: 25vh;
+  }
+  .daily-meta-card__text {
+    /* No hover here: fixed type, the em ladder resolves against it. */
+    font-size: 0.9rem;
+    gap: 0.2em;
+    padding: 10px 14px 2px;
+  }
+  .daily-meta-card__gotit {
+    display: block;
+    padding: 10px 14px 12px;
+  }
+  .daily-meta-card__gotit button { padding: 11px; }
+}
+@keyframes metaSheetEnter {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Landscape phones: no vertical room for a picture — the sheet keeps its
+   text and button, drops the pano. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .daily-meta-card__pano { display: none; }
+  .daily-meta-card__text { font-size: 0.85rem; padding: 8px 14px 2px; }
+  .daily-meta-card__gotit { padding: 6px 14px 4px; }
+  .daily-meta-card__gotit button { padding: 8px; font-size: 0.9rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-meta-card,
+  .daily-meta-card__text,
+  .daily-meta-card__body,
+  .daily-meta-card__pano.ready {
+    transition: none;
+    animation: none;
   }
 }

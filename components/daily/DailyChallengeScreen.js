@@ -23,6 +23,12 @@ const PANO_PRELOAD_DELAY_MS = 450;
 // duration and not an edge.
 const DAILY_AWAY_GRACE_MS = 1500;
 
+// "Powered by geocoach.me" promotion (Sep 2026): the daily tab-switch disqualification is OFF
+// while the promotion runs. Flip to true to restore it. The same switch lives
+// in mobile/app/daily/index.tsx and api/dailyChallenge/submit.js: grep
+// DAILY_DQ_ENABLED and flip all three together.
+const DAILY_DQ_ENABLED = false;
+
 const GameUI = dynamic(() => import('@/components/gameUI'), { ssr: false });
 
 function DailyRoundBadge({ round, total }) {
@@ -339,6 +345,7 @@ export default function DailyChallengeScreen({
   //    the timer may never fire. performance.now() spans the freeze correctly,
   //    and unlike Date.now() no clock change can move it.
   useEffect(() => {
+    if (!DAILY_DQ_ENABLED) return;
     if (phase !== 'game') return;
     if (disqualified) return;
     if (typeof document === 'undefined') return;
@@ -672,6 +679,7 @@ export default function DailyChallengeScreen({
 
         <GameUI
           dailyMode
+          dailyMetas={locationData?.locations?.[currentRound - 1]?.metas}
           onRoundsComplete={handleRoundsComplete}
           inCoolMathGames={inCoolMathGames}
           inGameDistribution={inGameDistribution}

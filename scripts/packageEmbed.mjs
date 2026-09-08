@@ -32,10 +32,16 @@ const TARGETS = {
     // build-time basePath (Next-native, like the CI build) instead of the
     // runtime-derived relative-asset mode Poki needs.
     gd: { exportDir: '.next-gd', stagedName: 'gd', zipName: 'worldguessr-gd.zip', mustInline: 'NEXT_PUBLIC_BASE_PATH' },
-    // 6x: accountless portal on schoolguessr endpoints, but with the full
-    // Playwire stack (the one portal that keeps it). Mount path unknown, so it
-    // ships Poki-style relative assets keyed on NEXT_PUBLIC_6X.
-    '6x': { exportDir: '.next-6x', stagedName: '6x', zipName: 'worldguessr-6x.zip', mustInline: 'NEXT_PUBLIC_6X' },
+    // 6x: accountless portal on schoolguessr endpoints, running the Playgama
+    // Bridge SDK for ads (Playwire is OFF here, like every other portal).
+    // Mount path unknown, so it ships Poki-style relative assets keyed on
+    // NEXT_PUBLIC_6X. bridgeConfig lands next to index.html in the zip — the
+    // SDK fetches it as ./playgama-bridge-config.json.
+    '6x': {
+        exportDir: '.next-6x', stagedName: '6x', zipName: 'worldguessr-6x.zip',
+        mustInline: 'NEXT_PUBLIC_6X',
+        bridgeConfig: 'scripts/embed-assets/6x/playgama-bridge-config.json',
+    },
 };
 const targetName = process.argv[2];
 const target = TARGETS[targetName];
@@ -282,6 +288,19 @@ for (const entry of await readdir(cssDir, { withFileTypes: true }).catch(() => [
     if (/url\((['"]?)(?:\.\/|\/)?_next\/static\/media\//.test(contents)) {
         throw new Error(`CSS still references _next/static/media after rewrite: ${entry.name}`);
     }
+}
+
+// Playgama bridge config that must sit NEXT TO index.html: the SDK fetches
+// ./playgama-bridge-config.json relative to the entry document, and the 6x
+// mount path is unknown, so it can only be a sibling of index.html. It
+// cannot live in public/ — that ships to EVERY build, worldguessr.com
+// included. Copied before collectFiles so it lands in the zip. JSON.parse
+// fails the build, not the submission: a typo'd config would otherwise only
+// surface as "no ads" after the portal upload.
+if (target.bridgeConfig) {
+    const source = path.join(projectRoot, target.bridgeConfig);
+    JSON.parse(await readFile(source, 'utf8'));
+    await cp(source, path.join(stagedBuildDir, 'playgama-bridge-config.json'));
 }
 
 const files = await collectFiles(stagedBuildDir);

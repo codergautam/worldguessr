@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet, View, ActivityIndicator, InteractionManager } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
 import { JockeyOne_400Regular } from '@expo-google-fonts/jockey-one';
 import {
@@ -31,6 +32,8 @@ import SetUsernameModal from '../src/components/SetUsernameModal';
 import PartyLoginGate from '../src/components/auth/PartyLoginGate';
 import ForceUpdateModal from '../src/components/ForceUpdateModal';
 import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
+import SiteBackground from '../src/components/SiteBackground';
+import { MATCHMAKING_VEIL_COLORS } from '../src/styles/matchmakingBackdrop';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
 
@@ -169,6 +172,28 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.container} onLayout={handleRootLayout}>
+      {/* THE BACKDROP BEHIND EVERY ROUTE TRANSITION. On Android,
+          react-native-screens detaches the outgoing screen in the same
+          fragment transaction that adds the incoming one, so a 'fade' route
+          is a CROSS-DISSOLVE: at its midpoint both screens sit at half alpha
+          over whatever is painted here (ScreenStack.kt onUpdate removes every
+          screen but the new top; setTweenAnimations pairs rns_fade_in with
+          rns_fade_out). Two screens painting the identical photo + veil
+          (queue -> get-ready) still dipped toward this view's flat brand
+          green for 150ms: the "slight background flicker" at the match
+          handoff (Sep 5). With the shared matchmaking backdrop painted here
+          the midpoint composite is the same pixels, so that dip is zero for
+          the queue/get-ready pair and a shade rather than a colour for every
+          other fade (home, results, party, daily all sit on this photo). iOS
+          never fades the outgoing screen on a push, so this layer is always
+          covered there. One extra image view; the bitmap is expo-image's
+          shared cached decode, and every screen above it stays opaque. */}
+      <SiteBackground style={StyleSheet.absoluteFillObject} />
+      <LinearGradient
+        colors={MATCHMAKING_VEIL_COLORS}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
       <SafeAreaProvider>
         <StatusBar style="light" />
         {/* Catch any render/commit-phase throw so a single screen crash shows a
@@ -205,14 +230,37 @@ export default function RootLayout() {
                 screens sits on the SAME street2 backdrop, so a fade keeps the
                 backdrop continuous and only crossfades the foreground — smooth, and
                 no slide-gap ever exposes the solid green card background. */}
+            {/* queue and game/[id] are TRANSPARENT over the root backdrop above.
+                Each still paints its own copy of the same photo + veil, but a
+                freshly mounted copy is not on screen for its first frames (in a
+                dev build the bundled asset is served by Metro over HTTP, so it
+                is not the synchronous local-asset path; a cache miss is a disk
+                read on either platform). With an opaque brand-green card under
+                it, those frames dipped the fade toward green on iOS and Android
+                alike: the "slight background flicker" at the match handoff
+                (Sep 5). Transparent, the frames show the root's already-painted
+                copy of the identical pixels instead. */}
             <Stack.Screen
               name="game/[id]"
-              options={{ headerShown: false, animation: 'fade', animationDuration: 300 }}
+              options={{
+                headerShown: false,
+                animation: 'fade',
+                animationDuration: 300,
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
             />
             <Stack.Screen name="game/results" options={{ headerShown: false, animation: 'fade', animationDuration: 300 }} />
             <Stack.Screen name="party/create" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
             <Stack.Screen name="party/join" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
-            <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
+            <Stack.Screen
+              name="queue"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+                animationDuration: 250,
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            />
             <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
             <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />

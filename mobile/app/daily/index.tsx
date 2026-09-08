@@ -19,6 +19,7 @@ import GameSurface, { type GameSurfaceHandle } from '../../src/components/game/G
 import GameTimer from '../../src/components/game/GameTimer';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
+import DailyMetaSheet from '../../src/components/daily/DailyMetaSheet';
 import calcPoints from '../../src/shared/game/calcPoints';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { preloadBorders } from '../../src/shared/game/findCountry';
@@ -33,6 +34,11 @@ const TIME_PER_ROUND = 60;
 // circle to render sanely). 2500km is still a broad, region-level hint.
 const HINT_MAX_RADIUS_M = 2_500_000;
 const COLD_MOUNT_GUARD_MS = 1500;
+// "Powered by geocoach.me" promotion (Sep 2026): the daily background disqualification is OFF
+// while the promotion runs. Flip to true to restore it. The same switch lives
+// in components/daily/DailyChallengeScreen.js and api/dailyChallenge/submit.js:
+// grep DAILY_DQ_ENABLED and flip all three together.
+const DAILY_DQ_ENABLED: boolean = false;
 
 interface RoundResult {
   score: number;
@@ -101,6 +107,10 @@ export default function DailyScreen() {
   const [finalRounds, setFinalRounds] = useState<RoundResult[]>([]);
   // Show Street View ↔ Map toggle on the round-end banner (web parity).
   const [showPano, setShowPano] = useState(false);
+  // Meta days: the reveal tip sheet takes the banner's slot until the player
+  // taps Got it, then the score banner mounts. Re-armed every round.
+  const [tipDismissed, setTipDismissed] = useState(false);
+  useEffect(() => { setTipDismissed(false); }, [currentRound]);
   // Hint: 2 per game; using one halves that round's points (web parity).
   const [hintShown, setHintShown] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
@@ -192,6 +202,7 @@ export default function DailyScreen() {
   // call banners, permission/Face ID dialogs, and Control/Notification Center
   // pulldowns — transient states that must NOT permanently DQ.
   useEffect(() => {
+    if (!DAILY_DQ_ENABLED) return;
     if (phase !== 'game' || disqualified) return;
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       if (next === 'background') {
@@ -610,18 +621,32 @@ export default function DailyScreen() {
         }
         endBannerContent={
           phase === 'game' ? (
-            <ClassicEndBanner
-              points={currentRoundScore}
-              distance={currentDistance ?? undefined}
-              didGuess={!!roundResults[currentRound - 1]?.guessLat}
-              answerCountry={currentLocation?.country ?? null}
-              guessLat={roundResults[currentRound - 1]?.guessLat ?? null}
-              guessLng={roundResults[currentRound - 1]?.guessLng ?? null}
-              panoShown={showPano}
-              onTogglePano={() => setShowPano((v) => !v)}
-              onNext={advance}
-              isFinal={isFinal}
-            />
+            /* The banner always renders; on meta days the tip sheet floats
+               in front of it (absolute, bottom-aligned) until Got it. The
+               banner stays visible behind and around it (web: same in
+               daily.scss). */
+            <View style={styles.bannerSlot}>
+              <ClassicEndBanner
+                points={currentRoundScore}
+                distance={currentDistance ?? undefined}
+                didGuess={!!roundResults[currentRound - 1]?.guessLat}
+                answerCountry={currentLocation?.country ?? null}
+                guessLat={roundResults[currentRound - 1]?.guessLat ?? null}
+                guessLng={roundResults[currentRound - 1]?.guessLng ?? null}
+                panoShown={showPano}
+                onTogglePano={() => setShowPano((v) => !v)}
+                onNext={advance}
+                isFinal={isFinal}
+                correctCountryReveal
+              />
+              {currentLocation && (currentLocation.metas?.length || 0) > 0 && !tipDismissed && (
+                <DailyMetaSheet
+                  location={currentLocation}
+                  metas={currentLocation.metas}
+                  onDismiss={() => setTipDismissed(true)}
+                />
+              )}
+            </View>
           ) : undefined
         }
       />
@@ -699,6 +724,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Medium',
     fontSize: 14,
   },
+  // Banner slot inside GameSurface's bottom wrapper: the score banner sizes
+  // it, the meta tip sheet is absolutely positioned over it (DailyMetaSheet).
+  bannerSlot: { width: '100%' },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3000,

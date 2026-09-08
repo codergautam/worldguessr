@@ -166,6 +166,16 @@ function loadFolder(folder, subdir = '') {
           }
         });
       });
+    }).catch((err) => {
+      // A route module that throws while loading used to vanish silently:
+      // the rejection went to the unhandledRejection logger and the route was
+      // never registered, so its callers got 404s with nothing tying them to
+      // the cause. Name the route in the log so a boot check can see it.
+      logCritical('API ROUTE IMPORT FAILED (route not registered)', {
+        path: webPath,
+        module: routePath,
+        error: err,
+      });
     });
   });
 }

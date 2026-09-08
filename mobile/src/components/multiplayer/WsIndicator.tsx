@@ -47,7 +47,7 @@ const COLOR_DISCONNECTED = '#ef4444';
 
 export default function WsIndicator() {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const shortestSide = Math.min(width, height);
   const connected = useMultiplayerStore((s) => s.connected);
   const connecting = useMultiplayerStore((s) => s.connecting);
@@ -309,7 +309,7 @@ export default function WsIndicator() {
           // derives it from the same metrics table the card is built from.
           // The 100 floor is what every OTHER screen gets: there is no corner
           // there, and it is the value this line already used.
-          top: insets.top + Math.max(100, spacing.md + homeCornerHeight(shortestSide) + 10),
+          top: insets.top + Math.max(100, spacing.md + homeCornerHeight(shortestSide, fontScale) + 10),
           transform: [{ translateX: slideAnim }, { scale: pulseAnim }],
         },
       ]}

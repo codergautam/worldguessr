@@ -65,6 +65,8 @@ import GameChat from '../../src/components/multiplayer/GameChat';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import PlayerCountBadge from '../../src/components/multiplayer/PlayerCountBadge';
 import TransitionCurtain from '../../src/components/TransitionCurtain';
+import SiteBackground from '../../src/components/SiteBackground';
+import { MATCHMAKING_VEIL_COLORS } from '../../src/styles/matchmakingBackdrop';
 import RevealView from '../../src/components/RevealView';
 import BackButton from '../../src/components/ui/BackButton';
 import ReloadButton from '../../src/components/ui/ReloadButton';
@@ -144,6 +146,13 @@ interface GameState {
   extent: Extent;
 }
 
+// z-index of the round-1 VS/countdown cover, a top-level sibling of the
+// scene. Above the scene and the between-rounds chrome (<= 1200), below the
+// anti-cheat banner (1290) and the emote/chat FABs (1300) so the one-shot
+// warning and the buttons stay usable during the intro, as they were when
+// the cover rendered inside the scene.
+const ROUND1_COVER_Z_INDEX = 1250;
+
 const DEFAULT_GAME_OPTIONS = {
   totalRounds: 5,
   timePerRound: 60,
@@ -214,22 +223,17 @@ function buildCurrentPlayerGuesses(players: MPPlayer[], actualLocation: Location
 }
 
 function useGameStartingCountdown(nextEvtTime: number | undefined, timeOffset: number, enabled: boolean): number {
-  const [countdown, setCountdown] = useState(0);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    if (!enabled || nextEvtTime == null) {
-      setCountdown(0);
-      return;
-    }
-    const update = () => {
-      // Match web (gameUI.js): floor to tenths so the value never rounds up
-      // past the true remaining time, and show 0.1s markers.
-      setCountdown(Math.max(0, Math.floor((nextEvtTime - Date.now() - timeOffset) / 100) / 10));
-    };
-    update();
-    const interval = setInterval(update, 100);
+    if (!enabled || nextEvtTime == null) return;
+    const interval = setInterval(() => setTick((tick) => tick + 1), 100);
     return () => clearInterval(interval);
   }, [nextEvtTime, timeOffset, enabled]);
-  return countdown;
+  // Read the deadline on the first render too; an effect-seeded zero made
+  // the ring invent a fresh "5" when joining an existing countdown.
+  return enabled && nextEvtTime != null
+    ? Math.max(0, Math.floor((nextEvtTime - Date.now() - timeOffset) / 100) / 10)
+    : 0;
 }
 
 function BetweenRoundsLeaderboard({
@@ -533,6 +537,42 @@ export default function GameScreen() {
     }
   }, [isMultiplayer, inGame, gameQueuedNow, isScreenFocused]);
 
+  // OWNERLESS-SCREEN WATCHDOG. The effect above is the fast path and it is
+  // fed by the focus EVENT. Sep 5: after a ranked results screen had sat for
+  // ~10 minutes (long enough for a liveness reconnect, whose onReconnecting
+  // handler wipes inGame/gameData while results is on top), the X exposed
+  // this screen with nothing to draw and no back button (ranked hides it),
+  // and the fast path did not fire. The exact sequence is not reproducible
+  // from the code alone, so this does not depend on it: while this screen
+  // has NO game to draw and is not mid-handoff to the queue (the 2v2 stage-2
+  // wipe leaves gameQueued set), poll the LIVE focus flag and go home the
+  // moment it reads focused. Runs only while gameData is null, fires ONCE
+  // per exposure, and is idempotent through dismissAllSafe. It does not
+  // touch leftRef: the beforeRemove guard already lets the removal through
+  // whenever inGame is false, and a stale leftRef would skip a later leave
+  // confirm on a screen that went on to host a game. The root stack is
+  // anchored on (tabs) (app/_layout.tsx unstable_settings), so there is
+  // always something to dismiss to.
+  useEffect(() => {
+    if (!isMultiplayer || gameData || gameQueuedNow) return;
+    let id: ReturnType<typeof setInterval> | null = null;
+    const tick = () => {
+      if (!navigation.isFocused()) return;
+      if (id) clearInterval(id);
+      id = null;
+      console.warn('[game] ownerless screen focused with no game; going home', {
+        inGame: useMultiplayerStore.getState().inGame,
+      });
+      dismissAllSafe();
+    };
+    tick();
+    if (navigation.isFocused()) return;
+    id = setInterval(tick, 500);
+    return () => {
+      if (id) clearInterval(id);
+    };
+  }, [isMultiplayer, gameData, gameQueuedNow, navigation]);
+
   useEffect(() => {
     if (
       isMultiplayer
@@ -722,6 +762,7 @@ export default function GameScreen() {
 
   // Street view loading state — true = panorama not yet ready
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
+  const hasLoadedPanorama = useRef(false);
 
   // MP reveal "Show Street View" toggle (web endBanner.js topGameInfoButton,
   // rendered unconditionally there). Mobile CANNOT just expose the live
@@ -735,9 +776,8 @@ export default function GameScreen() {
   // so a new round can never start with the map hidden.
   const [mpPanoShown, setMpPanoShown] = useState(false);
 
-  // Defer the StreetView WebView mount until the screen-transition settles, so
-  // the preloaded street2 loading overlay paints instantly instead of leaving a
-  // black/blank gap during the slide into the game. (Mirrors GameSurface.)
+  // Let the cover mount before creating the WebView. Countdown animations
+  // must use isInteraction:false so they don't hold this preload until zero.
   const [canMountStreetView, setCanMountStreetView] = useState(false);
   useEffect(() => {
     const handle = InteractionManager.runAfterInteractions(() => {
@@ -747,22 +787,7 @@ export default function GameScreen() {
   }, []);
   const mpInitialGetReady = !!(isMultiplayer
     && gameData?.state === 'getready'
-    && gameData.curRound === 1
-    && !gameData.duel);
-  // The round-1 ranked-duel VS-matchup intro (the full-screen GetReadyOverlay). The
-  // health bars are intentionally HIDDEN during this 5s cover — the matchup already
-  // shows both players' names/flags/ELO, so the bars only clutter it. Suppressing the
-  // DuelHUD here also defers its first mount to the 'guess' phase, so each bar's
-  // existing FadeInDown entrance plays exactly as the round begins (the requested
-  // smooth fade-in) with no extra animation code. One source of truth, reused by both
-  // the GetReadyOverlay gate (to show it) and the DuelHUD gate (to hide the bars).
-  // Skipped on a cold mid-duel reconnect (joinedInProgress) — there's no VS intro to
-  // play, so the bars stay up as normal.
-  const showDuelMatchupIntro = !!(isMultiplayer
-    && gameData?.state === 'getready'
-    && gameData.duel
-    && gameData.curRound === 1
-    && !gameData.joinedInProgress);
+    && gameData.curRound === 1);
   // The loading banner covers an UNREADY street view during ACTIVE play only.
   // Never show it during an MP reveal: 'getready' (between-rounds) or 'end'
   // (final). At 'end' the server bumps curRound past totalRounds, which trips the
@@ -816,15 +841,8 @@ export default function GameScreen() {
     mpInitialGetReady,
   );
 
-  // Animation values.
-  // loadingOpacity/sceneOpacity are SEEDED FROM REALITY, not hardcoded 1/0: a
-  // matched ranked duel mounts this screen with showLoadingBanner already
-  // false (state is 'getready' from the very first render), and the old
-  // unconditional seeds meant an opaque, WRONG "Loading…" cover fading out
-  // over ~1s while the whole scene — GetReadyOverlay included — faded up from
-  // nothing underneath it. When nothing needs covering, the cover starts
-  // gone and the scene starts visible; the route-level fade from /queue is
-  // the one and only reveal.
+  // Both round-1 covers sit outside the scene. Keep the warming panorama
+  // hidden until the server starts guessing and its load has completed.
   const loadingOpacity = useRef(new Animated.Value(showLoadingBanner ? 1 : 0)).current;
   const sceneOpacity = useRef(new Animated.Value(showLoadingBanner ? 0 : 1)).current;
   // "Has the loading cover ever actually been shown?" — the fade-out branch
@@ -832,10 +850,7 @@ export default function GameScreen() {
   // private-lobby 'waiting' beat before Play Again), never for one that
   // started hidden.
   const loadingBannerEverShownRef = useRef(showLoadingBanner);
-  // The overlay's own visibility CLOCK, as state so render-time conditions
-  // (mpRound1Reveal below) can follow it: true from show until the fade-out
-  // finishes. Keying content on any other clock is how the countdown ring
-  // used to swap to a "Loading…" spinner mid-fade.
+  // Retain the same cover content until its fade-out actually finishes.
   const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(showLoadingBanner);
   const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   // Map overlay opacity. Normally 1; used to FADE the full-screen between-rounds
@@ -875,30 +890,18 @@ export default function GameScreen() {
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
   const singleplayerTopRightAnim = useRef(new Animated.Value(1)).current;
-  // Seeded true when the scene starts revealed (duel getready mount) — the
-  // 550ms initial reveal is a no-op there by design.
   const hasCompletedInitialReveal = useRef(!showLoadingBanner);
 
-  // Round-1 reveal: keep the start countdown ring on the loading overlay from the
-  // getready countdown through the brief handoff into 'guess'. The round-1 pano
-  // mounts and preloads behind the overlay during getready (same as the
-  // between-rounds preload for every later round). Once it's ready, this fades the
-  // ring straight into the scene — matching the smooth reveal of later rounds —
-  // instead of swapping to the "Loading…" spinner for the overlay's fade-out.
-  // If the pano isn't ready yet we fall through to the spinner via
-  // showLoadingBanner, exactly like a later round whose preload didn't finish.
-  //
-  // HELD ON THE OVERLAY'S OWN CLOCK (loadingOverlayVisible), not the scene
-  // reveal's: the old `!hasCompletedInitialReveal.current` term expired when
-  // the 550ms scene ramp finished, while the overlay itself stayed visible
-  // until ~1s (400ms delay + 600ms fade) — and in that gap the still-visible
-  // overlay swapped the ring for the "Loading…" spinner over the live pano.
-  // The ring must persist for exactly as long as the overlay can be seen.
-  const mpRound1Reveal = !!(isMultiplayer && gameData && !gameData.duel
-    && gameData.curRound === 1
-    && gameData.state === 'guess'
-    && streetViewLoaded
-    && loadingOverlayVisible);
+  // An observed countdown stays on top through a late load and the reveal.
+  // Reconnecting directly into guess still uses the normal loading cover.
+  const round1CountdownRef = useRef(false);
+  if (mpInitialGetReady) {
+    round1CountdownRef.current = true;
+  } else if (!isMultiplayer || !gameData || gameData.curRound !== 1 || gameData.state !== 'guess') {
+    round1CountdownRef.current = false;
+  }
+  const mpRound1Intro = round1CountdownRef.current && (showLoadingBanner || loadingOverlayVisible);
+  const showDuelMatchupIntro = !!(mpRound1Intro && gameData?.duel);
 
   // Mount map eagerly once game loads — prevents first-touch being swallowed
   // by a freshly-mounted MapView when showing the first round's result
@@ -961,8 +964,7 @@ export default function GameScreen() {
         });
       }, 400);
     }
-    // else: the cover was never shown (screen mounted straight into a duel
-    // getready) — loadingOpacity was seeded 0, there is nothing to fade.
+    // A cover that was never shown has nothing to fade.
 
     return () => {
       if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
@@ -997,6 +999,7 @@ export default function GameScreen() {
   }, [gameState.currentRound]);
 
   const handleStreetViewLoad = useCallback(() => {
+    hasLoadedPanorama.current = true;
     setStreetViewLoaded(true);
   }, []);
 
@@ -2176,6 +2179,31 @@ export default function GameScreen() {
     doLeave();
   }, [isMultiplayer, router]);
 
+  // 2v2 rescue link ("Have a game code? Join a party"): a DELIBERATE leave
+  // that lands on the join screen instead of home. Owned here because BOTH
+  // guards that can stomp it belong to this screen:
+  // 1. beforeRemove (below) intercepts the replace while inGame is still true
+  //    and hands it to handleLeave, whose doLeave dismisses to home. Mark
+  //    leftRef FIRST, exactly like the visible back button does. (This is what
+  //    sent the tap home: the lobby used to navigate on its own and could not
+  //    flag the leave.)
+  // 2. The ownerless-teardown effect (dismissAllSafe on !inGame while focused)
+  //    fires on the inGame flip. Navigate FIRST and defer leaveGame past the
+  //    transition; once this screen has blurred/unmounted the flip is
+  //    invisible to it.
+  // Web parity: home.js joinPrivateGame's no-code path leaves the staging lobby
+  // on the way out so it can't linger as a ghost. The replace leaves
+  // [tabs, create, join] (the 2v2 entry's spent create shell stays under the
+  // game — home.tsx auto-nav explains why); the join screen's X goes to the
+  // tab root, so that shell never surfaces.
+  const handleJoinWithCode = useCallback(() => {
+    leftRef.current = true;
+    router.replace('/party/join');
+    InteractionManager.runAfterInteractions(() => {
+      useMultiplayerStore.getState().leaveGame();
+    });
+  }, [router]);
+
   // Guard Android hardware-back / edge-swipe so an accidental gesture can't
   // silently discard a game. gestureEnabled:false only stops the iOS JS swipe;
   // the Android system back still fires beforeRemove and would pop us to home.
@@ -2556,15 +2584,19 @@ export default function GameScreen() {
   // lobby and the game live on ONE route. Lobby→game and game→lobby (host reset)
   // are pure re-renders, eliminating the router.replace leave/back races. When a
   // private game finishes, the server resets it to 'waiting' and this re-renders.
-  // Crash guard: the 2v2 stage-2 wipe nulls gameData while this screen is still
-  // mounted for one commit (the nav owner's replace runs in effects, AFTER the
-  // render with the wiped store). Neither the lobby branch nor the active-game
-  // scene has anything to draw from — paint the shared street2 loading layer
-  // for that frame instead of rendering the game shell off nothing.
+  // The 2v2 queue handoff clears gameData before navigation runs. Keep only
+  // the shared backdrop during that gap; no panorama is loading here.
   if (isMultiplayer && !gameData) {
     return (
       <View style={styles.container}>
-        <GameLoadingOverlay />
+        <SiteBackground style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={MATCHMAKING_VEIL_COLORS} style={StyleSheet.absoluteFillObject} />
+        {/* Never a dead end. The watchdog above goes home on its own the
+            moment this is the focused screen; the button is for the case
+            nothing else fires. Same slot as every other cover's back button. */}
+        <SafeAreaView style={styles.fallbackTopBar} edges={['top']} pointerEvents="box-none">
+          <BackButton onPress={dismissAllSafe} />
+        </SafeAreaView>
       </View>
     );
   }
@@ -2630,7 +2662,12 @@ export default function GameScreen() {
         // server's emote handler only checks gameId, not state. The focus gate
         // mirrors the in-game mount below: a non-host parked on /game/results while
         // the host restarts the party would otherwise double-mount reactions.
-        <MultiplayerLobby onLeave={handleLeave} emotesShown={emotesEnabled && isScreenFocused} chatShown={chatEnabled && isScreenFocused} />
+        <MultiplayerLobby
+          onLeave={handleLeave}
+          onJoinWithCode={handleJoinWithCode}
+          emotesShown={emotesEnabled && isScreenFocused}
+          chatShown={chatEnabled && isScreenFocused}
+        />
       ) : (
       <View style={styles.container}>
       <Animated.View
@@ -2638,7 +2675,9 @@ export default function GameScreen() {
         pointerEvents={scenePointerEvents}
       >
         {/* Street View - FULLSCREEN */}
-        <View style={StyleSheet.absoluteFillObject}>
+        {/* Hide the initial loader; later rounds keep the outgoing pano visible
+            while their replacement loads in the WebView's second slot. */}
+        <View style={[StyleSheet.absoluteFillObject, { opacity: hasLoadedPanorama.current && !mpInitialGetReady ? 1 : 0 }]}>
           {currentLocation && canMountStreetView && (
             <StreetViewWebView
               ref={mpStreetViewRef}
@@ -2647,6 +2686,8 @@ export default function GameScreen() {
               heading={currentLocation.heading ?? currentLocation.head}
               pitch={currentLocation.pitch}
               onLoad={handleStreetViewLoad}
+              // The parent countdown/loading cover owns initial loading UI.
+              showInitialLoader={false}
               // The freeze is npz, NEVER nm: reading nm here froze mobile
               // members of a No Move party solid while web players panned and
               // zoomed freely. nm selects the renderer, npz locks the view.
@@ -3178,32 +3219,6 @@ export default function GameScreen() {
           </SafeAreaView>
         )}
 
-        {/* Duel round 1 only — between-round duel getready shows the answer map underneath,
-            matching web (components/gameUI.js where health bars stay visible across all states).
-            Skipped on a cold reconnect mid-duel (joinedInProgress): drop straight back into
-            the live round rather than replaying the VS intro. */}
-        {showDuelMatchupIntro && gameData && (
-          // Reanimated exit fade: when the round flips to 'guess' the overlay
-          // unmounts, so FadeOut dissolves the "Get Ready!" cover smoothly into
-          // the (already-painted) panorama instead of a hard cut.
-          <Reanimated.View
-            style={StyleSheet.absoluteFill}
-            pointerEvents="box-none"
-            exiting={FadeOut.duration(450).reduceMotion(ReduceMotion.Never)}
-          >
-            <GetReadyOverlay
-              players={gameData.players}
-              myId={gameData.myId}
-              team2v2={gameData.team2v2}
-              round={gameData.curRound}
-              totalRounds={gameData.rounds}
-              nextEvtTime={gameData.nextEvtTime}
-              timeOffset={timeOffset}
-              generated={gameData.generated ?? gameData.rounds}
-              isPlacement={gameData.isPlacement === true}
-            />
-          </Reanimated.View>
-        )}
       </Animated.View>
 
       <DuelWarningBanner
@@ -3235,18 +3250,40 @@ export default function GameScreen() {
         <GameChat hidden={miniMapShown && !showMapResult} stackUp={emotesEnabled && !gameData.disableEmotes} />
       )}
 
+      {/* The VS cover must not inherit the hidden panorama scene's opacity.
+          Its z-index sits above the scene chrome but BELOW the anti-cheat
+          banner (1290) and the emote/chat FABs (1300), the order this screen
+          had while the cover lived inside the scene subtree: the banner fires
+          once at round-1 getready and dismisses itself after 5s, so a cover
+          above it would swallow the warning in every ranked duel. */}
+      {showDuelMatchupIntro && gameData && (
+        <Animated.View
+          style={[StyleSheet.absoluteFillObject, { zIndex: ROUND1_COVER_Z_INDEX, opacity: showLoadingBanner ? 1 : loadingOpacity }]}
+          pointerEvents={showLoadingBanner ? 'auto' : 'none'}
+        >
+          <GetReadyOverlay
+            players={gameData.players}
+            myId={gameData.myId}
+            team2v2={gameData.team2v2}
+            round={gameData.curRound}
+            totalRounds={gameData.rounds}
+            nextEvtTime={mpInitialGetReady ? gameData.nextEvtTime : 0}
+            timeOffset={timeOffset}
+            generated={gameData.generated ?? gameData.rounds}
+            isPlacement={gameData.isPlacement === true}
+            onRetry={mpLoadStuck ? () => mpStreetViewRef.current?.reload() : undefined}
+          />
+        </Animated.View>
+      )}
+
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
+      {!showDuelMatchupIntro && (showLoadingBanner || loadingOverlayVisible) && (
       <GameLoadingOverlay
-        opacity={loadingOpacity}
+        opacity={mpRound1Intro && showLoadingBanner ? 1 : loadingOpacity}
         interactive={showLoadingBanner}
-        // Keep the ring through the round-1 getready→guess handoff (mpRound1Reveal)
-        // so a preloaded pano fades the ring straight in instead of flashing the
-        // spinner. gameStartingCountdown is already 0 by the 'guess' phase.
-        // Suppress the countdown entirely when we JOINED an already-running game
-        // (or cold-reconnected mid-game): no "Get Ready 5…" — just normal loading
-        // straight into the live round. The loading banner itself still shows.
+        // Keep the same countdown at zero while loading and fading into play.
         countdown={
-          (mpInitialGetReady || mpRound1Reveal) && !gameData?.joinedInProgress
+          mpRound1Intro
             ? Math.max(0, gameStartingCountdown)
             : undefined
         }
@@ -3259,9 +3296,10 @@ export default function GameScreen() {
         // back button that routes through handleLeave's confirm matrix — a
         // hung load must never leave force-closing the app as the only exit.
         // Ranked stays committed (no back), matching its hidden in-game back.
-        onBack={!isRankedInProgress && showLoadingBanner ? handleLeave : undefined}
-        backDuringCountdown={mpInitialGetReady}
+        onBack={!isRankedInProgress && (showLoadingBanner || mpRound1Intro) ? handleLeave : undefined}
+        backDuringCountdown={mpRound1Intro}
       />
+      )}
 
       {confettiKey > 0 && <ConfettiBurst trigger={confettiKey} />}
       </View>
@@ -3272,9 +3310,12 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
+  // No colour of its own: the route is transparent over the root backdrop
+  // (app/_layout.tsx). The scene (pano) and every cover above it are opaque
+  // once painted; the frames before the countdown cover's own SiteBackground
+  // paints show the identical root copy instead of a flat green.
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   // ── Timer (top right) - matches web .timer.shown ─────────
   timerContainer: {
@@ -3371,6 +3412,15 @@ const styles = StyleSheet.create({
   // ── Duel HUD (top center) ──
   // Cumulative team totals pinned top-center (web .team-scorebar) — same
   // layer/paddings as the duel HUD so the two mode banners sit identically.
+  // Mirrors GameLoadingOverlay's backSlot: the fallback's exit sits where
+  // every other cover's back button sits.
+  fallbackTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   teamScorebarContainer: {
     position: 'absolute',
     top: 0,
@@ -3440,9 +3490,9 @@ const styles = StyleSheet.create({
   // Anti-cheat banner — web parity (.duel-warning-container / .duel-warning-content).
   // Sits BELOW the emote FAB layer (EmoteReactions container is zIndex 1300) so the
   // open emote list paints on top of the banner instead of being hidden behind it.
-  // It only needs to beat the scene wrapper (zIndex 0) to cover the duel-start view —
-  // the GetReadyOverlay's internal 9999 lives in that sibling subtree and never
-  // competes here, so the old 10000 (meant to "beat 9999") was unnecessary.
+  // It must beat the round-1 VS cover, which is a top-level sibling at
+  // ROUND1_COVER_Z_INDEX: the banner fires once at round-1 getready and
+  // dismisses itself after 5s, so under the cover it would never be seen.
   duelWarningBanner: {
     position: 'absolute',
     left: spacing.lg,

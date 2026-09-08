@@ -6,10 +6,12 @@ name: 6x Build
 # (zip lands in builds-submission/worldguessr-6x.zip).
 #
 # The 6x build is: accountless (HIDE_ACCOUNT_UI), schoolguessr API/WS/auth
-# endpoints (worldguessr domains are filtered on school networks), Playwire
-# ads ON (the only portal build that keeps them), Poki-style relative assets
-# (mount path unknown). All of it keys off NEXT_PUBLIC_6X, which build:6x
-# sets — never build this target with bare `next build`.
+# endpoints (worldguessr domains are filtered on school networks), Playgama
+# Bridge SDK ads (interstitials + SDK banner overlay; Playwire is OFF, like
+# every other portal), Poki-style relative assets (mount path unknown). The
+# packager copies playgama-bridge-config.json next to index.html in the zip.
+# All of it keys off NEXT_PUBLIC_6X, which build:6x sets — never build this
+# target with bare `next build`.
 on:
   workflow_dispatch:
 

@@ -115,6 +115,8 @@ const CustomStreetView = dynamic(() => import("./streetview/customStreetView"), 
 import PlaywireAd from "./bannerAdPlaywire";
 import useAdFree from "@/lib/adFree";
 import GameDistributionBanner from "./bannerAdGameDistribution";
+import PlaygamaBanner from "./bannerAdPlaygama";
+import { showPlaygamaInterstitial, sendPlaygamaGameReady } from "@/components/utils/playgamaBridge";
 
 // Module constants, not inline literals in JSX — same ruling as gameUI.js's
 // AD_TYPES_*: stable references hit PlaywireAd's propsEqual `a.types ===
@@ -335,6 +337,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // multiplayerState so the (delayed) timeout can read fresh state. See
     // WS_QUEUE_CONFIRM_TIMEOUT_MS and armQueueConfirmWatchdog().
     const queueConfirmTimerRef = useRef(null);
+    // Ranked dodge-lock deadline (ms epoch) as last told by the server (the
+    // `queueLocked` toast, sent at charge time and at refusal). Lets a ranked
+    // click inside the window answer locally instead of bouncing through the
+    // searching screen; the server stays authoritative.
+    const rankedQueueLockedUntilRef = useRef(0);
     const mpStateRef = useRef(null);
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
@@ -1023,9 +1030,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // Poki mirrors the CoolMath treatment for account features: no login surface,
     // so ranked/2v2 (which require an account) and social links are hidden too.
     const inPoki = process.env.NEXT_PUBLIC_POKI === "true";
-    // 6x is a Poki-style accountless zip (relative assets, unknown mount path),
-    // but UNLIKE the other portals it keeps the Playwire ad stack — never add
-    // it to the ad-slot exclusion lists below.
+    // 6x is a Poki-style accountless zip (relative assets, unknown mount path)
+    // running the Playgama Bridge SDK for ads (interstitials via crazyMidgame's
+    // 6x branch + an SDK-overlay home banner via PlaygamaBanner). Playwire is
+    // OFF here since Aug 31 — 6x is excluded from the Playwire slots below,
+    // like every other portal.
     const inSixX = process.env.NEXT_PUBLIC_6X === "true";
     const [navSlideOut, setNavSlideOut] = useState(false);
     // IS THE TOP-RIGHT COLUMN LEAVING WITH THE MENU, OR JUST MOVING?
@@ -1545,6 +1554,25 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             };
         }
     }, [])
+
+    // No GD-style first-gesture preroll for Playgama (6x): the menu buttons
+    // that start a game already call crazyMidgame on their own click, and a
+    // document-level preroll on that same click raced them (two breaks, the
+    // second resuming the game underneath the first's ad). The zip's config
+    // sets initialInterstitialDelay to 0 so that first game-start break is
+    // the preroll.
+
+    // Playgama platform requirement: game_ready at the first playable frame —
+    // the platform holds its own loading screen until it arrives.
+    // onboardingCompleted flipping off null is that moment (the same signal
+    // the home menu and ad slots gate on); this is the 6x analogue of Poki's
+    // gameLoadingFinished() call. Once-latched inside playgamaBridge, so
+    // re-runs are free.
+    useEffect(() => {
+        if (process.env.NEXT_PUBLIC_6X !== "true") return;
+        if (onboardingCompleted === null) return;
+        sendPlaygamaGameReady();
+    }, [onboardingCompleted])
 
     useEffect(() => {
         if (screen === "singleplayer" || screen === "countryGuesser") {
@@ -2557,6 +2585,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         if (multiplayerState.gameQueued || multiplayerState.connecting) return;
 
         if (action === "publicDuel") {
+            const lockedMs = rankedQueueLockedUntilRef.current - Date.now();
+            if (lockedMs > 0) {
+                toast(text("rankedQueueLocked", { seconds: Math.ceil(lockedMs / 1000) }), { type: 'error', theme: "dark" });
+                return;
+            }
             crazyMidgame(() => {
             setScreen("multiplayer")
             setMultiplayerState((prev) => ({
@@ -3598,6 +3631,22 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 toast(toastComponent, { type: 'info', theme: "dark" })
 
 
+            } else if (data.type === 'toast' && data.code === 'queueLocked') {
+                // Ranked queue refused, or a dodge just charged (ws.js
+                // queueLockedToast). The sentence-as-key riding along is for
+                // clients predating this branch, which sat on the searching
+                // screen until the 8s confirm watchdog kicked them. Leave now,
+                // with the real number, and remember the deadline so the next
+                // ranked click answers locally.
+                const remainingMs = Math.max(0, Number(data.remainingMs) || 0);
+                rankedQueueLockedUntilRef.current = Date.now() + remainingMs;
+                const st = mpStateRef.current;
+                if (st?.gameQueued === 'publicDuel' && !st.inGame) {
+                    clearQueueConfirmWatchdog();
+                    setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null, queuedAt: null, queueEta: null, placementPending: false }));
+                    setScreen("home");
+                }
+                toast(text("rankedQueueLocked", { seconds: Math.max(1, Math.ceil(remainingMs / 1000)) }), { type: 'error', theme: "dark" });
             } else if (data.type === 'toast') {
                 // Round-pressure nudges (opponent guessed / other team locked in,
                 // you're the last guesser) get an audible ping — the toast
@@ -3901,6 +3950,14 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 console.warn("error requesting GD midgame ad", e);
                 adFinished();
             }
+        } else if (process.env.NEXT_PUBLIC_6X === "true") {
+            // playgamaBridge owns the whole request lifecycle (sync readiness
+            // + busy checks, persistent state listener, timeouts) and runs
+            // the callback exactly once. It gets the RAW callback on purpose:
+            // the module is the single writer of the master gain (platform
+            // pause/mute + ad state), so the duckAudio(false) in the wrapper
+            // above would clobber a platform mute on every break.
+            showPlaygamaInterstitial(adFinishedRaw);
         } else {
             adFinished()
         }
@@ -5746,7 +5803,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     the session, so the purchase lands here on the same tick and
                     the slot unmounts (out of the DOM, not hidden; RAMP reclaims
                     the unit on the next spaAds declare). */}
-                {!adFree && screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                {!adFree && screen === 'home' && onboardingCompleted === true && !inCrazyGames && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                     <div className="home_ad">
                         <PlaywireAd
                             selectorId="pw-home-ad"
@@ -5757,7 +5814,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     condition stays true across queue → paired waiting → GameUI,
                     so React preserves the PlaywireAd instance and its creative;
                     GameUI deliberately owns Playwire only for non-multiplayer. */}
-                {!adFree && multiplayerPlaywireAdShown && !inCrazyGames && !inPoki && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
+                {!adFree && multiplayerPlaywireAdShown && !inCrazyGames && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR &&
                     <div className={`topAdFixed ${multiplayerTimerShownForAd ? 'moreDown' : ''}`}>
                         <PlaywireAd
                             selectorId="pw-game-ad"
@@ -5770,6 +5827,13 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                             id="gd-banner-home"
                             screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
+                )}
+                {/* Playgama's banner is an SDK page overlay, so there is no
+                    wrapper div and no size map — same mount gates as the GD
+                    slot above, position only. Home menu ONLY by user ruling
+                    (Aug 31): no in-game banner on 6x. */}
+                {inSixX && screen === 'home' && onboardingCompleted === true && (
+                    <PlaygamaBanner position="bottom" />
                 )}
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (screen === 'home' && onboardingCompleted !== true) || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}

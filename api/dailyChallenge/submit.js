@@ -1,7 +1,7 @@
 import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
 import User from '../../models/User.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
-import DailyChallengeStats, { bucketIndexForScore, DAILY_BUCKET_COUNT, DAILY_ROUNDS_PER_DAY } from '../../models/DailyChallengeStats.js';
+import DailyChallengeStats, { bucketIndexForScore, DAILY_BUCKET_COUNT } from '../../models/DailyChallengeStats.js';
 import GuestProfile, { GUEST_PROFILE_TTL_MS } from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate, verifySessionToken, getDailyLocations } from '../../serverUtils/dailyChallenge.js';
@@ -12,6 +12,13 @@ import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter
 import { exactDailyRank } from '../../serverUtils/dailyRank.js';
 
 const MAX_TOTAL_XP = 500;
+
+// "Powered by geocoach.me" promotion (Sep 2026): daily disqualification is OFF while the
+// promotion runs. The client flag is ignored here so a mobile build that still
+// detects (app store lag) is scored normally too. Flip to true to restore it.
+// The same switch lives in components/daily/DailyChallengeScreen.js and
+// mobile/app/daily/index.tsx: grep DAILY_DQ_ENABLED and flip all three together.
+const DAILY_DQ_ENABLED = false;
 
 // Severe per-IP cap on guest writes. Guests no longer feed the distribution,
 // so this exists purely as anti-abuse for GuestScore/GuestProfile write spam.
@@ -36,9 +43,9 @@ function anonWriteAllowed(req, date) {
   return count <= ANON_WRITES_PER_IP_PER_DAY;
 }
 
-// Ensure the daily-stats doc exists with zero-filled arrays.
+// Ensure the daily-stats doc exists with a zero-filled bucket array.
 // Separated from $inc because MongoDB disallows $setOnInsert + $inc on the
-// same top-level path (both touch `buckets` / `roundScoreSums`).
+// same top-level path (both touch `buckets`).
 async function ensureStatsDoc(date) {
   await DailyChallengeStats.updateOne(
     { date },
@@ -47,9 +54,7 @@ async function ensureStatsDoc(date) {
         date,
         totalPlays: 0,
         anonPlays: 0,
-        totalScore: 0,
         buckets: new Array(DAILY_BUCKET_COUNT).fill(0),
-        roundScoreSums: new Array(DAILY_ROUNDS_PER_DAY).fill(0),
         updatedAt: new Date(),
       },
     },
@@ -57,20 +62,14 @@ async function ensureStatsDoc(date) {
   );
 }
 
-function buildRoundIncs(rounds) {
-  const out = {};
-  rounds.forEach((r, i) => {
-    if (i >= DAILY_ROUNDS_PER_DAY) return;
-    out[`roundScoreSums.${i}`] = r.score || 0;
-  });
-  return out;
-}
-
-export async function incrementStats(date, score, rounds, { anon = false } = {}) {
+// The stats doc carries counts and the bucket histogram only. The headline
+// "avg" and per-round figures are medians computed from the score rows in
+// results.js (owner ruling Sep 3 2026), so no score sums are kept here.
+export async function incrementStats(date, score, { anon = false } = {}) {
   const bucket = bucketIndexForScore(score);
   const incPath = `buckets.${bucket}`;
   await ensureStatsDoc(date);
-  const inc = { totalPlays: 1, totalScore: score, [incPath]: 1, ...buildRoundIncs(rounds) };
+  const inc = { totalPlays: 1, [incPath]: 1 };
   if (anon) inc.anonPlays = 1;
   await DailyChallengeStats.updateOne(
     { date },
@@ -299,7 +298,7 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   // — but the score-create + Game-history writes still run alongside it.
   const rankPromise = (async () => {
     if (!shadowed) {
-      await incrementStats(date, finalScore, normalizedRounds);
+      await incrementStats(date, finalScore);
       invalidateDailyPublicCache(date);
     }
     return computeRankAndPercentile(date, finalScore, { excludeUserId: user._id, selfCounted: !shadowed });
@@ -560,7 +559,7 @@ async function handler(req, res) {
     // implementation per identity, with every DQ skip an explicit branch
     // inside handleLoggedIn/handleGuest. Identity dispatch conditions are
     // identical to the normal dispatch underneath.
-    if (disqualified) {
+    if (DAILY_DQ_ENABLED && disqualified) {
       const dq = await computeDqPercentile(date, finalScore);
 
       if (secret && typeof secret === 'string') {

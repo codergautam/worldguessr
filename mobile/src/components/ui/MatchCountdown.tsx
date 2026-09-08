@@ -44,39 +44,23 @@ export default function MatchCountdown({
   maxRef.current = Math.max(maxRef.current, seconds);
   const progress = maxRef.current > 0 ? Math.max(0, Math.min(1, seconds / maxRef.current)) : 0;
 
-  // The `seconds` prop can momentarily arrive as 0 on the first render (the
-  // parent's countdown state initialises to 0 before its timer effect runs).
-  // Track the first real (>0) value so the ring always begins full and only
-  // drains, instead of painting empty and visibly filling up.
-  const syncedRef = useRef(false);
-
-  const display = seconds > 0
-    ? Math.ceil(seconds)
-    : syncedRef.current
-      ? 0                                       // genuinely reached zero
-      : Math.max(1, Math.ceil(maxRef.current)); // pre-sync: show the full window
+  const display = Math.max(0, Math.ceil(seconds));
 
   // The `seconds` prop only updates every ~100ms (10 steps/sec), which makes the
   // ring visibly step. Drive the dash offset through an Animated.Value and glide
   // to each new target with a linear tween so it interpolates to 60fps. The ring
-  // holds full until the first real value, then snaps to the true starting fill
-  // (no visible fill-up) and only ever drains from there. Duration sits just over
+  // starts at the server's remaining time. Duration sits just over
   // the poll interval so a tween is always in flight, bridging the gaps rather
   // than snapping and pausing.
-  const progressAnim = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(progress)).current;
   useEffect(() => {
-    if (!syncedRef.current) {
-      if (seconds > 0) {
-        syncedRef.current = true;
-        progressAnim.setValue(progress); // snap to the real starting fill
-      }
-      return; // hold full until the countdown actually starts
-    }
     const anim = Animated.timing(progressAnim, {
       toValue: progress,
       duration: 130,
       easing: Easing.linear,
       useNativeDriver: false, // strokeDashoffset isn't a native-driver prop
+      // Repeated JS-driven glides must not block deferred panorama loading.
+      isInteraction: false,
     });
     anim.start();
     return () => anim.stop();

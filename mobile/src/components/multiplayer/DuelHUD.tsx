@@ -303,9 +303,12 @@ function HealthBar({
   // no press, no profile sheet. Same gate TeamNames already applies.
   const hasProfile = !isMe && !!player.accountId;
 
+  // Web parity (gameUI.js passes text("you") for the left bar): the local
+  // player's pill reads "You", never their own username. TeamNames already
+  // does this for the 2v2 rows.
   const nameInner = (
     <PlayerName
-      name={player.username}
+      name={isMe ? t('you') : player.username}
       countryCode={player.countryCode}
       flagSize={14}
       textStyle={hasProfile ? USERNAME_STYLE_OPPONENT : USERNAME_STYLE}

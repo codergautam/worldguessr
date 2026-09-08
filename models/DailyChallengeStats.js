@@ -7,16 +7,14 @@ const dailyChallengeStatsSchema = new mongoose.Schema({
   date: { type: String, required: true, unique: true },
   totalPlays: { type: Number, default: 0 },
   anonPlays: { type: Number, default: 0 },
-  totalScore: { type: Number, default: 0 },
+  // Score histogram for the distribution chart and the DQ percentile. The
+  // "avg" figures the clients show are medians computed from the score rows
+  // in api/dailyChallenge/results.js; the running sums that used to live
+  // here (totalScore, roundScoreSums) were dropped Sep 3 2026 and old docs
+  // may still carry them.
   buckets: {
     type: [Number],
     default: () => new Array(BUCKET_COUNT).fill(0),
-  },
-  // Per-round running sums so we can compute per-round global averages
-  // (avg = roundScoreSums[i] / totalPlays).
-  roundScoreSums: {
-    type: [Number],
-    default: () => new Array(ROUNDS_PER_DAY).fill(0),
   },
   updatedAt: { type: Date, default: Date.now },
 });

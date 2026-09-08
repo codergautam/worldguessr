@@ -228,7 +228,7 @@ export const resolveLeague = (elo, server) => {
 
 /**
  * The rating floor the "avoid lower skill duels" (strict matchmaking) setting
- * enforces: a strict player is never matched below this.
+ * always enforces, and the eligibility floor for enabling the setting.
  *
  * RESOLVED FROM THE ACTIVE TABLE, NEVER TYPED. Every call site used to read
  * `leagues.voyager.min` directly, which is 5,000 on the RETIRED Season 0 scale.
@@ -255,6 +255,13 @@ export const getStrictFloor = () => {
   // filtered — which is strictly better than a 0 that would silently turn the
   // setting into "match me with anyone" for every player who has it enabled.
   return typeof tier?.min === 'number' && Number.isFinite(tier.min) ? tier.min : Infinity;
+};
+
+// With "Avoid lower skill duels" disabled, two-minute searches include
+// Explorer. A missing Explorer tier keeps the Voyager widening floor.
+export const getMatchmakingFallbackFloor = () => {
+  const tier = Object.values(getActiveLeagues()).find((l) => l.name === 'Explorer');
+  return Number.isFinite(tier?.min) ? tier.min : getStrictFloor();
 };
 
 export const getLeagueRange = (name) => {
