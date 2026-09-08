@@ -147,15 +147,26 @@ describe('daily results public distribution', () => {
     expect((await call(handler, { date: '2026-09-10' })).status).toBe(500);
   });
 
-  it('serves the previous distribution when a refresh fails', async () => {
-    mocks.statsFindOne.mockReturnValue(statsResolving(null));
+  it('serves the previous medians with FRESH counts when a refresh fails', async () => {
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 2, buckets: [2] }));
     mocks.aggregate.mockReturnValue(aggregateResolving([{ rows: 2, score: 900, r0: 100, r1: 200, r2: 600 }]));
-    expect((await call(handler, { date: '2026-09-09' })).body.distribution.roundAverages).toEqual([100, 200, 600]);
+    expect((await call(handler, { date: '2026-09-09' })).body.distribution).toEqual({ totalPlays: 2, avgScore: 900, buckets: [2], roundAverages: [100, 200, 600] });
 
+    // A third player submits: the stats doc is current, the medians time out.
     invalidate('2026-09-09');
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 3, buckets: [2, 1] }));
     mocks.aggregate.mockReturnValue(aggregateRejecting('operation exceeded time limit'));
     const { status, body } = await call(handler, { date: '2026-09-09' });
     expect(status).toBe(200);
-    expect(body.distribution.roundAverages).toEqual([100, 200, 600]);
+    // Old medians, new counts: a live ownRank of 3 never sits beside "of 2".
+    expect(body.distribution).toEqual({ totalPlays: 3, avgScore: 900, buckets: [2, 1], roundAverages: [100, 200, 600] });
+    // The re-cached payload carries the fresh counts too.
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 99, buckets: [] }));
+    expect((await call(handler, { date: '2026-09-09' })).body.distribution.totalPlays).toBe(3);
+
+    // Never backwards: a stats read that lags the old total keeps the old total.
+    invalidate('2026-09-09');
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 1, buckets: [1] }));
+    expect((await call(handler, { date: '2026-09-09' })).body.distribution.totalPlays).toBe(3);
   });
 });

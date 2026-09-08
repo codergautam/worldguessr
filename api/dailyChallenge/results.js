@@ -127,11 +127,23 @@ async function computePublic(date, stale, gen = genOf(date)) {
   if (aggResult.status === 'fulfilled') {
     [agg] = aggResult.value;
   } else if (stale) {
-    // Keep the last known distribution on the screen and retry on the next
-    // miss rather than failing every reader while the database is slow.
-    console.warn('[dailyChallenge/results] distribution refresh failed, serving the previous one', aggResult.reason?.message);
-    storePublic(date, stale, gen);
-    return stale;
+    // Keep the last known medians on the screen and retry on the next miss
+    // rather than failing every reader while the database is slow. The
+    // COUNTS come from the stats read that just succeeded: ownRank is
+    // computed live per request, so re-serving the old totalPlays showed
+    // "#3 of 2" to whoever submitted during the slow window, and re-caching
+    // it showed that to every reader for the next TTL. Monotonic against
+    // the old total so no reader ever sees the number step backwards.
+    console.warn('[dailyChallenge/results] distribution refresh failed, serving the previous medians with fresh counts', aggResult.reason?.message);
+    const payload = {
+      distribution: {
+        ...stale.distribution,
+        totalPlays: Math.max(statsDoc?.totalPlays || 0, stale.distribution?.totalPlays || 0),
+        buckets: statsDoc?.buckets || stale.distribution?.buckets || [],
+      },
+    };
+    storePublic(date, payload, gen);
+    return payload;
   } else {
     // Cold cache and the medians timed out: answer with the counts and the
     // histogram from the stats doc and no medians. That is the payload every
