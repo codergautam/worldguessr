@@ -19,6 +19,12 @@ import { formatMapCount } from "@/lib/mapCount";
 
 export const FORUM_URL = "https://worldguessr.forum";
 export const SCHOOL_URL = "https://schoolguessr.com";
+// The partner who writes the daily challenge's spotting tips (the reveal card
+// in components/daily/DailyMetaCard.js credits the same site). A followed
+// link, deliberately: rel carries `noopener` for the new tab and nothing else,
+// so it is neither nofollow nor referrer-stripped and they can see the
+// traffic. Do not add `nofollow`, `ugc` or `sponsored` here.
+export const GEOCOACH_URL = "https://geocoach.me";
 
 const MODES = (mapCount) => [
   ["Singleplayer", "Unlimited rounds on the world map or any community map. Pick a time limit or play without one. No account needed."],
@@ -26,7 +32,12 @@ const MODES = (mapCount) => [
   ["2v2 Team Duels", "The same duel format with a partner. Queue together from a party, or get matched with a teammate."],
   ["Unranked Match", "A quick duel against a random player with no rating at stake."],
   ["Party", "A private lobby for friends. Share a link, choose the map and rules, and play the same rounds together. Parties have chat and emotes, and can run team duels inside the group."],
-  ["Daily Challenge", "One shared set of 3 locations for everyone, every day. 60 seconds per round, one attempt, then a score distribution and a top-100 board. Keep a streak going with an account."],
+  ["Daily Challenge", <>
+    One shared set of 3 locations for everyone, every day. 60 seconds per round, one attempt, then a score distribution
+    and a top-100 board. Keep a streak going with an account. On some days the answer screen also carries a spotting tip
+    for the location, written by <a href={GEOCOACH_URL} target="_blank" rel="noopener">geocoach.me</a>: the sign, plate,
+    bollard or script that gives the country away, so a round teaches you something even when your guess misses.
+  </>],
   ["Country Guesser and Continent Guesser", "Instead of placing a pin, name the country or the continent you are in. Fast rounds, good for learning the clues of the road."],
   ["Community Maps", <>
     <MapCount count={mapCount} /> maps made by players: single countries, cities, stadiums, capitals, landmarks, and stranger
