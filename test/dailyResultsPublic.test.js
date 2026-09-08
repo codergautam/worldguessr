@@ -169,4 +169,19 @@ describe('daily results public distribution', () => {
     mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 1, buckets: [1] }));
     expect((await call(handler, { date: '2026-09-09' })).body.distribution.totalPlays).toBe(3);
   });
+
+  it('re-derives the histogram median when the previous payload was itself counts-only', async () => {
+    // Cold miss, medians time out: counts-only payload, median from bucket 0.
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 2, buckets: [2] }));
+    mocks.aggregate.mockReturnValue(aggregateRejecting('operation exceeded time limit'));
+    expect((await call(handler, { date: '2026-09-11' })).body.distribution).toEqual({ totalPlays: 2, avgScore: 250, buckets: [2], roundAverages: [] });
+
+    // Three more plays land in bucket 20 and the medians time out again: the
+    // served median follows the served histogram (3rd of 5 plays sits in
+    // bucket 20, midpoint 10250), not the retired one.
+    invalidate('2026-09-11');
+    mocks.statsFindOne.mockReturnValue(statsResolving({ totalPlays: 5, buckets: [2, ...new Array(19).fill(0), 3] }));
+    const { body } = await call(handler, { date: '2026-09-11' });
+    expect(body.distribution).toEqual({ totalPlays: 5, avgScore: 10250, buckets: [2, ...new Array(19).fill(0), 3], roundAverages: [] });
+  });
 });

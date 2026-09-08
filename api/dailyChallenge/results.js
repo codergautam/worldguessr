@@ -135,11 +135,17 @@ async function computePublic(date, stale, gen = genOf(date)) {
     // it showed that to every reader for the next TTL. Monotonic against
     // the old total so no reader ever sees the number step backwards.
     console.warn('[dailyChallenge/results] distribution refresh failed, serving the previous medians with fresh counts', aggResult.reason?.message);
+    const buckets = statsDoc?.buckets || stale.distribution?.buckets || [];
+    // A previous payload that was itself counts-only carries a histogram
+    // median, not a row median: re-derive it from the histogram being
+    // served, so avgScore and buckets never describe two different days.
+    const hadMedians = (stale.distribution?.roundAverages?.length || 0) > 0;
     const payload = {
       distribution: {
         ...stale.distribution,
         totalPlays: Math.max(statsDoc?.totalPlays || 0, stale.distribution?.totalPlays || 0),
-        buckets: statsDoc?.buckets || stale.distribution?.buckets || [],
+        avgScore: hadMedians ? stale.distribution.avgScore : medianFromBuckets(buckets),
+        buckets,
       },
     };
     storePublic(date, payload, gen);
