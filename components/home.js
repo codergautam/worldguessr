@@ -6029,7 +6029,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                                         }} />
                                                 </div>
 
-                                                <div className="home__menu__hr"></div>
+                                                {/* No rule between two single-row groups: on the account-less
+                                                    builds the group below is just Find Match, and a rule between
+                                                    Singleplayer and one more row reads as a break in the list. */}
+                                                {!HIDE_ACCOUNT_UI && <div className="home__menu__hr"></div>}
                                                 <div className="home__menu__group">
                                                     {/* Ranked shows for guests too — clicking opens the link-Google
                                                         conversion modal instead of the queue (server publicDuel
