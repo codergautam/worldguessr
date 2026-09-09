@@ -101,10 +101,10 @@ describe('daily meta publisher CLI', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))[date]).toHaveLength(3);
   });
 
-  it('previews the committed schedule without an env override', () => {
+  it.each(['', path.join(root, 'data/daily-metas.json')])('previews the committed schedule with override %s', (override) => {
     const defaultPath = path.join(root, 'data/daily-metas.json');
     const original = fs.readFileSync(defaultPath, 'utf8');
-    const preview = run(earliestDailyMetaDate(), ['--force', '--dry-run'], '');
+    const preview = run(earliestDailyMetaDate(), ['--force', '--dry-run'], override);
     expect(preview.status, preview.stderr).toBe(0);
     expect(preview.stdout).toContain('--dry-run: nothing written');
     expect(fs.readFileSync(defaultPath, 'utf8')).toBe(original);

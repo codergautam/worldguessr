@@ -202,6 +202,7 @@ When the user corrects your approach, append a one-line rule here before ending 
 - "Avoid lower skill duels" must retain the Voyager floor at every wait time; Explorer expansion at two minutes applies only with the setting disabled. Both settings keep the one-minute Voyager+ expansion. (Corrected 2026-09-06.)
 - When a daily schedule read can fail, validate it before consuming a guest claim; test missing-file recovery through the claim handler so XP and history remain claimable. (Corrected 2026-09-06.)
 - Keep an icon's measured natural height independent of its animated container; verify initial measurement and repeated layouts with Yoga, not only React render mocks. (Corrected 2026-09-06.)
+- Daily meta schedules default to committed `data/daily-metas.json`; explicit absolute overrides inside the checkout must also work. Test both paths through the API and guest claims. (Corrected 2026-09-09.)
 
 ---
 

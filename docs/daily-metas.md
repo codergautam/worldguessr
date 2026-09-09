@@ -6,7 +6,7 @@ date its three locations are the day.
 Every other date uses the seeded draw in `serverUtils/dailyChallenge.js`.
 
 `DAILY_META_SCHEDULE_PATH` optionally overrides the default with an absolute
-private path outside the checkout, including through symlinks. The API and
+file path inside or outside the checkout. The API and
 `scripts/importDailyMetaPack.mjs` share the same default and override. Local
 Node processes read `.env`; when using an override in production, set it on
 every process that serves or rescores daily challenges.
@@ -122,7 +122,7 @@ full explanation).
    receive that history too; a blank file is not a replacement for it.
 2. Use the committed `data/daily-metas.json` on the publisher and every relevant
    worker. If using `DAILY_META_SCHEDULE_PATH` instead, configure it everywhere
-   and provision a persistent private file or mount outside the checkout.
+   and ensure the selected file is available to every worker.
    An existing production `DAILY_SECRET` must remain unchanged and consistent
    across workers: changing it changes drawn puzzles and session tokens.
 3. Use one publisher at a time. Run the importer with `--dry-run`, then publish without it. The importer

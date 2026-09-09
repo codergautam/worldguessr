@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { isDeepStrictEqual } from 'util';
@@ -7,24 +6,11 @@ import countries from 'i18n-iso-countries';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function outsideCheckout(filePath) {
-  const relative = path.relative(ROOT, filePath);
-  return relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
-}
-
 export function getDailyMetaSchedulePath() {
   const configured = process.env.DAILY_META_SCHEDULE_PATH;
   if (!configured) return path.join(ROOT, 'data', 'daily-metas.json');
   if (!path.isAbsolute(configured)) throw new Error('DAILY_META_SCHEDULE_PATH must be absolute');
-  const resolved = path.resolve(configured);
-  if (!outsideCheckout(resolved)) throw new Error('DAILY_META_SCHEDULE_PATH must be outside the checkout');
-  // A symlink must not turn a private-looking path into a file inside Git.
-  let existing = resolved;
-  while (!fs.existsSync(existing) && path.dirname(existing) !== existing) existing = path.dirname(existing);
-  if (!outsideCheckout(fs.realpathSync(existing))) {
-    throw new Error('DAILY_META_SCHEDULE_PATH must resolve outside the checkout');
-  }
-  return resolved;
+  return path.resolve(configured);
 }
 
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);

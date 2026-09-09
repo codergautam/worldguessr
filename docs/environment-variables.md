@@ -77,7 +77,7 @@ APPLE_WEB_CLIENT_ID=com.example.worldguessr.web
 DAILY_SECRET=your-existing-private-daily-secret
 
 # Optional override; defaults to the committed data/daily-metas.json.
-# Overrides must be absolute private paths outside the checkout.
+# Overrides must be absolute; paths inside the checkout are supported.
 # This example requires a separately provisioned persistent file/mount.
 DAILY_META_SCHEDULE_PATH=/var/lib/worldguessr/daily/daily-metas.json
 ```

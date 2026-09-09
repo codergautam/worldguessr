@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -88,7 +89,27 @@ function expectWrittenHistory() {
   });
 }
 
-describe('guest claims with a configured private daily schedule', () => {
+describe('guest claims with a configured daily schedule', () => {
+  it('claims progress when the override points to the committed schedule', async () => {
+    const committedPath = fileURLToPath(new URL('../data/daily-metas.json', import.meta.url));
+    vi.stubEnv('DAILY_META_SCHEDULE_PATH', committedPath);
+    const schedule = JSON.parse(fs.readFileSync(committedPath, 'utf8'));
+    const date = Object.keys(schedule).find(key => key !== '_publishedAt');
+    const locs = schedule[date];
+    vi.setSystemTime(Date.parse(`${date}T12:00:00Z`));
+    profile.daily.history[0].date = date;
+    mocks.GuestScore.find.mockReturnValue({ select: () => ({ lean: async () => [{
+      date, score: 15000, rounds: locs.map(loc => ({ score: 5000, guessLat: loc.lat, guessLng: loc.lng, country: loc.country })),
+    }] }) });
+    expect(await claim()).toMatchObject({ status: 200, body: { ok: true, mergedDays: 1 } });
+    expect(claimed).toBe(true);
+    expect(mocks.writeLoggedInDailyGame).toHaveBeenCalledOnce();
+    expect(mocks.writeLoggedInDailyGame.mock.calls[0][0]).toMatchObject({
+      date, finalScore: 15000, finalXp: 300,
+      dailyLocs: locs.map(({ lat, lng, heading, country, metas }) => ({ lat, long: lng, heading: heading ?? 0, country, metas })),
+    });
+  });
+
   it.each(['missing', 'JSON', 'schema'])('does not consume progress on a cold %s failure and succeeds after recovery', async (failure) => {
     if (failure === 'JSON') fs.writeFileSync(schedulePath, '{');
     if (failure === 'schema') fs.writeFileSync(schedulePath, JSON.stringify({ [DATE]: [] }));

@@ -71,11 +71,11 @@ describe('shared daily schedule validation', () => {
     expect(getDailyMetaSchedulePath()).toBe(DEFAULT_SCHEDULE_PATH);
   });
 
-  it('requires a private absolute path when an override is configured', () => {
+  it('accepts absolute overrides inside or outside the checkout and rejects relative paths', () => {
     vi.stubEnv('DAILY_META_SCHEDULE_PATH', 'data/schedule.json');
     expect(() => getDailyMetaSchedulePath()).toThrow('absolute');
     vi.stubEnv('DAILY_META_SCHEDULE_PATH', path.resolve('data/schedule.json'));
-    expect(() => getDailyMetaSchedulePath()).toThrow('outside the checkout');
+    expect(getDailyMetaSchedulePath()).toBe(path.resolve('data/schedule.json'));
     const { target } = privateSchedule();
     expect(getDailyMetaSchedulePath()).toBe(target);
   });
@@ -134,8 +134,8 @@ describe('shared daily schedule validation', () => {
 });
 
 describe('daily schedule and location cache consistency', () => {
-  it('serves the committed locations and tips through the API without an env override', async () => {
-    vi.stubEnv('DAILY_META_SCHEDULE_PATH', undefined);
+  it.each([undefined, DEFAULT_SCHEDULE_PATH])('serves the committed locations and tips through the API with override %s', async (override) => {
+    vi.stubEnv('DAILY_META_SCHEDULE_PATH', override);
     const schedule = JSON.parse(fs.readFileSync(DEFAULT_SCHEDULE_PATH, 'utf8'));
     const dates = Object.keys(schedule).filter(date => date !== '_publishedAt');
     expect(dates.length).toBeGreaterThan(0);
