@@ -1,0 +1,424 @@
+{
+  "2026-09-09": [
+    {
+      "lat": 38.230782,
+      "lng": 21.742775,
+      "heading": 40.03,
+      "country": "GR",
+      "title": "Greek Alphabet",
+      "metas": [
+        {
+          "title": "Greek Alphabet",
+          "explanation": "Greek signs use the Greek alphabet, with easy-to-spot letters like Δ, Λ, Θ, Ψ, Ω and Σ, often in uppercase only. Also used in Cyprus.",
+          "view": {
+            "heading": 103.13,
+            "pitch": 16.11,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3844_1_0ba7cc9c06_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 33.576402,
+      "lng": 130.420005,
+      "heading": 230.58,
+      "country": "JP",
+      "title": "Japanese Stop Sign",
+      "metas": [
+        {
+          "title": "Japanese Stop Sign",
+          "explanation": "Japan’s stop sign is a red upside-down triangle with the kanji 止まれ (tomare).",
+          "view": {
+            "heading": 201.51,
+            "pitch": 6.12,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-63_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 6.250903,
+      "lng": -75.590915,
+      "heading": 94.58,
+      "country": "CO",
+      "title": "Colombian Yellow Taxis",
+      "metas": [
+        {
+          "title": "Colombian Yellow Taxis",
+          "explanation": "Colombian taxis are pale yellow with white plates, often also painted on the sides and roof. Ecuador’s taxis are brighter yellow with orange plates.",
+          "view": {
+            "heading": 19.75,
+            "pitch": -39.15,
+            "zoom": 0.75
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/78109_base_9c3bba4e4a_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-10": [
+    {
+      "lat": 51.555562,
+      "lng": -0.094964,
+      "heading": 180.7,
+      "country": "GB",
+      "title": "British License Plates",
+      "metas": [
+        {
+          "title": "British Yellow Back License Plates",
+          "explanation": "British cars have yellow license plates on the back. Some plates have a blue or green strip on the left.",
+          "view": {
+            "heading": 158.93,
+            "pitch": -9.38,
+            "zoom": 3.47
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3101_1_preview.avif"
+        },
+        {
+          "title": "British White Front License Plates",
+          "explanation": "British cars have white license plates on the front. Some plates have a blue or green strip on the left.",
+          "view": {
+            "heading": 195.79,
+            "pitch": -10.21,
+            "zoom": 4
+          }
+        }
+      ]
+    },
+    {
+      "lat": 3.149146,
+      "lng": 101.590477,
+      "heading": 0.88,
+      "country": "MY",
+      "title": "Malaysian Private License Plate",
+      "metas": [
+        {
+          "title": "Malaysian Private License Plate",
+          "explanation": "Malaysian private plates are long, black with white text. When blurred, they show two white stripes, while Indonesian black plates show three.",
+          "view": {
+            "heading": 37.99,
+            "pitch": -16.61,
+            "zoom": 3.54
+          },
+          "hint": "Indon3sia = 3 stripes · Malaysia = 2 stripes",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-127_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 5.564735,
+      "lng": -0.238706,
+      "heading": 300.21,
+      "country": "GH",
+      "title": "Ghana Taxi",
+      "metas": [
+        {
+          "title": "Ghana Taxi",
+          "explanation": "Taxis in Ghana are two-tone: a plain body with yellow-orange painted fenders. They also carry yellow license plates.",
+          "view": {
+            "heading": 289.7,
+            "pitch": -4.14,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80427_base_3166ca8807_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-11": [
+    {
+      "lat": 39.752445,
+      "lng": -75.556603,
+      "heading": 218.65,
+      "country": "US",
+      "title": "US One-Way Arrows",
+      "metas": [
+        {
+          "title": "US One-Way Arrows",
+          "explanation": "US one-way signs have the words ONE WAY written on the arrow. Canadian one-way arrows carry no text.",
+          "view": {
+            "heading": 265.46,
+            "pitch": -0.05,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-385_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 25.119854,
+      "lng": 55.22625,
+      "heading": 318.21,
+      "country": "AE",
+      "title": "UAE Direction Boards",
+      "metas": [
+        {
+          "title": "UAE Direction Boards",
+          "explanation": "Green boards are for local roads within an emirate, blue for highways between emirates. Green often shows Dubai’s castle emblem, blue the falcon.",
+          "view": {
+            "heading": 347.13,
+            "pitch": 4.74,
+            "zoom": 2.89
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-577_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -31.771689,
+      "lng": -52.345011,
+      "heading": 20.25,
+      "country": "BR",
+      "title": "Brazilian Phone Numbers",
+      "metas": [
+        {
+          "title": "Brazilian Phone Numbers",
+          "explanation": "Brazilian phone numbers follow the format XX-XXXXXXXXX. The first two digits are the regional area code, sometimes in parentheses or left out.",
+          "view": {
+            "heading": 299.97,
+            "pitch": 0.98,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/baked/80299/d8a49d8556dd918b38a7ce725f89c12b89856077_cf485a5e4ee6a9fe_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-12": [
+    {
+      "lat": 61.690559,
+      "lng": 27.2661,
+      "heading": 1.29,
+      "country": "FI",
+      "title": "Finnish -katu Street Names",
+      "metas": [
+        {
+          "title": "Finnish -katu Street Names",
+          "explanation": "Finnish street names commonly end in -katu (street); -tie (road) is the other frequent ending.",
+          "view": {
+            "heading": 289.48,
+            "pitch": 10.77,
+            "zoom": 4
+          }
+        }
+      ]
+    },
+    {
+      "lat": 3.558739,
+      "lng": 98.660354,
+      "heading": 179.12,
+      "country": "ID",
+      "title": "Indonesian Motorcycle Front Plates",
+      "metas": [
+        {
+          "title": "Indonesian Motorcycle Front Plates",
+          "explanation": "In Indonesia every motorcycle carries a small license plate on the front, above the headlamp. Most nearby countries do not.",
+          "view": {
+            "heading": 178.88,
+            "pitch": 4.72,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-125_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 0.313465,
+      "lng": 32.578167,
+      "heading": 106.75,
+      "country": "UG",
+      "title": "Kampala Google Car",
+      "metas": [
+        {
+          "title": "Kampala Google Car",
+          "explanation": "A mostly blurred white Google car with square mirrors visible. Only found in the capital, Kampala. Common in Uganda.",
+          "view": {
+            "heading": 128.32,
+            "pitch": -42.14,
+            "zoom": 1.46
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23383_base_6117c5cd30_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-13": [
+    {
+      "lat": 54.686425,
+      "lng": 25.286435,
+      "heading": 247.7,
+      "country": "LT",
+      "title": "Lithuanian Letter Ė",
+      "metas": [
+        {
+          "title": "Lithuanian Letter Ė",
+          "explanation": "The letter Ė (E with a dot) is unique to Lithuanian and is common on street and road signs.",
+          "view": {
+            "heading": 228.84,
+            "pitch": 1.23,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/77000_base_2c17ca2c55_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -37.793777,
+      "lng": 175.293525,
+      "heading": 349.45,
+      "country": "NZ",
+      "title": "New Zealand Blue Street Signs",
+      "metas": [
+        {
+          "title": "New Zealand Blue Street Signs",
+          "explanation": "New Zealand street signs have a blue background with white letters. Australian street signs never use this combination.",
+          "view": {
+            "heading": 37.54,
+            "pitch": -1.4,
+            "zoom": 3.84
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3950_1_2645832f29_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -18.450012,
+      "lng": -70.298274,
+      "heading": 266.85,
+      "country": "CL",
+      "title": "Slots On Sign Posts in Chile · #4119230",
+      "metas": [
+        {
+          "title": "Slots On Sign Posts in Chile",
+          "explanation": "Small rectangular slots on top of sign posts and chevron posts, placed before traffic signs.",
+          "view": {
+            "heading": 306.34,
+            "pitch": -13.33,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/baked/77975/e09eb9c9ebbae6edb1108d711859b920d8126e20_348418b073f32aa9_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-14": [
+    {
+      "lat": 43.674752,
+      "lng": -79.430954,
+      "heading": 264.22,
+      "country": "CA",
+      "title": "Canadian British Spelling",
+      "metas": [
+        {
+          "title": "Canadian British Spelling",
+          "explanation": "English-speaking Canada uses British spelling: centre, colour (American: center, color).",
+          "view": {
+            "heading": 337.9,
+            "pitch": 7.09,
+            "zoom": 3.17
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-405_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 35.347085,
+      "lng": 129.037157,
+      "heading": 199.21,
+      "country": "KR",
+      "title": "Korean Hangul Script",
+      "metas": [
+        {
+          "title": "Korean Hangul Script",
+          "explanation": "Korean signs use Hangul, a script with many circles in its letters, which sets it apart from other East Asian scripts.",
+          "view": {
+            "heading": 224.13,
+            "pitch": 3.35,
+            "zoom": 3.02
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-9_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -12.066972,
+      "lng": -77.019196,
+      "heading": 172.36,
+      "country": "PE",
+      "title": "Peruvian Electricity Meters",
+      "metas": [
+        {
+          "title": "Peruvian Electricity Meters",
+          "explanation": "Peruvian electricity meters are rectangular metal boxes with two or three horizontal slots, common on houses across the country.",
+          "view": {
+            "heading": 102.98,
+            "pitch": -7.64,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/baked/80269/7f9e33acd23224611f39cfb540e612ae80bd34b3_d8cd5ccf9680373c_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-15": [
+    {
+      "lat": 52.367591,
+      "lng": 4.889733,
+      "heading": 154.56,
+      "country": "NL",
+      "title": "Dutch Pedestrian Sign",
+      "metas": [
+        {
+          "title": "Dutch Pedestrian Sign",
+          "explanation": "The Dutch pedestrian-crossing sign has 5 zebra stripes and a boxy “drunk” figure with hands and legs pointing in different directions.",
+          "view": {
+            "heading": 158.44,
+            "pitch": 2.39,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23539_base_042458c6f4_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 11.567444,
+      "lng": 104.923852,
+      "heading": 75.63,
+      "country": "KH",
+      "title": "Khmer Script",
+      "metas": [
+        {
+          "title": "Khmer Script",
+          "explanation": "Khmer script is curvy, dense and ornate with many loops. Thai script has many little circles, Lao looks plain and open. Common in Cambodia.",
+          "view": {
+            "heading": 15.35,
+            "pitch": 9.03,
+            "zoom": 3.57
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-142_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 14.684029,
+      "lng": -17.449879,
+      "heading": 224.01,
+      "country": "SN",
+      "title": "Senegal License Plates",
+      "metas": [
+        {
+          "title": "Senegal License Plates",
+          "explanation": "Old Senegalese license plates are blue. New ones are white with a blue strip on the left, similar to European plates.",
+          "view": {
+            "heading": 192.97,
+            "pitch": -13.11,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80389_base_3bf2ebabc2_preview.avif"
+        }
+      ]
+    }
+  ]
+}

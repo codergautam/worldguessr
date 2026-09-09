@@ -33,7 +33,6 @@ nul.map
 # GitHub's 100MB cap); the raw file is a local regeneration intermediate
 data/world-extra.json
 # Daily answers are private runtime inputs, never repository assets.
-/data/daily-metas.json
 /Week_*.json
 /private-daily/
 # Local scratch: traces, probes, PDFs. Never repository assets.
