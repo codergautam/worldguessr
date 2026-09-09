@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   earliestDailyMetaDate, getDailyMetaSchedulePath,
@@ -13,6 +14,7 @@ vi.mock('../components/utils/ratelimitMiddleware.js', () => ({ default: (handler
 
 const NOW = Date.parse('2026-09-06T12:00:00Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_SCHEDULE_PATH = fileURLToPath(new URL('../data/daily-metas.json', import.meta.url));
 const day = () => [
   { lat: 48.8566, lng: 2.3522, country: 'FR' },
   { lat: 35.6762, lng: 139.6503, country: 'JP' },
@@ -63,8 +65,13 @@ async function coldWorker() {
 }
 
 describe('shared daily schedule validation', () => {
-  it('disables scheduling when unset and requires a private absolute path when configured', () => {
-    expect(getDailyMetaSchedulePath()).toBeNull();
+  it.each([undefined, ''])('uses the committed schedule when the override is %s, regardless of cwd', (value) => {
+    vi.stubEnv('DAILY_META_SCHEDULE_PATH', value);
+    vi.spyOn(process, 'cwd').mockReturnValue(os.tmpdir());
+    expect(getDailyMetaSchedulePath()).toBe(DEFAULT_SCHEDULE_PATH);
+  });
+
+  it('requires a private absolute path when an override is configured', () => {
     vi.stubEnv('DAILY_META_SCHEDULE_PATH', 'data/schedule.json');
     expect(() => getDailyMetaSchedulePath()).toThrow('absolute');
     vi.stubEnv('DAILY_META_SCHEDULE_PATH', path.resolve('data/schedule.json'));
@@ -127,9 +134,36 @@ describe('shared daily schedule validation', () => {
 });
 
 describe('daily schedule and location cache consistency', () => {
-  it('keeps the seeded algorithm and session tokens unchanged with no schedule configured', async () => {
+  it('serves the committed locations and tips through the API without an env override', async () => {
+    vi.stubEnv('DAILY_META_SCHEDULE_PATH', undefined);
+    const schedule = JSON.parse(fs.readFileSync(DEFAULT_SCHEDULE_PATH, 'utf8'));
+    const dates = Object.keys(schedule).filter(date => date !== '_publishedAt');
+    expect(dates.length).toBeGreaterThan(0);
     const worker = await coldWorker();
-    const stat = vi.spyOn(fs, 'statSync');
+    const cold = await coldWorker();
+    const { default: locationsHandler } = await import('../api/dailyChallenge/locations.js');
+    for (const date of dates) {
+      vi.setSystemTime(Date.parse(`${date}T12:00:00Z`));
+      const expected = schedule[date].map(({ lat, lng, heading, country, metas }) => ({
+        lat, long: lng, heading: heading ?? 0, country, metas,
+      }));
+      expect(worker.getDailyLocations(date)).toEqual(expected);
+      expect(cold.getDailyLocations(date)).toEqual(expected);
+      const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+      await locationsHandler({ method: 'GET', query: { date } }, res);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ date, locations: expected }));
+    }
+    const unscheduledDate = '2000-01-01';
+    expect(schedule[unscheduledDate]).toBeUndefined();
+    const picked = worker.getDailyLocations(unscheduledDate);
+    privateSchedule().publish({});
+    expect((await coldWorker()).getDailyLocations(unscheduledDate)).toEqual(picked);
+  });
+
+  it('keeps the seeded algorithm and session tokens unchanged with an empty schedule', async () => {
+    privateSchedule().publish({});
+    const worker = await coldWorker();
     const picked = worker.getDailyLocations('2026-09-09');
     // Captured from HEAD's seeded draw with the same test-only secret.
     expect(picked).toEqual([
@@ -138,7 +172,6 @@ describe('daily schedule and location cache consistency', () => {
       { lat: 22.31601424724127, long: 114.1698884259235, heading: 74.09363555908203, country: 'HK' },
     ]);
     expect(worker.getDailyLocations('2026-09-09')).toBe(picked);
-    expect(stat).not.toHaveBeenCalled();
     const cold = await coldWorker();
     expect(cold.getDailyLocations('2026-09-09')).toEqual(picked);
     const payload = `2026-09-09.${NOW}`;

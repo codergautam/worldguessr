@@ -14,7 +14,7 @@ function outsideCheckout(filePath) {
 
 export function getDailyMetaSchedulePath() {
   const configured = process.env.DAILY_META_SCHEDULE_PATH;
-  if (!configured) return null;
+  if (!configured) return path.join(ROOT, 'data', 'daily-metas.json');
   if (!path.isAbsolute(configured)) throw new Error('DAILY_META_SCHEDULE_PATH must be absolute');
   const resolved = path.resolve(configured);
   if (!outsideCheckout(resolved)) throw new Error('DAILY_META_SCHEDULE_PATH must be outside the checkout');

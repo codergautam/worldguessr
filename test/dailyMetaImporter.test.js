@@ -41,7 +41,7 @@ function run(start, extra = [], schedulePath = output) {
   });
 }
 
-describe('private daily meta publisher CLI', () => {
+describe('daily meta publisher CLI', () => {
   it('publishes a complete private file and retains historical entries', () => {
     const historical = fixtureDay();
     fs.writeFileSync(output, JSON.stringify({ '2000-01-01': historical }));
@@ -101,10 +101,17 @@ describe('private daily meta publisher CLI', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))[date]).toHaveLength(3);
   });
 
-  it('requires a private path and rejects normalized invalid calendar dates', () => {
-    const missing = run(earliestDailyMetaDate(), [], '');
-    expect(missing.status).toBe(1);
-    expect(missing.stderr).toContain('DAILY_META_SCHEDULE_PATH');
+  it('previews the committed schedule without an env override', () => {
+    const defaultPath = path.join(root, 'data/daily-metas.json');
+    const original = fs.readFileSync(defaultPath, 'utf8');
+    const preview = run(earliestDailyMetaDate(), ['--force', '--dry-run'], '');
+    expect(preview.status, preview.stderr).toBe(0);
+    expect(preview.stdout).toContain('--dry-run: nothing written');
+    expect(fs.readFileSync(defaultPath, 'utf8')).toBe(original);
+    expect(fs.existsSync(output)).toBe(false);
+  });
+
+  it('rejects normalized invalid calendar dates', () => {
     const invalid = run('2030-02-30');
     expect(invalid.status).toBe(1);
     expect(invalid.stderr).toContain('not a real date');

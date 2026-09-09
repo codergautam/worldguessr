@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Import a geocoach meta pack into DAILY_META_SCHEDULE_PATH (docs/daily-metas.md).
+// Import a geocoach meta pack into data/daily-metas.json by default.
+// DAILY_META_SCHEDULE_PATH optionally overrides the file (docs/daily-metas.md).
 //
 //   node scripts/importDailyMetaPack.mjs /private/pack.json --start YYYY-MM-DD --dry-run
 //   node scripts/importDailyMetaPack.mjs /private/pack.json --start YYYY-MM-DD --country 6=QA --country 17=LK
@@ -54,7 +55,6 @@ argv.forEach((a, i) => {
 });
 
 if (!packPath) fail('usage: importDailyMetaPack.mjs <pack.json> --start YYYY-MM-DD [--dry-run] [--force] [--country n=XX]');
-if (!OUT_PATH) fail('Set DAILY_META_SCHEDULE_PATH to an absolute private file path outside the checkout');
 if (has('--allow-live')) fail('--allow-live is no longer supported: accessible dates must remain unchanged');
 if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) fail('--start YYYY-MM-DD is required');
 const startMs = Date.parse(`${start}T00:00:00Z`);

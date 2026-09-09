@@ -1,26 +1,26 @@
 # Daily challenge meta days
 
-The private file named by `DAILY_META_SCHEDULE_PATH` schedules "meta" days for
-the daily challenge. On a scheduled date its three locations are the day.
+The committed `data/daily-metas.json` schedules "meta" days for the daily
+challenge by default; no environment variable is required. On a scheduled
+date its three locations are the day.
 Every other date uses the seeded draw in `serverUtils/dailyChallenge.js`.
 
-The path must be absolute and outside the checkout, including through
-symlinks. The API and `scripts/importDailyMetaPack.mjs` share this setting.
-For local Node processes the importer and API read `.env`; in production set
-the variable on every process that serves or rescores daily challenges.
+`DAILY_META_SCHEDULE_PATH` optionally overrides the default with an absolute
+private path outside the checkout, including through symlinks. The API and
+`scripts/importDailyMetaPack.mjs` share the same default and override. Local
+Node processes read `.env`; when using an override in production, set it on
+every process that serves or rescores daily challenges.
 For example, a private persistent mount could use
 `DAILY_META_SCHEDULE_PATH=/var/lib/worldguessr/daily/daily-metas.json`.
 That is an example mount location, not an automatically provisioned service.
 
-Keep the raw packs in private storage too. Neither the schedule nor the raw
-pack belongs in Git, `public/`, an app bundle, or a publicly readable bucket.
-The old `/data/daily-metas.json` and `/Week_*.json` locations are ignored as
-protection against accidentally reintroducing them.
+Keep raw packs in private storage; `/Week_*.json` remains ignored. The default
+schedule is versioned in Git and read by the server from disk.
 
-When the variable is unset, meta scheduling is disabled. When it is set but
-the file is missing or invalid, a worker retains its last valid schedule. A
+When the variable is unset or empty, the committed schedule is used. If the
+selected file is missing or invalid, a worker retains its last valid schedule. A
 new worker without a valid schedule returns an error instead of generating a
-different puzzle. Configure and mount the file before starting that worker.
+different puzzle. Deploy the file before starting that worker.
 
 After a player guesses, the reveal shows a card (bottom-left on desktop, above
 the end banner on phones) with a Street View zoomed on the meta, a title, and
@@ -120,9 +120,9 @@ full explanation).
 1. Start from the complete last deployed schedule, including historical
    entries. Keep a private backup and its SHA-256 hash. A new worker must
    receive that history too; a blank file is not a replacement for it.
-2. Configure `DAILY_META_SCHEDULE_PATH` on the publisher and every relevant
-   worker. Use a persistent private file or mount outside the checkout, with
-   read access for the server and write access limited to the publisher.
+2. Use the committed `data/daily-metas.json` on the publisher and every relevant
+   worker. If using `DAILY_META_SCHEDULE_PATH` instead, configure it everywhere
+   and provision a persistent private file or mount outside the checkout.
    An existing production `DAILY_SECRET` must remain unchanged and consistent
    across workers: changing it changes drawn puzzles and session tokens.
 3. Use one publisher at a time. Run the importer with `--dry-run`, then publish without it. The importer
@@ -131,8 +131,9 @@ full explanation).
    and writes a sibling temporary file followed by an atomic rename. A broken
    existing file is an error, never permission to start a new empty schedule.
 4. Supply the exact same approved file to every worker before any changed date
-   enters the API lookahead. Prefer a shared private mount. With separate
-   volumes, stage the complete file beside the destination and replace it
+   enters the API lookahead. Deploy the same schedule revision to every worker.
+   For an override, prefer a shared private mount; with separate volumes,
+   stage the complete file beside the destination and replace it
    atomically; never stream or truncate the live file. Compare SHA-256 hashes
    on every worker. Staging and replacement must finish while all changed
    dates are still at least three UTC calendar days away.
@@ -157,13 +158,7 @@ full explanation).
    each scheduled date and unchanged draws for other dates. Exercise submit
    and guest-claim paths using those same locations. The schedule is checked
    before location-cache hits; accepted changed dates evict their cached picks.
-7. On an unreadable or malformed refresh, fix the private file; warm workers
+7. On an unreadable or malformed refresh, fix the selected file; warm workers
    keep the last valid version. Do not roll back by removing already accessible
    dates or unsetting the path. Preserve their exact published entries and
    change only dates still outside the lookahead.
-
-The API already returns coordinates before guessing. Private storage prevents
-repository disclosure; it does not hide coordinates already returned by that
-API. If a pack or schedule was previously pushed, uploaded publicly, or served,
-assess that exposure separately. Moving an untracked local file does not erase
-remote copies or change already accessible puzzles.

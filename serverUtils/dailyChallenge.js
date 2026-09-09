@@ -21,15 +21,14 @@ const SECRET = process.env.DAILY_SECRET || 'worldguessr-daily-default-secret';
 const CACHE_SIZE = 14;
 // Hand-scheduled "meta" days (docs/daily-metas.md): date -> the day's three
 // locations, each carrying the tips shown on the reveal. A scheduled date
-// bypasses the seeded draw entirely; every other date is untouched. The pack
-// lives outside the checkout. An unset path explicitly disables scheduled days.
+// bypasses the seeded draw entirely; every other date is untouched. Defaults
+// to data/daily-metas.json, with DAILY_META_SCHEDULE_PATH as an optional override.
 //
 // Resolved on first use, not at import: server.js registers API routes with
 // a dynamic import that has no rejection handler, so a throw here at module
 // scope silently left every /api/dailyChallenge/* route unregistered. A bad
 // path now logs once at first use and fails each daily request with a clear
 // message instead.
-const EMPTY_META_SCHEDULE = {};
 let metasPathResolved = false;
 let metasPath = null;
 let metasPathError = null;
@@ -38,9 +37,7 @@ function resolveMetasPath() {
     metasPathResolved = true;
     try {
       metasPath = getDailyMetaSchedulePath();
-      console.log(metasPath
-        ? `[dailyChallenge] meta schedule: ${metasPath}`
-        : '[dailyChallenge] meta schedule disabled (DAILY_META_SCHEDULE_PATH unset); every date uses the seeded draw');
+      console.log(`[dailyChallenge] meta schedule: ${metasPath}`);
     } catch (err) {
       metasPathError = err;
       console.error('[dailyChallenge] DAILY_META_SCHEDULE_PATH rejected; daily requests will fail until it is fixed:', err?.message);
@@ -62,7 +59,6 @@ let metaScheduleError = null;
 const scheduleVersion = (stat) => `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
 function loadMetaSchedule() {
   const METAS_PATH = resolveMetasPath();
-  if (!METAS_PATH) return EMPTY_META_SCHEDULE;
   try {
     if (scheduleVersion(fs.statSync(METAS_PATH)) === metaScheduleVersion) {
       if (metaScheduleCache) {

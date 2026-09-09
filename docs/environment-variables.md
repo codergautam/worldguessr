@@ -76,18 +76,20 @@ APPLE_WEB_CLIENT_ID=com.example.worldguessr.web
 # Do not rotate it as part of a schedule rollout.
 DAILY_SECRET=your-existing-private-daily-secret
 
-# Optional meta scheduling: an absolute private path outside the checkout.
+# Optional override; defaults to the committed data/daily-metas.json.
+# Overrides must be absolute private paths outside the checkout.
 # This example requires a separately provisioned persistent file/mount.
 DAILY_META_SCHEDULE_PATH=/var/lib/worldguessr/daily/daily-metas.json
 ```
 
 `serverUtils/dailyChallenge.js` and `scripts/importDailyMetaPack.mjs` use the
-same schedule variable. Local Node processes load it from `.env`; production
-workers need it in their deployment environment. Unset disables meta days.
-A configured missing/invalid file keeps a warm worker's last valid schedule;
+same default file and optional schedule variable. Local Node processes load
+the override from `.env`; production workers can set it in their deployment
+environment. Unset or empty uses `data/daily-metas.json` from the checkout.
+A missing/invalid file keeps a warm worker's last valid schedule;
 a cold worker fails the daily request rather than serving a different puzzle.
-Keep the schedule and raw packs out of Git and public assets, and supply the
-same approved version to every daily worker. See [daily meta rollout](daily-metas.md#publication-and-rollout)
+Deploy the same committed schedule or override file to every daily worker.
+Keep raw packs out of Git and public assets. See [daily meta rollout](daily-metas.md#publication-and-rollout)
 for atomic publication, historical preservation, and the three-UTC-day lead.
 
 ### Port Configuration
