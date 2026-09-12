@@ -1,3 +1,4 @@
+# substring
 nazi
 nazis
 nazism
@@ -337,6 +338,7 @@ camgirl
 camwhore
 cummies
 seggs
+# token
 spic
 coon
 jap
