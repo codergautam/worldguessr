@@ -1,37 +1,11 @@
-import fs from 'fs';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from './forumUsername.js';
-import { Filter } from 'bad-words';
+import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'obscenity';
 
-const filter = new Filter();
-fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split(/\r?\n/).forEach((word) => {
-  const w = word.trim();
-  if (w) filter.addWords(w);
-});
-
-const EXACT_WORDS = new Set();
-const CONTAINS_WORDS = new Set();
-for (const w of filter.list) {
-  const n = w.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (n.length < 2) continue;
-  (n.length <= 3 ? EXACT_WORDS : CONTAINS_WORDS).add(n);
-}
-const CONTAINS_RE = new RegExp([...CONTAINS_WORDS].join('|'));
-
-const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '6': 'g', '7': 't', '8': 'b', '9': 'g' };
-const deleet = (s) => s.replace(/[013456789]/g, (d) => LEET[d]);
+const matcher = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
 
 function isNameProfane(username) {
-  const lower = username.toLowerCase();
-  for (const variant of [lower, deleet(lower)]) {
-    const flat = variant.replace(/_/g, '');
-    if (EXACT_WORDS.has(flat)) return true;
-    for (const token of variant.split(/[^a-z]+/)) {
-      if (EXACT_WORDS.has(token)) return true;
-    }
-    if (CONTAINS_RE.test(flat)) return true;
-  }
-  return false;
+  return matcher.hasMatch(username.replace(/_/g, ''));
 }
 
 // ONE bound for every surface that CHOOSES a name — signup and rename alike

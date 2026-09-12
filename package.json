@@ -66,6 +66,7 @@
     "mongoose": "^8.3.3",
     "next": "15.4.5",
     "nodemailer": "^9.0.5",
+    "obscenity": "^0.4.6",
     "ol": "^9.1.0",
     "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",
