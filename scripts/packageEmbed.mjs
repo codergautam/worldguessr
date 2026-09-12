@@ -28,6 +28,13 @@ const TARGETS = {
     // (how the July 28 GD test build shipped broken). The packager greps the
     // chunks for the identifier and refuses to zip if it survived.
     poki: { exportDir: '.next-poki', stagedName: 'poki', zipName: 'worldguessr-poki.zip', mustInline: 'NEXT_PUBLIC_POKI' },
+    // DuckMath is a Poki build with the ad SDK suppressed (build:duckmath sets
+    // both NEXT_PUBLIC_POKI and NEXT_PUBLIC_DUCKMATH). Same Poki-style relative
+    // assets and no bridge config. mustInline is NEXT_PUBLIC_DUCKMATH so the
+    // packager refuses to zip unless that flag was baked in — a bare/poki-only
+    // build would leave the Poki SDK loader active and ship a "duckmath" zip
+    // that still loads ads.
+    duckmath: { exportDir: '.next-duckmath', stagedName: 'duckmath', zipName: 'worldguessr-duckmath.zip', mustInline: 'NEXT_PUBLIC_DUCKMATH' },
     // GD mounts the zip at the STABLE gameId path, so it uses a hardcoded
     // build-time basePath (Next-native, like the CI build) instead of the
     // runtime-derived relative-asset mode Poki needs.

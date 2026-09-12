@@ -10,6 +10,10 @@ export function getPlatform() {
       return "schoolguessr";
     } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
       return "coolmath";
+    } else if (process.env.NEXT_PUBLIC_DUCKMATH === "true") {
+      // DuckMath ships as a Poki variant (both flags set), so this must be
+      // checked BEFORE the Poki branch to tag the audience as "duckmath".
+      return "duckmath";
     } else if (process.env.NEXT_PUBLIC_POKI === "true") {
       // Build-time flag beats the iframe fallback below so the Poki audience
       // is tagged deterministically (their sandbox origins vary).

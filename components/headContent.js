@@ -184,7 +184,12 @@ ads.js"></script>*/
         document.body.removeChild(script2);
       }
 
-    }else if(process.env.NEXT_PUBLIC_POKI === "true") {
+      // DuckMath is a Poki build with the ad SDK suppressed: it sets both
+      // NEXT_PUBLIC_POKI (to inherit Poki's accountless / relative-asset /
+      // no-Playwire behavior) and NEXT_PUBLIC_DUCKMATH (whose only job is to
+      // skip this loader). No poki-sdk.js means window.PokiSDK/window.poki are
+      // never set, so every downstream Poki ad/gameplay hook self-disables.
+    }else if(process.env.NEXT_PUBLIC_POKI === "true" && process.env.NEXT_PUBLIC_DUCKMATH !== "true") {
       //
       const script = document.createElement('script');
       script.src = "https://game-cdn.poki.com/scripts/v2/poki-sdk.js";
