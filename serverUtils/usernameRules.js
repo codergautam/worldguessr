@@ -1,8 +1,50 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from './forumUsername.js';
-import { Filter } from 'bad-words';
+import { DataSet, RegExpMatcher, englishDataset, englishRecommendedTransformers, pattern } from 'obscenity';
 
-const filter = new Filter();
+const dataset = new DataSet().addAll(englishDataset);
+const TOKEN_WORDS = new Set();
+const DIGIT_WORDS = new Set();
+let section = 'substring';
+fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'usernameDenylist.txt'), 'utf8').split(/\r?\n/).forEach((line) => {
+  if (line.startsWith('#')) {
+    if (/token/i.test(line)) section = 'token';
+    else if (/substring/i.test(line)) section = 'substring';
+    return;
+  }
+  const w = line.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!w) return;
+  if (/\d/.test(w)) {
+    DIGIT_WORDS.add(w);
+  } else if (section === 'token') {
+    TOKEN_WORDS.add(w);
+  } else {
+    dataset.addPhrase((p) => p.addPattern(pattern(Object.assign([w], { raw: [w] }))));
+  }
+});
+const matcher = new RegExpMatcher({ ...dataset.build(), ...englishRecommendedTransformers });
+
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '6': 'g', '7': 't', '8': 'b', '9': 'g' };
+const deleet = (s) => s.replace(/[013456789]/g, (d) => LEET[d]);
+
+function isNameProfane(username) {
+  const lower = username.toLowerCase();
+  for (const v of [lower, deleet(lower)]) {
+    const flat = v.replace(/_/g, '');
+    if (TOKEN_WORDS.has(flat)) return true;
+    for (const token of v.split(/[^a-z]+/)) {
+      if (TOKEN_WORDS.has(token)) return true;
+    }
+    for (const run of flat.match(/\d+/g) || []) {
+      if (DIGIT_WORDS.has(run)) return true;
+    }
+    if (matcher.hasMatch(flat)) return true;
+  }
+  return false;
+}
 
 // ONE bound for every surface that CHOOSES a name — signup and rename alike
 // (owner ruling 2026-08-23: "3-20 constant everywhere"). Existing accounts are
@@ -42,7 +84,7 @@ export function validateUsernameFormat(username) {
   if (isForumReserved(username)) {
     return { key: 'usernameReserved', message: FORUM_RESERVED_MESSAGE };
   }
-  if (filter.isProfane(username)) {
+  if (isNameProfane(username)) {
     return { key: 'usernameProfane', message: 'Inappropriate content' };
   }
   return null;
