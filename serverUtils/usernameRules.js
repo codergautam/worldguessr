@@ -1,11 +1,47 @@
+import fs from 'fs';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from './forumUsername.js';
-import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'obscenity';
+import { DataSet, RegExpMatcher, englishDataset, englishRecommendedTransformers, pattern } from 'obscenity';
 
-const matcher = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
+const dataset = new DataSet().addAll(englishDataset);
+const TOKEN_WORDS = new Set();
+const DIGIT_WORDS = new Set();
+let section = 'substring';
+fs.readFileSync('serverUtils/usernameDenylist.txt', 'utf8').split(/\r?\n/).forEach((line) => {
+  if (line.startsWith('#')) {
+    if (/token/i.test(line)) section = 'token';
+    else if (/substring/i.test(line)) section = 'substring';
+    return;
+  }
+  const w = line.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!w) return;
+  if (/\d/.test(w)) {
+    DIGIT_WORDS.add(w);
+  } else if (section === 'token') {
+    TOKEN_WORDS.add(w);
+  } else {
+    dataset.addPhrase((p) => p.addPattern(pattern(Object.assign([w], { raw: [w] }))));
+  }
+});
+const matcher = new RegExpMatcher({ ...dataset.build(), ...englishRecommendedTransformers });
+
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '6': 'g', '7': 't', '8': 'b', '9': 'g' };
+const deleet = (s) => s.replace(/[013456789]/g, (d) => LEET[d]);
 
 function isNameProfane(username) {
-  return matcher.hasMatch(username.replace(/_/g, ''));
+  const lower = username.toLowerCase();
+  for (const v of [lower, deleet(lower)]) {
+    const flat = v.replace(/_/g, '');
+    if (TOKEN_WORDS.has(flat)) return true;
+    for (const token of v.split(/[^a-z]+/)) {
+      if (TOKEN_WORDS.has(token)) return true;
+    }
+    for (const w of DIGIT_WORDS) {
+      if (flat.includes(w)) return true;
+    }
+    if (matcher.hasMatch(flat)) return true;
+  }
+  return false;
 }
 
 // ONE bound for every surface that CHOOSES a name — signup and rename alike
