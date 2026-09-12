@@ -140,7 +140,7 @@ export default function OnboardingComplete({
               />
               <ActionCard
                 icon={<FaBolt />}
-                title={isEmbedPortal ? text("findMatch") : text("findDuel")}
+                title={isEmbedPortal ? text("multiplayerMatch") : text("findDuel")}
                 desc={text("obDescCompete")}
                 onClick={handleDuel}
                 accent="duel"
