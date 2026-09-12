@@ -412,6 +412,7 @@ export default function ProfileView({
           <GameHistoryTab
             secret={secret!}
             onNavigateToUser={onNavigateToUser}
+            onPageChange={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
           />
         );
       case 'elo':
