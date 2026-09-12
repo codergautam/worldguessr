@@ -91,7 +91,8 @@ import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import CommunityBanner from '@/components/communityBanner';
 import ModeItem from '@/components/ui/modeItem';
-import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline } from 'react-icons/io5';
+import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline, IoGameControllerOutline } from 'react-icons/io5';
+import { MORE_GAMES_URL } from '@/components/utils/externalLinks';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
@@ -6171,6 +6172,13 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                 {onboardingCompleted && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_COOLMATH
                                     && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
                                     <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label={text("communityMaps")} title={text("communityMaps")} onClick={() => setMapModal(true)}><FaMapMarkedAlt className="home__squarebtnicon" /></button>
+                                )}
+
+                                {/* Portal hub link (DuckMath only; MORE_GAMES_URL is null on every
+                                    other build). Anchor, not window.open, so the embed's iframe
+                                    doesn't popup-block it. */}
+                                {MORE_GAMES_URL && (
+                                    <a href={MORE_GAMES_URL} target="_blank" rel="noopener"><button className="g2_hover_effect home__squarebtn home__squarebtn--labeled gameBtn g2_container_full"><IoGameControllerOutline className="home__squarebtnicon" aria-hidden="true" /><span className="home__squarebtnlabel">{text("moreGames")}</span></button></a>
                                 )}
 
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>

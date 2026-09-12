@@ -1350,6 +1350,30 @@ html {
     //border: solid 1.4px var(--primary);
 }
 
+/* Icon + word variant of a footer button (DuckMath's "More Games"). Same
+   plate and height as its square siblings; only the 1:1 lock is lifted so
+   the label fits. The label drops to text size: the row's icon-sized
+   font-size would make the word as tall as the button. */
+.footer_btns button.home__squarebtn--labeled {
+    width: auto;
+    aspect-ratio: auto;
+    gap: 0.25em;
+    padding-left: 16px;
+    padding-right: 18px;
+    color: white;
+}
+a:has(> .home__squarebtn--labeled) {
+    text-decoration: none;
+}
+.home__squarebtn--labeled .home__squarebtnicon {
+    font-size: 0.8em;
+}
+.home__squarebtn--labeled .home__squarebtnlabel {
+    font-size: clamp(1.1rem, 1.4vw, 1.75rem);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 // @for $i from 1 through 6 {
 //   .home__btns button:nth-child(#{$i}n) {
 //       animation-delay: #{$i * 0.1}s;
