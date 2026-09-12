@@ -1,4 +1,6 @@
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from './forumUsername.js';
 import { DataSet, RegExpMatcher, englishDataset, englishRecommendedTransformers, pattern } from 'obscenity';
@@ -7,7 +9,7 @@ const dataset = new DataSet().addAll(englishDataset);
 const TOKEN_WORDS = new Set();
 const DIGIT_WORDS = new Set();
 let section = 'substring';
-fs.readFileSync('serverUtils/usernameDenylist.txt', 'utf8').split(/\r?\n/).forEach((line) => {
+fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'usernameDenylist.txt'), 'utf8').split(/\r?\n/).forEach((line) => {
   if (line.startsWith('#')) {
     if (/token/i.test(line)) section = 'token';
     else if (/substring/i.test(line)) section = 'substring';
@@ -36,8 +38,8 @@ function isNameProfane(username) {
     for (const token of v.split(/[^a-z]+/)) {
       if (TOKEN_WORDS.has(token)) return true;
     }
-    for (const w of DIGIT_WORDS) {
-      if (flat.includes(w)) return true;
+    for (const run of flat.match(/\d+/g) || []) {
+      if (DIGIT_WORDS.has(run)) return true;
     }
     if (matcher.hasMatch(flat)) return true;
   }
