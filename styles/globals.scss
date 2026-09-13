@@ -1362,16 +1362,39 @@ html {
     padding-right: 18px;
     color: white;
 }
-a:has(> .home__squarebtn--labeled) {
+/* The <a> is the flex item in .footer_btns, so it is the one that has to be
+   allowed to shrink (min-width: 0) — otherwise a long label on a phone pushes
+   Settings off the right edge instead of truncating. */
+.home__squarebtnlink {
     text-decoration: none;
+    min-width: 0;
+}
+.footer_btns .home__squarebtnlink button.home__squarebtn--labeled {
+    max-width: 100%;
 }
 .home__squarebtn--labeled .home__squarebtnicon {
+    flex-shrink: 0;
     font-size: 0.8em;
 }
 .home__squarebtn--labeled .home__squarebtnlabel {
     font-size: clamp(1.1rem, 1.4vw, 1.75rem);
     font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media screen and (max-width: 600px) {
+    .footer_btns button.home__squarebtn--labeled {
+        gap: 0.15em;
+        padding-left: 10px;
+        padding-right: 12px;
+    }
+    .home__squarebtn--labeled .home__squarebtnicon {
+        font-size: 0.6em;
+    }
+    .home__squarebtn--labeled .home__squarebtnlabel {
+        font-size: 0.95rem;
+    }
 }
 
 // @for $i from 1 through 6 {

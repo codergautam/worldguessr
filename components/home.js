@@ -6183,7 +6183,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                     other build). Anchor, not window.open, so the embed's iframe
                                     doesn't popup-block it. */}
                                 {MORE_GAMES_URL && (
-                                    <a href={MORE_GAMES_URL} target="_blank" rel="noopener"><button className="g2_hover_effect home__squarebtn home__squarebtn--labeled gameBtn g2_container_full"><IoGameControllerOutline className="home__squarebtnicon" aria-hidden="true" /><span className="home__squarebtnlabel">{text("moreGames")}</span></button></a>
+                                    <a className="home__squarebtnlink" href={MORE_GAMES_URL} target="_blank" rel="noopener"><button className="g2_hover_effect home__squarebtn home__squarebtn--labeled gameBtn g2_container_full"><IoGameControllerOutline className="home__squarebtnicon" aria-hidden="true" /><span className="home__squarebtnlabel">{text("moreGames")}</span></button></a>
                                 )}
 
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
