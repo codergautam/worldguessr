@@ -124,6 +124,12 @@ export default function AboutSections({ mapCount = 0 }) {
         <a href="/compare-to-openguessr">WorldGuessr vs OpenGuessr</a>,{" "}
         <a href="/compare-to-geotastic">WorldGuessr vs Geotastic</a>.
       </p>
+      <p>
+        Other games in the genre worth a look:{" "}
+        <a href="https://whereamigame.app/" target="_blank" rel="noopener">Where Am I?</a> runs the same guessing
+        loop on real street walk video instead of static panoramas, free, no account, with native apps on iOS
+        and Android.
+      </p>
 
       <h2>Apps</h2>
       <p>
