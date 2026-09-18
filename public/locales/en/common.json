@@ -862,6 +862,8 @@
   "graphRangeAllShort": "All",
   "failedToLoadMaps": "Failed to load maps",
   "retry": "Retry",
+  "gamePaused": "Game paused",
+  "platformConnectionFailed": "Unable to load your game data. Check your connection and try again.",
   "searching": "Searching...",
   "tryAdjustingSearchTerms": "Try adjusting your search terms",
   "searchResults": "Search Results",

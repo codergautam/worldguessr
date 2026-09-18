@@ -29,6 +29,7 @@ import getPlatform from '@/components/utils/getPlatform';
 import { attachUiClickSounds } from '@/components/utils/audio';
 import { installExternalLinkGuard } from '@/components/utils/externalLinks';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
+import PlaygamaBootstrap from '@/components/PlaygamaBootstrap';
 
 import '@smastrom/react-rating/style.css'
 
@@ -237,7 +238,7 @@ function App({ Component, pageProps }) {
     } catch (e) { /* noop — English fallback is fine */ }
   }, [router]);
 
-  return (
+  const game = (
     <MultiplayerProvider>
       { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
@@ -248,6 +249,9 @@ function App({ Component, pageProps }) {
       )}
     </MultiplayerProvider>
   );
+  return process.env.NEXT_PUBLIC_6X === 'true'
+    ? <PlaygamaBootstrap>{game}</PlaygamaBootstrap>
+    : game;
 }
 
 export default App;

@@ -50,7 +50,11 @@ export default function Document({ pathname }) {
           <script dangerouslySetInnerHTML={{ __html: PREPAINT_SITE_BG_SCRIPT }} />
         )}
 
-        {/* Google Analytics */}
+        {/* Google Analytics. NOT on the 6x (Playgama) build: Playgama's
+            technical requirements and self-check reject a game that embeds
+            GA4 or a similar analytics system. Every gtag caller in _app.js
+            goes through `window.gtag?.()`, so with no stub they are no-ops. */}
+        {process.env.NEXT_PUBLIC_6X !== 'true' && (
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -67,6 +71,7 @@ export default function Document({ pathname }) {
             `,
           }}
         />
+        )}
         <style dangerouslySetInnerHTML={{
           __html: stripCssComments(`
             :root {
