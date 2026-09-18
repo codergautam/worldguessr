@@ -112,19 +112,33 @@ export function MultiplayerProvider({ children }) {
 
   const ensureConnected = useCallback(() => {
     // Self-embed guard: if this page is running inside an iframe of ITSELF
-    // (same-origin parent — e.g. a pano iframe whose src was once assigned
-    // "" and resolved to the site's own URL), opening a WS here would
-    // present the same account secret twice and get the REAL tab
-    // 'uac'-kicked ("logged in from another device"). Legitimate
-    // third-party embeds (CrazyGames, Poki, CMG) are cross-origin: reading
-    // top.location.origin throws for them, and they connect normally via
-    // the catch.
+    // (e.g. a pano iframe whose src was once assigned "" and resolved to the
+    // site's own URL), opening a WS here would present the same account
+    // secret twice and get the REAL tab 'uac'-kicked ("logged in from
+    // another device").
+    //
+    // A self-embed always loads the embedding document's OWN URL, so the
+    // ancestor is same-origin AND at the same pathname. Origin alone is not
+    // enough: zip portals (DuckMath, and any host that unpacks the Poki-style
+    // build on its own domain) wrap index.html in a same-origin loader page
+    // (pre.html → ./index.html), and that used to trip this guard so the WS
+    // never opened and every multiplayer button showed "Not Connected".
+    // Third-party embeds (CrazyGames, Poki, CMG) are cross-origin: reading
+    // an ancestor's location throws, which ends the walk and connects.
     try {
-      if (typeof window !== "undefined" && window.self !== window.top
-        && window.top.location.origin === window.location.origin) {
-        return;
+      if (typeof window !== "undefined" && window.self !== window.top) {
+        let ancestor = window.parent;
+        for (let depth = 0; depth < 8; depth++) {
+          // Throws on a cross-origin ancestor: nothing above it can be us.
+          if (ancestor.location.origin === window.location.origin
+            && ancestor.location.pathname === window.location.pathname) {
+            return;
+          }
+          if (ancestor === window.top) break;
+          ancestor = ancestor.parent;
+        }
       }
-    } catch (e) { /* cross-origin parent — a real embed, connect normally */ }
+    } catch (e) { /* cross-origin ancestor — a real embed, connect normally */ }
     setConnectionEnabled((prev) => (prev ? prev : true));
   }, []);
 
