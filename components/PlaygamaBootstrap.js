@@ -93,19 +93,25 @@ export default function PlaygamaBootstrap({ children }) {
     </div>
   );
 
-  // Isolate the game stacking context: the pause cover must sit UNDER the
-  // SDK's own ad/dialog overlays, which it appends outside the React tree.
-  return <div style={{ position: "relative", isolation: "isolate", zIndex: 0 }}>
+  // NO wrapper stacking context here. The site photo is body::before, a fixed
+  // z-index:0 layer that paints OVER the home <main>'s opaque black background
+  // only because <main> is a plain in-flow block of the root stacking context.
+  // A positioned/isolated wrapper pulled <main> into its own context, painted
+  // after body::before, and the menu lost its background (found on the 6x
+  // hosted preview, 2026-09-18). The pause cover instead layers by z-index in
+  // the root context: above every game control, below the SDK's own ad and
+  // dialog overlays (9999998+ in the 2.2.0 bundle).
+  return <>
     {/* inert preserves the panorama and game mounts while blocking focus,
         pointer and keyboard input underneath the platform/ad pause. */}
     <div inert={paused || undefined} style={{ display: "contents" }}>{children}</div>
     {paused && <div style={coverStyle} role="status">{t("gamePaused")}</div>}
-  </div>;
+  </>;
 }
 
 // Above every in-game fixed control (the duel reload button in home.js sits
-// at 1000000); input is already blocked by `inert`, this keeps the cover on
-// top visually.
+// at 1000000) and below the SDK overlays; input is already blocked by `inert`,
+// this keeps the cover on top of the game visually.
 const coverStyle = {
   position: "fixed", inset: 0, zIndex: 1000001, background: "rgba(12, 19, 32, 0.96)",
   color: "#fff", display: "flex", flexDirection: "column", alignItems: "center",
