@@ -24,6 +24,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   // Channel picker (team contexts only): true = teammates, false = everyone.
+  // It scopes both outgoing messages and the messages shown in the log.
   const [teamChannel, setTeamChannel] = useState(false);
   // Reset to the game type's default whenever the type changes (party toggled
   // to team mode, staging lobby → 2v2 match): 2v2 defaults team, else all.
@@ -223,7 +224,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
     const el = listRef.current;
     if (!open || !el || !lastMsg) return;
     if (atBottomRef.current || lastMsg.isSelf) el.scrollTop = el.scrollHeight;
-  }, [open, lastMsg]);
+  }, [open, lastMsg, teamChannel]);
 
   // iOS Safari doesn't shrink the page for the software keyboard — it pans
   // the whole page up so the focused input stays visible (desired: that's
@@ -280,7 +281,9 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
 
   if (!enabled || !live) return null;
 
-  const visible = messages.filter(m => !mutedIds.has(m.senderId));
+  const visible = messages.filter(m =>
+    !mutedIds.has(m.senderId) && (!teamCapable || allAllies || m.teamChat === teamChannel)
+  );
   const typers = Object.values(typing).filter(v => v.until > Date.now());
   const typingLine = typers.length === 0 ? '' :
     typers.length === 1 ? text('isTyping', { name: typers[0].name }) :
