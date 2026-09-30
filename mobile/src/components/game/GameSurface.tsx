@@ -60,8 +60,9 @@ import GameLoadingOverlay from './GameLoadingOverlay';
  */
 
 interface Location {
-  lat: number;
-  long: number;
+  lat?: number;
+  long?: number;
+  panoId?: string;
   country?: string;
   heading?: number | null;
   pitch?: number;
@@ -74,7 +75,7 @@ type Extent = [number, number, number, number] | null;
  * committed-preload guard compares the exact same string the effect computes.
  */
 const fingerprintOf = (loc: Location | null) =>
-  loc ? `${loc.lat}|${loc.long}|${loc.heading ?? ''}|${loc.pitch ?? ''}` : 'empty';
+  loc ? `${loc.panoId ?? `${loc.lat}|${loc.long}`}|${loc.heading ?? ''}|${loc.pitch ?? ''}` : 'empty';
 
 export type GameVariant = 'pin' | 'country' | 'continent';
 
@@ -387,7 +388,7 @@ function GameSurface(
     revealSfxKeyRef.current = key;
     const quality =
       variant === 'pin'
-        ? location && guessPosition
+        ? location?.lat != null && location.long != null && guessPosition
           ? Math.min(
               1,
               calcPoints({
@@ -822,6 +823,7 @@ function GameSurface(
               ref={streetViewRef}
               lat={location.lat}
               long={location.long}
+              panoId={location.panoId}
               heading={location.heading ?? undefined}
               pitch={location.pitch}
               nm={nm}
@@ -833,8 +835,9 @@ function GameSurface(
               preload={
                 isShowingResult && nextLocation
                   ? {
-                      lat: nextLocation.lat,
-                      long: nextLocation.long,
+                    lat: nextLocation.lat,
+                    long: nextLocation.long,
+                    panoId: nextLocation.panoId,
                       heading: nextLocation.heading ?? undefined,
                       pitch: nextLocation.pitch,
                     }
@@ -912,7 +915,7 @@ function GameSurface(
                 mapType={mapType}
                 lang={language}
                 myMarkerSkin={myMarkerSkin}
-                location={location}
+                location={location?.lat != null && location.long != null ? { lat: location.lat, long: location.long } : null}
                 guessPosition={isCountryVariant ? null : computedGuessPosition}
                 onGuessPositionChange={
                   isCountryVariant

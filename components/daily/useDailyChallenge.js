@@ -60,7 +60,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
 
   const fetchLocations = useCallback(async () => {
     try {
-      const res = await fetch(`${apiUrl}/api/dailyChallenge/locations?date=${date}`);
+      const res = await fetch(`${apiUrl}/api/dailyChallenge/locations?date=${date}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setLocationData(data);
@@ -90,12 +90,10 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
     }
   }, [apiUrl, date, secret, guestId]);
 
-  const submit = useCallback(async ({ rounds, totalScore, totalTime, sessionToken, disqualified }) => {
+  const submit = useCallback(async ({ rounds, sessionToken, disqualified }) => {
     const body = {
       date,
-      score: totalScore,
-      totalTime,
-      rounds,
+      roundIds: rounds.map((round) => round.roundId),
       sessionToken,
       disqualified: !!disqualified,
     };
@@ -103,6 +101,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
     else if (guestId) body.guestId = guestId;
     const res = await fetch(`${apiUrl}/api/dailyChallenge/submit`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });

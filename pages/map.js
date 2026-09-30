@@ -87,7 +87,7 @@ export default function MapPage({ }) {
     if (!mapData.data) return;
 
     const urls = mapData.data.map(location =>
-      `//www.google.com/maps/embed/v1/streetview?key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&location=${location.lat},${location.lng}&fov=60`
+      `//www.google.com/maps/embed/v1/streetview?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}&location=${location.lat},${location.lng}&fov=60`
     );
     setLocationUrls(urls);
 

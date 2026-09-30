@@ -120,7 +120,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, dailyMetas, onRoundsComplete, mapSwitchMaskShown }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, setLatLong, roundId, onRoundResult, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, dailyMetas, onRoundsComplete, mapSwitchMaskShown }) {
   const { t: text } = useTranslation("common");
   // A running ad-free pass, read straight off the session so a purchase made in
   // the shop modal takes this slot down on the same tick it is charged. See
@@ -214,6 +214,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             const totalXp = prev.locations.reduce((sum, location) => sum + (location.xpEarned || 0), 0);
             fetch(window.cConfig.apiUrl+'/api/storeGame', {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json'
                 },
@@ -224,6 +225,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
                   countryGuesser: !!countryGuesser,
                   countryGuessrSubMode: countryGuessrMode?.subMode || 'country',
                   rounds: prev.locations.map(location => ({
+                    roundId: location.roundId,
                     lat: location.guessLat,
                     long: location.guessLong,
                     actualLat: location.lat,
@@ -757,6 +759,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           document.querySelector('.guessBtn')?.click();
         } else {
           // No pin placed — score 0 points and show answer
+          if (roundId) {
+            guess();
+            return;
+          }
           setShowAnswer(true);
           // World-map streaks only (same gate as guess()); a community-map
           // timeout must not touch them. Mirror a pin-based miss: stamp the
@@ -793,16 +799,20 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         singlePlayerTimerRef.current = null;
       }
     };
-  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal])
+  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal, roundId])
 
   useEffect(() => {
     if(multiplayerState?.inGame) return;
+    if (roundId) {
+      setRoundStartTime(Date.now());
+      return;
+    }
     if (!latLong) {
       setLoading(true)
     } else {
       setRoundStartTime(Date.now());
     }
-  }, [latLong, multiplayerState])
+  }, [latLong, multiplayerState, roundId])
 
   useEffect(() => {
     try { gameStorage.setItem("countryStreak", countryStreak); } catch(e) {}
@@ -879,7 +889,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         advanceRound("space-singleplayer-done")
         return;
       }
-      if(pinPoint && latLong?.lat != null && latLong?.long != null && !showAnswer) {
+      if(pinPoint && (roundId || (latLong?.lat != null && latLong?.long != null)) && !showAnswer) {
         if (!claimSpaceAction(`${roundKey}:guess`)) return;
         guess();
       } else if(showAnswer) {
@@ -909,7 +919,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound, latLong?.lat, latLong?.long, multiplayerState?.inGame, loading, mapFadingOut, mapResetting])
+  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound, latLong?.lat, latLong?.long, multiplayerState?.inGame, loading, mapFadingOut, mapResetting, roundId])
 
   // Onboarding keeps the guess map available while the pano is still loading:
   // a brand-new player beelining for the map shouldn't have to wait on Street
@@ -947,7 +957,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const desktopMiniMapLayoutRef = useRef(false);
   useLayoutEffect(() => {
     const desktopLayout = width > 600 && !isTouchScreen;
-    if (desktopLayout && (!loading || onboardingMapWhileLoading) && latLong && !mapResetting && !mapSwitchMaskShown) {
+    if (desktopLayout && (!loading || onboardingMapWhileLoading) && (latLong || roundId) && !mapResetting && !mapSwitchMaskShown) {
       setMiniMapShown(true)
     } else if (desktopLayout || desktopMiniMapLayoutRef.current) {
       // Desktop controls visibility automatically. Also collapse exactly once
@@ -955,7 +965,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       setMiniMapShown(false)
     }
     desktopMiniMapLayoutRef.current = desktopLayout;
-  }, [loading, latLong, width, isTouchScreen, mapResetting, onboardingMapWhileLoading, mapSwitchMaskShown, setMiniMapShown])
+  }, [loading, latLong, roundId, width, isTouchScreen, mapResetting, onboardingMapWhileLoading, mapSwitchMaskShown, setMiniMapShown])
 
   // Mobile's between-rounds close. The effect above deliberately no longer
   // touches miniMapShown on phones (so transient settle flags can't eat a
@@ -1076,9 +1086,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
-  function showHint() {
+  async function showHint() {
     if (hintLimitReached || hintShown) return;
-
+    if (roundId) {
+      try {
+        const response = await fetch(`${window.cConfig.apiUrl}/api/rounds/${encodeURIComponent(roundId)}/hint`, {
+          method: 'POST', credentials: 'include',
+        });
+        if (!response.ok) return;
+      } catch { return; }
+    }
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
@@ -1256,11 +1273,61 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     };
   }, []);
 
-  function guess(correctOverride) {
+  const serverGuessPendingRef = useRef(false);
+  function guess(correctOverride, countryGuessCoords = null) {
+    if (roundId) {
+      if (serverGuessPendingRef.current) return;
+      serverGuessPendingRef.current = true;
+      const guessPoint = countryGuessCoords || pinPoint || { lat: 0, lng: 0 };
+      fetch(`${window.cConfig.apiUrl}/api/rounds/${encodeURIComponent(roundId)}/guess`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: guessPoint.lat, lng: guessPoint.lng }),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error('Guess rejected');
+        return response.json();
+      }).then(async (result) => {
+        const actual = { ...result.actual, long: result.actual.lng };
+        if (result.actualCountry) actual.country = result.actualCountry;
+        onRoundResult?.(roundId, { ...result, actual });
+        setLatLong(actual);
+        finishGuess(correctOverride, { ...result, actual }, countryGuessSelectionRef.current);
+        countryGuessSelectionRef.current = null;
+      }).catch((error) => {
+        console.error('[rounds] guess failed:', error?.message || error);
+      }).finally(() => {
+        serverGuessPendingRef.current = false;
+      });
+      return;
+    }
+    finishGuess(correctOverride);
+  }
+
+  const countryGuessSelectionRef = useRef(null);
+  function finishGuess(correctOverride, serverResult = null, countrySelection = null) {
+    const answer = serverResult?.actual || latLong;
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
-    if (!latLong || latLong.lat == null || latLong.long == null) return;
-    const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
+    if (!answer || answer.lat == null || (answer.long == null && answer.lng == null)) return;
+    if (answer.long == null) answer.long = answer.lng;
+    const isCorrect = serverResult ? serverResult.score > 0 : (correctOverride !== undefined ? correctOverride : countryGuesserCorrect);
+    if (serverResult && countryGuesser) {
+      setCountryGuesserCorrect(isCorrect);
+      const isContinentMode = countryGuessrMode?.subMode === 'continent' || onboarding?.mode === 'continent';
+      if (!countrySelection) setGuessedCountryCode(null);
+      if (!countrySelection) setGuessTier(null);
+      else if (isCorrect) setGuessTier('correct');
+      else if (isContinentMode) setGuessTier('wrongDiffContinent');
+      else setGuessTier(continentFromCode(countrySelection) === continentFromCode(answer.country) ? 'wrongSameContinent' : 'wrongDiffContinent');
+      if (isContinentMode) {
+        if (isCorrect) setContStreak((prev) => prev + 1);
+        else { setLostContStreak(continentGuessrStreak); setContStreak(0); }
+      } else {
+        if (isCorrect) setCgStreak((prev) => prev + 1);
+        else { setLostCgStreak(countryGuessrStreak); setCgStreak(0); }
+      }
+    }
     // Same math as the per-round timeTaken stamps below; hoisted so the
     // play-time accumulator and onboarding_guess share one value.
     const roundSeconds = Math.round((Date.now() - roundStartTime) / 1000);
@@ -1291,7 +1358,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         });
       }
       const isClassicRound = !((onboarding?.mode && onboarding.mode !== "classic") || countryGuesser);
-      const roundPoints = !isClassicRound ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000});
+      const roundPoints = serverResult ? serverResult.score : (!isClassicRound ? (isCorrect ? 1000 : 0) : calcPoints({ lat: answer.lat, lon: answer.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000}));
       // Per-round max, accumulated at guess time: the mode pill lets a run mix
       // pin-drop (5000/round) and country (1000/round) rounds, so a single
       // mode-derived total would lie on the results screens.
@@ -1304,8 +1371,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           points: (prev.points??0) + roundPoints,
           maxPoints: (prev.maxPoints??0) + roundMax,
           gameResults: [...(prev.gameResults || []), {
-            lat: latLong.lat,
-            long: latLong.long,
+            lat: answer.lat,
+            long: answer.long,
             guessLat: pinPoint?.lat || null,
             guessLong: pinPoint?.lng || null,
             points: roundPoints,
@@ -1319,13 +1386,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
 
     if(singlePlayerRound) {
-      const roundPoints = countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
+      const roundPoints = serverResult ? serverResult.score : (countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: answer.lat, lon: answer.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }));
       const roundXp = countryGuesser ? (gameOptions?.official && isCorrect ? 20 : 0) : (gameOptions?.official ? Math.round(roundPoints / 50) : 0);
 
       setSinglePlayerRound((prev) => {
         return {
           ...prev,
-          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint?.lat || null, guessLong: pinPoint?.lng || null,
+          locations: [...prev.locations, {roundId: roundId || null, lat: answer.lat, long: answer.long, panoId: serverResult ? null : (answer.panoId || null), guessLat: pinPoint?.lat ?? null, guessLong: pinPoint?.lng ?? null,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
             xpEarned: roundXp
@@ -1342,8 +1409,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
       function afterGuess(country) {
         setLostCountryStreak(0);
-        if(!(country === "Unknown" && latLong.country === "Unknown")) {
-          if(country === latLong.country) {
+      if(!(country === "Unknown" && answer.country === "Unknown")) {
+          if(country === answer.country) {
             setCountryStreak(countryStreak + 1);
           } else if(country !== "Unknown") {
             setCountryStreak(0);
@@ -1381,6 +1448,20 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   function submitCountryGuess(selected) {
     const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
     const timedOut = selected == null;
+    if (roundId && !dailyMode) {
+      const continentCenters = {
+        Africa: [0, 20], Asia: [35, 100], Europe: [54, 15],
+        'North America': [45, -100], 'South America': [-15, -60], Oceania: [-25, 135],
+      };
+      const coords = isContinentMode
+        ? continentCenters[selected]
+        : countryCoordinates[selected] && { lat: countryCoordinates[selected].lat, lng: countryCoordinates[selected].lng };
+      const guessCoords = coords ? (Array.isArray(coords) ? { lat: coords[0], lng: coords[1] } : coords) : { lat: 0, lng: 0 };
+      countryGuessSelectionRef.current = selected;
+      setGuessedCountryCode(timedOut ? null : selected);
+      guess(undefined, guessCoords);
+      return;
+    }
     const isCorrect = !timedOut && (isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country);
     setCountryGuesserCorrect(isCorrect);
     setGuessedCountryCode(timedOut ? null : selected);
@@ -1807,7 +1888,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       )}
 
       { countryGuesser && otherOptions?.length > 0 && (
-        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && !!latLong?.country} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && (!!latLong?.country || !!roundId)} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
          onCountryPress={submitCountryGuess}/>
       )}

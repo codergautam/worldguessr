@@ -103,24 +103,14 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
 
   const submit = useCallback(
     async (body: {
-      rounds: Array<{
-        score: number;
-        timeMs: number | null;
-        guessLat: number | null;
-        guessLng: number | null;
-        country: string | null;
-      }>;
-      totalScore: number;
-      totalTime: number;
+      roundIds: string[];
       sessionToken?: string;
       disqualified?: boolean;
     }): Promise<SubmitData> => {
       const gid = guestId ?? (await getGuestId());
       return api.dailyChallenge.submit({
         date,
-        score: body.totalScore,
-        totalTime: body.totalTime,
-        rounds: body.rounds,
+        roundIds: body.roundIds,
         sessionToken: body.sessionToken,
         disqualified: !!body.disqualified,
         secret: secret ?? undefined,

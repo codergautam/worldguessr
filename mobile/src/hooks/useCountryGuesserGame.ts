@@ -1,26 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { haptics } from '../services/haptics';
-import { orderByFreshness } from '@shared/locations/repeatGuard';
-import { hydrateSeenLocs, markSeenLoc, seenLocs } from '../services/seenLocations';
 import { useOnboardingStore } from '../store/onboardingStore';
+import countryCoordinates from '../shared/data/countryCoordinates.json';
 import {
   ALL_CONTINENTS,
   continentFromCode,
-  pickDistractors,
-  shuffle,
 } from '../shared/data/countryHelpers';
 
 export const COUNTRY_GUESSER_TOTAL_ROUNDS = 10;
-export const COUNTRY_GUESSER_POINTS_PER_ROUND = 1000;
 export const SINGLEPLAYER_DEFAULT_MODE_KEY = 'singleplayerDefaultMode';
 
 export type CountryGuesserSubMode = 'country' | 'continent';
 
 export interface CountryGuesserLocation {
-  lat: number;
-  long: number;
-  country: string;
+  roundId: string;
+  lat?: number;
+  long?: number;
+  country?: string;
   panoId?: string;
   heading?: number | null;
   head?: number | null;
@@ -28,6 +25,7 @@ export interface CountryGuesserLocation {
 }
 
 export interface CountryGuesserRoundResult {
+  roundId: string;
   /** null when the round timed out with no pick. */
   picked: string | null;
   correct: string;
@@ -58,27 +56,6 @@ export function subModeFromDefaultMode(value?: string | null): CountryGuesserSub
   return null;
 }
 
-/**
- * Pick the next valid candidate from `locs` starting at `startCursor`, skipping
- * continent-unknown entries in continent mode. Returns the chosen location plus
- * the cursor position AFTER it, so callers can both consume it (advance the
- * cursor) and peek the one after (preload) without duplicating the skip logic.
- */
-function selectFrom(
-  locs: CountryGuesserLocation[],
-  startCursor: number,
-  subMode: CountryGuesserSubMode,
-): { loc: CountryGuesserLocation | null; cursor: number } {
-  let cursor = startCursor;
-  while (cursor < locs.length) {
-    const candidate = locs[cursor];
-    cursor += 1;
-    if (subMode === 'continent' && continentFromCode(candidate.country) === 'Unknown') continue;
-    return { loc: candidate, cursor };
-  }
-  return { loc: null, cursor };
-}
-
 export default function useCountryGuesserGame({
   enabled = true,
   subMode,
@@ -92,7 +69,6 @@ export default function useCountryGuesserGame({
 
   const streak = subMode === 'continent' ? continentStreak : countryStreak;
 
-  const [allLocs, setAllLocs] = useState<CountryGuesserLocation[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [round, setRound] = useState(1);
@@ -106,7 +82,6 @@ export default function useCountryGuesserGame({
   const [otherOptions, setOtherOptions] = useState<string[]>([]);
   // Bumped by retry() to re-run the location-load effect after a network failure.
   const [reloadNonce, setReloadNonce] = useState(0);
-  const cursorRef = useRef(0);
   const roundStartTimeRef = useRef(Date.now());
 
   const retry = useCallback(() => {
@@ -115,7 +90,6 @@ export default function useCountryGuesserGame({
   }, []);
 
   const resetGame = useCallback(() => {
-    cursorRef.current = 0;
     roundStartTimeRef.current = Date.now();
     setRound(1);
     setResults([]);
@@ -126,96 +100,26 @@ export default function useCountryGuesserGame({
     setOtherOptions([]);
   }, []);
 
-  useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => { resetGame(); }, [enabled, resetGame, subMode, reloadNonce]);
 
+  useEffect(() => {
+    if (!enabled || round > totalRounds) { setLoading(false); return; }
     let cancelled = false;
-    resetGame();
-
-    (async () => {
-      setLoading(true);
-      setLoadError(null);
-      try {
-        // Same repeat guard as the pin-drop game: this mode reads the same
-        // /allCountries.json pool, so it orders against the same ring (web gets
-        // this for free, its country guesser shares home.js's loader).
-        await hydrateSeenLocs();
-        const data = await api.fetchAllLocations();
-        if (cancelled) return;
-        if (!data.ready || !data.locations || data.locations.length === 0) {
-          throw new Error('No locations available');
-        }
-
-        const normalized: CountryGuesserLocation[] = data.locations
-          .map((l) => ({
-            lat: l.lat,
-            long: l.long ?? (l as any).lng,
-            country: (l.country ?? '').toUpperCase(),
-            panoId: l.panoId,
-            heading: l.heading ?? l.head ?? null,
-            head: l.head ?? null,
-            pitch: l.pitch,
-          }))
-          .filter((l) => !!l.country && l.country !== 'UNKNOWN');
-
-        const regionFiltered =
-          region === 'all'
-            ? normalized
-            : subMode === 'country'
-              ? normalized.filter((l) => continentFromCode(l.country) === region)
-              : normalized.filter((l) => continentFromCode(l.country) !== 'Unknown');
-
-        if (regionFiltered.length === 0) {
-          throw new Error(`No ${region} locations available`);
-        }
-
-        setAllLocs(orderByFreshness(regionFiltered, seenLocs()));
-        setLoading(false);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load');
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, region, resetGame, subMode, reloadNonce]);
-
-  useEffect(() => {
-    if (!enabled || allLocs.length === 0 || loading || round > totalRounds) return;
-
-    const picked = selectFrom(allLocs, cursorRef.current, subMode);
-    if (!picked.loc) {
-      cursorRef.current = 0;
-      // Exhausted the pool: re-order rather than re-shuffle, so the walk
-      // restarts on the spots seen longest ago instead of at random.
-      setAllLocs((prev) => orderByFreshness(prev, seenLocs()));
-      return;
-    }
-
-    cursorRef.current = picked.cursor;
-    setCurrentLoc(picked.loc);
-    markSeenLoc(picked.loc);
-    roundStartTimeRef.current = Date.now();
-
-    // Peek the FOLLOWING valid candidate WITHOUT consuming the cursor. The next
-    // advance() re-runs selectFrom from this same cursor → lands on this exact
-    // location, so the warm preload commits with no reload.
-    setNextLoc(selectFrom(allLocs, picked.cursor, subMode).loc);
-
-    if (subMode === 'continent') {
-      setOtherOptions([...ALL_CONTINENTS]);
-    } else {
-      const distractors = pickDistractors(picked.loc.country, 5);
-      setOtherOptions(shuffle([...distractors, picked.loc.country]));
-    }
-  }, [allLocs, enabled, loading, round, subMode, totalRounds]);
+    setLoading(true);
+    setLoadError(null);
+    api.rounds.create('all', { countryGuesser: true, countryGuessrSubMode: subMode, region }).then((location) => {
+      if (cancelled) return;
+      setCurrentLoc(location);
+      setOtherOptions(subMode === 'continent' ? [...ALL_CONTINENTS] : location.choices || []);
+      roundStartTimeRef.current = Date.now();
+      setLoading(false);
+    }).catch((err) => {
+      if (cancelled) return;
+      setLoadError(err instanceof Error ? err.message : 'Failed to load');
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [enabled, region, round, subMode, totalRounds, reloadNonce]);
 
   const submit = useCallback(
     // `answer` is null when the round timer runs out with no pick — recorded as a
@@ -223,24 +127,32 @@ export default function useCountryGuesserGame({
     async (answer: string | null) => {
       if (!currentLoc || showResult) return;
 
-      const correct =
-        subMode === 'continent' ? continentFromCode(currentLoc.country) : currentLoc.country;
-      const isCorrect = answer === correct;
-      const points = isCorrect ? COUNTRY_GUESSER_POINTS_PER_ROUND : 0;
+      const countryCoords = answer && subMode === 'country'
+        ? (countryCoordinates as Record<string, { lat: number; lng: number }>)[answer]
+        : null;
+      const continentCenters: Record<string, [number, number]> = { Africa: [0, 20], Asia: [35, 100], Europe: [54, 15], 'North America': [45, -100], 'South America': [-15, -60], Oceania: [-25, 135] };
+      const guess = countryCoords || (answer && subMode === 'continent' ? { lat: continentCenters[answer][0], lng: continentCenters[answer][1] } : { lat: 0, lng: 0 });
+      const scoreResult = await api.rounds.guess(currentLoc.roundId, guess.lat, guess.lng);
+      const country = scoreResult.actualCountry || '';
+      setCurrentLoc((previous) => previous ? ({ ...previous, lat: scoreResult.actual.lat, long: scoreResult.actual.lng, country }) : previous);
+      const correct = subMode === 'continent' ? continentFromCode(country) : country;
+      const isCorrect = scoreResult.score > 0;
+      const points = scoreResult.score;
       const timeTaken = Math.round((Date.now() - roundStartTimeRef.current) / 1000);
 
       setPicked(answer);
       setResults((prev) => [
         ...prev,
         {
+          roundId: currentLoc.roundId,
           picked: answer,
           correct,
           points,
-          actualLat: currentLoc.lat,
-          actualLong: currentLoc.long,
-          guessLat: isCorrect ? currentLoc.lat : 0,
-          guessLong: isCorrect ? currentLoc.long : 0,
-          country: currentLoc.country,
+          actualLat: scoreResult.actual.lat,
+          actualLong: scoreResult.actual.lng,
+          guessLat: guess.lat,
+          guessLong: guess.lng,
+          country,
           panoId: currentLoc.panoId,
           timeTaken,
         },

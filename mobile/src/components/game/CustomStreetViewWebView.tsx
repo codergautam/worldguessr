@@ -67,8 +67,9 @@ async function resolvePanoNative(lat: number, long: number): Promise<string | nu
 }
 
 interface CustomStreetViewWebViewProps {
-  lat: number;
-  long: number;
+  lat?: number;
+  long?: number;
+  panoId?: string;
   heading?: number | null;
   npz?: boolean;
   /** Lifts the npz freeze on the answer reveal (web iframe/renderer contract). */
@@ -83,7 +84,7 @@ interface CustomStreetViewWebViewProps {
    * into the HTTP cache. Without this the WebGL path started every round from
    * zero and visibly lagged the iframe's warm-slot flow.
    */
-  preload?: { lat: number; long: number } | null;
+  preload?: { lat?: number; long?: number; panoId?: string } | null;
   /**
    * Fired when the WebGL path cannot serve this round (pano resolution failed
    * or the page never handshook). The wrapper in StreetViewWebView.tsx flips
@@ -105,6 +106,7 @@ function CustomStreetViewWebView(
   {
     lat,
     long,
+    panoId,
     heading,
     npz = false,
     showAnswer = false,
@@ -182,7 +184,13 @@ function CustomStreetViewWebView(
   // Resolve lat/lng → fresh pano id, then hand the page the whole round. The
   // page holds its loader (and the host cover waits on SV_LOADED) until then.
   useEffect(() => {
-    if (!Number.isFinite(lat) || !Number.isFinite(long)) return;
+    if (panoId) {
+      const seq = ++resolveSeqRef.current;
+      propsRef.current = { ...propsRef.current, lat, long, heading: heading ?? null, panoId };
+      push();
+      return () => { if (resolveSeqRef.current === seq) resolveSeqRef.current++; };
+    }
+    if (typeof lat !== 'number' || typeof long !== 'number' || !Number.isFinite(lat) || !Number.isFinite(long)) return;
     const seq = ++resolveSeqRef.current;
     (async () => {
       const panoId = await resolveCached(lat, long);
@@ -194,15 +202,16 @@ function CustomStreetViewWebView(
       propsRef.current = { ...propsRef.current, lat, long, heading: heading ?? null, panoId };
       push();
     })();
-  }, [lat, long, heading, push, resolveCached]);
+  }, [lat, long, panoId, heading, push, resolveCached]);
 
   // Preload: resolve the NEXT round's pano while the result screen is up and
   // hand its id to the page, whose prefetchPano effect warms the base tiles.
   useEffect(() => {
-    const la = preload?.lat, lo = preload?.long;
-    if (la === undefined || lo === undefined || !Number.isFinite(la) || !Number.isFinite(lo)) return;
+    const la = preload?.lat, lo = preload?.long, directPanoId = preload?.panoId;
+    if (!directPanoId && (la === undefined || lo === undefined || !Number.isFinite(la) || !Number.isFinite(lo))) return;
     let stale = false;
-    resolveCached(la, lo).then((id) => {
+    const panoPromise = directPanoId ? Promise.resolve(directPanoId) : resolveCached(la!, lo!);
+    panoPromise.then((id) => {
       if (stale || !id) return;
       prefetchIdRef.current = id;
       prefetchReadyRef.current = false; // fresh target — wait for its SV_PREFETCHED
@@ -218,7 +227,7 @@ function CustomStreetViewWebView(
       push();
     });
     return () => { stale = true; };
-  }, [preload?.lat, preload?.long, push, resolveCached]);
+  }, [preload?.lat, preload?.long, preload?.panoId, push, resolveCached]);
 
   // Mode flags ride the same snapshot; no resolution needed.
   useEffect(() => {
@@ -237,9 +246,8 @@ function CustomStreetViewWebView(
   }, [gen]);
 
   useImperativeHandle(ref, () => ({
-    // Same window.reloadLoc contract the web reload button uses.
     reload: () => {
-      webRef.current?.injectJavaScript('window.reloadLoc && window.reloadLoc(); true;');
+      webRef.current?.reload();
     },
     // 'ready' iff the page confirmed the warm pano's base tiles are on the
     // GPU: the caller then takes the same instant swap-under-the-cover path

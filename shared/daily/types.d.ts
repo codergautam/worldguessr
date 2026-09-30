@@ -5,10 +5,10 @@
 // and server.
 
 export interface DailyLocation {
-  lat: number;
-  long: number;
+  roundId: string;
+  lat?: number;
+  long?: number;
   heading?: number;
-  country?: string;
   panoId?: string;
   /** Reveal tips (scheduled meta days only, see docs/daily-metas.md). */
   metas?: DailyMeta[];
@@ -112,18 +112,12 @@ export interface DailyResultsResponse {
 }
 
 export interface DailySubmitRound {
-  score: number;
-  timeMs: number | null;
-  guessLat: number | null;
-  guessLng: number | null;
-  country: string | null;
+  roundId: string;
 }
 
 export interface DailySubmitBody {
   date: string;
-  score: number;
-  totalTime: number;
-  rounds: DailySubmitRound[];
+  roundIds: string[];
   sessionToken?: string;
   disqualified?: boolean;
   secret?: string;

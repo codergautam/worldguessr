@@ -246,19 +246,13 @@ export default function DailyChallengeScreen({
     if (phase !== 'game' || !locationData?.locations) return;
     const loc = locationData.locations[currentRound - 1];
     if (!loc) return;
-    const nextLatLong = {
-      lat: loc.lat,
-      long: loc.long,
-      heading: loc.heading,
-      country: loc.country,
-    };
     const preloadKey = `daily:${currentRound}`;
     const preloaded = spPanoKeyRef?.current === preloadKey;
 
     setShowAnswer(false);
     setPinPoint(null);
     setHintShown(false);
-    setLatLong(nextLatLong);
+    setLatLong(null);
 
     if (preloaded) {
       // Pointed vs LOADED, read before the clears null the ref: a pointed
@@ -286,6 +280,7 @@ export default function DailyChallengeScreen({
     setPanoLocation?.(null);
     if (spPanoKeyRef) spPanoKeyRef.current = null;
     setSpPanoLoadedKey?.(null);
+    setPanoLocation?.(loc);
     if (beginRoundLoading) beginRoundLoading(false);
     else setLoading(true);
     setLatLongKey(k => k + 1);
@@ -300,10 +295,8 @@ export default function DailyChallengeScreen({
     const key = `daily:${currentRound + 1}`;
     const t = setTimeout(() => {
       beginSpPanoPreload({
-        lat: nextLoc.lat,
-        long: nextLoc.long,
+        panoId: nextLoc.panoId,
         heading: nextLoc.heading,
-        country: nextLoc.country,
       }, key);
     }, PANO_PRELOAD_DELAY_MS);
     return () => clearTimeout(t);
@@ -402,6 +395,7 @@ export default function DailyChallengeScreen({
     if (prefetchRef.current) return;
 
     const rounds = locs.map(l => ({
+      roundId: l.roundId,
       score: Math.round(l.points ?? 0),
       timeMs: typeof l.timeTaken === 'number' ? l.timeTaken * 1000 : null,
       guessLat: typeof l.guessLat === 'number' ? l.guessLat : null,
@@ -498,6 +492,7 @@ export default function DailyChallengeScreen({
     // prefetch exists. Distance is derived on the server from the canonical
     // daily locations; the client just reports the guess coords.
     const rounds = (completedLocations || []).map(l => ({
+      roundId: l.roundId,
       score: Math.round(l.points ?? 0),
       timeMs: typeof l.timeTaken === 'number' ? l.timeTaken * 1000 : null,
       guessLat: typeof l.guessLat === 'number' ? l.guessLat : null,
@@ -524,6 +519,15 @@ export default function DailyChallengeScreen({
     setPhase('results');
     fetchResults();
   }, [submit, locationData, fetchResults, disqualified]);
+
+  const recordRoundReveal = useCallback((roundId, result) => {
+    setLocationData((prev) => prev ? {
+      ...prev,
+      locations: prev.locations.map((location) => location.roundId === roundId
+        ? { ...location, lat: result.actual.lat, long: result.actual.lng, metas: result.metas || [] }
+        : location),
+    } : prev);
+  }, []);
 
   // When the user re-opens the daily after already playing, we don't have
   // local finalRounds / submitResponse — fall back to what the server already
@@ -679,6 +683,8 @@ export default function DailyChallengeScreen({
 
         <GameUI
           dailyMode
+          roundId={locationData?.locations?.[currentRound - 1]?.roundId}
+          onRoundResult={recordRoundReveal}
           dailyMetas={locationData?.locations?.[currentRound - 1]?.metas}
           onRoundsComplete={handleRoundsComplete}
           inCoolMathGames={inCoolMathGames}
@@ -704,6 +710,7 @@ export default function DailyChallengeScreen({
           setGameOptionsModalShown={setGameOptionsModalShown}
           mapModal={false}
           latLong={latLong}
+          setLatLong={setLatLong}
           loadLocation={loadLocation}
           gameOptions={gameOptions}
           setGameOptions={setGameOptions}

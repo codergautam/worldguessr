@@ -106,8 +106,9 @@ async function getCountryMaxDists(): Promise<Record<string, number>> {
 }
 
 interface Location {
-  lat: number;
-  long: number;
+  roundId?: string;
+  lat?: number;
+  long?: number;
   country?: string;
   panoId?: string;
   heading?: number;
@@ -116,6 +117,7 @@ interface Location {
 }
 
 interface RoundResult {
+  roundId: string;
   guessLat: number | null;
   guessLong: number | null;
   actualLat: number;
@@ -209,10 +211,10 @@ function buildCurrentPlayerGuesses(players: MPPlayer[], actualLocation: Location
       lng: player.latLong![1],
       username: player.username,
       countryCode: player.countryCode,
-      points: actualLocation
+      points: actualLocation?.lat != null && actualLocation.long != null
         ? calcPoints({
-            lat: actualLocation.lat,
-            lon: actualLocation.long,
+            lat: actualLocation.lat!,
+            lon: actualLocation.long!,
             guessLat: player.latLong![0],
             guessLon: player.latLong![1],
             maxDist,
@@ -625,9 +627,9 @@ export default function GameScreen() {
       lat: loc.lat,
       long: loc.long,
       country: loc.country,
-      panoId: loc.panoId,
       heading: loc.heading ?? loc.head,
       pitch: loc.pitch,
+      panoId: loc.panoId,
     }));
 
     setGameState((prev) => ({
@@ -703,11 +705,6 @@ export default function GameScreen() {
   const resetStreak = useOnboardingStore((s) => s.resetStreak);
   const [lostWorldStreak, setLostWorldStreak] = useState(0);
 
-  const handleHint = useCallback(() => {
-    if (hintShown || hintsUsed >= 2) return;
-    setHintShown(true);
-    setHintsUsed((n) => n + 1);
-  }, [hintShown, hintsUsed]);
   const [currentMapName, setCurrentMapName] = useState(
     initialCountrySubMode === 'continent'
       ? t('continentGuesser')
@@ -753,6 +750,16 @@ export default function GameScreen() {
     maxDist: DEFAULT_GAME_OPTIONS.maxDist,
     extent: null,
   });
+
+  const handleHint = useCallback(async () => {
+    if (hintShown || hintsUsed >= 2) return;
+    const roundId = gameState.locations[gameState.currentRound - 1]?.roundId;
+    if (roundId) {
+      try { await api.rounds.hint(roundId); } catch { return; }
+    }
+    setHintShown(true);
+    setHintsUsed((n) => n + 1);
+  }, [gameState.currentRound, gameState.locations, hintShown, hintsUsed]);
 
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
   // Map is HIDDEN by default on mobile, matching web behavior
@@ -1213,122 +1220,31 @@ export default function GameScreen() {
     outputRange: [0, fullMapHeight],
   });
 
-  // Fetch locations from server based on currentMapSlug (singleplayer only)
+  // Fetch opaque server rounds (singleplayer only).
   useEffect(() => {
     if (isMultiplayer || isCountryGuesserMode) return; // Multiplayer locations come from gameData; country modes use their shared component.
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
-
-    // Shared tail for both paths below: the rounds this game will play.
-    function applyRounds(locs: any[], meta: PoolMeta) {
-      setCurrentMapName(meta.name);
-      setGameState((prev) => ({
-        ...prev,
-        locations: locs,
-        maxDist: meta.maxDist,
-        extent: meta.extent,
-      }));
-      setHintShown(false);
-      setHintsUsed(0);
-      setIsLoading(false);
-      roundStartTimeRef.current = Date.now();
-      // Track map play (matches web behavior — skip default "all" map)
-      if (currentMapSlug !== 'all') api.trackMapPlay(currentMapSlug);
-    }
-
     async function fetchLocations(attempt = 1) {
       try {
         setIsLoading(true);
         setLoadError(null);
-
-        let data: any;
         const mapSlug = currentMapSlug;
-        const totalRounds = gameState.totalRounds;
-
-        // The ring has to be in memory before the pool can be ordered against
-        // it. Resolves instantly after the first game.
-        await hydrateSeenLocs();
-
-        // Walk what is left of the last fetch before going back to the network.
-        // Those spots are already ordered and already unplayed, and inside the
-        // CDN window a refetch would hand back the identical array anyway.
-        const cached = takeRounds(mapSlug, totalRounds);
-        if (cached) {
-          applyRounds(cached.locs, cached.meta);
-          return;
-        }
-
-        let mapName = mapSlug;
-        if (mapSlug === 'all') {
-          data = await api.fetchAllLocations();
-          mapName = t('world');
-        } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
-          data = await api.fetchCountryLocations(mapSlug);
-          // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
-          const [officialCountryMaps, countryMaxDists] = await Promise.all([
-            getOfficialCountryMaps(),
-            getCountryMaxDists(),
-          ]);
-          const countryEntry = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
-          mapName = countryEntry?.name || mapSlug;
-          // Attach maxDist so it's picked up below
-          data.maxDist = countryMaxDists[mapSlug] ?? DEFAULT_GAME_OPTIONS.maxDist;
-        } else {
-          data = await api.fetchMapLocations(mapSlug);
-          mapName = (data as any).name || mapSlug;
-        }
-
-        if (!data.ready || !data.locations || data.locations.length === 0) {
-          throw new Error(t('noLocationsForMap'));
-        }
-
-        const normalizedLocations = data.locations.map((loc: any) => ({
-          lat: loc.lat,
-          long: loc.long ?? loc.lng,
-          country: loc.country,
-          panoId: loc.panoId,
-          heading: loc.heading ?? loc.head,
-          pitch: loc.pitch,
-        }));
-
-        // Official maps: spots this player has never seen come first, then the
-        // ones they saw longest ago. Community maps keep a plain shuffle (and
-        // it is a real Fisher-Yates now: `.sort(() => Math.random() - 0.5)` is
-        // not a uniform shuffle, it mostly leaves entries near where they were).
-        const ordered = isOfficialMapSlug(mapSlug)
-          ? orderByFreshness(normalizedLocations, seenLocs())
-          : shuffle(normalizedLocations);
-
-        // Compute extent based on map type
-        let extent: Extent = null;
-        if (mapSlug === 'all') {
-          extent = null; // World view
-        } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
-          // officialCountryMaps already fetched above (cached)
-          const officialCountryMaps = await getOfficialCountryMaps();
-          const countryMap = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
-          extent = countryMap?.extent ?? null;
-        } else {
-          // Community map — compute bounding box from all locations
-          const lngs = normalizedLocations.map((l: Location) => l.long);
-          const lats = normalizedLocations.map((l: Location) => l.lat);
-          extent = [
-            Math.min(...lngs),
-            Math.min(...lats),
-            Math.max(...lngs),
-            Math.max(...lats),
-          ];
-        }
-
-        const meta: PoolMeta = {
-          maxDist: data.maxDist ?? DEFAULT_GAME_OPTIONS.maxDist,
-          extent,
-          name: mapName,
-        };
-        fillPool(mapSlug, ordered, meta);
-        // Everything the pool can serve is taken off the front; a map too small
-        // for a full game (community maps can be) just plays what it has.
-        applyRounds(takeRounds(mapSlug, totalRounds)?.locs ?? ordered.slice(0, totalRounds), meta);
+        if (gameState.currentRound > gameState.totalRounds) return;
+        const roundIndex = gameState.currentRound - 1;
+        const round = await api.rounds.create(mapSlug);
+        setCurrentMapName(mapSlug === 'all' ? t('world') : mapSlug);
+        setGameState((prev) => {
+          if (prev.locations[roundIndex]) return prev;
+          const locations = [...prev.locations];
+          locations[roundIndex] = round;
+          return { ...prev, locations, maxDist: DEFAULT_GAME_OPTIONS.maxDist, extent: null };
+        });
+        setHintShown(false);
+        setHintsUsed(0);
+        setIsLoading(false);
+        roundStartTimeRef.current = Date.now();
+        if (mapSlug !== 'all') api.trackMapPlay(mapSlug);
       } catch (error) {
         if (attempt < MAX_RETRIES) {
           console.warn(`Failed to fetch locations (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
@@ -1342,7 +1258,7 @@ export default function GameScreen() {
     }
 
     fetchLocations();
-  }, [currentMapSlug, isCountryGuesserMode, isMultiplayer, loadNonce]);
+  }, [currentMapSlug, gameState.currentRound, gameState.totalRounds, isCountryGuesserMode, isMultiplayer, loadNonce]);
 
   // `currentLocation` is the LIVE round — it drives the active Street View pano and the
   // singleplayer guess/result path. It must NOT be the source for the MP answer reveal:
@@ -1361,7 +1277,7 @@ export default function GameScreen() {
     if (!currentLocation || currentLocation.lat == null || currentLocation.long == null) return;
     const slug = isMultiplayer ? gameData?.map : currentMapSlug;
     if (!isOfficialMapSlug(slug)) return;
-    markSeenLoc(currentLocation);
+    markSeenLoc({ lat: currentLocation.lat!, long: currentLocation.long! });
   }, [currentLocation?.lat, currentLocation?.long]);
 
   // Both MP reveals — the between-rounds answer card AND the final reveal — show the round
@@ -1460,11 +1376,11 @@ export default function GameScreen() {
         team: p.team,
       })),
   ];
-  if (isMultiplayer && showMapResult) {
+  if (isMultiplayer && showMapResult && mapActualLocation?.lat != null && mapActualLocation.long != null) {
     mapResultLatchRef.current = true;
     revealSnapshotRef.current = {
       location: mapActualLocation
-        ? { lat: mapActualLocation.lat, long: mapActualLocation.long }
+        ? { lat: mapActualLocation.lat!, long: mapActualLocation.long! }
         : null,
       players: liveRevealPlayers,
     };
@@ -1474,7 +1390,7 @@ export default function GameScreen() {
   const freezingReveal = renderMapAsResult && !showMapResult; // exit fade in flight
   const embedLocation = freezingReveal
     ? revealSnapshotRef.current?.location ?? null
-    : mapActualLocation
+    : mapActualLocation?.lat != null && mapActualLocation.long != null
       ? { lat: mapActualLocation.lat, long: mapActualLocation.long }
       : null;
   const embedRevealPlayers = freezingReveal
@@ -1495,12 +1411,12 @@ export default function GameScreen() {
     ? {
         didGuess: !!mpMyGuess,
         distance: mpMyGuess
-          ? findDistance(mapActualLocation.lat, mapActualLocation.long, mpMyGuess[0], mpMyGuess[1])
+          ? findDistance(mapActualLocation.lat!, mapActualLocation.long!, mpMyGuess[0], mpMyGuess[1])
           : null,
         points: mpMyGuess
           ? calcPoints({
-              lat: mapActualLocation.lat,
-              lon: mapActualLocation.long,
+              lat: mapActualLocation.lat!,
+              lon: mapActualLocation.long!,
               guessLat: mpMyGuess[0],
               guessLon: mpMyGuess[1],
               maxDist: gameState.maxDist,
@@ -1553,20 +1469,20 @@ export default function GameScreen() {
           // when I carried (self-credit is noise — ruling).
           let carrierText: string | null = null;
           const averageScoring = !!gameData.teamGame && !gameData.team2v2 && gameData.teamScoring === 'average';
-          if (!averageScoring && mapActualLocation) {
+          if (!averageScoring && mapActualLocation?.lat != null && mapActualLocation.long != null) {
             const entries = gameData.players
               .filter((p) => p.team === myTeam && p.latLong && (p.latLong[0] !== 0 || p.latLong[1] !== 0))
               .map((p) => ({
                 id: p.id,
                 team: myTeam,
                 pts: calcPoints({
-                  lat: mapActualLocation.lat,
-                  lon: mapActualLocation.long,
+                  lat: mapActualLocation.lat!,
+                  lon: mapActualLocation.long!,
                   guessLat: p.latLong![0],
                   guessLon: p.latLong![1],
                   maxDist: gameState.maxDist,
                 }),
-                dist: findDistance(mapActualLocation.lat, mapActualLocation.long, p.latLong![0], p.latLong![1]),
+                dist: findDistance(mapActualLocation.lat!, mapActualLocation.long!, p.latLong![0], p.latLong![1]),
               }));
             const bestId = [...pickBestTeamGuessIds(entries)][0];
             if (bestId != null && bestId !== gameData.myId) {
@@ -1611,13 +1527,13 @@ export default function GameScreen() {
       const duelKey = `${gameData.code ?? ''}:${gameData.curRound ?? ''}`;
       if (duelDamageRef.current.key !== duelKey) {
         let verdict: MpRoundVerdict | undefined;
-        if (mapActualLocation) {
+        if (mapActualLocation?.lat != null && mapActualLocation.long != null) {
           const opp = gameData.players.find((p) => p.id !== gameData.myId);
           const oppGuess = opp?.latLong && (opp.latLong[0] !== 0 || opp.latLong[1] !== 0) ? opp.latLong : null;
           const oppPts = oppGuess
             ? calcPoints({
-                lat: mapActualLocation.lat,
-                lon: mapActualLocation.long,
+                lat: mapActualLocation.lat!,
+                lon: mapActualLocation.long!,
                 guessLat: oppGuess[0],
                 guessLon: oppGuess[1],
                 maxDist: gameState.maxDist,
@@ -1690,8 +1606,9 @@ export default function GameScreen() {
     }
   }, [gameState.isShowingResult, isMultiplayer]);
 
-  const handleSubmitGuess = useCallback(() => {
-    if (!guessPosition || !currentLocation) return;
+  const handleSubmitGuess = useCallback(async (overridePosition: { lat: number; lng: number } | null = null) => {
+    const submittedPosition = guessPosition || overridePosition;
+    if (!submittedPosition || !currentLocation) return;
 
     // Multiplayer: send guess to server
     if (isMultiplayer) {
@@ -1707,7 +1624,7 @@ export default function GameScreen() {
             ...s.gameData,
             players: s.gameData.players.map((p) =>
               p.id === s.gameData!.myId
-                ? { ...p, final: true, latLong: [guessPosition.lat, guessPosition.lng] }
+                ? { ...p, final: true, latLong: [submittedPosition.lat, submittedPosition.lng] }
                 : p,
             ),
           },
@@ -1715,7 +1632,7 @@ export default function GameScreen() {
       });
       wsService.send({
         type: 'place',
-        latLong: [guessPosition.lat, guessPosition.lng],
+        latLong: [submittedPosition.lat, submittedPosition.lng],
         final: true,
         // Stamp the round this guess was made in (web parity, home.js:2362) so the
         // server can reject a stale guess that lands after the round rolled over
@@ -1728,36 +1645,34 @@ export default function GameScreen() {
       return;
     }
 
-    // Singleplayer: local calculation
+    if (!currentLocation.roundId) return;
+    let result;
+    try {
+      result = await api.rounds.guess(currentLocation.roundId, submittedPosition.lat, submittedPosition.lng);
+    } catch {
+      setLoadError(t('errorNetworkRequest'));
+      return;
+    }
+
+    // Score and answer are returned only after the server closes the round.
     const timeTaken = Math.round((Date.now() - roundStartTimeRef.current) / 1000);
-
-    const distance = findDistance(
-      currentLocation.lat,
-      currentLocation.long,
-      guessPosition.lat,
-      guessPosition.lng
-    );
-
-    const points = calcPoints({
-      lat: currentLocation.lat,
-      lon: currentLocation.long,
-      guessLat: guessPosition.lat,
-      guessLon: guessPosition.lng,
-      maxDist: gameState.maxDist,
-      usedHint: hintShown,
-    });
+    const distance = result.distanceKm;
+    const points = result.score;
+    const actualLat = result.actual.lat;
+    const actualLong = result.actual.lng;
 
     setGameState((prev) => ({
       ...prev,
       guesses: [
         ...prev.guesses,
         {
-          guessLat: guessPosition.lat,
-          guessLong: guessPosition.lng,
-          actualLat: currentLocation.lat,
-          actualLong: currentLocation.long,
+          roundId: currentLocation.roundId!,
+          guessLat: guessPosition ? submittedPosition.lat : null,
+          guessLong: guessPosition ? submittedPosition.lng : null,
+          actualLat,
+          actualLong,
           panoId: currentLocation.panoId,
-          country: currentLocation.country,
+          country: result.actualCountry,
           points,
           distance,
           timeTaken,
@@ -1779,14 +1694,13 @@ export default function GameScreen() {
     // 'all'`). Reverse-geocode the GUESS's country and compare to the answer's:
     // same country → extend the streak; a different KNOWN country → break it
     // (remember the run for the banner); ocean/Unknown → leave it untouched.
-    if (currentMapSlug === 'all') {
-      const actualCountry = currentLocation.country;
+    if (currentMapSlug === 'all' && result.actualCountry) {
       const prevStreak = useOnboardingStore.getState().worldStreak;
-      findCountryLocal({ lat: guessPosition.lat, lon: guessPosition.lng })
+      findCountryLocal({ lat: submittedPosition.lat, lon: submittedPosition.lng })
         .then((guessCountry) => {
           setLostWorldStreak(0);
-          if (guessCountry === 'Unknown' && actualCountry === 'Unknown') return;
-          if (guessCountry === actualCountry) {
+          if (guessCountry === 'Unknown' && result.actualCountry === 'Unknown') return;
+          if (guessCountry === result.actualCountry) {
             bumpStreak('world');
           } else if (guessCountry !== 'Unknown') {
             resetStreak('world');
@@ -1835,36 +1749,8 @@ export default function GameScreen() {
     }
 
     // Singleplayer
-    if (!guessPosition && currentLocation) {
-      // Ran out of time with no pin down — buzz a warning (0-point round).
-      haptics.warning();
-      const timeTaken = Math.round((Date.now() - roundStartTimeRef.current) / 1000);
-
-      setGameState((prev) => ({
-        ...prev,
-        guesses: [
-          ...prev.guesses,
-          {
-            // Missed round — record a NULL guess, not a phantom pin at (0,0).
-            // Web parity (gameUI.js: null guess / 0 points / no distance). A 0,0
-            // guess would otherwise render a bogus ~8,432 km distance in results.
-            guessLat: null,
-            guessLong: null,
-            actualLat: currentLocation.lat,
-            actualLong: currentLocation.long,
-            panoId: currentLocation.panoId,
-            country: currentLocation.country,
-            points: 0,
-            distance: 0,
-            timeTaken,
-          },
-        ],
-        isShowingResult: true,
-      }));
-      setMiniMapShown(false);
-    } else {
-      handleSubmitGuess();
-    }
+    if (!guessPosition) haptics.warning();
+    handleSubmitGuess(guessPosition ? null : { lat: 0, lng: 0 });
   }, [guessPosition, currentLocation, gameState.isShowingResult, handleSubmitGuess, isMultiplayer]);
 
   // Multiplayer: navigate to results when duelEnd arrives or the final round ends.
@@ -2012,6 +1898,7 @@ export default function GameScreen() {
           official: isOfficial,
           location: currentMapName,
           rounds: gameState.guesses.map((g) => ({
+            roundId: g.roundId,
             // A missed round forwards null coords (web parity, gameUI.js:120-121
             // sends location.guessLat/Long which are null on a timeout); the
             // storeGame type is number-only, so assert at this API boundary.
@@ -2320,6 +2207,7 @@ export default function GameScreen() {
         countryGuesser: true,
         countryGuessrSubMode: subMode,
         rounds: countryGame.results.map((result) => ({
+          roundId: result.roundId,
           lat: result.guessLat,
           long: result.guessLong,
           actualLat: result.actualLat,
@@ -2390,7 +2278,7 @@ export default function GameScreen() {
     const activeTotalScore = isCountryGuesserMode ? countryGame.totalPoints : gameState.totalScore;
     const activeShowingResult = isCountryGuesserMode ? countryGame.showResult : gameState.isShowingResult;
     const hintCircleData =
-      !isCountryGuesserMode && hintShown && currentLocation
+      !isCountryGuesserMode && hintShown && currentLocation?.lat != null && currentLocation?.long != null
         ? hintCircle(
             { lat: currentLocation.lat, long: currentLocation.long },
             gameState.maxDist,
@@ -2414,7 +2302,7 @@ export default function GameScreen() {
       ? (countryGame.showResult && countryGame.lastResult && countryGame.currentLoc ? (
           <CountryEndBanner
             mode={activeCountryMode}
-            correctCountry={countryGame.currentLoc.country}
+            correctCountry={countryGame.currentLoc.country || ''}
             picked={countryGame.picked}
             points={countryGame.lastResult.points}
             streak={countryGame.streak}
@@ -2683,6 +2571,7 @@ export default function GameScreen() {
               ref={mpStreetViewRef}
               lat={currentLocation.lat}
               long={currentLocation.long}
+              panoId={currentLocation.panoId}
               heading={currentLocation.heading ?? currentLocation.head}
               pitch={currentLocation.pitch}
               onLoad={handleStreetViewLoad}
@@ -3022,7 +2911,7 @@ export default function GameScreen() {
               const showActive = !!guessPosition && !locked;
               return (
                 <Pressable
-                  onPress={handleSubmitGuess}
+                  onPress={() => { void handleSubmitGuess(); }}
                   disabled={disabled}
                   style={({ pressed }) => [
                     styles.guessSubmitBtn,
