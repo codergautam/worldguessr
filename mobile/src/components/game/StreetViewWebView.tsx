@@ -38,15 +38,17 @@ export interface StreetViewHandle {
 
 /** Bare coordinates for a pano to warm in the hidden slot (see the `preload` prop). */
 export interface PreloadTarget {
-  lat: number;
-  long: number;
+  lat?: number;
+  long?: number;
+  panoId?: string;
   heading?: number | null;
   pitch?: number;
 }
 
 interface StreetViewWebViewProps {
-  lat: number;
-  long: number;
+  lat?: number;
+  long?: number;
+  panoId?: string;
   onLoad?: () => void;
   language?: string;
   fov?: number;
@@ -101,7 +103,7 @@ interface WebViewSourceState {
 }
 
 // Google Maps API key - same as web version
-const GOOGLE_MAPS_API_KEY = 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 // The wrapper document is loaded with a google.com base URL so the street view
 // iframe below is SAME-origin with its parent. WebKit halves rendering updates /
@@ -113,8 +115,8 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
 const WRAPPER_BASE_URL = 'https://www.google.com/';
 
 function buildStreetViewHtml(
-  lat: number,
-  long: number,
+  lat: number | undefined,
+  long: number | undefined,
   language: string,
   fov: number,
   heading: number | null | undefined,
@@ -122,10 +124,12 @@ function buildStreetViewHtml(
   cropRightPx: number,
   frozen: boolean,
   reloadNonce: number,
+  panoId?: string,
 ) {
   const headingParam = heading !== null && heading !== undefined ? `&heading=${heading}` : '';
   const pitchParam = pitch !== null && pitch !== undefined ? `&pitch=${pitch}` : '';
-  const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}${headingParam}${pitchParam}&language=${language}`;
+  const locationParam = panoId ? `pano=${encodeURIComponent(panoId)}` : `location=${lat},${long}`;
+  const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?${locationParam}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}${headingParam}${pitchParam}&language=${language}`;
 
   return `
     <!DOCTYPE html>
@@ -179,6 +183,7 @@ function buildStreetViewHtml(
 function StreetViewWebView({
   lat,
   long,
+  panoId,
   onLoad,
   language = 'en',
   fov = 100,
@@ -322,9 +327,10 @@ function StreetViewWebView({
   }, [sources]);
 
   const isValidCoordinate = Number.isFinite(lat) && Number.isFinite(long);
+  const hasSource = !!panoId || isValidCoordinate;
 
   useEffect(() => {
-    if (!isValidCoordinate) return;
+    if (!hasSource) return;
 
     // A reload (nonce bump at the same coords) must always crossfade — the old
     // pano stays visible until the fresh one paints — even in modes that don't
@@ -333,10 +339,10 @@ function StreetViewWebView({
     prevReloadNonceRef.current = reloadNonce;
     const useCrossfade = smoothTransitions || isReload;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
+    const locationKey = `${panoId ?? `${lat}-${long}`}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce),
+      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce, panoId),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -373,7 +379,7 @@ function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, panoId, language, fov, heading, pitch, cropRightPx, frozen, reloadNonce, hasSource, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   // ── Warm preload ─────────────────────────────────────────────────────────
   // Load the NEXT pano into the inactive slot at opacity 0 WITHOUT crossfading,
@@ -383,14 +389,12 @@ function StreetViewWebView({
   // object literal each render doesn't re-warm the slot.
   const preloadLat = preload?.lat;
   const preloadLong = preload?.long;
+  const preloadPanoId = preload?.panoId;
   const preloadHeading = preload?.heading;
   const preloadPitch = preload?.pitch;
   useEffect(() => {
     if (
-      preloadLat === undefined ||
-      preloadLong === undefined ||
-      !Number.isFinite(preloadLat) ||
-      !Number.isFinite(preloadLong)
+      (!preloadPanoId && (preloadLat === undefined || preloadLong === undefined || !Number.isFinite(preloadLat) || !Number.isFinite(preloadLong)))
     ) {
       return; // nothing requested — never disturb the visible slot
     }
@@ -398,7 +402,7 @@ function StreetViewWebView({
     // after commit + `lat/long` advancing to this pano, the main effect computes
     // the same key and early-returns instead of reloading from scratch.
     const normPitch = preloadPitch ?? 0;
-    const preloadKey = `${preloadLat}-${preloadLong}-${language}-${fov}-${preloadHeading ?? ''}-${normPitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
+    const preloadKey = `${preloadPanoId ?? `${preloadLat}-${preloadLong}`}-${language}-${fov}-${preloadHeading ?? ''}-${normPitch}-${cropRightPx}-${frozen}-${reloadNonce}`;
 
     const activeSlot = activeSlotRef.current;
     const activeSource = sourcesRef.current[activeSlot];
@@ -414,10 +418,10 @@ function StreetViewWebView({
       ...prev,
       [slot]: {
         key: preloadKey,
-        html: buildStreetViewHtml(preloadLat, preloadLong, language, fov, preloadHeading, normPitch, cropRightPx, frozen, reloadNonce),
+        html: buildStreetViewHtml(preloadLat, preloadLong, language, fov, preloadHeading, normPitch, cropRightPx, frozen, reloadNonce, preloadPanoId),
       },
     }));
-  }, [preloadLat, preloadLong, preloadHeading, preloadPitch, language, fov, cropRightPx, frozen, reloadNonce, primaryOpacity, secondaryOpacity]);
+  }, [preloadLat, preloadLong, preloadPanoId, preloadHeading, preloadPitch, language, fov, cropRightPx, frozen, reloadNonce, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     // A warm-preload slot finished loading while still warm (not yet committed).
@@ -522,13 +526,14 @@ const IframeStreetView = forwardRef<StreetViewHandle, StreetViewWebViewProps>(St
  */
 function StreetViewSurface(props: StreetViewWebViewProps, ref: React.Ref<StreetViewHandle>) {
   const [failedKey, setFailedKey] = useState<string | null>(null);
-  const roundKey = `${props.lat},${props.long}`;
+  const roundKey = props.panoId ?? `${props.lat},${props.long}`;
   if (props.nm && failedKey !== roundKey) {
     return (
       <CustomStreetViewWebView
         ref={ref}
         lat={props.lat}
         long={props.long}
+        panoId={props.panoId}
         heading={props.heading}
         npz={props.npz}
         showAnswer={props.showAnswer}

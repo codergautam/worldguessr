@@ -2,8 +2,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { calcPoints, findDistance } from '../../src/shared';
+import countryCoordinates from '../../src/shared/data/countryCoordinates.json';
 import { haptics, hapticForScore } from '../../src/services/haptics';
+import { api } from '../../src/services/api';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
@@ -14,7 +15,7 @@ import BackButton from '../../src/components/ui/BackButton';
 import OnboardingComplete from '../../src/components/onboarding/OnboardingComplete';
 import WelcomeOverlay from '../../src/components/onboarding/WelcomeOverlay';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
-import { ONBOARDING_LOCATIONS } from '../../src/shared/data/onboardingLocations';
+import { ONBOARDING_FACTS } from '../../src/shared/data/onboardingLocations';
 import { flagUrl, shuffle } from '../../src/shared/data/countryHelpers';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { useAuthStore } from '../../src/store/authStore';
@@ -92,6 +93,8 @@ export default function OnboardingPlay() {
   const [showResult, setShowResult] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [currentLoc, setCurrentLoc] = useState<any>(null);
+  const [otherOptions, setOtherOptions] = useState<string[]>([]);
 
   const [authSheetVisible, setAuthSheetVisible] = useState(false);
   const pendingAuthAction = useRef<null | (() => void)>(null);
@@ -104,23 +107,26 @@ export default function OnboardingPlay() {
   );
   const maxPoints = settledMode === 'country' ? COUNTRY_MAX : CLASSIC_MAX;
 
-  const currentLoc = ONBOARDING_LOCATIONS[round - 1];
-  const otherOptions = useMemo(() => {
-    return shuffle([...currentLoc.otherOptions, currentLoc.country]);
-  }, [round, currentLoc]);
-
-  // Preload flag images on mount so country buttons don't pop in. The URLs
-  // must match the rendered sizes EXACTLY or the cache never hits: buttons
-  // render w80 (CountryButtons), the end banner renders the w160 default.
+  // Each tutorial round is selected on the server. Only its opaque ID and
+  // pano ID reach this screen before the player answers.
   useEffect(() => {
-    const codes = ONBOARDING_LOCATIONS.flatMap((l) => [l.country, ...l.otherOptions]);
-    Array.from(new Set(codes)).forEach((cc) => {
-      Image.prefetch(flagUrl(cc, 'w80')).catch(() => {});
+    let cancelled = false;
+    setCurrentLoc(null);
+    setOtherOptions([]);
+    api.rounds.create('all', {
+      onboardingIndex: round - 1,
+      countryGuesser: settledMode === 'country',
+      countryGuessrSubMode: 'country',
+    }).then((location) => {
+      if (cancelled) return;
+      setCurrentLoc(location);
+      setOtherOptions(shuffle(location.choices || []));
+      (location.choices || []).forEach((cc) => Image.prefetch(flagUrl(cc, 'w80')).catch(() => {}));
+    }).catch(() => {
+      if (!cancelled) setCurrentLoc(null);
     });
-    ONBOARDING_LOCATIONS.forEach((l) => {
-      Image.prefetch(flagUrl(l.country)).catch(() => {});
-    });
-  }, []);
+    return () => { cancelled = true; };
+  }, [round, settledMode]);
 
   // Fire tutorial_begin once a real mode is picked.
   useEffect(() => {
@@ -150,12 +156,15 @@ export default function OnboardingPlay() {
     router.replace('/(tabs)/home');
   };
 
-  const submitCountryAnswer = (answer: string) => {
+  const submitCountryAnswer = async (answer: string) => {
     if (showResult || resultSubmittingRef.current) return;
     resultSubmittingRef.current = true;
-    const correct = currentLoc.country;
-    const isCorrect = answer === correct;
-    const points = isCorrect ? 1000 : 0;
+    const coords = (countryCoordinates as Record<string, { lat: number; lng: number }>)[answer];
+    try {
+    const result = await api.rounds.guess(currentLoc.roundId, coords.lat, coords.lng);
+    const correct = result.actualCountry || '';
+    const isCorrect = result.score > 0;
+    const points = result.score;
     if (isCorrect) haptics.success();
     else haptics.light();
     // Drive the shared persistent streak so it carries into country guesser.
@@ -165,25 +174,20 @@ export default function OnboardingPlay() {
       resetStreak('country');
     }
     setShowResult(true);
+    setCurrentLoc((prev: any) => ({ ...prev, lat: result.actual.lat, long: result.actual.lng, country: correct }));
     setResults((prev) => [...prev, { points, picked: answer, correct }]);
+    } catch {
+      resultSubmittingRef.current = false;
+    }
   };
 
-  const submitClassicGuess = () => {
+  const submitClassicGuess = async () => {
     if (!guessPosition || showResult || resultSubmittingRef.current) return;
     resultSubmittingRef.current = true;
-    const distance = findDistance(
-      currentLoc.lat,
-      currentLoc.long,
-      guessPosition.lat,
-      guessPosition.lng,
-    );
-    const points = calcPoints({
-      lat: currentLoc.lat,
-      lon: currentLoc.long,
-      guessLat: guessPosition.lat,
-      guessLon: guessPosition.lng,
-      maxDist: ONBOARDING_MAX_DIST,
-    });
+    try {
+    const result = await api.rounds.guess(currentLoc.roundId, guessPosition.lat, guessPosition.lng);
+    const distance = result.distanceKm;
+    const points = result.score;
     hapticForScore(points); // close-based feedback, like the normal game
     setShowResult(true);
     setResults((prev) => [
@@ -191,11 +195,15 @@ export default function OnboardingPlay() {
       {
         points,
         distance,
-        correct: currentLoc.country,
+        correct: result.actualCountry || '',
         guessLat: guessPosition.lat,
         guessLng: guessPosition.lng,
       },
     ]);
+    setCurrentLoc((prev: any) => ({ ...prev, lat: result.actual.lat, long: result.actual.lng, country: result.actualCountry }));
+    } catch {
+      resultSubmittingRef.current = false;
+    }
   };
 
   const advanceRound = useCallback(() => {
@@ -346,7 +354,7 @@ export default function OnboardingPlay() {
 
   // Onboarding rounds get the landmark fact below the message — exact same
   // copy the web shows under `motivation locationFact` in endBanner.js.
-  const factText = currentLoc.fact;
+  const factText = ONBOARDING_FACTS[round - 1];
 
   const endBannerContent =
     showResult && lastResult
@@ -395,9 +403,8 @@ export default function OnboardingPlay() {
       <GameSurface
         ref={surfaceRef}
         location={currentLoc}
-        // Warm the next onboarding pano during the result screen → no loading
-        // cover on advance (hardcoded list, so the next round is known ahead).
-        nextLocation={round < ONBOARDING_LOCATIONS.length ? ONBOARDING_LOCATIONS[round] : null}
+        // The next answer is requested only after the player advances.
+        nextLocation={null}
         roundKey={`${settledMode}-${round}`}
         variant={settledMode === 'classic' ? 'pin' : 'country'}
         hideInputs={isUndecided}

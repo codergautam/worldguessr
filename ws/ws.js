@@ -3524,7 +3524,7 @@ try {
           // info there (verdict + credit + damage) than a solo/1v1 reveal.
           game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0)
             + ((game.teamDuel || game.teamGame) ? 1000 : 0);
-          game.sendStateUpdate();
+          game.sendStateUpdate(true);
 
 
         } else {

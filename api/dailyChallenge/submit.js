@@ -10,6 +10,8 @@ import { normalizeDailyRounds } from '../../serverUtils/normalizeDailyRounds.js'
 import { applyStreak } from '../../serverUtils/dailyStreak.js';
 import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter.js';
 import { exactDailyRank } from '../../serverUtils/dailyRank.js';
+import GameRound from '../../models/GameRound.js';
+import { getRoundSession } from '../../serverUtils/gameRounds.js';
 
 const MAX_TOTAL_XP = 500;
 
@@ -527,7 +529,7 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { date, totalTime, rounds, sessionToken, secret, guestId, disqualified } = req.body || {};
+  const { date, roundIds, sessionToken, secret, guestId, disqualified } = req.body || {};
 
   if (!date || !isValidDailyDate(date)) {
     return res.status(400).json({ error: 'Invalid date' });
@@ -535,12 +537,44 @@ async function handler(req, res) {
   if (!verifySessionToken(sessionToken, date)) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
-  if (!Array.isArray(rounds) || rounds.length !== 3) {
-    return res.status(400).json({ error: 'rounds must be an array of 3' });
+  if (!Array.isArray(roundIds) || roundIds.length !== 3 || roundIds.some((id) => typeof id !== 'string')
+      || new Set(roundIds).size !== 3) {
+    return res.status(400).json({ error: 'Request failed' });
   }
 
   const dailyLocs = getDailyLocations(date);
-  const normalizedRounds = normalizeDailyRounds(rounds, dailyLocs);
+  let roundDocs;
+  try {
+    const sessionId = getRoundSession(req, res);
+    roundDocs = await GameRound.find({
+      roundId: { $in: roundIds },
+      sessionId,
+      dailyDate: date,
+      status: 'closed',
+      expiresAt: { $gt: new Date() },
+    }).lean();
+  } catch {
+    return res.status(400).json({ error: 'Request failed' });
+  }
+  if (roundDocs.length !== 3 || roundDocs.some((round) => round.gameSavedAt || !Number.isInteger(round.dailyIndex))) {
+    return res.status(400).json({ error: 'Request failed' });
+  }
+  const roundsById = new Map(roundDocs.map((round) => [round.roundId, round]));
+  const orderedRounds = roundIds.map((roundId) => roundsById.get(roundId));
+  if (orderedRounds.some((round, index) => !round || round.dailyIndex !== index)) {
+    return res.status(400).json({ error: 'Request failed' });
+  }
+  const rounds = orderedRounds.map((round) => ({
+    score: round.score || 0,
+    xp: Math.round((round.score || 0) / 50),
+    distance: round.distanceKm,
+    timeMs: round.durationMs,
+    guessLat: round.guessLat,
+    guessLng: round.guessLng,
+    country: round.country,
+  }));
+  const totalTime = rounds.reduce((sum, round) => sum + (round.timeMs || 0), 0);
+  const normalizedRounds = rounds;
   const finalScore = normalizedRounds.reduce((sum, r) => sum + r.score, 0);
   const finalXp = Math.min(MAX_TOTAL_XP, normalizedRounds.reduce((sum, r) => sum + r.xp, 0));
 

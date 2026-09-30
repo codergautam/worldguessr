@@ -11,7 +11,7 @@
 //   so document-load would lift the cover onto a black canvas every round.
 //   CustomStreetView's onLoad (base tiles painted / failure / 8s failsafe)
 //   is the only truthful "pano is visible" signal.
-// - Reload rides the component's own window.reloadLoc contract via
+// - Reload rides the component's imperative reload contract via
 //   injectJavaScript — no protocol message needed.
 import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
