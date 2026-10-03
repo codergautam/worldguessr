@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { EXPLICIT_LANGUAGE_KEY } from "@/components/utils/playgamaStorage";
+import gameStorage from "@/components/utils/localStorage";
 import { Modal } from "react-responsive-modal";
 import NextImage from "next/image";
 import { useTranslation } from '@/components/useTranslations';
@@ -153,6 +155,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
     };
 
     const handleLanguageChange = (event) => {
+        // 6x: mark this as the player's own choice so the boot gate lets it
+        // beat platform.language on later launches (Home saves "lang" on every
+        // load, so the value alone cannot tell a choice from the default).
+        if (process.env.NEXT_PUBLIC_6X === "true") gameStorage.setItem(EXPLICIT_LANGUAGE_KEY, "1");
         setOptions((prevOptions) => ({ ...prevOptions, language: event.target.value }));
     };
 

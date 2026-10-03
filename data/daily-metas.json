@@ -1,5 +1,5 @@
 {
-  "_publishedAt": "2026-09-16T16:41:43.551Z",
+  "_publishedAt": "2026-10-03T09:28:59.323Z",
   "2026-09-09": [
     {
       "lat": 38.230782,
@@ -1250,6 +1250,419 @@
             "zoom": 2.36
           },
           "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80198_base_74dfd836a6_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-06": [
+    {
+      "lat": 51.110699,
+      "lng": 17.039159,
+      "heading": 94.91,
+      "country": "PL",
+      "title": "Polish Pedestrian Crossing Sign",
+      "metas": [
+        {
+          "title": "Polish Pedestrian Crossing Sign",
+          "explanation": "Polish pedestrian crossing signs have no zebra stripes. Instead, one long horizontal line runs behind the walking figure.",
+          "view": {
+            "heading": 33.21,
+            "pitch": 1.01,
+            "zoom": 2.71
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23541_base_c9b0e15060_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 17.393767,
+      "lng": 78.476244,
+      "heading": 345.49,
+      "country": "IN",
+      "title": "Telugu Script",
+      "metas": [
+        {
+          "title": "Telugu Script",
+          "explanation": "Telugu is a very round script that looks like rows of circles and loops, often with small tick-like strokes on top. It is used in Telangana and Andhra Pradesh. Common in India.",
+          "view": {
+            "heading": 70.67,
+            "pitch": 23.02,
+            "zoom": 2.52
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23507_base_39d8d50ff0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -25.500768,
+      "lng": -54.656507,
+      "heading": 108.65,
+      "country": "PY",
+      "title": "Paraguayan Cross-Shaped Sign Supports",
+      "metas": [
+        {
+          "title": "Paraguayan Cross-Shaped Sign Supports",
+          "explanation": "The backs of road signs in Paraguay often have a cross-shaped support. The back of the sign is usually grey.",
+          "view": {
+            "heading": 85.69,
+            "pitch": 3.59,
+            "zoom": 3.09
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/78009_base_9759cdd756_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-07": [
+    {
+      "lat": 59.902068,
+      "lng": 10.782528,
+      "heading": 287.67,
+      "country": "NO",
+      "title": "Norwegian Street Names",
+      "metas": [
+        {
+          "title": "Norwegian Street Names",
+          "explanation": "Norwegian street names usually end in -veien, -vei, -gata or -gate.",
+          "view": {
+            "heading": 274.49,
+            "pitch": -3.9,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/81293_base_209606d75d_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -6.201747,
+      "lng": 106.850669,
+      "heading": 245.19,
+      "country": "ID",
+      "title": "Indonesian Jl. Street Signs",
+      "metas": [
+        {
+          "title": "Indonesian Jl. Street Signs",
+          "explanation": "Indonesian street signs start with Jl., short for Jalan (street). Malaysia writes the same word as Jln.",
+          "view": {
+            "heading": 304.58,
+            "pitch": 0.37,
+            "zoom": 3.54
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-420_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 4.63333,
+      "lng": -74.113182,
+      "heading": 311.56,
+      "country": "CO",
+      "title": "Colombian White Commercial Plates",
+      "metas": [
+        {
+          "title": "Colombian White Commercial Plates",
+          "explanation": "Taxis, buses and trucks in Colombia have white license plates. Private cars have yellow plates.",
+          "view": {
+            "heading": 270.58,
+            "pitch": -6.17,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/baked/78097/39fd2d181df5e76dbfb47d3199e64c1d9bb4a4b1_32ce1eb82ac07e3e_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-08": [
+    {
+      "lat": 51.421928,
+      "lng": 5.45646,
+      "heading": 153.99,
+      "country": "NL",
+      "title": "Dutch Black Bollards",
+      "metas": [
+        {
+          "title": "Dutch Black Bollards",
+          "explanation": "This Dutch bollard is a black square post with two thin red-and-white bands at the top. It is also found in Belgium.",
+          "view": {
+            "heading": 190.38,
+            "pitch": -9.59,
+            "zoom": 3.08
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/96856_base_cd4732709a_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 23.590149,
+      "lng": 58.37804,
+      "heading": 287.48,
+      "country": "OM",
+      "title": "Omani Red Commercial Plates",
+      "metas": [
+        {
+          "title": "Omani Red Commercial Plates",
+          "explanation": "Commercial vehicles in Oman have long red license plates with white text. In Street View blur the left side looks whitish while the right side stays red.",
+          "view": {
+            "heading": 203.23,
+            "pitch": -6.1,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-295_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -30.025706,
+      "lng": -51.219828,
+      "heading": 346.66,
+      "country": "BR",
+      "title": "Brazilian Black Sign Backs",
+      "metas": [
+        {
+          "title": "Brazilian Black Sign Backs",
+          "explanation": "The backs of road signs in Brazil are often painted black or very dark grey.",
+          "view": {
+            "heading": 319.36,
+            "pitch": -1.13,
+            "zoom": 2.83
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80329_base_bb52ac8387_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-09": [
+    {
+      "lat": 64.132241,
+      "lng": -21.88413,
+      "heading": 291.42,
+      "country": "IS",
+      "title": "Icelandic Letter Þ",
+      "metas": [
+        {
+          "title": "Icelandic Letter Þ",
+          "explanation": "The letter Þ (thorn) is used only in Icelandic. Faroese does not have it.",
+          "view": {
+            "heading": 326.17,
+            "pitch": 5.13,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/81304_base_5cf5580f0f_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 25.05953,
+      "lng": 121.537512,
+      "heading": 271.21,
+      "country": "TW",
+      "title": "Taipei Address Plates",
+      "metas": [
+        {
+          "title": "Taipei Address Plates",
+          "explanation": "House number plates in Taipei have a small flower logo in the top-left corner. Common in Taiwan.",
+          "view": {
+            "heading": 207.97,
+            "pitch": -15.06,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/968_base_ea24c76da3_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 8.406865,
+      "lng": -82.438169,
+      "heading": 12.75,
+      "country": "PA",
+      "title": "Panamanian Eye Signs",
+      "metas": [
+        {
+          "title": "Panamanian Eye Signs",
+          "explanation": "Red octagonal signs with a realistic eye are unique to Panama. Neighbourhood groups put them up with the police to show residents are watching.",
+          "view": {
+            "heading": 304.26,
+            "pitch": -1.24,
+            "zoom": 2.41
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/78168_base_f8658a3877_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-10": [
+    {
+      "lat": 42.708597,
+      "lng": 23.299755,
+      "heading": 174.45,
+      "country": "BG",
+      "title": "Bulgarian Pedestrian Crossing Sign",
+      "metas": [
+        {
+          "title": "Bulgarian Pedestrian Crossing Sign",
+          "explanation": "Bulgarian pedestrian crossing signs show four zebra stripes and a walking figure wearing a hat.",
+          "view": {
+            "heading": 61.33,
+            "pitch": 5.63,
+            "zoom": 2.76
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23525_base_af41ea6fd3_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 3.114067,
+      "lng": 101.531912,
+      "heading": 339.62,
+      "country": "MY",
+      "title": "Malaysian Yellow Hexagon",
+      "metas": [
+        {
+          "title": "Malaysian Yellow Hexagon",
+          "explanation": "Green direction signs in Malaysia show highway numbers in a bright yellow hexagon. This shape is unique to the country.",
+          "view": {
+            "heading": 312.82,
+            "pitch": 5.71,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-133_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -16.490445,
+      "lng": -68.174397,
+      "heading": 194.75,
+      "country": "BO",
+      "title": "Bolivian Wooden Signposts",
+      "metas": [
+        {
+          "title": "Bolivian Wooden Signposts",
+          "explanation": "Road signs in Bolivia often stand on thick wooden posts, painted or left as bare wood. Uruguay also has thick wooden posts, but they are always white.",
+          "view": {
+            "heading": 152.42,
+            "pitch": -3.52,
+            "zoom": 2.52
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/78062_base_d2624748c9_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-11": [
+    {
+      "lat": 55.684131,
+      "lng": 12.55485,
+      "heading": 225.26,
+      "country": "DK",
+      "title": "Denmark's Domain .dk",
+      "metas": [
+        {
+          "title": "Denmark's Domain .dk",
+          "explanation": "Web addresses in Denmark end in .dk.",
+          "view": {
+            "heading": 154.53,
+            "pitch": 6.38,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/81316_base_7d1a5e36d8_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 37.771369,
+      "lng": 38.325662,
+      "heading": 72.91,
+      "country": "TR",
+      "title": "Turkish Bollards",
+      "metas": [
+        {
+          "title": "Turkish Bollards",
+          "explanation": "Turkish bollards are flat and white with a thick red reflector on the front and a white one on the back. Australian bollards look similar, but their reflector is thinner. Common in Türkiye.",
+          "view": {
+            "heading": 41.21,
+            "pitch": -14.06,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23579_base_21473efb3d_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -13.532163,
+      "lng": -71.971101,
+      "heading": 253.03,
+      "country": "PE",
+      "title": "Peru's Domain .pe",
+      "metas": [
+        {
+          "title": "Peru's Domain .pe",
+          "explanation": "Web addresses in Peru end in .pe, often as .com.pe.",
+          "view": {
+            "heading": 303.45,
+            "pitch": 2.71,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/baked/78055/04801ff6f7ab6eec7007c978e45cf47ef19eb660_13d9e10a02d2833b_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-12": [
+    {
+      "lat": 47.071139,
+      "lng": 15.431152,
+      "heading": 357.92,
+      "country": "AT",
+      "title": "Graz Green Street Signs",
+      "metas": [
+        {
+          "title": "Graz Green Street Signs",
+          "explanation": "Street name signs in Graz have a green background. Most other Austrian cities use different colours.",
+          "view": {
+            "heading": 49.64,
+            "pitch": 34.18,
+            "zoom": 2.95
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/78209_base_08c5a6076a_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 42.860426,
+      "lng": 74.692472,
+      "heading": 83.18,
+      "country": "KG",
+      "title": "Kyrgyz Google Car",
+      "metas": [
+        {
+          "title": "Kyrgyz Google Car",
+          "explanation": "Kyrgyzstan's Street View car is silver with a roof rack and square mirrors.",
+          "view": {
+            "heading": 81.01,
+            "pitch": -46.36,
+            "zoom": 1.23
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23367_base_3dcdb92d3e_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 12.114673,
+      "lng": -68.901182,
+      "heading": 22.14,
+      "country": "CW",
+      "title": "Curaçao Google Car",
+      "metas": [
+        {
+          "title": "Curaçao Google Car",
+          "explanation": "Curaçao's Street View car has a black hood and a roof rack with two small white stickers on the bars.",
+          "view": {
+            "heading": 7.69,
+            "pitch": -57.61,
+            "zoom": 1.23
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23356_base_a91f41ac57_preview.avif"
         }
       ]
     }

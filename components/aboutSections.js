@@ -128,7 +128,10 @@ export default function AboutSections({ mapCount = 0 }) {
         Other games in the genre worth a look:{" "}
         <a href="https://whereamigame.app/" target="_blank" rel="noopener">Where Am I?</a> runs the same guessing
         loop on real street walk video instead of static panoramas, free, no account, with native apps on iOS
-        and Android.
+        and Android.{" "}
+        <a href="https://hideandseek.world/" target="_blank" rel="noopener">Hide and Seek World</a> is multiplayer
+        hide and seek in Street View: each player picks a hiding spot on the world map, then everyone explores
+        the other spots and guesses where they are. Public games are free.
       </p>
 
       <h2>Apps</h2>

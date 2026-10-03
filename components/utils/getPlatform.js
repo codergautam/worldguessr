@@ -51,4 +51,16 @@ export function getPlatform() {
   }
 }
 
+// The legacy CrazyGames launch signal (?crazygames= in the URL). The 6x zip
+// can be launched by a host that still passes it, but Bridge owns every host
+// integration there, so this is the ONE place the exemption lives.
+export function isCrazyGamesHost() {
+  if (process.env.NEXT_PUBLIC_6X === "true") return false;
+  try {
+    return typeof window !== "undefined" && window.location.search.includes("crazygames");
+  } catch (e) {
+    return false;
+  }
+}
+
 export default getPlatform;
