@@ -49,7 +49,7 @@ import { dailyColors } from './styles';
 // Landscape phones drop the pano (no vertical room).
 
 // Same key / endpoint as StreetViewWebView.
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
 // google.com base so the embed iframe is same-origin with its wrapper — see
 // the WRAPPER_BASE_URL note in StreetViewWebView (iOS rAF throttling).
 const WRAPPER_BASE_URL = 'https://www.google.com/';

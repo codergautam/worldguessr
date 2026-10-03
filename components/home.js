@@ -15,7 +15,6 @@ import shuffle from "@/utils/shuffle";
 import Link from "next/link";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
-import countryCoordinates from '../public/countryCoordinates.json';
 import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
@@ -185,7 +184,7 @@ const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
 const isOfficialMap = (opts) => isOfficialMapSlug(opts?.location);
 
 
-export default function Home({ initialScreen, dailyBootstrap } = {}) {
+export default function Home({ initialScreen, dailyBootstrap, initialLocation = null } = {}) {
 
     const { width, height } = useWindowDimensions();
     const router = useRouter();
@@ -249,7 +248,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // first sweep a real state change — one extra pre-paint render of the
     // whole Home tree on every cold load. Every reader already guards null.
     const [latLong, setLatLong] = useState(null)
-    const [serverRound, setServerRound] = useState(null)
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     // What the STREET VIEW shows, which during a reveal is not the same thing
     // as `latLong`. `latLong` is the round's answer: the reveal map flies to it
@@ -1192,7 +1190,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // render and the static export prerenders this page. A LAYOUT effect
     // flips it before the first paint, so the menu still never shows.
     useLayoutEffect(() => {
-        if (initialScreen === 'china') enterChinaModeRef.current();
+        if (initialScreen === 'china') enterChinaModeRef.current({ seed: initialLocation });
     }, [initialScreen]);
 
     // Keep the URL in sync with the `screen` state for daily mode. Anything
@@ -1617,7 +1615,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         setScreen("onboarding")
 
-        const onboardingLocations = [{ factKey: "onboardingFact2" }, { factKey: "onboardingFact3" }, { factKey: "onboardingFact1" }]
+        // 3 universally recognizable locations, ordered easiest-to-pin first
+        // (Times Square: instantly readable + the US is a huge map target).
+        // factKey pairs each location with its locale fact — the facts predate
+        // this ordering, so round index must NOT be used to pick them.
+        const onboardingLocations = [
+            { lat: 40.7566514, long: -73.986534, heading: 31, country: "US", otherOptions: ["GB", "JP", "AU"], factKey: "onboardingFact2" },
+            { lat: 48.8583601, long: 2.2915727, heading: 41, country: "FR", otherOptions: ["IT", "ES", "DE"], factKey: "onboardingFact3" },
+            { lat: 29.9773337, long: 31.1321796, heading: 223, pitch: 5, country: "EG", otherOptions: ["TR", "BR", "IN"], factKey: "onboardingFact1" },
+        ]
 
         setOnboarding({
             round: 1,
@@ -1706,11 +1712,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // ONLY the /china landing (and popstate back onto it) enters: the mode is
     // deliberately absent from the menu, the map chooser and the sitemap. It
     // is a demo for a few people, not a mode for the player base.
-    function enterChinaMode() {
+    // `seed` (pages/china.js): a pool spot whose pano is already warming.
+    // Handing it to the pool as its only entry makes loadLocation's cached
+    // walk take it with no fetch; the real pool arrives behind it.
+    function enterChinaMode({ seed = null } = {}) {
         cancelInFlightLocationLoad();
         setLoading(false);
         preconnectBaidu();
-        setAllLocsArray([]);
+        setAllLocsArray(seed ? [seed] : []);
+        if (seed) fillChinaPool(seed);
         setLatLong(null);
         setShowAnswer(false);
         setPinPoint(null);
@@ -1732,6 +1742,30 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
     enterChinaModeRef.current = enterChinaMode;
+
+    // ChinaGuessr (temporary): the pool fetch a seeded round 1 skipped. Same
+    // freshness ordering as fetchMethod; appends so the walk never stalls and
+    // leaves the seed out so it cannot come back later in the game.
+    function fillChinaPool(seed) {
+        const config = clientConfig();
+        if (!config?.apiUrl) return;
+        fetch(config.apiUrl + '/chinaLocations').then((res) => res.json()).then((data) => {
+            if (!data?.ready || !Array.isArray(data.locations)) return;
+            if (!isChinaMode(gameOptionsRef.current)) return;
+            const ordered = orderByFreshness(data.locations.filter((l) => l.panoId !== seed.panoId), seenLocs());
+            setAllLocsArray((prev) => {
+                // Re-checked INSIDE the updater: it runs in the render that
+                // also applies the exit choke point's World options, so a
+                // fetch resolving in the gap between that effect and its
+                // render cannot append Baidu rows behind the pool wipe.
+                if (!isChinaMode(gameOptionsRef.current)) return prev;
+                const have = new Set((prev || []).map((l) => l.panoId));
+                return [...(prev || []), ...ordered.filter((l) => !have.has(l.panoId))];
+            });
+        }).catch((err) => {
+            console.error('[ChinaGuessr] pool fill failed:', err);
+        });
+    }
 
     function enterCountryGuessrMode(subMode) {
         cancelInFlightLocationLoad();
@@ -3100,9 +3134,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         // teardown and the effect's reset — the "opened
                         // minimap flashes at round start" bug.
                         setMiniMapShown(false)
-                        // Keep the answer out of the client while this round is
-                        // live. The getready payload carries only this pano's id.
-                        setLatLong(incomingRoundLoc?.lat != null && incomingRoundLoc?.long != null ? incomingRoundLoc : null)
+                        // latLong ALWAYS advances here — it is the round's
+                        // answer, and the reveal map / EndBanner read it.
+                        if (incomingRoundLoc) {
+                            setLatLong(incomingRoundLoc)
+                        }
                         if (!panoPointedAtThisRound) {
                             // Increment key to force refresh even if coords are the same
                             setLatLongKey(k => k + 1)
@@ -3111,12 +3147,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             // that owns which round the pano shows.
                             mpPanoRoundRef.current = incomingRoundLoc ? data.curRound : null;
                         }
-                    }
-
-                    if (data.state === "getready" || data.state === "end") {
-                        const revealedLocation = data.roundHistory?.at(-1)?.location;
-                        if (revealedLocation) setLatLong(revealedLocation);
-                        else if (data.curRound === 1) setLatLong(null);
                     }
 
                     // Rejoin — restore latLong and pinPoint from game state
@@ -3797,7 +3827,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         const now = Date.now();
         if (now - lastReloadAtRef.current < 1000) return;
         lastReloadAtRef.current = now;
-        setLatLongKey((key) => key + 1);
+        if (window.reloadLoc) {
+            window.reloadLoc()
+        }
     }
 
     function crazyMidgame(adFinishedRaw = () => { }) {
@@ -4222,73 +4254,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         const loadLocationRequestId = ++loadLocationRequestRef.current;
         const isCurrentLocationLoad = () => loadLocationRequestId === loadLocationRequestRef.current;
 
-        if (screen === "onboarding") {
-            const index = onboarding.round - 1 + (keepAnswer ? 1 : 0);
-            setLatLong(null);
-            setPanoLocation(null);
-            setServerRound(null);
-            setLoading(true);
-            fetch(`${clientConfig().apiUrl}/api/rounds`, {
-                method: 'POST', credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ onboardingIndex: index }),
-            }).then(async (response) => {
-                if (!response.ok) throw new Error('Round unavailable');
-                return response.json();
-            }).then((data) => {
-                if (!isCurrentLocationLoad()) return;
-                setServerRound(data);
-                setOnboarding((prev) => ({ ...prev, roundId: data.roundId }));
-                setLatLongKey((key) => key + 1);
-                if (data.choices) setOtherOptions(shuffle(data.choices));
-            }).catch(() => {
-                if (isCurrentLocationLoad()) { setLoading(false); toast(text("errorLoadingMap"), { type: 'error' }); }
-            });
-            return;
-        }
-
-        // Singleplayer locations are selected and retained by the API. The
-        // browser receives only an opaque round handle and its panorama id.
-        if (screen === "singleplayer" || screen === "countryGuesser") {
-            setLatLong(null);
-            setPanoLocation(null);
-            setServerRound(null);
-            setAllLocsArray([]);
-            setHintShown(false);
-            if (!keepAnswer) {
-                setShowAnswer(false);
-                setPinPoint(null);
-            }
-            setLoading(true);
-            fetch(`${clientConfig().apiUrl}/api/rounds`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: gameOptions.location,
-                    countryGuesser: screen === 'countryGuesser',
-                    countryGuessrSubMode: countryGuessrMode.subMode,
-                }),
-            }).then(async (response) => {
-                if (!response.ok) throw new Error('Round unavailable');
-                return response.json();
-            }).then((data) => {
-                if (!isCurrentLocationLoad()) return;
-                setServerRound(data);
-                setLatLongKey((key) => key + 1);
-                if (screen === "countryGuesser") {
-                    setOtherOptions(countryGuessrMode.subMode === 'continent' ? [...ALL_CONTINENTS] : shuffle(data.choices || []));
-                    setShowCountryButtons(true);
-                }
-            }).catch((error) => {
-                if (!isCurrentLocationLoad()) return;
-                console.error('[rounds] failed to start round:', error?.message || error);
-                setLoading(false);
-                toast(text("errorLoadingMap"), { type: 'error' });
-            });
-            return;
-        }
-
         // --- Preload commit: pano already pointed at the next round during
         // the answer reveal. Promote latLong only — no loading overlay, no
         // iframe remount. Same idea as the multiplayer getready→guess skip.
@@ -4414,17 +4379,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
                 const config = clientConfig();
+                // ChinaGuessr (temporary): Baidu rounds come only from the
+                // server pool. Every fallback below would hand Google world
+                // spots to the Baidu renderer, so a china failure is a toast
+                // and the menu, never defaultMethod().
+                const chinaFail = () => {
+                    toast(text("errorLoadingMap"), { type: 'error' });
+                    setLoading(false);
+                    setScreen("home");
+                };
                 if (!config?.apiUrl) {
+                    if (isChinaMode(gameOptions)) { chinaFail(); return; }
                     defaultMethod();
                     return;
                 }
-                const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
+                const url = config.apiUrl + (isChinaMode(gameOptions) ? `/chinaLocations` :
+                    (gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
                 fetch(url).then((res) => {
                     return res.json();
                 }).then((data) => {
                     if (!isCurrentLocationLoad()) return;
+                    if (!data.ready && isChinaMode(gameOptions)) { chinaFail(); return; }
                     if (data.ready) {
                         // this uses long for lng
                         for (let i = 0; i < data.locations.length; i++) {
@@ -4488,6 +4465,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                 }).catch(() => {
                     if (!isCurrentLocationLoad()) return;
+                    if (isChinaMode(gameOptions)) { chinaFail(); return; }
                     if (!window._sentMapLoadErrorToast) {
                     toast(text("errorLoadingMap"), { type: 'error' })
                     window._sentMapLoadErrorToast = true;
@@ -5094,7 +5072,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // Singleplayer / country guesser: reserve next from the pool (or fetch)
     // during the answer reveal, then point the pano at it under the map.
     useEffect(() => {
-        if (serverRound || (screen !== "singleplayer" && screen !== "countryGuesser")) return;
+        if (screen !== "singleplayer" && screen !== "countryGuesser") return;
         if (!showAnswer) return;
         if (singlePlayerRound?.totalRounds && singlePlayerRound.round >= singlePlayerRound.totalRounds) {
             return;
@@ -5169,7 +5147,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         gameOptions.maxDist,
         countryGuessrMode.subMode,
         beginSpPanoPreload,
-        serverRound,
     ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Leaving SP modes drops any reserved preload so it can't bleed into home.
@@ -5226,7 +5203,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     // Pano coords: diverge from latLong whenever a reveal preload is active
     // (multiplayer or singleplayer-family).
-    const panoSource = serverRound || panoLocation || latLong;
+    const panoSource = panoLocation || latLong;
     // ChinaGuessr (temporary): Baidu rounds always use the WebGL renderer and
     // ship their own (never stale) pano ids.
     const chinaMode = isChinaMode(gameOptions);
@@ -5471,7 +5448,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         lat={panoSource?.lat}
                         long={panoSource?.long}
                         heading={panoSource?.heading}
-                        panoId={chinaMode ? panoSource?.panoId : (panoSource?.panoId || panoSource?.freshPano)}
+                        panoId={chinaMode ? panoSource?.panoId : panoSource?.freshPano}
                         provider={chinaMode ? 'baidu' : 'google'}
                         allowMove={chinaCanMove}
                         npz={gameOptions?.npz}
@@ -5483,7 +5460,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                            loading — that is the invariant that makes
                            "unhide == already painted" true for the engine's
                            synchronous reveal paint. */
-                        hidden={!!((!panoSource || (!panoSource.panoId && (!panoSource.lat || !panoSource.long))) || loading) || panoConcealed || mpIdle}
+                        hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || mpIdle}
                         refreshKey={latLongKey}
                         onLoad={(degraded) => {
                             // degraded = the engine is UNBLOCKING the round
@@ -5574,30 +5551,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     /* LOAD-BEARING: `loading` must stay a hidden term — see the
                        CustomStreetView note above. unIdleGrace holds the fade's
                        start value across the display:none -> block edge. */
-                    hidden={!!((!panoSource || (!panoSource.panoId && (!panoSource.lat || !panoSource.long))) || loading) || panoConcealed || screen === "home" || svFrameIdle || unIdleGrace}
+                    hidden={!!((!panoSource || !panoSource.lat || !panoSource.long) || loading) || panoConcealed || screen === "home" || svFrameIdle || unIdleGrace}
                     idle={svFrameIdleApplied}
                     refreshKey={latLongKey}
-                    onError={() => {
-                        if (!serverRound?.roundId) return;
-                        setLoading(true);
-                        fetch(`${clientConfig().apiUrl}/api/rounds/replace`, {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                roundId: serverRound.roundId,
-                                location: gameOptions.location,
-                                countryGuesser: screen === 'countryGuesser',
-                                countryGuessrSubMode: countryGuessrMode.subMode,
-                                onboardingIndex: screen === 'onboarding' ? onboarding.round - 1 + (keepAnswer ? 1 : 0) : undefined,
-                            }),
-                        }).then((response) => response.json()).then((round) => {
-                            if (round?.roundId && round?.panoId) {
-                                setServerRound(round);
-                                setLatLongKey((key) => key + 1);
-                            } else throw new Error('Round unavailable');
-                        }).catch(() => setLoading(false));
-                    }}
                     onLoad={() => {
                         notePanoLoaded();
                         // SP-family rounds hold the cover to their minimum
@@ -6379,7 +6335,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} setLatLong={setLatLong} roundId={serverRound?.roundId} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "countryGuesser" && <div className="home__singleplayer">
@@ -6388,7 +6344,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} setLatLong={setLatLong} roundId={serverRound?.roundId} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {/* (!welcomeOverlayShown || svPreloadReady): while the welcome
@@ -6401,7 +6357,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         welcomeOverlayShown={welcomeOverlayShown}
-                        inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} roundId={onboarding?.roundId} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed &&

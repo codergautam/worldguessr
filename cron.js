@@ -1025,7 +1025,6 @@ startAllCountriesCacheUpdater();
 
 // Instant endpoint that just returns the latest cache
 app.get('/allCountries.json', (req, res) => {
-  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress)) return res.status(404).json({ error: 'Not found' });
   // Always return the current cache instantly - no generation during request
   return res.json({
     ready: allCountriesCache.length > 0,
@@ -1034,7 +1033,6 @@ app.get('/allCountries.json', (req, res) => {
 });
 
 app.get('/countryLocations/:country', (req, res) => {
-  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress)) return res.status(404).json({ error: 'Not found' });
   const country = req.params.country;
   if (!countryLocations[country]) {
     return res.status(404).json({ message: 'Country not found' });

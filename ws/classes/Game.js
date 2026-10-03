@@ -33,7 +33,6 @@ import shuffle from "../../utils/shuffle.js";
 import { DEFAULT_POST_GUESS_SECONDS, postGuessSecondsFor } from "../roundTimer.js";
 import { sampleDistinct } from "../../shared/locations/repeatGuard.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
-import { resolveGooglePano } from '../../serverUtils/googlePano.js';
 
 // ---- Stamps payout table (game-finish earns) --------------------------------
 // The AMOUNTS live here; the CEILINGS live in serverUtils/stamps/reasons.js and
@@ -111,9 +110,6 @@ export default class Game {
     this.endTime = null;
     this.nextEvtTime = null;
     this.locations = [];
-    this.locationsReady = false;
-    this.startPending = false;
-    this.pendingStartHost = null;
     this.location = location;
     this.rounds = rounds;
     this.curRound = 0; // 1 = 1st round
@@ -349,7 +345,7 @@ export default class Game {
       waitBetweenRounds: this.waitBetweenRounds,
       startTime: this.startTime,
       nextEvtTime: this.nextEvtTime,
-      locations: this.getClientLocations(),
+      locations: this.locations,
       rounds: this.rounds,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
@@ -391,18 +387,6 @@ export default class Game {
       npz: this.npz,
       showRoadName: this.showRoadName,
     }
-  }
-
-  getClientLocations() {
-    return this.locations.map((location, index) => {
-      const answerRevealed = this.state === 'end' || index < this.curRound - 1;
-      if (answerRevealed) return location;
-      return {
-        panoId: location.panoId || null,
-        heading: location.heading ?? null,
-        pitch: location.pitch ?? null,
-      };
-    });
   }
 
   resetGame(allLocations) {
@@ -916,7 +900,7 @@ export default class Game {
       isPlacement: !!this.isPlacement
     };
     if (includeLocations) {
-      state.locations = this.getClientLocations();
+      state.locations = this.locations;
       state.rounds = this.rounds;
       state.timePerRound = this.timePerRound;
       state.nm = this.nm;
@@ -1168,12 +1152,6 @@ export default class Game {
           toastType: 'error'
         });
       }
-      return;
-    }
-
-    if (!this.locationsReady) {
-      this.startPending = true;
-      this.pendingStartHost = hostPlayer;
       return;
     }
 
@@ -1549,27 +1527,6 @@ export default class Game {
       maxDist: this.maxDist
     });
   }
-
-    try {
-      this.locations = await Promise.all(this.locations.map(async (location) => {
-        const lat = location.lat;
-        const lng = location.lng ?? location.long;
-        const pano = await resolveGooglePano(lat, lng, location.panoId);
-        return { ...location, lat: pano.lat, long: pano.lng, lng: undefined, panoId: pano.panoId };
-      }));
-      this.locationsReady = this.locations.length === this.rounds;
-      this.sendAllPlayers({ type: 'generating', generated: this.locations.length, ready: this.locationsReady });
-      if (this.locationsReady && this.startPending) {
-        const host = this.pendingStartHost;
-        this.startPending = false;
-        this.pendingStartHost = null;
-        this.start(host);
-      }
-    } catch (error) {
-      this.locationsReady = false;
-      console.error('[game] panorama resolution failed:', error?.message || error);
-      this.sendAllPlayers({ type: 'toast', key: 'mapLocationsLoading', toastType: 'error' });
-    }
   }
   // Send a message to every player on a given team, optionally excluding one id.
   sendTeam(team, json, excludeId) {
