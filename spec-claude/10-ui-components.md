@@ -110,11 +110,11 @@ The web app uses a Google Maps Embed API iframe. The RN app should use `react-na
 
 **URL Construction:**
 ```
-https://www.google.com/maps/embed/v1/streetview?pano={panoId}&key=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&fov=100&language=en
+https://www.google.com/maps/embed/v1/streetview?location={lat},{long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en
 ```
 
 **Parameters:**
-- `pano`: `{panoId}` — the panorama identifier returned for the active round
+- `location`: `{lat},{long}` — the panorama coordinates
 - `key`: Google Maps Embed API key (the Embed API is free, no billing required)
 - `fov`: Field of view, always `100`
 - `language`: Always `en`

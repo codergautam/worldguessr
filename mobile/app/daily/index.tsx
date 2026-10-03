@@ -15,12 +15,13 @@ import SubmittingOverlay from '../../src/components/daily/SubmittingOverlay';
 import DailyBackground from '../../src/components/daily/DailyBackground';
 import ReviewPromptModal from '../../src/components/ReviewPromptModal';
 import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
-import { api } from '../../src/services/api';
 import GameSurface, { type GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import DailyMetaSheet from '../../src/components/daily/DailyMetaSheet';
+import calcPoints from '../../src/shared/game/calcPoints';
+import { findDistance } from '../../src/shared/game/calcPoints';
 import { preloadBorders } from '../../src/shared/game/findCountry';
 import { hintCircle } from '@shared/game/hint';
 import { dailyColors } from '../../src/components/daily/styles';
@@ -40,7 +41,6 @@ const COLD_MOUNT_GUARD_MS = 1500;
 const DAILY_DQ_ENABLED: boolean = false;
 
 interface RoundResult {
-  roundId: string;
   score: number;
   timeMs: number | null;
   guessLat: number | null;
@@ -50,7 +50,11 @@ interface RoundResult {
 }
 
 interface SubmitRound {
-  roundId: string;
+  score: number;
+  timeMs: number | null;
+  guessLat: number | null;
+  guessLng: number | null;
+  country: string | null;
 }
 
 // Background-submit handle: populated while the user reads the final round's
@@ -65,7 +69,13 @@ interface PrefetchEntry {
 }
 
 function mapToSubmitRound(r: RoundResult): SubmitRound {
-  return { roundId: r.roundId };
+  return {
+    score: Math.round(r.score ?? 0),
+    timeMs: r.timeMs,
+    guessLat: r.guessLat,
+    guessLng: r.guessLng,
+    country: r.country,
+  };
 }
 
 export default function DailyScreen() {
@@ -140,18 +150,13 @@ export default function DailyScreen() {
     useAuthStore.getState().applyGameResult({ xp: earnedXp, gamesPlayed: 1 });
   }, [isLoggedIn, submitResponse, finalRounds]);
 
-  const handleHint = useCallback(async () => {
+  const handleHint = useCallback(() => {
     if (hintShown || hintsUsed >= 2) return;
-    const roundId = locationData?.locations?.[currentRound - 1]?.roundId;
-    if (roundId) {
-      try { await api.rounds.hint(roundId); } catch { return; }
-    }
     setHintShown(true);
     setHintsUsed((n) => n + 1);
-  }, [currentRound, hintShown, hintsUsed, locationData]);
+  }, [hintShown, hintsUsed]);
 
   const roundStartedAtRef = useRef<number>(Date.now());
-  const guessInFlightRef = useRef(false);
   const gameSurfaceRef = useRef<GameSurfaceHandle>(null);
   const prefetchRef = useRef<PrefetchEntry | null>(null);
 
@@ -183,7 +188,6 @@ export default function DailyScreen() {
       setPinPoint(null);
       setShowAnswer(false);
       setRoundResults([]);
-      setRevealedLocations({});
       setHintShown(false);
       setHintsUsed(0);
       roundStartedAtRef.current = Date.now();
@@ -235,12 +239,8 @@ export default function DailyScreen() {
     return () => sub.remove();
   }, [phase, router]);
 
-  const [revealedLocations, setRevealedLocations] = useState<Record<number, any>>({});
   const totalRounds = locationData?.locations?.length ?? 3;
-  const currentIndex = Math.min(currentRound - 1, totalRounds - 1);
-  const currentLocation = locationData?.locations?.[currentIndex]
-    ? { ...locationData.locations[currentIndex], ...revealedLocations[currentIndex] }
-    : null;
+  const currentLocation = locationData?.locations?.[Math.min(currentRound - 1, totalRounds - 1)] ?? null;
 
   const handleStart = useCallback(() => {
     if (results?.user?.disqualifiedToday) {
@@ -277,51 +277,44 @@ export default function DailyScreen() {
   }, [locationData, fetchLocations]);
 
   const finishRound = useCallback(
-    async (guess: { lat: number; lng: number } | null) => {
-      if (!currentLocation || guessInFlightRef.current) return;
-      guessInFlightRef.current = true;
+    (guess: { lat: number; lng: number } | null) => {
+      if (!currentLocation) return;
       const timeMs = Date.now() - roundStartedAtRef.current;
-      const guessLat = guess?.lat ?? 0;
-      const guessLng = guess?.lng ?? 0;
-      try {
-        const result = await api.rounds.guess(currentLocation.roundId, guessLat, guessLng);
-        const score = result.score;
-        const distance = result.distanceKm;
-        const revealed = {
-          lat: result.actual.lat,
-          long: result.actual.lng,
-          country: result.actualCountry ?? null,
-          metas: result.metas ?? [],
-        };
-        setRevealedLocations((prev) => ({ ...prev, [currentIndex]: revealed }));
-        const rr: RoundResult = {
-          roundId: currentLocation.roundId,
-          score,
-          timeMs,
-          guessLat: guess?.lat ?? null,
-          guessLng: guess?.lng ?? null,
-          country: result.actualCountry ?? null,
-          distance,
-        };
-        setRoundResults((prev) => [...prev, rr]);
-        setShowAnswer(true);
-        setShowPano(false);
-        if (score >= 4850) setConfettiKey((k) => k + 1);
-      } catch {
-        Alert.alert(t('errorTitle'), t('errorRequestTimedOut'));
-      } finally {
-        guessInFlightRef.current = false;
+      let score = 0;
+      let distance: number | null = null;
+      if (guess) {
+        distance = findDistance(currentLocation.lat, currentLocation.long, guess.lat, guess.lng);
+        score = calcPoints({
+          lat: currentLocation.lat,
+          lon: currentLocation.long,
+          guessLat: guess.lat,
+          guessLon: guess.lng,
+          maxDist: DAILY_MAX_DIST,
+          usedHint: hintShown,
+        });
       }
+      const rr: RoundResult = {
+        score,
+        timeMs,
+        guessLat: guess?.lat ?? null,
+        guessLng: guess?.lng ?? null,
+        country: currentLocation.country ?? null,
+        distance,
+      };
+      setRoundResults((prev) => [...prev, rr]);
+      setShowAnswer(true);
+      setShowPano(false); // each result starts on the map (web default)
+      if (score >= 4850) setConfettiKey((k) => k + 1);
     },
-    [currentLocation, currentIndex],
+    [currentLocation, hintShown],
   );
 
   const handleSubmitPin = useCallback(() => {
-    void finishRound(pinPoint);
+    finishRound(pinPoint);
   }, [pinPoint, finishRound]);
 
   const handleTimeUp = useCallback(() => {
-    if (!showAnswer) void finishRound(pinPoint);
+    if (!showAnswer) finishRound(pinPoint);
   }, [showAnswer, pinPoint, finishRound]);
 
   // Background-submit prefetch — fires while the FINAL round's answer is showing
@@ -335,7 +328,8 @@ export default function DailyScreen() {
     if (prefetchRef.current) return;
 
     const rounds = roundResults.map(mapToSubmitRound);
-    const totalScore = roundResults.reduce((s, r) => s + (r.score || 0), 0);
+    const totalScore = rounds.reduce((s, r) => s + (r.score || 0), 0);
+    const totalTime = rounds.reduce((s, r) => s + (r.timeMs || 0), 0);
 
     const entry: PrefetchEntry = {
       promise: Promise.resolve(null),
@@ -345,7 +339,9 @@ export default function DailyScreen() {
       atDisqualified: false,
     };
     entry.promise = submit({
-      roundIds: rounds.map((round) => round.roundId),
+      rounds,
+      totalScore,
+      totalTime,
       sessionToken: locationData?.sessionToken,
       disqualified: false,
     })
@@ -391,12 +387,15 @@ export default function DailyScreen() {
 
       // Slow path: DQ diverged from the prefetch (or no prefetch exists).
       const rounds = roundResults.map(mapToSubmitRound);
-      const totalScore = roundResults.reduce((s, r) => s + (r.score || 0), 0);
+      const totalScore = rounds.reduce((s, r) => s + (r.score || 0), 0);
+      const totalTime = rounds.reduce((s, r) => s + (r.timeMs || 0), 0);
       setFinalRounds(roundResults);
       setPhase('submitting');
       try {
         const response = await submit({
-          roundIds: rounds.map((round) => round.roundId),
+          rounds,
+          totalScore,
+          totalTime,
           sessionToken: locationData?.sessionToken,
           disqualified,
         });
@@ -526,7 +525,6 @@ export default function DailyScreen() {
   const effectiveRounds: RoundResult[] = finalRounds.length
     ? finalRounds
     : (results?.user?.ownRounds ?? []).map((r: any) => ({
-        roundId: r.roundId || '',
         score: r.score ?? 0,
         timeMs: r.timeMs ?? null,
         guessLat: r.guessLat ?? null,
@@ -551,7 +549,7 @@ export default function DailyScreen() {
         <DailyResultsScreen
           date={date}
           rounds={effectiveRounds}
-          locations={(locationData?.locations ?? []).map((location, index) => ({ ...location, ...revealedLocations[index] }))}
+          locations={locationData?.locations ?? []}
           totalScore={resultsTotalScore}
           submitResponse={submitResponse}
           results={results}
@@ -584,8 +582,10 @@ export default function DailyScreen() {
         nextLocation={
           currentRound < totalRounds && locationData?.locations?.[currentRound]
             ? {
-                panoId: locationData.locations[currentRound].panoId,
+                lat: locationData.locations[currentRound].lat,
+                long: locationData.locations[currentRound].long,
                 heading: locationData.locations[currentRound].heading ?? null,
+                country: locationData.locations[currentRound].country,
               }
             : null
         }
@@ -662,7 +662,7 @@ export default function DailyScreen() {
           <DailyResultsScreen
             date={date}
             rounds={effectiveRounds}
-          locations={(locationData?.locations ?? []).map((location, index) => ({ ...location, ...revealedLocations[index] }))}
+            locations={locationData?.locations ?? []}
             totalScore={resultsTotalScore}
             submitResponse={submitResponse}
             results={results}

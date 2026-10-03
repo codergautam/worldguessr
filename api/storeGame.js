@@ -4,8 +4,6 @@ import Game from '../models/Game.js';
 import User from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { createUUID } from '../components/createUUID.js';
-import GameRound from '../models/GameRound.js';
-import { getRoundSession } from '../serverUtils/gameRounds.js';
 
 // Handle singleplayer game completion
 async function guess(req, res) {
@@ -26,45 +24,25 @@ async function guess(req, res) {
           return res.status(404).json({ error: 'User not found' });
         }
 
-        if (!Array.isArray(rounds) || rounds.length === 0 || rounds.length > 50
-            || rounds.some((round) => typeof round?.roundId !== 'string')) {
-          return res.status(400).json({ message: 'Invalid input' });
-        }
-        const sessionId = getRoundSession(req, res);
-        const roundIds = rounds.map((round) => round.roundId);
-        if (new Set(roundIds).size !== roundIds.length) return res.status(400).json({ message: 'Invalid input' });
-        const roundDocs = await GameRound.find({ roundId: { $in: roundIds }, sessionId, status: 'closed' }).lean();
-        if (roundDocs.length !== roundIds.length || roundDocs.some((round) => round.gameSavedAt)) {
-          return res.status(400).json({ message: 'Invalid input' });
-        }
-        const roundsById = new Map(roundDocs.map((round) => [round.roundId, round]));
-        const authoritativeRounds = roundIds.map((roundId) => roundsById.get(roundId));
-        const gameSavedAt = new Date();
-        const claim = await GameRound.updateMany(
-          { roundId: { $in: roundIds }, sessionId, status: 'closed', gameSavedAt: null },
-          { $set: { gameSavedAt } }
-        );
-        if (claim.modifiedCount !== roundIds.length) return res.status(400).json({ message: 'Invalid input' });
-
         // Generate unique game ID
         const gameId = `sp_${createUUID()}`;
         
         // Calculate realistic game timing
-        const totalRoundTime = authoritativeRounds.reduce((sum, round) => sum + (round.durationMs || 0) / 1000, 0);
+        const totalRoundTime = rounds.reduce((sum, round) => sum + round.roundTime, 0);
         const gameEndTime = new Date();
         const gameStartTime = new Date(gameEndTime.getTime() - (totalRoundTime * 1000) - (rounds.length * 10000)); // Add 10s between rounds
 
         // Calculate total duration and points
-        const totalDuration = totalRoundTime;
-        const totalPoints = authoritativeRounds.reduce((sum, round) => sum + (round.score || 0), 0);
+        const totalDuration = rounds.reduce((sum, round) => sum + round.roundTime, 0); // Keep in seconds
+        const totalPoints = rounds.reduce((sum, round) => sum + round.points, 0); // Use actual points from rounds
         
         // Validate and cap XP to prevent exploitation
         // Max XP per round is 100 (5000 points / 50), cap total at 500 per request
         const MAX_XP_PER_ROUND = 100;
         const MAX_TOTAL_XP = 500;
         
-        let totalXp = authoritativeRounds.reduce((sum, round) => {
-          const roundXp = round.official ? Math.min(MAX_XP_PER_ROUND, Math.round((round.score || 0) / 50)) : 0;
+        let totalXp = rounds.reduce((sum, round) => {
+          const roundXp = Math.min(Math.max(0, round.xp || 0), MAX_XP_PER_ROUND);
           return sum + roundXp;
         }, 0);
         
@@ -76,15 +54,9 @@ async function guess(req, res) {
 
         // Prepare rounds data for Games collection
         let currentRoundStart = gameStartTime.getTime();
-        const gameRounds = authoritativeRounds.map((round, index) => {
-          const guessLat = round.guessLat;
-          const guessLong = round.guessLng;
-          const actualLat = round.lat;
-          const actualLong = round.lng;
-          const usedHint = !!round.hintUsed;
-          const roundTime = (round.durationMs || 0) / 1000;
-          const xp = round.official ? Math.min(MAX_XP_PER_ROUND, Math.round((round.score || 0) / 50)) : 0;
-          const actualPoints = round.score || 0;
+        const gameRounds = rounds.map((round, index) => {
+          const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp, points } = round;
+          const actualPoints = points; // Use actual points from frontend
           
           const roundStart = new Date(currentRoundStart);
           const roundEnd = new Date(currentRoundStart + (roundTime * 1000));
@@ -99,7 +71,7 @@ async function guess(req, res) {
               lat: actualLat,
               long: actualLong,
               panoId: round.panoId || null,
-              country: round.country || null,
+              country: round.country || null, // We don't have country data in the current structure
               place: round.place || null
             },
             playerGuesses: [{
@@ -121,7 +93,6 @@ async function guess(req, res) {
         });
 
         // Create game document
-        const officialGame = authoritativeRounds.every((round) => round.official);
         const gameDoc = new Game({
           gameId: gameId,
           gameType: 'singleplayer',
@@ -131,7 +102,7 @@ async function guess(req, res) {
             rounds: rounds.length,
             maxDist: maxDist || 20000,
             timePerRound: null, // No time limit for singleplayer
-            official: officialGame,
+            official: official !== undefined ? official : true, // Use provided official status or default to true
             countryGuesser: !!countryGuesser,
             countryGuessrSubMode: countryGuesser ? (countryGuessrSubMode || 'country') : null,
             showRoadName: false,
@@ -152,7 +123,7 @@ async function guess(req, res) {
             accountId: user._id,
             totalPoints: totalPoints,
             totalXp: totalXp,
-            averageTimePerRound: authoritativeRounds.reduce((sum, r) => sum + (r.durationMs || 0) / 1000, 0) / authoritativeRounds.length,
+            averageTimePerRound: rounds.reduce((sum, r) => sum + r.roundTime, 0) / rounds.length,
             finalRank: 1,
             elo: {
               before: null,

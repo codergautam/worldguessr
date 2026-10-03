@@ -24,7 +24,7 @@ import { useTranslation } from "@/components/useTranslations";
 //   exactly what the resting card shows. Tip length is governed at import.
 
 // Same key / endpoint as the daily's own Street View embed.
-const EMBED_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const EMBED_KEY = "AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI";
 // The embed's native visible width (its expanded-desktop size; smaller boxes
 // scale it down). Mirrors --metaPanoW in daily.scss.
 const PANO_W = 720;

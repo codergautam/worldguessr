@@ -2030,7 +2030,6 @@ const CustomStreetView = ({
   frozenRef.current = frozen;
 
   const hasCoords = lat !== null && lat !== undefined && long !== null && long !== undefined && !(lat === 0 && long === 0);
-  const hasPano = provider === 'google' && typeof panoId === 'string' && panoId.length > 0;
 
   // Fire onLoad at most once per load generation — same contract as the
   // iframe's onload: the game's loading overlay waits on it. `degraded` means
@@ -2064,7 +2063,7 @@ const CustomStreetView = ({
         // getPanorama round trip; community-map rounds still resolve.
         const pano = panoId || (provider === 'baidu' ? null : await resolvePanoId(lat, long));
         if (gen !== loadGenRef.current || !engineRef.current) return;
-        if (!pano) throw new Error('no pano available');
+        if (!pano) throw new Error('no pano near ' + lat + ',' + long);
         prefetchBaseTiles(pano, provider); // downloads race the metadata fetch below
         // From here the ENGINE is working for this generation: onPanoReady
         // must credit the generation whose loadFresh installed `cur`, not
@@ -2183,16 +2182,16 @@ const CustomStreetView = ({
   // before the next frame.
   useEffect(() => {
     if (engineRef.current) engineRef.current.setGate(hidden, covered);
-  }, [hidden, covered, hasCoords, hasPano, engineKey]);
+  }, [hidden, covered, hasCoords, engineKey]);
 
   useEffect(() => {
-    if (!hasCoords && !hasPano) return;
+    if (!hasCoords) return;
     const gen = ++loadGenRef.current;
     // No WebGL (engine creation failed): unblock the loader instead of
     // trapping the player — matches the iframe always firing onload.
     if (!engineRef.current) { fireOnLoad(gen, true /* degraded */); return; }
     startLoad(gen);
-  }, [lat, long, panoId, refreshKey, hasCoords, hasPano, engineKey]);
+  }, [lat, long, panoId, refreshKey, hasCoords, engineKey]);
 
   // Warm the next pano the moment the host names it: base tiles into the HTTP
   // cache AND metadata into the engine's registry (prewarm), so the coming
@@ -2205,7 +2204,16 @@ const CustomStreetView = ({
     // prefetchNonce: same id, new round — must re-run (see the prop note).
   }, [prefetchPano, prefetchNonce, engineKey]);
 
-  if (!hasCoords && !hasPano) return null;
+  // Reload button contract shared with the iframe renderer.
+  useEffect(() => {
+    const mine = () => {
+      if (hasCoords && engineRef.current) startLoad(++loadGenRef.current);
+    };
+    window.reloadLoc = mine;
+    return () => { if (window.reloadLoc === mine) window.reloadLoc = null; };
+  }, [lat, long, heading, panoId, hasCoords]);
+
+  if (!hasCoords) return null;
 
   const navVisible = provider === 'baidu' && allowMove && !hidden && !frozen; // ChinaGuessr (temporary)
 

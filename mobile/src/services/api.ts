@@ -820,6 +820,41 @@ export const api = {
     });
   },
 
+  // Locations
+  fetchAllLocations: async () => {
+    return fetchApi<{
+      ready: boolean;
+      locations: Array<{
+        lat: number;
+        long: number;
+        lng?: number;
+        country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
+      }>;
+      maxDist?: number;
+    }>('/allCountries.json');
+  },
+
+  fetchCountryLocations: async (countryCode: string) => {
+    return fetchApi<{
+      ready: boolean;
+      locations: Array<{
+        lat: number;
+        long: number;
+        lng?: number;
+        country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
+      }>;
+      maxDist?: number;
+    }>(`/countryLocations/${countryCode}`);
+  },
+
   trackMapPlay: async (slug: string) => {
     try {
       await fetchWithTimeout(`${API_URL}/mapPlay/${encodeURIComponent(slug)}`, { method: 'POST' });
@@ -831,7 +866,7 @@ export const api = {
     locations: async (date: string, secret?: string) => {
       const q = new URLSearchParams({ date });
       if (secret) q.set('secret', secret);
-      return fetchApi<DailyLocationsResponse>(`/api/dailyChallenge/locations?${q.toString()}`, { credentials: 'include' });
+      return fetchApi<DailyLocationsResponse>(`/api/dailyChallenge/locations?${q.toString()}`);
     },
 
     // `lite` skips the per-date distribution on the server; only a caller
@@ -852,7 +887,6 @@ export const api = {
     submit: async (body: DailySubmitBody) => {
       return fetchApi<DailySubmitResponse>('/api/dailyChallenge/submit', {
         method: 'POST',
-        credentials: 'include',
         body: JSON.stringify(body),
       });
     },
@@ -863,35 +897,6 @@ export const api = {
         body: JSON.stringify({ secret, guestId }),
       });
     },
-  },
-
-  rounds: {
-    create: async (location: string, options: { countryGuesser?: boolean; countryGuessrSubMode?: 'country' | 'continent'; region?: string; onboardingIndex?: number } = {}) => fetchApi<{
-      roundId: string;
-      panoId: string;
-      heading?: number;
-      pitch?: number;
-      choices?: string[];
-    }>('/api/rounds', {
-      method: 'POST',
-      credentials: 'include',
-      body: JSON.stringify({ location, ...options }),
-    }),
-    hint: async (roundId: string) => fetchApi<{ ok: boolean }>(`/api/rounds/${encodeURIComponent(roundId)}/hint`, {
-      method: 'POST',
-      credentials: 'include',
-    }),
-    guess: async (roundId: string, lat: number, lng: number) => fetchApi<{
-      distanceKm: number;
-      score: number;
-      actual: { lat: number; lng: number };
-      actualCountry?: string | null;
-      metas?: any[];
-    }>(`/api/rounds/${encodeURIComponent(roundId)}/guess`, {
-      method: 'POST',
-      credentials: 'include',
-      body: JSON.stringify({ lat, lng }),
-    }),
   },
 
   // ── Stamps shop ────────────────────────────────────────────────────────────
@@ -978,4 +983,22 @@ export const api = {
     return stampShop<{ history: StampHistoryEntry[] }>({ action: 'history', token: secret });
   },
 
+  fetchMapLocations: async (mapSlug: string) => {
+    return fetchApi<{
+      ready: boolean;
+      name: string;
+      official: boolean;
+      locations: Array<{
+        lat: number;
+        long: number;
+        lng?: number; // Some use lng instead of long
+        country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
+      }>;
+      maxDist?: number;
+    }>(`/mapLocations/${mapSlug}`);
+  },
 };

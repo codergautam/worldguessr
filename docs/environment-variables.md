@@ -30,20 +30,6 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
 
-### Google Street View
-
-```bash
-# Next.js key used by the Maps Embed API and server-side panorama lookup;
-# restrict it to the deployed site origins
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_restricted_embed_key
-
-# Expo key used by the mobile app
-EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your_restricted_mobile_key
-
-# Optional comma-separated extra origins allowed to use round session cookies
-ROUND_ALLOWED_ORIGINS=https://www.worldguessr.com
-```
-
 ### Email login codes (AWS SES)
 
 The email + code login (`api/emailLogin.js`, `api/emailVerify.js`, `api/checkUsername.js`; served by both `server.js` and `authServer.js`) mails 6-digit codes over SMTP (`serverUtils/sendLoginCode.js`, nodemailer). Today the SMTP endpoint is the Amazon SES SMTP interface.

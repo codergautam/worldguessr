@@ -1,7 +1,7 @@
 /**
  * Blue "reload street view" button — the mobile counterpart of web's navbar
  * reload affordance (`components/ui/navbar.js` → `reloadBtnPressed` →
- * `StreetViewHandle.reload()`). Sits beside BackButton and mirrors its silhouette
+ * `window.reloadLoc()`). Sits beside BackButton and mirrors its silhouette
  * (44×44 rounded square) for HUD cohesion, but wears the web's blue gradient
  * (`--gradBlue`) and the real web icon asset (`return.png`) so it reads the same
  * on both platforms.
