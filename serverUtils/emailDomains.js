@@ -61,7 +61,7 @@ const CONSUMER_DOMAINS = new Set([
   'yahoo.com', 'yahoo.co.uk', 'yahoo.co.jp', 'yahoo.fr', 'yahoo.de', 'yahoo.es', 'yahoo.it', 'yahoo.com.br',
   'yahoo.ca', 'yahoo.com.au', 'yahoo.co.in', 'ymail.com', 'rocketmail.com',
   // Apple (privaterelay = Hide My Email; those players already hold accounts here)
-  'icloud.com', 'me.com', 'mac.com', 'privaterelay.appleid.com',
+  'icloud.com', 'me.com', 'mac.com', 'privaterelay.appleid.com', 'private.icloud.com',
   // Other global / regional providers
   'aol.com', 'proton.me', 'protonmail.com', 'pm.me',
   'gmx.com', 'gmx.de', 'gmx.net', 'gmx.at', 'gmx.ch', 'web.de', 'mail.com', 't-online.de', 'posteo.de', 'mailbox.org',
