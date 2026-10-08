@@ -5,6 +5,7 @@ import clientConfig from "@/clientConfig";
 import gameStorage from "@/components/utils/localStorage";
 import sendEvent from "@/components/utils/sendEvent";
 import { getPlatform } from "@/components/utils/getPlatform";
+import { isCrazyGamesHost } from "@/components/utils/getPlatform";
 
 export const initialMultiplayerState = {
   connected: false,
@@ -50,7 +51,7 @@ const NOOP_CTX = {
 
 function sendVerify(ws) {
   if (typeof window === "undefined" || !ws || ws.readyState !== 1) return;
-  const inCrazyGames = window.location.search.includes("crazygames");
+  const inCrazyGames = isCrazyGamesHost();
 
   if (inCrazyGames) {
     if (window.verifyPayload) {

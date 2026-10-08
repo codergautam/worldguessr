@@ -135,6 +135,15 @@ function EmoteReactions({
     setOpen(false);
   }, [ws]);
 
+  // Clear the cooldown on time. `inCooldown` is a render-time snapshot, so
+  // without this the buttons stayed disabled until some unrelated render
+  // (bubble TTL, opponent emote, toggle click) happened to pick up the expiry.
+  useEffect(() => {
+    if (!cooldownUntil) return;
+    const t = setTimeout(() => setCooldownUntil(0), cooldownUntil - Date.now());
+    return () => clearTimeout(t);
+  }, [cooldownUntil]);
+
   if (!enabled || !inGame) return null;
 
   const inCooldown = Date.now() < cooldownUntil;

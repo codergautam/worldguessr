@@ -2231,11 +2231,19 @@ export default function GameScreen() {
         // let the removal proceed; only intercept while still in a game.
         if (!useMultiplayerStore.getState().inGame) return;
         e.preventDefault();
-        // handleLeave owns EVERY multiplayer confirm (forfeit / disband /
+        // Unranked public FFA mid-game: handleLeave leaves it silently (the
+        // visible button stays one-tap), so gate only the accidental gesture
+        // here. handleLeave then runs its silent path — no double prompt.
+        const gd = useMultiplayerStore.getState().gameData;
+        if (gd?.public && !gd.duel && gd.state !== 'waiting' && gd.state !== 'end') {
+          confirmLeave(handleLeave);
+          return;
+        }
+        // handleLeave owns every other multiplayer confirm (forfeit / disband /
         // end-match / member-leave, with their exemptions) — delegate the
         // gesture straight to it so no path double-prompts. Cases it lets
-        // through silently (2v2 staging, solo-host waiting lobby, unranked
-        // public FFA) are deliberately confirm-free (disposable / no cost).
+        // through silently (2v2 staging, solo-host waiting lobby) are
+        // deliberately confirm-free (disposable / no cost).
         handleLeave();
         return;
       }
