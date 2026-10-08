@@ -187,6 +187,7 @@ describe('Playgama initialization and platform state', () => {
   it('ignores a blur pause the SDK keeps while our panorama holds focus and no ad is open', async () => {
     await initialize();
     doc.activeElement = { tagName: 'IFRAME', id: 'streetview' };
+    win.dispatchEvent(new Event('blur'));
     bridge.platform.emit('pause', true);
     vi.advanceTimersByTime(5);
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('ignoring'));
@@ -198,6 +199,23 @@ describe('Playgama initialization and platform state', () => {
     bridge.platform.emit('pause', true);
     vi.advanceTimersByTime(5);
     expect(glue.getPlaygamaPaused()).toBe(true);
+  });
+
+  it.each([
+    ['no blur at all', null],
+    ['a blur long before the pause', 5000],
+  ])('honors a platform pause while our panorama holds focus: %s', async (_, blurAgoMs) => {
+    await initialize();
+    doc.activeElement = { tagName: 'IFRAME', id: 'streetview' };
+    if (blurAgoMs !== null) {
+      win.dispatchEvent(new Event('blur'));
+      vi.advanceTimersByTime(blurAgoMs);
+    }
+    bridge.platform.emit('pause', true);
+    vi.advanceTimersByTime(5);
+    expect(glue.getPlaygamaPaused()).toBe(true);
+    expect(duckAudio).toHaveBeenLastCalledWith(true);
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('ignoring'));
   });
 
   it('never ignores a pause while an ad is on screen, even with the panorama focused', async () => {

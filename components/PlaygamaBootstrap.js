@@ -29,6 +29,17 @@ function publishLanguage(language) {
   window.dispatchEvent(new CustomEvent("langChange", { detail: language }));
 }
 
+// An initialize() that never settles must not hold the loader forever. Past
+// this, play starts memory-only; loadPlaygamaBridge keeps waiting, and the
+// late-SDK path below attaches the save if it ever lands.
+const SDK_START_TIMEOUT_MS = 10000;
+
+function withinStartTimeout(promise) {
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(resolve, SDK_START_TIMEOUT_MS, null); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // Mounted only by the 6x app shell. Keep the game unmounted until the SDK
 // has initialized (docs: wait for initialize() before any bridge.* call) and
 // the save has been read once: mounting early would write default
@@ -44,7 +55,7 @@ export default function PlaygamaBootstrap({ children }) {
     let cancelled = false;
     let unsubscribe = () => {};
     (async () => {
-      const bridge = await loadPlaygamaBridge();
+      const bridge = await withinStartTimeout(loadPlaygamaBridge());
       if (!bridge) console.warn("[Playgama] SDK unavailable; playing without platform services");
       await initializePlaygamaStorage(bridge);
       if (cancelled) return;

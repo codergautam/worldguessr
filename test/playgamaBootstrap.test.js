@@ -104,7 +104,7 @@ function find(tree, predicate) {
   return null;
 }
 const gameVisible = tree => !!find(tree, node => node.type === 'game-marker');
-const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
+const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 
 afterEach(() => vi.useRealTimers());
 
@@ -153,6 +153,27 @@ describe('6x Playgama startup gate', () => {
     expect(gate.initializePlaygamaStorage).toHaveBeenCalledWith(null);
     expect(gate.window.language).toBe('en');
     expect(gate.console.warn).toHaveBeenCalled();
+    gate.unmount();
+  });
+
+  it('mounts the game in memory mode when initialize() never settles, and attaches the SDK if it lands later', async () => {
+    vi.useFakeTimers();
+    let listener;
+    const gate = mount({
+      loadPlaygamaBridge: vi.fn(() => new Promise(() => {})),
+      subscribePlaygamaReady: vi.fn((callback) => { listener = callback; return () => {}; }),
+    });
+    gate.render();
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(gameVisible(gate.render())).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(gameVisible(gate.render())).toBe(true);
+    expect(gate.initializePlaygamaStorage).toHaveBeenCalledWith(null);
+    expect(gate.window.language).toBe('en');
+    listener({ platform: { language: 'ru' } });
+    await settle();
+    expect(gate.attachPlaygamaStorage).toHaveBeenCalledOnce();
+    expect(gate.window.language).toBe('ru');
     gate.unmount();
   });
 

@@ -26,6 +26,7 @@ export const EXPLICIT_LANGUAGE_KEY = 'wg_6x_lang_explicit';
 // round; the docs say to save on meaningful progress, not every frame.
 const SESSION_ONLY_KEYS = new Set(['wg_seen']);
 const RECOVERY_DELAYS_MS = [30000, 60000, 120000, 240000, 480000];
+const RESTORE_TIMEOUT_MS = 5000;
 
 let values = new Map();
 let storage = null;         // Bridge storage once a restore succeeded
@@ -77,16 +78,34 @@ function usable(nextStorage) {
   return typeof nextStorage?.get === 'function' && typeof nextStorage?.set === 'function';
 }
 
-async function restore(nextStorage) {
+async function read(nextStorage, expired) {
   const result = await nextStorage.get([SAVE_KEY]);
   if (!Array.isArray(result) || result.length !== 1) throw new Error('Invalid Playgama storage response');
   const raw = result[0];
   const restored = raw == null ? legacyValues() : decode(raw);
   // Persist even an empty migration so deleted local keys stay deleted. A
   // failed write keeps us in memory mode: never play on empty defaults that
-  // could subsequently overwrite an unread cloud save.
-  if (raw == null) await nextStorage.set([SAVE_KEY], [encode(restored)]);
+  // could subsequently overwrite an unread cloud save. A read that answered
+  // after its timeout must not write: a later recovery owns the save now.
+  if (raw == null) {
+    if (expired()) throw new Error('Playgama storage answered after its timeout');
+    await nextStorage.set([SAVE_KEY], [encode(restored)]);
+  }
   return restored;
+}
+
+// A get()/set() that never settles counts as a failure, so neither the boot
+// gate nor a recovery attempt can hang on it.
+function restore(nextStorage) {
+  let expired = false;
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      expired = true;
+      reject(new Error('Playgama storage timed out'));
+    }, RESTORE_TIMEOUT_MS);
+  });
+  return Promise.race([read(nextStorage, () => expired), timeout]).finally(() => clearTimeout(timer));
 }
 
 // This session's changes (made while the save was unreadable) overlay a

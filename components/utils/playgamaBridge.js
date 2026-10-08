@@ -58,6 +58,11 @@ let visibilityListenersInstalled = false;
 const pauseListeners = new Set();
 const readyListeners = new Set();
 let ignoredPause = false;  // a blur pause the SDK failed to clear on replay
+let lastBlurAt = -Infinity; // last window blur (Date.now)
+let pauseFromBlur = false; // the current pause began right after a window blur
+// A pause event arriving this soon after a window blur may be the SDK's
+// blur pause; any other pause is the platform's and is never ignored.
+const BLUR_PAUSE_WINDOW_MS = 1000;
 const finishedCallbacks = [];
 const pendingMessages = [];
 
@@ -169,11 +174,12 @@ function replayVisibilityIfPanoFocused() {
     // synchronously (its visibilitychange handler re-reads the document
     // state), so this never fires. Should a future SDK keep the pause, every
     // panorama click would otherwise strand the player behind the cover: a
-    // pause that survives the replay while our own iframe holds focus and no
-    // ad is on screen is treated as that blur pause and ignored until the
-    // next pause event.
+    // pause that began right after a window blur and survives the replay
+    // while our own iframe holds focus and no ad is on screen is treated as
+    // that blur pause and ignored until the next pause event. A platform
+    // pause with no blur behind it stays authoritative.
     setTimeout(() => {
-      if (paused && !ignoredPause && !adActive && isPanoFrameFocused()) {
+      if (paused && pauseFromBlur && !ignoredPause && !adActive && isPanoFrameFocused()) {
         console.warn("[Playgama] ignoring a visible-tab pause caused by focusing the panorama");
         ignoredPause = true;
         schedulePlatformState();
@@ -187,7 +193,10 @@ function replayVisibilityIfPanoFocused() {
 function installVisibilityListeners() {
   if (visibilityListenersInstalled) return;
   visibilityListenersInstalled = true;
-  window.addEventListener("blur", replayVisibilityIfPanoFocused);
+  window.addEventListener("blur", () => {
+    lastBlurAt = Date.now();
+    replayVisibilityIfPanoFocused();
+  });
   document.addEventListener("visibilitychange", schedulePlatformState);
 }
 
@@ -217,6 +226,7 @@ function onBridgeReady(bridge) {
   subscribe(bridge.platform, events.PAUSE_STATE_CHANGED, (isPaused) => {
     paused = !!isPaused;
     ignoredPause = false;
+    pauseFromBlur = paused && Date.now() - lastBlurAt < BLUR_PAUSE_WINDOW_MS;
     if (paused) replayVisibilityIfPanoFocused();
     schedulePlatformState();
   }, "pause state");

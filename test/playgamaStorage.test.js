@@ -111,6 +111,39 @@ describe('6x Bridge storage', () => {
     vi.useRealTimers();
   });
 
+  it('plays from memory when the save read never settles, never writes from the late answer, and recovers on retry', async () => {
+    vi.useFakeTimers();
+    const hung = deferred();
+    const bridge = platform(snapshot({ countryStreak: '9' }));
+    bridge.storage.get.mockReturnValueOnce(hung.promise);
+    const init = adapter.initializePlaygamaStorage(bridge);
+    await vi.advanceTimersByTimeAsync(5000);
+    await init;
+    expect(adapter.getPlaygamaStorageMode()).toBe('memory');
+    // The hung read finally answers "no save": the stale migration must not write.
+    hung.resolve([null]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(bridge.storage.set).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(adapter.getPlaygamaStorageMode()).toBe('bridge');
+    expect(adapter.getPlaygamaStorageItem('countryStreak')).toBe('9');
+    vi.useRealTimers();
+  });
+
+  it('times out a hung recovery attempt so later retries still run', async () => {
+    vi.useFakeTimers();
+    const bridge = platform(snapshot({ countryStreak: '9' }));
+    bridge.storage.get.mockRejectedValueOnce(new Error('offline'));
+    bridge.storage.get.mockReturnValueOnce(new Promise(() => {}));
+    await adapter.initializePlaygamaStorage(bridge);
+    await vi.advanceTimersByTimeAsync(30000 + 5000);
+    expect(adapter.getPlaygamaStorageMode()).toBe('memory');
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(bridge.storage.get).toHaveBeenCalledTimes(3);
+    expect(adapter.getPlaygamaStorageMode()).toBe('bridge');
+    vi.useRealTimers();
+  });
+
   it('gives up recovery after five failed retries and stays in memory', async () => {
     vi.useFakeTimers();
     const bridge = platform();
