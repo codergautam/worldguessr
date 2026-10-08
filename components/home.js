@@ -91,7 +91,8 @@ import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import CommunityBanner from '@/components/communityBanner';
 import ModeItem from '@/components/ui/modeItem';
-import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline } from 'react-icons/io5';
+import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline, IoGameControllerOutline } from 'react-icons/io5';
+import { EMBED_SOCIAL_LINKS, MORE_GAMES_URL } from '@/components/utils/externalLinks';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
@@ -6057,8 +6058,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                                     )}
                                                     <ModeItem icon={<IoFlashOutline />} label={
                                                         // Ranked is hidden on the no-account builds, so "Unranked"
-                                                        // would be meaningless jargon there — it's just "Find Match".
-                                                        HIDE_ACCOUNT_UI ? text("findMatch") :
+                                                        // would be meaningless jargon there — it's just "Multiplayer Match".
+                                                        HIDE_ACCOUNT_UI ? text("multiplayerMatch") :
                                                         session?.token?.secret ? text("unrankedDuel") : text("findDuel")}
                                                         onClick={() => {
                                                             if (!ws || !multiplayerState?.connected) {
@@ -6138,7 +6139,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                             screen, so closing a modal must NOT replay. */}
                         <div className={`home__footer ${(screen === "home" && onboardingCompleted === true) ? "visible" : ""} ${(mapModal || friendsModal || accountModalOpen) ? "covered" : ""}`}>
                             <div className="footer_btns">
-                                {!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && (
+                                {/* EMBED_SOCIAL_LINKS re-opens Discord / YouTube on DuckMath (a Poki
+                                    variant, so inPoki is true there). Leaderboard stays off: it is a
+                                    root-absolute route that 404s on the nested zip path. */}
+                                {!isApp && !inCoolMathGames && !inGameDistribution && ((!inPoki && !inSixX) || EMBED_SOCIAL_LINKS) && (
                                     <>
                                         {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
                                             <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
@@ -6150,9 +6154,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                             GitHub / Terms — it is a credit link, not a thing
                                             players reach for mid-session, and this row is for
                                             buttons they do. */}
+                                        {!inPoki && !inSixX && (
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                                        )}
                                     </>
                                 )}
                                 {/* COMMUNITY MAPS, and it is ICON-ONLY HERE ON
@@ -6171,6 +6177,13 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                 {onboardingCompleted && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_COOLMATH
                                     && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
                                     <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label={text("communityMaps")} title={text("communityMaps")} onClick={() => setMapModal(true)}><FaMapMarkedAlt className="home__squarebtnicon" /></button>
+                                )}
+
+                                {/* Portal hub link (DuckMath only; MORE_GAMES_URL is null on every
+                                    other build). Anchor, not window.open, so the embed's iframe
+                                    doesn't popup-block it. */}
+                                {MORE_GAMES_URL && (
+                                    <a className="home__squarebtnlink" href={MORE_GAMES_URL} target="_blank" rel="noopener"><button className="g2_hover_effect home__squarebtn home__squarebtn--labeled gameBtn g2_container_full"><IoGameControllerOutline className="home__squarebtnicon" aria-hidden="true" /><span className="home__squarebtnlabel">{text("moreGames")}</span></button></a>
                                 )}
 
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>

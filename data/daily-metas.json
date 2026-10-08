@@ -1,4 +1,5 @@
 {
+  "_publishedAt": "2026-09-16T16:41:43.551Z",
   "2026-09-09": [
     {
       "lat": 38.230782,
@@ -417,6 +418,838 @@
             "zoom": 3.1
           },
           "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80389_base_3bf2ebabc2_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-19": [
+    {
+      "lat": 41.54586,
+      "lng": -8.419901,
+      "heading": 156.95,
+      "country": "PT",
+      "title": "Portuguese Pedestrian Sign",
+      "metas": [
+        {
+          "title": "Portuguese Pedestrian Sign",
+          "explanation": "Portuguese pedestrian crossing signs show five zebra stripes and a walking figure whose belt sits noticeably high on the body.",
+          "view": {
+            "heading": 161.63,
+            "pitch": -0.54,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23542_base_e6a26e0ce5_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 13.76139,
+      "lng": 100.477959,
+      "heading": 7.14,
+      "country": "TH",
+      "title": "Thai Script",
+      "metas": [
+        {
+          "title": "Thai Script",
+          "explanation": "Thai script is compact, with small circles on many letters. Cambodia's Khmer is more stretched, with marks under the letters.",
+          "view": {
+            "heading": 57.5,
+            "pitch": 2.32,
+            "zoom": 3.41
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-162_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 25.553818,
+      "lng": -103.437353,
+      "heading": 180.22,
+      "country": "MX",
+      "title": "ALTO Stop Signs",
+      "metas": [
+        {
+          "title": "ALTO Stop Signs",
+          "explanation": "Mexican stop signs say ALTO, not STOP or PARE. Guatemala, Costa Rica and Panama also use ALTO; most of Latin America uses PARE.",
+          "view": {
+            "heading": 202.47,
+            "pitch": -2.71,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80336_base_f11e4f300a_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-20": [
+    {
+      "lat": 49.831837,
+      "lng": 18.279973,
+      "heading": 256.54,
+      "country": "CZ",
+      "title": "Czech Direction Sign Arrows",
+      "metas": [
+        {
+          "title": "Czech Direction Sign Arrows",
+          "explanation": "Czech town direction signs carry a small separate arrow above or at the end. In Slovakia the arrow is painted onto the sign.",
+          "view": {
+            "heading": 308.52,
+            "pitch": 7.16,
+            "zoom": 2.49
+          },
+          "hint": "Czech = cut-off arrows, Slovak = stuck-on arrows",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-2495_0_18f5ccad9d_original.png"
+        }
+      ]
+    },
+    {
+      "lat": 18.008727,
+      "lng": 102.609868,
+      "heading": 34.62,
+      "country": "LA",
+      "title": "Lao Script",
+      "metas": [
+        {
+          "title": "Lao Script",
+          "explanation": "Lao script, used in Laos, is small and rounded with few marks above or below. It looks like Thai but with fewer straight lines.",
+          "view": {
+            "heading": 62.19,
+            "pitch": 9.36,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-178_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -1.266181,
+      "lng": 36.821827,
+      "heading": 112,
+      "country": "KE",
+      "title": "Kenyan Google Car Snorkel",
+      "metas": [
+        {
+          "title": "Kenyan Google Car Snorkel",
+          "explanation": "Many Kenyan Street View cars are pickup trucks with a snorkel on the front, blurred or not. The other well-known snorkel car drives in Mongolia.",
+          "view": {
+            "heading": 122.38,
+            "pitch": -37,
+            "zoom": 1.75
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23366_base_cba062b4fd_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-21": [
+    {
+      "lat": 48.888422,
+      "lng": 2.386677,
+      "heading": 248.82,
+      "country": "FR",
+      "title": "French License Plates",
+      "metas": [
+        {
+          "title": "French License Plates",
+          "explanation": "French plates are long front and back, with a blue strip on the left and often one on the right. Italy's front plate is short.",
+          "view": {
+            "heading": 283.03,
+            "pitch": -12.85,
+            "zoom": 3.84
+          },
+          "hint": "F-R = Front and Rear are long",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3947_0_6e37843aaf_original.png"
+        }
+      ]
+    },
+    {
+      "lat": 23.715374,
+      "lng": 90.413314,
+      "heading": 285.96,
+      "country": "BD",
+      "title": "Bengali Script",
+      "metas": [
+        {
+          "title": "Bengali Script",
+          "explanation": "Bangladesh's Bengali script is curved, with a top line joining each word's letters. It looks rounder than Hindi's Devanagari.",
+          "view": {
+            "heading": 251.93,
+            "pitch": 8.57,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-199_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -34.65774,
+      "lng": -58.659725,
+      "heading": 69.5,
+      "country": "AR",
+      "title": "Argentina's Domain .ar",
+      "metas": [
+        {
+          "title": "Argentina's Domain .ar",
+          "explanation": "Web addresses on shops and ads in Argentina end in .ar, most often as .com.ar.",
+          "view": {
+            "heading": 156.6,
+            "pitch": -5.7,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/77998_base_77b0aa026d_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-22": [
+    {
+      "lat": 48.206404,
+      "lng": 16.35136,
+      "heading": 350.44,
+      "country": "AT",
+      "title": "EINBAHN One-Way Signs",
+      "metas": [
+        {
+          "title": "EINBAHN One-Way Signs",
+          "explanation": "Austrian one-way signs say EINBAHN. The German version of the same sign says the much longer Einbahnstraße.",
+          "view": {
+            "heading": 63.96,
+            "pitch": 9.53,
+            "zoom": 3.44
+          },
+          "hint": "Smaller country, shorter word",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3712_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 32.064985,
+      "lng": 34.771103,
+      "heading": 276.82,
+      "country": "IL",
+      "title": "Israeli Red Hand Stop Sign",
+      "metas": [
+        {
+          "title": "Israeli Red Hand Stop Sign",
+          "explanation": "Israeli stop signs show a red hand inside the octagon instead of the word STOP.",
+          "view": {
+            "heading": 194.09,
+            "pitch": 19.43,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-347_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -1.954962,
+      "lng": 30.117831,
+      "heading": 32.52,
+      "country": "RW",
+      "title": "Rwandan Moto Taxis",
+      "metas": [
+        {
+          "title": "Rwandan Moto Taxis",
+          "explanation": "Motorcycle taxi riders in Rwanda wear bright red vests and helmets. Look for them in Kigali traffic.",
+          "view": {
+            "heading": 39.15,
+            "pitch": -12.82,
+            "zoom": 2.27
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80391_base_4342abd1af_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-23": [
+    {
+      "lat": 56.955712,
+      "lng": 24.120392,
+      "heading": 223.22,
+      "country": "LV",
+      "title": "Latvia's Domain .lv",
+      "metas": [
+        {
+          "title": "Latvia's Domain .lv",
+          "explanation": "Web addresses in Latvia end in .lv.",
+          "view": {
+            "heading": 284.82,
+            "pitch": 1.07,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/76993_base_b91abce1a5_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 22.600425,
+      "lng": 120.323911,
+      "heading": 144.06,
+      "country": "TW",
+      "title": "Taiwanese Box Transformers",
+      "metas": [
+        {
+          "title": "Taiwanese Box Transformers",
+          "explanation": "Taiwanese cities have dark green or grey box transformers on short concrete plinths. Even an empty plinth is a useful clue.",
+          "view": {
+            "heading": 102.25,
+            "pitch": -6.51,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-78_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -34.906364,
+      "lng": -56.154645,
+      "heading": 341.05,
+      "country": "UY",
+      "title": "Uruguayan Taxi Plates",
+      "metas": [
+        {
+          "title": "Uruguayan Taxi Plates",
+          "explanation": "Taxis in Uruguay carry yellow license plates with black text, while private cars have white plates.",
+          "view": {
+            "heading": 7.53,
+            "pitch": -25.33,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-1301_0_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-24": [
+    {
+      "lat": 45.460083,
+      "lng": 9.186108,
+      "heading": 249.13,
+      "country": "IT",
+      "title": "Italian Front License Plates",
+      "metas": [
+        {
+          "title": "Italian Front License Plates",
+          "explanation": "Italian front plates are short, with a blue strip at each end. Albanian plates also have two blue strips, but both are long.",
+          "view": {
+            "heading": 281.25,
+            "pitch": -19.4,
+            "zoom": 3.32
+          },
+          "hint": "Short-aly vs Long-bania",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3945_0_692cf0aed3_original.png"
+        }
+      ]
+    },
+    {
+      "lat": 47.916139,
+      "lng": 106.898596,
+      "heading": 175.93,
+      "country": "MN",
+      "title": "Mongolian Cyrillic",
+      "metas": [
+        {
+          "title": "Mongolian Cyrillic",
+          "explanation": "Mongolian is written in Cyrillic with two letters Russian does not have, Ө and Ү. Long vowels are doubled, like ӨӨ, АА or ЭЭ.",
+          "view": {
+            "heading": 124.73,
+            "pitch": 5.07,
+            "zoom": 2.37
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-258_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 12.05041,
+      "lng": 8.53868,
+      "heading": 160.33,
+      "country": "NG",
+      "title": "Nigerian Police Escort",
+      "metas": [
+        {
+          "title": "Nigerian Police Escort",
+          "explanation": "A police escort vehicle often follows the Street View car in Nigeria. Look behind you for it, though it is not in every location.",
+          "view": {
+            "heading": 161.76,
+            "pitch": -4.56,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-724_0_4cdcc6297f_original.png"
+        }
+      ]
+    }
+  ],
+  "2026-09-25": [
+    {
+      "lat": 59.317441,
+      "lng": 18.136395,
+      "heading": 72.67,
+      "country": "SE",
+      "title": "Swedish Letters Å, Ä, Ö",
+      "metas": [
+        {
+          "title": "Swedish Letters Å, Ä, Ö",
+          "explanation": "Swedish uses the letters Å, Ä and Ö. Danish and Norwegian write Æ and Ø instead of Ä and Ö, and Finnish words are longer with doubled vowels.",
+          "view": {
+            "heading": 130.2,
+            "pitch": 13.61,
+            "zoom": 1.94
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3248_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -32.924253,
+      "lng": 151.741631,
+      "heading": 86.22,
+      "country": "AU",
+      "title": "Australian Give Way Signs",
+      "metas": [
+        {
+          "title": "Australian Give Way Signs",
+          "explanation": "Australian give way signs have black text with a white border. New Zealand give way signs use red text.",
+          "view": {
+            "heading": 59.96,
+            "pitch": -0.37,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-718_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -0.182578,
+      "lng": -78.473575,
+      "heading": 164.62,
+      "country": "EC",
+      "title": "Una Vía Signs",
+      "metas": [
+        {
+          "title": "Una Vía Signs",
+          "explanation": "Una Vía (one-way) and Doble Vía (two-way) signs. In Latin America only Ecuador, Puerto Rico and the Dominican Republic use them.",
+          "view": {
+            "heading": 227.42,
+            "pitch": 7.79,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80300_base_2b6a7032ee_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-26": [
+    {
+      "lat": 40.446356,
+      "lng": -3.679502,
+      "heading": 288.35,
+      "country": "ES",
+      "title": "Spanish Pedestrian Crossing Sign",
+      "metas": [
+        {
+          "title": "Spanish Pedestrian Crossing Sign",
+          "explanation": "Spanish pedestrian crossing signs show eight zebra stripes, more than any other European country. Andorra uses the same sign.",
+          "view": {
+            "heading": 344.1,
+            "pitch": -0.12,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23548_base_501e6bbfdf_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 35.231959,
+      "lng": 136.83912,
+      "heading": 219.6,
+      "country": "JP",
+      "title": "Japanese Convex Mirrors",
+      "metas": [
+        {
+          "title": "Japanese Convex Mirrors",
+          "explanation": "Orange-rimmed convex mirrors stand at junctions and blind corners all over Japan.",
+          "view": {
+            "heading": 245.3,
+            "pitch": 6.91,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-65_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 36.808896,
+      "lng": 10.132969,
+      "heading": 304.87,
+      "country": "TN",
+      "title": "Tunisian Striped Kerbs",
+      "metas": [
+        {
+          "title": "Tunisian Striped Kerbs",
+          "explanation": "Tunisian streets often have black and white striped kerbs along their edges.",
+          "view": {
+            "heading": 32.71,
+            "pitch": -42.78,
+            "zoom": 1.72
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80351_base_deff36bc18_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-27": [
+    {
+      "lat": 59.433327,
+      "lng": 24.749131,
+      "heading": 42.02,
+      "country": "EE",
+      "title": "Estonia's Domain .ee",
+      "metas": [
+        {
+          "title": "Estonia's Domain .ee",
+          "explanation": "Web addresses in Estonia end in .ee.",
+          "view": {
+            "heading": 326.82,
+            "pitch": -3.29,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/76556_base_d88a8ab35f_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 14.585056,
+      "lng": 121.001977,
+      "heading": 173.64,
+      "country": "PH",
+      "title": "Philippine Green License Plates",
+      "metas": [
+        {
+          "title": "Philippine Green License Plates",
+          "explanation": "Private cars in the Philippines often have short green plates with white text. The blur usually shows a dark mark in the middle.",
+          "view": {
+            "heading": 133.91,
+            "pitch": -18.61,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-2104_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -17.785045,
+      "lng": -63.171834,
+      "heading": 351.61,
+      "country": "BO",
+      "title": "Bolivian License Plates",
+      "metas": [
+        {
+          "title": "Bolivian License Plates",
+          "explanation": "Bolivian license plates are white with blue text, and can be long or short.",
+          "view": {
+            "heading": 25.01,
+            "pitch": -21.51,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-1328_0_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-28": [
+    {
+      "lat": 52.019392,
+      "lng": 8.52721,
+      "heading": 335.47,
+      "country": "DE",
+      "title": "Einbahnstraße One-Way Signs",
+      "metas": [
+        {
+          "title": "Einbahnstraße One-Way Signs",
+          "explanation": "German one-way signs say Einbahnstraße. In Austria the same sign says only EINBAHN.",
+          "view": {
+            "heading": 60.84,
+            "pitch": 3.29,
+            "zoom": 3.54
+          },
+          "hint": "Big country, big word",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-2957_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 6.893315,
+      "lng": 79.877111,
+      "heading": 181.78,
+      "country": "LK",
+      "title": "Sinhala Script",
+      "metas": [
+        {
+          "title": "Sinhala Script",
+          "explanation": "Sinhala script is very round and bubbly, with letters that look like loops and spirals. It is used only in Sri Lanka.",
+          "view": {
+            "heading": 120.72,
+            "pitch": 15.24,
+            "zoom": 2.63
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-2258_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 9.000008,
+      "lng": -79.528959,
+      "heading": 292.28,
+      "country": "PA",
+      "title": "Panamanian ALTO Stop Signs",
+      "metas": [
+        {
+          "title": "Panamanian ALTO Stop Signs",
+          "explanation": "Panamanian stop signs say ALTO in a bold, thick font. Mexico, Costa Rica and Guatemala also use ALTO, but with thinner letters.",
+          "view": {
+            "heading": 340.52,
+            "pitch": -2.17,
+            "zoom": 3.1
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80335_base_a19beef30f_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-29": [
+    {
+      "lat": 53.362147,
+      "lng": -6.259139,
+      "heading": 207.82,
+      "country": "IE",
+      "title": "Irish License Plates",
+      "metas": [
+        {
+          "title": "Irish License Plates",
+          "explanation": "Irish plates are white with black text front and back, plus a blue EU strip reading IRL. British rear plates are yellow instead.",
+          "view": {
+            "heading": 263.27,
+            "pitch": -15.65,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-3155_1_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 31.956055,
+      "lng": 35.90889,
+      "heading": 321.84,
+      "country": "JO",
+      "title": "Jordanian Chevrons",
+      "metas": [
+        {
+          "title": "Jordanian Chevrons",
+          "explanation": "Jordanian chevrons are white with thin red arrows.",
+          "view": {
+            "heading": 352.9,
+            "pitch": -9.44,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-323_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": -24.638819,
+      "lng": 25.903204,
+      "heading": 258.17,
+      "country": "BW",
+      "title": "Botswana Striped Signs",
+      "metas": [
+        {
+          "title": "Botswana Striped Signs",
+          "explanation": "Black and yellow striped signs mark obstacles in Botswana. The same stripes appear on posts and barriers.",
+          "view": {
+            "heading": 229.26,
+            "pitch": -7.33,
+            "zoom": 3.09
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80425_base_91376ec321_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-09-30": [
+    {
+      "lat": 46.909767,
+      "lng": 19.691274,
+      "heading": 230.03,
+      "country": "HU",
+      "title": "Hungarian Pedestrian Sign",
+      "metas": [
+        {
+          "title": "Hungarian Pedestrian Sign",
+          "explanation": "Five stripes and a belted figure with pointed shoes. Unlike Germany's sign, the bent arm's sharp end points away from the body.",
+          "view": {
+            "heading": 214.71,
+            "pitch": 4.52,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23534_base_eb9fed0b99_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 27.469002,
+      "lng": 89.640129,
+      "heading": 330.31,
+      "country": "BT",
+      "title": "Dzongkha Script",
+      "metas": [
+        {
+          "title": "Dzongkha Script",
+          "explanation": "Bhutan's signs use Dzongkha, in angular Tibetan script with a clear line along the top. English usually appears alongside it.",
+          "view": {
+            "heading": 30,
+            "pitch": 2.02,
+            "zoom": 4
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-240_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 18.473439,
+      "lng": -69.931538,
+      "heading": 182.22,
+      "country": "DO",
+      "title": "Dominican Google Car",
+      "metas": [
+        {
+          "title": "Dominican Google Car",
+          "explanation": "The Dominican Republic's Street View car has a white hood and a roof rack with thick black stripes in the middle.",
+          "view": {
+            "heading": 175.8,
+            "pitch": -81.05,
+            "zoom": 1.46
+          },
+          "hint": "Domino-can Republic = black and white car bars",
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23357_base_f8c54e12d9_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-01": [
+    {
+      "lat": 48.128028,
+      "lng": 17.115005,
+      "heading": 93.92,
+      "country": "SK",
+      "title": "Slovak Language",
+      "metas": [
+        {
+          "title": "Slovak Language",
+          "explanation": "Slovak words often end in -cia or -nie, where Czech has -ce or -ní. A drugstore is a drogéria in Slovakia and a drogerie in Czechia.",
+          "view": {
+            "heading": 154.24,
+            "pitch": 13.73,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-2508_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 25.281038,
+      "lng": 51.512719,
+      "heading": 147.24,
+      "country": "QA",
+      "title": "Qatari Street Signs",
+      "metas": [
+        {
+          "title": "Qatari Street Signs",
+          "explanation": "Qatari street signs are dark blue with white text in Arabic and English, and show a zone number, Z. No., in the right corner.",
+          "view": {
+            "heading": 82.06,
+            "pitch": 1.2,
+            "zoom": 3.84
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-600_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 14.844346,
+      "lng": -91.520732,
+      "heading": 97.58,
+      "country": "GT",
+      "title": "Guatemalan Google Car",
+      "metas": [
+        {
+          "title": "Guatemalan Google Car",
+          "explanation": "Guatemala's Street View car is grey with a roof rack and black mirrors with rounded corners.",
+          "view": {
+            "heading": 94.73,
+            "pitch": -76.19,
+            "zoom": 1.46
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23362_base_c2a362355f_preview.avif"
+        }
+      ]
+    }
+  ],
+  "2026-10-02": [
+    {
+      "lat": 49.809055,
+      "lng": 23.987964,
+      "heading": 209.18,
+      "country": "UA",
+      "title": "Ukrainian Red Google Car",
+      "metas": [
+        {
+          "title": "Ukrainian Red Google Car",
+          "explanation": "A red car trunk, with or without an antenna, shows in Ukraine's coverage. Belgium's similar red car always has an antenna.",
+          "view": {
+            "heading": 210.9,
+            "pitch": -33.43,
+            "zoom": 3
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/23372_base_cb9c98837f_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 51.156694,
+      "lng": 71.477763,
+      "heading": 28.9,
+      "country": "KZ",
+      "title": "Kazakh License Plates",
+      "metas": [
+        {
+          "title": "Kazakh License Plates",
+          "explanation": "Kazakh license plates are white with black text and a narrow light blue strip on the left that is easy to miss.",
+          "view": {
+            "heading": 339.63,
+            "pitch": -20.09,
+            "zoom": 3.58
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/geo-features-groups/geo-group-269_0_preview.avif"
+        }
+      ]
+    },
+    {
+      "lat": 10.013012,
+      "lng": -84.218352,
+      "heading": 72.65,
+      "country": "CR",
+      "title": "Costa Rican Red Taxis",
+      "metas": [
+        {
+          "title": "Costa Rican Red Taxis",
+          "explanation": "Taxis in Costa Rica are red. In neighbouring Panama they are yellow.",
+          "view": {
+            "heading": 101.63,
+            "pitch": -6.23,
+            "zoom": 2.36
+          },
+          "image": "https://storage.googleapis.com/images-test-e94d1.firebasestorage.app/dataset-tags/80198_base_74dfd836a6_preview.avif"
         }
       ]
     }

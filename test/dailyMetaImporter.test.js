@@ -111,6 +111,21 @@ describe('daily meta publisher CLI', () => {
     expect(fs.existsSync(output)).toBe(false);
   });
 
+  it('never stores a counterexample image', () => {
+    fs.writeFileSync(output, '{}');
+    const withImages = JSON.parse(fs.readFileSync(pack, 'utf8'));
+    withImages.locations[0].metas[0].images = [
+      { url: 'https://example.com/not-this.jpg', kind: 'example', is_incorrect: true },
+      { url: 'https://example.com/map.jpg', kind: 'distribution' },
+      { url: 'https://example.com/this.jpg', kind: 'example' },
+    ];
+    fs.writeFileSync(pack, JSON.stringify(withImages));
+    const result = run(earliestDailyMetaDate());
+    expect(result.status, result.stderr).toBe(0);
+    const saved = JSON.parse(fs.readFileSync(output, 'utf8'));
+    expect(saved[earliestDailyMetaDate()][0].metas[0].image).toBe('https://example.com/this.jpg');
+  });
+
   it('rejects normalized invalid calendar dates', () => {
     const invalid = run('2030-02-30');
     expect(invalid.status).toBe(1);

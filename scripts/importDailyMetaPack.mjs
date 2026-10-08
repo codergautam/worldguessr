@@ -168,9 +168,10 @@ function withCountryLine(explanation, title, code) {
   const body = explanation.replace(/[\s.]+$/, '');
   return `${body}. ${sentence}`;
 }
-// Three lines at the resting width is about this many characters. Longer
-// tips grow the card, so the importer warns.
-const TIP_SOFT_MAX = 150;
+// Three lines at the resting width is about this many characters (measured
+// in Lexend: 142 still fit, 146 wrapped to a fourth). Longer tips grow the
+// card, so the importer warns.
+const TIP_SOFT_MAX = 140;
 
 // ---- normalize --------------------------------------------------------------
 const num = (v) => (Number.isFinite(v) ? v : null);
@@ -216,7 +217,9 @@ locations.forEach((loc, i) => {
     const hint = Array.isArray(m?.hints) ? m.hints.find(h => typeof h === 'string' && h.trim()) : null;
     if (hint) out.hint = oneLine(hint);
     const imgs = Array.isArray(m?.images) ? m.images : [];
-    const img = imgs.find(x => x?.kind === 'example' && x.url) || imgs.find(x => x?.url);
+    // is_incorrect marks a counterexample (what the meta is NOT); never store it.
+    const usable = imgs.filter(x => x?.url && !x.is_incorrect);
+    const img = usable.find(x => x.kind === 'example') || usable[0];
     if (img) out.image = img.url;
     return out;
   });

@@ -1,0 +1,49 @@
+name: DuckMath Build
+
+# Manual-only: DuckMath is a zip submission (like Poki/6x), not branch-hosted
+# like GD/CoolMath/SchoolGuessr. Run this workflow from the Actions tab and
+# download the worldguessr-duckmath artifact, or build locally with
+# `pnpm build:duckmath` (zip lands in builds-submission/worldguessr-duckmath.zip).
+#
+# DuckMath is a Poki BUILD VARIANT with the ad SDK suppressed: build:duckmath
+# sets BOTH NEXT_PUBLIC_POKI (to inherit Poki's accountless HIDE_ACCOUNT_UI,
+# relative nested-zip assets, no-Playwire, no external/profile links behavior)
+# and NEXT_PUBLIC_DUCKMATH (whose only job is to skip the Poki SDK loader in
+# components/headContent.js). Result: no accounts, no ads, no third-party SDK,
+# worldguessr.com backend. Never build this target with bare `next build` —
+# the packager's mustInline guard (NEXT_PUBLIC_DUCKMATH) fails the zip if the
+# flag wasn't baked in, which would otherwise leave the Poki ad SDK active.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-duckmath:
+    runs-on: ubuntu-latest
+    env:
+      CI: false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        corepack enable
+        pnpm install --no-frozen-lockfile
+
+    # build:duckmath bakes NEXT_PUBLIC_POKI + NEXT_PUBLIC_DUCKMATH + worldguessr
+    # endpoints and runs scripts/packageEmbed.mjs (which strips shop backgrounds
+    # + the mobile music mirror, validates the relative-asset rewrite, and
+    # enforces the NEXT_PUBLIC_DUCKMATH mustInline guard).
+    - name: Build and package DuckMath version
+      run: pnpm run build:duckmath
+
+    - name: Upload DuckMath zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: worldguessr-duckmath
+        path: builds-submission/worldguessr-duckmath.zip

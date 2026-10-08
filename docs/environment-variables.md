@@ -140,6 +140,18 @@ NEXT_PUBLIC_COOLMATH=true
 # Enable Poki.com integration
 NEXT_PUBLIC_POKI=true
 
+# Enable DuckMath build (an unblocked-games embed). DuckMath ships as a Poki
+# variant, so build:duckmath sets BOTH flags:
+#   NEXT_PUBLIC_POKI=true NEXT_PUBLIC_DUCKMATH=true
+# NEXT_PUBLIC_POKI gives it Poki's accountless / relative-nested-zip-asset /
+# no-Playwire behavior; NEXT_PUBLIC_DUCKMATH's only job is to suppress the Poki
+# ad SDK loader (components/headContent.js), so DuckMath has no accounts, no
+# ads, and no third-party SDK. Backend stays on worldguessr.com. Build with:
+#   pnpm build:duckmath   (outputs builds-submission/worldguessr-duckmath.zip)
+# NOTE: any future Poki ad code NOT gated on window.poki/window.PokiSDK must
+# also be guarded with !NEXT_PUBLIC_DUCKMATH.
+NEXT_PUBLIC_DUCKMATH=true
+
 # Maps.co API key for geocoding (if using)
 NEXT_PUBLIC_MAPSCO=your_mapsco_api_key
 ```

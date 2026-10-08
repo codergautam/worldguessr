@@ -72,7 +72,7 @@ full explanation).
   breaks into spaces. Keep a tip to one or two sentences,
   under about 130 characters: the whole tip is always shown (no clamp, no
   extra text on hover), so a long tip makes a tall card. The importer warns
-  over 150 characters. When neither the meta
+  over 140 characters, about where a fourth line starts. When neither the meta
   title nor the explanation names the location's country, the importer adds
   "Common in {Country}." to the end of the last sentence so the player knows
   what the tip is for. A title like "Swiss Bollard" or a mention like "in

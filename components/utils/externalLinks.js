@@ -18,6 +18,13 @@ export const NO_PROFILE_LINKS =
   process.env.NEXT_PUBLIC_POKI === "true" ||
   process.env.NEXT_PUBLIC_6X === "true";
 
+// DuckMath allows outbound links the other zip portals don't: the footer's
+// Discord / YouTube buttons plus a "More Games" button back to its hub.
+// Surfaces read these constants rather than checking NEXT_PUBLIC_DUCKMATH
+// themselves.
+export const EMBED_SOCIAL_LINKS = process.env.NEXT_PUBLIC_DUCKMATH === "true";
+export const MORE_GAMES_URL = EMBED_SOCIAL_LINKS ? "https://duckmath.com/" : null;
+
 // Backstop for the surfaces this sweep hasn't reached and the ones that don't
 // exist yet. Capture phase, so it runs before React's own delegated handlers
 // and before any component-level onClick can call window.open itself.
