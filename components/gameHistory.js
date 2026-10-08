@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import { timeAgo } from '@/shared/time/timeAgo';
@@ -34,6 +34,9 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
   const [internalPage, setInternalPage] = useState(1);
   const currentPage = page !== null ? page : internalPage;
   const setCurrentPage = setPage !== null ? setPage : setInternalPage;
+
+  const rootRef = useRef(null);
+  const prevPageRef = useRef(currentPage);
 
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -81,6 +84,12 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
       fetchGames(currentPage);
     }
   }, [session?.token?.secret, targetUserId, currentPage]);
+
+  useEffect(() => {
+    if (prevPageRef.current === currentPage) return;
+    prevPageRef.current = currentPage;
+    rootRef.current?.scrollIntoView({ block: 'start' });
+  }, [currentPage]);
 
   const getGameTypeDisplay = (gameType) => {
     const types = {
@@ -135,7 +144,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
 
   if (loading) {
     return (
-      <div className={styles.gameHistoryLoading}>
+      <div ref={rootRef} className={styles.gameHistoryLoading}>
         <div className={styles.loadingSpinner}></div>
         <p>{text('loadingGameHistory')}</p>
       </div>
@@ -144,7 +153,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
 
   if (games.length === 0) {
     return (
-      <div className={styles.gameHistoryEmpty}>
+      <div ref={rootRef} className={styles.gameHistoryEmpty}>
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>🎮</span>
           <h3>{text('noGamesPlayed')}</h3>
@@ -155,7 +164,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
   }
 
   return (
-    <div className={styles.gameHistory}>
+    <div ref={rootRef} className={styles.gameHistory}>
       <div className={styles.gameHistoryHeader}>
         <h3>
           {targetUserData ? (
