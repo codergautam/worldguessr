@@ -3,9 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { isForumStable, isForumReserved, FORUM_STABLE_MESSAGE, FORUM_RESERVED_MESSAGE } from './forumUsername.js';
-import { DataSet, RegExpMatcher, englishDataset, englishRecommendedTransformers, pattern } from 'obscenity';
+import { DataSet, RegExpMatcher, englishRecommendedTransformers, pattern } from 'obscenity';
 
-const dataset = new DataSet().addAll(englishDataset);
+
+const dataset = new DataSet();
 const TOKEN_WORDS = new Set();
 const DIGIT_WORDS = new Set();
 let section = 'substring';
