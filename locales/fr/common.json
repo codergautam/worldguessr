@@ -861,6 +861,8 @@
   "graphRangeAllShort": "Tout",
   "failedToLoadMaps": "Échec du chargement des cartes",
   "retry": "Réessayer",
+  "gamePaused": "Jeu en pause",
+  "platformConnectionFailed": "Impossible de charger tes données de jeu. Vérifie ta connexion et réessaie.",
   "searching": "Recherche…",
   "tryAdjustingSearchTerms": "Essayez de modifier vos termes de recherche",
   "searchResults": "Résultats de recherche",
