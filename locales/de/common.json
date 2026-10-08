@@ -861,6 +861,8 @@
   "graphRangeAllShort": "Alle",
   "failedToLoadMaps": "Karten konnten nicht geladen werden",
   "retry": "Erneut versuchen",
+  "gamePaused": "Spiel pausiert",
+  "platformConnectionFailed": "Deine Spieldaten konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
   "searching": "Wird gesucht...",
   "tryAdjustingSearchTerms": "Versuche, deine Suchbegriffe anzupassen",
   "searchResults": "Suchergebnisse",

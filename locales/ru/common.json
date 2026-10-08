@@ -861,6 +861,8 @@
   "graphRangeAllShort": "Всё",
   "failedToLoadMaps": "Не удалось загрузить карты",
   "retry": "Повторить",
+  "gamePaused": "Игра приостановлена",
+  "platformConnectionFailed": "Не удалось загрузить игровые данные. Проверь подключение и попробуй ещё раз.",
   "searching": "Поиск...",
   "tryAdjustingSearchTerms": "Попробуйте изменить запрос",
   "searchResults": "Результаты поиска",
