@@ -251,6 +251,25 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
     tick();
   }, []);
   useEffect(() => () => cancelAnimationFrame(panResetRafRef.current), []);
+
+  // Ad creatives can focus() their own iframe on load/refresh with no user
+  // input, yanking focus out of the draft mid-sentence (the rest of the
+  // keystrokes went into the ad). Pull focus straight back when the iframe
+  // that took it sits in an ad slot (any portal's banner). The page cannot
+  // tell that apart from a real click on the ad (a cross-origin iframe never
+  // reports pointer events or :hover to us), but the click still lands in
+  // the ad either way.
+  // Other iframes (the pano) keep focus: clicking them is how you look around.
+  // activeElement settles after blur dispatches, hence the task hop.
+  const inputRef = useRef(null);
+  const onInputBlur = useCallback(() => {
+    resetKeyboardPan();
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (!inputRef.current || el?.tagName !== 'IFRAME' || !el.closest('.topAdFixed, .playwire-ad-slot')) return;
+      inputRef.current.focus({ preventScroll: true });
+    }, 0);
+  }, [resetKeyboardPan]);
   // Covers closing the panel (✕ / Escape / live drop) while the input still
   // has focus: the input unmounts without ever firing blur.
   useEffect(() => {
@@ -349,6 +368,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
           <div className="chatTypingLine">{typingLine}</div>
           <div className="chatInputRow">
             <input
+              ref={inputRef}
               className="chatInput"
               type="text"
               value={draft}
@@ -356,7 +376,7 @@ function GameChat({ ws, subscribeMessages, enabled, live, canSend, myId, teamCap
               disabled={!canSend}
               placeholder={canSend ? text('chatPlaceholder') : text('loginToChat')}
               onChange={onDraftChange}
-              onBlur={resetKeyboardPan}
+              onBlur={onInputBlur}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') send();
                 if (e.key === 'Escape') setOpen(false);

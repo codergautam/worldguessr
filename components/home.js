@@ -4836,7 +4836,13 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         multiplayerState?.gameData?.public &&
         multiplayerState?.gameData?.duel
     );
-    const multiplayerPlaywireAdShown = hudCornerOnQueue || multiplayerMatchedDuelWaiting || multiplayerGameUiShown;
+    // The profile/elo modal (z 1000) opens from the queue's PlayerCard, and
+    // the fixed slot (z 1001) sat on top of its header. Unmount rather than
+    // hide: an obscured slot would keep refreshing unseen. The shop counts
+    // too: its wallet handoff closes the profile while the shop (z 9999)
+    // covers the slot. A match landing closes both in the same `game`
+    // handler, so the slot remounts then.
+    const multiplayerPlaywireAdShown = (hudCornerOnQueue || multiplayerMatchedDuelWaiting || multiplayerGameUiShown) && !accountModalOpen && !shopModalOpen;
     const multiplayerTimerShownForAd = multiplayerGameUiShown && !(
         multiplayerShowAnswer ||
         (multiplayerGameState === 'getready' && multiplayerState?.gameData?.curRound === 1) ||

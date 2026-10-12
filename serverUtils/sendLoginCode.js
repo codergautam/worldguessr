@@ -55,7 +55,6 @@ function textBody(code) {
 // (school filters strip them, and text-only mail scores better with filters).
 // Table layout because Outlook still needs it.
 function htmlBody(code) {
-  const digits = String(code).split('').join('&#8202;'); // hair spaces keep the digits readable and copyable
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -90,7 +89,7 @@ function htmlBody(code) {
         </tr>
         <tr>
           <td align="center" style="padding:24px 32px 8px;">
-            <div style="display:inline-block;padding:18px 28px;background:#f2f4f3;border-radius:12px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;font-size:34px;font-weight:700;letter-spacing:6px;color:#111827;">${digits}</div>
+            <div style="display:inline-block;padding:18px 28px;background:#f2f4f3;border-radius:12px;font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;font-size:34px;font-weight:700;letter-spacing:6px;color:#111827;">${code}</div>
           </td>
         </tr>
         <tr>
