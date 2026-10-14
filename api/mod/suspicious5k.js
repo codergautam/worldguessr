@@ -22,11 +22,26 @@ export default async function handler(req, res) {
     const sinceDate = new Date();
     sinceDate.setDate(sinceDate.getDate() - days);
 
-    const results = await Game.aggregate([
+    const points = '$rounds.playerGuesses.points';
+    const isHigh = { $gte: [points, minPoints] };
+
+    // Filter on createdAt (covered by the { gameType, createdAt } index; endedAt is not
+    // indexed) and project before unwinding so only the needed fields are expanded.
+    // A single $group computes both high-round and total-round stats in one pass.
+    const suspects = await Game.aggregate([
       {
         $match: {
           gameType: 'ranked_duel',
-          endedAt: { $gte: sinceDate }
+          createdAt: { $gte: sinceDate }
+        }
+      },
+      {
+        $project: {
+          gameId: 1,
+          endedAt: 1,
+          'rounds.playerGuesses.accountId': 1,
+          'rounds.playerGuesses.username': 1,
+          'rounds.playerGuesses.points': 1
         }
       },
       { $unwind: '$rounds' },
@@ -37,59 +52,37 @@ export default async function handler(req, res) {
         }
       },
       {
-        $facet: {
-          highScores: [
-            { $match: { 'rounds.playerGuesses.points': { $gte: minPoints } } },
-            {
-              $group: {
-                _id: '$rounds.playerGuesses.accountId',
-                username: { $last: '$rounds.playerGuesses.username' },
-                highRounds: { $sum: 1 },
-                avgPoints: { $avg: '$rounds.playerGuesses.points' },
-                games: { $addToSet: '$gameId' },
-                lastSeen: { $max: '$endedAt' }
-              }
-            },
-            { $addFields: { gameCount: { $size: '$games' } } },
-            { $match: { highRounds: { $gte: minRounds } } }
-          ],
-          totalRounds: [
-            {
-              $group: {
-                _id: '$rounds.playerGuesses.accountId',
-                totalRounds: { $sum: 1 },
-                totalAvgPoints: { $avg: '$rounds.playerGuesses.points' }
-              }
-            }
-          ]
+        $group: {
+          _id: '$rounds.playerGuesses.accountId',
+          username: { $last: '$rounds.playerGuesses.username' },
+          totalRounds: { $sum: 1 },
+          totalAvgPoints: { $avg: points },
+          highRounds: { $sum: { $cond: [isHigh, 1, 0] } },
+          highPointsSum: { $sum: { $cond: [isHigh, points, 0] } },
+          games: { $addToSet: { $cond: [isHigh, '$gameId', null] } },
+          lastSeen: { $max: { $cond: [isHigh, '$endedAt', null] } }
+        }
+      },
+      { $match: { highRounds: { $gte: minRounds } } },
+      { $sort: { highRounds: -1 } },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 0,
+          accountId: '$_id',
+          username: 1,
+          highRounds: 1,
+          totalRounds: 1,
+          highPointsSum: 1,
+          totalAvgPoints: 1,
+          gameCount: { $size: { $setDifference: ['$games', [null]] } },
+          lastSeen: 1
         }
       }
-    ]);
-
-    const { highScores, totalRounds } = results[0];
-
-    const totalRoundsMap = {};
-    totalRounds.forEach(r => {
-      totalRoundsMap[r._id] = { totalRounds: r.totalRounds, totalAvgPoints: r.totalAvgPoints };
-    });
-
-    // Merge and compute percentage
-    const suspects = highScores.map(s => ({
-      accountId: s._id,
-      username: s.username,
-      highRounds: s.highRounds,
-      totalRounds: totalRoundsMap[s._id]?.totalRounds || s.highRounds,
-      highRoundPct: Math.round((s.highRounds / (totalRoundsMap[s._id]?.totalRounds || s.highRounds)) * 100),
-      avgPointsHigh: Math.round(s.avgPoints),
-      avgPointsAll: Math.round(totalRoundsMap[s._id]?.totalAvgPoints || 0),
-      gameCount: s.gameCount,
-      lastSeen: s.lastSeen
-    }));
-
-    suspects.sort((a, b) => b.highRounds - a.highRounds);
+    ]).allowDiskUse(true);
 
     // Fetch ban status for all suspects
-    const accountIds = suspects.slice(0, limit).map(s => s.accountId);
+    const accountIds = suspects.map(s => s.accountId);
     const users = await User.find(
       { _id: { $in: accountIds } },
       { _id: 1, banned: 1, banType: 1, elo: 1 }
@@ -116,8 +109,12 @@ export default async function handler(req, res) {
     const pendingMap = {};
     pendingReports.forEach(r => { pendingMap[r._id] = r.count; });
 
-    const enriched = suspects.slice(0, limit).map(s => ({
+    // Rounded in JS: Mongo's $round is half-to-even, Math.round is half-up.
+    const enriched = suspects.map(({ highPointsSum, totalAvgPoints, ...s }) => ({
       ...s,
+      highRoundPct: Math.round((s.highRounds / s.totalRounds) * 100),
+      avgPointsHigh: Math.round(highPointsSum / s.highRounds),
+      avgPointsAll: Math.round(totalAvgPoints || 0),
       banned: userMap[s.accountId]?.banned || false,
       banType: userMap[s.accountId]?.banType || null,
       elo: userMap[s.accountId]?.elo || 0,

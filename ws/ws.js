@@ -1556,14 +1556,21 @@ app.ws('/wg', {
 
       if (json.type === 'place' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
-        const latLong = json.latLong;
         const final = json.final;
         const round = json.round;
 
-        // make sure latLong is an array of floats with 2 elements
-        if (!Array.isArray(latLong) || latLong.length !== 2) {
+        // make sure latLong is an array of 2 finite numbers with a valid latitude.
+        // It is rebroadcast verbatim to other players, so a malformed value
+        // (strings, nulls, objects) crashes their maps.
+        if (!Array.isArray(json.latLong) || json.latLong.length !== 2) {
           return;
         }
+        const [lat, lng] = json.latLong;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90) {
+          return;
+        }
+        // wrap longitude into [-180, 180) instead of rejecting wrapped map clicks
+        const latLong = [lat, ((lng + 180) % 360 + 360) % 360 - 180];
 
         // make sure final is a boolean
         if (typeof final !== 'boolean') {

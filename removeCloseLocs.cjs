@@ -15,28 +15,58 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     return R * c; // Distance in meters
 }
 
+// Spatial hash on 3D points on the sphere. Chord length <= arc length, so any
+// point within maxDistance lies in one of the 27 cells around the query cell.
 function removeNearbyPoints(data, maxDistance) {
+    const R = 6371000;
+    const toRad = angle => angle * (Math.PI / 180);
+    const cellKey = (x, y, z) => `${x},${y},${z}`;
+
+    const cells = new Map();
+    const cellCoords = data.map(({ lat, lng }, i) => {
+        const cosLat = Math.cos(toRad(lat));
+        const cx = Math.floor(R * cosLat * Math.cos(toRad(lng)) / maxDistance);
+        const cy = Math.floor(R * cosLat * Math.sin(toRad(lng)) / maxDistance);
+        const cz = Math.floor(R * Math.sin(toRad(lat)) / maxDistance);
+        const key = cellKey(cx, cy, cz);
+        if (!cells.has(key)) cells.set(key, []);
+        cells.get(key).push(i);
+        return [cx, cy, cz];
+    });
+
     const result = [];
-    const toRemove = new Set();
+    const removed = new Uint8Array(data.length);
 
     for (let i = 0; i < data.length; i++) {
-        if (toRemove.has(i)) continue;
+        if (removed[i]) continue;
 
         const { lat: lat1, lng: lng1 } = data[i];
-        let isNearby = false;
+        const [cx, cy, cz] = cellCoords[i];
+        const nearby = [];
 
-        for (let j = i + 1; j < data.length; j++) {
-            if (toRemove.has(j)) continue;
-
-            const { lat: lat2, lng: lng2 } = data[j];
-            if (haversineDistance(lat1, lng1, lat2, lng2) < maxDistance) {
-                toRemove.add(j);
-                console.log(`Removed point ${j} (${lat2}, ${lng2}) near point ${i} (${lat1}, ${lng1})`);
-                isNearby = true;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const bucket = cells.get(cellKey(cx + dx, cy + dy, cz + dz));
+                    if (!bucket) continue;
+                    for (const j of bucket) {
+                        if (j <= i || removed[j]) continue;
+                        const { lat: lat2, lng: lng2 } = data[j];
+                        if (haversineDistance(lat1, lng1, lat2, lng2) < maxDistance) {
+                            nearby.push(j);
+                        }
+                    }
+                }
             }
         }
 
-        if (!isNearby) {
+        nearby.sort((a, b) => a - b);
+        for (const j of nearby) {
+            removed[j] = 1;
+            console.log(`Removed point ${j} (${data[j].lat}, ${data[j].lng}) near point ${i} (${lat1}, ${lng1})`);
+        }
+
+        if (nearby.length === 0) {
             result.push(data[i]);
         }
     }
