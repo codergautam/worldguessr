@@ -94,7 +94,11 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
     return types[gameType] || { label: gameType, icon: '🎮', color: '#757575' };
   };
 
-  const formatDate = (dateString) => timeAgo(text, dateString);
+  // targetUserId is the staff-only mod dashboard path: moderators need the
+  // exact timestamp, players keep the relative "3 hours ago".
+  const formatDate = (dateString) => targetUserId
+    ? new Date(dateString).toLocaleString()
+    : timeAgo(text, dateString);
 
   // Roster names for team games: profile link for account-bearing players
   // (bots/guests render as plain text — same convention as the ranked
