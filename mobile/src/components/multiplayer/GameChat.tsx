@@ -122,6 +122,8 @@ export default function GameChat({
   // stamped per-message at receive time in the store.
   const is2v2 = useMultiplayerStore((s) =>
     !!(s.gameData?.team2v2 || s.gameData?.is2v2Lobby || s.gameQueued === '2v2'));
+  const is2v2Staging = useMultiplayerStore((s) =>
+    !!((s.gameData?.is2v2Lobby || s.gameQueued === '2v2') && !s.gameData?.team2v2));
   const teamCapable = useMultiplayerStore((s) =>
     !!(s.gameData?.team2v2 || s.gameData?.teamGame || s.gameData?.is2v2Lobby || s.gameQueued === '2v2'));
   // Guest-hosted parties are emotes-only server-side — hide the whole surface.
@@ -135,9 +137,9 @@ export default function GameChat({
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  // Channel picker: true = teammates, false = everyone. Resets to the game
-  // type's default whenever the type changes (staging lobby → 2v2 match,
-  // party toggled to team mode).
+  // Channel picker: true = teammates, false = everyone. It scopes messages
+  // shown as well as the outgoing audience. Resets to the game type's default
+  // whenever the type changes (staging lobby → 2v2 match, party toggled to team mode).
   const [teamChannel, setTeamChannel] = useState(false);
   useEffect(() => {
     setTeamChannel(teamCapable && is2v2);
@@ -228,6 +230,10 @@ export default function GameChat({
   const listMin = Math.min(160, listMax);
   const now = Date.now();
   const typers = chatTyping.filter((e) => e.until > now);
+  const visibleMessages = teamCapable
+    && !is2v2Staging
+    ? chatMessages.filter((message) => message.teamChat === teamChannel)
+    : chatMessages;
   const typingLine =
     typers.length === 0 ? '' :
     typers.length === 1 ? t('isTyping', { name: typers[0].name }) :
@@ -335,7 +341,7 @@ export default function GameChat({
             // finger; Android dismisses on drag).
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           >
-            {chatMessages.map((m) => (
+            {visibleMessages.map((m) => (
               <MessageRow key={m.id} msg={m} onMute={confirmMute} />
             ))}
           </ScrollView>
