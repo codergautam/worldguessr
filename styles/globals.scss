@@ -9284,7 +9284,7 @@ div:hover .elo-badge {
     }
 }
 
-/* ===== Welcome Modal (onboarding A/B "modal" control variant) ===== */
+/* ===== Welcome Screen (full-screen splash over the blurred round-1 pano) ===== */
 .welcome-modal-backdrop {
     position: fixed;
     top: 0;
@@ -9296,94 +9296,126 @@ div:hover .elo-badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding: 16px 16px env(safe-area-inset-bottom, 0);
+    box-sizing: border-box;
     background: rgba(0, 0, 0, 0);
     backdrop-filter: blur(0px);
-    transition: background 0.4s ease, backdrop-filter 0.4s ease;
+    // 0.3s exit = WelcomeOverlay's dismiss timeout, so the blur lifts off the
+    // pano exactly as the overlay unmounts instead of popping.
+    transition: background 0.3s ease, backdrop-filter 0.3s ease;
 
     &.visible {
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(6px);
+        background: rgba(0, 0, 0, 0.62);
+        backdrop-filter: blur(10px);
+        transition: none;
     }
 }
 
 .welcome-modal {
-    max-width: 440px;
-    width: 92%;
-    background: linear-gradient(160deg, #1a2e23 0%, #0d1117 100%);
-    border: 1px solid rgba(63, 185, 80, 0.2);
-    border-radius: 18px;
-    padding: 36px 28px 28px;
+    max-width: 760px;
+    width: 100%;
     text-align: center;
     color: white;
     font-family: "Lexend", "Lexend Fallback", sans-serif;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
     opacity: 0;
-    transform: scale(0.92) translateY(12px);
-    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(0.97);
+    transition: opacity 0.25s ease, transform 0.3s ease;
 
     &.visible {
         opacity: 1;
-        transform: scale(1) translateY(0);
+        transform: none;
+    }
+
+    // Entrance: title, copy, choices and skip rise in one after another.
+    // Delays apply only while .visible, so the exit fades everything together.
+    > * {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    &.visible > * {
+        opacity: 1;
+        transform: none;
+    }
+
+    &.visible > :nth-child(2) { transition-delay: 0.08s; }
+    &.visible > :nth-child(3) { transition-delay: 0.16s; }
+    &.visible > :nth-child(4) { transition-delay: 0.24s; }
+    &.visible > :nth-child(5) { transition-delay: 0.32s; }
+}
+
+.welcome-modal__loader {
+    position: absolute;
+    bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 56px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+
+    &.visible {
+        opacity: 1;
     }
 }
 
-.welcome-modal__hero {
-    font-size: 3rem;
-    margin-bottom: 4px;
-    animation: welcomePulse 2.5s ease-in-out infinite;
-}
-
-@keyframes welcomePulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
+@media (prefers-reduced-motion: reduce) {
+    .welcome-modal,
+    .welcome-modal > * {
+        transform: none !important;
+    }
 }
 
 .welcome-modal__title {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #3fb950;
-    margin-bottom: 6px;
+    font-family: "Jockey One", "Jockey One Fallback", sans-serif;
+    font-weight: 400;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    line-height: 1.05;
+    color: white;
+    margin: 0 0 12px;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
 }
 
 .welcome-modal__desc {
-    font-size: 0.92rem;
-    color: rgba(255, 255, 255, 0.75);
-    line-height: 1.55;
-    margin-bottom: 24px;
-    max-width: 340px;
-    margin-left: auto;
-    margin-right: auto;
+    font-size: clamp(1rem, 1.8vw, 1.25rem);
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.5;
+    margin: 0 auto 40px;
+    max-width: 560px;
 }
 
 .welcome-modal__modes {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 28px;
 }
 
 .welcome-modal__mode-btn {
     position: relative;
+    flex: 1 1 0;
+    max-width: 300px;
     display: flex;
     align-items: center;
     gap: 14px;
     text-align: left;
-    padding: 16px 18px;
-    border-radius: 12px;
-    border: 1.5px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.04);
+    padding: 18px 22px;
+    border-radius: 16px;
+    border: 1.5px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.08);
     color: white;
     cursor: pointer;
     font-family: "Lexend", "Lexend Fallback", sans-serif;
     font-size: 0.9rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
 
     &:hover {
         transform: translateY(-2px);
-        border-color: #3fb950;
-        background: rgba(63, 185, 80, 0.06);
-        box-shadow: 0 4px 16px rgba(63, 185, 80, 0.1);
+        border-color: rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.14);
     }
 
     &:active {
@@ -9392,51 +9424,65 @@ div:hover .elo-badge {
 
     strong {
         display: block;
-        font-size: 1rem;
+        font-size: 1.15rem;
         margin-bottom: 2px;
     }
 }
 
 .welcome-modal__mode-btn--recommended {
-    border-color: rgba(63, 185, 80, 0.35);
-    background: rgba(63, 185, 80, 0.06);
+    border-color: #56d364;
+    background: linear-gradient(180deg, #3fb950 0%, #2e9a3f 100%);
+    box-shadow: 0 8px 28px rgba(63, 185, 80, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+
+    &:hover {
+        border-color: #7ee787;
+        background: linear-gradient(180deg, #4cc85d 0%, #35a847 100%);
+        box-shadow: 0 10px 32px rgba(63, 185, 80, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .welcome-modal__mode-sub {
+        color: rgba(255, 255, 255, 0.85);
+    }
 }
 
 .welcome-modal__mode-badge {
     position: absolute;
-    top: -9px;
-    right: 12px;
-    background: #3fb950;
-    color: #0d1117;
-    font-size: 0.65rem;
+    top: -11px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: white;
+    color: #1a7f37;
+    font-size: 0.68rem;
     font-weight: 700;
-    padding: 2px 10px;
+    padding: 3px 12px;
     border-radius: 10px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 .welcome-modal__mode-icon {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
     flex-shrink: 0;
 }
 
 .welcome-modal__mode-sub {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.82rem;
 }
 
 .welcome-modal__skip {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 0.8rem;
+    padding: 8px 12px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 1rem;
     cursor: pointer;
     font-family: "Lexend", "Lexend Fallback", sans-serif;
     transition: color 0.2s;
 
     &:hover {
-        color: rgba(255, 255, 255, 0.7);
+        color: white;
     }
 }
 
@@ -9852,34 +9898,25 @@ div:hover .elo-badge {
     gap: 6px;
 }
 
-@media (max-width: 480px) {
-    .welcome-modal {
-        padding: 24px 18px 20px;
-        width: 95%;
-    }
-
-    .welcome-modal__hero {
-        font-size: 2.4rem;
-    }
-
-    .welcome-modal__title {
-        font-size: 1.4rem;
-    }
-
+@media (max-width: 600px) {
     .welcome-modal__desc {
-        font-size: 0.85rem;
+        margin-bottom: 28px;
+    }
+
+    .welcome-modal__modes {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        margin-bottom: 18px;
     }
 
     .welcome-modal__mode-btn {
-        padding: 14px 14px;
-        gap: 10px;
+        max-width: none;
+        padding: 16px 18px;
     }
+}
 
-    .welcome-modal__mode-badge {
-        font-size: 0.6rem;
-        top: -8px;
-        right: 8px;
-    }
+@media (max-width: 480px) {
 
     .countryGuessrOptions.continentMode {
         width: calc(100% - 12px);

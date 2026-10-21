@@ -1,5 +1,7 @@
 import { AppState, Platform } from 'react-native';
 import mobileAds, {
+  AdsConsent,
+  AdsConsentPrivacyOptionsRequirementStatus,
   InterstitialAd,
   AdEventType,
   TestIds,
@@ -33,14 +35,63 @@ if (FORCE_TEST) {
   );
 }
 
+// ── GDPR consent (Google UMP) ────────────────────────────────────────────────
+// EEA/UK/CH ad requests without a TCF v2.2 consent string from a Google-certified
+// CMP only get "limited ads" (or no fill). gatherConsent() shows the consent
+// form configured in AdMob > Privacy & messaging when the user's region needs
+// it, and resolves immediately elsewhere. The SDK reads the stored TCF string
+// on every request, so no per-request flag is needed.
+let canRequestAds = false;
+
+async function gatherAdsConsent(): Promise<void> {
+  try {
+    // Same active-state requirement as the ATT alert below: the form is a
+    // native modal and cold launches briefly report 'inactive'.
+    await waitForAppActive();
+    await AdsConsent.gatherConsent();
+  } catch (err) {
+    // Network/form failure: a consent choice cached from a previous session
+    // may still allow requests, so fall through to the canRequestAds check.
+    console.warn('[ads] consent gathering failed', err);
+  }
+  try {
+    ({ canRequestAds } = await AdsConsent.getConsentInfo());
+  } catch (err) {
+    console.warn('[ads] consent info failed', err);
+  }
+}
+
+/** Whether Settings must offer the "ad privacy choices" entry (EEA users). */
+export async function isAdPrivacyOptionsRequired(): Promise<boolean> {
+  try {
+    const info = await AdsConsent.getConsentInfo();
+    return info.privacyOptionsRequirementStatus === AdsConsentPrivacyOptionsRequirementStatus.REQUIRED;
+  } catch {
+    return false;
+  }
+}
+
+/** Re-open the consent form so the user can change their GDPR choices. */
+export async function showAdPrivacyOptions(): Promise<void> {
+  try {
+    ({ canRequestAds } = await AdsConsent.showPrivacyOptionsForm());
+    // A preloaded interstitial was requested under the old choices.
+    interstitial = null;
+    interstitialLoading = false;
+    preloadInterstitial();
+  } catch (err) {
+    console.warn('[ads] privacy options form failed', err);
+  }
+}
+
 // ── App Tracking Transparency (iOS) ──────────────────────────────────────────
 // App Store Guideline 2.1/5.1.2: the ATT prompt must be shown BEFORE any data
 // that could be used to track the user is collected. The Google Mobile Ads SDK
 // reads the IDFA the moment it initializes, so initAds() awaits the ATT
-// resolution before calling mobileAds().initialize(). Until (and unless) the
-// user grants tracking, every ad request is flagged non-personalized.
-// Android has no ATT — personalized ads are allowed there by default.
-let personalizedAdsAllowed = Platform.OS !== 'ios';
+// resolution before calling mobileAds().initialize(). A denial needs no ad
+// request flag: the SDK simply gets no IDFA (forcing non-personalized requests
+// on top of that cut iOS eCPM for every non-consenting user).
+// Shown after the UMP form, per Google's recommended order.
 
 function waitForAppActive(): Promise<void> {
   if (AppState.currentState === 'active') return Promise.resolve();
@@ -66,19 +117,17 @@ function waitForAppActive(): Promise<void> {
 async function requestTrackingConsent(): Promise<void> {
   if (Platform.OS !== 'ios') return;
   try {
-    let { status } = await getTrackingPermissionsAsync();
+    const { status } = await getTrackingPermissionsAsync();
     if (status === 'undetermined') {
       // iOS silently refuses to present the ATT alert unless the app is in the
       // active state — cold launches briefly report 'inactive'/'unknown', and a
       // request fired in that window resolves denied WITHOUT ever showing the
       // dialog. Wait for 'active' before asking.
       await waitForAppActive();
-      ({ status } = await requestTrackingPermissionsAsync());
+      await requestTrackingPermissionsAsync();
     }
-    personalizedAdsAllowed = status === 'granted';
   } catch (err) {
-    // Never let a consent failure block ads entirely — fall through with
-    // personalizedAdsAllowed still false (non-personalized requests only).
+    // Never let an ATT failure block ads entirely.
     console.warn('[ads] ATT request failed', err);
   }
 }
@@ -87,8 +136,9 @@ let initPromise: Promise<void> | null = null;
 
 export function initAds(): Promise<void> {
   if (!initPromise) {
-    initPromise = requestTrackingConsent()
-      .then(() => mobileAds().initialize())
+    initPromise = gatherAdsConsent()
+      .then(() => requestTrackingConsent())
+      .then(() => (canRequestAds ? mobileAds().initialize() : undefined))
       .then(() => undefined)
       .catch((err) => {
         console.warn('[ads] init failed', err);
@@ -101,14 +151,9 @@ let interstitial: InterstitialAd | null = null;
 let interstitialLoading = false;
 
 function ensureInterstitial(): InterstitialAd | null {
-  if (!INTERSTITIAL_UNIT_ID) return null;
+  if (!INTERSTITIAL_UNIT_ID || !canRequestAds) return null;
   if (interstitial) return interstitial;
-  interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID, {
-    // Personalized only with explicit ATT consent on iOS (always ok on
-    // Android). Interstitials are recreated after every CLOSED, so a request
-    // built before consent resolves self-corrects on the next ad.
-    requestNonPersonalizedAdsOnly: !personalizedAdsAllowed,
-  });
+  interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID);
   interstitial.addAdEventListener(AdEventType.LOADED, () => {
     interstitialLoading = false;
   });
@@ -251,7 +296,7 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
   }
 
   const ad = ensureInterstitial();
-  if (!ad) return Promise.resolve(); // ads disabled (no configured unit id)
+  if (!ad) return Promise.resolve(); // ads disabled (no unit id or no consent)
   if (!ad.loaded) {
     // Nothing ready — don't stall the player waiting on a load; warm for later.
     preloadInterstitial();

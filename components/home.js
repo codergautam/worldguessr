@@ -908,13 +908,20 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // modal STARTS its 0.4s fade left a beat of raw background — instead the
     // spinner keeps running and the modal (z-10000) fades in over it.
     // {0,0} is the cleared-location sentinel, not a real location.
+    // Not a new user after all: drop the _document pre-paint welcome cover.
+    // (A new user's cover is removed by WelcomeOverlay's mount instead.)
+    useEffect(() => {
+        if (onboardingCompleted === true) document.documentElement.classList.remove('wg-welcome-pending');
+    }, [onboardingCompleted]);
+    // Safety net: the pre-paint check is a heuristic, so never let its cover
+    // outlive bootstrap on a path that neither branch above handles.
+    useEffect(() => {
+        const t = setTimeout(() => document.documentElement.classList.remove('wg-welcome-pending'), 8000);
+        return () => clearTimeout(t);
+    }, []);
     const newUserBooting = onboardingCompleted === false
         && !onboarding?.completed
         && (!latLong || (latLong.lat === 0 && latLong.long === 0));
-    // Gates the onboarding GameUI mount — and with it the round-1 street view
-    // preload — until load + idle while the welcome overlay is up (modal
-    // variant only). See the effect next to the onboarding-start effect.
-    const [svPreloadReady, setSvPreloadReady] = useState(false);
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
     const lastSingleplayerScreen = useRef(null);
@@ -2067,28 +2074,6 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             }
         }
     }, [onboardingCompleted])
-
-    // While the welcome overlay covers the screen (modal variant), hold the
-    // onboarding GameUI mount (whose mount effect loads round 1 and with it
-    // the ~700 KB Google Maps embed + pano tiles) until the load event plus an
-    // idle callback. Real users spend seconds reading the modal, so the
-    // preload still wins the race; picking a mode drops the overlay, which
-    // mounts GameUI immediately regardless of this flag.
-    useEffect(() => {
-        if (!welcomeOverlayShown || svPreloadReady) return;
-        let cancelled = false;
-        const allow = () => { if (!cancelled) setSvPreloadReady(true); };
-        const whenIdle = () => {
-            if ('requestIdleCallback' in window) requestIdleCallback(allow, { timeout: 4000 });
-            else setTimeout(allow, 1500);
-        };
-        if (document.readyState === 'complete') whenIdle();
-        else window.addEventListener('load', whenIdle, { once: true });
-        return () => {
-            cancelled = true;
-            window.removeEventListener('load', whenIdle);
-        };
-    }, [welcomeOverlayShown, svPreloadReady])
 
     useEffect(() => {
         if (session && session.token && session.token.username && !inCrazyGames) {
@@ -5403,6 +5388,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
                     onModeSelected={selectOnboardingMode}
+                    panoLoading={loading || newUserBooting}
                     // Login pressed while this overlay is still up.
                     //
                     // The onboarding login button lives in
@@ -5627,7 +5613,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     }} />
                 </div>
 
-                <BannerText text={`${text("loading")}...`} shown={loading || newUserBooting} showCompass={true} />
+                {/* No "Loading..." under the welcome overlay's blur; the
+                    background cover above still hides the unloaded pano. */}
+                <BannerText text={`${text("loading")}...`} shown={(loading || newUserBooting) && !(welcomeOverlayShown && screen === "onboarding")} showCompass={true} />
 
 
 
@@ -6355,11 +6343,10 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
 singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
-                {/* (!welcomeOverlayShown || svPreloadReady): while the welcome
-                    overlay is up (modal A/B variant), GameUI's mount is what
-                    triggers the round-1 street view load — deferred to
-                    load+idle, see svPreloadReady */}
-                {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && (!welcomeOverlayShown || svPreloadReady) && <div className="home__onboarding">
+                {/* Mounts under the welcome overlay right away: the round-1
+                    street view is the overlay's blurred backdrop, so it must
+                    start loading immediately, not after page load + idle. */}
+                {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}

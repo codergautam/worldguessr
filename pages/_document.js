@@ -50,6 +50,21 @@ export default function Document({ pathname }) {
           <script dangerouslySetInnerHTML={{ __html: PREPAINT_SITE_BG_SCRIPT }} />
         )}
 
+        {/* Likely-new visitor on a home path: paint the welcome screen's dark
+            blur + spinner on the first frame instead of the bare background
+            while JS loads. A cheap mirror of home.js's onboarding decision;
+            WelcomeOverlay removes the class when it mounts and home.js
+            removes it as soon as the visitor turns out not to be new. */}
+        {!IS_PORTAL_BUILD && (
+          <script dangerouslySetInnerHTML={{ __html: `(function(){try{` +
+            `var p=location.pathname.replace(/\/$/,'');` +
+            `if(['','/es','/fr','/de','/ru'].indexOf(p)<0)return;` +
+            `if(/[?&](map|party|learn|crazygames)=/.test(location.search))return;` +
+            `if(localStorage.getItem('onboarding')==='done'||localStorage.getItem('wg_secret'))return;` +
+            `document.documentElement.classList.add('wg-welcome-pending');` +
+            `}catch(e){}})();` }} />
+        )}
+
         {/* Google Analytics. NOT on the 6x (Playgama) build: Playgama's
             technical requirements and self-check reject a game that embeds
             GA4 or a similar analytics system. Every gtag caller in _app.js
@@ -159,6 +174,22 @@ export default function Document({ pathname }) {
                because it is the same URL either way. */
             @media (prefers-reduced-motion: reduce) {
               html.site-bg-swap body::before { animation: none; }
+            }
+            /* Matches .welcome-modal-backdrop.visible + .welcome-modal__loader
+               so the hand-off to the mounted overlay is invisible. */
+            html.wg-welcome-pending body::after {
+              content: '';
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              z-index: 10000;
+              background: url("${basePath}/loader.webp") center bottom 32px / 56px 56px no-repeat,
+                          rgba(0, 0, 0, 0.62);
+              backdrop-filter: blur(10px);
+              -webkit-backdrop-filter: blur(10px);
+              pointer-events: none;
             }
           `)
         }} />

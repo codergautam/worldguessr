@@ -34,6 +34,7 @@ import VolumeSliders from '../src/components/VolumeSliders';
 import ReviewPromptModal from '../src/components/ReviewPromptModal';
 import { useManualReviewPrompt } from '../src/hooks/useReviewPrompt';
 import { useSiteAccent } from '../src/store/siteBackgroundStore';
+import { isAdPrivacyOptionsRequired, showAdPrivacyOptions } from '../src/services/ads';
 
 const PRIVACY_URL = 'https://worldguessr.com/privacy.html';
 
@@ -145,6 +146,19 @@ export default function SettingsScreen() {
 
   const openPrivacy = useCallback(() => {
     Linking.openURL(PRIVACY_URL).catch(() => {});
+  }, []);
+
+  // GDPR: users in regions that require it must be able to revisit their ad
+  // consent choices (Google UMP privacy options entry point).
+  const [adPrivacyRequired, setAdPrivacyRequired] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    isAdPrivacyOptionsRequired().then((required) => {
+      if (alive) setAdPrivacyRequired(required);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Voluntary rate-us entry — same star-gated modal as the post-game prompt
@@ -472,6 +486,17 @@ export default function SettingsScreen() {
               </Text>
               <Ionicons name="open-outline" size={20} color={colors.textMuted} />
             </Pressable>
+            {adPrivacyRequired && (
+              <Pressable
+                onPress={showAdPrivacyOptions}
+                style={({ pressed }) => [styles.row, styles.rowDivider, pressed && styles.rowPressed]}
+              >
+                <Text style={styles.rowLabel}>
+                  {t('adPrivacyChoices')}
+                </Text>
+                <Ionicons name="options-outline" size={20} color={colors.textMuted} />
+              </Pressable>
+            )}
             {/* Live player count — moved here from the home footer (Aug 23):
                 a status readout is settings material, not home chrome. Rendered
                 only while the socket is live so it can never show a stale 0. */}

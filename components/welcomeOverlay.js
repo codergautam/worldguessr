@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import NextImage from 'next/image';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
+import { asset } from '@/lib/basePath';
 
 /**
  * `autoSelect`: a mode this overlay must commit to on its own, no tap. The
@@ -10,13 +12,21 @@ import sendEvent from './utils/sendEvent';
  * real tap, so the fade-out crossfades into whatever opened underneath, and
  * the selection is reported exactly once.
  */
-export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
+export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect, panoLoading }) {
   const { t: text } = useTranslation("common");
   const [visible, setVisible] = useState(false);
+  // The backdrop is dark from the first frame (it takes over from the
+  // _document pre-paint cover); only the exit fades it.
+  const [leaving, setLeaving] = useState(false);
   // One exit per overlay. The login button stays tappable through the 300ms
   // fade, so a tap landing on top of a running exit must not fire a second
   // analytics event or a second commit.
   const dismissedRef = useRef(false);
+
+  // Before paint, so the pre-paint cover and this backdrop never both drop.
+  useLayoutEffect(() => {
+    document.documentElement.classList.remove('wg-welcome-pending');
+  }, []);
 
   useEffect(() => {
     sendEvent("onboarding_shown");
@@ -27,6 +37,7 @@ export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
     if (dismissedRef.current) return;
     dismissedRef.current = true;
     setVisible(false);
+    setLeaving(true);
     setTimeout(() => {
       sendEvent("onboarding_mode_selected", { mode, ...extra });
       done();
@@ -56,9 +67,8 @@ export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
     // what it sees first — it was scraping the welcome copy into mangled search
     // snippets ("...jado en algún lugar de la Tierra") instead of the meta
     // description. Keeps the text indexed, just out of snippets.
-    <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`} data-nosnippet="">
+    <div className={`welcome-modal-backdrop ${leaving ? '' : 'visible'}`} data-nosnippet="">
       <div className={`welcome-modal ${visible ? 'visible' : ''}`}>
-        <div className="welcome-modal__hero">🌍</div>
         <h1 className="welcome-modal__title">
           {isSchoolGuessr ? "Welcome to SchoolGuessr!" : text("welcomeTitle")}
         </h1>
@@ -110,6 +120,16 @@ export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
           {text("skipTutorial")}
         </button>
       </div>
+      {/* The round-1 pano loads behind the blur; a quiet spinner instead of
+          an empty backdrop or a "Loading..." banner. */}
+      <NextImage.default
+        className={`welcome-modal__loader ${!leaving && panoLoading ? 'visible' : ''}`}
+        src={asset('/loader.webp')}
+        alt=""
+        aria-hidden="true"
+        width={56}
+        height={56}
+      />
     </div>
   );
 }
