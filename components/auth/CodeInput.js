@@ -66,7 +66,8 @@ export default function CodeInput({
         inputMode="numeric"
         pattern="[0-9]*"
         autoComplete="one-time-code"
-        maxLength={length}
+        // No maxLength: it cuts a pasted "1 2 3 4 5 6" to "1 2 3 " before
+        // handleChange can strip the spaces. handleChange caps the length.
         value={value}
         onChange={handleChange}
         onFocus={() => { setFocused(true); moveCaretToEnd(); }}
