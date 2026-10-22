@@ -51,13 +51,13 @@ export default function Document({ pathname }) {
         )}
 
         {/* Likely-new visitor on a home path: paint the welcome screen's dark
-            blur + spinner on the first frame instead of the bare background
+            blur on the first frame instead of the bare background
             while JS loads. A cheap mirror of home.js's onboarding decision;
             WelcomeOverlay removes the class when it mounts and home.js
             removes it as soon as the visitor turns out not to be new. */}
         {!IS_PORTAL_BUILD && (
           <script dangerouslySetInnerHTML={{ __html: `(function(){try{` +
-            `var p=location.pathname.replace(/\/$/,'');` +
+            `var p=location.pathname.replace(/\\/$/,'');` +
             `if(['','/es','/fr','/de','/ru'].indexOf(p)<0)return;` +
             `if(/[?&](map|party|learn|crazygames)=/.test(location.search))return;` +
             `if(localStorage.getItem('onboarding')==='done'||localStorage.getItem('wg_secret'))return;` +
@@ -175,8 +175,8 @@ export default function Document({ pathname }) {
             @media (prefers-reduced-motion: reduce) {
               html.site-bg-swap body::before { animation: none; }
             }
-            /* Matches .welcome-modal-backdrop.visible + .welcome-modal__loader
-               so the hand-off to the mounted overlay is invisible. */
+            /* Matches .welcome-modal-backdrop.visible so the hand-off to the
+               mounted overlay is invisible. */
             html.wg-welcome-pending body::after {
               content: '';
               position: fixed;
@@ -185,11 +185,16 @@ export default function Document({ pathname }) {
               width: 100%;
               height: 100%;
               z-index: 10000;
-              background: url("${basePath}/loader.webp") center bottom 32px / 56px 56px no-repeat,
-                          rgba(0, 0, 0, 0.62);
+              background: rgba(0, 0, 0, 0.62);
               backdrop-filter: blur(10px);
               -webkit-backdrop-filter: blur(10px);
               pointer-events: none;
+            }
+            /* home.js's "Loading..." banner fades in during bootstrap and out
+               when the overlay mounts; under the cover that read as a blurred
+               flash. The overlay hides it from then on. */
+            html.wg-welcome-pending .banner-text {
+              visibility: hidden;
             }
           `)
         }} />

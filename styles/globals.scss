@@ -6317,6 +6317,9 @@ img[alt="Google"] {
 
 .countryGuessrOptions.shown {
     display: flex;
+    /* Opacity only: a transform here would override the translateX(-50%)
+       centering. Replays on every display:none -> flex, i.e. every round. */
+    animation: dimFadeIn 0.3s ease;
 }
 
 .countryGuessrPrompt {
@@ -9343,22 +9346,6 @@ div:hover .elo-badge {
     &.visible > :nth-child(3) { transition-delay: 0.16s; }
     &.visible > :nth-child(4) { transition-delay: 0.24s; }
     &.visible > :nth-child(5) { transition-delay: 0.32s; }
-}
-
-.welcome-modal__loader {
-    position: absolute;
-    bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    transform: translateX(-50%);
-    width: 56px;
-    height: 56px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-
-    &.visible {
-        opacity: 1;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

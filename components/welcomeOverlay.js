@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import NextImage from 'next/image';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
-import { asset } from '@/lib/basePath';
 
 /**
  * `autoSelect`: a mode this overlay must commit to on its own, no tap. The
@@ -12,7 +10,7 @@ import { asset } from '@/lib/basePath';
  * real tap, so the fade-out crossfades into whatever opened underneath, and
  * the selection is reported exactly once.
  */
-export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect, panoLoading }) {
+export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect }) {
   const { t: text } = useTranslation("common");
   const [visible, setVisible] = useState(false);
   // The backdrop is dark from the first frame (it takes over from the
@@ -120,16 +118,6 @@ export default function WelcomeOverlay({ onModeSelected, onSkip, autoSelect, pan
           {text("skipTutorial")}
         </button>
       </div>
-      {/* The round-1 pano loads behind the blur; a quiet spinner instead of
-          an empty backdrop or a "Loading..." banner. */}
-      <NextImage.default
-        className={`welcome-modal__loader ${!leaving && panoLoading ? 'visible' : ''}`}
-        src={asset('/loader.webp')}
-        alt=""
-        aria-hidden="true"
-        width={56}
-        height={56}
-      />
     </div>
   );
 }

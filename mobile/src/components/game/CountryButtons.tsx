@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -206,10 +206,29 @@ export default function CountryButtons({
     return () => animation.stop();
   }, [shown, isContinent, entranceAnims]);
 
+  // Web parity: `.countryGuessrOptions.shown` fades the whole dock in
+  // (dimFadeIn 0.3s ease) under the per-button slide. Reset while hidden so
+  // the first shown frame is already at 0.
+  const panelAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!shown) {
+      panelAnim.setValue(0);
+      return;
+    }
+    const animation = Animated.timing(panelAnim, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [shown, panelAnim]);
+
   if (!shown) return null;
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.wrap,
         isPhone && styles.wrapPhone,
@@ -223,6 +242,7 @@ export default function CountryButtons({
           paddingHorizontal: buttonMetrics.containerPaddingH,
           paddingVertical: buttonMetrics.containerPaddingV,
           gap: buttonMetrics.containerGap,
+          opacity: panelAnim,
         },
       ]}
       pointerEvents="box-none"
@@ -379,7 +399,7 @@ export default function CountryButtons({
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

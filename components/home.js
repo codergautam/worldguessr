@@ -5388,7 +5388,6 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
                     onModeSelected={selectOnboardingMode}
-                    panoLoading={loading || newUserBooting}
                     // Login pressed while this overlay is still up.
                     //
                     // The onboarding login button lives in
