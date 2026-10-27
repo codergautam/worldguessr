@@ -1,18 +1,20 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Easing,
-  ScrollView,
+  Platform,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Pressable } from '../ui/SfxPressable';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable } from '../ui/SfxPressable';
 import { colors, t } from '../../shared';
 import { onboardingAnalytics } from '../../services/onboardingAnalytics';
-import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 interface Props {
   visible: boolean;
@@ -20,161 +22,246 @@ interface Props {
   onSkip: () => void;
 }
 
+// Port of web's welcome screen (components/welcomeOverlay.js +
+// .welcome-modal* in styles/globals.scss): a full-screen splash over the
+// blurred round-1 pano, no card. Title, copy, choices and skip rise in one
+// after another; the exit fades everything together.
+const STAGGER_COUNT = 4;
+const STAGGER_MS = 80;
+const EXIT_MS = 300;
+const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+const BLUR_INTENSITY = Platform.OS === 'android' ? 24 : 40;
+// The exit animates blur intensity rather than a parent's opacity: iOS
+// UIVisualEffectView renders incorrectly under any ancestor alpha < 1.
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
 export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Props) {
-  const { width, height } = useWindowDimensions();
-  const fade = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.92)).current;
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [reduceMotion, setReduceMotion] = useState(false);
+  // The backdrop is dark from the first frame (it covers the loading pano);
+  // only the exit fades it.
+  const exit = useRef(new Animated.Value(1)).current;
+  const content = useRef(new Animated.Value(0)).current;
+  const items = useRef(
+    Array.from({ length: STAGGER_COUNT }, () => new Animated.Value(0)),
+  ).current;
+  const rises = useRef(
+    Array.from({ length: STAGGER_COUNT }, () => new Animated.Value(0)),
+  ).current;
+  // One exit per overlay: a second tap during the fade must not commit twice.
+  const dismissedRef = useRef(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
     onboardingAnalytics.shown();
-    fade.setValue(0);
-    scale.setValue(0.96);
+    dismissedRef.current = false;
+    exit.setValue(1);
+    content.setValue(0);
+    items.forEach((v) => v.setValue(0));
+    rises.forEach((v) => v.setValue(0));
+    // Transforms run on the JS driver: native-driven transforms on freshly
+    // mounted touch targets can desync hit-testing (first tap ignored).
     Animated.parallel([
-      Animated.timing(fade, {
+      Animated.timing(content, {
         toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        duration: 300,
+        easing: Easing.ease,
+        useNativeDriver: false,
       }),
-      // Subtle fade-up via a near-1 starting scale + matching duration —
-      // no springy bounce, just a clean reveal.
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
+      ...items.map((v, i) =>
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 500,
+          delay: i * STAGGER_MS,
+          easing: Easing.ease,
+          useNativeDriver: false,
+        }),
+      ),
+      ...rises.map((v, i) =>
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 600,
+          delay: i * STAGGER_MS,
+          easing: RISE_EASING,
+          useNativeDriver: false,
+        }),
+      ),
     ]).start();
   }, [visible]);
 
   const dismiss = (cb: () => void) => {
-    Animated.timing(fade, {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+    Animated.timing(exit, {
       toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
+      duration: EXIT_MS,
+      easing: Easing.ease,
+      useNativeDriver: false,
     }).start(() => cb());
   };
-
-  // Three responsive forks. `isLandscape` triggers a side-by-side mode layout
-  // and tighter vertical rhythm so the card never overflows on a phone in
-  // landscape (where height ~ 390). `isWide` separately handles tablet
-  // portrait. `isShort` clamps hero/font sizes when there isn't much height.
-  const isLandscape = width > height && height < 600;
-  const isWide = width > 480;
-  const isShort = height < 560;
 
   // Rendered as a regular absolute View (not RN's Modal) so siblings in the
   // parent screen — login + join-party buttons — can stack on top of it.
   if (!visible) return null;
 
-  // Phone-landscape gets a wider card; tablet portrait gets the standard
-  // 460-wide column; phone-portrait fills 92% of the screen.
-  const cardMaxWidth = isLandscape ? Math.min(720, width - 48) : isWide ? 460 : '92%';
+  // Web breakpoint: side-by-side choices above 600px, stacked below.
+  const isNarrow = width <= 600;
+  const titleSize = Math.min(80, Math.max(42, width * 0.07));
+  const descSize = Math.min(20, Math.max(16, width * 0.018));
+
+  const itemStyle = (i: number) => ({
+    opacity: items[i],
+    transform: reduceMotion
+      ? []
+      : [{ translateY: rises[i].interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  });
 
   return (
-    <Animated.View
-      style={[styles.backdrop, { opacity: fade }]}
-      pointerEvents="auto"
-    >
-      <ScrollView
-        style={styles.scrollWrap}
-        contentContainerStyle={styles.scrollContent}
+    <View style={styles.backdrop} pointerEvents="auto">
+      <AnimatedBlurView
+        intensity={exit.interpolate({ inputRange: [0, 1], outputRange: [0, BLUR_INTENSITY] })}
+        tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Web's rgba(0,0,0,0.62) over the blur; also keeps the copy legible
+          if Android blur degrades. */}
+      <Animated.View style={[styles.tintScrim, { opacity: exit }]} pointerEvents="none" />
+      <Animated.ScrollView
+        style={[styles.scrollWrap, { opacity: exit }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+        ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
         <Animated.View
           style={[
-            styles.card,
-            isLandscape && styles.cardLandscape,
-            isShort && styles.cardShort,
-            { maxWidth: cardMaxWidth, transform: [{ scale }] },
+            styles.content,
+            {
+              opacity: content,
+              transform: reduceMotion
+                ? []
+                : [{ scale: content.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }],
+            },
           ]}
         >
-          <Text style={[styles.hero, isShort && styles.heroShort]}>🌍</Text>
-          <Text style={[styles.title, isShort && styles.titleShort]}>
+          <Animated.Text
+            style={[
+              styles.title,
+              { fontSize: titleSize, lineHeight: titleSize * 1.05 },
+              itemStyle(0),
+            ]}
+          >
             {t('welcomeTitle')}
-          </Text>
-          <Text style={[styles.desc, isShort && styles.descShort]}>
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.desc,
+              { fontSize: descSize, lineHeight: descSize * 1.5 },
+              isNarrow && styles.descNarrow,
+              itemStyle(1),
+            ]}
+          >
             {t('welcomeDesc')}
-          </Text>
+          </Animated.Text>
 
-          <View style={[styles.modes, isLandscape && styles.modesLandscape]}>
+          <Animated.View style={[styles.modes, isNarrow && styles.modesNarrow, itemStyle(2)]}>
             <Pressable
               onPress={() => dismiss(() => onModeSelected('country'))}
               style={({ pressed }) => [
                 styles.modeBtnWrap,
-                isLandscape && styles.modeBtnWrapLandscape,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                !isNarrow && styles.modeBtnWrapRow,
+                styles.recommendedShadow,
+                pressed && styles.pressed,
               ]}
             >
               <LinearGradient
-                colors={['#1a4423', '#0e2814']}
+                colors={['#3fb950', '#2e9a3f']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.modeBtn, isLandscape && styles.modeBtnLandscape]}
+                end={{ x: 0, y: 1 }}
+                style={[styles.modeBtn, isNarrow && styles.modeBtnNarrow, styles.modeBtnRecommended]}
               >
-                <Text style={[styles.modeIcon, isLandscape && styles.modeIconLandscape]}>🏳️</Text>
+                {/* Web's inset 0 1px 0 rgba(255,255,255,0.25) highlight. */}
+                <View style={styles.recommendedHighlight} pointerEvents="none" />
+                <Text style={styles.modeIcon}>🏳️</Text>
                 <View style={styles.modeText}>
-                  <Text style={[styles.modeTitle, isLandscape && styles.modeTitleLandscape]}>
-                    {t('countryGuesser')}
+                  <Text style={styles.modeTitle}>{t('countryGuesser')}</Text>
+                  <Text style={[styles.modeSub, styles.modeSubRecommended]}>
+                    {t('countryGuessrDesc')}
                   </Text>
-                  <Text style={styles.modeSub}>{t('countryGuessrDesc')}</Text>
                 </View>
               </LinearGradient>
               {/* Badge lives outside the gradient so its negative `top` isn't
                   clipped by the rounded mask on iOS/Android. */}
-              <View style={styles.recommendedBadge} pointerEvents="none">
-                <Text style={styles.recommendedText}>{t('recommended')}</Text>
+              <View style={styles.recommendedBadgeRow} pointerEvents="none">
+                <View style={styles.recommendedBadge}>
+                  <Text style={styles.recommendedText}>{t('recommended')}</Text>
+                </View>
               </View>
             </Pressable>
 
             <Pressable
               onPress={() => dismiss(() => onModeSelected('classic'))}
               style={({ pressed }) => [
-                isLandscape && styles.modeBtnWrapLandscape,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                styles.modeBtnWrap,
+                !isNarrow && styles.modeBtnWrapRow,
+                styles.classicShadow,
+                pressed && styles.pressed,
               ]}
             >
-              <LinearGradient
-                colors={['#1a3344', '#0e1d28']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.modeBtn, isLandscape && styles.modeBtnLandscape]}
-              >
-                <Text style={[styles.modeIcon, isLandscape && styles.modeIconLandscape]}>🗺️</Text>
-                <View style={styles.modeText}>
-                  <Text style={[styles.modeTitle, isLandscape && styles.modeTitleLandscape]}>
-                    {t('classic')}
-                  </Text>
-                  <Text style={styles.modeSub}>{t('classicDesc')}</Text>
+              {({ pressed }) => (
+                <View
+                  style={[
+                    styles.modeBtn,
+                    isNarrow && styles.modeBtnNarrow,
+                    styles.modeBtnClassic,
+                    pressed && styles.modeBtnClassicPressed,
+                  ]}
+                >
+                  <Text style={styles.modeIcon}>🗺️</Text>
+                  <View style={styles.modeText}>
+                    <Text style={styles.modeTitle}>{t('classic')}</Text>
+                    <Text style={styles.modeSub}>{t('classicDesc')}</Text>
+                  </View>
                 </View>
-              </LinearGradient>
+              )}
             </Pressable>
-          </View>
+          </Animated.View>
 
-          <Pressable
-            onPress={() => dismiss(onSkip)}
-            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-          >
-            <Text style={styles.skip}>{t('skipTutorial')}</Text>
-          </Pressable>
+          <Animated.View style={itemStyle(3)}>
+            <Pressable
+              onPress={() => dismiss(onSkip)}
+              style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.skip}>{t('skipTutorial')}</Text>
+            </Pressable>
+          </Animated.View>
         </Animated.View>
-      </ScrollView>
-    </Animated.View>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.78)',
-    // Above GameSurface's loading overlay (z 2000) so the welcome modal
+    // Above GameSurface's loading overlay (z 2000) so the welcome screen
     // shows immediately, even while the first panorama is still painting.
     // Below the always-visible login/join-party toolbar (z 2100) so those
     // buttons stay tappable on top of the dim.
     zIndex: 2050,
     elevation: 60,
+  },
+  tintScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   scrollWrap: {
     flex: 1,
@@ -183,147 +270,157 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: 16,
   },
-  card: {
+  content: {
     width: '100%',
-    backgroundColor: '#101e14',
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing['2xl'],
-    paddingTop: spacing['2xl'],
-    paddingBottom: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    maxWidth: 760,
     alignItems: 'center',
-  },
-  cardLandscape: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  cardShort: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  hero: {
-    fontSize: 56,
-    marginBottom: spacing.xs,
-  },
-  heroShort: {
-    fontSize: 36,
-    marginBottom: 0,
   },
   title: {
     color: colors.white,
-    fontSize: fontSizes['2xl'],
-    fontFamily: 'Lexend-Bold',
+    fontFamily: 'JockeyOne',
     textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  titleShort: {
-    fontSize: fontSizes.xl,
-    marginBottom: spacing.xs,
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 24,
   },
   desc: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: fontSizes.sm,
+    color: 'rgba(255, 255, 255, 0.82)',
     fontFamily: 'Lexend',
     textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 20,
+    maxWidth: 560,
+    marginBottom: 40,
   },
-  descShort: {
-    marginBottom: spacing.md,
-    fontSize: fontSizes.xs,
-    lineHeight: 17,
+  descNarrow: {
+    marginBottom: 28,
   },
   modes: {
-    width: '100%',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-    // Top breathing room so the recommended badge (which sits above the
-    // first button at top:-10) has somewhere to live.
-    marginTop: spacing.sm,
-  },
-  modesLandscape: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 28,
+    // Room for the recommended badge (top: -11) above the first button.
+    paddingTop: 11,
+    width: '100%',
+  },
+  modesNarrow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 14,
+    marginBottom: 18,
   },
   modeBtnWrap: {
     position: 'relative',
   },
-  modeBtnWrapLandscape: {
+  modeBtnWrapRow: {
     flex: 1,
+    maxWidth: 300,
+  },
+  pressed: {
+    transform: [{ scale: 0.98 }],
   },
   modeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    gap: spacing.md,
-    minHeight: 72,
+    gap: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    overflow: 'hidden',
   },
-  modeBtnLandscape: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    gap: spacing.xs,
-    minHeight: 0,
+  modeBtnNarrow: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
   },
-  modeIconLandscape: {
-    fontSize: 22,
+  modeBtnRecommended: {
+    borderColor: '#56d364',
   },
-  modeTitleLandscape: {
-    fontSize: fontSizes.md,
-  },
-  recommendedBadge: {
+  recommendedHighlight: {
     position: 'absolute',
-    top: -10,
-    right: 16,
-    backgroundColor: colors.warning,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    // Keep the badge above the gradient on Android (where stacking can be
-    // platform-dependent). zIndex + elevation cover both platforms.
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  modeBtnClassic: {
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modeBtnClassicPressed: {
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  // iOS-only shadows: Android elevation on a translucent background draws a
+  // rectangular artifact through it.
+  recommendedShadow: Platform.select({
+    ios: {
+      shadowColor: '#3fb950',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+    },
+    default: {},
+  }),
+  classicShadow: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+    },
+    default: {},
+  }),
+  recommendedBadgeRow: {
+    position: 'absolute',
+    top: -11,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 2,
     elevation: 3,
   },
+  recommendedBadge: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   recommendedText: {
-    color: '#1a1300',
+    color: '#1a7f37',
     fontFamily: 'Lexend-Bold',
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 0.5,
-    
+    textTransform: 'uppercase',
   },
   modeIcon: {
-    fontSize: 32,
+    fontSize: 29,
   },
   modeText: {
     flex: 1,
   },
   modeTitle: {
     color: colors.white,
-    fontSize: fontSizes.lg,
+    fontSize: 18,
     fontFamily: 'Lexend-Bold',
     marginBottom: 2,
   },
   modeSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: fontSizes.xs,
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 13,
     fontFamily: 'Lexend',
   },
+  modeSubRecommended: {
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
   skip: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 16,
+    fontFamily: 'Lexend',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
 });
