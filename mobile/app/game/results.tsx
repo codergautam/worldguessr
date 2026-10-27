@@ -32,7 +32,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe, resetRootStackTo } from '../../src/utils/navigation';
 import streetViewUrl from '../../src/utils/streetViewUrl';
-import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
+import { markGameFinished, maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import StampsEarnedDisplay from '../../src/components/multiplayer/StampsEarnedDisplay';
@@ -353,6 +353,10 @@ export default function GameResultsScreen() {
 
   const isHistoryView = fromHistory === 'true';
   const isLiveMultiplayer = mpParam === 'true';
+  // A just-finished game (not a history replay) unlocks this session's ads.
+  useEffect(() => {
+    if (!isHistoryView) markGameFinished();
+  }, []);
   const secret = useAuthStore((s) => s.secret);
   // SUBSCRIBED, not a getState() snapshot: the ws `elo` message that stamps the
   // server's league can land AFTER this screen mounts, and a one-shot read would

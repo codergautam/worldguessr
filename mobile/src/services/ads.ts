@@ -10,6 +10,7 @@ import {
   getTrackingPermissionsAsync,
   requestTrackingPermissionsAsync,
 } from 'expo-tracking-transparency';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 
 // Use Google TEST ads only in dev or when explicitly opted in. In a release
@@ -136,6 +137,7 @@ let initPromise: Promise<void> | null = null;
 
 export function initAds(): Promise<void> {
   if (!initPromise) {
+    void loadFirstSessionFlag();
     initPromise = gatherAdsConsent()
       .then(() => requestTrackingConsent())
       .then(() => (canRequestAds ? mobileAds().initialize() : undefined))
@@ -149,6 +151,21 @@ export function initAds(): Promise<void> {
 
 let interstitial: InterstitialAd | null = null;
 let interstitialLoading = false;
+let interstitialLoadedAt = 0;
+// True while an ad is on screen: an ad click backgrounds the app, and the
+// return to 'active' must not discard the instance the caller is awaiting.
+let interstitialShowing = false;
+
+// A failed load (no fill, flaky cold-start network) is retried with backoff
+// instead of waiting for the next eligible game start to notice nothing's ready.
+const RETRY_BASE_MS = 30 * 1000;
+const RETRY_MAX_MS = 5 * 60 * 1000;
+let retryDelayMs = RETRY_BASE_MS;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Preloaded full-screen ads expire about an hour after loading (Google
+// guidance); a stale one can fail to show or earn less, so reload before then.
+const STALE_AD_MS = 50 * 60 * 1000;
 
 function ensureInterstitial(): InterstitialAd | null {
   if (!INTERSTITIAL_UNIT_ID || !canRequestAds) return null;
@@ -156,10 +173,19 @@ function ensureInterstitial(): InterstitialAd | null {
   interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID);
   interstitial.addAdEventListener(AdEventType.LOADED, () => {
     interstitialLoading = false;
+    interstitialLoadedAt = Date.now();
+    retryDelayMs = RETRY_BASE_MS;
   });
   interstitial.addAdEventListener(AdEventType.ERROR, (err) => {
     interstitialLoading = false;
     console.warn('[ads] interstitial error', err);
+    if (!retryTimer) {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        preloadInterstitial();
+      }, retryDelayMs);
+      retryDelayMs = Math.min(retryDelayMs * 2, RETRY_MAX_MS);
+    }
   });
   interstitial.addAdEventListener(AdEventType.CLOSED, () => {
     interstitial = null;
@@ -168,11 +194,29 @@ function ensureInterstitial(): InterstitialAd | null {
   return interstitial;
 }
 
+/** Drop the current instance (stale or broken) and start a fresh load. */
+function replaceInterstitial(): void {
+  interstitial?.removeAllListeners();
+  interstitial = null;
+  interstitialLoading = false;
+  preloadInterstitial();
+}
+
+function discardIfStale(): void {
+  if (!interstitialShowing && interstitial?.loaded && Date.now() - interstitialLoadedAt > STALE_AD_MS) {
+    replaceInterstitial();
+  }
+}
+
 export function preloadInterstitial(): void {
   if (interstitialLoading) return;
   const ad = ensureInterstitial();
   if (!ad) return;
   if (ad.loaded) return;
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
   interstitialLoading = true;
   try {
     ad.load();
@@ -187,37 +231,64 @@ export function preloadInterstitial(): void {
 // show helper without the duck: an undocked ad plays over full-volume music.
 
 // ── Frequency-capped game interstitials ──────────────────────────────────────
-// Policy (intentionally minimal & non-intrusive):
-//  • NEVER on first app load — the app-open timestamp seeds `lastInterstitialAt`,
-//    so the first eligible ad can only fire 5 minutes into the session.
+// Policy (non-intrusive):
+//  • NEVER before the player has finished a game this session
+//    (markGameFinished, called by the results screen).
+//  • A new user's first session is also ad-free for its first 5 minutes.
 //  • Only shown when *opening* or *replaying* singleplayer / ranked duel /
-//    unranked duel (NOT parties, daily challenge, or community maps).
-//  • At most one interstitial per AD_INTERVAL_MS (5 min), measured from the last
-//    ad shown — or from app open if none has been shown yet.
-const AD_INTERVAL_MS = 5 * 60 * 1000;
+//    unranked duel / 2v2 (NOT parties, daily challenge, or community maps).
+//  • At most one interstitial per AD_INTERVAL_MS (4 min) after the last one.
+const AD_INTERVAL_MS = 4 * 60 * 1000;
+const FIRST_SESSION_GRACE_MS = 5 * 60 * 1000;
+const FIRST_OPEN_KEY = 'wg_ads_first_open_done';
 
-// Seeded to app-open time: guarantees no ad within the first 5 minutes.
-let lastInterstitialAt = Date.now();
+let lastInterstitialAt = 0;
+let sessionStartedAt = Date.now();
+let gamesFinishedThisSession = 0;
+// Assume a first session until storage says otherwise: fail toward fewer ads.
+let isFirstSession = true;
 
-// The JS process survives backgrounding, so `lastInterstitialAt` keeps aging on
-// wall-clock time while the app sits on the home screen — reopening after a
-// long stint would greet the very first game tap with an instant interstitial.
-// A long background stint IS a fresh session as far as ad pacing goes: re-seed
-// the cap timer on return, exactly like the app-open seed above. Short hops
-// (notification peek, quick app switch) stay under the threshold and keep the
-// cap running normally.
-const BACKGROUND_RESEED_MS = 2 * 60 * 1000;
+async function loadFirstSessionFlag(): Promise<void> {
+  try {
+    if (await AsyncStorage.getItem(FIRST_OPEN_KEY)) {
+      isFirstSession = false;
+    } else {
+      await AsyncStorage.setItem(FIRST_OPEN_KEY, '1');
+    }
+  } catch (err) {
+    console.warn('[ads] first-open flag failed', err);
+  }
+}
+
+/** Results screen hook: a finished game unlocks this session's ads. */
+export function markGameFinished(): void {
+  gamesFinishedThisSession += 1;
+}
+
+// The JS process survives backgrounding, so a long background stint must count
+// as a fresh session (and get a fresh finish-a-game-first grace). Short hops
+// (notification peek, quick app switch) keep the session running.
+const BACKGROUND_RESEED_MS = 30 * 60 * 1000;
 let backgroundedAt: number | null = null;
 AppState.addEventListener('change', (state) => {
   if (state === 'background') {
     backgroundedAt = Date.now();
-  } else if (state === 'active' && backgroundedAt !== null) {
-    if (Date.now() - backgroundedAt >= BACKGROUND_RESEED_MS) {
-      lastInterstitialAt = Date.now();
+  } else if (state === 'active') {
+    if (backgroundedAt !== null && Date.now() - backgroundedAt >= BACKGROUND_RESEED_MS) {
+      sessionStartedAt = Date.now();
+      gamesFinishedThisSession = 0;
+      isFirstSession = false;
     }
     backgroundedAt = null;
+    discardIfStale();
   }
 });
+
+function interstitialAllowedNow(now: number): boolean {
+  if (gamesFinishedThisSession < 1) return false;
+  if (isFirstSession && now - sessionStartedAt < FIRST_SESSION_GRACE_MS) return false;
+  return now - lastInterstitialAt >= AD_INTERVAL_MS;
+}
 
 /**
  * Does the signed-in account hold a live Ad-Free Pass?
@@ -255,7 +326,7 @@ const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
 
 /**
  * Show an interstitial when opening / replaying an eligible game, subject to the
- * 5-minute frequency cap. Safe to call on every game start — gating is internal.
+ * session/frequency rules above. Safe to call on every game start — gating is internal.
  * Returns true only if an ad was actually displayed.
  */
 export function maybeShowGameInterstitial(context: AdGameContext): boolean {
@@ -272,8 +343,8 @@ export function maybeShowGameInterstitial(context: AdGameContext): boolean {
 }
 
 /**
- * Show an eligible interstitial (same context-eligibility + 5-minute frequency
- * cap as {@link maybeShowGameInterstitial}) and resolve ONLY once the user has
+ * Show an eligible interstitial (same context-eligibility + session/frequency
+ * rules as {@link maybeShowGameInterstitial}) and resolve ONLY once the user has
  * dismissed it. Resolves immediately when no ad is actually displayed —
  * ineligible context, inside the cap window, or nothing preloaded.
  *
@@ -289,12 +360,13 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return Promise.resolve();
 
   const now = Date.now();
-  if (now - lastInterstitialAt < AD_INTERVAL_MS) {
-    // Within cap window — no ad this time; keep one warm for the next moment.
+  if (!interstitialAllowedNow(now)) {
+    // Not yet eligible — no ad this time; keep one warm for the next moment.
     preloadInterstitial();
     return Promise.resolve();
   }
 
+  discardIfStale(); // a stale ad is skipped this time and reloaded
   const ad = ensureInterstitial();
   if (!ad) return Promise.resolve(); // ads disabled (no unit id or no consent)
   if (!ad.loaded) {
@@ -312,6 +384,7 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
     const finish = () => {
       if (settled) return;
       settled = true;
+      interstitialShowing = false;
       unduck();
       unsubClosed();
       unsubError();
@@ -327,12 +400,23 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
       import('./sound').then(({ duckAudio }) => duckAudio(false)).catch(() => {});
     };
     import('./sound').then(({ duckAudio }) => duckAudio(true)).catch(() => {});
-    try {
-      ad.show();
-      lastInterstitialAt = now;
-    } catch (err) {
+    // show() can also reject asynchronously with no ERROR event (no
+    // activity / view controller, native side not ready). Without the catch
+    // the caller's await never settles and the Play tap / queue join hangs.
+    // A failed show doesn't use up the cap.
+    const prevAt = lastInterstitialAt;
+    const failShow = (err: unknown) => {
       console.warn('[ads] interstitial show failed', err);
+      lastInterstitialAt = prevAt;
       finish();
+      replaceInterstitial();
+    };
+    lastInterstitialAt = now;
+    interstitialShowing = true;
+    try {
+      ad.show().catch(failShow);
+    } catch (err) {
+      failShow(err);
     }
   });
 }
