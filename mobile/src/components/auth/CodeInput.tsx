@@ -180,7 +180,8 @@ export default function CodeInput({
         keyboardType="number-pad"
         textContentType="oneTimeCode"
         autoComplete={Platform.OS === 'ios' ? 'one-time-code' : 'sms-otp'}
-        maxLength={length}
+        // No maxLength: it cuts a pasted "1 2 3 4 5 6" to "1 2 3 " before
+        // handleChange can strip the spaces. handleChange caps the length.
         caretHidden
         autoCorrect={false}
         spellCheck={false}
