@@ -5318,9 +5318,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 <ShopModal
                     session={session}
                     setSession={setSession}
-                    // "Subscribe on YouTube for Stamps": the website only, never
-                    // a portal (no outside links) or the app's web view.
-                    youtubeOffer={!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && !inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
+                    // "Subscribe on YouTube for Stamps": the website and
+                    // CrazyGames only, never another portal or the app's web view.
+                    youtubeOffer={!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
                     coveredEntry={shopModalCoveredEntry}
                     onReady={shopModalCoveredEntry ? completeShopHandoff : undefined}
                     onClose={() => {
