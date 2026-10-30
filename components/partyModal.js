@@ -4,6 +4,9 @@ import { FaUserGroup } from "react-icons/fa6";
 import { useTranslation } from "./useTranslations";
 import Modal from "react-responsive-modal";
 import MapsModal from "./maps/mapsModal";
+import { getMode, REGIONS } from "../shared/modes/catalog.js";
+import { quizOf, QUIZ_IDS, MODE_LABEL_KEYS } from "./modes/quizClient";
+import { continentKey } from "./utils/continentLocale";
 
 export default function PartyModal({ onClose, ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, gameOptions, setGameOptions, shown, setSelectCountryModalShown, selectCountryModalShown }) {
     const { t: text } = useTranslation("common");
@@ -28,6 +31,10 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     // locations). Lock is NOT here: it's the instant button on the lobby
     // card next to the code.
     const [localAllowGuests, setLocalAllowGuests] = useState(true);
+    // Game (Street View or a quiz) and quiz region, buffered like team
+    // config and sent with setPrivateGameOptions on Save.
+    const [localMode, setLocalMode] = useState('classic');
+    const [localRegion, setLocalRegion] = useState('all');
 
     // Sync local state ONLY when the modal opens. The steppers/timer toggle
     // commit straight into createOptions while the modal is open — if those
@@ -53,6 +60,18 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 setLocalComms(fromServer === 'chat' && !session?.token?.username ? 'emotes' : fromServer);
             }
             setLocalAllowGuests(multiplayerState?.gameData?.allowGuests !== false);
+            // The lobby's truth is gameData; before it lands (pending create
+            // shell) the last saved createOptions stand in.
+            {
+                const seed = multiplayerState?.gameData ?? multiplayerState?.createOptions;
+                setLocalMode(seed?.mode ?? 'classic');
+                setLocalRegion(seed?.region ?? 'all');
+                // A timed quiz with the timer saved off runs at its default
+                // (effectiveTimePerRound), so show that instead of a stale value.
+                if (time === 60 * 60 * 24 && getMode(seed?.mode)?.timerRequired) {
+                    setLocalTime(String(getMode(seed.mode).defaultTimePerRound));
+                }
+            }
             // NMPZ/No Move toggles read the gameOptions prop, but that's
             // MultiplayerHome-local state that resets on remount — the party's
             // truth lives on gameData (same as team config above). Without
@@ -69,14 +88,19 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shown]);
     
-    const isTimerDisabled = multiplayerState?.createOptions?.timePerRound === 60 * 60 * 24;
-    
+    const quiz = quizOf(localMode);
+    // A timed quiz (speed bonus) cannot run with the timer off: its toggle
+    // hides, and a saved "off" choice waits for Street View.
+    const isTimerDisabled = multiplayerState?.createOptions?.timePerRound === 60 * 60 * 24 && !quiz?.timerRequired;
+
     // Single source for the option bounds — input blur, steppers and Save/ESC
     // must all clamp identically (this used to live as three divergent copies
     // with three different empty-input fallbacks). Invalid/empty input falls
     // back to the game defaults (5 rounds / 30s).
     const clampRounds = (value) => Math.max(1, Math.min(20, parseInt(value) || 5));
-    const clampTime = (value) => Math.max(10, Math.min(300, parseInt(value) || 30));
+    // Timed quizzes cap the round time at 60s.
+    const maxTime = quiz?.timerRequired ? 60 : 300;
+    const clampTime = (value) => Math.max(10, Math.min(maxTime, parseInt(value) || 30));
 
     // Helper to clamp and commit rounds value
     const commitRounds = (value) => {
@@ -108,6 +132,15 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
         commitTime(current + delta);
     };
 
+    // Same untouched-default trick as the team toggle: only a time the host
+    // never edited follows the new game's default (Street View back to 30s).
+    const selectMode = (id) => {
+        const t = parseInt(localTime);
+        if (t === getMode(localMode).defaultTimePerRound) setLocalTime(String(getMode(id).defaultTimePerRound));
+        else if (getMode(id).timerRequired && t > 60) setLocalTime('60');
+        setLocalMode(id);
+    };
+
 
     const isValidRoundTime = isTimerDisabled || (!isNaN(parseInt(localTime)) && parseInt(localTime) >= 10 && parseInt(localTime) <= 300);
 
@@ -126,6 +159,10 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             nm: gameOptions.nm,
             npz: gameOptions.npz,
             showRoadName: gameOptions.showRoadName,
+            // location/displayLocation stay as they are, so going back to
+            // Street View restores the chosen map.
+            mode: localMode,
+            region: localRegion,
             // Guest hosts choose emotes or off (never chat: they can neither
             // send it nor moderate the room), so their chat flag is pinned true
             // and only the emote flag follows the choice.
@@ -220,6 +257,22 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 
                 {/* Content */}
                 <div className="party-modal__content">
+                    {/* Game: Street View or a quiz. The team toggle below
+                        already says "Classic", so Street View keeps its own
+                        name here. */}
+                    <div className="party-modal__setting">
+                        <label className="party-modal__label">{text("quizGame")}</label>
+                        <div className="party-lobby__seg party-lobby__seg--block party-modal__game-seg" role="group" aria-label={text("quizGame")}>
+                            {['classic', ...QUIZ_IDS].map((id) => (
+                                <button
+                                    key={id}
+                                    className={`party-lobby__seg-btn ${localMode === id ? 'party-lobby__seg-btn--active' : ''}`}
+                                    onClick={() => selectMode(id)}
+                                >{text(id === 'classic' ? 'quizStreetView' : MODE_LABEL_KEYS[id])}</button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Game Mode: Classic (FFA) vs Team Duel, plus the team
                         sub-options. Buffered like everything else here and
                         committed on Save/close. Reuses the global party-lobby
@@ -315,31 +368,33 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     </div>
                     
                     {/* Timer Toggle */}
-                    <div className="party-modal__setting party-modal__setting--row">
-                        <label className="party-modal__label">{text('disableTimer')}</label>
-                        <button 
-                            className={`party-modal__toggle ${isTimerDisabled ? 'party-modal__toggle--active' : ''}`}
-                            onClick={() => {
-                                const newDisabled = !isTimerDisabled;
-                                if (newDisabled) {
-                                    setMultiplayerState(prev => ({
-                                        ...prev,
-                                        createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
-                                    }));
-                                } else {
-                                    // commitTime also re-syncs localTime — the open-only
-                                    // sync effect no longer does that for us.
-                                    commitTime(localTime);
-                                }
-                            }}
-                            aria-pressed={isTimerDisabled}
-                        >
-                            <span className="party-modal__toggle-track">
-                                <span className="party-modal__toggle-thumb" />
-                            </span>
-                        </button>
-                    </div>
-                    
+                    {!quiz?.timerRequired && (
+                        <div className="party-modal__setting party-modal__setting--row">
+                            <label className="party-modal__label">{text('disableTimer')}</label>
+                            <button
+                                className={`party-modal__toggle ${isTimerDisabled ? 'party-modal__toggle--active' : ''}`}
+                                onClick={() => {
+                                    const newDisabled = !isTimerDisabled;
+                                    if (newDisabled) {
+                                        setMultiplayerState(prev => ({
+                                            ...prev,
+                                            createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
+                                        }));
+                                    } else {
+                                        // commitTime also re-syncs localTime — the open-only
+                                        // sync effect no longer does that for us.
+                                        commitTime(localTime);
+                                    }
+                                }}
+                                aria-pressed={isTimerDisabled}
+                            >
+                                <span className="party-modal__toggle-track">
+                                    <span className="party-modal__toggle-thumb" />
+                                </span>
+                            </button>
+                        </div>
+                    )}
+
                     {/* Time Per Round */}
                     {!isTimerDisabled && (
                         <div className="party-modal__setting">
@@ -366,13 +421,13 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 <button 
                                     className="party-modal__stepper-btn"
                                     onClick={() => adjustTime(10)}
-                                    disabled={parseInt(localTime) >= 300}
+                                    disabled={parseInt(localTime) >= maxTime}
                                     aria-label="Increase time"
                                 >
                                     <FaPlus />
                                 </button>
                             </div>
-                            <span className="party-modal__hint">10-300 seconds</span>
+                            <span className="party-modal__hint">10-{maxTime} seconds</span>
                             {!isValidRoundTime && <span style={{ color: '#ff6b6b', fontSize: '0.8rem' }}>{text("timePerRoundError")}</span>}
                         </div>
                     )}
@@ -383,24 +438,43 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                         (nm/npz mapping: neither / nm only / both; an npz-only
                         state is unreachable by design). NMPZ explains its
                         acronym on hover via title. */}
-                    <div className="party-modal__setting party-modal__setting--row">
-                        <label className="party-modal__label" htmlFor="partyModeSelect">{text('mode')}</label>
-                        <select
-                            id="partyModeSelect"
-                            className="g2_input party-modal__select"
-                            title={gameOptions.nm && gameOptions.npz ? text('nmpz') : undefined}
-                            value={gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving'}
-                            onChange={(e) => {
-                                const v = e.target.value;
-                                setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' });
-                            }}
-                        >
-                            <option value="moving">{text('moving')}</option>
-                            <option value="noMove">{text('noMove')}</option>
-                            <option value="nmpz" title={text('nmpz')}>NMPZ</option>
-                        </select>
-                    </div>
-                    
+                    {!quiz && (
+                        <div className="party-modal__setting party-modal__setting--row">
+                            <label className="party-modal__label" htmlFor="partyModeSelect">{text('mode')}</label>
+                            <select
+                                id="partyModeSelect"
+                                className="g2_input party-modal__select"
+                                title={gameOptions.nm && gameOptions.npz ? text('nmpz') : undefined}
+                                value={gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving'}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' });
+                                }}
+                            >
+                                <option value="moving">{text('moving')}</option>
+                                <option value="noMove">{text('noMove')}</option>
+                                <option value="nmpz" title={text('nmpz')}>NMPZ</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Quiz region: takes the map picker's place for quizzes. */}
+                    {quiz?.supportsRegion && (
+                        <div className="party-modal__setting party-modal__setting--row">
+                            <label className="party-modal__label" htmlFor="partyRegionSelect">{text('quizRegion')}</label>
+                            <select
+                                id="partyRegionSelect"
+                                className="g2_input party-modal__select"
+                                value={localRegion}
+                                onChange={(e) => setLocalRegion(e.target.value)}
+                            >
+                                {REGIONS.map((r) => (
+                                    <option key={r} value={r}>{text(r === 'all' ? 'allCountries' : continentKey(r))}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     {/* Comms mode — chat / emotes / off (host-set, chat
                         default). Disabled channels hide on every client AND
                         the server drops their raw messages; "off" disables
@@ -434,26 +508,30 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                         <span>{text('allowGuests')}</span>
                     </label>
 
-                    <div className="party-modal__divider" />
+                    {/* Map Selection (Street View only; quizzes use Region) */}
+                    {!quiz && (
+                        <>
+                            <div className="party-modal__divider" />
 
-                    {/* Map Selection */}
-                    <div className="party-modal__setting party-modal__setting--map">
-                        <div className="party-modal__map-info">
-                            <FaMap className="party-modal__map-icon" />
-                            <div className="party-modal__map-details">
-                                <span className="party-modal__map-label">{text("map")}</span>
-                                <span className="party-modal__map-name">
-                                    {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location || text("allCountries")}
-                                </span>
+                            <div className="party-modal__setting party-modal__setting--map">
+                                <div className="party-modal__map-info">
+                                    <FaMap className="party-modal__map-icon" />
+                                    <div className="party-modal__map-details">
+                                        <span className="party-modal__map-label">{text("map")}</span>
+                                        <span className="party-modal__map-name">
+                                            {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location || text("allCountries")}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    className="party-modal__change-map-btn"
+                                    onClick={() => setSelectCountryModalShown(true)}
+                                >
+                                    {text("change")}
+                                </button>
                             </div>
-                        </div>
-                        <button 
-                            className="party-modal__change-map-btn"
-                            onClick={() => setSelectCountryModalShown(true)}
-                        >
-                            {text("change")}
-                        </button>
-                    </div>
+                        </>
+                    )}
                 </div>
                 
                 {/* Footer */}
@@ -826,6 +904,12 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     
                     .party-modal__save-btn {
                         padding: 12px 20px;
+                    }
+
+                    /* Four games share one row on phones. */
+                    .party-modal__game-seg :global(.party-lobby__seg-btn) {
+                        padding: 10px 6px;
+                        font-size: 0.85rem;
                     }
                 }
             `}</style>

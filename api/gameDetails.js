@@ -94,7 +94,9 @@ export default async function handler(req, res) {
             timeTaken: userGuess.timeTaken,
             xpEarned: userGuess.xpEarned,
             usedHint: userGuess.usedHint,
-            guessedAt: userGuess.guessedAt
+            guessedAt: userGuess.guessedAt,
+            // Quiz choice modes (languages) only; absent elsewhere.
+            choice: userGuess.choice
           } : null,
 
           // All player guesses (for multiplayer games)
@@ -112,7 +114,8 @@ export default async function handler(req, res) {
             points: guess.points,
             timeTaken: guess.timeTaken,
             xpEarned: guess.xpEarned,
-            usedHint: guess.usedHint
+            usedHint: guess.usedHint,
+            choice: guess.choice
           })),
 
           startedAt: round.startedAt,

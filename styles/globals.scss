@@ -303,7 +303,8 @@
 .modal-backdrop .modal:has(>.modal-content>.shop),
 .map-modal-content,
 .maps-page,
-.user-profile-page {
+.user-profile-page,
+.quizzesPage {
     --r: var(--accWashR, 20);
     --g: var(--accWashG, 65);
     --b: var(--accWashB, 25);

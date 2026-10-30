@@ -1,0 +1,33 @@
+/* Quiz round thumbnails shared by the quiz summary, roundOverScreen rows and
+   history replays (QuizRoundTag). The round screen and the Quizzes page live
+   in styles/quiz.css. */
+.quizThumb {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 4px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.quizThumb--text {
+    display: inline-block;
+    width: auto;
+    height: auto;
+    max-width: 10em;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.quizRoundTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.quizRoundTag__answer {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

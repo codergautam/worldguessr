@@ -15,6 +15,10 @@ import '@/styles/queueScreen.css';
 import '@/styles/login.css';
 import '@/styles/about.css';
 import '@/styles/homeMenu.css';
+// Quiz modes: round thumbnails (modes.css), the Quizzes page and the globe
+// round screen (quiz.css).
+import '@/styles/modes.css';
+import '@/styles/quiz.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 

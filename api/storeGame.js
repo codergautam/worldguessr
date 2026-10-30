@@ -4,15 +4,56 @@ import Game from '../models/Game.js';
 import User from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { createUUID } from '../components/createUUID.js';
+import { getMode, isQuizMode, isRegion } from '../shared/modes/catalog.js';
+
+const str = (v, max) => (typeof v === 'string' && v.length <= max ? v : undefined);
+
+// The stimulus fields a quiz round may persist, validated: the client is not
+// trusted with free-form content in a history document.
+function quizLocationFields(round) {
+  const out = { mode: round.mode };
+  const lang = str(round.lang, 16);
+  const text = str(round.text, 2000);
+  const label = str(round.label, 200);
+  if (lang) out.lang = lang;
+  if (text) out.text = text;
+  if (label) out.label = label;
+  if (Array.isArray(round.choices) && round.choices.length <= 8 && round.choices.every((c) => str(c, 16))) {
+    out.choices = round.choices;
+  }
+  const url = str(round.image?.url, 500);
+  if (url && url.startsWith('https://')) {
+    out.image = {
+      url,
+      credit: str(round.image.credit, 300) ?? null,
+      license: str(round.image.license, 60) ?? null,
+      sourceUrl: str(round.image.sourceUrl, 500) ?? null,
+    };
+  }
+  return out;
+}
 
 // Handle singleplayer game completion
 async function guess(req, res) {
-  const { secret, maxDist, rounds, official, location, countryGuesser, countryGuessrSubMode } = req.body;
+  const { secret, maxDist, rounds, official, location, countryGuesser, countryGuessrSubMode, mode, region } = req.body;
 
   // secret must be string
   if(typeof secret !== 'string') {
     return res.status(400).json({ message: 'Invalid input' });
   }
+
+  // Quiz mode (shared/modes/catalog.js). Absent = classic, same as every
+  // client that predates it; unknown = rejected; never together with the
+  // country guesser flags, which have their own 1000-point scale.
+  const spec = getMode(mode);
+  if (!spec) {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
+  const quiz = isQuizMode(mode);
+  if (quiz && countryGuesser) {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
+  const quizRegion = quiz && spec.supportsRegion && isRegion(region) ? region : null;
 
   // Handle batch rounds (singleplayer game completion)
   if(rounds && Array.isArray(rounds)) {
@@ -42,7 +83,12 @@ async function guess(req, res) {
         const MAX_TOTAL_XP = 500;
         
         let totalXp = rounds.reduce((sum, round) => {
-          const roundXp = Math.min(Math.max(0, round.xp || 0), MAX_XP_PER_ROUND);
+          // Quiz rounds take seconds, so their XP is capped by the catalog
+          // (20) and by the points actually scored, not by the classic 100.
+          const cap = quiz
+            ? Math.min(spec.maxXpPerRound, Math.floor(Math.max(0, Math.min(5000, round.points || 0)) / 50))
+            : MAX_XP_PER_ROUND;
+          const roundXp = Math.min(Math.max(0, round.xp || 0), cap);
           return sum + roundXp;
         }, 0);
         
@@ -56,7 +102,8 @@ async function guess(req, res) {
         let currentRoundStart = gameStartTime.getTime();
         const gameRounds = rounds.map((round, index) => {
           const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp, points } = round;
-          const actualPoints = points; // Use actual points from frontend
+          // Points come from the frontend; quiz rounds at least stay on the 0..5000 scale.
+          const actualPoints = quiz ? Math.max(0, Math.min(5000, Math.round(points || 0))) : points;
           
           const roundStart = new Date(currentRoundStart);
           const roundEnd = new Date(currentRoundStart + (roundTime * 1000));
@@ -72,7 +119,8 @@ async function guess(req, res) {
               long: actualLong,
               panoId: round.panoId || null,
               country: round.country || null, // We don't have country data in the current structure
-              place: round.place || null
+              place: round.place || null,
+              ...(quiz ? quizLocationFields({ ...round, mode }) : {})
             },
             playerGuesses: [{
               playerId: user._id,
@@ -80,6 +128,7 @@ async function guess(req, res) {
               accountId: user._id,
               guessLat: guessLat,
               guessLong: guessLong,
+              ...(quiz && str(round.choice, 16) ? { choice: round.choice } : {}),
               points: actualPoints,
               timeTaken: roundTime,
               xpEarned: xp || 0,
@@ -105,6 +154,8 @@ async function guess(req, res) {
             official: official !== undefined ? official : true, // Use provided official status or default to true
             countryGuesser: !!countryGuesser,
             countryGuessrSubMode: countryGuesser ? (countryGuessrSubMode || 'country') : null,
+            mode: spec.id,
+            region: quizRegion,
             showRoadName: false,
             noMove: false,
             noPan: false,

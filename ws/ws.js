@@ -66,6 +66,7 @@ import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
 import { SERVER_CAP, locKey, pushSeenLoc, sampleDistinct } from '../shared/locations/repeatGuard.js';
+import { DEFAULT_MODE, getMode, isQuizMode, isSelectableMode, isRegion, effectiveTimePerRound } from '../shared/modes/catalog.js';
 import {
   BOTS_ENABLED, BOTS_INSTANT,
   createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
@@ -1093,12 +1094,54 @@ function queueJoinRateLimited(player) {
   return true;
 }
 
-function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat) {
+// Rollout gates. Sentence-as-key: old clients render unknown toast keys and
+// gameJoinError strings verbatim, so the sentence IS the message.
+const TEAM_GATE_SENTENCE = 'Play team games on worldguessr.com for now';
+const QUIZ_GATE_SENTENCE = 'Play the new modes on worldguessr.com for now';
+
+// Remove every member whose client did not announce `flag` in verify, BEFORE a
+// host setting flips the party to a surface those clients cannot render. The
+// host (who sent the setting) always has the flag, so is never removed.
+// Searching clients are skipped (mirrors kickPlayer: never strand a queue).
+function evictMembersLacking(game, host, flag, sentence) {
+  for (const pid of Object.keys(game.players)) {
+    const member = players.get(pid);
+    if (member?.[flag]) continue;
+    if (member?.inQueue || playersInQueue.has(pid)) continue;
+    const memberName = game.players[pid].username;
+    if (member) {
+      member.send({ type: 'toast', key: sentence, toastType: 'error' });
+      game.removePlayer(member);
+    } else {
+      // Roster entry whose socket is already gone — just drop it.
+      delete game.players[pid];
+      game.sendAllPlayers({ type: 'player', id: pid, action: 'remove' });
+    }
+    host.send({ type: 'toast', key: 'playerKicked', name: memberName, toastType: 'info' });
+  }
+}
+
+function updateGameOptions(game, { rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World", disableEmotes, disableChat, mode, region } = {}) {
           // maxDist no longer required-> can be pulled from community map
           if (!location) return;
           if (!rounds || !timePerRound) {
             return;
           }
+          // Quiz mode and region: absent = keep (old clients omit them, same
+          // rule as disableEmotes below). Changeable only while the party is
+          // in the lobby. Public games, duels and 2v2 staging lobbies are
+          // classic no matter what arrives.
+          const quizAllowed = !game.public && !game.duel && !game.is2v2Lobby;
+          if (mode !== undefined) {
+            if (!isSelectableMode(mode)) return;
+            if (quizAllowed && game.state === 'waiting') game.mode = mode;
+          }
+          if (!quizAllowed) game.mode = DEFAULT_MODE;
+          if (region !== undefined) {
+            if (!isRegion(region)) return;
+            if (game.state === 'waiting') game.region = region;
+          }
+          if (!getMode(game.mode)?.supportsRegion) game.region = 'all';
           // make sure displayLocation isa string
           if (typeof displayLocation !== 'string') {
             displayLocation = null;
@@ -1116,6 +1159,11 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           if(!nm) nm = false;
           if(!npz) npz = false;
           if(!showRoadName) showRoadName = false;
+
+          // Modes that score speed cannot run with the timer off: the "off"
+          // sentinel becomes the mode's default (single rule, shared with the
+          // lobby UI).
+          timePerRound = effectiveTimePerRound(game.mode, timePerRound);
 
           game.timePerRound = timePerRound * 1000;
           game.nm = !!nm;
@@ -1559,6 +1607,17 @@ app.ws('/wg', {
         const final = json.final;
         const round = json.round;
 
+        // Choice-input quiz modes (languages) answer with `choice` instead of
+        // coordinates; Game.setChoice validates it against the round's options
+        // and derives the [lat, lng] itself. Never trusted from the client.
+        if (getMode(game.mode)?.input === 'choice') {
+          if (typeof json.choice !== 'string' || json.choice.length > 16) return;
+          if (typeof final !== 'boolean') return;
+          if (round !== undefined && round !== null && (!Number.isInteger(round) || round < 1)) return;
+          game.setChoice(player.id, json.choice, final, round);
+          return;
+        }
+
         // make sure latLong is an array of 2 finite numbers with a valid latitude.
         // It is rebroadcast verbatim to other players, so a malformed value
         // (strings, nulls, objects) crashes their maps.
@@ -1936,7 +1995,11 @@ app.ws('/wg', {
           // leave-game side effects. Sentence-as-key: old clients show unknown
           // toast keys verbatim.
           if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !player.teamSupport) {
-            player.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
+            player.send({ type: 'toast', key: TEAM_GATE_SENTENCE, toastType: 'error' });
+            return;
+          }
+          if (isQuizMode(game.mode) && !player.quizModes) {
+            player.send({ type: 'toast', key: QUIZ_GATE_SENTENCE, toastType: 'error' });
             return;
           }
 
@@ -2192,8 +2255,14 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         // make sure player is host
         if(game.players[player.id].host) {
-          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes, disableChat } = json;
-          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation, disableEmotes, disableChat);
+          // Switching to a quiz mode: evict members whose client cannot
+          // render it BEFORE the mode flips (same rollout pattern as
+          // setTeamConfig). A host without the flag cannot switch at all.
+          if (isQuizMode(json.mode) && json.mode !== game.mode) {
+            if (!player.quizModes) return;
+            evictMembersLacking(game, player, 'quizModes', QUIZ_GATE_SENTENCE);
+          }
+          updateGameOptions(game, json);
 
         }
       }
@@ -2213,25 +2282,7 @@ app.ws('/wg', {
         // standard kick teardown is something every client vintage handles.
         // The host (who sent this) always has teamSupport, so is never kicked.
         if (json.enabled === true && !game.teamGame) {
-          for (const pid of Object.keys(game.players)) {
-            const member = players.get(pid);
-            if (member?.teamSupport) continue;
-            // Never strand a searching client (mirrors kickPlayer). Unreachable
-            // — unsupported members can't be 2v2-queued — but raw messages
-            // must not strand players.
-            if (member?.inQueue || playersInQueue.has(pid)) continue;
-            const memberName = game.players[pid].username;
-            if (member) {
-              // Sentence-as-key: old clients render unknown toast keys verbatim.
-              member.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
-              game.removePlayer(member);
-            } else {
-              // Roster entry whose socket is already gone — just drop it.
-              delete game.players[pid];
-              game.sendAllPlayers({ type: 'player', id: pid, action: 'remove' });
-            }
-            player.send({ type: 'toast', key: 'playerKicked', name: memberName, toastType: 'info' });
-          }
+          evictMembersLacking(game, player, 'teamSupport', TEAM_GATE_SENTENCE);
         }
         game.applyTeamConfig(json);
       }
@@ -2363,8 +2414,15 @@ app.ws('/wg', {
           if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !player.teamSupport) {
             player.send({
               type: 'gameJoinError',
-              error: 'Play team games on worldguessr.com for now'
+              error: TEAM_GATE_SENTENCE
             });
+            return;
+          }
+          // Same gate for quiz modes (flags / shapes / languages): a client
+          // that did not announce quizModes would render Street View at a
+          // country centroid.
+          if (isQuizMode(game.mode) && !player.quizModes) {
+            player.send({ type: 'gameJoinError', error: QUIZ_GATE_SENTENCE });
             return;
           }
           // Guests can't enter 2v2 staging lobbies (they couldn't queue from

@@ -91,7 +91,7 @@ import Modal from "@/components/ui/Modal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import CommunityBanner from '@/components/communityBanner';
 import ModeItem from '@/components/ui/modeItem';
-import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline, IoGameControllerOutline } from 'react-icons/io5';
+import { IoCompassOutline, IoMedalOutline, IoFlashOutline, IoPeopleOutline, IoPersonAddOutline, IoLogInOutline, IoGameControllerOutline, IoFlagOutline } from 'react-icons/io5';
 import { EMBED_SOCIAL_LINKS, MORE_GAMES_URL } from '@/components/utils/externalLinks';
 import msToTime from "@/components/msToTime";
 import { toast, ToastContainer } from "react-toastify";
@@ -103,6 +103,12 @@ import officialCountryMaps from "@/public/officialCountryMaps.json";
 import gameStorage from "@/components/utils/localStorage";
 import { markSeenLoc, seenLocs } from "@/components/utils/seenLocations";
 import { isOfficialMapSlug, orderByFreshness } from "@/shared/locations/repeatGuard.js";
+// Mode families that are not Street View bring their own screens as one unit
+// (components/quiz/useQuizScreens.js is the shape). Home asks each unit the
+// same questions and never reaches inside; usesPanorama says which modes
+// need the pano at all.
+import { usesPanorama } from "@/shared/modes/catalog.js";
+import { useQuizScreens } from "./quiz/useQuizScreens";
 import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -294,6 +300,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // ChinaGuessr (temporary): mirror for the popstate handler, same idea as screenRef.
     const gameOptionsRef = useRef(gameOptions);
     gameOptionsRef.current = gameOptions;
+    // The mode-screen units (see the import note), for effects and listeners
+    // registered before they are created further down.
+    const modeScreensRef = useRef([]);
     const [showAnswer, setShowAnswer] = useState(false)
 
     const [pinPoint, setPinPointState] = useState(null)
@@ -748,7 +757,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                             publishSession(data);
                             setSession({ token: data })
                             // verify the ws
-                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform(), teamSupport: true });
+                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform(), teamSupport: true, quizModes: true });
 
                             setWs((prev) => {
                                 if (prev) prev.send(window.verifyPayload)
@@ -777,7 +786,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
                 window.verifyPayload = JSON.stringify({
                     type: "verify", secret: "not_logged_in", username: "not_logged_in",
-                    rejoinCode: rc, platform: getPlatform(), teamSupport: true
+                    rejoinCode: rc, platform: getPlatform(), teamSupport: true, quizModes: true
                 });
                 setWs((prev) => {
                     if (prev) prev.send(window.verifyPayload)
@@ -1113,6 +1122,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // ChinaGuessr (temporary): /china only, no localized twins for a temp mode.
     const isChinaPath = useCallback((p) => /^\/china\/?$/.test(p || ''), []);
     const enterChinaModeRef = useRef(() => {});
+    const skipUrlSync = inPoki || inSixX; // nested-path portals: never rewrite the URL (see enterDailyMode)
     const enterDailyMode = useCallback(() => {
         // Poki (and 6x) host each deploy at a nested path with document-
         // RELATIVE assets (assetPrefix '.'), so rewriting the URL to /daily
@@ -1155,7 +1165,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // screen cannot forget either. Layout effect: the teardown lands before
     // the home frame paints.
     useLayoutEffect(() => {
-        if (screen !== 'home') return;
+        // Mode-screen units (the quiz hub and rounds) have no panorama either,
+        // and browser Back/Forward reaches them straight from a classic game
+        // without passing the menu: sweep there too, or the old pano and its
+        // loading cover stay up behind / over them.
+        if (screen !== 'home' && !modeScreensRef.current.some((m) => m.owns(screen))) return;
         // Already-clean bail: without it the mount-time run (screen starts
         // 'home', latLong starts the {0,0} sentinel) failed React's eager
         // bailout and bought a full synchronous re-render of this ~6k-line
@@ -1189,6 +1203,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             // the map options).
             else if (isChinaPath(window.location.pathname)) enterChinaModeRef.current();
             else if (screenRef.current === 'singleplayer' && isChinaMode(gameOptionsRef.current)) setScreen('home');
+            // Mode-screen units: their URLs in, their screens out.
+            else modeScreensRef.current.some((m) => m.handlePopState(window.location.pathname));
         };
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
@@ -1886,6 +1902,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             // they'll still see the tutorial later if they navigate to home.
             const onDailyEntry = initialScreen === 'daily'
               || initialScreen === 'china' // ChinaGuessr (temporary): a Reddit landing is not a tutorial candidate either
+              || modeScreensRef.current.some((m) => m.isLanding(initialScreen)) // they came for a mode with its own screens
               || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
             // A stored account secret means this browser has played before —
             // never a tutorial candidate, even if the "onboarding" flag is
@@ -2235,6 +2252,28 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     // at CLICK time, not at toast creation (a match can start in between).
     const multiplayerStateRef = useRef(multiplayerState);
     multiplayerStateRef.current = multiplayerState;
+
+    // Mode-screen units (see the import note). Each one owns its screens and
+    // answers: owns(screen), isLanding(initial), handleBack(),
+    // handlePopState(path), navbarLabel, meta(initial), ownsParty(gameData),
+    // render(), renderParty(...).
+    const quizScreens = useQuizScreens({
+        screen, setScreen, initialScreen, skipUrlSync,
+        inGame: !!multiplayerState?.inGame,
+        session, options,
+        partyEnabled: !!multiplayerState?.connected && !maintenance, // same gate as Create Game
+        midgameAd: (then) => crazyMidgame(then),
+        startParty: (mode, region) => {
+            // The party modal opens on create and seeds its Game picker from
+            // createOptions, so the host lands on this mode and only presses Save.
+            setMultiplayerState((prev) => ({ ...prev, createOptions: { ...prev.createOptions, mode, region } }));
+            handleMultiplayerAction("createLobby");
+        },
+    });
+    const modeScreens = [quizScreens];
+    modeScreensRef.current = modeScreens;
+    const partyModeScreen = multiplayerState?.inGame ? modeScreens.find((m) => m.ownsParty(multiplayerState.gameData)) : null;
+    const modeMeta = modeScreens.map((m) => m.meta(initialScreen)).find(Boolean) || null;
     // Tell the provider to actually open the WS. Provider is lazy by default
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
@@ -2718,7 +2757,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 location: options.location,
                 displayLocation: options.displayLocation,
                 disableEmotes: options.disableEmotes,
-                disableChat: options.disableChat
+                disableChat: options.disableChat,
+                mode: options.mode,
+                region: options.region
             }));
         }
 
@@ -3082,6 +3123,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         incomingRoundLoc
                     );
 
+                    // A mode without a panorama renders its own screen instead
+                    // of GameUI, so nothing is pointed and no cover is raised.
+                    const noPano = !usesPanorama(data.mode ?? prev?.gameData?.mode);
+
                     // Two DISTINCT questions about the between-rounds preload,
                     // and conflating them was the "white flash at round start"
                     // bug:
@@ -3114,7 +3159,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     if (((!prev.gameData || (prev?.gameData?.state !== "guess")) && data.state === "guess") || needsRejoinGuessLocation) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
-                        if (!panoPreloadedForThisRound) setLoading(true)
+                        if (!panoPreloadedForThisRound && !noPano) setLoading(true)
                         // Close the mobile minimap IN THIS BATCH, not in
                         // gameUI's after-paint effect: multiplayerShowAnswer
                         // derives false the moment state hits 'guess', so a
@@ -3128,7 +3173,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         if (incomingRoundLoc) {
                             setLatLong(incomingRoundLoc)
                         }
-                        if (!panoPointedAtThisRound) {
+                        if (!panoPointedAtThisRound && !noPano) {
                             // Increment key to force refresh even if coords are the same
                             setLatLongKey(k => k + 1)
                             setPanoLocation(incomingRoundLoc ?? null)
@@ -3989,6 +4034,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
 
     function backBtnPressed(queueNextGame = false, nextGameType, skipConfirm = false) {
+        // Mode-screen units handle Back on their own screens.
+        if (modeScreens.some((m) => m.handleBack())) return;
         // EVERY public matchmade duel end-screen exit goes under the cover
         // mask, not just team2v2's: the 1v1 in-card Home / Play Again used to
         // run the raw single-commit teardown, which is exactly the laggy,
@@ -4560,6 +4607,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         // Daily locations are fixed for everyone — the logo's "roll a new
         // location" shortcut would swap in a random pano mid-challenge.
         if (screen === "onboarding" || screen === "daily") return;
+        // A mode-screen unit's screens have no panorama: the shortcut would
+        // start a classic location load (and its loading cover) under them.
+        if (modeScreens.some((m) => m.owns(screen))) return;
 
         // Once the answer is up the guess has already banked its points, and
         // this raw loadLocation() bypasses advanceRound — the round counter
@@ -4966,6 +5016,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         // Post-final ghost getready: the server runs one after the last round
         // and curRound overshoots. There is no next round to preload.
         if (!gd.rounds || gd.curRound > gd.rounds) return;
+        if (!usesPanorama(gd.mode)) return; // the mode has no pano to preload
 
         const point = (round) => {
             const loc = gd.locations?.[round - 1];
@@ -5286,9 +5337,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 inCoolMathGames={inCoolMathGames}
                 inCrazyGames={inCrazyGames}
                 inGameDistribution={inGameDistribution}
-                titleOverride={initialScreen === 'daily' ? text('dailyTabTitle') : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : undefined}
-                descOverride={initialScreen === 'daily' ? text('dailyDescMeta') : initialScreen === 'china' ? text('chinaGuessrTagline') : undefined}
-                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : initialScreen === 'china' ? 'https://www.worldguessr.com/china' : undefined}
+                titleOverride={initialScreen === 'daily' ? text('dailyTabTitle') : initialScreen === 'china' ? `${text('chinaGuessr')} - WorldGuessr` : modeMeta?.title}
+                descOverride={initialScreen === 'daily' ? text('dailyDescMeta') : initialScreen === 'china' ? text('chinaGuessrTagline') : modeMeta?.desc}
+                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : initialScreen === 'china' ? 'https://www.worldguessr.com/china' : modeMeta?.canonical}
                 aboutContent={staticAboutContent}
             />
 
@@ -5429,7 +5480,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     singleplayer toggle or multiplayer game stamped into it
                     (nm/npz/showRoadName), so the shared pano must not read
                     those while the daily owns it. */}
-                {((screen === "singleplayer" || screen === "countryGuesser" || screen === "multiplayer") && (gameOptions?.nm || chinaMode)) ? (
+                {/* A party mode without a panorama renders its own screen. */}
+                {(screen === "multiplayer" && !usesPanorama(multiplayerState?.gameData?.mode)) ? null
+                : ((screen === "singleplayer" || screen === "countryGuesser" || screen === "multiplayer") && (gameOptions?.nm || chinaMode)) ? (
                     /* No Move + NMPZ modes, plus ChinaGuessr: the in-house
                        WebGL pano replaces the Google embed. npz freezes
                        pan/zoom. SP, country/
@@ -5619,6 +5672,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
 
                 <Navbar
+                    modeLabel={modeScreens.map((m) => m.navbarLabel).find(Boolean) || null}
                     joinCodePress={() => {
                         setOnboarding(null)
                         setOnboardingCompleted(true)
@@ -6023,6 +6077,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                                                                 setScreen(lastSingleplayerScreen.current || "singleplayer");
                                                             }));
                                                         }} />
+                                                    <ModeItem className="home__mode--quizzes" icon={<IoFlagOutline />} label={text("quizModes")}
+                                                        onClick={() => {
+                                                            if (loading) return;
+                                                            navSlideOutThen(() => quizScreens.openHub());
+                                                        }} />
                                                 </div>
 
                                                 {/* No rule between two single-row groups: on the account-less
@@ -6324,6 +6383,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
 
 
+                {modeScreens.map((m, i) => <React.Fragment key={i}>{m.render()}</React.Fragment>)}
+
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
                         mapSwitchMaskShown={mapSwitchMaskShown}
@@ -6435,7 +6496,8 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     />
                 </div>}
 
-                {multiplayerGameUiShown && (
+                {multiplayerGameUiShown && partyModeScreen && partyModeScreen.renderParty({ multiplayerState, ws, timeOffset, backBtnPressed })}
+                {multiplayerGameUiShown && !partyModeScreen && (
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}

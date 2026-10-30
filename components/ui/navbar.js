@@ -11,7 +11,7 @@ import { HIDE_ACCOUNT_UI } from "../utils/accountUi";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { useChinaLandingUp } from "../china/landingState"; // ChinaGuessr (temporary)
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, loginModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, loginModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, latLong, modeLabel }) {
     const { t: text, lang } = useTranslation("common");
 
     // SP/CG entry: round 1's load only starts from GameUI's post-paint mount
@@ -149,6 +149,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inGam
                         </div>
                     )}
 
+                    {/* A mode screen that has its own (e.g. a quiz run): its
+                        label as a plain pill; there are no options to open. */}
+                    {modeLabel && !accountModalOpen && (
+                        <span className="gameBtn navBtn g2_green_button g2_lexend" style={{ pointerEvents: 'none' }}>{modeLabel}</span>
+                    )}
                     {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
                         <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
                             {screen === 'countryGuesser'

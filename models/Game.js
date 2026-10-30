@@ -9,6 +9,8 @@ const playerGuessSchema = new mongoose.Schema({
   // Guess data
   guessLat: { type: Number, required: false, default: null },
   guessLong: { type: Number, required: false, default: null },
+  // Quiz choice modes (languages): the option picked. Absent in every other mode.
+  choice: { type: String },
   points: { type: Number, required: true },
   timeTaken: { type: Number, required: true }, // seconds
   xpEarned: { type: Number, default: 0 },
@@ -27,7 +29,22 @@ const roundSchema = new mongoose.Schema({
     long: { type: Number, required: true },
     panoId: { type: String, default: null },
     country: { type: String, default: null },
-    place: { type: String, default: null } // city/region if available
+    place: { type: String, default: null }, // city/region if available
+
+    // Quiz modes (shared/modes/catalog.js): what the round showed, so history
+    // can replay it. No defaults on purpose: classic round docs must not grow
+    // these keys (a plain [String] would write choices: [] into every round).
+    mode: { type: String },
+    lang: { type: String },
+    text: { type: String },
+    label: { type: String },
+    choices: { type: [String], default: undefined },
+    image: {
+      url: { type: String },
+      credit: { type: String },
+      license: { type: String },
+      sourceUrl: { type: String }
+    }
   },
 
   // All player guesses for this round
@@ -118,6 +135,11 @@ const gameSchema = new mongoose.Schema({
     official: { type: Boolean, default: true }, // affects XP
     countryGuesser: { type: Boolean, default: false }, // country/continent guesser mode (1000 pts per round)
     countryGuessrSubMode: { type: String, default: null }, // 'country' or 'continent'
+    // Quiz mode id from shared/modes/catalog.js ('classic' for every Street
+    // View game) and its region filter ('all' | continent, null when the mode
+    // has none).
+    mode: { type: String, default: 'classic' },
+    region: { type: String, default: null },
 
     // Additional settings
     showRoadName: { type: Boolean, default: false },

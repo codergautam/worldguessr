@@ -8,6 +8,8 @@ import { getLeague } from './utils/leagues';
 import { copyPartyLink, SHARES_CODE_ONLY } from './utils/partyLink';
 import { asset } from '@/lib/basePath';
 import Modal from './ui/Modal';
+import { quizOf, MODE_LABEL_KEYS } from './modes/quizClient';
+import { continentKey } from './utils/continentLocale';
 
 // The one lobby card for every private pre-game screen. A party waiting room
 // and a 2v2 staging lobby are the same server object (a private waiting-state
@@ -119,6 +121,12 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
   // Settings chip copy: mode is shown as info only — all editing (mode,
   // scoring, team pick, rounds, timer, map) lives in the Edit Options modal.
   const scoringKey = (gameData?.teamScoring ?? 'closest') === 'average' ? 'scoringAverage' : 'scoringClosest';
+  // A quiz names itself first ("Flags · Team Duel · Closest").
+  const quiz = quizOf(gameData?.mode);
+  const teamLabel = teamGame ? `${text("teamDuel")} · ${text(scoringKey)}` : null;
+  const modeLabel = quiz
+    ? [text(MODE_LABEL_KEYS[quiz.id]), teamLabel].filter(Boolean).join(" · ")
+    : (teamLabel ?? text("classicMode"));
 
   // One row renderer for the classic roster, the team columns, and the
   // defensive unassigned strip — same name/you/crown/kick furniture, plus a
@@ -310,17 +318,23 @@ export default function PartyLobby({ multiplayerState, handleAction, onEditOptio
                 <span className="party-lobby__chip-label">{text("gameMode")}</span>
                 <span
                   className="party-lobby__chip-value"
-                  title={teamGame ? `${text("teamDuel")} · ${text(scoringKey)}` : text("classicMode")}
+                  title={modeLabel}
                 >
-                  {pending ? "…" : (teamGame ? `${text("teamDuel")} · ${text(scoringKey)}` : text("classicMode"))}
+                  {pending ? "…" : modeLabel}
                 </span>
               </div>
-              <div className="party-lobby__chip">
-                <span className="party-lobby__chip-label">{text("map")}</span>
-                <span className="party-lobby__chip-value">
-                  {pending ? "…" : (gameData?.displayLocation || text("allCountries")) + modeSuffix}
-                </span>
-              </div>
+              {/* Quizzes show their region instead of a map; a quiz with no
+                  region (languages) has nothing to show here. */}
+              {(!quiz || quiz.supportsRegion) && (
+                <div className="party-lobby__chip">
+                  <span className="party-lobby__chip-label">{text(quiz ? "quizRegion" : "map")}</span>
+                  <span className="party-lobby__chip-value">
+                    {pending ? "…" : quiz
+                      ? ((gameData?.region ?? 'all') === 'all' ? text("allCountries") : text(continentKey(gameData.region)))
+                      : (gameData?.displayLocation || text("allCountries")) + modeSuffix}
+                  </span>
+                </div>
+              )}
               <div className="party-lobby__chip">
                 <span className="party-lobby__chip-label">{text("rounds")}</span>
                 <span className="party-lobby__chip-value">{pending ? "…" : gameData?.rounds}</span>

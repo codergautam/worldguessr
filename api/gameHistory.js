@@ -134,7 +134,11 @@ export default async function handler(req, res) {
           countryGuesser: game.settings?.countryGuesser || false,
           countryGuessrSubMode: game.settings?.countryGuessrSubMode || null,
           teamGame: game.settings?.teamGame || false,
-          teamScoring: game.settings?.teamScoring || null
+          teamScoring: game.settings?.teamScoring || null,
+          // Quiz mode (shared/modes/catalog.js); docs saved before the field
+          // existed are Street View games.
+          mode: game.settings?.mode ?? 'classic',
+          region: game.settings?.region ?? null
         },
 
         // Game result

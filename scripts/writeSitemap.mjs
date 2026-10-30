@@ -7,6 +7,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { MODES, DEFAULT_MODE } from "../shared/modes/catalog.js";
 
 const SITE_URL = "https://www.worldguessr.com";
 const portal = ["NEXT_PUBLIC_COOLMATH", "NEXT_PUBLIC_POKI", "NEXT_PUBLIC_GAMEDISTRIBUTION", "NEXT_PUBLIC_6X", "NEXT_PUBLIC_SCHOOLGUESSR"]
@@ -41,6 +42,11 @@ const pages = [
   { loc: "/daily", changefreq: "daily", priority: "0.9" },
   { loc: "/maps", changefreq: "daily", priority: "0.9" },
   { loc: "/china", changefreq: "weekly", priority: "0.7" },
+  { loc: "/quizzes", changefreq: "weekly", priority: "0.8" },
+  // Every selectable quiz mode's landing page (pages/<id>.js).
+  ...Object.values(MODES)
+    .filter((m) => m.id !== DEFAULT_MODE && m.enabled)
+    .map((m) => ({ loc: `/${m.id}`, changefreq: "weekly", priority: "0.8" })),
   { loc: "/hall-of-fame", changefreq: "weekly", priority: "0.5" },
   { loc: "/leaderboard", changefreq: "daily", priority: "0.5" },
   { loc: "/privacy", changefreq: "yearly", priority: "0.1" },

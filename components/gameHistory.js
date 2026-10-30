@@ -6,6 +6,7 @@ import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 import { cachedNameGlowProps } from './utils/usernameWithFlag';
+import { quizOf, MODE_LABEL_KEYS } from './modes/quizClient';
 
 /**
  * A name in the history list, wearing its owner's CURRENT glow.
@@ -118,6 +119,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
   ));
 
   const getLocationDisplay = (location, settings) => {
+    if (quizOf(settings?.mode)) return text(MODE_LABEL_KEYS[settings.mode]);
     if (settings?.countryGuesser) {
       if (settings.countryGuessrSubMode === 'continent') return text('continentGuesser') || 'Continent Guesser';
       return text('countryGuesser') || 'Country Guesser';

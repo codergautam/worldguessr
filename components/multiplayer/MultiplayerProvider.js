@@ -28,6 +28,10 @@ export const initialMultiplayerState = {
     timePerRound: 30,
     location: "all",
     displayLocation: "All countries",
+    // Quiz mode + region (shared/modes/catalog.js). Always sent explicitly:
+    // the server keeps its current value for a missing field.
+    mode: "classic",
+    region: "all",
     progress: false,
   },
   joinOptions: {
@@ -86,6 +90,8 @@ function sendVerify(ws) {
         // This bundle can render team parties / 2v2 duels; the server locks
         // team surfaces to clients that announce this (rollout gate).
         teamSupport: true,
+        // Same gate for the quiz modes (flags / shapes / languages).
+        quizModes: true,
       })
     );
   } catch (e) {}

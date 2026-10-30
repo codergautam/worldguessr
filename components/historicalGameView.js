@@ -227,7 +227,8 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
         points: ownGuess.points,
         timeTaken: ownGuess.timeTaken,
         xpEarned: ownGuess.xpEarned || 0,
-        usedHint: ownGuess.usedHint || false
+        usedHint: ownGuess.usedHint || false,
+        choice: ownGuess.choice
       };
     } else if (round.guess && perspectiveId === fullGameData.currentUserId) {
       guessData = round.guess;
@@ -256,7 +257,8 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
           points: guess.points,
           lat: guess.guessLat,
           long: guess.guessLong,
-          timeTaken: guess.timeTaken
+          timeTaken: guess.timeTaken,
+          choice: guess.choice
         };
       });
     }
@@ -278,7 +280,18 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
       // 2v2 damage stamp + multiplier (null on pre-stamp saves — the summary
       // falls back to the raw gap, ×1)
       teamDamage: round.teamDamage ?? null,
-      teamDamageMultiplier: round.teamDamageMultiplier ?? null
+      teamDamageMultiplier: round.teamDamageMultiplier ?? null,
+      // Quiz rounds: what the round showed and what the player picked, so the
+      // replay renders the same thumbnails as the live summary. Undefined on
+      // classic rounds.
+      mode: round.location.mode,
+      country: round.location.country,
+      lang: round.location.lang,
+      text: round.location.text,
+      choices: round.location.choices,
+      label: round.location.label,
+      image: round.location.image,
+      choice: guessData.choice
     };
   }).filter(round => round !== null); // Remove null entries
 
@@ -396,12 +409,20 @@ export default function HistoricalGameView({ game, session, viewerMarkerSkin, on
             points: guess.points,
             lat: guess.guessLat,
             lng: guess.guessLong,
-            timeTaken: guess.timeTaken
+            timeTaken: guess.timeTaken,
+            choice: guess.choice
           })),
           location: {
             lat: round.location.lat,
             lng: round.location.long,
-            panoId: round.location.panoId // Include panoId for multiplayer games too
+            panoId: round.location.panoId, // Include panoId for multiplayer games too
+            mode: round.location.mode,
+            country: round.location.country,
+            lang: round.location.lang,
+            text: round.location.text,
+            choices: round.location.choices,
+            label: round.location.label,
+            image: round.location.image
           }
         }))
       }

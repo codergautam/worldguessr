@@ -21,6 +21,10 @@ import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
 import openInStreetView from './utils/openInStreetView';
 import SafeMapContainer from './SafeMapContainer';
+import nameFromCode from './utils/nameFromCode';
+import { quizOf, flagSrc } from './modes/quizClient';
+import { languageName } from './modes/languageName';
+import { loadShapes, shapeFor } from './modes/loadShapes';
 import { fitBoundsAtWholeZoom, flyToBoundsAtWholeZoom } from '@/lib/leafletWholeZoom';
 import { googleTileScale } from '@/lib/googleTileScale';
 
@@ -151,7 +155,7 @@ const GameSummary = ({
     // requeue. When set, these replace button1 on the team end screen.
     teamActions = null
 }) => {
-  const { t: text } = useTranslation("common");
+  const { t: text, lang } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
   const [mapReady, setMapReady] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
@@ -446,6 +450,36 @@ const GameSummary = ({
     </span>
   );
 
+  // Quiz rounds (flags / shapes / languages) have no pano, so their rows show
+  // what stood in for it plus the answer where classic rows offer Street View.
+  // Null for classic rounds. Outlines stay empty until shapes.json lands.
+  const renderQuizTag = (round) => {
+    const quiz = quizOf(round?.mode);
+    if (!quiz) return null;
+    const shape = quiz.stimulus === 'outline' ? shapeFor(round.country) : null;
+    const answer = quiz.target === 'language'
+      ? languageName(round.lang, lang)
+      : nameFromCode(round.country, lang);
+    return (
+      <span className="quizRoundTag">
+        {quiz.stimulus === 'flag' && (
+          <img className="quizThumb" src={flagSrc(round.country, 40)} alt="" />
+        )}
+        {shape && (
+          <svg className="quizThumb" viewBox={shape.viewBox} aria-hidden="true">
+            <path d={shape.d} fillRule="evenodd" fill="currentColor" />
+          </svg>
+        )}
+        {quiz.stimulus === 'text' && (
+          <span className="quizThumb quizThumb--text" lang={round.lang} dir="auto">
+            {String(round.text || '').slice(0, 24)}
+          </span>
+        )}
+        <span className="quizRoundTag__answer">{answer}</span>
+      </span>
+    );
+  };
+
   // Handle player selection
   const handlePlayerSelect = (playerId) => {
     if (selectedPlayer === playerId) {
@@ -483,6 +517,7 @@ const GameSummary = ({
                 {text("roundNo", {r: index + 1})}
               </span>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {renderQuizTag(round)}
                 {distance && (
                   <span style={{ color: '#aaa', fontSize: '0.8rem' }}>
                     {formatDistance(distance)}
@@ -842,6 +877,12 @@ const GameSummary = ({
             // saveRoundToHistory); null on rounds from a pre-stamp server.
             teamDamage: roundData.teamDamage ?? null,
             teamDamageMultiplier: roundData.teamDamageMultiplier ?? null,
+            // Quiz rounds: what the round showed, for renderQuizTag.
+            // Undefined on classic rounds.
+            mode: location.mode,
+            country: location.country,
+            lang: location.lang,
+            text: location.text,
             timeTaken: null
           };
         });
@@ -861,6 +902,18 @@ const GameSummary = ({
   // `finalHistory.length` and threw "Cannot access 'finalHistory' before
   // initialization", which Next.js surfaced as a fatal client-side crash.
   const finalHistory = gameHistory;
+
+  // Shapes rounds draw from public/modes/shapes.json (~240 KB), so fetch it
+  // only when one is on screen and re-render once it lands (shapeFor is null
+  // until then).
+  const hasShapeRounds = finalHistory.some((round) => round?.mode === 'shapes');
+  const [, setShapesLoaded] = useState(false);
+  useEffect(() => {
+    if (!hasShapeRounds) return undefined;
+    let cancelled = false;
+    loadShapes().then(() => { if (!cancelled) setShapesLoaded(true); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [hasShapeRounds]);
 
   // ── Team context (2v2 today; any NvM two-team mode). Used by the map pin
   // colors, header summary, round breakdown, final-scores grouping, and
@@ -1214,6 +1267,8 @@ const GameSummary = ({
                           <div>
                             <strong>{text("roundNo", { r: index + 1 })}</strong><br />
                             {text("actualLocation")}
+                            {/* Quiz rounds have no pano to open. */}
+                            {!quizOf(round.mode) && (
                             <div style={{ marginTop: '8px' }}>
                               <button
                                 onClick={() => openInGoogleMaps(round.lat, round.long, round.panoId)}
@@ -1230,6 +1285,7 @@ const GameSummary = ({
                                 🗺️ {text("openInMaps")}
                               </button>
                             </div>
+                            )}
                           </div>
                         </Popup>
                       </Marker>
@@ -1757,7 +1813,8 @@ const GameSummary = ({
                                   ⏱️ {formatTime(myTime)}
                                 </span>
                               )}
-                              {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
+                              {renderQuizTag(round)}
+                              {!quizOf(round.mode) && typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
                                 <button
                                   className="gmaps-icon"
                                   onClick={(e) => {
@@ -1859,7 +1916,8 @@ const GameSummary = ({
                                 ⏱️ {formatTime(myData?.timeTaken || round.timeTaken)}
                               </span>
                             )}
-                            {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
+                            {renderQuizTag(round)}
+                            {!quizOf(round.mode) && typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
                               <button
                                 className="gmaps-icon"
                                 onClick={(e) => {
@@ -2059,6 +2117,8 @@ const GameSummary = ({
                           {text("distance")}: {formatDistance(distance)}
                         </div>
                       )}
+                      {/* Quiz rounds have no pano to open. */}
+                      {!quizOf(round.mode) && (
                       <div className="popup-actions">
                         <button
                           className="popup-btn gmaps"
@@ -2067,6 +2127,7 @@ const GameSummary = ({
                           📍 {text("openInMaps")}
                         </button>
                       </div>
+                      )}
                     </div>
                   </Popup>
                 </Marker>
@@ -2386,7 +2447,8 @@ const GameSummary = ({
                         >
                           {round.points} {text("pts")}
                         </span>
-                        {!isMobile && (
+                        {renderQuizTag(round)}
+                        {!isMobile && !quizOf(round.mode) && (
                           <button
                             className="gmaps-icon"
                             onClick={(e) => {

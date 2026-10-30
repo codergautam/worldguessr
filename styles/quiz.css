@@ -1,0 +1,3188 @@
+/* Quiz modes: the round screen (globe + one card + the classic Round / Points
+   chip), then the summary and the Quizzes page. Imported from pages/_app.js.
+   The card is the near-opaque dark plate with the 2px --primary frame; Guess
+   is the classic .guessBtn, Next the EndBanner's green; no hairline rings, no
+   uppercase labels. Motion is MapFinder's: arrivals ease out, exits ease in
+   and are always keyframes, entrances fill backwards only. */
+
+.quizGame {
+    --quiz-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --quiz-ease-pop: cubic-bezier(0.16, 1, 0.3, 1);
+    --quiz-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow: hidden;
+    color: white;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    /* iOS ignores user-scalable=no but honours this: no page pinch-zoom. */
+    touch-action: pan-x pan-y;
+}
+
+/* ---------- backdrop: the site's own photo melts into night ----------
+   The quiz root is transparent, so on entry the home photo (body::before)
+   shows first and this blurred, darkened copy of it fades in over it; on
+   exit it fades back out. */
+.quizBackdrop {
+    position: absolute;
+    inset: -48px;
+    background:
+        radial-gradient(ellipse 62% 58% at 62% 50%, rgba(30, 90, 56, 0.28), rgba(2, 8, 5, 0) 70%),
+        radial-gradient(ellipse 120% 90% at 50% 50%, rgba(2, 8, 5, 0) 45%, rgba(1, 4, 3, 0.7) 100%),
+        linear-gradient(rgba(3, 12, 8, 0.8), rgba(3, 12, 8, 0.8)),
+        var(--site-bg, none) center / cover no-repeat,
+        #03080a;
+    filter: blur(16px) saturate(1.2);
+    animation: quizBackdropIn 0.7s ease-out backwards;
+}
+.quizGame--leaving {
+    pointer-events: none;
+}
+.quizGame--leaving .quizBackdrop {
+    animation: quizBackdropIn 0.7s ease-out backwards, quizFadeOut 0.45s ease-in 0.08s forwards;
+}
+.quizGame--leaving .quizGlobe {
+    transform-origin: var(--gx, 50%) var(--gy, 50%);
+    animation: quizGlobeOut 0.5s var(--quiz-ease-in) forwards;
+}
+.quizGame--leaving .quizPanel {
+    animation: quizPanelIn 0.5s var(--quiz-ease-out) 0.15s backwards, quizPanelOut 0.3s var(--quiz-ease-in) forwards;
+}
+.quizGame--leaving .quizChip,
+.quizGame--leaving .quizSummary,
+.quizGame--leaving .quizConfetti,
+.quizGame--leaving .quizGhost {
+    animation: quizFadeOut 0.25s var(--quiz-ease-in) forwards;
+}
+
+/* ---------- space + globe ---------- */
+.quizGlobe {
+    position: absolute;
+    inset: 0;
+}
+.quizSpace {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.quizStars {
+    position: absolute;
+    inset: -620px;
+    will-change: transform;
+    background-size: 620px 620px;
+}
+.quizStars--far {
+    background-image:
+        radial-gradient(0.8px 0.8px at 34px 46px, rgba(214, 230, 255, 0.45), transparent),
+        radial-gradient(0.8px 0.8px at 128px 310px, rgba(214, 230, 255, 0.4), transparent),
+        radial-gradient(0.7px 0.7px at 214px 92px, rgba(255, 244, 214, 0.42), transparent),
+        radial-gradient(0.8px 0.8px at 282px 524px, rgba(214, 230, 255, 0.4), transparent),
+        radial-gradient(0.7px 0.7px at 352px 214px, rgba(214, 230, 255, 0.45), transparent),
+        radial-gradient(0.8px 0.8px at 436px 412px, rgba(255, 244, 214, 0.4), transparent),
+        radial-gradient(0.7px 0.7px at 502px 68px, rgba(214, 230, 255, 0.42), transparent),
+        radial-gradient(0.8px 0.8px at 566px 334px, rgba(214, 230, 255, 0.4), transparent),
+        radial-gradient(0.7px 0.7px at 84px 472px, rgba(214, 230, 255, 0.45), transparent),
+        radial-gradient(0.8px 0.8px at 392px 598px, rgba(214, 230, 255, 0.4), transparent);
+}
+.quizStars--mid {
+    background-image:
+        radial-gradient(1.1px 1.1px at 72px 168px, rgba(214, 230, 255, 0.65), transparent),
+        radial-gradient(1px 1px at 248px 36px, rgba(214, 230, 255, 0.6), transparent),
+        radial-gradient(1.2px 1.2px at 318px 382px, rgba(255, 244, 214, 0.62), transparent),
+        radial-gradient(1px 1px at 468px 262px, rgba(214, 230, 255, 0.65), transparent),
+        radial-gradient(1.1px 1.1px at 590px 496px, rgba(214, 230, 255, 0.6), transparent),
+        radial-gradient(1px 1px at 162px 560px, rgba(214, 230, 255, 0.62), transparent),
+        radial-gradient(1.2px 1.2px at 532px 122px, rgba(214, 230, 255, 0.6), transparent);
+}
+.quizStars--near {
+    background-image:
+        radial-gradient(1.6px 1.6px at 196px 238px, rgba(232, 242, 255, 0.9), transparent),
+        radial-gradient(1.4px 1.4px at 412px 498px, rgba(255, 246, 222, 0.85), transparent),
+        radial-gradient(1.8px 1.8px at 548px 196px, rgba(232, 242, 255, 0.9), transparent),
+        radial-gradient(1.4px 1.4px at 46px 590px, rgba(232, 242, 255, 0.85), transparent),
+        radial-gradient(1.5px 1.5px at 330px 108px, rgba(232, 242, 255, 0.88), transparent);
+}
+
+/* The planet's halo and shading follow its on-screen circle (--gx/--gy/--gr,
+   written by QuizGlobe on every camera move) and fade out as the reveal
+   zooms in (--decor). */
+.quizGlobe__glow {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: calc(var(--gr, 300px) * 2.6);
+    height: calc(var(--gr, 300px) * 2.6);
+    transform: translate(calc(var(--gx, 50vw) - var(--gr, 300px) * 1.3), calc(var(--gy, 50vh) - var(--gr, 300px) * 1.3));
+    border-radius: 50%;
+    /* The rim sits at 1 / 1.3 = 77% of this disc. */
+    background: radial-gradient(closest-side,
+        rgba(130, 235, 180, 0.24) 0%,
+        rgba(130, 235, 180, 0.24) 76.5%,
+        rgba(100, 210, 160, 0.08) 82%,
+        rgba(100, 210, 160, 0.02) 90%,
+        rgba(100, 210, 160, 0) 100%);
+    opacity: 0;
+    pointer-events: none;
+}
+.quizGlobe--in .quizGlobe__glow {
+    opacity: var(--decor, 1);
+}
+.quizGlobe .quizGlobe__map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+}
+.quizGlobe--in .quizGlobe__map {
+    opacity: 1;
+}
+.quizGlobe--in .quizGlobe__map,
+.quizGlobe--in .quizGlobe__glow {
+    transform-origin: var(--gx, 50%) var(--gy, 50%);
+    animation: quizGlobeIn 1.8s var(--quiz-ease-out) backwards;
+}
+.quizGlobe__shade {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: calc(var(--gr, 0px) * 2);
+    height: calc(var(--gr, 0px) * 2);
+    transform: translate(calc(var(--gx, 0px) - var(--gr, 0px)), calc(var(--gy, 0px) - var(--gr, 0px)));
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 46%),
+        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 56%, rgba(0, 0, 0, 0.16) 80%, rgba(0, 0, 0, 0.48) 100%);
+    opacity: var(--decor, 1);
+    pointer-events: none;
+}
+.quizGlobe .maplibregl-ctrl-bottom-left,
+.quizGlobe .maplibregl-ctrl-bottom-right {
+    display: none;
+}
+
+/* ---------- markers ---------- */
+.quizPin,
+.quizPole {
+    /* MapLibre sets opacity 0 while the planet covers a marker: fade it. */
+    transition: opacity 0.2s ease;
+}
+.quizPin {
+    position: relative;
+    width: 48px;
+    height: 52px;
+    pointer-events: none;
+}
+.quizPin__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+    transform-origin: 50% 100%;
+    animation: quizPinDrop 0.42s var(--quiz-ease-pop) backwards;
+}
+.quizPin__ring {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 76px;
+    height: 76px;
+    margin: 0 0 -38px -38px;
+    border-radius: 50%;
+    border: 3px solid var(--ring, #4ade80);
+    opacity: 0;
+}
+/* Every pick lands with a small blue ripple (the pin's colour). */
+.quizPin--drop .quizPin__ring {
+    --ring: #7cc4ff;
+    border-width: 2px;
+    animation: quizRing 0.52s var(--quiz-ease-out) 0.2s;
+}
+.quizPin--hit .quizPin__ring {
+    --ring: #4ade80;
+    border-width: 3px;
+    animation: quizRingHit 0.75s var(--quiz-ease-out) 2;
+}
+.quizPin--nope .quizPin__img {
+    animation: quizNope 0.42s ease-out;
+}
+.quizPin--out {
+    animation: quizFadeOut 0.22s var(--quiz-ease-in) forwards;
+}
+.quizPole {
+    position: relative;
+    width: 58px;
+    height: 62px;
+    margin-left: -1.5px;
+    pointer-events: none;
+}
+.quizPole::after {
+    content: "";
+    position: absolute;
+    left: -5px;
+    bottom: -3px;
+    width: 13px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+}
+.quizPole__stick {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 3px;
+    height: 62px;
+    border-radius: 2px;
+    background: linear-gradient(#ffffff, #a3aca8);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transform-origin: 50% 100%;
+    animation: quizPoleUp 0.38s var(--quiz-ease-out) backwards;
+}
+.quizPole__flag {
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 54px;
+    height: auto;
+    border-radius: 2px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transform-origin: 0 50%;
+    animation: quizFlagUnfurl 0.55s var(--quiz-ease-pop) 0.3s backwards, quizFlagFlutter 1.4s ease-in-out 0.9s;
+}
+.quizPole--out {
+    animation: quizFadeOut 0.24s var(--quiz-ease-in) forwards;
+}
+/* Ground ellipses centred on the pole's foot (x 1.5px). */
+.quizPole__dust,
+.quizPole__ring {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+}
+.quizPole__dust {
+    left: -26.5px;
+    bottom: -14px;
+    width: 56px;
+    height: 28px;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    animation: quizGroundRing 0.52s ease-out 0.34s;
+}
+.quizPole__ring {
+    display: none;
+    left: -34.5px;
+    bottom: -18px;
+    width: 72px;
+    height: 36px;
+    border: 3px solid #4ade80;
+}
+.quizPole--hit .quizPole__ring {
+    display: block;
+    animation: quizGroundRing 0.85s ease-out 0.6s;
+}
+.quizPole--hit .quizPole__ring--late {
+    animation-delay: 0.8s;
+}
+
+/* ---------- the chip (classic .timer, unchanged) ---------- */
+/* One width while the points count up and the clock stops: the counter
+   does not go bold mid-count, the clock keeps a width floor, and the
+   critical-time scale eases. */
+.quizChip {
+    box-sizing: border-box;
+    /* wide enough for "50,000 Points" (and the clock when timed): the
+       width never changes in a run, so the right-anchored chip never moves */
+    min-width: 9.6em;
+    transition: transform 0.25s var(--quiz-ease-out);
+}
+.quizChip--timed {
+    min-width: 13.4em;
+}
+.quizChip .animated-counter.animating .counter-value {
+    font-weight: inherit;
+}
+.quizChip .timer__countdown {
+    display: inline-block;
+    min-width: 4ch;
+    text-align: end;
+}
+.quizChip {
+    z-index: 3;
+}
+.quizChip__round {
+    display: inline-block;
+    animation: quizBumpBig 0.5s var(--quiz-ease-out);
+}
+.quizChip--bump {
+    animation: quizBumpBig 0.5s var(--quiz-ease-out);
+}
+/* The round's points on their way from the card to the chip. */
+.quizGhost {
+    position: absolute;
+    z-index: 1002;
+    transform: translate(-50%, -50%);
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+    pointer-events: none;
+}
+.quizGhost span {
+    display: inline-block;
+}
+.quizGhost--gold {
+    color: #ffd700;
+}
+.quizConfetti {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ---------- the find card (singleplayer Flags / Shapes) ----------
+   One card, stacked: the flag (or outline) on a stage, the question, and one
+   line that says how the last click went. The stage has a fixed height, so
+   the card never changes size between rounds. Beside the globe on wide
+   screens, where the round card always stood; docked at the bottom on phones
+   and portrait tablets (DOCK_QUERY). The Round / Points chip stays the
+   classic one. */
+.quizFind {
+    position: absolute;
+    z-index: 2;
+    left: max(24px, env(safe-area-inset-left, 0px));
+    top: 56px;
+    bottom: 0;
+    height: fit-content;
+    margin-block: auto;
+    box-sizing: border-box;
+    width: clamp(300px, 30vw, 440px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 18px 16px;
+    border-radius: 20px;
+    background: linear-gradient(165deg, rgba(20, 32, 20, 0.97), rgba(9, 16, 9, 0.98));
+    border: 2px solid var(--primary);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    text-align: center;
+    animation: quizPanelIn 0.5s var(--quiz-ease-out) 0.15s backwards;
+}
+.quizFind__stim {
+    position: relative;
+    height: clamp(150px, 26vh, 240px);
+    /* flex, not grid: the waving flag lays its strips over the image
+       absolutely, so the image is the one item and its max-height has the
+       stage to resolve against */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.quizFind__flag {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+}
+.quizFind__outline {
+    display: block;
+    height: 100%;
+    max-width: 100%;
+    animation: quizFadeIn 0.2s ease-out;
+}
+.quizFind__outline path {
+    fill: white;
+}
+.quizFind__ask {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+/* one line, always reserved, so the card keeps its height */
+.quizFind__note {
+    margin: -4px 0 0;
+    min-height: 1.4em;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.4;
+    animation: quizFadeIn 0.2s ease-out;
+}
+.quizFind__note--first {
+    color: #86efac;
+}
+.quizFind__note--few {
+    color: #fcd34d;
+}
+.quizFind__note--missed,
+.quizFind__note--wrong {
+    color: #fda4af;
+}
+.quizFind--done,
+.quizGame--leaving .quizFind {
+    pointer-events: none;
+    animation: quizPanelIn 0.5s var(--quiz-ease-out) 0.15s backwards, quizPanelOut 0.3s var(--quiz-ease-in) forwards;
+}
+@media screen and (max-width: 600px), screen and (max-width: 1024px) and (orientation: portrait) {
+    .quizFind {
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        height: auto;
+        margin: 0 auto;
+        width: min(100% - 16px, 480px);
+        gap: 8px;
+        padding: 12px 14px 10px;
+        border-radius: 18px;
+        animation-name: quizSheetIn;
+    }
+    .quizFind__stim {
+        height: clamp(84px, 14svh, 124px);
+    }
+    .quizFind__ask {
+        font-size: 1.1rem;
+    }
+    .quizFind__note {
+        margin-top: -2px;
+        font-size: 0.95rem;
+    }
+    .quizFind--done,
+    .quizGame--leaving .quizFind {
+        animation: quizSheetIn 0.5s var(--quiz-ease-out) 0.15s backwards, quizSheetOut 0.3s var(--quiz-ease-in) forwards;
+    }
+}
+@media screen and (max-width: 600px) and (max-height: 540px) {
+    .quizFind__stim {
+        height: 68px;
+    }
+    .quizFind__ask {
+        font-size: 1rem;
+    }
+}
+/* short wide screens (landscape phones): a narrower card, a shorter stage */
+@media screen and (min-width: 601px) and (max-height: 560px) {
+    .quizFind {
+        top: 52px;
+        width: clamp(240px, 32vw, 340px);
+        gap: 8px;
+        padding: 12px 12px 10px;
+    }
+    .quizFind__stim {
+        height: clamp(80px, 28vh, 150px);
+    }
+    .quizFind__ask {
+        font-size: 1.05rem;
+    }
+    .quizFind__note {
+        font-size: 0.92rem;
+    }
+}
+
+/* ---------- the card ---------- */
+.quizPanel {
+    position: absolute;
+    left: max(24px, env(safe-area-inset-left, 0px));
+    /* Centred in the space under the navbar, without a transform (the
+       entrance animation owns transform). The card keeps ONE height for a
+       whole round (reserved text band, fixed action slot), so centring never
+       moves it; only the next flag's frame changes it, and that eases. */
+    top: 56px;
+    bottom: 0;
+    height: fit-content;
+    margin-block: auto;
+    z-index: 2;
+    width: clamp(340px, min(100vw - 100vh + 24px, 62vh), 600px);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-radius: 20px;
+    background: linear-gradient(165deg, rgba(20, 32, 20, 0.97), rgba(9, 16, 9, 0.98));
+    border: 2px solid var(--primary);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    animation: quizPanelIn 0.5s var(--quiz-ease-out) 0.15s backwards;
+}
+.quizPanel {
+    --rail-flag-w: 36px;
+}
+/* Height comes from QuizGame (card width / the flag's aspect, capped at 3:2),
+   so a wide flag gets no empty bands; it eases between rounds. */
+.quizPanel__stimulus {
+    position: relative;
+    height: 260px;
+    min-height: 96px;
+    flex-shrink: 1;
+    transition: height 0.35s var(--quiz-ease-out);
+}
+/* Parties dock at the top (the player list needs the height); no rail. */
+@media screen and (min-width: 601px) and (orientation: landscape), screen and (min-width: 1025px) {
+    .quizGame--mp .quizPanel {
+        top: 64px;
+        bottom: auto;
+        margin-block: 0;
+        max-height: calc(100% - 72px);
+    }
+}
+.quizGame--mp .quizPanel__stimulus {
+    max-height: 30vh;
+}
+.quizPanel__stimulus .quizSwap,
+.quizPanel__stimulus .quizSwap__in,
+.quizPanel__stimulus .quizSwap__out {
+    position: absolute;
+    inset: 0;
+}
+.quizStimulus {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.quizStimulus__flag {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.quizCloth__base {
+    visibility: hidden;
+}
+.quizCloth,
+.quizCloth__plate {
+    position: absolute;
+    pointer-events: none;
+}
+.quizCloth__plate {
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.quizCloth {
+    --amp: 5px;
+}
+.quizCloth__strip {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-image: var(--flag);
+    background-size: var(--bw) var(--bh);
+    background-position: var(--bx) 0;
+    background-repeat: no-repeat;
+    animation: quizCloth 1.6s ease-in-out backwards;
+    animation-delay: calc(var(--d, 0ms) + var(--i) * 40ms);
+}
+.quizCloth__strip:first-child {
+    border-radius: 6px 0 0 6px;
+}
+.quizCloth__strip:last-child {
+    border-radius: 0 6px 6px 0;
+}
+/* A flat shade in step with the ripple, masked to the cloth so odd shapes
+   (Nepal) keep clean edges. */
+.quizCloth__strip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    -webkit-mask: var(--flag) no-repeat;
+    mask: var(--flag) no-repeat;
+    -webkit-mask-size: var(--bw) var(--bh);
+    mask-size: var(--bw) var(--bh);
+    -webkit-mask-position: var(--bx) 0;
+    mask-position: var(--bx) 0;
+    animation: quizClothShade 1.6s ease-in-out backwards;
+    animation-delay: inherit;
+}
+.quizFadeImg {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+.quizFadeImg.is-ready {
+    opacity: 1;
+}
+.quizStimulus__outline {
+    width: 100%;
+    height: 100%;
+}
+.quizStimulus__outline path {
+    fill: white;
+}
+.quizStimulus__text {
+    margin: 0;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    text-align: center;
+}
+.quizStimulus__image {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+}
+.quizStimulus__credit {
+    position: absolute;
+    bottom: 0;
+    margin: 0;
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+.quizRail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: calc(var(--rail-flag-w) * 2 / 3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.quizRail__slot {
+    flex: 0 1 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.22);
+    transition: width 0.35s var(--quiz-ease-out), height 0.35s var(--quiz-ease-out), border-radius 0.35s ease, background 0.35s ease;
+}
+/* A dot grows into the round's flag when it arrives, ringed in how the
+   round went: green first try, yellow a later try, red for a miss (the
+   colours the globe paints those countries). */
+.quizRail__slot--hit,
+.quizRail__slot--few,
+.quizRail__slot--miss {
+    width: var(--rail-flag-w);
+    height: calc(var(--rail-flag-w) * 2 / 3);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+}
+.quizRail__slot--miss {
+    opacity: 0.8;
+    box-shadow: 0 0 0 1.5px #f87171;
+}
+.quizRail__slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: quizSlotIn 0.38s var(--quiz-ease-pop) 0.38s backwards;
+}
+.quizRail__slot--hit {
+    box-shadow: 0 0 0 1.5px #4ade80;
+}
+.quizRail__slot--few {
+    box-shadow: 0 0 0 1.5px #fcd34d;
+}
+
+/* A click's name on the globe, where it landed, tinted by how it went:
+   words with a dark halo (legible on any land), no box. MapLibre owns the
+   marker's own transform, so only the inner text animates. */
+.quizTryLabel {
+    pointer-events: none;
+}
+.quizTryLabel__text {
+    display: block;
+    color: #ffd1d8;
+    font: 700 14px/1.2 lexend, "Lexend Fallback", sans-serif;
+    white-space: nowrap;
+    text-shadow: 0 0 3px rgba(2, 8, 5, 0.95), 0 0 8px rgba(2, 8, 5, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9);
+    animation: quizTryLabelIn 0.3s var(--quiz-ease-out) backwards;
+}
+.quizTryLabel--first .quizTryLabel__text {
+    color: #86efac;
+}
+.quizTryLabel--few .quizTryLabel__text {
+    color: #fcd34d;
+}
+.quizTryLabel--missed .quizTryLabel__text {
+    color: #fda4af;
+}
+/* a find: white on the painted country, a touch larger */
+.quizTryLabel--found .quizTryLabel__text {
+    color: white;
+    font-size: 15px;
+}
+.quizTryLabel--out {
+    opacity: 0;
+    transition: opacity 0.24s ease;
+}
+@keyframes quizTryLabelIn {
+    from { opacity: 0; transform: translateY(4px); }
+}
+
+/* An ocean click spends no try: a ripple says the click was heard. */
+.quizSplash {
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+}
+.quizSplash::before,
+.quizSplash::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(159, 216, 255, 0.85);
+    animation: quizSplash 0.8s ease-out forwards;
+}
+.quizSplash::after {
+    animation-delay: 0.14s;
+}
+@keyframes quizSplash {
+    from { opacity: 1; transform: scale(0.4); }
+    to { opacity: 0; transform: scale(4.5); }
+}
+
+.quizPanel__text {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.quizPanel__prompt {
+    margin: 0;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.quizResult {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+.quizResult__note {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 500;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.75);
+    animation: quizRise 0.4s var(--quiz-ease-out) backwards;
+}
+.quizResult--correct .quizResult__note {
+    color: #4ade80;
+    font-weight: 600;
+}
+.quizResult--correct .quizResult__note--few {
+    color: #fcd34d;
+}
+.quizResult--few .quizResult__num {
+    color: #fcd34d;
+}
+.quizResult__note--best,
+.quizResult--correct .quizResult__note--best {
+    color: #ffd700;
+    font-weight: 700;
+    animation: bannerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.quizResult__flag {
+    width: 1.42em;
+    object-fit: contain;
+    height: 0.95em;
+    width: auto;
+    margin-inline: 0.3em;
+    vertical-align: -0.12em;
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.quizResult__streak {
+    display: inline-block;
+    font-size: 1.25em;
+    font-weight: 800;
+    animation: streakPulse 0.5s ease 0.12s backwards;
+}
+.quizResult__answer {
+    margin: 0;
+    font-family: "Jockey One", "Jockey One Fallback", sans-serif;
+    font-weight: 400;
+    font-size: 2.6rem;
+    line-height: 1.05;
+    text-wrap: balance;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    animation: bannerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.22s backwards;
+}
+.quizResult__answer--long {
+    font-size: 1.9rem;
+}
+/* The answer and points are laid out from beat one (hidden until the
+   landing, below), so the result's height is known at the click and
+   nothing re-centres when they appear. */
+.quizResult__more {
+    display: flex;
+    flex-direction: column;
+    align-items: inherit;
+}
+.quizResult__more > div {
+    display: flex;
+    flex-direction: column;
+    align-items: inherit;
+    gap: 8px;
+}
+.quizResult .perfect5k__num,
+.quizResult .perfect5k__num::after {
+    animation-delay: 0.45s;
+}
+.quizResult .perfect5k__word {
+    animation-delay: 0.77s;
+}
+/* Beat one shows only the note; the answer and points wait (laid out,
+   hidden) for the landing. */
+.quizResult:not(.is-landed) .quizResult__answer,
+.quizResult:not(.is-landed) .quizResult__points {
+    visibility: hidden;
+    animation: none;
+}
+.quizResult__points {
+    margin: 2px 0 0;
+    font-size: 1.3rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    animation: quizRise 0.4s var(--quiz-ease-out) 0.36s backwards;
+}
+.quizResult__num {
+    display: inline-grid;
+    justify-items: end;
+    font-size: 1.85em;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.quizResult__num > span {
+    grid-area: 1 / 1;
+    color: inherit;
+    font-weight: inherit;
+}
+.quizResult__numEnd {
+    visibility: hidden;
+}
+.quizResult__word {
+    margin-left: 0.4em;
+    font-weight: 600;
+}
+
+.quizPanel__action {
+    height: 60px;
+}
+.quizPanel__action .quizSwap,
+.quizPanel__action .quizSwap__in {
+    height: 100%;
+}
+.quizPanel__action .quizSwap__out {
+    inset: 0;
+}
+.quizGuess {
+    font-size: 1.45rem;
+}
+/* The first pin of a round wakes the button once (no fill: hover still works). */
+.quizPanel__action .quizSwap__in > .quizGuess--ready {
+    animation: quizBump 0.36s var(--quiz-ease-pop);
+}
+.quizNext {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    min-height: 56px;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.quizNext:hover {
+    background: linear-gradient(135deg, #2e7042 0%, #388a51 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+.quizNext:active {
+    transform: translateY(0);
+}
+.quizPanel__waiting {
+    margin: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    opacity: 0.8;
+}
+.quizGame--choice .quizPanel__action {
+    height: auto;
+}
+.quizGame--choice .quizPanel__action .quizSwap,
+.quizGame--choice .quizPanel__action .quizSwap__in {
+    height: auto;
+}
+.quizGame--choice .quizPanel__action .quizSwap__out {
+    inset: 0 0 auto 0;
+}
+.quizChoices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.quizChoice {
+    min-height: 46px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+}
+.quizChoice:disabled {
+    cursor: default;
+    transform: none;
+}
+.quizChoice--picked {
+    border-color: var(--primary);
+}
+.quizChoice--correct {
+    border-color: #4ade80;
+}
+.quizChoice--wrong {
+    border-color: #ff6b6b;
+}
+.quizChoice--dim {
+    opacity: 0.5;
+}
+.quizPanel__players {
+    max-height: 30vh;
+    min-height: 0;
+    overflow-y: auto;
+}
+.quizPanel__players .multiplayerLeaderboard {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    opacity: 1;
+    z-index: auto;
+    overflow: visible;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+.quizPanel__players .multiplayerLeaderboard .bigSpan {
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+.quizPanel__players .multiplayerLeaderboard__player,
+.quizPanel__players .multiplayerLeaderboard__teamMembers {
+    width: auto;
+}
+.quizPanel .team-scorebar {
+    position: static;
+    transform: none;
+    margin: 0;
+    align-self: center;
+}
+/* Clear the 728x90 band in parties, only while an ad is rendered. */
+@media screen and (min-width: 601px) and (orientation: landscape), screen and (min-width: 1025px) {
+    body:has(.topAdFixed > *) .quizPanel {
+        top: 104px;
+    }
+}
+/* Landscape phones and short windows: a wide two-column card that fits. */
+@media screen and (min-width: 601px) and (max-height: 560px) {
+    .quizPanel {
+        top: 48px;
+        width: min(440px, 52vw);
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        grid-template-areas: "rail rail" "stim text" "action action";
+        gap: 8px 12px;
+    }
+    .quizPanel {
+        --rail-flag-w: 27px;
+    }
+    .quizRail {
+        grid-area: rail;
+        gap: 4px;
+    }
+    .quizPanel__stimulus {
+        grid-area: stim;
+        max-height: min(170px, 44vh);
+    }
+    .quizPanel__text {
+        grid-area: text;
+        min-height: 0;
+    }
+    .quizPanel__action {
+        grid-area: action;
+        height: 46px;
+    }
+    .quizNext {
+        min-height: 46px;
+        font-size: 1.15rem;
+    }
+    .quizGuess {
+        font-size: 1.2rem;
+    }
+    .quizPanel__prompt {
+        text-align: left;
+        font-size: 1rem;
+    }
+    .quizResult {
+        align-items: flex-start;
+        text-align: left;
+    }
+    .quizResult__note {
+        font-size: 0.85rem;
+    }
+    .quizResult__answer {
+        font-size: 1.6rem;
+    }
+    .quizResult__answer--long {
+        font-size: 1.25rem;
+    }
+    .quizResult__points {
+        font-size: 0.95rem;
+    }
+}
+
+/* ---------- the board (choice modes: Languages) ----------
+   No globe: the card is centred on the backdrop and wider, the sample text
+   is the hero in a speech bubble (as on the Quizzes page), six answers in a
+   grid below it, the verdict on the buttons. The text sizes itself and
+   eases between rounds; nothing else in the card changes size. */
+.quizGame--board .quizPanel {
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: min(720px, calc(100% - 32px));
+    gap: 16px;
+    padding: 24px;
+}
+.quizGame--board .quizPanel__stimulus {
+    height: auto;
+    min-height: 0;
+    /* the docked tiers cap a picture frame; a board's text needs its own height */
+    max-height: none;
+    flex-shrink: 0;
+    transition: none;
+}
+.quizGame--board .quizPanel__stimulus .quizSwap,
+.quizGame--board .quizPanel__stimulus .quizSwap__in {
+    position: relative;
+    height: auto;
+}
+.quizGame--board .quizPanel__stimulus .quizSwap__out {
+    position: absolute;
+    inset: 0 0 auto 0;
+}
+.quizGame--board .quizStimulus {
+    position: relative;
+    inset: auto;
+    display: block;
+}
+.quizGame--board .quizStimulus__text {
+    position: relative;
+    margin: 0;
+    /* the run's longest sentence (QuizGame measures it), so every round's
+       bubble is the same size */
+    min-height: var(--board-text-h, 7.2em);
+    display: flex;
+    align-items: center;
+    padding: 20px 24px 22px;
+    border-radius: 24px;
+    border-bottom-left-radius: 6px;
+    background: white;
+    color: #10200f;
+    font-size: clamp(1.05rem, 0.6rem + 1.2vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: start;
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.45);
+}
+.quizGame--board .quizPanel__prompt {
+    font-size: 1.25rem;
+}
+/* The prompt's band keeps one height: the prompt, then the result row. */
+.quizGame--board .quizPanel__text {
+    height: 68px;
+    min-height: 0;
+}
+.quizGame--board .quizPanel__text .quizSwap {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.quizGame--board .quizPanel__text .quizSwap__out {
+    inset: 0;
+}
+.quizResult--board {
+    height: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    text-align: start;
+}
+.quizResult--board .quizResult__name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.quizResult--board .quizResult__answer {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    animation: quizRise 0.4s var(--quiz-ease-out) backwards;
+}
+.quizResult--board.quizResult--correct .quizResult__answer {
+    color: #86efac;
+}
+.quizResult--board .quizResult__native {
+    animation: quizRise 0.4s var(--quiz-ease-out) 0.08s backwards;
+}
+.quizResult--board .quizResult__points {
+    flex: none;
+    margin: 0;
+}
+.quizResult--board .quizNext {
+    flex: none;
+    width: auto;
+    height: 52px;
+    min-height: 52px;
+    padding: 0 22px;
+    font-size: 1.1rem;
+    animation: quizRise 0.4s var(--quiz-ease-out) 0.2s backwards;
+}
+.quizGame--board .quizChoices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.quizGame--board .quizChoice {
+    min-height: 56px;
+    font-size: 1.05rem;
+}
+.quizResult__native {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 1rem;
+    font-weight: 500;
+    font-style: italic;
+}
+
+/* Phones and portrait tablets: the board sits in the middle of the screen
+   (no globe to leave room for), two answers a row. */
+@media screen and (max-width: 600px), screen and (max-width: 1024px) and (orientation: portrait) {
+    .quizGame--board .quizPanel {
+        top: 64px;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        height: fit-content;
+        margin: auto;
+        gap: 12px;
+        padding: 14px;
+    }
+}
+@media (max-width: 600px) {
+    .quizGame--board .quizChoices {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .quizGame--board .quizPanel__text {
+        height: 60px;
+    }
+    .quizResult--board {
+        gap: 10px;
+    }
+    .quizResult--board .quizResult__answer {
+        font-size: 1.3rem;
+    }
+    .quizResult--board .quizResult__word {
+        display: none;
+    }
+    .quizResult--board .quizNext {
+        height: 46px;
+        min-height: 46px;
+        padding: 0 14px;
+        font-size: 1rem;
+    }
+    .quizGame--board .quizStimulus__text {
+        padding: 16px 18px 18px;
+        border-radius: 20px;
+        border-bottom-left-radius: 6px;
+    }
+}
+
+/* ---------- slot swaps ---------- */
+.quizSwap {
+    position: relative;
+}
+.quizSwap__out {
+    position: absolute;
+    inset: 0 0 auto 0;
+    pointer-events: none;
+    animation: quizOut 0.24s var(--quiz-ease-in) forwards;
+}
+.quizSwap__in > * {
+    animation: quizIn 0.45s var(--quiz-ease-out) backwards;
+}
+.quizPanel__stimulus .quizSwap__in > * {
+    animation: quizFadeIn 0.3s ease-out 0.12s backwards;
+}
+.quizPanel--collect .quizPanel__stimulus .quizSwap__out {
+    bottom: auto;
+    height: var(--out-h, 100%);
+    animation: quizCollect 0.46s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.quizPanel__text .quizSwap__in > * {
+    animation-delay: 0.12s;
+}
+.quizPanel__action .quizSwap__in > * {
+    animation-delay: 0.2s;
+}
+
+/* ---------- phones and portrait tablets: the card docks at the bottom ----------
+   (components/quiz/layout.js DOCK_QUERY is the same query) */
+@media screen and (max-width: 600px), screen and (max-width: 1024px) and (orientation: portrait) {
+    .quizPanel {
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        width: min(100% - 16px, 560px);
+        height: auto;
+        margin: 0 auto;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: "rail" "stim" "text" "action";
+        gap: 10px;
+        border-radius: 18px;
+        animation-name: quizSheetIn;
+    }
+    .quizPanel {
+        --rail-flag-w: 30px;
+    }
+    .quizRail {
+        grid-area: rail;
+        gap: 5px;
+    }
+    .quizPanel__stimulus {
+        grid-area: stim;
+        max-height: clamp(120px, 16.5svh, 144px);
+    }
+    .quizPanel__text {
+        grid-area: text;
+        min-height: 0;
+    }
+    .quizPanel__action {
+        grid-area: action;
+        height: 52px;
+    }
+    .quizStimulus {
+        align-items: safe center;
+    }
+    .quizStimulus__text {
+        font-size: 0.95rem;
+        line-height: 1.35;
+    }
+    .quizPanel__prompt {
+        font-size: 1.1rem;
+    }
+    .quizResult {
+        gap: 5px;
+    }
+    .quizResult__note {
+        font-size: 0.9rem;
+    }
+    .quizResult__answer {
+        font-size: 1.9rem;
+    }
+    .quizResult__answer--long {
+        font-size: 1.45rem;
+    }
+    .quizResult__points {
+        margin-top: 0;
+        font-size: 0.9rem;
+    }
+    .quizCloth {
+        --amp: 3px;
+    }
+    .quizGhost {
+        font-size: 1.3rem;
+    }
+    .quizGuess {
+        font-size: 1.25rem;
+    }
+    .quizNext {
+        font-size: 1.15rem;
+        min-height: 52px;
+    }
+    .quizPanel__players,
+    .quizPanel .team-scorebar {
+        grid-column: 1 / -1;
+        justify-self: center;
+    }
+    .quizPanel__players {
+        max-height: 22svh;
+    }
+    .quizGame--leaving .quizPanel {
+        animation: quizSheetIn 0.5s var(--quiz-ease-out) 0.15s backwards, quizSheetOut 0.3s var(--quiz-ease-in) forwards;
+    }
+    .quizGame--choice .quizPanel {
+        grid-template-columns: 1fr;
+        grid-template-areas: "rail" "stim" "text" "action";
+    }
+}
+
+/* Compact docked card: the flag column grows with the card (a 600px window
+   has room) and spans the text and action rows, so the question, the hint or
+   tries, and Next stack beside it. The flag is never taller than those rows
+   (104 + 8 + 48), so the card keeps its height. */
+@media screen and (max-width: 600px) and (max-height: 819px), screen and (max-width: 1024px) and (orientation: portrait) and (max-height: 819px) {
+    .quizPanel {
+        padding: 10px;
+        grid-template-columns: clamp(144px, 40%, 240px) 1fr;
+        grid-template-areas: "rail rail" "stim text" "stim action";
+        gap: 8px 12px;
+    }
+    .quizPanel__stimulus {
+        max-height: 160px;
+        align-self: center;
+    }
+    /* the question sits on the action under it */
+    .quizPanel__text {
+        justify-content: flex-end;
+        min-height: 104px;
+    }
+    .quizPanel__action {
+        height: 48px;
+    }
+    .quizPanel__prompt {
+        text-align: left;
+        font-size: 1rem;
+    }
+    .quizResult {
+        align-items: flex-start;
+        text-align: left;
+    }
+    .quizResult__answer {
+        font-size: 1.3rem;
+    }
+    .quizResult__answer--long {
+        font-size: 1.1rem;
+    }
+}
+
+/* Very short docked screens (a small window, a phone browser with its bars
+   showing): the card gives up the rail (the Round box says which round) and
+   steps everything else down, so the globe keeps most of the height. The
+   text band still holds the whole result, so the card keeps one height. */
+@media screen and (max-width: 600px) and (max-height: 540px) {
+    .quizPanel {
+        padding: 8px;
+        grid-template-columns: clamp(112px, 36%, 190px) 1fr;
+        grid-template-areas: "stim text" "stim action";
+        gap: 6px 10px;
+        border-radius: 14px;
+    }
+    .quizRail {
+        display: none;
+    }
+    /* 84 + 6 + 40: the text and action rows it spans */
+    .quizPanel__stimulus {
+        max-height: 130px;
+    }
+    .quizPanel__text {
+        min-height: 84px;
+    }
+    .quizPanel__action {
+        height: 40px;
+    }
+    .quizNext {
+        min-height: 40px;
+        font-size: 1.05rem;
+    }
+    .quizPanel__prompt {
+        font-size: 0.92rem;
+    }
+    .quizResult {
+        gap: 3px;
+    }
+    .quizResult__note {
+        font-size: 0.85rem;
+    }
+    .quizResult__answer {
+        font-size: 1.15rem;
+    }
+    .quizResult__answer--long {
+        font-size: 1rem;
+    }
+    .quizResult__points {
+        font-size: 1.05rem;
+    }
+}
+
+/* ---------- shooting stars: desktop only, the decor fades them on zoom ---------- */
+.quizShootingStar {
+    display: none;
+    position: absolute;
+    top: 12%;
+    left: 40%;
+    width: 130px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(160, 210, 255, 0.4) 40%, transparent);
+    opacity: 0;
+}
+@media (min-width: 640px) and (min-height: 561px) and (prefers-reduced-motion: no-preference) {
+    .quizShootingStar {
+        display: block;
+        animation: quizShoot 7s linear 2.5s infinite;
+    }
+    .quizShootingStar:nth-of-type(2) {
+        top: 22%;
+        left: 82%;
+        animation-duration: 11s;
+        animation-delay: 6s;
+    }
+    .quizShootingStar:nth-of-type(3) {
+        top: 58%;
+        left: 92%;
+        animation-duration: 16s;
+        animation-delay: 11s;
+    }
+}
+
+/* ---------- keyframes (transform / opacity only) ---------- */
+/* `scale`, not `transform`: the glow is positioned by its transform. */
+@keyframes quizGlobeIn {
+    from { opacity: 0; scale: 0.88; }
+    to { opacity: 1; scale: 1; }
+}
+@keyframes quizPanelIn {
+    from { opacity: 0; transform: translateX(-18px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes quizBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes quizGlobeOut {
+    to { opacity: 0; scale: 0.94; }
+}
+@keyframes quizPanelOut {
+    to { opacity: 0; transform: translateX(-24px) scale(0.98); }
+}
+@keyframes quizSheetIn {
+    from { opacity: 0; transform: translateY(28px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes quizSheetOut {
+    to { opacity: 0; transform: translateY(24px); }
+}
+@keyframes quizIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes quizOut {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+@keyframes quizRise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes quizFadeOut {
+    to { opacity: 0; }
+}
+@keyframes quizPinDrop {
+    0% { opacity: 0; transform: translateY(-22px) scale(0.9); }
+    55% { opacity: 1; transform: translateY(2px) scaleY(0.94); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes quizRingHit {
+    from { opacity: 0.9; transform: scale(0.2); }
+    to { opacity: 0; transform: scale(1.6); }
+}
+@keyframes quizRing {
+    from { opacity: 0.9; transform: scale(0.2); }
+    to { opacity: 0; transform: scale(1.6); }
+}
+@keyframes quizPoleUp {
+    from { transform: scaleY(0); }
+    to { transform: none; }
+}
+@keyframes quizFlagUnfurl {
+    0% { opacity: 0; transform: scaleX(0) skewY(10deg); }
+    60% { opacity: 1; transform: scaleX(1.06) skewY(-3deg); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes quizNope {
+    0% { transform: none; }
+    25% { transform: rotate(-10deg); }
+    50% { transform: rotate(8deg); }
+    75% { transform: rotate(-4deg); }
+    100% { transform: none; }
+}
+@keyframes quizGroundRing {
+    from { opacity: 0.85; transform: scale(0.2); }
+    to { opacity: 0; transform: scale(1.5); }
+}
+@keyframes quizBump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+@keyframes quizFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+/* The card flag flies into its rail slot (QuizGame.aimCollect sets the vars). */
+@keyframes quizCollect {
+    0% { opacity: 1; transform: none; }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--cx, 0), var(--cy, 0)) scale(var(--cs, 0.1)); }
+}
+@keyframes quizBumpBig {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+@keyframes quizFlagFlutter {
+    0%, 100% { transform: none; }
+    25% { transform: skewY(-3deg) scaleX(0.97); }
+    50% { transform: skewY(2deg) scaleX(1.01); }
+    75% { transform: skewY(-1deg); }
+}
+@keyframes quizCloth {
+    0%, 100% { transform: none; }
+    20% { transform: translateY(calc(var(--a) * var(--amp) * -1)); }
+    40% { transform: translateY(calc(var(--a) * var(--amp) * 0.8)); }
+    60% { transform: translateY(calc(var(--a) * var(--amp) * -0.5)); }
+    80% { transform: translateY(calc(var(--a) * var(--amp) * 0.25)); }
+}
+@keyframes quizClothShade {
+    0%, 100% { opacity: 0; }
+    20% { opacity: 0.18; }
+    40% { opacity: 0.04; }
+    60% { opacity: 0.12; }
+    80% { opacity: 0.03; }
+}
+@keyframes quizSlotIn {
+    0% { opacity: 0; transform: scale(0.6); }
+    55% { opacity: 1; transform: scale(1.25); }
+    100% { opacity: 1; transform: none; }
+}
+@keyframes quizShoot {
+    0%, 88% { opacity: 0; transform: rotate(-35deg) translateX(0); }
+    89% { opacity: 1; }
+    96% { opacity: 0; transform: rotate(-35deg) translateX(-500px); }
+    100% { opacity: 0; transform: rotate(-35deg) translateX(-500px); }
+}
+@keyframes quizTwinkle {
+    from { opacity: 0.55; }
+    to { opacity: 1; }
+}
+/* Ambient twinkle on big screens only (a phone GPU pays for it every frame). */
+@media (min-width: 640px) and (min-height: 561px) and (prefers-reduced-motion: no-preference) {
+    .quizStars--near {
+        animation: quizTwinkle 5s ease-in-out infinite alternate;
+    }
+    .quizStars--mid {
+        animation: quizTwinkle 7s ease-in-out infinite alternate-reverse;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quizGlobe--in .quizGlobe__map,
+    .quizGlobe--in .quizGlobe__glow,
+    .quizPanel,
+    .quizPin__img,
+    .quizPin--drop .quizPin__ring,
+    .quizPin--hit .quizPin__ring,
+    .quizPin--nope .quizPin__img,
+    .quizPole__stick,
+    .quizPole__flag,
+    .quizPole__dust,
+    .quizPole--hit .quizPole__ring,
+    .quizRail__slot img,
+    .quizChip__round,
+    .quizChip--bump,
+    .quizSwap__in > *,
+    .quizPanel__action .quizSwap__in > .quizGuess--ready,
+    .quizResult__note,
+    .quizResult__note--best,
+    .quizResult__streak,
+    .quizResult__answer,
+    .quizResult__points {
+        animation: none;
+    }
+    .quizGame--leaving .quizGlobe,
+    .quizGame--leaving .quizPanel,
+    .quizSwap__out,
+    .quizPanel--collect .quizPanel__stimulus .quizSwap__out {
+        animation: quizFadeOut 0.25s ease-out forwards;
+    }
+}
+
+/* ---------- summary + Quizzes page (v2, redone next) ---------- */
+.quizBtn {
+    width: 100%;
+    min-height: 56px;
+    border-radius: 14px;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+}
+.quizBtn:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Choice modes: two columns in the panel. Stroke speaks state. */
+/* ---------- summary ---------- */
+.quizSummary {
+    animation: quizFadeIn 0.3s ease-out both;
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 70px 16px 16px;
+    background: rgba(0, 0, 0, 0.55);
+}
+.quizSummary__card {
+    width: min(520px, 100%);
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 24px;
+    border-radius: 20px;
+    border: 2px solid var(--primary);
+    color: white;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    text-align: center;
+}
+.quizSummary__total {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.quizSummary__best {
+    margin-top: 4px;
+    opacity: 0.8;
+}
+.quizSummary__rounds {
+    list-style: none;
+    margin: 18px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: start;
+}
+.quizSummary__round {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+}
+.quizSummary__round--perfect .quizSummary__pts {
+    color: #ffd700;
+}
+.quizSummary__pts {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.quizSummary__actions {
+    display: flex;
+    gap: 10px;
+}
+.quizRoundTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.quizRoundTag__answer {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@keyframes quizRoundIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes quizPop {
+    0% { opacity: 0; transform: scale(0.85); }
+    60% { transform: scale(1.06); }
+    100% { opacity: 1; transform: scale(1); }
+}
+.quizSummary__card {
+    animation: quizPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.quizSummary__round {
+    animation: quizRoundIn 0.3s ease both;
+}
+.quizSummary__round:nth-child(n + 2) { animation-delay: 0.05s; }
+.quizSummary__round:nth-child(n + 4) { animation-delay: 0.12s; }
+.quizSummary__round:nth-child(n + 7) { animation-delay: 0.2s; }
+@media (prefers-reduced-motion: reduce) {
+    .quizSummary__card, .quizSummary__round {
+        animation: none;
+    }
+}
+
+/* ---------- Quizzes page ----------
+   The home menu's own look. Wide screens: the modes are rows on the wash (a
+   plate slides to the shown one; past five modes they fall into groups and
+   QuizzesPage fits the row height to the screen), and the card on the right
+   shows that mode. Narrow screens: the list is the page and the card is a
+   bottom sheet. Entrances fill backwards only; the exits (Back = the
+   entrance in reverse, Play = a launch) run forwards and finish inside
+   QUIZ_EXIT_MS. */
+.quizzesPage {
+    --qh-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --qh-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+    --qh-ease-spring: cubic-bezier(0.3, 1.3, 0.5, 1);
+    --qh-ease-card: cubic-bezier(0.22, 0.9, 0.28, 1);
+    /* The hub is a menu root (globals.scss accent list), so its plate and
+       greens come from the derived tokens and follow an equipped background.
+       Stock values match the round card's literal plate. */
+    --qh-plate: linear-gradient(165deg, rgba(var(--r), var(--g), var(--b), 0.3), rgba(var(--r), var(--g), var(--b), 0.08)),
+        linear-gradient(165deg, rgba(14, 18, 14, 0.97), rgba(8, 12, 8, 0.98));
+    --qh-green: linear-gradient(135deg, var(--primary) 0%, var(--primaryLight) 100%);
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow: hidden auto;
+    color: white;
+    font-family: lexend, "Lexend Fallback", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+.quizzesPage button {
+    font: inherit;
+    color: inherit;
+}
+/* No scrollbar while the page slides in or out (the moving card would count
+   as overflow for a moment; QuizzesPage sets --settled) or under the sheet. */
+.quizzesPage:not(.quizzesPage--settled),
+.quizzesPage--leaving,
+.quizzesPage--launch,
+.quizzesPage--sheet {
+    overflow: hidden;
+}
+.quizzesPage__wash {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: max(44vw, 560px);
+    background: linear-gradient(65deg, var(--gradTopBase)), linear-gradient(90deg, var(--gradBottomBase));
+    pointer-events: none;
+    animation: quizHubWashIn 0.6s var(--qh-ease-out) backwards;
+}
+.quizzesPage__layout {
+    position: relative;
+    box-sizing: border-box;
+    height: 100%;
+    padding: 76px 5vw 40px;
+    display: grid;
+    grid-template-columns: minmax(300px, min(440px, 32vw)) minmax(0, 900px);
+    justify-content: space-between;
+    align-items: center;
+    column-gap: clamp(28px, 4vw, 80px);
+}
+
+/* ---------- the rail ---------- */
+.quizzesPage__rail {
+    align-self: stretch;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+}
+.quizzesPage--many .quizzesPage__rail {
+    gap: 12px;
+}
+.quizzesPage__title {
+    flex: none;
+    margin: 0 0 0 4px;
+    font-size: clamp(64px, 7vw, 108px);
+    font-weight: 400;
+    line-height: 0.9;
+    text-shadow: 2px 3px 6px rgba(0, 0, 0, 0.45);
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) 0.08s backwards;
+}
+.quizzesPage--many .quizzesPage__title {
+    font-size: clamp(50px, 4.6vw, 70px);
+}
+/* The row height comes from QuizzesPage (--qh-fit); type and tile follow. */
+.quizzesPage__modes {
+    --qh-row: var(--qh-fit, 96px);
+    /* also capped by the list's own width (cqi), so a long name fits a
+       narrow rail */
+    --qh-fs: max(18px, min(40px, 2.4vw, calc(var(--qh-row) * 0.42), calc((100cqi - 200px) / 5.6)));
+    container-type: inline-size;
+    --qh-tile: calc(var(--qh-row) * 0.56);
+    --qh-gap: 8px;
+    position: relative;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--qh-gap);
+}
+.quizzesPage--many .quizzesPage__modes {
+    --qh-gap: 2px;
+}
+/* Twelve modes on a short screen: the list scrolls, its far end fades. */
+.quizzesPage__modes.is-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    margin: 0 -14px;
+    padding: 4px 14px 24px;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%);
+}
+.quizzesPage__modes.is-scroll::-webkit-scrollbar {
+    display: none;
+}
+.quizzesPage__modes.is-scroll .quizzesPage__marker {
+    left: 14px;
+    right: 14px;
+}
+.quizzesPage__group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--qh-gap);
+}
+.quizzesPage__group + .quizzesPage__group {
+    margin-top: 6px;
+}
+.quizzesPage__ghead {
+    flex: none;
+    height: 34px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0 0 7px 20px;
+    display: flex;
+    align-items: flex-end;
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.45);
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) calc(0.12s + min(var(--i), 10) * 0.035s) backwards;
+}
+/* QuizzesPage moves it to the shown row (offset and height). */
+.quizzesPage__marker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--qh-row);
+    box-sizing: border-box;
+    border: 2px solid var(--primary);
+    border-radius: 18px;
+    background: var(--qh-plate);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    transition: transform 0.5s var(--qh-ease-spring), height 0.3s var(--qh-ease-out), opacity 0.3s ease;
+    animation: quizHubFadeIn 0.4s var(--qh-ease-out) 0.2s backwards;
+}
+.quizzesPage--many .quizzesPage__marker {
+    border-radius: 14px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+}
+.quizzesPage__marker.is-off {
+    opacity: 0;
+}
+/* A row: hover or focus shows its mode in the card, a click plays it (with a
+   mouse). No hover tint: hover already selects, a tint would only flash. */
+.quizzesPage .quizzesPage__mode {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 100%;
+    height: var(--qh-row);
+    display: flex;
+    align-items: center;
+    gap: calc(var(--qh-tile) * 0.34);
+    box-sizing: border-box;
+    padding: 0 22px 0 20px;
+    border: 0;
+    border-radius: 18px;
+    background: none;
+    cursor: pointer;
+    text-align: start;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: var(--qh-fs);
+    font-weight: 500;
+    line-height: 1;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    transition: color 0.2s ease;
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) calc(0.14s + min(var(--i), 10) * 0.035s) backwards;
+}
+.quizzesPage--many .quizzesPage__mode {
+    padding-inline-end: 16px;
+}
+.quizzesPage .quizzesPage__mode--on {
+    color: white;
+}
+.quizzesPage__mode:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+.quizzesPage__tile {
+    flex: none;
+    width: var(--qh-tile);
+    height: var(--qh-tile);
+    display: grid;
+    place-items: center;
+    color: inherit;
+    transition: transform 0.35s var(--qh-ease-spring);
+}
+.quizzesPage__mode--on .quizzesPage__tile {
+    transform: scale(1.08) rotate(-4deg);
+}
+.quizzesPage__tile img {
+    display: block;
+    width: calc(var(--qh-tile) - 2px);
+    border-radius: 5px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+.quizzesPage__tile .quizzesPage__shape {
+    width: auto;
+    height: calc(var(--qh-tile) * 0.88);
+    max-width: var(--qh-tile);
+    filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.5));
+}
+.quizzesPage__tile .quizzesPage__shape path {
+    fill: currentColor;
+    stroke: none;
+}
+.quizzesPage__tile > svg:not(.quizzesPage__shape) {
+    width: calc(var(--qh-tile) * 0.78);
+    height: calc(var(--qh-tile) * 0.78);
+}
+.quizzesPage__label {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    color: inherit;
+    transition: transform 0.4s var(--qh-ease-spring);
+}
+.quizzesPage__mode--on .quizzesPage__label {
+    transform: translateX(6px);
+}
+.quizzesPage__name {
+    color: inherit;
+    /* room for descenders: the clip below would cut a g or a y */
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* the prompt under the name: phone rows only */
+.quizzesPage__sub {
+    display: none;
+}
+/* The row's far end: your best, quiet; the shown row hands it to the card. */
+.quizzesPage__end {
+    flex: none;
+    margin-inline-start: auto;
+    padding-inline-start: 12px;
+    display: grid;
+    align-items: center;
+    justify-items: end;
+}
+.quizzesPage__end > * {
+    grid-area: 1 / 1;
+}
+.quizzesPage__meta {
+    color: rgba(255, 215, 0, 0.8);
+    font-size: max(14px, calc(var(--qh-fs) * 0.56));
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    transition: opacity 0.2s ease, transform 0.3s var(--qh-ease-out);
+}
+.quizzesPage__mode--on .quizzesPage__meta {
+    opacity: 0;
+    transform: translateX(8px);
+}
+/* "Play" (and where) on the shown row: a mouse plays from the list. */
+.quizzesPage__go {
+    display: none;
+    justify-items: end;
+    gap: 3px;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.22s ease, transform 0.35s var(--qh-ease-spring);
+}
+.quizzesPage__goPlay {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #4ade80;
+    font-size: max(15px, calc(var(--qh-fs) * 0.56));
+    font-weight: 600;
+}
+.quizzesPage__goPlay svg {
+    width: 0.8em;
+    height: 0.8em;
+}
+.quizzesPage__goWhere {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+    .quizzesPage__go {
+        display: grid;
+    }
+    .quizzesPage__mode--on .quizzesPage__go {
+        opacity: 1;
+        transform: none;
+    }
+}
+.quizzesPage__chev {
+    display: none;
+}
+
+/* ---------- the card (the sheet on narrow screens) ---------- */
+.quizzesPage__show {
+    position: relative;
+    box-sizing: border-box;
+    height: min(720px, calc(100vh - 124px));
+    min-height: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    --qh-card-gap: 14px;
+    padding: 22px 26px 24px;
+    border: 2px solid var(--primary);
+    border-radius: 22px;
+    background: var(--qh-plate);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+    animation: quizHubCardIn 0.75s var(--qh-ease-card) 0.18s backwards;
+}
+.quizzesPage__show:focus {
+    outline: none;
+}
+.quizzesPage__grab,
+.quizzesPage__shead,
+.quizzesPage__scrim {
+    display: none;
+}
+.quizzesPage__stage {
+    --spread: 30cqw;
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    container-type: size;
+    margin: -8px -12px 0;
+    border-radius: 16px;
+    overflow: hidden;
+    isolation: isolate;
+    background: radial-gradient(ellipse 55% 60% at 50% 50%, rgba(var(--surfChannels), 0.36), rgba(var(--surfChannels), 0) 70%);
+}
+.quizzesPage__layer {
+    position: absolute;
+    inset: 0;
+    isolation: isolate;
+    transition: opacity 0.32s var(--qh-ease-out), transform 0.45s var(--qh-ease-out);
+}
+.quizzesPage__layer:not(.quizzesPage__layer--on) {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+    pointer-events: none;
+    transition-duration: 0.2s;
+}
+.quizzesPage__deck {
+    position: absolute;
+    inset: 0;
+    /* side cards melt into the plate instead of being cut at the stage edge */
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+}
+.quizzesPage__item {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transition: transform 0.75s var(--qh-ease-card), opacity 0.55s var(--qh-ease-out), filter 0.55s var(--qh-ease-out);
+    animation: quizHubDeal 0.6s var(--qh-ease-out) backwards;
+}
+.quizzesPage__item[data-pos="0"] { animation-delay: 0.07s; }
+.quizzesPage__item[data-pos="1"] { animation-delay: 0.14s; }
+
+/* flags: a fanned hand on a conveyor, lit by the front flag's colours */
+.quizzesPage__ambient {
+    position: absolute;
+    left: 25%;
+    top: 25%;
+    width: 50%;
+    height: 50%;
+    z-index: -1;
+    object-fit: cover;
+    opacity: 0;
+    filter: blur(28px) saturate(1.5);
+    transform: scale(1.7);
+    transition: opacity 0.9s ease;
+    pointer-events: none;
+}
+.quizzesPage__ambient--on {
+    opacity: 0.4;
+}
+.quizzesPage__flag {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 70cqw;
+    max-height: 74cqh;
+    border-radius: 8px;
+}
+.quizzesPage__deck--flags .quizzesPage__item {
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.5)) brightness(0.5);
+}
+.quizzesPage__deck--flags [data-pos="0"] {
+    z-index: 3;
+    transform: translate(-50%, -50%) rotate(-2deg);
+    filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.6)) brightness(1);
+}
+.quizzesPage__deck--flags [data-pos="-1"] {
+    z-index: 2;
+    transform: translate(calc(-50% - var(--spread)), -46%) rotate(-10deg) scale(0.66);
+}
+.quizzesPage__deck--flags [data-pos="1"] {
+    z-index: 2;
+    transform: translate(calc(-50% + var(--spread)), -46%) rotate(10deg) scale(0.66);
+}
+.quizzesPage__deck--flags [data-pos="2"] {
+    z-index: 1;
+    opacity: 0;
+    transform: translate(calc(-50% + var(--spread) * 1.7), -40%) rotate(18deg) scale(0.55);
+}
+.quizzesPage__deck--flags [data-pos="-2"] {
+    z-index: 1;
+    opacity: 0;
+    transform: translate(calc(-50% - var(--spread) * 1.7), -40%) rotate(-18deg) scale(0.55);
+}
+
+/* shapes: an outline is still a mystery; the one in front fills in */
+.quizzesPage__shape {
+    display: block;
+    width: auto;
+    height: 66cqh;
+    max-width: 46cqw;
+    overflow: visible;
+}
+.quizzesPage__deck .quizzesPage__shape path {
+    fill: white;
+    fill-opacity: 0;
+    stroke: rgba(255, 255, 255, 0.6);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    transition: fill-opacity 0.55s var(--qh-ease-out) 0.2s, stroke 0.4s ease;
+}
+.quizzesPage__deck--shapes [data-pos="0"] {
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 0 26px rgba(74, 222, 128, 0.35));
+}
+.quizzesPage__deck--shapes [data-pos="0"] path {
+    fill-opacity: 1;
+    stroke: white;
+}
+.quizzesPage__deck--shapes [data-pos="-1"] {
+    opacity: 0.7;
+    transform: translate(calc(-50% - var(--spread) * 1.2), -50%) scale(0.52);
+}
+.quizzesPage__deck--shapes [data-pos="1"] {
+    opacity: 0.7;
+    transform: translate(calc(-50% + var(--spread) * 1.2), -50%) scale(0.52);
+}
+.quizzesPage__deck--shapes [data-pos="2"] {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--spread) * 1.8), -50%) scale(0.35);
+}
+.quizzesPage__deck--shapes [data-pos="-2"] {
+    opacity: 0;
+    transform: translate(calc(-50% - var(--spread) * 1.8), -50%) scale(0.35);
+}
+
+/* any other mode: its own rounds, drawn by the game's renderer, on cards */
+.quizzesPage__sample {
+    position: relative;
+    width: 52cqw;
+    height: 62cqh;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+.quizzesPage__sample .quizStimulus {
+    padding: 12px;
+}
+.quizzesPage__deck--rounds .quizzesPage__item {
+    filter: brightness(0.5);
+}
+.quizzesPage__deck--rounds [data-pos="0"] {
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.55)) brightness(1);
+}
+.quizzesPage__deck--rounds [data-pos="-1"] {
+    z-index: 2;
+    transform: translate(calc(-50% - var(--spread)), -48%) scale(0.7);
+}
+.quizzesPage__deck--rounds [data-pos="1"] {
+    z-index: 2;
+    transform: translate(calc(-50% + var(--spread)), -48%) scale(0.7);
+}
+.quizzesPage__deck--rounds [data-pos="2"] {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--spread) * 1.7), -46%) scale(0.55);
+}
+.quizzesPage__deck--rounds [data-pos="-2"] {
+    opacity: 0;
+    transform: translate(calc(-50% - var(--spread) * 1.7), -46%) scale(0.55);
+}
+
+/* The party menu's game picker: a grid that wraps, so any number of quiz
+   modes stays one tidy block (the shared segmented control is one row). */
+.party-modal__game-seg {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+.party-modal__game-seg .party-lobby__seg-btn {
+    border-left: 0;
+    min-height: 40px;
+}
+
+/* languages: a group chat of the world; the newest message is the question */
+.quizzesPage__layer--text {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 42%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 42%);
+}
+.quizzesPage__thread {
+    position: absolute;
+    left: 50%;
+    bottom: 30px;
+    translate: -50% 0;
+    width: min(640px, 88%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: transform 0.6s var(--qh-ease-card);
+}
+.quizzesPage__bubble {
+    width: fit-content;
+    max-width: 80%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 14px 22px 16px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: clamp(15px, min(6.5cqh, 5.2cqw), 26px);
+    font-weight: 600;
+    line-height: 1.35;
+    transition: background-color 0.5s ease, color 0.5s ease, box-shadow 0.5s ease;
+}
+.quizzesPage__bubble--l {
+    align-self: flex-start;
+    border-bottom-left-radius: 6px;
+    transform-origin: 0 100%;
+}
+.quizzesPage__bubble--r {
+    align-self: flex-end;
+    border-bottom-right-radius: 6px;
+    transform-origin: 100% 100%;
+}
+.quizzesPage__bubble--new {
+    background: white;
+    color: #10200f;
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
+    animation: quizHubBubbleIn 0.55s var(--qh-ease-spring) backwards;
+}
+.quizzesPage__word {
+    color: inherit;
+    font-weight: inherit;
+}
+.quizzesPage__bubble--new .quizzesPage__word {
+    animation: quizHubFadeIn 0.4s var(--qh-ease-out) backwards;
+}
+
+/* ---------- card text and controls ---------- */
+/* Every mode's text sits in one grid cell, so the block keeps the height of
+   the longest and the card never changes size; the shown one fades in after
+   the last one fades out. */
+.quizzesPage__about {
+    flex: none;
+    display: grid;
+    animation: quizHubRise 0.5s var(--qh-ease-out) 0.42s backwards;
+}
+.quizzesPage__aboutMode {
+    grid-area: 1 / 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity 0.22s ease 0.1s, transform 0.35s var(--qh-ease-out) 0.1s, visibility 0s;
+}
+.quizzesPage__aboutMode:not(.is-on) {
+    opacity: 0;
+    transform: translateY(6px);
+    visibility: hidden;
+    transition: opacity 0.12s ease, transform 0.2s ease, visibility 0s 0.12s;
+}
+.quizzesPage__info {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+}
+.quizzesPage__ask {
+    margin: 0;
+    min-width: 0;
+    font-size: clamp(22px, 2.1vw, 30px);
+    font-weight: 700;
+    line-height: 1.2;
+    text-wrap: balance;
+}
+.quizzesPage__best {
+    margin: 0;
+    white-space: nowrap;
+    font-size: 17px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+}
+.quizzesPage__best b {
+    margin-inline: 6px 0;
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffd700;
+    text-shadow: 0 0 18px rgba(255, 215, 0, 0.35);
+    font-variant-numeric: tabular-nums;
+}
+.quizzesPage__blurb {
+    margin: 0;
+    max-width: 64ch;
+    font-size: 16px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.72);
+}
+.quizzesPage__facts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.86);
+}
+.quizzesPage__facts li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+.quizzesPage__facts svg {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.55);
+}
+/* The region slot. A mode without regions folds it shut (its gap too), and
+   the stage above grows into the room; both ease, nothing jumps. */
+.quizzesPage__option {
+    --qh-option-h: 50px;
+    position: relative;
+    flex: none;
+    height: var(--qh-option-h);
+    transition: height 0.32s var(--qh-ease-out), margin 0.32s var(--qh-ease-out);
+    animation: quizHubRise 0.5s var(--qh-ease-out) 0.5s backwards;
+}
+.quizzesPage__option.is-folded {
+    height: 0;
+    margin-top: calc(-1 * var(--qh-card-gap, 14px));
+    overflow: hidden;
+}
+.quizzesPage__regions {
+    position: absolute;
+    inset: 0;
+    transition: opacity 0.3s ease, transform 0.4s var(--qh-ease-out), visibility 0.4s;
+}
+.quizzesPage__regions:not(.is-on) {
+    opacity: 0;
+    transform: translateY(8px);
+    visibility: hidden;
+    pointer-events: none;
+    transition-duration: 0.2s;
+}
+/* the track scrolls sideways when it is wider than the card; its far end
+   fades so a cut chip reads as "more" */
+.quizzesPage__chips {
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+}
+.quizzesPage__chips::-webkit-scrollbar {
+    display: none;
+}
+.quizzesPage__track {
+    position: relative;
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.065);
+    vertical-align: top;
+}
+.quizzesPage__pill {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    height: 42px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: var(--qh-green);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    transition: transform 0.5s var(--qh-ease-spring), width 0.35s var(--qh-ease-out), opacity 0.2s ease;
+}
+.quizzesPage__chip {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    height: 42px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    white-space: nowrap;
+    cursor: pointer;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    color: rgba(255, 255, 255, 0.68) !important;
+    transition: color 0.2s ease, transform 0.25s var(--qh-ease-spring);
+}
+.quizzesPage__chip:hover,
+.quizzesPage__chip[aria-pressed="true"] {
+    color: white !important;
+}
+.quizzesPage__chip[aria-pressed="true"] {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.quizzesPage__chip:active {
+    transform: scale(0.94);
+    transition-duration: 0.08s;
+}
+
+/* The phone region picker (the strip shows on wider cards). A native
+   select under a styled row: the phone's own list opens on tap. */
+.quizzesPage__regionPick {
+    position: relative;
+    display: none;
+    align-items: center;
+    height: 46px;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.065);
+}
+.quizzesPage__regionLabel {
+    position: absolute;
+    left: 14px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 15px;
+    font-weight: 500;
+    pointer-events: none;
+}
+.quizzesPage__regionPick select {
+    width: 100%;
+    height: 100%;
+    padding: 0 40px 0 88px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: white;
+    font: 600 16px lexend, "Lexend Fallback", sans-serif;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+.quizzesPage__regionPick select:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+.quizzesPage__regionPick option {
+    color: #0b120c;
+}
+.quizzesPage__regionChevron {
+    position: absolute;
+    right: 14px;
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.7);
+    pointer-events: none;
+}
+
+.quizzesPage__actions {
+    flex: none;
+    display: flex;
+    gap: 12px;
+    animation: quizHubRise 0.5s var(--qh-ease-out) 0.56s backwards;
+}
+.quizzesPage .quizzesPage__play,
+.quizzesPage .quizzesPage__party {
+    height: 60px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s var(--qh-ease-spring), filter 0.2s ease;
+}
+.quizzesPage .quizzesPage__play {
+    flex: 1;
+    font-size: 21px;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: var(--qh-green);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+.quizzesPage__play svg {
+    width: 18px;
+    height: 18px;
+}
+.quizzesPage .quizzesPage__party {
+    padding: 0 22px;
+    font-size: 18px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.07);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+}
+.quizzesPage__party svg {
+    width: 22px;
+    height: 22px;
+}
+.quizzesPage__play:hover,
+.quizzesPage__party:hover {
+    filter: brightness(1.12);
+}
+.quizzesPage__play:active,
+.quizzesPage__party:active {
+    transform: scale(0.97);
+    transition-duration: 0.08s;
+}
+
+/* ---------- exits ----------
+   Back: the entrance in reverse (card, then the rows bottom-up, the title,
+   the wash). Play: the rail leaves and the card swells into the round. The
+   entrance stays first in each list so a quick exit never restarts it. */
+.quizzesPage--leaving,
+.quizzesPage--launch {
+    pointer-events: none;
+}
+.quizzesPage--leaving .quizzesPage__show {
+    animation: quizHubCardIn 0.75s var(--qh-ease-card) 0.18s backwards, quizHubCardOut 0.3s var(--qh-ease-in) forwards;
+}
+.quizzesPage--leaving .quizzesPage__mode,
+.quizzesPage--leaving .quizzesPage__ghead {
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) calc(0.14s + min(var(--i), 10) * 0.035s) backwards,
+        quizHubSlideOut 0.26s var(--qh-ease-in) calc(0.08s + min(var(--n) - 1 - var(--i), 5) * 0.035s) forwards;
+}
+.quizzesPage--leaving .quizzesPage__marker {
+    animation: quizHubFadeIn 0.4s var(--qh-ease-out) 0.2s backwards, quizHubMarkerOut 0.26s var(--qh-ease-in) calc(0.08s + min(var(--n) - 1 - var(--i), 5) * 0.035s) forwards;
+}
+.quizzesPage--leaving .quizzesPage__title {
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) 0.08s backwards, quizHubSlideOut 0.26s var(--qh-ease-in) 0.22s forwards;
+}
+.quizzesPage--leaving .quizzesPage__wash {
+    animation: quizHubWashIn 0.6s var(--qh-ease-out) backwards, quizHubWashOut 0.3s var(--qh-ease-in) 0.24s forwards;
+}
+.quizzesPage--launch .quizzesPage__show {
+    animation: quizHubCardIn 0.75s var(--qh-ease-card) 0.18s backwards, quizHubLaunch 0.5s var(--qh-ease-in) forwards;
+}
+.quizzesPage--launch .quizzesPage__mode,
+.quizzesPage--launch .quizzesPage__ghead {
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) calc(0.14s + min(var(--i), 10) * 0.035s) backwards, quizHubSlideOut 0.3s var(--qh-ease-in) forwards;
+}
+.quizzesPage--launch .quizzesPage__marker {
+    animation: quizHubFadeIn 0.4s var(--qh-ease-out) 0.2s backwards, quizHubMarkerOut 0.3s var(--qh-ease-in) forwards;
+}
+.quizzesPage--launch .quizzesPage__title {
+    animation: quizHubSlideIn 0.55s var(--qh-ease-out) 0.08s backwards, quizHubSlideOut 0.3s var(--qh-ease-in) forwards;
+}
+.quizzesPage--launch .quizzesPage__wash {
+    animation: quizHubWashIn 0.6s var(--qh-ease-out) backwards, quizHubWashOut 0.4s var(--qh-ease-in) 0.1s forwards;
+}
+
+@keyframes quizHubWashIn {
+    from { opacity: 0; transform: translateX(-60px); }
+}
+@keyframes quizHubWashOut {
+    to { opacity: 0; transform: translateX(-60px); }
+}
+@keyframes quizHubSlideIn {
+    from { opacity: 0; transform: translateX(-28px); }
+}
+@keyframes quizHubSlideOut {
+    to { opacity: 0; transform: translateX(-36px); }
+}
+@keyframes quizHubMarkerOut {
+    to { opacity: 0; translate: -36px 0; }
+}
+@keyframes quizHubCardIn {
+    from { opacity: 0; transform: translateY(34px) scale(0.97); }
+}
+@keyframes quizHubCardOut {
+    to { opacity: 0; transform: translateY(28px) scale(0.97); }
+}
+@keyframes quizHubLaunch {
+    to { opacity: 0; transform: scale(1.06); }
+}
+@keyframes quizHubRise {
+    from { opacity: 0; transform: translateY(14px); }
+}
+@keyframes quizHubFadeIn {
+    from { opacity: 0; }
+}
+@keyframes quizHubDeal {
+    from { opacity: 0; translate: 48px 16px; }
+}
+@keyframes quizHubBubbleIn {
+    from { opacity: 0; transform: scale(0.55) translateY(12px); }
+}
+
+@media (max-width: 1360px) {
+    .quizzesPage__chip {
+        padding: 0 12px;
+        font-size: 14px !important;
+    }
+}
+/* short desktop screens: the card gives up space, the stage most */
+@media (min-width: 861px) and (min-height: 521px) and (max-height: 780px) {
+    .quizzesPage__layout {
+        padding-top: 64px;
+        padding-bottom: 28px;
+    }
+    .quizzesPage__show {
+        height: calc(100vh - 92px);
+        gap: 12px;
+        --qh-card-gap: 12px;
+        padding: 18px 22px 20px;
+    }
+    .quizzesPage .quizzesPage__play,
+    .quizzesPage .quizzesPage__party {
+        height: 54px;
+    }
+    .quizzesPage__option {
+        --qh-option-h: 46px;
+    }
+    .quizzesPage__chip,
+    .quizzesPage__pill {
+        height: 38px;
+    }
+    .quizzesPage__ghead {
+        height: 28px;
+        padding-bottom: 5px;
+    }
+}
+
+/* ---------- narrow: the list is the page, the card a bottom sheet ----------
+   Same query as SHEET_QUERY in QuizzesPage.js. */
+@media (max-width: 860px) and (min-height: 521px), (max-width: 1024px) and (orientation: portrait) {
+    .quizzesPage__wash {
+        width: 100%;
+        background: linear-gradient(160deg, var(--gradTopBase)), linear-gradient(180deg, var(--gradBottomBase));
+    }
+    .quizzesPage__layout {
+        display: block;
+        height: auto;
+        min-height: 100%;
+        padding: 64px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .quizzesPage__rail {
+        gap: 10px;
+    }
+    .quizzesPage__title,
+    .quizzesPage--many .quizzesPage__title {
+        margin-left: 2px;
+        font-size: 50px;
+    }
+    .quizzesPage__modes {
+        --qh-row: 88px;
+        --qh-fs: 23px;
+        --qh-tile: 56px;
+        --qh-gap: 4px;
+    }
+    .quizzesPage--many .quizzesPage__modes {
+        --qh-row: 58px;
+        --qh-fs: 20px;
+        --qh-tile: 38px;
+        --qh-gap: 2px;
+    }
+    .quizzesPage--many .quizzesPage__group + .quizzesPage__group {
+        margin-top: 8px;
+    }
+    .quizzesPage__ghead {
+        height: 30px;
+        padding: 0 0 6px 12px;
+        font-size: 14px;
+    }
+    /* name and best share the first line, the prompt gets the full width */
+    .quizzesPage .quizzesPage__mode {
+        height: auto;
+        min-height: var(--qh-row);
+        display: grid;
+        grid-template-columns: var(--qh-tile) minmax(0, 1fr) auto 18px;
+        grid-template-areas: "tile name end chev" "tile sub sub chev";
+        align-content: center;
+        align-items: center;
+        column-gap: 14px;
+        row-gap: 6px;
+        padding: 12px 10px 12px 12px;
+        font-weight: 600;
+        border-radius: 16px;
+    }
+    .quizzesPage--many .quizzesPage__mode {
+        grid-template-areas: "tile name end chev";
+        padding-block: 8px;
+    }
+    .quizzesPage__label {
+        display: contents;
+    }
+    .quizzesPage__tile {
+        grid-area: tile;
+    }
+    .quizzesPage__mode--on .quizzesPage__tile {
+        transform: scale(1.05) rotate(-3deg);
+    }
+    .quizzesPage__name {
+        grid-area: name;
+    }
+    .quizzesPage__sub {
+        grid-area: sub;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 14.5px;
+        font-weight: 400;
+        line-height: 1.3;
+        color: rgba(255, 255, 255, 0.66);
+        text-wrap: balance;
+    }
+    .quizzesPage--many .quizzesPage__sub {
+        display: none;
+    }
+    .quizzesPage__end {
+        grid-area: end;
+        margin: 0;
+        padding: 0;
+    }
+    .quizzesPage__meta {
+        font-size: 15px;
+    }
+    .quizzesPage__mode--on .quizzesPage__meta {
+        opacity: 1;
+        transform: none;
+    }
+    .quizzesPage__go {
+        display: none;
+    }
+    .quizzesPage__chev {
+        display: block;
+        grid-area: chev;
+        width: 18px;
+        height: 18px;
+        color: rgba(255, 255, 255, 0.5);
+    }
+    .quizzesPage__marker {
+        border-radius: 16px;
+    }
+
+    /* the sheet: swipe down, the scrim, the close button or Back close it */
+    .quizzesPage__scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        background: rgba(3, 9, 4, 0.62);
+        opacity: 0;
+        /* still catches taps while the sheet slides away */
+        visibility: hidden;
+        transition: opacity 0.35s var(--qh-ease-out), visibility 0s linear 0.38s;
+    }
+    .quizzesPage--sheet .quizzesPage__scrim {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.35s var(--qh-ease-out), visibility 0s;
+    }
+    .quizzesPage__show {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        width: 100%;
+        max-width: 560px;
+        margin: 0 auto;
+        height: min(calc(100dvh - 64px), 680px);
+        min-height: 0;
+        gap: 12px;
+        --qh-card-gap: 12px;
+        padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+        border-bottom: 0;
+        border-radius: 24px 24px 0 0;
+        /* opaque: the list must not show through */
+        background: var(--qh-plate), rgb(9, 13, 9);
+        box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.6);
+        animation: none;
+        transform: translateY(calc(100% + 24px));
+        visibility: hidden;
+        transition: transform 0.38s cubic-bezier(0.4, 0, 0.9, 0.6), visibility 0s linear 0.38s;
+        touch-action: pan-x;
+    }
+    .quizzesPage--sheet .quizzesPage__show {
+        transform: none;
+        visibility: visible;
+        transition: transform 0.5s var(--qh-ease-card), visibility 0s;
+    }
+    .quizzesPage__about,
+    .quizzesPage__option,
+    .quizzesPage__actions {
+        animation: none;
+    }
+    /* The sheet has no entrance here, so the exits must not list one: a
+       fresh card entrance under the launch starts at opacity 0 and the
+       sheet flickers out and back before it fades. */
+    .quizzesPage--launch .quizzesPage__show {
+        animation: quizHubLaunch 0.5s var(--qh-ease-in) forwards;
+    }
+    .quizzesPage--leaving .quizzesPage__show {
+        animation: quizHubCardOut 0.3s var(--qh-ease-in) forwards;
+    }
+    .quizzesPage__grab {
+        display: block;
+        flex: none;
+        width: 44px;
+        height: 5px;
+        margin: 0 auto -2px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.28);
+    }
+    .quizzesPage__shead {
+        flex: none;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .quizzesPage__shead .quizzesPage__tile {
+        --qh-tile: 44px;
+        color: white;
+    }
+    .quizzesPage__htxt {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .quizzesPage__sname {
+        font-size: 32px;
+        line-height: 0.95;
+        text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .quizzesPage__ssub {
+        font-size: 14px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.6);
+    }
+    .quizzesPage__ssub b {
+        margin-inline-start: 4px;
+        color: #ffd700;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    .quizzesPage .quizzesPage__close {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        margin-inline-start: auto;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+    }
+    .quizzesPage__close svg {
+        width: 22px;
+        height: 22px;
+    }
+    .quizzesPage__stage {
+        --spread: 33cqw;
+        min-height: 120px;
+        margin: 0 -6px;
+    }
+    .quizzesPage__flag {
+        max-width: 80cqw;
+    }
+    .quizzesPage__shape {
+        max-width: 56cqw;
+    }
+    .quizzesPage__thread {
+        bottom: 18px;
+        width: 92%;
+        gap: 10px;
+    }
+    .quizzesPage__bubble {
+        padding: 11px 15px 12px;
+        border-radius: 18px;
+    }
+    .quizzesPage__best {
+        display: none;
+    }
+    .quizzesPage__ask {
+        font-size: 21px;
+    }
+    .quizzesPage__blurb {
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    /* the rules in a fixed two-by-two grid */
+    .quizzesPage__facts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 14px;
+        font-size: 14px;
+    }
+    .quizzesPage__facts svg {
+        width: 17px;
+        height: 17px;
+    }
+    .quizzesPage__option {
+        --qh-option-h: 46px;
+    }
+    .quizzesPage__chips {
+        display: none;
+    }
+    .quizzesPage__regionPick {
+        display: flex;
+    }
+    .quizzesPage .quizzesPage__play,
+    .quizzesPage .quizzesPage__party {
+        height: 56px;
+    }
+    .quizzesPage .quizzesPage__play {
+        font-size: 20px;
+    }
+    .quizzesPage .quizzesPage__party {
+        padding: 0 18px;
+        font-size: 17px;
+    }
+}
+/* portrait tablets: the same page at tablet size */
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: portrait) {
+    .quizzesPage__layout {
+        padding: 76px 40px 32px;
+    }
+    .quizzesPage__rail {
+        max-width: 680px;
+    }
+    .quizzesPage__title,
+    .quizzesPage--many .quizzesPage__title {
+        font-size: 72px;
+    }
+    .quizzesPage__modes {
+        --qh-row: 100px;
+        --qh-fs: 30px;
+        --qh-tile: 60px;
+    }
+    .quizzesPage--many .quizzesPage__modes {
+        --qh-row: 64px;
+        --qh-fs: 24px;
+        --qh-tile: 42px;
+    }
+    .quizzesPage__sub {
+        font-size: 16px;
+    }
+}
+/* short phones: the sheet gives up preview height first, never Play */
+@media (max-width: 860px) and (min-height: 521px) and (max-height: 700px), (max-height: 700px) and (orientation: portrait) {
+    .quizzesPage__stage {
+        min-height: 0;
+    }
+    .quizzesPage__layout {
+        padding-top: 56px;
+    }
+    .quizzesPage__title,
+    .quizzesPage--many .quizzesPage__title {
+        font-size: 44px;
+    }
+    .quizzesPage__modes {
+        --qh-row: 78px;
+        --qh-tile: 52px;
+    }
+    .quizzesPage__show {
+        height: calc(100dvh - 56px);
+        gap: 10px;
+        --qh-card-gap: 10px;
+        padding-top: 6px;
+    }
+    .quizzesPage__shead {
+        min-height: 42px;
+    }
+    .quizzesPage__shead .quizzesPage__tile {
+        --qh-tile: 38px;
+    }
+    .quizzesPage__sname {
+        font-size: 28px;
+    }
+    .quizzesPage__ask {
+        font-size: 19px;
+    }
+    .quizzesPage__blurb {
+        font-size: 14px;
+    }
+    .quizzesPage .quizzesPage__play,
+    .quizzesPage .quizzesPage__party {
+        height: 52px;
+    }
+}
+/* landscape phones: two columns, everything compact */
+@media (orientation: landscape) and (max-height: 520px) {
+    .quizzesPage__layout {
+        padding: 54px max(20px, env(safe-area-inset-right, 0px)) 12px max(20px, env(safe-area-inset-left, 0px));
+        grid-template-columns: minmax(220px, 34vw) minmax(0, 1fr);
+        column-gap: 20px;
+    }
+    .quizzesPage__rail,
+    .quizzesPage--many .quizzesPage__rail {
+        gap: 6px;
+    }
+    .quizzesPage__title,
+    .quizzesPage--many .quizzesPage__title {
+        font-size: 40px;
+    }
+    .quizzesPage .quizzesPage__mode {
+        padding: 0 12px 0 10px;
+    }
+    .quizzesPage__ghead {
+        height: 24px;
+        padding: 0 0 4px 10px;
+        font-size: 13px;
+    }
+    .quizzesPage__meta {
+        display: none;
+    }
+    .quizzesPage__show {
+        height: calc(100vh - 66px);
+        min-height: 300px;
+        gap: 10px;
+        --qh-card-gap: 10px;
+        padding: 12px 14px 14px;
+        border-radius: 16px;
+    }
+    .quizzesPage__ask {
+        font-size: 17px;
+    }
+    .quizzesPage__best {
+        font-size: 13px;
+    }
+    .quizzesPage__best b {
+        font-size: 17px;
+    }
+    .quizzesPage__blurb {
+        display: none;
+    }
+    .quizzesPage__facts {
+        gap: 4px 16px;
+        font-size: 13px;
+    }
+    .quizzesPage__facts svg {
+        width: 15px;
+        height: 15px;
+    }
+    .quizzesPage__option {
+        --qh-option-h: 42px;
+    }
+    .quizzesPage__chip {
+        height: 34px;
+        padding: 0 12px;
+        font-size: 13px !important;
+    }
+    .quizzesPage__pill {
+        height: 34px;
+    }
+    .quizzesPage .quizzesPage__play,
+    .quizzesPage .quizzesPage__party {
+        height: 46px;
+    }
+    .quizzesPage .quizzesPage__play {
+        font-size: 18px;
+    }
+    .quizzesPage .quizzesPage__party {
+        font-size: 15px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quizzesPage *,
+    .quizzesPage__wash {
+        animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
+        transition-duration: 0.01ms !important;
+    }
+}

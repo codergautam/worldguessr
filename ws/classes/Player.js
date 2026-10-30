@@ -41,6 +41,9 @@ export default class Player {
     // the mobile app never send the flag, which is what locks them out of
     // team parties / 2v2 duels while those features roll out.
     this.teamSupport = false;
+    // Same rollout pattern for the quiz modes (flags / shapes / languages):
+    // gates a client out of quiz parties until it announces support.
+    this.quizModes = false;
 
     this.disconnected = false;
     this.disconnectTime =0;
@@ -110,6 +113,7 @@ export default class Player {
       banned: this.banned,
       platform: this.platform,
       teamSupport: this.teamSupport,
+      quizModes: this.quizModes,
       // Must survive gamestate restarts: a restored bot that loses this flag
       // becomes a permanent zombie (never guesses, never reaped).
       isBot: this.isBot,
@@ -195,6 +199,9 @@ export default class Player {
     // re-stamp below instead.
     if (json.teamSupport === true) {
       this.teamSupport = true;
+    }
+    if (json.quizModes === true) {
+      this.quizModes = true;
     }
 
     const handleReconnect = async (dcPlayerId, rejoinCode, accountId = null) => {
@@ -306,6 +313,7 @@ export default class Player {
       // reopening after a deploy), and the reused Player must describe the
       // client that is actually attached now.
       dcPlayer.teamSupport = this.teamSupport;
+      dcPlayer.quizModes = this.quizModes;
 
 
       dcPlayer.send({
@@ -331,6 +339,11 @@ export default class Player {
           // tables predate the rollout (their t() falls back to the key).
           game.removePlayer(dcPlayer);
           dcPlayer.send({ type: 'toast', key: 'Play team games on worldguessr.com for now', toastType: 'error' });
+        } else if (game.mode && game.mode !== 'classic' && !this.quizModes) {
+          // Same for a quiz party (flags / shapes / languages) reached from a
+          // bundle that never announced quizModes.
+          game.removePlayer(dcPlayer);
+          dcPlayer.send({ type: 'toast', key: 'Play the new modes on worldguessr.com for now', toastType: 'error' });
         } else {
           // reconnect to game
           game.rejoinGame(dcPlayer);

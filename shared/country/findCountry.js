@@ -20,7 +20,11 @@ export function buildCountryIndex(borders) {
         if (y < minY) minY = y;
         if (y > maxY) maxY = y;
       }
-      out.push({ code, ring, minX, maxX, minY, maxY });
+      // Inner rings (holes: Lesotho inside ZA, San Marino inside IT, ...).
+      // References only, so the index costs nothing extra. lookupCountry
+      // ignores them on purpose (first match wins, as it always has);
+      // pointInCountry honours them.
+      out.push({ code, ring, holes: poly.slice(1), minX, maxX, minY, maxY });
     }
   }
   return out;
@@ -48,4 +52,25 @@ export function lookupCountry(indexed, lat, lon) {
     if (pointInRing(x, y, entry.ring)) return entry.code;
   }
   return 'Unknown';
+}
+
+// Is (lat, lon) inside the country with this code? Tests only that country's
+// rings and respects holes, so a click inside San Marino is NOT inside Italy
+// even though Italy's outer ring contains it and lookupCountry would say IT.
+// Quiz scoring (shared/modes/score.js) uses this; the "which country is this
+// point in" lookup above keeps its first-match behaviour.
+export function pointInCountry(indexed, lat, lon, code) {
+  if (!indexed || !code) return false;
+  const x = lon, y = lat;
+  for (const entry of indexed) {
+    if (entry.code !== code) continue;
+    if (x < entry.minX || x > entry.maxX || y < entry.minY || y > entry.maxY) continue;
+    if (!pointInRing(x, y, entry.ring)) continue;
+    let inHole = false;
+    for (const hole of entry.holes || []) {
+      if (pointInRing(x, y, hole)) { inHole = true; break; }
+    }
+    if (!inHole) return true;
+  }
+  return false;
 }

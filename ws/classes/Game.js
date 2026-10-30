@@ -33,6 +33,37 @@ import shuffle from "../../utils/shuffle.js";
 import { DEFAULT_POST_GUESS_SECONDS, postGuessSecondsFor } from "../roundTimer.js";
 import { sampleDistinct } from "../../shared/locations/repeatGuard.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
+// Quiz modes (flags / shapes / languages...): the registry, the shared scorer
+// and the shared round generator. Country targets are scored against the
+// SAME polygons the quiz globe draws (Natural Earth, public/modes/
+// countries.json), never genBorders: a click is scored against exactly the
+// shape that was clicked.
+import borders from '../../public/modes/countries.json' with {type: "json"};
+import { buildCountryIndex } from '../../shared/country/findCountry.js';
+import { DEFAULT_MODE, getMode, isQuizMode } from '../../shared/modes/catalog.js';
+import { scoreGuess } from '../../shared/modes/score.js';
+import { generateRounds, choicePoint } from '../../shared/modes/rounds.js';
+const COUNTRY_INDEX = buildCountryIndex(borders);
+
+// The quiz fields a round location may carry, for the saved Game doc. Returns
+// {} for classic rounds so the persisted shape does not change.
+function quizLocationFields(loc) {
+  if (!loc || !isQuizMode(loc.mode)) return {};
+  const out = { mode: loc.mode };
+  if (loc.lang) out.lang = loc.lang;
+  if (loc.text) out.text = loc.text;
+  if (Array.isArray(loc.choices)) out.choices = loc.choices;
+  if (loc.label) out.label = loc.label;
+  if (loc.image?.url) {
+    out.image = {
+      url: loc.image.url,
+      credit: loc.image.credit ?? null,
+      license: loc.image.license ?? null,
+      sourceUrl: loc.image.sourceUrl ?? null,
+    };
+  }
+  return out;
+}
 
 // ---- Stamps payout table (game-finish earns) --------------------------------
 // The AMOUNTS live here; the CEILINGS live in serverUtils/stamps/reasons.js and
@@ -111,6 +142,20 @@ export default class Game {
     this.nextEvtTime = null;
     this.locations = [];
     this.location = location;
+    // Quiz mode (shared/modes/catalog.js). Parties pick it through
+    // setPrivateGameOptions; public games, duels and 2v2 lobbies are always
+    // classic (updateGameOptions enforces it). `region` filters the country
+    // pool ('all' or a continent) for modes that support it.
+    this.mode = DEFAULT_MODE;
+    this.region = 'all';
+    // Quiz modes only: { round, points: {playerId: pts} } stamped by
+    // saveRoundToHistory so clients show the server's number at reveal
+    // instead of re-deriving a speed bonus their clock cannot reproduce.
+    this.lastRoundPoints = null;
+    // Bumped on every generateLocations call; a slow fetch that resolves after
+    // the host changed map/mode must not push stale rounds (that leaves
+    // rounds !== locations.length and Start never enables).
+    this.locGenToken = 0;
     this.rounds = rounds;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = maxPlayers ?? (is2v2Lobby ? 2 : (teamDuel ? 4 : 200));
@@ -168,6 +213,9 @@ export default class Game {
       nextEvtTime: this.nextEvtTime,
       locations: this.locations,
       location: this.location,
+      mode: this.mode,
+      region: this.region,
+      lastRoundPoints: this.lastRoundPoints,
       rounds: this.rounds,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
@@ -386,6 +434,11 @@ export default class Game {
       nm: this.nm,
       npz: this.npz,
       showRoadName: this.showRoadName,
+      // Quiz mode. Always present (additive: old bundles ignore it, new ones
+      // treat a missing value as classic). roundPoints only for quiz modes.
+      mode: this.mode,
+      region: this.region,
+      ...(isQuizMode(this.mode) ? { roundPoints: this.lastRoundPoints ?? null } : {}),
     }
   }
 
@@ -398,6 +451,7 @@ export default class Game {
     // Team parties: fresh totals, but assignments + config survive play-again.
     if (this.teamGame) this.teamScores = { a: 0, b: 0 };
     this.lastRoundTeamScores = null;
+    this.lastRoundPoints = null;
     this.lastTeamEnd = null;
     // finishTeamParty's re-entrancy guard must re-arm for the next game in
     // this lobby (duel finishers never replay — parties do).
@@ -516,16 +570,38 @@ export default class Game {
     let best = 0;
     for (const p of this.teamMembers(team)) {
       if (!p.guess) continue;
-      best = Math.max(best, calcPoints({
-        lat: loc.lat,
-        lon: loc.long,
-        guessLat: p.guess[0],
-        guessLon: p.guess[1],
-        usedHint: false,
-        maxDist: this.maxDist
-      }));
+      best = Math.max(best, this.scoreFor(p, loc));
     }
     return best;
+  }
+
+  // THE scoring entry point for a player's current guess. Classic keeps the
+  // literal calcPoints call it always had; quiz modes go through the shared
+  // scorer (polygon hit for country targets, speed bonus for choice modes).
+  // Every team / duel / history path calls this, so a new mode never needs a
+  // second formula anywhere in this file.
+  scoreFor(player, loc) {
+    if (!player?.guess || !loc) return 0;
+    if (!isQuizMode(this.mode)) {
+      return calcPoints({
+        lat: loc.lat,
+        lon: loc.long,
+        guessLat: player.guess[0],
+        guessLon: player.guess[1],
+        usedHint: false,
+        maxDist: this.maxDist
+      });
+    }
+    return scoreGuess({
+      mode: this.mode,
+      location: loc,
+      guess: { lat: player.guess[0], lng: player.guess[1] },
+      choice: player.choice ?? null,
+      maxDist: this.maxDist,
+      timeTakenMs: player.roundTimeTakenMs,
+      timePerRoundMs: this.timePerRound,
+      countryIndex: COUNTRY_INDEX,
+    });
   }
 
   // Team-party 'average' scoring: mean over the team's roster AT SCORING TIME.
@@ -537,14 +613,7 @@ export default class Game {
     let sum = 0;
     for (const p of members) {
       if (!p.guess) continue;
-      sum += calcPoints({
-        lat: loc.lat,
-        lon: loc.long,
-        guessLat: p.guess[0],
-        guessLon: p.guess[1],
-        usedHint: false,
-        maxDist: this.maxDist
-      });
+      sum += this.scoreFor(p, loc);
     }
     return Math.round(sum / members.length);
   }
@@ -652,14 +721,7 @@ export default class Game {
 
       const loc = this.locations[this.curRound - 1];
       if(loc) {
-      player.score += calcPoints({
-        lat: loc.lat,
-        lon: loc.long,
-        guessLat: player.guess[0],
-        guessLon: player.guess[1],
-        usedHint: false,
-        maxDist: this.maxDist
-      })
+      player.score += this.scoreFor(player, loc);
     } else {
       console.error('No location found for round', this.curRound, this.locations);
     }
@@ -697,25 +759,11 @@ export default class Game {
 
     const mult = 1;
     if(p1.guess ) {
-    p1score = calcPoints({
-      lat: loc.lat,
-      lon: loc.long,
-      guessLat: p1.guess[0],
-      guessLon: p1.guess[1],
-      usedHint: false,
-      maxDist: this.maxDist
-    })*mult;
+    p1score = this.scoreFor(p1, loc)*mult;
   }
 
   if(p2.guess) {
-    p2score = calcPoints({
-      lat: loc.lat,
-      lon: loc.long,
-      guessLat: p2.guess[0],
-      guessLon: p2.guess[1],
-      usedHint: false,
-      maxDist: this.maxDist
-    })*mult;
+    p2score = this.scoreFor(p2, loc)*mult;
 
   }
 
@@ -780,35 +828,16 @@ export default class Game {
       }
 
       // Save each player's guess and calculated points for this round
+      const quiz = isQuizMode(this.mode);
+      const quizPoints = {};
       for (const playerId of Object.keys(this.players)) {
         const player = this.players[playerId];
 
         if (player.guess) {
-          // Player made a guess
+          // Player made a guess. Raw round points for duels too (the health
+          // system is applied in givePoints, never here).
           const loc = this.locations[this.curRound - 1];
-          let points = 0;
-
-          if (this.duel) {
-            // For duels, calculate raw points without the health system
-            points = calcPoints({
-              lat: loc.lat,
-              lon: loc.long,
-              guessLat: player.guess[0],
-              guessLon: player.guess[1],
-              usedHint: false,
-              maxDist: this.maxDist
-            });
-          } else {
-            // For regular games, use standard points calculation
-            points = calcPoints({
-              lat: loc.lat,
-              lon: loc.long,
-              guessLat: player.guess[0],
-              guessLon: player.guess[1],
-              usedHint: false,
-              maxDist: this.maxDist
-            });
-          }
+          const points = this.scoreFor(player, loc);
 
           roundData.players[playerId] = {
             username: player.username,
@@ -819,6 +848,16 @@ export default class Game {
             final: player.final,
             timeTaken: player.roundTimeTaken || this.timePerRound / 1000 // Use actual time or default
           };
+          if (quiz) {
+            // Choice modes: which option they picked. Sub-second answers are
+            // real in quiz modes, so the ms clock replaces the floored-seconds
+            // one (`0 || full time` would record an instant answer as slowest).
+            if (player.choice != null) roundData.players[playerId].choice = player.choice;
+            if (Number.isFinite(player.roundTimeTakenMs)) {
+              roundData.players[playerId].timeTaken = player.roundTimeTakenMs / 1000;
+            }
+            quizPoints[playerId] = points;
+          }
         } else {
           // Player didn't make a guess - still record them with null values
           roundData.players[playerId] = {
@@ -830,8 +869,13 @@ export default class Game {
             final: false,
             timeTaken: this.timePerRound / 1000 // Full time since they didn't guess
           };
+          if (quiz) quizPoints[playerId] = 0;
         }
       }
+
+      // Quiz modes: the server's per-player round points, sent with the next
+      // state update (getSendableState.roundPoints) for the reveal banner.
+      if (quiz) this.lastRoundPoints = { round: this.curRound, points: quizPoints };
 
       this.roundHistory.push(roundData);
     }
@@ -843,6 +887,9 @@ export default class Game {
       player.guess = null;
       player.final = false;
       player.roundTimeTaken = null; // Reset time for new round
+      // Quiz modes (no-ops for classic, so the roster shape never changes).
+      if (player.choice !== undefined) player.choice = null;
+      if (player.roundTimeTakenMs !== undefined) player.roundTimeTakenMs = null;
     }
     this.roundEndedAt = null; // Reset late guess buffer
     // Track when this round's guessing phase starts for time calculation
@@ -897,7 +944,12 @@ export default class Game {
       npz: !!this.npz,
       // Same cold-reconnect reasoning as maxDist above: a reconnect only
       // replays this state, and the placement HUD tag must survive it.
-      isPlacement: !!this.isPlacement
+      isPlacement: !!this.isPlacement,
+      // Quiz mode, same reasoning again. roundPoints rides the getready delta
+      // right after scoring, which is exactly when the reveal banner reads it.
+      mode: this.mode,
+      region: this.region,
+      ...(isQuizMode(this.mode) ? { roundPoints: this.lastRoundPoints ?? null } : {}),
     };
     if (includeLocations) {
       state.locations = this.locations;
@@ -1208,7 +1260,20 @@ export default class Game {
 
     this.sendStateUpdate(true);
   }
-  setGuess(playerId, latLong, final, round) {
+  // Choice-input quiz modes (languages): the pick is validated against this
+  // round's options and lands as a normal [lat, lng] guess at the chosen
+  // language's country, so every reader of player.guess (teams, history,
+  // reveal pins) keeps working. The id itself travels as player.choice.
+  setChoice(playerId, choice, final, round) {
+    if (getMode(this.mode)?.input !== 'choice') return;
+    const loc = this.locations[this.curRound - 1];
+    if (!loc?.choices?.includes(choice)) return;
+    const pt = choicePoint(this.mode, choice);
+    if (!pt) return;
+    this.setGuess(playerId, [pt.lat, pt.long], final, round, choice);
+  }
+
+  setGuess(playerId, latLong, final, round, choice = null) {
     if(this.state !== 'guess') {
       return;
     }
@@ -1234,13 +1299,15 @@ export default class Game {
       // recent interim placement (final:false) — those come directly from the
       // Leaflet click event and are always accurate.  The final:true message's
       // coordinates can be stale due to React closure timing, so only use them
-      // as a fallback when no interim guess exists.
-      if (!player.guess) {
+      // as a fallback when no interim guess exists. A choice always carries
+      // its own derived point, so it overrides.
+      if (!player.guess || choice !== null) {
         player.guess = latLong;
       }
     } else {
       player.guess = latLong;
     }
+    if (choice !== null) player.choice = choice;
 
     // Team duels: stream interim (non-final) guesses to teammates ONLY, so
     // partners can coordinate before locking in without leaking to opponents.
@@ -1250,6 +1317,7 @@ export default class Game {
         id: playerId,
         final: false,
         latLong: player.guess,
+        ...(player.choice != null ? { choice: player.choice } : {}),
         teammate: true
       }, playerId);
     }
@@ -1258,6 +1326,8 @@ export default class Game {
     if(final && this.roundStartTimes[this.curRound]) {
       const timeTaken = Date.now() - this.roundStartTimes[this.curRound];
       player.roundTimeTaken = Math.floor(timeTaken / 1000); // Convert to seconds
+      // Quiz modes score speed, and a flags answer can land inside a second.
+      if (isQuizMode(this.mode)) player.roundTimeTakenMs = timeTaken;
     }
 
     if(final) {
@@ -1265,7 +1335,8 @@ export default class Game {
         type: 'place',
         id: playerId,
         final: true,
-        latLong: player.guess
+        latLong: player.guess,
+        ...(player.choice != null ? { choice: player.choice } : {}),
       });
 
       this.checkRemaining();
@@ -1390,15 +1461,36 @@ export default class Game {
           }
   }
   async generateLocations(allLocations) {
+    const gen = ++this.locGenToken;
     this.sendAllPlayers({
       type: 'generating',
       generated: this.locations.length,
     })
 
+    if (isQuizMode(this.mode)) {
+      // Quiz rounds come from the shared generator (static pools, no awaits),
+      // so by the time updateGameOptions sends its state update the lobby
+      // already sees generated === rounds and Start is enabled. Failure is
+      // loud: the host gets the same toast a short community map gets.
+      this.maxDist = 20000;
+      this.extent = null;
+      try {
+        this.locations = generateRounds({ mode: this.mode, count: this.rounds, region: this.region });
+      } catch (e) {
+        console.error('Error generating quiz rounds', e);
+        this.locations = [];
+        this.sendAllPlayers({ type: 'toast', key: 'notEnoughLocationsInMap' });
+      }
+      this.sendAllPlayers({ type: 'generating', generated: this.locations.length });
+      this.sendAllPlayers({ type: 'maxDist', maxDist: this.maxDist });
+      return;
+    }
+
     if(this.location !== "all" && !countries.includes(this.location)) {
       // community map
       const slug = this.location;
       const map = await MapModel.findOne({ slug });
+      if (gen !== this.locGenToken) return; // host changed options meanwhile
       if (!map) {
         return;
       }
@@ -1501,12 +1593,14 @@ export default class Game {
         },
       });
      data = await data.json();
+     if (gen !== this.locGenToken) return; // host changed options meanwhile
      for(let i = 0; i < this.rounds; i++) {
       if(data.ready && data.locations) {
         loc = data.locations[Math.floor(Math.random() * data.locations.length)];
         data.locations = data.locations.filter((l) => l !== loc);
       } else {
   loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+  if (gen !== this.locGenToken) return;
 
       }
 
@@ -2271,7 +2365,10 @@ export default class Game {
         long: roundData.location.long,
         panoId: roundData.location.panoId || null,
         country: roundData.location.country || null,
-        place: roundData.location.place || null
+        place: roundData.location.place || null,
+        // Quiz rounds: what was shown, so history can replay the stimulus.
+        // Only when present, so classic round docs are byte-identical.
+        ...quizLocationFields(roundData.location),
       },
       // Includes null lat/long entries for participants who didn't guess.
       playerGuesses: participants.map((p) => ({
@@ -2281,6 +2378,7 @@ export default class Game {
         accountId: p.accountId || null,
         guessLat: roundData.players[p.id]?.lat || null,
         guessLong: roundData.players[p.id]?.long || null,
+        ...(roundData.players[p.id]?.choice != null ? { choice: roundData.players[p.id].choice } : {}),
         points: roundData.players[p.id]?.points || 0,
         timeTaken: roundData.players[p.id]?.timeTaken || this.timePerRound / 1000,
         xpEarned: 0, // XP is aggregated on the player summary, never per round
@@ -2293,8 +2391,13 @@ export default class Game {
   }
 
   buildSettingsDoc(official) {
+    const quiz = isQuizMode(this.mode);
     return {
-      location: this.location || 'all',
+      // A quiz party's rounds never came from a map, so a stale community slug
+      // left in `location` must not be recorded as if they had.
+      location: quiz ? 'all' : (this.location || 'all'),
+      mode: this.mode || DEFAULT_MODE,
+      region: quiz && getMode(this.mode)?.supportsRegion ? this.region : null,
       rounds: this.roundHistory.length, // actual completed rounds, not original setting
       maxDist: this.maxDist || 20000,
       timePerRound: this.timePerRound || (this.duel ? 60000 : 30000),
