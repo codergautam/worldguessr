@@ -3,15 +3,16 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaClock, FaGamepad, FaGlobe, FaStar, FaEye, FaUsers, FaTriangleExclamation } from "react-icons/fa6";
+import { FaClock, FaGamepad, FaGlobe, FaStar, FaEye, FaUsers, FaTriangleExclamation, FaTrophy } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
 import CountryFlag from "./utils/countryFlag";
 import { fetchWithFallback } from "./utils/retryFetch";
 import Season0Badges from "./season0Badges";
+import { SHORTS_CONTEST_URL, shortsContestOn } from "@/lib/shortsContest";
 
-export default function AccountView({ accountData, setAccountData, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
+export default function AccountView({ accountData, setAccountData, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null, showContest = false }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
     const [showCountrySelector, setShowCountrySelector] = useState(false);
@@ -150,6 +151,23 @@ export default function AccountView({ accountData, setAccountData, eloData, sess
 
     return (
         <div style={containerStyle}>
+            {/* The Shorts contest, on your own profile only, until its
+                deadline (lib/shortsContest.js). */}
+            {!isPublic && showContest && shortsContestOn() && (
+                <a
+                    className="account-profile-contest"
+                    href={SHORTS_CONTEST_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <FaTrophy className="account-profile-contest__icon" aria-hidden="true" />
+                    <span className="account-profile-contest__copy">
+                        <strong>{text("shortsContestBanner")}</strong>
+                        <span>{text("shortsContestHow")}</span>
+                    </span>
+                    <span className="account-profile-contest__go">{text("shortsContestEnter")}</span>
+                </a>
+            )}
             <div style={profileCardStyle}>
                 <div style={textStyle}>
                     <FaClock style={iconStyle} />

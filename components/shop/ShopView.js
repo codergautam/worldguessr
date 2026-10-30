@@ -5,6 +5,8 @@ import EmoteWheel from './EmoteWheel';
 import CountryFlag from '../utils/countryFlag';
 import { formatCountdown } from '@/lib/adFree';
 import { loadMarkerSkinUrls } from './markerPins';
+import { FaYoutube } from 'react-icons/fa6';
+import { YOUTUBE_URL } from '@/lib/aboutContent';
 // The house compact formatter, already used by the map tiles: exact under 1,000,
 // then 1.1K / 12K / 343K. Not a second one written for this card — mobile calls
 // its own mirror of it (formatCompact) on the same field for the same reason.
@@ -992,12 +994,53 @@ const ShopCard = memo(function ShopCard({
   );
 });
 
+/**
+ * "Subscribe on YouTube, get 50 Stamps" (web only; home.js decides where it
+ * may show). The press opens the channel's subscribe prompt in a new tab and
+ * claims the reward in the same gesture; the server pays once per account.
+ * Claimed on an earlier visit: the offer is gone. Claimed just now: it says
+ * thanks until the shop closes.
+ */
+function YoutubeOffer({ youtube, claim, text }) {
+  const [state, setState] = useState('open'); // open | busy | thanks | failed
+  const [errorKey, setErrorKey] = useState(null);
+  const amount = text('shopStampsBalance', { count: youtube.stamps });
+  if (youtube.claimed && state === 'open') return null;
+  const onPress = async () => {
+    if (state === 'busy' || state === 'thanks') return;
+    window.open(`${YOUTUBE_URL}?sub_confirmation=1`, '_blank', 'noopener,noreferrer');
+    setState('busy');
+    try {
+      await claim();
+      setState('thanks');
+    } catch (e) {
+      setErrorKey(errorKeyFor(e));
+      setState('failed');
+    }
+  };
+  return (
+    <div className={`shopOffer${state === 'thanks' ? ' shopOffer--done' : ''}`}>
+      <FaYoutube className="shopOffer__icon" aria-hidden="true" />
+      <p className="shopOffer__text">
+        {state === 'thanks'
+          ? text('shopYoutubeThanks', { amount })
+          : state === 'failed' ? text(errorKey) : text('shopYoutubeOffer', { amount })}
+      </p>
+      {state !== 'thanks' && (
+        <button type="button" className="shopCard__btn shopCard__btn--buy shopOffer__btn" onClick={onPress} disabled={state === 'busy'}>
+          {text('shopYoutubeGet', { amount })}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ShopView({
-  shop, username, title, closeLabel, onClose, text: rawText, lang,
+  shop, username, title, closeLabel, onClose, text: rawText, lang, youtubeOffer = false,
 }) {
   const {
     enabled, signedIn, stamps, cosmetics, ownedSkus, adFreeMsLeft, catalog, busySku,
-    refreshCatalog, purchase, equip, equipEmotes,
+    refreshCatalog, purchase, equip, equipEmotes, youtube, claimYoutube,
   } = shop;
 
   /**
@@ -1496,6 +1539,10 @@ export default function ShopView({
           min-width: 0 that lets the shelves inside it be narrower than their
           widest row wants to be (see .shopMain in styles/shop.css). */}
       <div className="shopMain">
+        {youtubeOffer && signedIn && youtube && (
+          <YoutubeOffer youtube={youtube} claim={claimYoutube} text={text} />
+        )}
+
         {catalog.status === 'loading' && catalog.items.length === 0 && (
           <p className="shop__status">{text('shopLoading')}</p>
         )}

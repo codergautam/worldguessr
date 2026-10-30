@@ -16,7 +16,7 @@ import useStampShop from '@/components/shop/useStampShop';
 import StampsWallet from '@/components/shop/StampsWallet';
 import { nameGlowProps } from './utils/usernameWithFlag';
 
-export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop }) {
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, isApp, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop }) {
     const { t: text, lang } = useTranslation("common");
     // Stamps WALLET only. The storefront moved out of this modal entirely — it
     // is its own surface now (components/shop/ShopModal.js), opened from the
@@ -144,6 +144,8 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                             session={session}
                             setSession={setSession}
                             ws={ws}
+                            // main site + CrazyGames only
+                            showContest={!isApp && process.env.NEXT_PUBLIC_POKI !== "true" && process.env.NEXT_PUBLIC_COOLMATH !== "true" && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION !== "true" && process.env.NEXT_PUBLIC_6X !== "true" && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
                         />
 
                         {!inCrazyGames && (

@@ -5294,7 +5294,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
 
 
-            {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
+            {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} isApp={isApp} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
                     // === false: hollow payloads omit the boolean; undefined
@@ -5318,6 +5318,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 <ShopModal
                     session={session}
                     setSession={setSession}
+                    // "Subscribe on YouTube for Stamps": the website only, never
+                    // a portal (no outside links) or the app's web view.
+                    youtubeOffer={!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && !inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
                     coveredEntry={shopModalCoveredEntry}
                     onReady={shopModalCoveredEntry ? completeShopHandoff : undefined}
                     onClose={() => {

@@ -126,6 +126,9 @@ export default function useStampShop({ session, setSession }) {
   // instead of an empty goods column that fills one effect later.
   const [catalog, setCatalog] = useState({ status: 'loading', items: [], emotes: [], error: null });
   const [busySku, setBusySku] = useState(null);
+  // The YouTube offer (web shop): { stamps, claimed } from the catalogue, or
+  // null when the server sent none (signed out).
+  const [youtube, setYoutube] = useState(null);
 
   // Refs, not deps: every callback below stays referentially stable so the
   // memoised card list is not thrown away on each balance change.
@@ -188,6 +191,7 @@ export default function useStampShop({ session, setSession }) {
           return;
         }
         applyEntitlements(entitlementsFrom(data));
+        setYoutube(data.youtubeReward || null);
         setCatalog({
           status: 'ready',
           items: Array.isArray(data.items) ? data.items : [],
@@ -313,6 +317,26 @@ export default function useStampShop({ session, setSession }) {
     }
   }, [secret, applyEntitlements]);
 
+  /**
+   * Claim the YouTube reward. Paid once per account, on trust: the server's
+   * fixed ledger key makes a second press, a second tab or the network retry
+   * a no-op, so retrying is safe here.
+   */
+  const claimYoutube = useCallback(async () => {
+    if (!secret) throw new ShopError('not_authenticated', 'Signed out', 401, null);
+    const data = await shopRequest('youtube', { token: secret }, { retryOnNetworkError: true });
+    if (data?.enabled === false) {
+      // Kill switch flipped since the catalogue loaded: same as refreshCatalog.
+      applyEntitlements({ ...EMPTY_STATE, stampsEnabled: false });
+      throw new ShopError('disabled', 'Shop disabled', 200, data);
+    }
+    applyEntitlements(entitlementsFrom(data));
+    if (mountedRef.current && data?.claimed === true) {
+      setYoutube((prev) => (prev ? { ...prev, claimed: true } : prev));
+    }
+    return data;
+  }, [secret, applyEntitlements]);
+
   // --- Ad-free countdown -------------------------------------------------
   // ONE interval for the whole shop, owned here and handed down. A chip per card
   // with its own timer would be dozens of intervals all re-rendering on
@@ -338,5 +362,7 @@ export default function useStampShop({ session, setSession }) {
     purchase,
     equip,
     equipEmotes,
+    youtube,
+    claimYoutube,
   };
 }

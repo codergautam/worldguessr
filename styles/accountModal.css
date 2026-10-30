@@ -214,6 +214,46 @@
 
 /* Change Name and Change Flag are the same kind of account edit. One component
    owns their geometry, theme tint, and interaction states so they cannot drift. */
+/* The Shorts contest row: a profile row (icon, words) that links out. */
+.account-profile-contest {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 215, 0, 0.35);
+    background: rgba(255, 215, 0, 0.08);
+    color: inherit;
+    text-decoration: none;
+}
+.account-profile-contest__icon {
+    flex: none;
+    font-size: 24px;
+    color: #ffd700;
+}
+.account-profile-contest__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    line-height: 1.35;
+    opacity: 0.9;
+}
+.account-profile-contest__copy strong {
+    font-size: 18px;
+}
+.account-profile-contest__go {
+    flex: none;
+    color: #4ade80;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.account-profile-contest:hover .account-profile-contest__go {
+    text-decoration: underline;
+}
+
 .account-profile-action {
     display: flex;
     align-items: center;
