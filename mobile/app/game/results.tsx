@@ -33,6 +33,7 @@ import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe, resetRootStackTo } from '../../src/utils/navigation';
 import streetViewUrl from '../../src/utils/streetViewUrl';
 import { markGameFinished, maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
+import { trackGameFinish } from '../../src/services/gameAnalytics';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import StampsEarnedDisplay from '../../src/components/multiplayer/StampsEarnedDisplay';
@@ -353,9 +354,12 @@ export default function GameResultsScreen() {
 
   const isHistoryView = fromHistory === 'true';
   const isLiveMultiplayer = mpParam === 'true';
-  // A just-finished game (not a history replay) unlocks this session's ads.
+  // A just-finished game (not a history replay) unlocks this session's ads
+  // and closes the game's analytics funnel.
   useEffect(() => {
-    if (!isHistoryView) markGameFinished();
+    if (isHistoryView) return;
+    markGameFinished();
+    trackGameFinish(Number(totalScore) || 0);
   }, []);
   const secret = useAuthStore((s) => s.secret);
   // SUBSCRIBED, not a getState() snapshot: the ws `elo` message that stamps the

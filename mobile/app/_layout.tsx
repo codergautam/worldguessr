@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Stack, usePathname } from 'expo-router';
+import { Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -35,7 +35,8 @@ import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
 import SiteBackground from '../src/components/SiteBackground';
 import { MATCHMAKING_VEIL_COLORS } from '../src/styles/matchmakingBackdrop';
 import { initAds, preloadInterstitial } from '../src/services/ads';
-import { initAnalytics } from '../src/services/analytics';
+import { initAnalytics, logScreenView } from '../src/services/analytics';
+import { startQueueAnalytics } from '../src/services/gameAnalytics';
 
 // Anchor the root stack on the tab navigator: any cold start on a deep URL —
 // dev-client reload while on a game route, a party invite link, OS state
@@ -70,6 +71,14 @@ const imageAssets = [
 
 export default function RootLayout() {
   const pathname = usePathname();
+  // Screen views by route pattern (game/[id], user/[username]) rather than the
+  // concrete path, so GA groups screens and never records usernames. Route
+  // groups like (tabs) are dropped.
+  const segments = useSegments();
+  const screenName = segments.filter((s) => !s.startsWith('(')).join('/') || 'index';
+  useEffect(() => {
+    void logScreenView(screenName);
+  }, [screenName]);
   const [fontsLoaded] = useFonts({
     JockeyOne: JockeyOne_400Regular,
     Lexend: Lexend_400Regular,
@@ -127,6 +136,7 @@ export default function RootLayout() {
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       initAnalytics();
+      startQueueAnalytics();
       initAds().then(() => preloadInterstitial());
     });
     return () => task.cancel();

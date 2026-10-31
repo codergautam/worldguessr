@@ -41,6 +41,7 @@ import getMyTeam from '../../src/shared/game/getMyTeam';
 import deriveTeamEndFallback from '../../src/shared/game/teamDuelEndFallback';
 import { wsService } from '../../src/services/websocket';
 import { dismissAllSafe } from '../../src/utils/navigation';
+import { trackGameExit, trackGameRound } from '../../src/services/gameAnalytics';
 
 import StreetViewWebView, { StreetViewHandle } from '../../src/components/game/StreetViewWebView';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
@@ -753,6 +754,32 @@ export default function GameScreen() {
     maxDist: DEFAULT_GAME_OPTIONS.maxDist,
     extent: null,
   });
+
+  // Analytics: game_start on round 1, round progress, and game_abandon if this
+  // screen closes before the results screen marks the game finished.
+  const analyticsMode = isSingleplayer
+    ? (countryGuesserSubMode ? `${countryGuesserSubMode}Guesser` : 'classic')
+    : gameData?.team2v2 ? '2v2'
+      : gameData?.duel ? 'rankedDuel'
+        : gameData?.public ? 'unrankedDuel'
+          : 'party';
+  const analyticsRound = isSingleplayer
+    ? (countryGuesserSubMode
+      ? Math.min(countryGame.round, countryGame.totalRounds)
+      : gameState.currentRound)
+    : (gameData && gameData.state !== 'waiting' ? Math.min(gameData.curRound, gameData.rounds) : 0);
+  const analyticsOwner = useRef({}).current;
+  useEffect(() => {
+    if (analyticsRound < 1) return;
+    trackGameRound(
+      analyticsOwner,
+      analyticsMode,
+      // Firebase caps param values at 100 chars; community map names can exceed it.
+      (isSingleplayer ? currentMapSlug : (gameData?.displayLocation ?? 'all')).slice(0, 100),
+      analyticsRound,
+    );
+  }, [analyticsRound]);
+  useEffect(() => () => trackGameExit(analyticsOwner), []);
 
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
   // Map is HIDDEN by default on mobile, matching web behavior
