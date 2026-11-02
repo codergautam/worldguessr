@@ -16,7 +16,7 @@ import useStampShop from '@/components/shop/useStampShop';
 import StampsWallet from '@/components/shop/StampsWallet';
 import { nameGlowProps } from './utils/usernameWithFlag';
 
-export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, isApp, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop }) {
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, isApp, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options, onOpenShop, friendRequestCount = 0 }) {
     const { t: text, lang } = useTranslation("common");
     // Stamps WALLET only. The storefront moved out of this modal entirely — it
     // is its own surface now (components/shop/ShopModal.js), opened from the
@@ -127,7 +127,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
         { key: "profile", label: text("profile"), icon: "👤" },
         { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
-        { key: "list", label: text("friendsText"), icon: "👥" },
+        { key: "list", label: text("friendsText"), icon: "👥", badge: friendRequestCount },
         { key: "moderation", label: text("moderationTab"), icon: "⚖️" }
     ];
 
@@ -396,6 +396,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                         >
                                             <span className="nav-icon">{item.icon}</span>
                                             <span className="nav-label">{item.label}</span>
+                                            {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
                                         </button>
                                     ))}
                                 </nav>

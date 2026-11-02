@@ -5310,6 +5310,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 // is guaranteed ready before the handoff begins; ShopModal then
                 // removes this profile only after its own DOM has committed.
                 onOpenShop={openShopFromAccount}
+                friendRequestCount={multiplayerState?.friendRequestCount || 0}
             />}
             {/* The Stamps shop. Mounted ONLY while open, which is what tears the
                 ad-free countdown interval down on close — ShopModal plays its
@@ -5386,7 +5387,11 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 school build. Both are compile-time flags, so the chat chunk
                 drops out of those bundles entirely. */}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && !process.env.NEXT_PUBLIC_COOLMATH && GameChatMemo}
-            <ToastContainer pauseOnFocusLoss={false} />
+            {/* draggablePercent: react-toastify only dismisses a swipe that
+                travels this % of the toast's width (default 80). Mobile toasts
+                are full-width, so the default meant dragging ~80% of the screen
+                or it snapped back. */}
+            <ToastContainer pauseOnFocusLoss={false} draggablePercent={25} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
                 <WelcomeOverlay
