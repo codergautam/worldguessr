@@ -5294,7 +5294,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
 
 
-            {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} isApp={isApp} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
+            {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
                     // === false: hollow payloads omit the boolean; undefined

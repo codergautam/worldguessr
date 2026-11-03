@@ -361,12 +361,31 @@ describe('Playgama ad completion', () => {
     expect(glue.getPlaygamaPaused()).toBe(false);
   });
 
-  it('keeps honoring the platform pause after the stuck-ad release', async () => {
+  // Adblocked 6x hosts report 'open' and never end the ad, which leaves the
+  // SDK's interstitial pause reason set for the session.
+  it('stops honoring the pause of an ad still "opened" when the leash fires', async () => {
     await initialize();
     const finish = vi.fn();
     glue.showPlaygamaInterstitial(finish);
     ad('opened');
     bridge.platform.emit('pause', true);
+    vi.advanceTimersByTime(120000);
+    expect(finish).toHaveBeenCalledOnce();
+    expect(glue.getPlaygamaPaused()).toBe(false);
+    // The next pause event is honored again.
+    bridge.platform.emit('pause', false);
+    bridge.platform.emit('pause', true);
+    vi.advanceTimersByTime(0);
+    expect(glue.getPlaygamaPaused()).toBe(true);
+  });
+
+  it('keeps honoring the platform pause when the ad is no longer "opened" at the leash', async () => {
+    await initialize();
+    const finish = vi.fn();
+    glue.showPlaygamaInterstitial(finish);
+    ad('opened');
+    bridge.platform.emit('pause', true);
+    bridge.advertisement.interstitialState = 'closed';
     vi.advanceTimersByTime(120000);
     expect(finish).not.toHaveBeenCalled();
     expect(glue.getPlaygamaPaused()).toBe(true);
@@ -374,6 +393,24 @@ describe('Playgama ad completion', () => {
     vi.advanceTimersByTime(0);
     expect(finish).toHaveBeenCalledOnce();
     expect(glue.getPlaygamaPaused()).toBe(false);
+  });
+
+  it('skips interstitials when checkAdBlock reports a blocker', async () => {
+    bridge.advertisement.checkAdBlock = vi.fn(async () => true);
+    await initialize();
+    await Promise.resolve();
+    const finish = vi.fn();
+    glue.showPlaygamaInterstitial(finish);
+    expect(finish).toHaveBeenCalledOnce();
+    expect(bridge.advertisement.showInterstitial).not.toHaveBeenCalled();
+    expect(glue.getPlaygamaPaused()).toBe(false);
+  });
+
+  it('still shows interstitials when checkAdBlock reports none or throws', async () => {
+    bridge.advertisement.checkAdBlock = vi.fn(() => { throw new Error('unsupported'); });
+    await initialize();
+    glue.showPlaygamaInterstitial(vi.fn());
+    expect(bridge.advertisement.showInterstitial).toHaveBeenCalledWith('round_end');
   });
 
   it('survives a throwing interstitialState getter inside the start timeout', async () => {

@@ -28,9 +28,13 @@ const SCRIPT_SRC = "https://bridge.playgama.com/v2/stable/playgama-bridge.js";
 // A request that never starts must not strand the player. Once an ad opens,
 // its terminal event ('closed' / 'failed', per the SDK docs) releases our
 // latch; video duration is not ours, so the opened leash is generous. If a
-// platform adapter never sends a terminal event, the leash releases only OUR
-// latch: applyAudioState still honors the platform pause flag, which the docs
-// make authoritative ("pause gameplay, timers, and audio while isPaused").
+// platform adapter never sends a terminal event, the SDK keeps its
+// interstitial pause reason set forever (seen on 6x with an adblocker: the
+// host reports 'open', the ad is blocked, no 'close'/'error' follows). So
+// when the leash fires with the SDK still 'opened', we also stop honoring
+// the platform pause until the next pause or interstitial event. That bends
+// the docs' "pause while isPaused", but a permanent "Game paused" cover is a
+// freeze, which moderation rejects.
 const START_TIMEOUT_MS = 15000;
 const OPENED_TIMEOUT_MS = 120000;
 // Lifecycle messages queued before game_ready. The docs make game_ready the
@@ -58,6 +62,8 @@ let visibilityListenersInstalled = false;
 const pauseListeners = new Set();
 const readyListeners = new Set();
 let ignoredPause = false;  // a blur pause the SDK failed to clear on replay
+let ignoredAdPause = false; // the pause of an ad stuck 'opened' past the leash
+let adBlocked = false;      // checkAdBlock() at init said ads are blocked
 let lastBlurAt = -Infinity; // last window blur (Date.now)
 let pauseFromBlur = false; // the current pause began right after a window blur
 // A pause event arriving this soon after a window blur may be the SDK's
@@ -79,7 +85,7 @@ export function subscribePlaygamaPause(listener) {
 // passes its raw callback before touching the other portals' audio wrapper.
 function applyAudioState() {
   const hidden = document.visibilityState === "hidden";
-  const hostPaused = paused && !ignoredPause;
+  const hostPaused = paused && !ignoredPause && !ignoredAdPause;
   duckAudio(hostPaused || !audioEnabled || adActive || hidden);
   const next = hostPaused || adActive || hidden;
   if (next !== gameplayPaused) {
@@ -129,6 +135,7 @@ function finishCallback(callback) {
 // start timeout already resumed the game) still gets ducked while it is on
 // screen and unducked when it closes.
 function onInterstitialState(state) {
+  ignoredAdPause = false;
   if (state === "opened") {
     if (startTimer) clearTimeout(startTimer);
     startTimer = null;
@@ -136,6 +143,7 @@ function onInterstitialState(state) {
     openedTimer = setTimeout(() => {
       openedTimer = null;
       console.warn("[Playgama] interstitial reported opened but never closed; releasing the round advance");
+      if (readInterstitialState() === "opened") ignoredAdPause = true;
       finishInterstitial();
     }, OPENED_TIMEOUT_MS);
     adActive = true;
@@ -218,6 +226,13 @@ function onBridgeReady(bridge) {
     bridge.advertisement.setMinimumDelayBetweenInterstitial(30);
   } catch (e) {}
   subscribe(bridge.advertisement, events.INTERSTITIAL_STATE_CHANGED, onInterstitialState, "interstitial state");
+  // An adblocked request can leave the SDK paused on an ad that never ends
+  // (see the leash note at the top), so blocked players skip interstitials.
+  try {
+    Promise.resolve(bridge.advertisement.checkAdBlock())
+      .then((blocked) => { adBlocked = blocked === true; })
+      .catch(() => {});
+  } catch (e) {}
   subscribe(bridge.advertisement, events.BANNER_STATE_CHANGED, (state) => {
     // hide() is dropped while the banner is 'loading'; when it finally
     // shows after the home screen already unmounted, hide it now.
@@ -226,6 +241,7 @@ function onBridgeReady(bridge) {
   subscribe(bridge.platform, events.PAUSE_STATE_CHANGED, (isPaused) => {
     paused = !!isPaused;
     ignoredPause = false;
+    ignoredAdPause = false;
     pauseFromBlur = paused && Date.now() - lastBlurAt < BLUR_PAUSE_WINDOW_MS;
     if (paused) replayVisibilityIfPanoFocused();
     schedulePlatformState();
@@ -346,7 +362,7 @@ export function showPlaygamaInterstitial(onFinished = () => {}) {
     finishedCallbacks.push(onFinished);
     applyAudioState();
   };
-  if (!readyBridge) return bail();
+  if (!readyBridge || adBlocked) return bail();
   let supported = false;
   let state;
   try {

@@ -1172,10 +1172,15 @@ html {
     }
 
     // if height less than 500px, drop into the flow below the nav items
-    // (.footer_btns already centers its buttons in the base rule)
+    // (.footer_btns already centers its buttons in the base rule).
+    // margin-top:auto sinks it to the bottom of the full-height
+    // .home__content column when the nav leaves room, instead of floating
+    // mid-screen right under a short menu (Playgama's 6x frame, ~478px tall).
     @media screen and (max-height: 500px) {
         .home__footer {
             position: static;
+            margin-top: auto;
+            flex-shrink: 0;
             margin-bottom: 10px;
         }
     }
