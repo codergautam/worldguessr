@@ -44,7 +44,7 @@ describe('validateUsernameFormat', () => {
   });
 
   it('profanity', () => {
-    expect(validateUsernameFormat('shit')).toEqual({ key: 'usernameProfane', message: 'Inappropriate content' });
+    expect(validateUsernameFormat('nigga')).toEqual({ key: 'usernameProfane', message: 'Inappropriate content' });
   });
 
   it('does not trim (the callers decide)', () => {
