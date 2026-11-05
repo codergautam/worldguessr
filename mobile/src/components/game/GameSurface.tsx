@@ -25,6 +25,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
+import { GAME_HUD_MAX_FONT_MULT } from '../../styles/webType';
 import { gameUiScale, isTabletSize } from '../../styles/responsive';
 import StreetViewWebView, { StreetViewHandle } from './StreetViewWebView';
 import EmbeddedMap from './EmbeddedMap';
@@ -188,6 +189,9 @@ export function getExpandedMapHeight(width: number, height: number): number {
   );
 }
 
+// Hint + minimum Guess + collapse arrow + gaps + side padding.
+const MIN_ROW_WIDTH_BESIDE_HUD = 300;
+
 /**
  * Right-edge clearance for the expanded-map button row (Hint / Guess /
  * collapse-arrow). On height-starved screens (landscape phones) the row's top
@@ -203,13 +207,21 @@ export function getExpandedMapHeight(width: number, height: number): number {
  * `app/game/[id].tsx` so the two rows stay in sync. Wire `onRootLayout` to the
  * screen-filling root view, `onHudLayout` to the top-right HUD container, and
  * apply `rowClearRight` (when > 0) as the row's paddingRight.
+ *
+ * When the HUD is too wide to leave a usable row beside it (portrait phone
+ * with large accessibility text), padding would squeeze the Guess button out
+ * entirely. Then `rowDrop` is > 0 instead: subtract it from the row's bottom
+ * so the row sits over the top edge of the map, at full width.
  */
 export function useMapRowHudClearance(expandedMapHeight: number, rowHeight: number) {
-  const [rootHeight, setRootHeight] = useState(0);
+  const [rootSize, setRootSize] = useState({ width: 0, height: 0 });
   const [hudBox, setHudBox] = useState<{ width: number; height: number } | null>(null);
 
   const onRootLayout = useCallback((e: LayoutChangeEvent) => {
-    setRootHeight(e.nativeEvent.layout.height);
+    const { width, height } = e.nativeEvent.layout;
+    setRootSize((prev) =>
+      prev.width === width && prev.height === height ? prev : { width, height },
+    );
   }, []);
   const onHudLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -222,11 +234,13 @@ export function useMapRowHudClearance(expandedMapHeight: number, rowHeight: numb
   // map). HUD box height already includes its safe-area top padding since the
   // measured container is anchored at top:0. The 8dp buffer keeps "touching"
   // reading as clear.
-  const rowTopEdge = rootHeight - (expandedMapHeight + 8) - rowHeight;
-  const rowClearRight =
-    rootHeight > 0 && hudBox && rowTopEdge < hudBox.height + 8 ? hudBox.width : 0;
+  const rowTopEdge = rootSize.height - (expandedMapHeight + 8) - rowHeight;
+  const overlapsHud = rootSize.height > 0 && !!hudBox && rowTopEdge < hudBox.height + 8;
+  const fitsBesideHud = overlapsHud && rootSize.width - hudBox!.width >= MIN_ROW_WIDTH_BESIDE_HUD;
+  const rowClearRight = fitsBesideHud ? hudBox!.width : 0;
+  const rowDrop = overlapsHud && !fitsBesideHud ? rowHeight + 16 : 0;
 
-  return { onRootLayout, onHudLayout, rowClearRight };
+  return { onRootLayout, onHudLayout, rowClearRight, rowDrop };
 }
 
 function GameSurface(
@@ -296,7 +310,7 @@ function GameSurface(
 
   // Keep the collapse arrow clear of the top-right HUD on short screens — see
   // the hook's doc comment. Row height mirrors the buttons' 48 / sc(48).
-  const { onRootLayout, onHudLayout, rowClearRight } = useMapRowHudClearance(
+  const { onRootLayout, onHudLayout, rowClearRight, rowDrop } = useMapRowHudClearance(
     expandedMapHeight,
     isTablet ? sc(48) : 48,
   );
@@ -948,7 +962,7 @@ function GameSurface(
             style={[
               styles.mapButtonsRow,
               {
-                bottom: expandedMapHeight + 8,
+                bottom: expandedMapHeight + 8 - rowDrop,
                 paddingHorizontal: Math.max(insets.right, spacing.md),
               },
               rowClearRight > 0 && { paddingRight: rowClearRight },
@@ -984,7 +998,11 @@ function GameSurface(
                   size={sc(18)}
                   color={hintShown || hintDisabled ? 'rgba(255,255,255,0.4)' : '#FFC107'}
                 />
-                <Text style={[styles.hintBtnText, { fontSize: sc(fontSizes.md) }]}>{t('hint')}</Text>
+                <Text
+                  style={[styles.hintBtnText, { fontSize: sc(fontSizes.md) }]}
+                  maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
+                  numberOfLines={1}
+                >{t('hint')}</Text>
               </Pressable>
             )}
             <Pressable
@@ -1014,6 +1032,8 @@ function GameSurface(
                     { fontSize: sc(fontSizes.lg) },
                     !guessPosition && { opacity: 0.5 },
                   ]}
+                  maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
+                  numberOfLines={1}
                 >
                   {t('guess')}
                 </Text>
@@ -1224,11 +1244,15 @@ const styles = StyleSheet.create({
   },
   guessSubmitBtn: {
     flex: 1,
+    // flex:1 alone lets Hint and the arrow squeeze Guess to zero width.
+    minWidth: 96,
     height: 48,
     borderRadius: 14,
     overflow: 'hidden',
   },
   hintBtn: {
+    // Long translations ellipsize instead of pushing Guess off screen.
+    flexShrink: 1,
     height: 48,
     paddingHorizontal: 14,
     borderRadius: 14,
@@ -1244,6 +1268,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   hintBtnText: {
+    flexShrink: 1,
     color: colors.white,
     fontSize: fontSizes.md,
     fontFamily: 'Lexend-SemiBold',

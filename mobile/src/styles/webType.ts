@@ -89,3 +89,10 @@ export function smallTextSize(width: number, height: number): number {
  * larger text, and the home layout stays collision-free.
  */
 export const HOME_MAX_FONT_MULT = 1.2;
+
+/**
+ * Same idea for the in-game HUD (round card, map selector, Hint/Guess row):
+ * at full accessibility text sizes the uncapped round card grew to ~60% of a
+ * portrait screen and squeezed the Guess button to zero width.
+ */
+export const GAME_HUD_MAX_FONT_MULT = 1.3;

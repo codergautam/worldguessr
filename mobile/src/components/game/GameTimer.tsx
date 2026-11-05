@@ -15,6 +15,7 @@ import Animated, {
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { fontSizes } from '../../styles/theme';
+import { GAME_HUD_MAX_FONT_MULT } from '../../styles/webType';
 import { useGameUiScale } from '../../styles/responsive';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 import { playSfx, stopSfx } from '../../services/sound';
@@ -365,11 +366,11 @@ function GameTimer({
           style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
           pointerEvents="none"
         />
-        <Text style={[styles.duelRoundLabel, duelRoundLabelStyle]}>
+        <Text style={[styles.duelRoundLabel, duelRoundLabelStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
           {t('round', { r: currentRound, mr: totalRounds })}
         </Text>
         {!isInfiniteRound && (
-          <Animated.Text style={[styles.duelCountdown, duelCountdownStyle, criticalTextStyle]}>
+          <Animated.Text style={[styles.duelCountdown, duelCountdownStyle, criticalTextStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
             {timerText}
           </Animated.Text>
         )}
@@ -383,29 +384,29 @@ function GameTimer({
         style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
         pointerEvents="none"
       />
-      <Text style={[styles.roundLabel, roundLabelStyle]}>
+      <Text style={[styles.roundLabel, roundLabelStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
         {t('round', { r: currentRound, mr: totalRounds })}
       </Text>
-      <Text style={[styles.mainRow, mainRowStyle]}>
+      <Text style={[styles.mainRow, mainRowStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
         {shouldShowCountdown ? (
           <>
-            <Animated.Text style={[styles.countdown, criticalTextStyle]}>
+            <Animated.Text style={[styles.countdown, criticalTextStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
               {timerText}
             </Animated.Text>
-            <Text style={styles.separator}> · </Text>
+            <Text style={styles.separator} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}> · </Text>
           </>
         ) : null}
-        <Text style={[styles.points, scoreAnimating && styles.pointsAnimating]}>
+        <Text style={[styles.points, scoreAnimating && styles.pointsAnimating]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>
           {displayedScore.toLocaleString()}
         </Text>
-        <Text style={styles.pointsLabel}> {t('pts')}</Text>
+        <Text style={styles.pointsLabel} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}> {t('pts')}</Text>
       </Text>
       {isInfiniteRound && onForceEndRound && (
         <Pressable
           onPress={onForceEndRound}
           style={({ pressed }) => [styles.forceEndBtn, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.forceEndText, forceEndTextStyle]}>{t('endRound')}</Text>
+          <Text style={[styles.forceEndText, forceEndTextStyle]} maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}>{t('endRound')}</Text>
         </Pressable>
       )}
     </Animated.View>

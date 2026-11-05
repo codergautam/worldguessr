@@ -27,6 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance, getPlayerColor, pickBestTeamGuessIds } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+import { GAME_HUD_MAX_FONT_MULT } from '../../src/styles/webType';
 import { gameUiScale, isTabletSize, useGameUiScale } from '../../src/styles/responsive';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
@@ -1228,7 +1229,7 @@ export default function GameScreen() {
   // Keep the collapse arrow clear of the top-right round/score card on short
   // screens (landscape phones) — shared with GameSurface, see the hook's doc
   // comment there. Duels never mount the top-right card, so this stays 0 there.
-  const { onRootLayout, onHudLayout, rowClearRight } = useMapRowHudClearance(
+  const { onRootLayout, onHudLayout, rowClearRight, rowDrop } = useMapRowHudClearance(
     expandedMapHeight,
     isTablet ? sc(48) : 48,
   );
@@ -2566,7 +2567,11 @@ export default function GameScreen() {
                 onPress={() => setMapModalVisible(true)}
               >
                 <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
-                <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
+                <Text
+                  style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]}
+                  maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
+                  numberOfLines={1}
+                >
                   {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove')}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
@@ -3007,7 +3012,7 @@ export default function GameScreen() {
           <Animated.View
             style={[
               styles.mapButtonsRow,
-              { bottom: expandedMapHeight + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              { bottom: expandedMapHeight + 8 - rowDrop, paddingHorizontal: Math.max(insets.right, spacing.md) },
               rowClearRight > 0 && { paddingRight: rowClearRight },
               {
                 opacity: mapBtnsAnim,
@@ -3084,6 +3089,7 @@ export default function GameScreen() {
                         !showActive && !locked && { opacity: 0.5 },
                         locked && { opacity: 0.85 },
                       ]}
+                      maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
                       numberOfLines={1}
                     >
                       {buttonText}
@@ -3580,6 +3586,8 @@ const styles = StyleSheet.create({
   },
   guessSubmitBtn: {
     flex: 1,
+    // flex:1 alone lets the arrow and right padding squeeze Guess to zero width.
+    minWidth: 96,
     height: 48,
     borderRadius: 14,
     overflow: 'hidden',
