@@ -78,10 +78,10 @@ const SvEmbedIframe = (params) => {
     useEffect(() => {
       window.reloadLoc = () => {
         if (!iframeRef.current) return;
-        
+
         // Use proper null checks (not truthiness) since lat=0 or long=0 are valid coordinates
         const hasValidCoords = params.lat != null && params.long != null;
-        
+
         if (hasValidCoords) {
           // Build fresh URL with current params to avoid stale coordinates
           const shouldUsePanoId = false && params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
