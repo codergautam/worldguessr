@@ -8,12 +8,16 @@ import { useMapSearch } from "../hooks/useMapSearch";
 import { asset } from '@/lib/basePath';
 import nameFromCode from "../utils/nameFromCode";
 import { useTranslation } from '@/components/useTranslations';
+import { timerStops, timerForMode, nearestTimerStopIndex, isBlinkTimer } from '@/shared/game/blink';
 
 export default function MapView({
     gameOptions,
     setGameOptions,
     showOptions,
     showTimerOption,
+    // Blink stops (0.3-5s) only where blink rounds run (singleplayer: classic
+    // and country/continent guesser).
+    allowBlink = false,
     close,
     closeLabel,
     session,
@@ -435,19 +439,31 @@ export default function MapView({
                             type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
                                 setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
                             }} />
-                            {gameOptions.timePerRound > 0 && (
+                            {gameOptions.timePerRound > 0 && (() => {
+                                // Stops, not a linear range: the low end (0.3-5s)
+                                // is a Blink round, see shared/game/blink.js. Shows
+                                // the clock this screen actually runs; the stored
+                                // value only changes when the slider is moved.
+                                const stops = timerStops(allowBlink);
+                                const secs = timerForMode(gameOptions.timePerRound, allowBlink);
+                                return (
                                 <div className="timer-slider">
                                     <input
                                         type="range"
-                                        min="10"
-                                        max="300"
-                                        step="10"
-                                        value={gameOptions.timePerRound}
-                                        onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
+                                        min="0"
+                                        max={stops.length - 1}
+                                        step="1"
+                                        value={nearestTimerStopIndex(stops, secs)}
+                                        onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: stops[parseInt(e.target.value)] })}
                                     />
-                                    <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
+                                    <span className="timer-slider-value">
+                                        {secs}s
+                                        {/* Always laid out: a width that changes with the value made the slider reflow and flicker. */}
+                                        <span style={{ visibility: allowBlink && isBlinkTimer(secs) ? 'visible' : 'hidden' }}> ({text('blink')})</span>
+                                    </span>
                                 </div>
-                            )}
+                                );
+                            })()}
                         </div>
                         )}
                     </div>

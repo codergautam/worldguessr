@@ -25,6 +25,9 @@ export const STAMP_REASONS = {
   purchase:      { sign: -1, maxAbs: 5000 },
   refund:        { sign: 1,  maxAbs: 5000 },
 
+  // One-time reward: subscribing to the YouTube channel (web shop), once per
+  // account (api/stampShop.js handleYoutube).
+  youtube_subscribe: { sign: 1, maxAbs: 50 },
   // Manual correction. Either direction, but the ceiling still applies so a
   // fat-fingered admin cannot mint a million.
   admin_adjust:  { sign: 0,  maxAbs: 100000 },

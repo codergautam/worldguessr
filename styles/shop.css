@@ -924,6 +924,54 @@ html.site-bg-swap .modal-backdrop.modal-backdrop--shopFullscreen>.modal.shopFull
     box-sizing: border-box;
 }
 
+/* "Subscribe on YouTube, get 50 Stamps" (web only): one row at the top of the
+   goods, in the cards' own tone, with the buy button's green. Gone once
+   claimed (ShopView YoutubeOffer). */
+.shopOffer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 18px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--shopRaise);
+}
+.shopOffer__icon {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    color: #ff3b3b;
+}
+.shopOffer__text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+.shopOffer--done .shopOffer__text {
+    color: #86efac;
+}
+.shopOffer .shopOffer__btn {
+    flex: none;
+    margin-top: 0;
+}
+@media (max-width: 600px) {
+    .shopOffer {
+        gap: 10px;
+        padding: 10px 12px;
+    }
+    .shopOffer__icon {
+        width: 24px;
+        height: 24px;
+    }
+    .shopOffer__text {
+        font-size: 0.85rem;
+        line-height: 1.3;
+    }
+}
+
 .shop__status {
     margin: 0 0 16px 0;
     font-size: 0.9rem;

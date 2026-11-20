@@ -19,6 +19,11 @@ const StreetView = ({
   // idle exit with a 2-frame `hidden` grace for exactly that reason.
   idle = false,
   slowEnter = false,
+  // Blink round: blur the frame between the countdown and the guess (eased,
+  // with a slight zoom that also hides the blur's soft edges). Input is off
+  // while blurred so a blind pan cannot move the pano.
+  blink = false,
+  blurred = false,
   refreshKey = 0,
   onLoad
 }) => {
@@ -99,7 +104,12 @@ const StreetView = ({
         width: "100vw",
         height: "calc(100vh + 300px)",
         zIndex: 100,
-        transform: "translateY(-285px)",
+        transform: blink && blurred ? "translateY(-285px) scale(1.08)" : "translateY(-285px)",
+        filter: blink ? (blurred ? "blur(28px) brightness(0.6)" : "none") : undefined,
+        // Reveal snaps open, re-blur eases (see customStreetView.js); keeps
+        // #streetview's opacity fade, which an inline transition replaces.
+        transition: blink ? (blurred ? "opacity 0.2s ease-out, filter 220ms ease-out, transform 220ms ease-out" : "opacity 0.2s ease-out") : undefined,
+        pointerEvents: blink && blurred ? "none" : undefined,
         border: "none",
         backgroundColor: "#1a1a2e", // Dark background to prevent white flash during loading
       }}

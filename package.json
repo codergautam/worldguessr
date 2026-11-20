@@ -38,6 +38,7 @@
   ],
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
+    "@mapfinder/quiz-kit": "file:vendor/mapfinder-quiz-kit-0.1.0.tgz",
     "@osm_borders/maritime_10m": "^1.1.0",
     "@react-oauth/google": "^0.12.1",
     "@smastrom/react-rating": "^1.5.0",

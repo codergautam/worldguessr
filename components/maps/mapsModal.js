@@ -18,7 +18,7 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, onExitComplete, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, hideCountryGuessrModes }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, onExitComplete, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, allowBlink, hideCountryGuessrModes }) {
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -28,13 +28,14 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     // selecting a country/continent guessr map flips `screen` mid-animation,
     // which collapses the .map-options row and shifts the modal layout while
     // it's still fading out.
-    const frozenOptionsRef = useRef({ showOptions, showTimerOption, showAllCountriesOption });
+    const frozenOptionsRef = useRef({ showOptions, showTimerOption, showAllCountriesOption, allowBlink });
     if (!mapModalClosing) {
-        frozenOptionsRef.current = { showOptions, showTimerOption, showAllCountriesOption };
+        frozenOptionsRef.current = { showOptions, showTimerOption, showAllCountriesOption, allowBlink };
     }
     const effectiveShowOptions = mapModalClosing ? frozenOptionsRef.current.showOptions : showOptions;
     const effectiveShowTimerOption = mapModalClosing ? frozenOptionsRef.current.showTimerOption : showTimerOption;
     const effectiveShowAllCountriesOption = mapModalClosing ? frozenOptionsRef.current.showAllCountriesOption : showAllCountriesOption;
+    const effectiveAllowBlink = mapModalClosing ? frozenOptionsRef.current.allowBlink : allowBlink;
 
     useEffect(() => {
         if (!mapModalClosing) {
@@ -96,6 +97,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                     <MapView
                         showOptions={effectiveShowOptions}
                         showTimerOption={effectiveShowTimerOption}
+                        allowBlink={effectiveAllowBlink}
                         showAllCountriesOption={effectiveShowAllCountriesOption}
                         hideCountryGuessrModes={hideCountryGuessrModes}
                         chosenMap={chosenMap}

@@ -27,6 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance, getPlayerColor, pickBestTeamGuessIds } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+import { GAME_HUD_MAX_FONT_MULT } from '../../src/styles/webType';
 import { gameUiScale, isTabletSize, useGameUiScale } from '../../src/styles/responsive';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
@@ -47,6 +48,8 @@ import EmbeddedMap from '../../src/components/game/EmbeddedMap';
 import GameSurface, { GameSurfaceHandle, getExpandedMapHeight, useMapRowHudClearance } from '../../src/components/game/GameSurface';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
+import { isBlinkTimer } from '@shared/game/blink';
+import useBlinkPhase from '../../src/hooks/useBlinkPhase';
 import { isOfficialMapSlug, orderByFreshness } from '@shared/locations/repeatGuard';
 import { hydrateSeenLocs, markSeenLoc, seenLocs } from '../../src/services/seenLocations';
 import { clearPool, fillPool, takeRounds, type PoolMeta } from '../../src/services/locationPool';
@@ -729,6 +732,7 @@ export default function GameScreen() {
   );
   const svNm = svMode !== 'moving';
   const svNpz = svMode === 'nmpz';
+  const [spPanoLoaded, setSpPanoLoaded] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration, setTimerDuration] = useState(30);
   const [mapModalVisible, setMapModalVisible] = useState(false);
@@ -752,6 +756,33 @@ export default function GameScreen() {
     timePerRound: time ? parseInt(time, 10) : DEFAULT_GAME_OPTIONS.timePerRound,
     maxDist: DEFAULT_GAME_OPTIONS.maxDist,
     extent: null,
+  });
+
+  // Blink round (singleplayer pin AND country/continent rounds, round timer
+  // <= 5s; web parity): 3-2-1 over the blurred pano, the pano shows for the
+  // timer's seconds, then blurred until the guess. The guess is untimed; the
+  // pill shows no clock (so a country pick can never be auto-missed).
+  const spBlink = isSingleplayer && timerEnabled && isBlinkTimer(timerDuration);
+  // Country guesser runs on its own round state (useCountryGuesserGame), not
+  // gameState — mirror the activeRound/activeShowingResult split used below.
+  // The key carries the location (web parity) so a restart at round 1 still
+  // replays the countdown instead of inheriting the last game's elapsed time.
+  // Classic mirrors currentLocation (declared further down — same index).
+  // The round number alone is not enough: picking a new map on round 1 resets
+  // the game to round 1, and an unchanged key would carry the old elapsed time
+  // over (no countdown, no reveal on the new pano).
+  const blinkLoc = isCountryGuesserMode
+    ? countryGame.currentLoc
+    : gameState.locations[Math.max(0, Math.min(gameState.currentRound, gameState.totalRounds) - 1)];
+  const blink = useBlinkPhase({
+    enabled: spBlink,
+    revealMs: timerDuration * 1000,
+    ready: spPanoLoaded && !(isCountryGuesserMode ? countryGame.loading : isLoading),
+    roundKey: isCountryGuesserMode
+      ? `${countryGuesserSubMode}-${countryGame.round}:${blinkLoc?.lat}:${blinkLoc?.long}`
+      : `${currentMapSlug}-${gameState.currentRound}:${blinkLoc?.lat}:${blinkLoc?.long}`,
+    paused: mapModalVisible,
+    showAnswer: isCountryGuesserMode ? countryGame.showResult : gameState.isShowingResult,
   });
 
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -1201,7 +1232,7 @@ export default function GameScreen() {
   // Keep the collapse arrow clear of the top-right round/score card on short
   // screens (landscape phones) — shared with GameSurface, see the hook's doc
   // comment there. Duels never mount the top-right card, so this stays 0 there.
-  const { onRootLayout, onHudLayout, rowClearRight } = useMapRowHudClearance(
+  const { onRootLayout, onHudLayout, rowClearRight, rowDrop } = useMapRowHudClearance(
     expandedMapHeight,
     isTablet ? sc(48) : 48,
   );
@@ -2483,6 +2514,8 @@ export default function GameScreen() {
           round={gameState.currentRound}
           nm={svNm}
           npz={svNpz}
+          blink={blink}
+          onPanoLoadedChange={setSpPanoLoaded}
           guessPosition={guessPosition}
           onGuessPositionChange={setGuessPosition}
           onSubmitPin={handleSubmitGuess}
@@ -2539,7 +2572,11 @@ export default function GameScreen() {
                 onPress={() => setMapModalVisible(true)}
               >
                 <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
-                <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
+                <Text
+                  style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]}
+                  maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
+                  numberOfLines={1}
+                >
                   {currentMapName}{svMode === 'nmpz' ? ', NMPZ' : svMode === 'noMove' ? `, ${t('noMove')}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
@@ -2552,7 +2589,8 @@ export default function GameScreen() {
                 currentRound={activeRound}
                 totalRounds={activeTotalRounds}
                 totalScore={activeTotalScore}
-                showTimer={timerEnabled && !activeShowingResult}
+                // Blink round: the timer value was the reveal length, no clock.
+                showTimer={timerEnabled && !activeShowingResult && !spBlink}
                 hasGuess={!!guessPosition}
               />
             </Animated.View>
@@ -2571,6 +2609,8 @@ export default function GameScreen() {
           onTimerToggle={setTimerEnabled}
           timerDuration={timerDuration}
           onTimerDurationChange={setTimerDuration}
+          // Singleplayer: classic and country/continent all run blink rounds.
+          allowBlink
           showSingleplayerModes
           currentSingleplayerMode={
             countryGuesserSubMode === 'continent'
@@ -2980,7 +3020,7 @@ export default function GameScreen() {
           <Animated.View
             style={[
               styles.mapButtonsRow,
-              { bottom: expandedMapHeight + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              { bottom: expandedMapHeight + 8 - rowDrop, paddingHorizontal: Math.max(insets.right, spacing.md) },
               rowClearRight > 0 && { paddingRight: rowClearRight },
               {
                 opacity: mapBtnsAnim,
@@ -3057,6 +3097,7 @@ export default function GameScreen() {
                         !showActive && !locked && { opacity: 0.5 },
                         locked && { opacity: 0.85 },
                       ]}
+                      maxFontSizeMultiplier={GAME_HUD_MAX_FONT_MULT}
                       numberOfLines={1}
                     >
                       {buttonText}
@@ -3553,6 +3594,8 @@ const styles = StyleSheet.create({
   },
   guessSubmitBtn: {
     flex: 1,
+    // flex:1 alone lets the arrow and right padding squeeze Guess to zero width.
+    minWidth: 96,
     height: 48,
     borderRadius: 14,
     overflow: 'hidden',

@@ -89,3 +89,24 @@ export function smallTextSize(width: number, height: number): number {
  * larger text, and the home layout stays collision-free.
  */
 export const HOME_MAX_FONT_MULT = 1.2;
+
+/**
+ * Same idea for the in-game HUD (round card, map selector, Hint/Guess row):
+ * at full accessibility text sizes the uncapped round card grew to ~60% of a
+ * portrait screen and squeezed the Guess button to zero width.
+ */
+export const GAME_HUD_MAX_FONT_MULT = 1.3;
+
+/**
+ * Blink round center text (styles/blink.css). Web sizes both in vmin, so the
+ * 3-2-1 is 96px on a phone and grows to 180px on a tablet; a fixed RN size
+ * drifted from mobile web on every screen that isn't one particular phone.
+ */
+/** `.blink-center__digit`: clamp(96px, 22vmin, 180px). */
+export function blinkDigitSize(width: number, height: number): number {
+  return Math.round(cssClamp(96, 0.22 * Math.min(width, height), 180));
+}
+/** `.blink-center__prompt`: clamp(26px, 6vmin, 48px). */
+export function blinkPromptSize(width: number, height: number): number {
+  return Math.round(cssClamp(26, 0.06 * Math.min(width, height), 48));
+}

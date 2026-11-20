@@ -187,7 +187,9 @@ export default class Player {
       league: getLeague(newElo)
         });
   }
-  async verify(json) {
+  // onSkipRejoin(player, game): the caller's leave rules (the ranked dodge
+  // penalty) for a client that leaves its game through this verify.
+  async verify(json, onSkipRejoin) {
     // Track client platform (max 20 chars, default "empty")
     if (typeof json.platform === 'string' && json.platform.length <= 20) {
       this.platform = json.platform;
@@ -329,6 +331,8 @@ export default class Player {
         const game = games.get(dcPlayer.gameId);
         if (json.skipRejoin) {
           // Leave old game instead of rejoining (e.g. joining via party link)
+          // The same price as the Leave button: this exit must not be free.
+          onSkipRejoin?.(dcPlayer, game);
           game.removePlayer(dcPlayer, true);
         } else if ((game.teamGame || game.is2v2Lobby || game.teamDuel) && !this.teamSupport) {
           // A pre-team client reconnecting into a team surface it can't render
@@ -347,18 +351,23 @@ export default class Player {
         } else {
           // reconnect to game
           game.rejoinGame(dcPlayer);
-          dcPlayer.send({
+          // rejoinGame removes the player from a public game that ended.
+          if (dcPlayer.gameId) dcPlayer.send({
             type: 'toast',
             toastType: 'success',
             key: 'reconnected',
           });
         }
-      } else if (dcPlayer.gameId) {
+      } else {
         // The game died while they were away (lobby dissolved into a match,
         // pregame cancel, purge race). This reused Player object is about to
         // become the live session — a dangling id here rides through every
         // future refresh and silently gates all queue/create entries.
-        dcPlayer.gameId = null;
+        if (dcPlayer.gameId) dcPlayer.gameId = null;
+        // No game to return to. A client that kept its game through the
+        // drop (the app on its results screen) would otherwise sit in a
+        // party that is gone; clients that are not in a game ignore this.
+        dcPlayer.send({ type: 'gameShutdown' });
       }
 
       // destroy this player
@@ -408,6 +417,8 @@ export default class Player {
             type: 'cnt',
             c: getActivePlayerCount()
           })
+          // A new session has no game (see handleReconnect's dead-game branch).
+          this.send({ type: 'gameShutdown' });
         }
 
         } else {
@@ -417,6 +428,10 @@ export default class Player {
         if(json.secret) {
           console.log('validating secret', json.secret);
         valid =  await validateSecret(json.secret, User);
+        // The socket closed while the lookup ran (an unverified player is
+        // deleted on close). A late result must not go on to kick the
+        // account's newer, live socket below.
+        if (players.get(this.id) !== this) return;
         }
         if (valid) {
 
@@ -512,6 +527,8 @@ export default class Player {
             type: 'cnt',
             c: getActivePlayerCount()
           })
+          // Not on a repeated verify from a socket that is in a game.
+          if (!this.gameId) this.send({ type: 'gameShutdown' });
 
           // Always update lastLogin on verify (lastSeen too — the disconnect
           // handler keeps it fresh afterwards, this covers crash-without-close)

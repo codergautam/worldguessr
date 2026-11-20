@@ -9,6 +9,10 @@ import 'react-responsive-modal/styles.css';
 import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
+import useBlinkPhase from "@/components/blink/useBlinkPhase";
+import BlinkCountdown from "@/components/blink/BlinkCountdown";
+import { isBlinkTimer, blinkCovers, timerForMode } from "@/shared/game/blink";
+import usePlaygamaPause from "@/components/usePlaygamaPause";
 import BannerText from "@/components/bannerText";
 import shuffle from "@/utils/shuffle";
 // findLatLongRandom is dynamically imported when needed to avoid loading Google Maps API on page load
@@ -1020,6 +1024,29 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     };
     const [showDiscordModal, setShowDiscordModal] = useState(false);
     const [singlePlayerRound, setSinglePlayerRound] = useState(null);
+    // Blink round (classic singleplayer and country/continent guesser, round
+    // timer <= 5s): 3-2-1 over the blurred pano, the pano shows for the
+    // timer's seconds, then blurred until the guess. The guess itself is
+    // untimed; GameUI skips its round clock. The Street View mode is whatever
+    // the player picked (moving by default). Onboarding never blinks.
+    const allowBlinkTimer = screen === "singleplayer" || screen === "countryGuesser";
+    const spBlink = allowBlinkTimer && isBlinkTimer(gameOptions?.timePerRound);
+    const playgamaPaused = usePlaygamaPause();
+    const blink = useBlinkPhase({
+        enabled: !!(spBlink && singlePlayerRound && !singlePlayerRound.done),
+        revealMs: (gameOptions?.timePerRound || 0) * 1000,
+        ready: !loading && !!latLong,
+        roundKey: `${singlePlayerRound?.round}:${latLong?.lat}:${latLong?.long}`,
+        paused: playgamaPaused || gameOptionsModalShown || mapModal,
+        showAnswer,
+    });
+    // gameOptions is shared with onboarding, which has no blink rounds: there a
+    // blink value (0.3-5s) would be a real round clock that auto-misses every
+    // round, so it runs the regular minimum. The stored value is untouched.
+    const modeGameOptions = useMemo(() => {
+        const secs = timerForMode(gameOptions?.timePerRound, allowBlinkTimer);
+        return secs === gameOptions?.timePerRound ? gameOptions : { ...gameOptions, timePerRound: secs };
+    }, [gameOptions, allowBlinkTimer]);
     const [partyModalShown, setPartyModalShown] = useState(false);
     const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
     const [connectionErrorModalShown, setConnectionErrorModalShown] = useState(false);
@@ -2246,7 +2273,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
     // multiplayer stuff — connection lives in MultiplayerProvider (mounted in
     // _app.js) so it survives Next.js route changes and can't be opened twice.
-    const { ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, ensureConnected } = useMultiplayer();
+    const { ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, ensureConnected, sendMessage, rejoinPending, socketOpen, leaveHeldGame } = useMultiplayer();
+    // A guess made while the socket was down: { code, place }. It goes out
+    // when the rejoin lands in the same round.
+    const pendingGuessRef = useRef(null);
     // Fresh handle for long-lived closures: an invite toast lives ~10s, and
     // its accept handler must judge "am I in a live game?" against the state
     // at CLICK time, not at toast creation (a match can start in between).
@@ -2498,7 +2528,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     useEffect(() => {
         if (!ws) return;
         timeSyncRef.current = { bestRtt: Infinity, lastSyncAt: 0, lastServerNow: 0 };
-        setTimeOffset(0);
+        // A game held through a drop keeps its clock until the new socket's
+        // first sync; zero here would make its countdown jump.
+        if (!mpStateRef.current?.inGame) setTimeOffset(0);
         sendTimeSync();
         const interval = setInterval(() => {
             sendTimeSync();
@@ -2863,7 +2895,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
     useEffect(() => {
         // Wait for verified (not just connected) to ensure verify message was received by server
-        if (multiplayerState?.verified && inCrazyGames) {
+        // Not while a game is on screen: a reconnect that kept the game must
+        // not go home and join the invite again.
+        if (multiplayerState?.verified && inCrazyGames && !multiplayerState?.inGame) {
 
             // check if joined via invite link
             try {
@@ -3058,7 +3092,28 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 // Translated toast (the provider has no `text`).
                 toast(data.message === 'uac' ? text('userAlreadyConnected') : data.message, { type: 'error' });
 
+            } else if (data.type === "rejoinFailed") {
+                // From the provider, not the server: the socket is back and
+                // the game we dropped out of is not.
+                // `lost`: no socket came back in time (it still may, and the
+                // server may still hold the seat).
+                if (data.lost) {
+                    setMultiplayerError(true);
+                    setLoading(false);
+                }
+                pendingGuessRef.current = null;
+                toast.info(text(data.lost ? "connectionLostRecov" : "rejoinFailed"));
+                if (screenRef.current === "multiplayer") setScreen("home");
+
             } else if (data.type === "game") {
+                // A guess made during a drop goes out now, if this is the
+                // same round and it is still open.
+                const waiting = pendingGuessRef.current;
+                if (waiting) {
+                    pendingGuessRef.current = null;
+                    if (!data.rejoinFresh && data.state === "guess" && data.code === waiting.code
+                        && data.curRound === waiting.place.round) sendMessage(waiting.place);
+                }
                 // A match (or private game) started — we're no longer waiting on a
                 // queue ack, so retire the watchdog.
                 clearQueueConfirmWatchdog();
@@ -3107,7 +3162,19 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     return;
                 }
 
+                // A held game that moved on while we were away (the provider
+                // tags it): start from nothing, as a rejoin after a full
+                // teardown did.
+                if (data.rejoinFresh) {
+                    mpPanoRoundRef.current = null;
+                    setMpPanoLoadedRound(null);
+                    setPanoLocation(null);
+                    setLatLong(null);
+                    setPinPoint(null);
+                }
+
                 setMultiplayerState((prev) => {
+                    const prevGd = data.rejoinFresh ? null : prev.gameData;
                     setGameOptions((prev) => ({
                         ...prev,
                         nm: data.nm,
@@ -3115,17 +3182,17 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         showRoadName: data.showRoadName
                     }))
 
-                    const incomingRoundLoc = (data.locations ?? prev?.gameData?.locations)?.[data.curRound - 1];
+                    const incomingRoundLoc = (data.locations ?? prevGd?.locations)?.[data.curRound - 1];
                     const needsRejoinGuessLocation = !!(
-                        prev?.gameData?.state === "guess" &&
+                        prevGd?.state === "guess" &&
                         data.state === "guess" &&
-                        !prev?.gameData?.locations?.[data.curRound - 1] &&
+                        !prevGd?.locations?.[data.curRound - 1] &&
                         incomingRoundLoc
                     );
 
                     // A mode without a panorama renders its own screen instead
                     // of GameUI, so nothing is pointed and no cover is raised.
-                    const noPano = !usesPanorama(data.mode ?? prev?.gameData?.mode);
+                    const noPano = !usesPanorama(data.mode ?? prevGd?.mode);
 
                     // Two DISTINCT questions about the between-rounds preload,
                     // and conflating them was the "white flash at round start"
@@ -3156,7 +3223,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     // The old getready-only test skipped setLoading + the pano
                     // swap on that path — no cover, no location, a stale pano
                     // unhiding the instant the waiting term dropped.
-                    if (((!prev.gameData || (prev?.gameData?.state !== "guess")) && data.state === "guess") || needsRejoinGuessLocation) {
+                    if (((!prevGd || (prevGd?.state !== "guess")) && data.state === "guess") || needsRejoinGuessLocation) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         if (!panoPreloadedForThisRound && !noPano) setLoading(true)
@@ -3184,10 +3251,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     }
 
                     // Rejoin — restore latLong and pinPoint from game state
-                    if (!prev.gameData && data.state === "getready" && data.locations && data.curRound > 1) {
+                    if (!prevGd && data.state === "getready" && data.locations && data.curRound > 1) {
                         setLatLong(data.locations[data.curRound - 2])
                     }
-                    if ((!prev.gameData || needsRejoinGuessLocation) && data.players) {
+                    if ((!prevGd || needsRejoinGuessLocation) && data.players) {
                         const me = data.players.find(p => p.id === data.myId);
                         if (me?.guess) {
                             import('leaflet').then(L => {
@@ -3207,9 +3274,10 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         placementPending: false,
                         inGame: true,
                         gameData: {
-                            ...prev.gameData,
+                            ...prevGd,
                             ...data,
-                            type: undefined
+                            type: undefined,
+                            rejoinFresh: undefined
                         },
                         // A joiner's 'join' intent is served once the game
                         // arrives; creators keep 'party'/'2v2' for lobby
@@ -3449,6 +3517,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     };
                 });
             } else if (data.type === "gameShutdown") {
+                pendingGuessRef.current = null;
                 // gameShutdown only needs to force-reset the client when the
                 // user is still in a game client-side (e.g. party host left
                 // mid-round — the server is telling them the game is gone).
@@ -3480,6 +3549,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     return;
                 }
 
+                if (data.afterDrop) toast.info(text("rejoinFailed"));
                 setScreen("home") // location + loading teardown: home sweeper
                 setMultiplayerState((prev) => ({
                     ...initialMultiplayerState,
@@ -3759,7 +3829,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     useEffect(() => { mpStateRef.current = multiplayerState; }, [multiplayerState]);
     const prevWsForCloseRef = useRef(null);
     useEffect(() => {
-        if (prevWsForCloseRef.current && !ws) {
+        // A drop that keeps the game on screen (the provider's hold) is not a
+        // teardown; "rejoinFailed" does this work if the hold gives up.
+        if (prevWsForCloseRef.current && !ws && !multiplayerState?.inGame) {
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true);
                 setLoading(false);
@@ -3808,7 +3880,6 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
         // where pinPoint from a previous render (or even previous round) could be sent
         const latestPinPoint = pinPointRef.current;
         if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !latestPinPoint) return;
-
         // Prevent duplicate sends (e.g. space bar spam) — check optimistic final flag
         const me = multiplayerState.gameData.players.find(p => p.id === multiplayerState.gameData.myId);
         if (me?.final) return;
@@ -3821,7 +3892,15 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             me.latLong = pinpointLatLong;
         }
 
-        ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound }))
+        const place = { type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound };
+        // No usable socket (a drop the game screen is held through, or its
+        // rejoin is not settled yet): the server would not take the guess
+        // now. The `game` handler sends it if the same round is still open.
+        if (!ws || !multiplayerState.connected || rejoinPending()) {
+            pendingGuessRef.current = { code: multiplayerState.gameData?.code, place };
+            return;
+        }
+        ws.send(JSON.stringify(place))
     }
 
     function sendInvite(id) {
@@ -4036,6 +4115,15 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
     function backBtnPressed(queueNextGame = false, nextGameType, skipConfirm = false) {
         // Mode-screen units handle Back on their own screens.
         if (modeScreens.some((m) => m.handleBack())) return;
+        // No socket (a drop the game screen is held through). The player can
+        // still leave: the next verify tells the server to drop the seat.
+        // Two cases wait for the socket instead. A host in a live match:
+        // Back there ends the match and keeps the party, and leaving would
+        // disband it. And a socket whose verify is already out: the server's
+        // replay would bring the game back.
+        const heldLeave = !!multiplayerState?.inGame && !ws;
+        if (heldLeave && multiplayerState.gameData?.host && multiplayerState.gameData?.state !== "waiting") return;
+        if (multiplayerState?.inGame && socketOpen() && rejoinPending()) return;
         // EVERY public matchmade duel end-screen exit goes under the cover
         // mask, not just team2v2's: the 1v1 in-card Home / Play Again used to
         // run the raw single-commit teardown, which is exactly the laggy,
@@ -4142,9 +4230,14 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
             if (!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
                 const prevState = multiplayerState?.gameData?.state;
 
-                ws.send(JSON.stringify({
-                    type: 'leaveGame'
-                }))
+                pendingGuessRef.current = null;
+                if (heldLeave) {
+                    leaveHeldGame();
+                } else {
+                    ws.send(JSON.stringify({
+                        type: 'leaveGame'
+                    }))
+                }
 
                 if (inCrazyGames) {
                     try {
@@ -4176,8 +4269,13 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 // out of a played game.
                 setMultiplayerState((prev) => ({
                     ...initialMultiplayerState,
-                    connected: true,
-                    nextGameQueued: queueNextGame === true,
+                    // a held leave has no socket: the connect loop's fields stay
+                    ...(heldLeave
+                        ? { connected: prev.connected, connecting: prev.connecting, maxRetries: prev.maxRetries, currentRetry: prev.currentRetry }
+                        : { connected: true }),
+                    // no Play Again without a socket: the queue request would
+                    // go out before the server has verified the new one
+                    nextGameQueued: !heldLeave && queueNextGame === true,
                     nextGameType,
                     playerCount: prev.playerCount,
                     guestName: prev.guestName,
@@ -5369,6 +5467,9 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 <ShopModal
                     session={session}
                     setSession={setSession}
+                    // "Subscribe on YouTube for Stamps": the website and
+                    // CrazyGames only, never another portal or the app's web view.
+                    youtubeOffer={!isApp && !inCoolMathGames && !inGameDistribution && !inPoki && !inSixX && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
                     coveredEntry={shopModalCoveredEntry}
                     onReady={shopModalCoveredEntry ? completeShopHandoff : undefined}
                     onClose={() => {
@@ -5499,6 +5600,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         allowMove={chinaCanMove}
                         npz={gameOptions?.npz}
                         showAnswer={showAnswer}
+                        blink={!!blink}
+                        blurred={blinkCovers(blink)}
                         slowEnter={duelPanoEnter}
                         /* LOAD-BEARING: `loading` must stay a hidden term. Every
                            path that changes the load-effect deps in the same
@@ -5587,6 +5690,8 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     nm={screen === "daily" ? false : gameOptions?.nm}
                     npz={screen === "daily" ? false : gameOptions?.npz}
                     showAnswer={showAnswer}
+                    blink={!!blink}
+                    blurred={blinkCovers(blink)}
                     lat={panoSource?.lat}
                     long={panoSource?.long}
                     panoId={panoSource?.panoId}
@@ -5667,6 +5772,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
 
                 {/* No "Loading..." under the welcome overlay's blur; the
                     background cover above still hides the unloaded pano. */}
+                <BlinkCountdown blink={blink} hasGuess={!!pinPoint} />
                 <BannerText text={`${text("loading")}...`} shown={(loading || newUserBooting) && !(welcomeOverlayShown && screen === "onboarding")} showCompass={true} />
 
 
@@ -5885,7 +5991,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                 {inSixX && screen === 'home' && onboardingCompleted === true && (
                     <PlaygamaBanner position="bottom" />
                 )}
-                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (screen === 'home' && onboardingCompleted !== true) || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || screen === 'quiz' || screen === 'quizzes' || (screen === 'home' && onboardingCompleted !== true) || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 
@@ -6322,6 +6428,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                     showAllCountriesOption={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser"))}
                     showOptions={screen === "singleplayer" || screen === "countryGuesser"}
                     showTimerOption={screen === "singleplayer" || screen === "countryGuesser"}
+                    allowBlink={allowBlinkTimer}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
                 {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} isApp={isApp} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} multiplayerChatEnabled={multiplayerChatEnabled} setMultiplayerChatEnabled={(v) => { setMultiplayerChatEnabled(v); try { gameStorage.setItem('multiplayerChatEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} session={session} setSession={setSession} ws={ws} onOpenAbout={showAboutPanel ? () => setAboutOpen(true) : undefined} />}
@@ -6391,7 +6498,7 @@ export default function Home({ initialScreen, dailyBootstrap, initialLocation = 
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+blink={blink} singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "countryGuesser" && <div className="home__singleplayer">
@@ -6400,7 +6507,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+blink={blink} singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={modeGameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {/* Mounts under the welcome overlay right away: the round-1
@@ -6412,7 +6519,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         welcomeOverlayShown={welcomeOverlayShown}
-                        inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        inCrazyGames={inCrazyGames} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={modeGameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed &&

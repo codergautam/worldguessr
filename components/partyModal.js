@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { FaMinus, FaPlus, FaMap, FaCheck } from "react-icons/fa";
+import { FaMinus, FaPlus, FaChevronRight } from "react-icons/fa";
 import { FaUserGroup } from "react-icons/fa6";
 import { useTranslation } from "./useTranslations";
 import Modal from "react-responsive-modal";
 import MapsModal from "./maps/mapsModal";
-import { getMode, REGIONS } from "../shared/modes/catalog.js";
+import { getMode, REGIONS, QUIZ_PARTIES } from "../shared/modes/catalog.js";
 import { quizOf, QUIZ_IDS, MODE_LABEL_KEYS } from "./modes/quizClient";
 import { continentKey } from "./utils/continentLocale";
 
@@ -64,8 +64,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
             // shell) the last saved createOptions stand in.
             {
                 const seed = multiplayerState?.gameData ?? multiplayerState?.createOptions;
-                setLocalMode(seed?.mode ?? 'classic');
-                setLocalRegion(seed?.region ?? 'all');
+                // Quiz parties are off for now: every party is Street View.
+                setLocalMode(QUIZ_PARTIES ? seed?.mode ?? 'classic' : 'classic');
+                setLocalRegion(QUIZ_PARTIES ? seed?.region ?? 'all' : 'all');
                 // A timed quiz with the timer saved off runs at its default
                 // (effectiveTimePerRound), so show that instead of a stale value.
                 if (time === 60 * 60 * 24 && getMode(seed?.mode)?.timerRequired) {
@@ -127,10 +128,35 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
         commitRounds(current + delta);
     };
     
+    // One step below 10 seconds is "Off" (no timer); one step up from Off is 10.
     const adjustTime = (delta) => {
+        if (isTimerDisabled) {
+            if (delta > 0) commitTime(10);
+            return;
+        }
         const current = parseInt(localTime) || 30;
+        if (delta < 0 && current <= 10 && !quiz?.timerRequired) {
+            setMultiplayerState(prev => ({
+                ...prev,
+                createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
+            }));
+            return;
+        }
         commitTime(current + delta);
     };
+
+    // A yes/no option as the same segment every other row uses.
+    const onOff = (value, set, label) => (
+        <div className="party-lobby__seg" role="group" aria-label={label}>
+            {[true, false].map((v) => (
+                <button
+                    key={String(v)}
+                    className={`party-lobby__seg-btn ${value === v ? 'party-lobby__seg-btn--active' : ''}`}
+                    onClick={() => set(v)}
+                >{text(v ? 'optOn' : 'optOff')}</button>
+            ))}
+        </div>
+    );
 
     // Same untouched-default trick as the team toggle: only a time the host
     // never edited follows the new game's default (Street View back to 30s).
@@ -238,48 +264,34 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 }
             }}
         >
+            {/* One list of rows: label left, control right. Three controls
+                only (segment, stepper, the map row). Closing in any way
+                saves, so there is one button. */}
             <div className="party-modal">
-                {/* Header */}
-                <div className="party-modal__header">
-                    <h2 className="party-modal__title">{text("editOptions")}</h2>
-                    {/* Same commit as the footer Save: on phones the footer
-                        starts below the fold, so keep an always-visible way
-                        to confirm-and-close in the header. */}
-                    <button
-                        className="party-modal__header-save"
-                        disabled={!isValidRoundTime}
-                        onClick={commitAndClose}
-                        aria-label={text("save")}
-                    >
-                        <FaCheck />
-                    </button>
-                </div>
-                
-                {/* Content */}
-                <div className="party-modal__content">
-                    {/* Game: Street View or a quiz. The team toggle below
-                        already says "Classic", so Street View keeps its own
-                        name here. */}
-                    <div className="party-modal__setting">
-                        <label className="party-modal__label">{text("quizGame")}</label>
-                        <div className="party-lobby__seg party-lobby__seg--block party-modal__game-seg" role="group" aria-label={text("quizGame")}>
-                            {['classic', ...QUIZ_IDS].map((id) => (
-                                <button
-                                    key={id}
-                                    className={`party-lobby__seg-btn ${localMode === id ? 'party-lobby__seg-btn--active' : ''}`}
-                                    onClick={() => selectMode(id)}
-                                >{text(id === 'classic' ? 'quizStreetView' : MODE_LABEL_KEYS[id])}</button>
-                            ))}
-                        </div>
-                    </div>
+                <h2 className="party-modal__title">{text("editOptions")}</h2>
 
-                    {/* Game Mode: Classic (FFA) vs Team Duel, plus the team
-                        sub-options. Buffered like everything else here and
-                        committed on Save/close. Reuses the global party-lobby
-                        segmented/checkbox/hint styles. */}
-                    <div className="party-modal__setting">
-                        <label className="party-modal__label">{text("gameMode")}</label>
-                        <div className="party-lobby__seg party-lobby__seg--block" role="group" aria-label={text("gameMode")}>
+                <div className="party-modal__rows">
+                    {/* Game: Street View or a quiz (off while QUIZ_PARTIES is). */}
+                    {QUIZ_PARTIES && (
+                        <div className="party-modal__row party-modal__row--stack">
+                            <span className="party-modal__label">{text("quizGame")}</span>
+                            <div className="party-lobby__seg party-lobby__seg--block party-modal__game-seg" role="group" aria-label={text("quizGame")}>
+                                {['classic', ...QUIZ_IDS.filter((id) => !quizOf(id)?.race)].map((id) => (
+                                    <button
+                                        key={id}
+                                        className={`party-lobby__seg-btn ${localMode === id ? 'party-lobby__seg-btn--active' : ''}`}
+                                        onClick={() => selectMode(id)}
+                                    >{text(id === 'classic' ? 'quizStreetView' : MODE_LABEL_KEYS[id])}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Classic (FFA) or Team Duel, plus the team options.
+                        Buffered and committed on close. */}
+                    <div className="party-modal__row">
+                        <span className="party-modal__label">{text("gameMode")}</span>
+                        <div className="party-lobby__seg" role="group" aria-label={text("gameMode")}>
                             <button
                                 className={`party-lobby__seg-btn ${!localTeamGame ? 'party-lobby__seg-btn--active' : ''}`}
                                 onClick={() => {
@@ -293,21 +305,18 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 onClick={() => {
                                     setLocalTeamGame(true);
                                     // Team duels default to 60s rounds (teams need coordination
-                                    // time) — only bump the untouched 30s classic default.
+                                    // time): only bump the untouched 30s classic default.
                                     if (!isTimerDisabled && parseInt(localTime) === 30) setLocalTime('60');
                                 }}
                             ><FaUserGroup /> {text("teamDuel")}</button>
                         </div>
-                        <p className="party-lobby__hint">
-                            {localTeamGame ? text("teamDuelModeHint") : text("classicModeHint")}
-                        </p>
                     </div>
 
                     {localTeamGame && (
                         <>
-                            <div className="party-modal__setting">
-                                <label className="party-modal__label">{text("scoring")}</label>
-                                <div className="party-lobby__seg party-lobby__seg--block" role="group" aria-label={text("scoring")}>
+                            <div className="party-modal__row">
+                                <span className="party-modal__label">{text("scoring")}</span>
+                                <div className="party-lobby__seg" role="group" aria-label={text("scoring")}>
                                     {['closest', 'average'].map((mode) => (
                                         <button
                                             key={mode}
@@ -316,28 +325,18 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                         >{text(mode === 'average' ? 'scoringAverage' : 'scoringClosest')}</button>
                                     ))}
                                 </div>
-                                <p className="party-lobby__hint">
-                                    {text(localScoring === 'average' ? 'scoringAverageHint' : 'scoringClosestHint')}
-                                </p>
                             </div>
-                            <label className="party-lobby__checkbox">
-                                <input
-                                    type="checkbox"
-                                    checked={localAllowPick}
-                                    onChange={() => setLocalAllowPick((v) => !v)}
-                                />
-                                <span>{text("allowTeamPick")}</span>
-                            </label>
+                            <div className="party-modal__row">
+                                <span className="party-modal__label">{text("allowTeamPick")}</span>
+                                {onOff(localAllowPick, setLocalAllowPick, text("allowTeamPick"))}
+                            </div>
                         </>
                     )}
 
-                    <div className="party-modal__divider" />
-
-                    {/* Rounds Setting */}
-                    <div className="party-modal__setting">
-                        <label className="party-modal__label">{text("numOfRounds")}</label>
+                    <div className="party-modal__row">
+                        <span className="party-modal__label">{text("rounds")}</span>
                         <div className="party-modal__stepper">
-                            <button 
+                            <button
                                 className="party-modal__stepper-btn"
                                 onClick={() => adjustRounds(-1)}
                                 disabled={parseInt(localRounds) <= 1}
@@ -350,12 +349,13 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 className="party-modal__stepper-input"
+                                aria-label={text("rounds")}
                                 value={localRounds}
                                 onChange={(e) => setLocalRounds(e.target.value.replace(/[^0-9]/g, ''))}
                                 onBlur={(e) => commitRounds(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && commitRounds(e.target.value)}
                             />
-                            <button 
+                            <button
                                 className="party-modal__stepper-btn"
                                 onClick={() => adjustRounds(1)}
                                 disabled={parseInt(localRounds) >= 20}
@@ -364,126 +364,100 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 <FaPlus />
                             </button>
                         </div>
-                        <span className="party-modal__hint">1-20 rounds</span>
                     </div>
-                    
-                    {/* Timer Toggle */}
-                    {!quiz?.timerRequired && (
-                        <div className="party-modal__setting party-modal__setting--row">
-                            <label className="party-modal__label">{text('disableTimer')}</label>
+
+                    {/* Round time. One step below 10 seconds is "Off" (no
+                        timer); a timed quiz cannot go there. */}
+                    <div className="party-modal__row">
+                        <span className="party-modal__label">{text("timePerRoundSecs")}</span>
+                        <div className="party-modal__stepper">
                             <button
-                                className={`party-modal__toggle ${isTimerDisabled ? 'party-modal__toggle--active' : ''}`}
-                                onClick={() => {
-                                    const newDisabled = !isTimerDisabled;
-                                    if (newDisabled) {
-                                        setMultiplayerState(prev => ({
-                                            ...prev,
-                                            createOptions: { ...prev.createOptions, timePerRound: 60 * 60 * 24 }
-                                        }));
-                                    } else {
-                                        // commitTime also re-syncs localTime — the open-only
-                                        // sync effect no longer does that for us.
-                                        commitTime(localTime);
-                                    }
-                                }}
-                                aria-pressed={isTimerDisabled}
+                                className="party-modal__stepper-btn"
+                                onClick={() => adjustTime(-10)}
+                                disabled={isTimerDisabled || (!!quiz?.timerRequired && parseInt(localTime) <= 10)}
+                                aria-label="Decrease time"
                             >
-                                <span className="party-modal__toggle-track">
-                                    <span className="party-modal__toggle-thumb" />
-                                </span>
+                                <FaMinus />
+                            </button>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                className="party-modal__stepper-input"
+                                aria-label={text("timePerRoundSecs")}
+                                readOnly={isTimerDisabled}
+                                value={isTimerDisabled ? text("commsOff") : localTime}
+                                onChange={(e) => setLocalTime(e.target.value.replace(/[^0-9]/g, ''))}
+                                onBlur={(e) => !isTimerDisabled && commitTime(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && !isTimerDisabled && commitTime(e.target.value)}
+                            />
+                            <button
+                                className="party-modal__stepper-btn"
+                                onClick={() => adjustTime(10)}
+                                disabled={!isTimerDisabled && parseInt(localTime) >= maxTime}
+                                aria-label="Increase time"
+                            >
+                                <FaPlus />
                             </button>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Time Per Round */}
-                    {!isTimerDisabled && (
-                        <div className="party-modal__setting">
-                            <label className="party-modal__label">{text("timePerRoundSecs")}</label>
-                            <div className="party-modal__stepper">
-                                <button 
-                                    className="party-modal__stepper-btn"
-                                    onClick={() => adjustTime(-10)}
-                                    disabled={parseInt(localTime) <= 10}
-                                    aria-label="Decrease time"
-                                >
-                                    <FaMinus />
-                                </button>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    className="party-modal__stepper-input"
-                                    value={localTime}
-                                    onChange={(e) => setLocalTime(e.target.value.replace(/[^0-9]/g, ''))}
-                                    onBlur={(e) => commitTime(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && commitTime(e.target.value)}
-                                />
-                                <button 
-                                    className="party-modal__stepper-btn"
-                                    onClick={() => adjustTime(10)}
-                                    disabled={parseInt(localTime) >= maxTime}
-                                    aria-label="Increase time"
-                                >
-                                    <FaPlus />
-                                </button>
-                            </div>
-                            <span className="party-modal__hint">10-{maxTime} seconds</span>
-                            {!isValidRoundTime && <span style={{ color: '#ff6b6b', fontSize: '0.8rem' }}>{text("timePerRoundError")}</span>}
-                        </div>
-                    )}
-                    
-                    <div className="party-modal__divider" />
-                    
-                    {/* Street view mode dropdown — Moving / No Move / NMPZ
-                        (nm/npz mapping: neither / nm only / both; an npz-only
-                        state is unreachable by design). NMPZ explains its
-                        acronym on hover via title. */}
+                    {/* Street View movement: Moving / No Move / NMPZ (nm/npz
+                        mapping: neither / nm only / both; an npz-only state
+                        is unreachable by design). */}
                     {!quiz && (
-                        <div className="party-modal__setting party-modal__setting--row">
-                            <label className="party-modal__label" htmlFor="partyModeSelect">{text('mode')}</label>
-                            <select
-                                id="partyModeSelect"
-                                className="g2_input party-modal__select"
-                                title={gameOptions.nm && gameOptions.npz ? text('nmpz') : undefined}
-                                value={gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving'}
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' });
-                                }}
-                            >
-                                <option value="moving">{text('moving')}</option>
-                                <option value="noMove">{text('noMove')}</option>
-                                <option value="nmpz" title={text('nmpz')}>NMPZ</option>
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Quiz region: takes the map picker's place for quizzes. */}
-                    {quiz?.supportsRegion && (
-                        <div className="party-modal__setting party-modal__setting--row">
-                            <label className="party-modal__label" htmlFor="partyRegionSelect">{text('quizRegion')}</label>
-                            <select
-                                id="partyRegionSelect"
-                                className="g2_input party-modal__select"
-                                value={localRegion}
-                                onChange={(e) => setLocalRegion(e.target.value)}
-                            >
-                                {REGIONS.map((r) => (
-                                    <option key={r} value={r}>{text(r === 'all' ? 'allCountries' : continentKey(r))}</option>
+                        <div className="party-modal__row">
+                            <span className="party-modal__label">{text('mode')}</span>
+                            <div className="party-lobby__seg" role="group" aria-label={text('mode')}>
+                                {[['moving', text('moving')], ['noMove', text('noMove')], ['nmpz', 'NMPZ']].map(([v, name]) => (
+                                    <button
+                                        key={v}
+                                        title={v === 'nmpz' ? text('nmpz') : undefined}
+                                        className={`party-lobby__seg-btn ${(gameOptions.nm && gameOptions.npz ? 'nmpz' : gameOptions.nm ? 'noMove' : 'moving') === v ? 'party-lobby__seg-btn--active' : ''}`}
+                                        onClick={() => setGameOptions({ ...gameOptions, nm: v !== 'moving', npz: v === 'nmpz' })}
+                                    >{name}</button>
                                 ))}
-                            </select>
+                            </div>
                         </div>
                     )}
 
-                    {/* Comms mode — chat / emotes / off (host-set, chat
-                        default). Disabled channels hide on every client AND
-                        the server drops their raw messages; "off" disables
-                        both booleans. GUEST hosts get emotes or off only: they
-                        can neither send chat nor moderate a chat room, so the
-                        server pins their room chat-free either way. */}
-                    <div className="party-modal__setting">
-                        <label className="party-modal__label">{text('communication')}</label>
-                        <div className="party-lobby__seg party-lobby__seg--block" role="group">
+                    {/* Map (Street View only; quizzes use Region). The whole
+                        row opens the maps modal. */}
+                    {!quiz && (
+                        <button className="party-modal__row party-modal__map" onClick={() => setSelectCountryModalShown(true)}>
+                            <span className="party-modal__label">{text("map")}</span>
+                            <span className="party-modal__map-name">
+                                <span>{multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location || text("allCountries")}</span>
+                                <FaChevronRight aria-hidden="true" />
+                            </span>
+                        </button>
+                    )}
+
+                    {/* Quiz region: takes the map's place for quizzes. */}
+                    {quiz?.supportsRegion && (
+                        <div className="party-modal__row party-modal__row--stack">
+                            <span className="party-modal__label">{text('quizRegion')}</span>
+                            <div className="party-lobby__seg party-lobby__seg--block party-modal__game-seg" role="group" aria-label={text('quizRegion')}>
+                                {REGIONS.map((r) => (
+                                    <button
+                                        key={r}
+                                        className={`party-lobby__seg-btn ${localRegion === r ? 'party-lobby__seg-btn--active' : ''}`}
+                                        onClick={() => setLocalRegion(r)}
+                                    >{text(r === 'all' ? 'allCountries' : continentKey(r))}</button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Comms: chat / emotes / off (host-set, chat default).
+                        Disabled channels hide on every client AND the server
+                        drops their raw messages; "off" disables both booleans.
+                        GUEST hosts get emotes or off only: they can neither
+                        send chat nor moderate a chat room, so the server pins
+                        their room chat-free either way. */}
+                    <div className="party-modal__row">
+                        <span className="party-modal__label">{text('communication')}</span>
+                        <div className="party-lobby__seg" role="group" aria-label={text('communication')}>
                             {(session?.token?.username ? ['chat', 'emotes', 'none'] : ['emotes', 'none']).map((mode) => (
                                 <button
                                     key={mode}
@@ -494,59 +468,25 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                         </div>
                     </div>
 
-                    <div className="party-modal__divider" />
-
-                    {/* Guests off = only signed-in accounts can join. Compact
-                        one-liner (user ruling); the LOCK control lives on the
-                        lobby card next to the game code, not here. */}
-                    <label className="party-lobby__checkbox">
-                        <input
-                            type="checkbox"
-                            checked={localAllowGuests}
-                            onChange={() => setLocalAllowGuests((v) => !v)}
-                        />
-                        <span>{text('allowGuests')}</span>
-                    </label>
-
-                    {/* Map Selection (Street View only; quizzes use Region) */}
-                    {!quiz && (
-                        <>
-                            <div className="party-modal__divider" />
-
-                            <div className="party-modal__setting party-modal__setting--map">
-                                <div className="party-modal__map-info">
-                                    <FaMap className="party-modal__map-icon" />
-                                    <div className="party-modal__map-details">
-                                        <span className="party-modal__map-label">{text("map")}</span>
-                                        <span className="party-modal__map-name">
-                                            {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location || text("allCountries")}
-                                        </span>
-                                    </div>
-                                </div>
-                                <button
-                                    className="party-modal__change-map-btn"
-                                    onClick={() => setSelectCountryModalShown(true)}
-                                >
-                                    {text("change")}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                    {/* Guests off = only signed-in accounts can join. The LOCK
+                        control lives on the lobby card next to the game code. */}
+                    <div className="party-modal__row">
+                        <span className="party-modal__label">{text('allowGuests')}</span>
+                        {onOff(localAllowGuests, setLocalAllowGuests, text('allowGuests'))}
+                    </div>
                 </div>
-                
-                {/* Footer */}
+
                 <div className="party-modal__footer">
                     <button
                         className="party-modal__save-btn"
                         disabled={!isValidRoundTime}
                         onClick={commitAndClose}
                     >
-                        <FaCheck style={{ marginRight: '8px' }} />
                         {text("save")}
                     </button>
                 </div>
             </div>
-            
+
             <style jsx global>{`
                 .party-modal-container {
                     max-width: 480px !important;
@@ -569,347 +509,224 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 }
             `}</style>
             <style jsx>{`
+                /* The game's modal frame: a near-opaque dark panel with the
+                   2px accent frame. No bars, no dividers, no hairlines. */
                 .party-modal {
-                    background: linear-gradient(165deg, #1a2a1a 0%, #0d1a0d 100%);
-                    border-radius: 20px;
-                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    box-shadow: 
-                        0 25px 50px rgba(0, 0, 0, 0.5),
-                        0 0 0 1px rgba(255, 255, 255, 0.05),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                    overflow: hidden;
+                    --pm-bg: #0f170f;
+                    background: var(--pm-bg);
+                    border-radius: 16px;
+                    border: 2px solid var(--primary);
+                    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
                     width: 100%;
                     max-width: 480px;
-                }
-                
-                .party-modal__header {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px 24px;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                    background: rgba(0, 0, 0, 0.2);
-                }
-
-                .party-modal__header-save {
-                    position: absolute;
-                    right: 16px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 38px;
-                    height: 38px;
-                    border: none;
-                    border-radius: 10px;
-                    background: var(--primary);
+                    text-align: start;
                     color: #fff;
-                    font-size: 1rem;
-                    cursor: pointer;
-                    transition: background 0.2s ease;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
                 }
 
-                .party-modal__header-save:hover:not(:disabled) {
-                    background: var(--primaryDark);
-                }
-
-                .party-modal__header-save:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-                
                 .party-modal__title {
                     margin: 0;
-                    font-size: 1.25rem;
-                    font-weight: 600;
+                    padding: 20px 22px 6px;
+                    font-size: 1.3rem;
+                    font-weight: 700;
                     color: #fff;
-                    letter-spacing: 0.02em;
-                }
-                
-                .party-modal__content {
-                    padding: 20px 24px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                }
-                
-                .party-modal__setting {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }
-                
-                /* Label left, control right. Used by anything whose control is
-                   small enough to sit on the label's line (toggle, select). */
-                .party-modal__setting--row {
-                    flex-direction: row;
-                    align-items: center;
-                    justify-content: space-between;
                 }
 
-                .party-modal__select {
-                    padding: 8px 12px;
-                    font-size: 0.9rem;
-                    font-weight: 500;
-                    cursor: pointer;
+                .party-modal__rows {
+                    padding: 6px 22px 10px;
+                    display: flex;
+                    flex-direction: column;
                 }
 
-                .party-modal__setting--map {
-                    flex-direction: row;
+                .party-modal__row {
+                    display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 12px 16px;
-                    background: rgba(255, 255, 255, 0.03);
-                    border-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.06);
+                    gap: 8px 16px;
+                    min-height: 56px;
                 }
-                
+
+                .party-modal__row--stack {
+                    flex-direction: column;
+                    align-items: stretch;
+                    justify-content: center;
+                    padding: 8px 0;
+                }
+
                 .party-modal__label {
-                    font-size: 0.9rem;
-                    font-weight: 500;
-                    color: rgba(255, 255, 255, 0.85);
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    color: rgba(255, 255, 255, 0.9);
+                    min-width: 0;
                 }
-                
+
+                .party-modal__row :global(.party-lobby__seg) {
+                    flex-shrink: 0;
+                }
+
                 .party-modal__stepper {
                     display: flex;
                     align-items: center;
-                    gap: 0;
-                    background: rgba(0, 0, 0, 0.3);
-                    border-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    flex-shrink: 0;
+                    background: rgba(255, 255, 255, 0.06);
+                    border-radius: 10px;
                     overflow: hidden;
                 }
-                
+
                 .party-modal__stepper-btn {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    width: 48px;
-                    height: 48px;
+                    width: 42px;
+                    height: 40px;
                     border: none;
                     background: transparent;
                     color: rgba(255, 255, 255, 0.7);
                     cursor: pointer;
-                    transition: all 0.2s ease;
-                    font-size: 0.9rem;
+                    transition: background 0.15s ease, color 0.15s ease;
+                    font-size: 0.8rem;
                 }
-                
+
                 .party-modal__stepper-btn:hover:not(:disabled) {
                     background: rgba(var(--r), var(--g), var(--b), 0.45);
                     color: #fff;
                 }
-                
+
                 .party-modal__stepper-btn:disabled {
                     opacity: 0.3;
                     cursor: not-allowed;
                 }
-                
+
                 .party-modal__stepper-input {
-                    width: 70px;
-                    height: 48px;
+                    width: 58px;
+                    height: 40px;
+                    padding: 0;
+                    /* multiPlayerModal.css gives every text input a 10px
+                       margin; top and bottom made the stepper 60px tall. */
+                    margin: 0 10px;
                     border: none;
                     background: transparent;
                     color: #fff;
-                    font-size: 1.1rem;
-                    font-weight: 600;
+                    font: inherit;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    font-variant-numeric: tabular-nums;
                     text-align: center;
                     outline: none;
-                    -moz-appearance: textfield;
                 }
-                
-                .party-modal__stepper-input::-webkit-outer-spin-button,
-                .party-modal__stepper-input::-webkit-inner-spin-button {
-                    -webkit-appearance: none;
-                    margin: 0;
-                }
-                
-                .party-modal__stepper-input:focus {
+
+                .party-modal__stepper-input:focus:not(:read-only) {
                     background: rgba(var(--r), var(--g), var(--b), 0.35);
                 }
-                
-                .party-modal__hint {
-                    font-size: 0.75rem;
-                    color: rgba(255, 255, 255, 0.4);
-                }
-                
-                .party-modal__toggle {
-                    position: relative;
-                    width: 52px;
-                    height: 28px;
+
+                /* The map row is one button: the label, then the map's name. */
+                .party-modal__map {
+                    width: 100%;
                     padding: 0;
                     border: none;
-                    background: transparent;
+                    background: none;
+                    color: inherit;
+                    font: inherit;
+                    text-align: start;
                     cursor: pointer;
                 }
-                
-                .party-modal__toggle-track {
-                    display: block;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(255, 255, 255, 0.15);
-                    border-radius: 14px;
-                    transition: background 0.25s ease;
-                }
-                
-                .party-modal__toggle--active .party-modal__toggle-track {
-                    background: var(--primary);
-                }
-                
-                .party-modal__toggle-thumb {
-                    position: absolute;
-                    top: 3px;
-                    left: 3px;
-                    width: 22px;
-                    height: 22px;
-                    background: #fff;
-                    border-radius: 50%;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-                    transition: transform 0.25s ease;
-                }
-                
-                .party-modal__toggle--active .party-modal__toggle-thumb {
-                    transform: translateX(24px);
-                }
-                
-                .party-modal__divider {
-                    height: 1px;
-                    background: rgba(255, 255, 255, 0.08);
-                    margin: 4px 0;
-                }
-                
-                .party-modal__map-info {
+
+                .party-modal__map-name {
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 10px;
                     min-width: 0;
-                    flex: 1;
-                }
-                
-                .party-modal__map-icon {
-                    font-size: 1.25rem;
-                    color: rgba(255, 255, 255, 0.85);
-                    flex-shrink: 0;
-                }
-                
-                .party-modal__map-details {
-                    display: flex;
-                    flex-direction: column;
-                    min-width: 0;
-                }
-                
-                .party-modal__map-label {
-                    font-size: 0.75rem;
-                    color: rgba(255, 255, 255, 0.5);
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-                
-                .party-modal__map-name {
                     font-size: 0.95rem;
-                    font-weight: 500;
-                    color: #fff;
+                    font-weight: 600;
+                    color: rgba(255, 255, 255, 0.7);
+                    transition: color 0.15s ease;
+                }
+
+                .party-modal__map-name span {
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
-                
-                .party-modal__change-map-btn {
-                    padding: 8px 16px;
-                    border: 1px solid rgba(255, 255, 255, 0.35);
-                    border-radius: 8px;
-                    background: transparent;
-                    color: #fff;
-                    font-size: 0.85rem;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
+
+                .party-modal__map-name :global(svg) {
                     flex-shrink: 0;
+                    font-size: 0.75rem;
                 }
 
-                .party-modal__change-map-btn:hover {
-                    background: rgba(var(--r), var(--g), var(--b), 0.4);
-                    border-color: var(--primary);
+                .party-modal__map:hover .party-modal__map-name {
+                    color: #fff;
                 }
-                
+
+                /* Sticks to the bottom of the scrolling dialog on short
+                   screens, so the one button is always in reach. */
                 .party-modal__footer {
-                    padding: 16px 24px 20px;
-                    border-top: 1px solid rgba(255, 255, 255, 0.08);
-                    background: rgba(0, 0, 0, 0.2);
+                    position: sticky;
+                    bottom: 0;
+                    padding: 10px 22px 20px;
+                    background: var(--pm-bg);
+                    border-radius: 0 0 14px 14px;
                 }
-                
+
                 .party-modal__save-btn {
                     width: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
                     padding: 14px 24px;
                     border: none;
                     border-radius: 12px;
                     background: var(--primary);
                     color: #fff;
+                    font: inherit;
                     font-size: 1rem;
-                    font-weight: 600;
+                    font-weight: 700;
                     cursor: pointer;
-                    transition: all 0.2s ease;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    transition: background 0.15s ease;
                 }
 
-                .party-modal__save-btn:hover {
+                .party-modal__save-btn:hover:not(:disabled) {
                     background: var(--primaryDark);
-                    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-                    transform: translateY(-1px);
-                }
-                
-                .party-modal__save-btn:active {
-                    transform: translateY(0);
                 }
 
                 .party-modal__save-btn:disabled {
                     opacity: 0.5;
                     cursor: not-allowed;
-                    transform: none;
-                    box-shadow: none;
                 }
-                
+
+                /* Phones: the control goes under its label, full width. */
                 @media (max-width: 480px) {
-                    .party-modal__header {
-                        padding: 16px 18px;
-                    }
-                    
                     .party-modal__title {
-                        font-size: 1.1rem;
-                    }
-                    
-                    .party-modal__content {
-                        padding: 16px 18px;
-                        gap: 14px;
-                    }
-                    
-                    .party-modal__stepper-btn {
-                        width: 44px;
-                        height: 44px;
-                    }
-                    
-                    .party-modal__stepper-input {
-                        width: 60px;
-                        height: 44px;
-                    }
-                    
-                    .party-modal__footer {
-                        padding: 14px 18px 18px;
-                    }
-                    
-                    .party-modal__save-btn {
-                        padding: 12px 20px;
+                        padding: 16px 18px 4px;
+                        font-size: 1.15rem;
                     }
 
-                    /* Four games share one row on phones. */
-                    .party-modal__game-seg :global(.party-lobby__seg-btn) {
+                    .party-modal__rows {
+                        padding: 4px 18px 8px;
+                    }
+
+                    .party-modal__row:not(.party-modal__map) {
+                        flex-direction: column;
+                        align-items: stretch;
+                        justify-content: center;
+                        padding: 8px 0;
+                    }
+
+                    .party-modal__row :global(.party-lobby__seg) {
+                        display: flex;
+                    }
+
+                    .party-modal__row :global(.party-lobby__seg-btn) {
+                        flex: 1;
                         padding: 10px 6px;
                         font-size: 0.85rem;
+                    }
+
+                    .party-modal__stepper {
+                        justify-content: space-between;
+                    }
+
+                    .party-modal__stepper-input {
+                        flex: 1;
+                    }
+
+                    .party-modal__footer {
+                        padding: 8px 18px 16px;
                     }
                 }
             `}</style>

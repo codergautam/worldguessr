@@ -11,6 +11,9 @@ importers:
       '@googlemaps/js-api-loader':
         specifier: ^1.16.6
         version: 1.16.10
+      '@mapfinder/quiz-kit':
+        specifier: file:vendor/mapfinder-quiz-kit-0.1.0.tgz
+        version: file:vendor/mapfinder-quiz-kit-0.1.0.tgz(maplibre-gl@6.16.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@osm_borders/maritime_10m':
         specifier: ^1.1.0
         version: 1.1.0
@@ -1592,6 +1595,14 @@ packages:
 
   '@maplibre/geojson-vt@6.3.0':
     resolution: {integrity: sha512-3Zw2jsU9pIJG3G2CQFbLjWj2MlAHodhD7cSY+15iywUuLmmkgzcKRnueVRZ4AcC/5wOtfhidcJAAzBpoBNs3Xg==}
+
+  '@mapfinder/quiz-kit@file:vendor/mapfinder-quiz-kit-0.1.0.tgz':
+    resolution: {integrity: sha512-8vIfFRhte1Ux4AT2Hfp+ofWo2cbABv/HDxpQj/4EXEX2mw4zM+6LQNeZ0L4eeSjcLscZy9v6bO/2yPycJRNTSw==, tarball: file:vendor/mapfinder-quiz-kit-0.1.0.tgz}
+    version: 0.1.0
+    peerDependencies:
+      maplibre-gl: ^6
+      react: ^19
+      react-dom: ^19
 
   '@maplibre/maplibre-gl-style-spec@26.4.4':
     resolution: {integrity: sha512-hG4RZR4PBd/+6A3ODdZ3AnQRF106ZQk1y3bhwDg8bH/A4Oz2tnRUJVVWs9BZa6gXZ1d3UKe89C+Mm+olGBELvA==}
@@ -8671,6 +8682,13 @@ snapshots:
   '@maplibre/geojson-vt@6.3.0':
     dependencies:
       kdbush: 4.1.0
+
+  '@mapfinder/quiz-kit@file:vendor/mapfinder-quiz-kit-0.1.0.tgz(maplibre-gl@6.16.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      canvas-confetti: 1.9.4
+      maplibre-gl: 6.16.0
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
 
   '@maplibre/maplibre-gl-style-spec@26.4.4':
     dependencies:

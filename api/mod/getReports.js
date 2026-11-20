@@ -178,11 +178,13 @@ export default async function handler(req, res) {
             reportedUser: { $first: '$reportedUser' },
             reports: { $push: '$$ROOT' },
             reportCount: { $sum: 1 },
-            oldestReportDate: { $min: '$createdAt' }
+            oldestReportDate: { $min: '$createdAt' },
+            auto: { $max: '$auto' }
           }
         },
         {
           $sort: {
+            auto: -1,             // Automatic bans waiting for a decision first
             reportCount: -1,      // Users with more reports first
             oldestReportDate: 1   // Then by oldest report (so old reports aren't forgotten)
           }

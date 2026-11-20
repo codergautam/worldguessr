@@ -1974,6 +1974,9 @@ const CustomStreetView = ({
   npz = false,
   showAnswer = false,
   hidden = false,
+  // Blink mode: blur the painted pano (CSS only; the engine keeps drawing).
+  blurred = false,
+  blink = false,
   // Mobile host only: the WebView is fully covered by a native screen (result
   // view). Gates DRAWING only — tile streaming, prewarm and the prefetched
   // signal keep flowing, so commitPreload can still answer 'ready'. Kept
@@ -2215,7 +2218,10 @@ const CustomStreetView = ({
 
   if (!hasCoords) return null;
 
-  const navVisible = provider === 'baidu' && allowMove && !hidden && !frozen; // ChinaGuessr (temporary)
+  // Blink: while the pano is covered, no input reaches it and the compass and
+  // move arrows hide (they render unblurred above it and would leak heading).
+  const blinkCovered = !!(blink && blurred);
+  const navVisible = provider === 'baidu' && allowMove && !hidden && !frozen && !blinkCovered; // ChinaGuessr (temporary)
 
   return (
     <>
@@ -2232,6 +2238,14 @@ const CustomStreetView = ({
           zIndex: 100,
           touchAction: "none",
           backgroundColor: "#1a1a2e",
+          // Blink: blur + a slight zoom (which also hides the blur's soft
+          // edges). The reveal snaps open (a 0.3s round would otherwise be
+          // mostly ease) and the re-blur eases closed. The list keeps
+          // #streetview's own opacity fade, which an inline transition replaces.
+          filter: blink ? (blurred ? "blur(28px) brightness(0.6)" : "none") : undefined,
+          transform: blink ? (blurred ? "scale(1.08)" : "none") : undefined,
+          transition: blink ? (blurred ? "opacity 0.2s ease-out, filter 220ms ease-out, transform 220ms ease-out" : "opacity 0.2s ease-out") : undefined,
+          pointerEvents: blinkCovered ? "none" : undefined,
         }}
       />
       {navVisible && navEngine && <SvNavOverlay engine={navEngine} visible={navVisible} />}
@@ -2244,7 +2258,7 @@ const CustomStreetView = ({
           rotate(-yaw) puts the red tip on real north. The arrows rotate and
           the needle resets to north; only the buttons take pointer input, the
           container itself stays transparent to drags. */}
-      <div className={`sv-compass ${hidden ? "sv-compass--hidden" : ""} ${frozen ? "sv-compass--frozen" : ""}`}>
+      <div className={`sv-compass ${hidden || blinkCovered ? "sv-compass--hidden" : ""} ${frozen ? "sv-compass--frozen" : ""}`}>
         {!frozen && (
           <button type="button" className="sv-compass__rotate sv-compass__rotate--ccw"
             aria-label="Rotate left"

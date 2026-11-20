@@ -61,7 +61,7 @@ export default function ClothFlag({ src, alt, className = '', waveKey = 0, delay
       {cloth && (
         <div
           key={`${src}:${waveKey}`}
-          className="quizCloth"
+          className={`quizCloth${waveKey ? '' : ' quizCloth--enter'}`}
           aria-hidden
           style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, '--flag': `url("${src}")`, '--d': `${delay}ms` }}
         >

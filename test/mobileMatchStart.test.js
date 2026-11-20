@@ -119,6 +119,9 @@ function screenHarness(file, options = {}) {
     },
     DuelHUD: { __esModule: true, default: 'DuelHUD', BAR_WIDTH: 300, BAR_MAX_FRACTION: 0.45 },
     getMyTeam: { __esModule: true, default: () => undefined },
+    // Blink rounds are singleplayer-only; these multiplayer frames never blink.
+    blink: { isBlinkTimer: () => false },
+    useBlinkPhase: { __esModule: true, default: () => null },
   };
   const filename = fileURLToPath(new URL(`../mobile/app/${file}`, import.meta.url));
   if (!compiled.has(filename)) {

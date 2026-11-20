@@ -1,12 +1,17 @@
 // components/modes/quizClient.js: the pure client glue for the quiz modes
 // (mode lookup, landing paths, the round record fields, flag URLs).
-import { describe, it, expect } from 'vitest';
+import {
+  describe,
+  it,
+  expect } from 'vitest';
+import fs from 'node:fs';
 import {
   quizOf,
   QUIZ_PATHS,
   quizModeFromPath,
   quizRoundFields,
   flagSrc,
+  QUIZ_IDS,
 } from '../components/modes/quizClient.js';
 
 describe('quizOf', () => {
@@ -23,12 +28,14 @@ describe('quizOf', () => {
 
 describe('landing paths', () => {
   it('maps each quiz to its root path', () => {
-    expect(QUIZ_PATHS.flags).toBe('/flags');
+    expect(QUIZ_PATHS.flags).toBeUndefined(); // merged into countries; pages/flags.js opens that screen
+    expect(QUIZ_PATHS.countries).toBe('/countries');
   });
 
   it('reads the mode back from a path', () => {
-    expect(quizModeFromPath('/flags')).toBe('flags');
-    expect(quizModeFromPath('/flags/')).toBe('flags');
+    expect(quizModeFromPath('/countries')).toBe('countries');
+    expect(quizModeFromPath('/countries/')).toBe('countries');
+    expect(quizModeFromPath('/flags')).toBeNull();
   });
 
   it('ignores localized and unrelated paths', () => {

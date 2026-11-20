@@ -28,6 +28,7 @@ import StampQuests from "../../models/StampQuests.js";
 import { STAMPS_ENABLED } from "../../serverUtils/stamps/config.js";
 import { dayKeyUTC } from "../../serverUtils/stamps/periods.js";
 import { grantStamps } from "../../serverUtils/stamps/grantStamps.js";
+import { checkAutoBan } from "../../serverUtils/autoBan5k.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
 import { DEFAULT_POST_GUESS_SECONDS, postGuessSecondsFor } from "../roundTimer.js";
@@ -41,7 +42,7 @@ import continentMapping from '../../public/continentMapping.json' with {type: "j
 import borders from '../../public/modes/countries.json' with {type: "json"};
 import { buildCountryIndex } from '../../shared/country/findCountry.js';
 import { DEFAULT_MODE, getMode, isQuizMode } from '../../shared/modes/catalog.js';
-import { scoreGuess } from '../../shared/modes/score.js';
+import { scoreGuess, scoreGuessDetailed } from '../../shared/modes/score.js';
 import { generateRounds, choicePoint } from '../../shared/modes/rounds.js';
 const COUNTRY_INDEX = buildCountryIndex(borders);
 
@@ -580,7 +581,7 @@ export default class Game {
   // scorer (polygon hit for country targets, speed bonus for choice modes).
   // Every team / duel / history path calls this, so a new mode never needs a
   // second formula anywhere in this file.
-  scoreFor(player, loc) {
+  scoreFor(player, loc, detailed = false) {
     if (!player?.guess || !loc) return 0;
     if (!isQuizMode(this.mode)) {
       return calcPoints({
@@ -592,7 +593,7 @@ export default class Game {
         maxDist: this.maxDist
       });
     }
-    return scoreGuess({
+    return (detailed ? scoreGuessDetailed : scoreGuess)({
       mode: this.mode,
       location: loc,
       guess: { lat: player.guess[0], lng: player.guess[1] },
@@ -600,8 +601,20 @@ export default class Game {
       maxDist: this.maxDist,
       timeTakenMs: player.roundTimeTakenMs,
       timePerRoundMs: this.timePerRound,
+      usedHint: !!player.usedHint,
       countryIndex: COUNTRY_INDEX,
     });
+  }
+
+  // A quiz mode's Hint button: allowed while the player's guess is still open
+  // this round; the round then pays half (shared scorer). Shown client-side
+  // from the round's own data, so nothing is sent back.
+  useHint(playerId, round) {
+    if (this.state !== 'guess' || !getMode(this.mode)?.hint) return;
+    if (round !== undefined && round !== null && round !== this.curRound) return;
+    const player = this.players[playerId];
+    if (!player || player.final) return;
+    player.usedHint = true;
   }
 
   // Team-party 'average' scoring: mean over the team's roster AT SCORING TIME.
@@ -830,6 +843,7 @@ export default class Game {
       // Save each player's guess and calculated points for this round
       const quiz = isQuizMode(this.mode);
       const quizPoints = {};
+      const quizCorrect = {};
       for (const playerId of Object.keys(this.players)) {
         const player = this.players[playerId];
 
@@ -846,7 +860,9 @@ export default class Game {
             long: player.guess[1],
             points: points,
             final: player.final,
-            timeTaken: player.roundTimeTaken || this.timePerRound / 1000 // Use actual time or default
+            // ?? not ||: a guess inside the first second is 0, and must not be
+            // saved as the full round time (autoBan5k reads this as speed).
+            timeTaken: player.roundTimeTaken ?? this.timePerRound / 1000
           };
           if (quiz) {
             // Choice modes: which option they picked. Sub-second answers are
@@ -857,6 +873,7 @@ export default class Game {
               roundData.players[playerId].timeTaken = player.roundTimeTakenMs / 1000;
             }
             quizPoints[playerId] = points;
+            quizCorrect[playerId] = this.scoreFor(player, loc, true).correct;
           }
         } else {
           // Player didn't make a guess - still record them with null values
@@ -875,7 +892,7 @@ export default class Game {
 
       // Quiz modes: the server's per-player round points, sent with the next
       // state update (getSendableState.roundPoints) for the reveal banner.
-      if (quiz) this.lastRoundPoints = { round: this.curRound, points: quizPoints };
+      if (quiz) this.lastRoundPoints = { round: this.curRound, points: quizPoints, correct: quizCorrect };
 
       this.roundHistory.push(roundData);
     }
@@ -890,6 +907,7 @@ export default class Game {
       // Quiz modes (no-ops for classic, so the roster shape never changes).
       if (player.choice !== undefined) player.choice = null;
       if (player.roundTimeTakenMs !== undefined) player.roundTimeTakenMs = null;
+      if (player.usedHint !== undefined) player.usedHint = false;
     }
     this.roundEndedAt = null; // Reset late guess buffer
     // Track when this round's guessing phase starts for time calculation
@@ -2380,7 +2398,7 @@ export default class Game {
         guessLong: roundData.players[p.id]?.long || null,
         ...(roundData.players[p.id]?.choice != null ? { choice: roundData.players[p.id].choice } : {}),
         points: roundData.players[p.id]?.points || 0,
-        timeTaken: roundData.players[p.id]?.timeTaken || this.timePerRound / 1000,
+        timeTaken: roundData.players[p.id]?.timeTaken ?? this.timePerRound / 1000,
         xpEarned: 0, // XP is aggregated on the player summary, never per round
         guessedAt: new Date(this.startTime + (index * this.timePerRound)),
         usedHint: false
@@ -2674,7 +2692,7 @@ export default class Game {
         queueWaitMs: this.queueWaitMs?.[tag] ?? null
       });
 
-      await this.persistGame({
+      const gameDoc = await this.persistGame({
         gameId: `duel_${this.id}`,
         gameType: 'ranked_duel',
         official: true,
@@ -2752,6 +2770,16 @@ export default class Game {
       });
 
       console.log(`Saved duel game duel_${this.id} between ${user1.username} and ${user2?.username ?? `${player2Data.username} [bot]`} (XP: ${p1Xp}, ${p2Xp})`);
+
+      // Automatic cheat ban. Own try/catch: it may never fail the game save.
+      for (const accountId of [this.accountIds.p1, this.accountIds.p2]) {
+        if (!accountId) continue;
+        try {
+          await checkAutoBan(accountId, gameDoc.toObject());
+        } catch (error) {
+          console.error('[autoBan5k] check failed:', error?.message || error);
+        }
+      }
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);

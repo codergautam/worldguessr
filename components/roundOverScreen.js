@@ -470,7 +470,7 @@ const GameSummary = ({
             <path d={shape.d} fillRule="evenodd" fill="currentColor" />
           </svg>
         )}
-        {quiz.stimulus === 'text' && (
+        {quiz.stimulus === 'text' && round.text && (
           <span className="quizThumb quizThumb--text" lang={round.lang} dir="auto">
             {String(round.text || '').slice(0, 24)}
           </span>

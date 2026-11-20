@@ -19,6 +19,13 @@ import '@/styles/homeMenu.css';
 // round screen (quiz.css).
 import '@/styles/modes.css';
 import '@/styles/quiz.css';
+// The kit round screens (and the placeholder before their chunk loads).
+import 'maplibre-gl/dist/maplibre-gl.css';
+import '@mapfinder/quiz-kit/quiz-kit.css';
+// Gameplay is MapFinder's own look inside WG (owner, Nov 5): the kit's mapfinder theme, not a WG restyle.
+import '@mapfinder/quiz-kit/themes/mapfinder.css';
+// Blink rounds (round timer <= 5s): the centered 3-2-1.
+import '@/styles/blink.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 

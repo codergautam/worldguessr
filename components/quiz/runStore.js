@@ -3,6 +3,7 @@
 // finish runs through here.
 
 import gameStorage from '../utils/localStorage';
+import { quizOf } from '../modes/quizClient';
 
 const bestKey = (mode) => `wg_quiz_best_${mode}`;
 
@@ -11,8 +12,10 @@ export function readBest(mode) {
   return Number.isFinite(v) ? v : 0;
 }
 
+// A race's record is its time in ms, so lower wins; a score's record is higher.
 export function saveBest(mode, total) {
-  if (total <= readBest(mode)) return;
+  const had = readBest(mode);
+  if (quizOf(mode)?.race ? (had > 0 && total >= had) : total <= had) return;
   try { gameStorage.setItem(bestKey(mode), String(total)); } catch {}
 }
 
@@ -31,7 +34,7 @@ export function postRun({ session, spec, region, history }) {
       region: spec.supportsRegion ? region : undefined,
       rounds: history.map((h) => ({
         lat: h.guessLat, long: h.guessLong, actualLat: h.lat, actualLong: h.long, panoId: null,
-        usedHint: false, maxDist: 20000, roundTime: h.timeTaken, xp: h.xpEarned, points: h.points,
+        usedHint: !!h.usedHint, maxDist: 20000, roundTime: h.timeTaken, xp: h.xpEarned, points: h.points,
         country: h.country, mode: h.mode, lang: h.lang, text: h.text, choices: h.choices, label: h.label, image: h.image, choice: h.choice,
       })),
     }),

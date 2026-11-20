@@ -12,7 +12,7 @@ import { buildCountryIndex, pointInCountry, lookupCountry } from '../shared/coun
 import { QUIZ_COUNTRIES, QUIZ_COUNTRY_BY_CODE } from '../shared/modes/data/countries.js';
 import { QUIZ_LANGUAGES } from '../shared/modes/data/languages.js';
 import { poolSize } from '../shared/modes/rounds.js';
-import { quizKey, modeFacts, poolCountKey, groupKey } from '../components/modes/quizClient.js';
+import { quizKey, groupKey } from '../components/modes/quizClient.js';
 
 // The globe's polygons (scripts/modes/buildGlobeCountries.mjs): what the
 // player clicks and what both sides score against.
@@ -47,7 +47,8 @@ describe('catalog', () => {
     expect(isQuizMode('flags')).toBe(true);
     expect(isQuizMode('nope')).toBe(false);
     expect(isSelectableMode('landmarks')).toBe(false);
-    expect(isSelectableMode('flags')).toBe(true);
+    expect(isSelectableMode('flags')).toBe(false); // merged into countries, kept for saved games
+    expect(isSelectableMode('countries')).toBe(true);
   });
 
   it('knows which modes play on a panorama', () => {
@@ -129,13 +130,11 @@ describe("every selectable quiz mode is wired", () => {
   it("has its strings, landing page and a non-empty pool", () => {
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) {
-      for (const part of ["", "Prompt", "Blurb", "TabTitle", "DescMeta"]) {
+      for (const part of ["", "Prompt", "TabTitle", "DescMeta"]) {
         expect(en[quizKey(id, part)], `${id}: ${quizKey(id, part)}`).toBeTruthy();
       }
       expect(fs.existsSync(new URL(`../pages/${id}.js`, import.meta.url)), `pages/${id}.js`).toBe(true);
       expect(poolSize({ mode: id }), `${id} pool`).toBeGreaterThan(0);
-      for (const fact of modeFacts(id)) expect(en[fact.key], fact.key).toBeTruthy();
-      expect(en[poolCountKey(id)], poolCountKey(id)).toBeTruthy();
       expect(en[groupKey(MODES[id].group || "?")], `${id}: group`).toBeTruthy();
     }
   });

@@ -24,6 +24,7 @@ import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
 import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../maps/MapSection';
 import MapDetailView from '../maps/MapDetailView';
 import SingleplayerModeTiles, { SingleplayerModeTile } from './SingleplayerModeTiles';
+import { timerStops, timerForMode, nearestTimerStopIndex, isBlinkTimer } from '@shared/game/blink';
 
 /**
  * Street View mode. Web (components/maps/mapView.js) has always had three, but
@@ -114,6 +115,12 @@ interface MapSelectorModalProps {
   onTimerToggle: (v: boolean) => void;
   timerDuration: number;
   onTimerDurationChange: (s: number) => void;
+  /**
+   * Offer the Blink stops (0.3-5s). Only singleplayer runs blink rounds;
+   * parties (the server rejects timePerRound < 10) would run them as a real
+   * clock, so the default is off.
+   */
+  allowBlink?: boolean;
   showOptions?: boolean;
   showSingleplayerModes?: boolean;
   currentSingleplayerMode?: SingleplayerModeTile | null;
@@ -174,6 +181,7 @@ export default function MapSelectorModal({
   onTimerToggle,
   timerDuration,
   onTimerDurationChange,
+  allowBlink = false,
   showOptions = true,
   showSingleplayerModes = false,
   currentSingleplayerMode = null,
@@ -680,26 +688,40 @@ export default function MapSelectorModal({
                   />
                 </View>
 
-                {/* Timer Duration Stepper */}
-                {timerEnabled && (
+                {/* Timer Duration Stepper. Walks the web slider's stops; the
+                    low end (0.3-5s) is a Blink round (shared/game/blink.js),
+                    offered only where blink rounds run (allowBlink). Nearest
+                    stop, not indexOf: a value that is not a stop (a 45s timer
+                    set from the web party modal) used to read as index 0. */}
+                {timerEnabled && (() => {
+                  const stops = timerStops(allowBlink);
+                  const secs = timerForMode(timerDuration, allowBlink);
+                  const i = nearestTimerStopIndex(stops, secs);
+                  const last = stops.length - 1;
+                  return (
                   <View style={styles.stepperRow}>
                     <Pressable
-                      style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, timerDuration <= 10 && { opacity: 0.3 }]}
-                      onPress={() => onTimerDurationChange(Math.max(10, timerDuration - 5))}
-                      disabled={timerDuration <= 10}
+                      style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, i <= 0 && { opacity: 0.3 }]}
+                      onPress={() => onTimerDurationChange(stops[Math.max(0, i - 1)])}
+                      disabled={i <= 0}
                     >
                       <Ionicons name="remove" size={20} color="#fff" />
                     </Pressable>
-                    <Text style={styles.stepperValue}>{t('secondsShort', { secs: timerDuration })}</Text>
+                    <Text style={styles.stepperValue}>
+                      {t('secondsShort', { secs })}
+                      {/* Always laid out (web parity): a changing width shifts the buttons. */}
+                      <Text style={allowBlink && isBlinkTimer(secs) ? undefined : { opacity: 0 }}> ({t('blink')})</Text>
+                    </Text>
                     <Pressable
-                      style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, timerDuration >= 300 && { opacity: 0.3 }]}
-                      onPress={() => onTimerDurationChange(Math.min(300, timerDuration + 5))}
-                      disabled={timerDuration >= 300}
+                      style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, i >= last && { opacity: 0.3 }]}
+                      onPress={() => onTimerDurationChange(stops[Math.min(last, i + 1)])}
+                      disabled={i >= last}
                     >
                       <Ionicons name="add" size={20} color="#fff" />
                     </Pressable>
                   </View>
-                )}
+                  );
+                })()}
 
                 {/* Comms mode — chat XOR emotes, party mode only (web
                     partyModal.js parity; chat is the fresh-party default).

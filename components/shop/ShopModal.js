@@ -39,7 +39,7 @@ import ShopView from './ShopView';
 /** ui/Modal's close animation is 200ms; one frame of slack on top of it. */
 const EXIT_MS = 220;
 
-export default function ShopModal({ session, setSession, onClose, onReady, coveredEntry = false }) {
+export default function ShopModal({ session, setSession, onClose, onReady, coveredEntry = false, youtubeOffer = false }) {
   const { t: text, lang } = useTranslation('common');
 
   // ONE instance of the shop's data layer for the life of this modal: one
@@ -104,6 +104,7 @@ export default function ShopModal({ session, setSession, onClose, onReady, cover
       coveredEntry={coveredEntry}
     >
       <ShopView
+        youtubeOffer={youtubeOffer}
         shop={shop}
         username={session?.token?.username}
         title={text('shopShortTitle')}

@@ -1,0 +1,57 @@
+/* Blink rounds: the centered 3-2-1 and the guess prompt over the blurred
+   pano (components/blink/BlinkCountdown.js). The digit pops in once per
+   step (keyed remount); the duration matches BLINK_COUNTDOWN_STEP_MS. */
+.blink-center {
+  position: fixed;
+  inset: 0;
+  /* Above the pano canvas (100), below .home__singleplayer (101) so the
+     minimap is never covered. */
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+/* The prompt sits in the upper third, clear of the corner minimap. */
+.blink-center--prompt {
+  align-items: flex-start;
+  padding-top: 18vh;
+}
+
+.blink-center__digit,
+.blink-center__prompt {
+  color: #fff;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+}
+
+.blink-center__digit {
+  font-size: clamp(96px, 22vmin, 180px);
+  animation: blinkDigitPop 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.blink-center__prompt {
+  font-size: clamp(26px, 6vmin, 48px);
+  animation: blinkPromptIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes blinkDigitPop {
+  0% { opacity: 0; transform: scale(1.6); }
+  30% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
+}
+
+@keyframes blinkPromptIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blink-center__digit,
+  .blink-center__prompt { animation: none; }
+}

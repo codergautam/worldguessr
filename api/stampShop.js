@@ -93,7 +93,14 @@ const ACCOUNT_LEDGER_MAX = 12;
 const MAX_PURCHASE_PRICE = STAMP_REASONS.purchase?.maxAbs ?? 5000;
 
 const VALID_PLATFORMS = ['web', 'mobile'];
-const ACTIONS = ['catalog', 'purchase', 'equip', 'balance', 'history'];
+const ACTIONS = ['catalog', 'purchase', 'equip', 'balance', 'history', 'youtube'];
+
+// THE YOUTUBE REWARD (web shop only). A subscription cannot be checked without
+// a YouTube sign-in, so it is paid on trust, ONCE per account: the ledger key
+// is fixed per user, so a replay, a second tab or a network retry collapses
+// onto the first payment (grantStamps' unique idempotency index).
+const YOUTUBE_REWARD = 50;
+const youtubeKey = (user) => `${user._id}:youtube_subscribe`;
 
 /**
  * The entitlement block every auth response must carry: balance, cosmetics and
@@ -410,7 +417,7 @@ export default async function handler(req, res) {
 
     switch (action) {
       case 'catalog':
-        return await handleCatalog(res, user, platform);
+        return await handleCatalog(res, user, platform, banned);
       case 'balance':
         return res.status(200).json({ enabled: true, ...entitlementFields(user) });
       case 'history':
@@ -425,6 +432,11 @@ export default async function handler(req, res) {
           return res.status(403).json({ error: 'banned', message: 'Banned users cannot change cosmetics' });
         }
         return await handleEquip(res, user, body);
+      case 'youtube':
+        if (banned) {
+          return res.status(403).json({ error: 'banned', message: 'Banned users cannot claim rewards' });
+        }
+        return await handleYoutube(res, user, platform);
       default:
         return res.status(400).json({ error: 'invalid_action' });
     }
@@ -444,7 +456,7 @@ export default async function handler(req, res) {
  * The emote catalogue ships in the same response so mobile does not need a
  * third hardcoded mirror of a table that already exists twice.
  */
-async function handleCatalog(res, user, platform) {
+async function handleCatalog(res, user, platform, banned) {
   // In parallel: one of them is a live read of a tiny collection, the other is
   // almost always a cache hit. Sequencing them would just add a round trip.
   // `counts`, NOT `purchaseCounts` — that name belongs to the module-level map
@@ -521,12 +533,38 @@ async function handleCatalog(res, user, platform) {
     owned: e.free || (e.sku ? owned.has(e.sku) : false),
   }));
 
+  // The YouTube offer, for a signed-in web shopper: still open, or claimed.
+  // Banned accounts cannot claim it, so they are not offered it.
+  const youtubeReward = user && !banned && platform === 'web'
+    ? { stamps: YOUTUBE_REWARD, claimed: !!(await StampLedger.exists({ idempotencyKey: youtubeKey(user) })) }
+    : null;
+
   return res.status(200).json({
     enabled: true,
     platform,
     items,
     emotes,
+    youtubeReward,
     ...entitlementFields(user),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// youtube
+// ---------------------------------------------------------------------------
+async function handleYoutube(res, user, platform) {
+  if (platform !== 'web') {
+    return res.status(400).json({ error: 'not_available', message: 'The YouTube reward is web only' });
+  }
+  const result = await grantStamps(user._id, YOUTUBE_REWARD, 'youtube_subscribe', youtubeKey(user));
+  clearUserCaches(user);
+  const fresh = await readFreshState(user._id);
+  return res.status(200).json({
+    enabled: true,
+    claimed: true,
+    // 0 on a repeat: the account was already paid.
+    granted: result.applied ? YOUTUBE_REWARD : 0,
+    ...fresh,
   });
 }
 

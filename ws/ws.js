@@ -66,7 +66,7 @@ import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
 import { SERVER_CAP, locKey, pushSeenLoc, sampleDistinct } from '../shared/locations/repeatGuard.js';
-import { DEFAULT_MODE, getMode, isQuizMode, isSelectableMode, isRegion, effectiveTimePerRound } from '../shared/modes/catalog.js';
+import { DEFAULT_MODE, QUIZ_PARTIES, getMode, isQuizMode, isSelectableMode, isRegion, effectiveTimePerRound } from '../shared/modes/catalog.js';
 import {
   BOTS_ENABLED, BOTS_INSTANT,
   createBotPlayer, makeBotUsername, refreshBotEligibility, tickBots
@@ -1131,9 +1131,9 @@ function updateGameOptions(game, { rounds=5, timePerRound=30, location="all", nm
           // rule as disableEmotes below). Changeable only while the party is
           // in the lobby. Public games, duels and 2v2 staging lobbies are
           // classic no matter what arrives.
-          const quizAllowed = !game.public && !game.duel && !game.is2v2Lobby;
+          const quizAllowed = QUIZ_PARTIES && !game.public && !game.duel && !game.is2v2Lobby;
           if (mode !== undefined) {
-            if (!isSelectableMode(mode)) return;
+            if (!isSelectableMode(mode) || getMode(mode)?.race) return;
             if (quizAllowed && game.state === 'waiting') game.mode = mode;
           }
           if (!quizAllowed) game.mode = DEFAULT_MODE;
@@ -1199,7 +1199,7 @@ app.ws('/wg', {
       ip = ip.split(',')[0];
     }
     if([...bannedIps].some((bannedIp) => matchesIpBan(ip, bannedIp))
-       || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
+       || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 500) {
       console.log('Banned ip tried to connect', ip, currentDate());
       res.writeStatus('403 Forbidden');
       res.end();
@@ -1300,7 +1300,7 @@ app.ws('/wg', {
         //    user out, but a DB blip is transient and safe to retry.
         //  • if it already verified, the failure was in the non-critical tail (friend
         //    list / lastLogin) and the client is fine — just log, don't disrupt it.
-        player.verify(json).catch((e) => {
+        player.verify(json, (p, game) => recordDodgeIfApplicable(p, game, 'skipRejoin')).catch((e) => {
           console.error('Error verifying player', ws.id, e?.message || e, currentDate());
           if (!players.has(ws.id)) return;
           const p = players.get(ws.id);
@@ -1600,6 +1600,13 @@ app.ws('/wg', {
             fresh.addPlayer(player, true);
           }
         }
+      }
+
+      if (json.type === 'hint' && player.gameId && games.has(player.gameId)) {
+        const round = json.round;
+        if (round !== undefined && round !== null && (!Number.isInteger(round) || round < 1)) return;
+        games.get(player.gameId).useHint(player.id, round);
+        return;
       }
 
       if (json.type === 'place' && player.gameId && games.has(player.gameId)) {

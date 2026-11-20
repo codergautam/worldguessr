@@ -262,13 +262,13 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                                         className="join-party-input"
                                         placeholder={text("gameCode")}
                                         value={multiplayerState.joinOptions.gameCode || ""}
-                                        maxLength={6}
                                         onChange={(e) => setMultiplayerState((prev) => ({
                                             ...prev,
                                             joinOptions: {
                                                 ...prev.joinOptions,
                                                 error: false,
-                                                gameCode: e.target.value.replace(/\D/g, "")
+                                                // a pasted invite link gives its code; anything else, its digits
+                                                gameCode: (/party=(\d{6})/.exec(e.target.value)?.[1] ?? e.target.value.replace(/\D/g, "")).slice(0, 6)
                                             }
                                         }))}
                                         onKeyDown={(e) => {

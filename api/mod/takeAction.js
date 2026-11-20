@@ -256,6 +256,7 @@ export default async function handler(req, res) {
     let expiresAt = null;
     let eloRefundResult = null;
     let leaderboardScrubResult = null;
+    let autoBanLifted = false;
 
     // Handle each action type
     switch (action) {
@@ -268,6 +269,7 @@ export default async function handler(req, res) {
 
         // Mark all pending reports as dismissed atomically to prevent race conditions
         const resolvedReportsIgnore = [];
+        let ignoredAutoReport = false;
         for (const reportId of pendingReportIdsIgnore) {
           // Atomically claim the report - only succeeds if still pending
           const claimedReport = await Report.findOneAndUpdate(
@@ -289,6 +291,7 @@ export default async function handler(req, res) {
           if (!claimedReport) continue;
 
           resolvedReportsIgnore.push(reportId);
+          if (claimedReport.auto) ignoredAutoReport = true;
 
           // Increment unhelpful reports for reporter (only if we claimed it)
           await User.findByIdAndUpdate(claimedReport.reportedBy.accountId, {
@@ -311,6 +314,33 @@ export default async function handler(req, res) {
           relatedReports: resolvedReportsIgnore, // Only include reports we actually resolved
           notes: publicNote || '' // Public note for reference (though ignored reports don't notify user)
         });
+
+        // Ignoring an automatic report (serverUtils/autoBan5k.js) means the
+        // moderator judged it a false positive, so its temp ban is lifted. A
+        // pending automatic report always belongs to the current ban: any
+        // later mod ban would have claimed it.
+        if (ignoredAutoReport && targetUser.banned && targetUser.banType === 'temporary') {
+          await User.findByIdAndUpdate(targetUserId, {
+            banned: false,
+            banType: 'none',
+            banExpiresAt: null,
+            banPublicNote: null
+          });
+          syncedClearCache(`userAuth_${targetUser.secret}`);
+          await ModerationLog.create({
+            targetUser: {
+              accountId: targetUser._id.toString(),
+              username: targetUser.username
+            },
+            moderator: {
+              accountId: moderator._id.toString(),
+              username: moderator.username
+            },
+            actionType: 'unban',
+            reason: 'Automatic ban lifted: ' + reason
+          });
+          autoBanLifted = true;
+        }
 
         break;
 
@@ -796,6 +826,7 @@ export default async function handler(req, res) {
       eloRefund: eloRefundResult, // ELO refund summary (null if no refunds)
       leaderboardScrub: leaderboardScrubResult, // Daily-leaderboard scrub summary (null if not applicable)
       message: getSuccessMessage(action, targetUser.username, eloRefundResult, leaderboardScrubResult)
+        + (autoBanLifted ? '. The automatic ban was lifted' : '')
     });
 
   } catch (error) {

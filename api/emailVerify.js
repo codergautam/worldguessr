@@ -52,7 +52,11 @@ import { clientIp, createIpLimiter } from '../serverUtils/ipThrottle.js';
 
 const MAX_ATTEMPTS = 5;
 const REPLAY_WINDOW_MS = 60 * 1000;
-const limiter = createIpLimiter({ max: 100, windowMs: 10 * 60 * 1000 });
+// Per school NAT IP, sized for a whole class at once: each student can spend
+// several verifies (typo'd codes, username-taken bounces resubmit the same
+// code), so it must stay well above api/emailLogin.js's send cap. Brute force
+// is bounded per code row (MAX_ATTEMPTS, single use), not by this.
+const limiter = createIpLimiter({ max: 500, windowMs: 10 * 60 * 1000 });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

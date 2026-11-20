@@ -12,6 +12,7 @@ import {
   Lexend_500Medium,
   Lexend_600SemiBold,
   Lexend_700Bold,
+  Lexend_900Black,
 } from '@expo-google-fonts/lexend';
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
@@ -76,6 +77,8 @@ export default function RootLayout() {
     'Lexend-Medium': Lexend_500Medium,
     'Lexend-SemiBold': Lexend_600SemiBold,
     'Lexend-Bold': Lexend_700Bold,
+    // Blink round 3-2-1 / prompt: web's .blink-center text is weight 900.
+    'Lexend-Black': Lexend_900Black,
   });
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);

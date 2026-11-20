@@ -8,13 +8,43 @@
 // non-Street-View modes plugs in as one more unit, not as edits all over home.
 
 import { useLayoutEffect, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
-import { isQuizMode } from '../../shared/modes/catalog.js';
-import { quizOf, QUIZ_IDS, QUIZ_PATHS, quizModeFromPath, MODE_LABEL_KEYS, quizKey, isFindMode } from '../modes/quizClient';
+import { isQuizMode, QUIZ_PARTIES } from '../../shared/modes/catalog.js';
+import { QUIZ_EXIT_MS } from '@mapfinder/quiz-kit/core';
+import { quizOf, QUIZ_IDS, QUIZ_PATHS, quizModeFromPath, MODE_LABEL_KEYS, quizKey } from '../modes/quizClient';
 import { continentKey } from '../utils/continentLocale';
 import QuizzesPage, { onSheetEntry } from './QuizzesPage';
-import QuizGame, { QUIZ_EXIT_MS } from './QuizGame';
-import QuizFind from './QuizFind';
+
+// The round screens (kit + globe) load client-side; until then the screen is
+// already the kit's starfield, so the first frame is space, not a blank. A
+// board mode (Languages) has no space: its first frame is its own dimmed
+// backdrop. next/dynamic gives a loader no props, so the round's render
+// notes the mode here first. On a landing page (/countries ...) the screen
+// is there from the server's HTML on, so it has no entrance: a fade would
+// show the home page first and then turn it black.
+let fallbackMode = null;
+let fallbackInstant = false;
+const INSTANT = { animation: 'none' };
+function SpaceFallback() {
+  const style = fallbackInstant ? INSTANT : undefined;
+  if (quizOf(fallbackMode)?.input === 'choice') {
+    return <div className="mf-quiz mf-quiz--board" style={style}><div className="mf-space mf-space--board" /></div>;
+  }
+  return (
+    <div className="mf-quiz" style={style}>
+      <div className="mf-globe">
+        <div className="mf-space">
+          <div className="mf-stars mf-stars--far" />
+          <div className="mf-stars mf-stars--mid" />
+          <div className="mf-stars mf-stars--near" />
+        </div>
+      </div>
+    </div>
+  );
+}
+const SoloRound = dynamic(() => import('./KitRounds').then((m) => m.SoloRound), { ssr: false, loading: SpaceFallback });
+const PartyRound = dynamic(() => import('./KitRounds').then((m) => m.PartyRound), { ssr: false, loading: SpaceFallback });
 
 const HUB = 'quizzes';
 const RUN = 'quiz';
@@ -29,7 +59,13 @@ export function useQuizScreens({
   session, options, partyEnabled, startParty, midgameAd,
 }) {
   const { t: text } = useTranslation('common');
-  const [run, setRun] = useState(null); // { mode, region } on the 'quiz' screen
+  // { mode, region, islands } on the 'quiz' screen. A landing page starts
+  // with its run (`landing`), so the server's HTML is already the round
+  // screen and the home page never paints under it.
+  const landingMode = QUIZ_IDS.includes(initialScreen) ? initialScreen : null;
+  const [run, setRun] = useState(() => (landingMode ? { mode: landingMode, region: 'all', islands: false, landing: true } : null));
+  // True until the landing effect below has set the screen.
+  const bootRef = useRef(!!landingMode);
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
   const exitTimerRef = useRef(null);
@@ -85,11 +121,11 @@ export function useQuizScreens({
     setRun(null);
     setScreen(HUB);
   }
-  function openRun(mode, { region = 'all', fromLanding = false } = {}) {
+  function openRun(mode, { region = 'all', islands = false, fromLanding = false } = {}) {
     if (!quizOf(mode)) return;
     if (!fromLanding) pushUrl(QUIZ_PATHS[mode], { wgQuiz: mode });
     lastModeRef.current = mode;
-    setRun({ mode, region });
+    setRun({ mode, region, islands });
     setScreen(RUN);
   }
 
@@ -97,7 +133,12 @@ export function useQuizScreens({
   // so the menu never shows.
   useLayoutEffect(() => {
     if (initialScreen === HUB) openHub({ fromLanding: true });
-    else if (QUIZ_IDS.includes(initialScreen)) openRun(initialScreen, { fromLanding: true });
+    else if (bootRef.current) {
+      // the run is already rendered; only the screen is still 'home'
+      bootRef.current = false;
+      lastModeRef.current = landingMode;
+      setScreen(RUN);
+    } else if (landingMode) openRun(landingMode, { fromLanding: true });
   }, [initialScreen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Leaving the quiz screens drops their URL (entering pushes its own).
@@ -108,6 +149,12 @@ export function useQuizScreens({
     if (owns(prev) && !owns(screen) && !skipUrlSync && typeof window !== 'undefined' && isQuizPath(window.location.pathname)) {
       writeUrl('/', {});
     }
+  }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Warm the round screens (globe, kit CSS) while the hub is open, so Play
+  // opens straight onto the globe instead of a loading frame.
+  useEffect(() => {
+    if (owns(screen)) import('./KitRounds').catch(() => {});
   }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const label = screen === RUN && run
@@ -134,7 +181,7 @@ export function useQuizScreens({
     handlePopState(path) {
       if (isHubPath(path)) { openHub({ fromLanding: true }); return true; }
       const mode = quizModeFromPath(path);
-      if (mode) { openRun(mode, { region: runRef.current?.region, fromLanding: true }); return true; }
+      if (mode) { openRun(mode, { region: runRef.current?.region, islands: runRef.current?.islands, fromLanding: true }); return true; }
       if (owns(screenRef.current)) { setRun(null); setScreen('home'); return true; }
       return false;
     },
@@ -152,16 +199,16 @@ export function useQuizScreens({
       if (screen === HUB) {
         return (
           <QuizzesPage
-            partyEnabled={partyEnabled}
+            partyEnabled={QUIZ_PARTIES && partyEnabled}
             leaving={leaving}
             historyOk={!skipUrlSync}
             backRef={hubBackRef}
             initialMode={lastModeRef.current}
             // The ad may end long after the exit (portal builds); if the
             // player went Back meanwhile, the run must not open over home.
-            onPlay={(mode, region) => exitThen(() => {
+            onPlay={(mode, region, islands) => exitThen(() => {
               const visit = visitRef.current;
-              midgameAd(() => { if (visitRef.current === visit) openRun(mode, { region }); });
+              midgameAd(() => { if (visitRef.current === visit) openRun(mode, { region, islands }); });
             })}
             onParty={(mode, region) => {
               lastModeRef.current = mode;
@@ -171,15 +218,16 @@ export function useQuizScreens({
           />
         );
       }
-      if (screen === RUN && run) {
-        const Run = isFindMode(run.mode) ? QuizFind : QuizGame;
+      if (run && (screen === RUN || bootRef.current)) {
+        fallbackMode = run.mode;
+        fallbackInstant = !!run.landing;
         return (
-          <Run
-            key={`${run.mode}:${run.region}`}
+          <SoloRound
+            key={`${run.mode}:${run.region}:${run.islands ? 1 : 0}`}
             mode={run.mode}
             region={run.region}
+            islands={run.islands}
             session={session}
-            options={options}
             leaving={leaving}
             onExit={() => exitThen(() => openHub())}
             onPlayAgainSp={() => midgameAd(() => {})}
@@ -189,11 +237,12 @@ export function useQuizScreens({
       return null;
     },
     renderParty({ multiplayerState, ws, timeOffset, backBtnPressed }) {
+      fallbackMode = multiplayerState?.gameData?.mode;
+      fallbackInstant = false;
       return (
-        <QuizGame
+        <PartyRound
           multiplayerState={multiplayerState} ws={ws} timeOffset={timeOffset}
           session={session} options={options} backBtnPressed={backBtnPressed}
-          onExit={() => backBtnPressed()}
         />
       );
     },

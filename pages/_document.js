@@ -36,7 +36,7 @@ export default function Document({ pathname }) {
             it builds the offline portal zips, which a runtime-computed URL
             would escape. A purchased background overrides the var after
             hydration (pages/_app.js). */}
-        <link rel="preload" href={backgroundUrl} as="image" type="image/webp" fetchpriority="high" />
+        <link rel="preload" href={backgroundUrl} as="image" type="image/webp" fetchPriority="high" />
 
         {/* An OWNER's purchased background, painted on the first frame instead
             of after the auth round-trip that resolves it — see the cache

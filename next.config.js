@@ -69,7 +69,22 @@ const nextConfig = {
         // components/utils/ratingFlags.js, so the client gets the right value
         // by construction and this forward is no longer needed.
     },
-    webpack: (config, { webpack }) => {
+    webpack: (config, { dev }) => {
+        // @mapfinder/quiz-kit is a vendored tarball that gets swapped in place
+        // during development. webpack treats node_modules packages as immutable
+        // (keyed by name + version), so a swapped build would never reach a
+        // running dev server; hash the kit by content instead. Dev only.
+        if (dev) {
+            config.snapshot = {
+                ...config.snapshot,
+                managedPaths: [/^(.+?[\\/]node_modules[\\/](?![\s\S]*@mapfinder[\\/]quiz-kit)(@.+?[\\/])?.+?)[\\/]/],
+            };
+            // Next ignores all of node_modules in its watcher; watch the kit alone.
+            config.watchOptions = {
+                ...config.watchOptions,
+                ignored: /[\\/](\.git|\.next[^\\/]*)[\\/]|[\\/]node_modules[\\/](?![\s\S]*@mapfinder[\\/]quiz-kit)/,
+            };
+        }
         return config
     },
     sassOptions: {

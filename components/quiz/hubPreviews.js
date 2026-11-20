@@ -224,6 +224,28 @@ function LanguagesPreview({ on }) {
   );
 }
 
+// Capitals: each name under its country's flag. No cards: a name is not an
+// object, the flag is.
+function CapitalsPreview({ mode, region, on }) {
+  const rounds = useMemo(() => {
+    try { return generateRounds({ mode, count: 8, region }); } catch { return []; }
+  }, [mode, region]);
+  const deck = useConveyor(rounds.length ? rounds.map((_, i) => i) : [0], on, PERIOD.rounds, LEAD.rounds);
+  if (!rounds.length) return null;
+  return (
+    <Deck
+      state={deck}
+      kind="capitals"
+      render={(i) => (
+        <div className="quizzesPage__place">
+          <img className="quizzesPage__placeFlag" src={flagSrc(rounds[i].country, 320)} alt="" draggable={false} decoding="async" />
+          <span className="quizzesPage__placeName">{rounds[i].text}</span>
+        </div>
+      )}
+    />
+  );
+}
+
 // Any mode: a conveyor of its own rounds, drawn by the game's renderer.
 // Manifest modes whose items are not loaded preview nothing (yet).
 function RoundsPreview({ mode, region, on }) {
@@ -276,6 +298,7 @@ function KindTile({ mode }) {
 
 const POOL_VIEWS = {
   languages: { Preview: LanguagesPreview, Tile: LanguageTile },
+  capitals: { Preview: CapitalsPreview, Tile: KindTile },
 };
 const KIND_VIEWS = {
   flag: { Preview: FlagsPreview, Tile: FlagTile },

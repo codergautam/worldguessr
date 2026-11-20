@@ -3,9 +3,15 @@ import mongoose from 'mongoose';
 const reportSchema = new mongoose.Schema({
   // Reporter information
   reportedBy: {
-    accountId: { type: String, required: true }, // MongoDB _id of user who reported
+    // MongoDB _id of user who reported. null for an automatic report (`auto`)
+    // and for a reporter whose account was deleted (purgeUserCascade).
+    accountId: { type: String, default: null },
     username: { type: String, required: true }
   },
+
+  // Filed by serverUtils/autoBan5k.js together with an automatic temp ban.
+  // Sorts first in the mod queue. No default: human reports do not carry it.
+  auto: { type: Boolean },
 
   // Reported user information
   reportedUser: {

@@ -39,9 +39,11 @@ import { acquireLoginLock } from '../serverUtils/loginLocks.js';
 const CODE_TTL_MS = LOGIN_CODE_TTL_MINUTES * 60 * 1000;
 const RESEND_COOLDOWN_S = 30;
 const MAX_SENDS_PER_EMAIL_PER_HOUR = 5;
-// Generous on purpose: a whole classroom shares one IP. The per-email limits
-// above are what actually bound abuse and cost.
-const limiter = createIpLimiter({ max: 40, windowMs: 10 * 60 * 1000 });
+// Generous on purpose: a whole school shares one NAT IP. 40 was too tight: a
+// 75-student class signing up together (plus Resend taps) got tooManyRequests
+// from the 41st send on. 200 covers ~2 full classes in one 10-minute window.
+// The per-email limits above are what actually bound abuse and cost.
+const limiter = createIpLimiter({ max: 200, windowMs: 10 * 60 * 1000 });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

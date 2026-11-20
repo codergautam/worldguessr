@@ -6,7 +6,7 @@
  * links exist), so `nm` needs no pointer-events freeze: pan/zoom stay live,
  * exactly like web. `npz` freezes input in-component and lifts on showAnswer.
  *
- * Pano resolution happens HERE, natively (keyless GeoPhotoService lookup — no
+ * Pano resolution happens HERE, natively (keyless lookup, utils/resolvePano.ts — no
  * CORS in RN fetch, no Maps API key, free): the page's own resolver is shimmed
  * out of the bundle, and coords are withheld from the page until the pano id is
  * known, because map-file panoId strings go stale (July 15 audit: prod resolves
@@ -31,6 +31,7 @@ import { WebView } from 'react-native-webview';
 import { SV_EMBED_HTML } from '../../generated/svEmbedHtml';
 import { INBOUND, OUTBOUND, APPLY_FN } from '@shared/embed/protocol';
 import { colors } from '../../shared';
+import { resolvePanoNative } from '../../utils/resolvePano';
 import type { StreetViewHandle } from './StreetViewWebView';
 
 // Document origin for the WebView. Tile fetches use crossOrigin="anonymous";
@@ -38,33 +39,6 @@ import type { StreetViewHandle } from './StreetViewWebView';
 // failure. googleapis serves ACAO:* so any real origin works — hold it
 // constant with the origin the iframe renderer already ships with.
 const WRAPPER_BASE_URL = 'https://www.google.com/';
-
-// Keyless pano lookup — the endpoint the Maps JS client itself uses (JSONP
-// shaped, so the payload arrives as `/**/cb && cb(<json>)`). Verified against
-// ground truth July 26 (the compass north audit). Two-stage radius mirrors the
-// web resolver's 50m-then-1000m net (customStreetView.js resolvePanoId).
-const searchUrl = (lat: number, lng: number, radius: number) =>
-  `https://maps.googleapis.com/maps/api/js/GeoPhotoService.SingleImageSearch` +
-  `?pb=!1m5!1sapiv3!5h2!11m2!1m1!1b0!2m4!1m2!3d${lat}!4d${lng}!2d${radius}` +
-  `!3m10!2m2!1sen!2sUS!9m1!1e2!11m4!1m3!1e2!2b1!3e2!4m10!1e1!1e2!1e3!1e4!1e8!1e6!5m1!1e2!6m1!1e2&callback=cb`;
-
-const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
-  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
-
-async function resolvePanoNative(lat: number, long: number): Promise<string | null> {
-  for (const radius of [50, 1000]) {
-    try {
-      const res = await withTimeout(fetch(searchUrl(lat, long, radius)), 4000);
-      const text = await res.text();
-      const json = JSON.parse(text.slice(text.indexOf('(') + 1, text.lastIndexOf(')')));
-      const id = json?.[1]?.[1]?.[1];
-      if (typeof id === 'string' && id) return id;
-    } catch {
-      // fall through to the wider radius / null
-    }
-  }
-  return null;
-}
 
 interface CustomStreetViewWebViewProps {
   lat: number;

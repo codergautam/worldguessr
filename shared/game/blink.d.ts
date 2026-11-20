@@ -1,0 +1,14 @@
+export const BLINK_COUNTDOWN_STEP_MS: number;
+export const BLINK_COUNTDOWN_MS: number;
+export const BLINK_MAX_SECONDS: number;
+export const ROUND_TIMER_STOPS: number[];
+export const REGULAR_TIMER_STOPS: number[];
+export const MIN_REGULAR_TIMER_SECONDS: number;
+export type BlinkPhase = 'countdown' | 'reveal' | 'blurred';
+export type BlinkHookPhase = BlinkPhase | 'loading' | 'answer';
+export function isBlinkTimer(timePerRound: number): boolean;
+export function timerStops(allowBlink: boolean): number[];
+export function timerForMode(timePerRound: number, allowBlink: boolean): number;
+export function nearestTimerStopIndex(stops: number[], value: number): number;
+export function blinkCovers(blink: { phase: BlinkHookPhase } | null | undefined): boolean;
+export function blinkPhaseAt(elapsedMs: number, revealMs: number): { phase: BlinkPhase; count: number; nextChangeMs: number | null };

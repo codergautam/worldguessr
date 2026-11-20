@@ -61,7 +61,7 @@ describe('flags scoring through Game.scoreFor', () => {
     expect(round.players.a.points).toBe(5000);
     expect(round.players.b.points).toBe(missPts);
     expect(round.players.a).not.toHaveProperty('choice');
-    expect(game.lastRoundPoints).toEqual({ round: 1, points: { a: 5000, b: missPts } });
+    expect(game.lastRoundPoints).toEqual({ round: 1, points: { a: 5000, b: missPts }, correct: { a: true, b: false } });
     expect(game.getSendableState().roundPoints).toEqual(game.lastRoundPoints);
   });
 

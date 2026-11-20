@@ -7,7 +7,7 @@ const gameUI = () => read('components/gameUI.js');
 
 // Execute the production timeout effect, including its timeout/score branch.
 // A frozen host page must not silently submit a daily or single-player round.
-function mountRoundTimer({ paused, multiplayer = false, country = false }) {
+function mountRoundTimer({ paused, multiplayer = false, country = false, blinkRound = false }) {
   const source = gameUI();
   const start = source.indexOf('  // Singleplayer countdown timer');
   const end = source.indexOf('\n  useEffect(() => {\n    if(multiplayerState?.inGame) return;', start);
@@ -20,7 +20,7 @@ function mountRoundTimer({ paused, multiplayer = false, country = false }) {
     pinPoint: null, loading: false, singlePlayerRound: { round: 1, locations: [] },
     gameOptions: { timePerRound: 60 }, roundStartTime: Date.now() - 59000,
     gameOptionsModalShown: false, mapModal: false, showAnswer: false,
-    playgamaPaused: paused, getPlaygamaPaused: () => paused,
+    playgamaPaused: paused, getPlaygamaPaused: () => paused, blinkRound,
     multiplayerState: multiplayer ? { inGame: true } : undefined,
     countryGuesser: country, submitCountryGuess: countryGuess,
     setSpFinal5() {}, setSpHasTime() {}, setRoundStartTime() {},
@@ -93,6 +93,13 @@ describe('Playgama local game clocks', () => {
     vi.advanceTimersByTime(90000);
     expect(round.answer).not.toHaveBeenCalled();
     expect(round.countryGuess).not.toHaveBeenCalled();
+  });
+
+  it('never times out a blink round (the timer was the reveal length)', () => {
+    vi.useFakeTimers();
+    const round = mountRoundTimer({ paused: false, blinkRound: true });
+    vi.advanceTimersByTime(90000);
+    expect(round.answer).not.toHaveBeenCalled();
   });
 
   it('still resolves an unpaused round at its real deadline', () => {

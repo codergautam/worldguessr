@@ -10,13 +10,11 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  IoChevronDown, IoChevronForward, IoClose, IoEarthOutline, IoGridOutline, IoLocateOutline,
-  IoPeopleOutline, IoPlay, IoReorderThreeOutline, IoTimerOutline,
+  IoCheckmarkCircle, IoChevronDown, IoChevronForward, IoClose, IoEllipseOutline, IoPeopleOutline, IoPlay,
 } from 'react-icons/io5';
 import { useTranslation } from '@/components/useTranslations';
 import { REGIONS } from '../../shared/modes/catalog.js';
-import { poolSize } from '../../shared/modes/rounds.js';
-import { quizOf, QUIZ_IDS, MODE_LABEL_KEYS, MODE_PROMPT_KEYS, MODE_BLURB_KEYS, poolCountKey, modeFacts, groupKey } from '../modes/quizClient';
+import { quizOf, QUIZ_IDS, MODE_LABEL_KEYS, MODE_PROMPT_KEYS, groupKey } from '../modes/quizClient';
 import { continentKey } from '../utils/continentLocale';
 import { hubView } from './hubPreviews';
 import gameStorage from '../utils/localStorage';
@@ -24,6 +22,8 @@ import { readBest } from './runStore';
 
 // One region for the map quizzes (Flags and Shapes).
 const REGION_KEY = 'wg_quiz_region';
+// A race (Countries) with its island nations on the board too.
+const ISLANDS_KEY = 'wg_quiz_islands';
 // Hover shows a row's mode after a short intent delay, and after a longer
 // one while the pointer heads for the card, so crossing other rows on the
 // way there keeps the mode the player is going to.
@@ -37,6 +37,8 @@ const HOVER_QUERY = '(hover: hover) and (pointer: fine)';
 const matches = (q) => typeof window !== 'undefined' && !!window.matchMedia?.(q).matches;
 // Past this many modes the rows fall into groups (the catalog's `group`).
 const GROUP_AFTER = 5;
+// A race's record is a time; every other mode's is a score.
+const fmtBest = (id, v) => (quizOf(id)?.race ? `${Math.floor(v / 60000)}:${String(Math.floor((v % 60000) / 1000)).padStart(2, '0')}` : v.toLocaleString());
 const GROUPED = QUIZ_IDS.length > GROUP_AFTER;
 const GROUPS = GROUPED ? [...new Set(QUIZ_IDS.map((id) => quizOf(id).group))] : [null];
 const ORDER = GROUPS.flatMap((g) => QUIZ_IDS.filter((id) => !g || quizOf(id).group === g));
@@ -46,7 +48,6 @@ const ROW_MAX = GROUPED ? 64 : 96;
 const ROW_MIN = 42;
 // The page's entrance (styles: the card lands last, 0.18s + 0.75s).
 const ENTRANCE_MS = 1000;
-const FACT_ICONS = { quizFactRounds: IoReorderThreeOutline, quizFactTries: IoLocateOutline, quizFactChoices: IoGridOutline, quizFactTimer: IoTimerOutline };
 // The open sheet's mode for this tab, so a reload can bring the sheet back.
 const SHEET_KEY = 'wg_quiz_sheet';
 function sheetStore(id) {
@@ -81,6 +82,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
   const { t: text } = useTranslation('common');
   const [mode, setMode] = useState(() => (QUIZ_IDS.includes(initialMode) ? initialMode : ORDER[0]));
   const [region, setRegionState] = useState('all');
+  const [islands, setIslandsState] = useState(false);
   const [best, setBest] = useState({});
   const [launching, setLaunching] = useState(false);
   // Scrolling waits for the entrance: mid-slide the card counts as content
@@ -120,6 +122,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
     const t = setTimeout(() => setSettled(true), ENTRANCE_MS);
     const saved = gameStorage.getItem(REGION_KEY);
     if (REGIONS.includes(saved)) setRegionState(saved);
+    if (gameStorage.getItem(ISLANDS_KEY) === '1') setIslandsState(true);
     const b = {};
     for (const id of QUIZ_IDS) b[id] = readBest(id);
     setBest(b);
@@ -154,6 +157,10 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
   const setRegion = (value) => {
     setRegionState(value);
     try { gameStorage.setItem(REGION_KEY, value); } catch {}
+  };
+  const setIslands = (on) => {
+    setIslandsState(on);
+    try { gameStorage.setItem(ISLANDS_KEY, on ? '1' : '0'); } catch {}
   };
 
   // The region pill slides to the chosen chip (chips differ in width).
@@ -233,7 +240,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
     if (busy) return;
     setMode(id);
     setLaunching(true);
-    onPlay(id, quizOf(id)?.supportsRegion ? region : 'all');
+    onPlay(id, quizOf(id)?.supportsRegion ? region : 'all', !!quizOf(id)?.race && islands);
   };
   const party = (id) => {
     clearTimeout(hoverRef.current);
@@ -363,7 +370,6 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
     rowsRef.current[ORDER[to]]?.focus();
   };
 
-  const countFor = (id) => text(poolCountKey(id), { count: poolSize({ mode: id, region: quizOf(id).supportsRegion ? region : 'all' }) });
   const [bestPre, bestPost] = text('quizBest', { score: '\u0001' }).split('\u0001');
   const regionName = (r) => (r === 'all' ? text('allCountries') : text(continentKey(r)));
   const name = text(MODE_LABEL_KEYS[mode]);
@@ -397,7 +403,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
           <span className="quizzesPage__sub">{text(MODE_PROMPT_KEYS[id])}</span>
         </span>
         <span className="quizzesPage__end">
-          {best[id] > 0 && <span className="quizzesPage__meta">{best[id].toLocaleString()}</span>}
+          {best[id] > 0 && <span className="quizzesPage__meta">{fmtBest(id, best[id])}</span>}
           {/* a mouse plays from the row; it says where */}
           <span className="quizzesPage__go" aria-hidden="true">
             <span className="quizzesPage__goPlay">{text('quizPlay')}<IoPlay /></span>
@@ -411,7 +417,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
 
   return (
     <div
-      className={`quizzesPage${GROUPED ? ' quizzesPage--many' : ''}${settled ? ' quizzesPage--settled' : ''}${open ? ' quizzesPage--sheet' : ''}${leaving && !launching ? ' quizzesPage--leaving' : ''}${launching ? ' quizzesPage--launch' : ''}`}
+      className={`quizzesPage${GROUPED ? ' quizzesPage--many' : ''}${settled ? ' quizzesPage--settled' : ''}${open ? ' quizzesPage--sheet' : ''}${leaving && !launching ? ' quizzesPage--leaving' : ''}${launching ? ` quizzesPage--launch${quizOf(mode)?.input === 'choice' ? ' quizzesPage--toboard' : ''}` : ''}`}
       style={{ '--n': ORDER.length }}
     >
       <div className="quizzesPage__wash" aria-hidden="true" />
@@ -468,7 +474,7 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
             <span className={`quizzesPage__tile quizzesPage__tile--${quiz.stimulus}`}><ShownTile mode={mode} /></span>
             <span className="quizzesPage__htxt">
               <span className="quizzesPage__sname wg_font">{name}</span>
-              {best[mode] > 0 && <span className="quizzesPage__ssub">{bestPre}<b>{best[mode].toLocaleString()}</b>{bestPost}</span>}
+              {best[mode] > 0 && <span className="quizzesPage__ssub">{bestPre}<b>{fmtBest(mode, best[mode])}</b>{bestPost}</span>}
             </span>
             <button type="button" className="quizzesPage__close" onClick={closeSheet} aria-label={text('close')}>
               <IoClose aria-hidden="true" />
@@ -497,16 +503,8 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
                 <div key={id} className={`quizzesPage__aboutMode${id === mode ? ' is-on' : ''}`} aria-hidden={id !== mode}>
                   <div className="quizzesPage__info">
                     <h2 className="quizzesPage__ask">{text(MODE_PROMPT_KEYS[id])}</h2>
-                    {best[id] > 0 && <p className="quizzesPage__best">{bestPre}<b>{best[id].toLocaleString()}</b>{bestPost}</p>}
+                    {best[id] > 0 && <p className="quizzesPage__best">{bestPre}<b>{fmtBest(id, best[id])}</b>{bestPost}</p>}
                   </div>
-                  <p className="quizzesPage__blurb">{text(MODE_BLURB_KEYS[id])}</p>
-                  <ul className="quizzesPage__facts">
-                    {modeFacts(id).map((f) => {
-                      const Icon = FACT_ICONS[f.key];
-                      return <li key={f.key}><Icon aria-hidden="true" />{text(f.key, { n: f.n })}</li>;
-                    })}
-                    {q.supportsRegion && <li><IoEarthOutline aria-hidden="true" />{countFor(id)}</li>}
-                  </ul>
                 </div>
               );
             })}
@@ -550,7 +548,15 @@ export default function QuizzesPage({ initialMode, onPlay, onParty, partyEnabled
               {text('quizPlay')}
               <IoPlay aria-hidden="true" />
             </button>
-            {partyEnabled && (
+            {/* A race has no party; its second button is the board's one
+                choice, so the row keeps its shape for every mode. */}
+            {quiz.race && (
+              <button type="button" className="quizzesPage__party quizzesPage__islands" aria-pressed={islands} onClick={() => !busy && setIslands(!islands)}>
+                {islands ? <IoCheckmarkCircle aria-hidden="true" /> : <IoEllipseOutline aria-hidden="true" />}
+                {text('quizIslands')}
+              </button>
+            )}
+            {partyEnabled && !quiz.race && (
               <button type="button" className="quizzesPage__party" onClick={() => party(mode)} disabled={busy}>
                 <IoPeopleOutline aria-hidden="true" />
                 {text('quizParty')}

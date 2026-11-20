@@ -7,6 +7,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { flagSrc } from './quizClient';
 import { loadShapes, shapeFor } from './loadShapes';
 import ClothFlag from './ClothFlag';
+import nameFromCode from '../utils/nameFromCode';
 
 // An image that fades in only when it was not already decoded (a preloaded
 // flag appears at once; a slow one does not pop in half-drawn).
@@ -26,7 +27,7 @@ function FadeImg({ src, alt, className }) {
 
 // `waveKey` replays the flag's wave (a hit); `onAspect` reports its shape.
 export default function ModeStimulus({ quiz, location, revealed, waveKey = 0, onAspect }) {
-  const { t: text } = useTranslation('common');
+  const { t: text, lang } = useTranslation('common');
   const [shape, setShape] = useState(() => shapeFor(location?.country));
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function ModeStimulus({ quiz, location, revealed, waveKey = 0, on
         </svg>
       ) : <div className="quizStimulus__outline" />)}
       {quiz.stimulus === 'text' && (
-        <p className="quizStimulus__text" lang={location.lang} dir="auto">{location.text}</p>
+        <p className="quizStimulus__text" lang={location.lang} dir="auto">{location.text ?? nameFromCode(location.country, lang)}</p>
       )}
       {quiz.stimulus === 'image' && location.image?.url && (
         <FadeImg className="quizStimulus__image" src={location.image.url} alt="" />

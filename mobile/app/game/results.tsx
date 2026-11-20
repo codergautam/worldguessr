@@ -1218,7 +1218,10 @@ export default function GameResultsScreen() {
   // to the MultiplayerLobby (TransitionCurtain masks it). Pop THIS results route
   // (one level — never dismissAllSafe, which would go home) so the 300ms 'fade'
   // crossfades results→lobby on the shared backdrop. Ref-guarded against double
-  // dismiss; host-gated so non-hosts keep their current behavior.
+  // dismiss. Every member, not only the host: a member left on this screen
+  // sees none of the lobby or the next game under it, and the only exit
+  // offered is to leave the party. A member who missed 'waiting' (the game
+  // already runs again) is popped too.
   //
   // The SAME mechanic serves the 2v2 "Back" (teamDuelBack): the server restages
   // us in a fresh 'waiting' staging lobby, [id].tsx beneath re-renders as the
@@ -1227,12 +1230,13 @@ export default function GameResultsScreen() {
   // nav owner handles its navigation (dismissAll + push /queue).
   const partyLobbyDismissed = useRef(false);
   useEffect(() => {
-    if (!isPartyHost && !is2v2Game) return;
-    if (mpState === 'waiting' && !partyLobbyDismissed.current) {
+    if (!isPrivateParty && !is2v2Game) return;
+    const movedOn = isPrivateParty ? !!mpState && mpState !== 'end' : mpState === 'waiting';
+    if (movedOn && !partyLobbyDismissed.current) {
       partyLobbyDismissed.current = true;
       router.canGoBack() ? router.back() : dismissAllSafe();
     }
-  }, [isPartyHost, is2v2Game, mpState, router]);
+  }, [isPrivateParty, is2v2Game, mpState, router]);
 
   // 2v2 Back → fresh staging lobby. Send-only: the lobby snapshot drives the
   // dismissal above (dead-game senders get restaged too — never a dead click).

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { signOut } from "@/components/auth/auth";
 import initWebsocket from "@/components/utils/initWebsocket";
+import { usesPanorama } from "../../shared/modes/catalog.js";
 import clientConfig from "@/clientConfig";
 import gameStorage from "@/components/utils/localStorage";
 import sendEvent from "@/components/utils/sendEvent";
@@ -41,6 +42,12 @@ export const initialMultiplayerState = {
   },
 };
 
+// A drop in a game or lobby keeps that screen for a short time, so a network
+// blip that the server's rejoin heals does not tear the game down and build
+// it again. The screen is reset only when the rejoin fails.
+const HOLD_MS = 10000; // no socket by then: show "Connecting" as before
+const REPLAY_WAIT_MS = 2000; // verified, and the server sent no game: it is gone
+
 const MultiplayerCtx = createContext(null);
 
 const NOOP_CTX = {
@@ -51,16 +58,25 @@ const NOOP_CTX = {
   subscribeMessages: () => () => {},
   sendMessage: () => false,
   ensureConnected: () => {},
+  rejoinPending: () => false,
+  socketOpen: () => false,
+  leaveHeldGame: () => {},
 };
 
-function sendVerify(ws) {
+// skipRejoin: the player left the game while the socket was down, so the
+// server must drop the seat, not replay the game.
+function sendVerify(ws, skipRejoin) {
   if (typeof window === "undefined" || !ws || ws.readyState !== 1) return;
   const inCrazyGames = isCrazyGamesHost();
 
   if (inCrazyGames) {
     if (window.verifyPayload) {
       try {
-        ws.send(window.verifyPayload);
+        // The payload was built once; a guest's rejoin code may be newer.
+        const payload = JSON.parse(window.verifyPayload);
+        payload.rejoinCode = gameStorage.getItem("rejoinCode");
+        if (skipRejoin) payload.skipRejoin = true;
+        ws.send(JSON.stringify(payload));
       } catch (e) {}
     }
     return;
@@ -85,7 +101,7 @@ function sendVerify(ws) {
         secret,
         tz,
         rejoinCode: gameStorage.getItem("rejoinCode"),
-        skipRejoin: hasPartyLink || undefined,
+        skipRejoin: skipRejoin || hasPartyLink || undefined,
         platform: getPlatform(),
         // This bundle can render team parties / 2v2 duels; the server locks
         // team surfaces to clients that announce this (rollout gate).
@@ -116,6 +132,104 @@ export function MultiplayerProvider({ children }) {
   useEffect(() => {
     wsRef.current = ws;
   }, [ws]);
+  const stateRef = useRef(multiplayerState);
+  useEffect(() => {
+    stateRef.current = multiplayerState;
+  }, [multiplayerState]);
+  // { held, deadline, replay } from a drop in a game until its rejoin is
+  // settled; `held` is true while the game is still on screen.
+  const holdRef = useRef(null);
+  // The player left a held game: the next verify says so (see sendVerify).
+  const skipRejoinRef = useRef(false);
+
+  // The connection fields stay; everything about the game goes.
+  const dropGame = () => setMultiplayerState((prev) => ({
+    ...initialMultiplayerState,
+    connected: prev.connected,
+    connecting: prev.connecting,
+    verified: prev.verified,
+    guestName: prev.guestName,
+    playerCount: prev.playerCount,
+    friendRequestCount: prev.friendRequestCount,
+    maxRetries: prev.maxRetries,
+    currentRetry: prev.currentRetry,
+  }));
+  const tellRejoinFailed = (lost) => messageHandlersRef.current.forEach((handler) => {
+    try {
+      handler({ type: "rejoinFailed", lost });
+    } catch (e) {}
+  });
+  const clearHold = () => {
+    const hold = holdRef.current;
+    if (!hold) return null;
+    clearTimeout(hold.deadline);
+    clearTimeout(hold.replay);
+    holdRef.current = null;
+    return hold;
+  };
+  // True from a drop in a held game until its rejoin is settled. A message
+  // for the game cannot reach the server before that.
+  const rejoinPending = useCallback(() => !!holdRef.current, []);
+  // Back during the hold. The caller clears the game state.
+  const leaveHeldGame = useCallback(() => {
+    clearHold();
+    skipRejoinRef.current = true;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // No socket by the deadline: the game comes off the screen.
+  const armDeadline = (hold) => {
+    hold.deadline = setTimeout(() => {
+      if (holdRef.current !== hold || !hold.held) return;
+      hold.held = false;
+      // The game already went another way (the player's own exit).
+      if (!stateRef.current.inGame) return;
+      dropGame();
+      tellRejoinFailed(true);
+    }, HOLD_MS);
+  };
+  // For a caller that cannot wait for the `ws` state to render.
+  const socketOpen = useCallback(() => !!wsRef.current, []);
+  const socketDropped = () => {
+    if (typeof window !== "undefined" && !window.isPageClosing) {
+      try {
+        sendEvent("multiplayer_disconnect");
+      } catch (e) {}
+    }
+    setWs(null);
+    wsRef.current = null;
+    const st = stateRef.current;
+    const canHold = typeof window !== "undefined" && !window.dontReconnect && !window.isPageClosing;
+    // `connecting` from this same update when the connect loop will run, so
+    // the status icon does not show "disconnected" for one frame first.
+    const reset = (prev) => ({
+      ...initialMultiplayerState,
+      connecting: canHold,
+      maxRetries: prev.maxRetries,
+      currentRetry: prev.currentRetry,
+    });
+    // Street View games only: a quiz round locks an answer on one click, and
+    // a click with no socket would be lost.
+    if (!canHold || !(holdRef.current || (st.inGame && st.gameData && usesPanorama(st.gameData.mode)))) {
+      clearHold();
+      setMultiplayerState(reset);
+      return;
+    }
+    if (holdRef.current) {
+      // A second drop before the rejoin was settled. The first deadline
+      // stands, unless a verify reply had stopped it.
+      const hold = holdRef.current;
+      clearTimeout(hold.replay);
+      hold.replay = null;
+      if (hold.held && !hold.deadline) armDeadline(hold);
+    } else {
+      const hold = { held: true, replay: null };
+      armDeadline(hold);
+      holdRef.current = hold;
+    }
+    const held = holdRef.current.held;
+    setMultiplayerState((prev) => (held && prev.inGame
+      ? { ...prev, connected: false, connecting: true, verified: false }
+      : reset(prev)));
+  };
 
   const ensureConnected = useCallback(() => {
     // Self-embed guard: if this page is running inside an iframe of ITSELF
@@ -176,7 +290,9 @@ export function MultiplayerProvider({ children }) {
     if (typeof window === "undefined") return;
     if (!connectionEnabled) return;
     if (ws) return;
-    if (multiplayerState.connecting || multiplayerState.connected) return;
+    // No `connecting` check: a drop sets it itself (see socketDropped), and
+    // a loop that is already running never sees `ws` change under it.
+    if (multiplayerState.connected) return;
     if (window.dontReconnect) return;
 
     let cancelled = false;
@@ -224,6 +340,8 @@ export function MultiplayerProvider({ children }) {
           // wiring up its own subscriber.
           attachWsHandlers(newWs);
 
+          // Now, not after the render: a reply can arrive first.
+          wsRef.current = newWs;
           setWs(newWs);
           setMultiplayerState((prev) => ({
             ...prev,
@@ -233,7 +351,7 @@ export function MultiplayerProvider({ children }) {
             error: false,
           }));
 
-          sendVerify(newWs);
+          sendVerify(newWs, skipRejoinRef.current);
         } else {
           console.error("WebSocket connection failed after all retries");
           setMultiplayerState((prev) => ({
@@ -281,7 +399,41 @@ export function MultiplayerProvider({ children }) {
         return;
       }
 
+      const hold = holdRef.current;
+      if (hold && data.type === "verify") {
+        // The server replays the game right after this when the seat is kept.
+        // The socket is back, so the replay wait decides now, not the deadline.
+        if (hold.held) {
+          clearTimeout(hold.deadline);
+          hold.deadline = null;
+        }
+        clearTimeout(hold.replay);
+        hold.replay = setTimeout(() => {
+          if (holdRef.current !== hold) return;
+          clearHold();
+          // After the deadline the player was already told and sent home.
+          if (!hold.held || !stateRef.current.inGame) return;
+          dropGame();
+          tellRejoinFailed(false);
+        }, REPLAY_WAIT_MS);
+      } else if (hold && data.type === "game") {
+        clearHold();
+        // The same round carries on in place. Anything else (the game moved
+        // on while we were away) goes through the fresh-rejoin path.
+        const was = stateRef.current.gameData;
+        const loc = (gd) => gd?.locations?.[data.curRound - 1];
+        if (hold.held && (!was || was.state !== data.state || was.curRound !== data.curRound || was.code !== data.code
+          || loc(was)?.lat !== loc(data)?.lat || loc(was)?.long !== loc(data)?.long)) {
+          data.rejoinFresh = true;
+        }
+      } else if (hold && data.type === "gameShutdown") {
+        clearHold();
+        // The game on screen ended while we were away: home says so.
+        if (hold.held) data.afterDrop = true;
+      }
+
       if (data.type === "verify") {
+        skipRejoinRef.current = false;
         setMultiplayerState((prev) => ({
           ...prev,
           connected: true,
@@ -343,33 +495,16 @@ export function MultiplayerProvider({ children }) {
       });
     };
 
-    socket.onclose = () => {
-      if (typeof window !== "undefined" && !window.isPageClosing) {
-        try {
-          sendEvent("multiplayer_disconnect");
-        } catch (e) {}
-      }
-      setWs(null);
-      setMultiplayerState((prev) => ({
-        ...initialMultiplayerState,
-        maxRetries: prev.maxRetries,
-        currentRetry: prev.currentRetry,
-      }));
+    // Once per socket: an error is followed by a close.
+    let dropped = false;
+    const onDrop = () => {
+      if (dropped) return;
+      dropped = true;
+      socketDropped();
     };
+    socket.onclose = onDrop;
 
-    socket.onerror = () => {
-      if (typeof window !== "undefined" && !window.isPageClosing) {
-        try {
-          sendEvent("multiplayer_disconnect");
-        } catch (e) {}
-      }
-      setWs(null);
-      setMultiplayerState((prev) => ({
-        ...initialMultiplayerState,
-        maxRetries: prev.maxRetries,
-        currentRetry: prev.currentRetry,
-      }));
-    };
+    socket.onerror = onDrop;
   }
 
   // Memoized: this provider is mounted in _app.js above the entire app, so a
@@ -383,7 +518,10 @@ export function MultiplayerProvider({ children }) {
     subscribeMessages,
     sendMessage,
     ensureConnected,
-  }), [ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, sendMessage, ensureConnected]);
+    rejoinPending,
+    socketOpen,
+    leaveHeldGame,
+  }), [ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, sendMessage, ensureConnected, rejoinPending, socketOpen, leaveHeldGame]);
 
   return <MultiplayerCtx.Provider value={value}>{children}</MultiplayerCtx.Provider>;
 }

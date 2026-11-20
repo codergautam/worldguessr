@@ -123,7 +123,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, dailyMetas, onRoundsComplete, mapSwitchMaskShown }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, dailyMetas, onRoundsComplete, mapSwitchMaskShown, blink }) {
   const { t: text } = useTranslation("common");
   // A running ad-free pass, read straight off the session so a purchase made in
   // the shop modal takes this slot down on the same tick it is charged. See
@@ -472,6 +472,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   });
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
+  // Blink round (home.js owns the phase): the timer value was the reveal
+  // length, so there is no round clock; the guess is untimed.
+  const blinkRound = !!blink;
   const [countryGuessrStreak, setCgStreak] = useState(() => {
     try { return parseInt(gameStorage.getItem("countryGuessrStreak")) || 0; } catch(e) { return 0; }
   });
@@ -801,7 +804,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     const modalOpen = gameOptionsModalShown || mapModal;
 
-    if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || !roundStartTime || modalOpen || playgamaPaused) {
+    if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || blinkRound || !roundStartTime || modalOpen || playgamaPaused) {
       setSpFinal5(false);
       setSpHasTime(false);
       if (modalOpen) modalWasOpenRef.current = true;
@@ -880,7 +883,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         singlePlayerTimerRef.current = null;
       }
     };
-  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal, playgamaPaused])
+  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, blinkRound, gameOptionsModalShown, mapModal, playgamaPaused])
 
   useEffect(() => {
     if(multiplayerState?.inGame) return;
@@ -1193,7 +1196,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const ghMates = ghMyTeam ? (ghPlayers || []).filter(p => p.id !== ghMyId && p.team === ghMyTeam) : [];
   const matesWaiting = ghMates.filter(p => !p.final && !p.disconnected).length;
   const waitingLabel = ghMyTeam == null
-    ? (notFinalCount > 0 ? `${text("waitingForPlayers", { p: notFinalCount })}...` : `${text("waiting")}...`)
+    ? (notFinalCount > 0 ? `${notFinalCount === 1 ? text("waitingForPlayer") : text("waitingForPlayers", { p: notFinalCount })}...` : `${text("waiting")}...`)
     : matesWaiting > 0
       ? `${matesWaiting === 1 ? text("waitingForTeammate") : text("waitingForTeammates", { p: matesWaiting })}...`
       : notFinalCount > 0 ? `${text("waitingForOpponents")}...` : `${text("waiting")}...`;
