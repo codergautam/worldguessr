@@ -26,6 +26,7 @@
 import 'dotenv/config';
 import uws from 'uWebSockets.js';
 import fs from 'fs';
+import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
 import User, { USERNAME_COLLATION } from '../models/User.js';
@@ -37,7 +38,6 @@ import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/pl
 import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers, playersInQueue } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
-import blockedAt from 'blocked-at';
 import { getLeague, getLeagueBelow, getStrictFloor, getMatchmakingFallbackFloor, getActiveLeagues } from '../components/utils/leagues.js';
 import {
   ENTRY_RATING, calculateTransfer
@@ -55,6 +55,7 @@ import {
 // timer callback reaches the uncaughtException handler below, which exits the
 // process and ends the game for every connected player. See ws/safeTimers.js.
 import { safeInterval } from './safeTimers.js';
+import { createHeartbeat, HEARTBEAT_INTERVAL_MS } from './heartbeat.js';
 import { canJoinUnrankedRound, UNRANKED_ROUND_TIME_MS } from './unrankedMatchmaking.js';
 import { startLeagueConfigRefresh } from '../serverUtils/loadLeagueConfig.js';
 import { checkMigrationAt } from '../serverUtils/checkMigrationAt.js';
@@ -685,9 +686,6 @@ function log(...args) {
 // }
 
 
-blockedAt((time, stack) => {
-  if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2), currentDate());
-})
 function stop(reason) {
   console.error('Stopping server', reason, currentDate());
 
@@ -1139,6 +1137,7 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           game.sendStateUpdate(true);
 
         }
+const heartbeat = createHeartbeat(players, getActivePlayerCount);
 app.ws('/wg', {
   /* Options */
   compression: uws.SHARED_COMPRESSOR,
@@ -1182,6 +1181,7 @@ app.ws('/wg', {
     })
 
     players.set(id, player);
+    heartbeat.add(ws);
 
     if (maintenanceMode) {
       player.send({
@@ -2733,6 +2733,7 @@ app.ws('/wg', {
     // disconnect hit a bad edge. The dodge latch, roster mutation and
     // removePlayer below are exactly the kind of surface that grows edges.
     try {
+    heartbeat.remove(ws);
     const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
     const durationSeconds = (connectionDuration / 1000).toFixed(1);
 
@@ -2941,8 +2942,30 @@ try {
 }
 
 
-  // update player count
-  safeInterval('beat5s', 5000, () => {
+  const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+  loopDelay.enable();
+  let previousLoopUsage = performance.eventLoopUtilization();
+  const tickDurations = {};
+
+  // Measure synchronous time on the loop, including ticks that exit early or throw.
+  function timedInterval(name, periodMs, run) {
+    const timing = { runs: 0, total: 0, max: 0 };
+    tickDurations[name] = timing;
+    return safeInterval(name, periodMs, () => {
+      const start = performance.now();
+      try {
+        return run();
+      } finally {
+        const elapsed = performance.now() - start;
+        timing.runs++;
+        timing.total += elapsed;
+        timing.max = Math.max(timing.max, elapsed);
+      }
+    });
+  }
+
+  timedInterval('heartbeat', HEARTBEAT_INTERVAL_MS, heartbeat.tick);
+  timedInterval('beat5s', 5000, () => {
 
     // v2 dodge cooldowns: drop entries older than the 1h memory window. Safe
     // on any cadence — the longest cooldown (2m) is far shorter than the
@@ -2979,28 +3002,6 @@ try {
         } catch (e) {
           console.error('[tick:beat5s] queueEta push threw for', id, e?.stack || e);
         }
-      }
-    }
-
-    const activePlayerCount = getActivePlayerCount();
-    for (const player of players.values()) {
-      // Per-player guard: this is a broadcast, so a throw on ONE socket used to
-      // cost every player after it in the map their count update AND their time
-      // sync. The time sync is what verifyLiveness keys off, so a single bad
-      // socket could get healthy players marked dead.
-      try {
-        if (player.verified && !player.gameId) {
-          player.send({
-            type: 'cnt',
-            c: activePlayerCount
-          });
-        }
-        player.send({
-          type: 't',
-          t: Date.now()
-        });
-      } catch (e) {
-        console.error('[tick:beat5s] broadcast threw for', player?.id, e?.stack || e);
       }
     }
 
@@ -3465,7 +3466,7 @@ try {
   // Guarded at the timer AND inside every loop below. The outer guard keeps the
   // process alive; the inner ones keep one bad player from costing everyone
   // else their pass. See safeInterval's header for why both layers exist.
-  safeInterval('queue', 500, () => {
+  timedInterval('queue', 500, () => {
 
     // Duel bots: drive scheduled guesses, tear down bot-only ended games,
     // reap bots whose game is gone.
@@ -4054,11 +4055,34 @@ try {
 
 
   safeInterval('statsLog', 10000, () => {
-    // log player count, game count, memory usage
-    let memUsage = process.memoryUsage().heapUsed;
-    const gameCnt = games.size;
-    const playerCnt = players.size;
+    const currentLoopUsage = performance.eventLoopUtilization();
+    const usage = performance.eventLoopUtilization(currentLoopUsage, previousLoopUsage);
+    previousLoopUsage = currentLoopUsage;
+    const nsToMs = ns => Number((ns / 1e6).toFixed(2));
+    const loopDelayMs = loopDelay.count ? {
+      p50: nsToMs(loopDelay.percentile(50)),
+      p95: nsToMs(loopDelay.percentile(95)),
+      p99: nsToMs(loopDelay.percentile(99)),
+      max: nsToMs(loopDelay.max),
+    } : null;
+    loopDelay.reset();
 
-     memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
-    console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
-  })
+    const tickMs = {};
+    for (const [name, timing] of Object.entries(tickDurations)) {
+      tickMs[name] = {
+        runs: timing.runs,
+        total: Number(timing.total.toFixed(2)),
+        max: Number(timing.max.toFixed(2)),
+      };
+      timing.runs = 0;
+      timing.total = 0;
+      timing.max = 0;
+    }
+    const memUsage = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + ' MB';
+    console.log('Players:', players.size, 'Games:', games.size, 'Memory:', memUsage, 'Perf:', JSON.stringify({
+      windowMs: Math.round(usage.active + usage.idle),
+      elu: Number(usage.utilization.toFixed(3)),
+      loopDelayMs,
+      tickMs,
+    }));
+  });
