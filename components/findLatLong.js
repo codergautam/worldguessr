@@ -1,8 +1,8 @@
-
 import { Loader } from '@googlemaps/js-api-loader';
 import findCountry from './findCountry';
 import continentFromCode from '@/components/utils/continentFromCode';
 import { getRandomPointInCountry } from '@/components/randomLoc';
+
 const loader = new Loader({
   apiKey: "",
   version: "weekly",
