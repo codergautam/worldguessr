@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { t } from '../../shared';
 interface GameHistoryTabProps {
   secret: string;
   onNavigateToUser?: (username: string) => void;
+  onPageChange?: () => void;
 }
 
 interface Game {
@@ -69,7 +70,7 @@ const GAME_TYPES: Record<string, { labelKey: string; icon: string; color: string
   daily_challenge: { labelKey: 'dailyChallenge', icon: '📅', color: '#FFC107' },
 };
 
-export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistoryTabProps) {
+export default function GameHistoryTab({ secret, onNavigateToUser, onPageChange }: GameHistoryTabProps) {
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +100,14 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
   useEffect(() => {
     fetchGames(page);
   }, [page, secret]);
+
+  const prevPageRef = useRef(page);
+
+  useEffect(() => {
+    if (prevPageRef.current === page) return;
+    prevPageRef.current = page;
+    onPageChange?.();
+  }, [page, onPageChange]);
 
   const getGameType = (gameType: string) =>
     GAME_TYPES[gameType] || { labelKey: null, icon: '🎮', color: '#757575' };
