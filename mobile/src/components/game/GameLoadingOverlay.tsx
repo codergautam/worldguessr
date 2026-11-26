@@ -28,6 +28,7 @@ interface Props {
   opacity?: Animated.Value | number;
   /** Caller decides if the overlay should swallow taps. */
   interactive?: boolean;
+  /** Empty string hides the spinner row, leaving just the background cover. */
   message?: string;
   /** When set, render the branded match-start ring countdown instead of the
    *  spinner row (casual multiplayer round 1). Fractional seconds remaining. */
@@ -125,14 +126,14 @@ export default function GameLoadingOverlay({
             <Ionicons name="warning" size={42} color={colors.error} />
             <Text style={styles.errorText}>{error}</Text>
           </>
-        ) : (
+        ) : message ? (
           <>
             <View style={styles.loadingRow}>
               <ExpoImage source={LOADER} style={styles.spinner} />
               <Text style={styles.loadingText}>{message}</Text>
             </View>
           </>
-        )}
+        ) : null}
         {onRetry && (
           <Pressable
             onPress={onRetry}

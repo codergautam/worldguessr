@@ -9,6 +9,9 @@ import { setElo } from "../../api/eloRank.js";
 import { clampRating } from "../../components/utils/eloSystem.js";
 import { createUUID } from "../../components/createUUID.js";
 import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
+
+const messageEncoder = new TextEncoder();
+
 export default class Player {
   constructor(ws, id, ip, username=null, accountId=null, gameId=null) {
     this.id = id;
@@ -632,19 +635,12 @@ export default class Player {
         }
       }
   }
-  send(json) {
+  send(json, encodedBytes) {
     if(!this.ws) return;
     if(this.disconnected) return;
-    // this.ws.send(JSON.stringify(json));
-    // uws send
-
     try {
-    // convert json to string
-    const str = JSON.stringify(json);
-    // convert string to array buffer
-    const buffer = new TextEncoder().encode(str);
-    // send array buffer
-    this.ws.send(buffer);
+      // Shared messages can reuse their UTF-8 bytes with the same text opcode.
+      this.ws.send(encodedBytes ?? messageEncoder.encode(JSON.stringify(json)));
     } catch(e) {
       console.log('Error sending message to player', this.id, e.message, json);
 

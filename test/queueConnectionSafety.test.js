@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
+import { createHeartbeat } from '../ws/heartbeat.js';
 
 const require = createRequire(import.meta.url);
 const eslintRequire = createRequire(require.resolve('eslint'));
@@ -43,6 +44,7 @@ function harness() {
     currentDate: () => '', uuidv4: () => 'upgraded', json: {}, setCorsHeaders: vi.fn(),
     User: { updateOne: () => Promise.resolve() },
   };
+  env.heartbeat = createHeartbeat(env.players, env.getActivePlayerCount);
   for (const name of ['matchesIpBan', 'queueJoinRateLimited']) {
     const node = server.nodes.find((n) => n.type === 'FunctionDeclaration' && n.id.name === name);
     if (node) env[name] = runInNewContext(`(${server.text(node)})`, env);
@@ -62,6 +64,7 @@ function harness() {
     };
     p.ws = { id, ip, close: vi.fn(() => close(p.ws, 1000, null)) };
     env.players.set(id, p);
+    env.heartbeat.add(p.ws);
     env.ipConnectionCount.set(ip, (env.ipConnectionCount.get(ip) || 0) + 1);
     return p;
   }

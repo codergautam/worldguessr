@@ -187,6 +187,19 @@
     font-weight: 500;
 }
 
+/* Pending friend requests on the Friends tab. Inline, not a corner badge: the
+   nav is overflow-x: auto, which would clip anything poking outside a button.
+   Same red as the player card's .pcard__badge so the two read as one signal. */
+.nav-badge {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #b3261e;
+    color: white;
+    font-size: .75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
 .account-modal-body {
     flex: 1;
     background: rgba(0, 0, 0, 0.46);

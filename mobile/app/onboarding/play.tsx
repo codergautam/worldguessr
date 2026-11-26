@@ -415,7 +415,9 @@ export default function OnboardingPlay() {
         topLeftSlot={topLeftSlot}
         topRightSlot={topRightSlot}
         endBannerContent={endBannerContent}
-        loadingMessage="Loading…"
+        // No spinner under the welcome screen's blur (web parity); the
+        // background cover still hides the unloaded pano.
+        loadingMessage={isUndecided ? '' : 'Loading…'}
       />
 
       <OnboardingComplete

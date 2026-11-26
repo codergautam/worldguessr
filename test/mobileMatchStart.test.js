@@ -122,6 +122,7 @@ function screenHarness(file, options = {}) {
     // Blink rounds are singleplayer-only; these multiplayer frames never blink.
     blink: { isBlinkTimer: () => false },
     useBlinkPhase: { __esModule: true, default: () => null },
+    gameAnalytics: { trackGameRound: noop, trackGameExit: noop },
   };
   const filename = fileURLToPath(new URL(`../mobile/app/${file}`, import.meta.url));
   if (!compiled.has(filename)) {
