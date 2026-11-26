@@ -179,6 +179,12 @@ export function useQuizScreens({
     },
     // Browser Back/Forward landed on `path`. True when handled.
     handlePopState(path) {
+      // A multiplayer game stays on screen: put the URL back instead of
+      // opening the hub or a run over it.
+      if (inGame && isQuizPath(path)) {
+        window.history.replaceState({}, '', '/');
+        return true;
+      }
       if (isHubPath(path)) { openHub({ fromLanding: true }); return true; }
       const mode = quizModeFromPath(path);
       if (mode) { openRun(mode, { region: runRef.current?.region, islands: runRef.current?.islands, fromLanding: true }); return true; }
